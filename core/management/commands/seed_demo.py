@@ -5,8 +5,9 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from documents.models import Document, Folder, Tag
-from literature.models import ProjectReference, Reference
-from notes.models import QuickCapture
+from literature.models import CitationEdge, ProjectReference, Reference
+from notes.models import Note, QuickCapture
+from notes.services import sync_note_links
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 
@@ -247,6 +248,93 @@ class Command(BaseCommand):
                 defaults={"reading_status": spec["status"], "priority": spec["priority"]},
             )
 
+        # A larger cited corpus so the knowledge graph is worth looking at (20+ refs)
+        corpus_authors = [
+            "Norman",
+            "Posner",
+            "Kahneman",
+            "Engle",
+            "Cowan",
+            "Oberauer",
+            "Logan",
+            "Treisman",
+            "Duncan",
+            "Desimone",
+            "Awh",
+            "Vogel",
+            "Luck",
+            "Miller",
+            "Chun",
+            "Wolfe",
+            "Carrasco",
+            "Theeuwes",
+        ]
+        corpus_refs = []
+        for index, family in enumerate(corpus_authors):
+            year = 1995 + index
+            reference, _ = Reference.objects.update_or_create(
+                bibtex_key=f"{family.lower()}{year}study",
+                defaults={
+                    "title": f"{family}'s Study of Attention and Memory Interaction {index + 1}",
+                    "authors": [{"family": family, "given": "A."}],
+                    "year": year,
+                    "venue": "Journal of Cognitive Demonstration",
+                    "citation_count": (index * 37) % 900 + 10,
+                    "entry_type": "article",
+                },
+            )
+            corpus_refs.append(reference)
+            ProjectReference.objects.update_or_create(
+                project=project,
+                reference=reference,
+                defaults={
+                    "reading_status": [
+                        ProjectReference.ReadingStatus.TO_READ,
+                        ProjectReference.ReadingStatus.SKIMMED,
+                        ProjectReference.ReadingStatus.READ,
+                    ][index % 3]
+                },
+            )
+        # Deterministic synthetic citation edges: each paper cites 2-3 earlier ones
+        for i, citing in enumerate(corpus_refs):
+            for j in {(i * 7 + 1) % i if i else None, (i * 3 + 2) % i if i else None}:
+                if j is not None and j < i:
+                    CitationEdge.objects.get_or_create(citing=citing, cited=corpus_refs[j])
+
+        # Notes with wiki-links and reference citations
+        hub, _ = Note.objects.update_or_create(
+            project=project,
+            title="Load theory overview",
+            defaults={
+                "body": (
+                    "Central claim: perceptual load gates distractor processing.\n\n"
+                    "Open threads live in [[Strategic allocation hypothesis]] and "
+                    "[[Pilot observations]]."
+                )
+            },
+        )
+        strategic, _ = Note.objects.update_or_create(
+            project=project,
+            title="Strategic allocation hypothesis",
+            defaults={
+                "body": (
+                    "If load effects are *strategic*, practice should modulate them. "
+                    "Contrast with the capacity view in [[Load theory overview]]."
+                )
+            },
+        )
+        pilot_note, _ = Note.objects.update_or_create(
+            project=project,
+            title="Pilot observations",
+            defaults={
+                "body": "n=9 so far. Two participants reported chunking digits — relevant to [[Strategic allocation hypothesis]]."
+            },
+        )
+        for note in (hub, strategic, pilot_note):
+            sync_note_links(note)
+        hub.references.set(corpus_refs[:3])
+        strategic.references.set(corpus_refs[3:5])
+
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
         )
@@ -257,6 +345,8 @@ class Command(BaseCommand):
                 f"{project.phases.count()} phases, "
                 f"{Milestone.objects.filter(phase__project=project).count()} milestones, "
                 f"{project.documents.count()} documents, {project.decisions.count()} decisions, "
-                f"{project.project_references.count()} linked references."
+                f"{project.project_references.count()} linked references, "
+                f"{project.notes.count()} notes, "
+                f"{CitationEdge.objects.filter(citing__project_links__project=project).count()} citation edges."
             )
         )
