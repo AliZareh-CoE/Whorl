@@ -114,6 +114,8 @@ LOGIN_REDIRECT_URL = "core:dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
 ATLAS_API_KEY = env("ATLAS_API_KEY", default="")
+ATLAS_CONTACT_EMAIL = env("ATLAS_CONTACT_EMAIL", default="atlas-owner@localhost")
+ATLAS_AUTO_FETCH_PDF = env.bool("ATLAS_AUTO_FETCH_PDF", default=True)
 
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
 

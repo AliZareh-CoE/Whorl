@@ -38,6 +38,8 @@ def library_index(request):
 
 
 def add_by_identifier(request):
+    from django.conf import settings
+
     form = AddByIdentifierForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
@@ -47,6 +49,11 @@ def add_by_identifier(request):
         except services.MetadataError as exc:
             form.add_error("identifier", str(exc))
         else:
+            if created and settings.ATLAS_AUTO_FETCH_PDF and not reference.pdf:
+                from .tasks import fetch_oa_pdf_task
+
+                fetch_oa_pdf_task(reference.pk)
+                messages.info(request, "Looking for an open-access PDF in the background…")
             messages.success(
                 request,
                 f"{'Added' if created else 'Already in library'}: {reference.bibtex_key}",
@@ -117,6 +124,17 @@ def link_to_project(request, pk):
         request,
         f"{'Linked' if created else 'Already linked'} to {project.name}.",
     )
+    return redirect(reference.get_absolute_url())
+
+
+@require_POST
+def fetch_pdf(request, pk):
+    """Manual 'Fetch open-access PDF' from the reference detail page (synchronous)."""
+    from .oa import fetch_and_attach_pdf
+
+    reference = get_object_or_404(Reference, pk=pk)
+    outcome = fetch_and_attach_pdf(reference)
+    (messages.success if "attached" in outcome else messages.info)(request, outcome)
     return redirect(reference.get_absolute_url())
 
 

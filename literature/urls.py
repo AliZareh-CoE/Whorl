@@ -14,6 +14,7 @@ urlpatterns = [
     path("library/<int:pk>/delete/", views.ReferenceDeleteView.as_view(), name="delete"),
     path("library/<int:pk>/link/", views.link_to_project, name="link"),
     path("library/<int:pk>/read/", views.read_pdf, name="read"),
+    path("library/<int:pk>/fetch-pdf/", views.fetch_pdf, name="fetch_pdf"),
     path("library/<int:pk>/read/highlight/", views.save_highlight, name="highlight"),
     path("projects/<slug:slug>/literature/", views.project_literature, name="project"),
     path(

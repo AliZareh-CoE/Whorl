@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
@@ -274,6 +275,10 @@ class ReferenceViewSet(AtlasViewSet):
         if slug:
             project = get_object_or_404(Project, slug=slug)
             ProjectReference.objects.get_or_create(project=project, reference=reference)
+        if created and settings.ATLAS_AUTO_FETCH_PDF and not reference.pdf:
+            from literature.tasks import fetch_oa_pdf_task
+
+            fetch_oa_pdf_task(reference.pk)
         return Response(
             serializers.ReferenceSerializer(reference, context={"request": request}).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,

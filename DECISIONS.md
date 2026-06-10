@@ -20,8 +20,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    Remaining: API-key rotation helper, CSP if ever public-facing.
 3. **Free local text-to-speech ("read this to me").** A strong free TTS engine (e.g. Piper)
    the owner can run locally; "Read aloud" on notes, abstracts, and (eventually) PDFs.
-4. **Auto-download article PDFs.** When a reference is added, resolve and fetch the
-   open-access PDF automatically (Unpaywall API, arXiv PDFs) into `Reference.pdf`.
+4. **Auto-download article PDFs.** ~~Done (2026-06-10, cycle 7): arXiv direct + Unpaywall
+   best-OA resolution in `literature/oa.py`; background huey fetch on every new reference
+   (UI + API, `ATLAS_AUTO_FETCH_PDF` toggle), manual "Fetch open-access PDF" button on
+   reference detail; %PDF magic + 50 MB cap; outcome stored on the reference; verified live
+   (arXiv 1706.03762 → 2.1 MB PDF attached).~~
 5. **NLP helpers.** Language tooling where it genuinely helps: keyword extraction for
    auto-tag suggestions, abstract/note summarization, smarter related-paper matching.
 6. **Prompt gallery.** A library of saved prompts (title, body, tags, copy button) for reuse
@@ -142,4 +145,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 10. OpenAlex "discover similar" — surface related_works for a reference with one-click add-by-DOI (idea added by cycle 3, from the related-papers work)
 11. Conditional GETs — ETag/Last-Modified on API list endpoints and far-future cache headers on media/static, so MCP polling and the PDF reader get cheap revalidation (idea added by cycle 4, from the performance pass)
 12. “Read aloud” for whole PDFs — stream the PDF text-layer through Piper chapter by chapter with a mini player (idea added by cycle 6, from the TTS work)
-13. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+13. Worker-deploy note — document (README/Makefile) that `run_huey` must restart after code changes; consider a `make worker` target and a stale-worker warning on the Automations page when bots land (idea added by cycle 7, after hitting a stale TaskRegistry live)
+14. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

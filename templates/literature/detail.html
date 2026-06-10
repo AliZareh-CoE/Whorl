@@ -29,6 +29,14 @@
   {% if reference.pdf %}
     <a href="{% url 'literature:read' reference.pk %}" class="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:border-indigo-400">Read in Atlas</a>
     <a href="{{ reference.pdf.url }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs hover:border-stone-400">Raw PDF</a>
+  {% elif reference.doi or reference.arxiv_id %}
+    <form method="post" action="{% url 'literature:fetch_pdf' reference.pk %}" class="inline">
+      {% csrf_token %}
+      <button type="submit" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400"
+              title="{{ reference.extra.oa_pdf|default:'Searches arXiv and Unpaywall for a free PDF' }}">
+        ⤓ Fetch open-access PDF
+      </button>
+    </form>
   {% endif %}
   <span class="ml-auto"></span>
   <a href="{% url 'literature:edit' reference.pk %}" class="text-xs text-stone-500 hover:underline">Edit / attach PDF</a>
