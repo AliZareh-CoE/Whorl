@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Atlas{% endblock %} · Atlas</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <script src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js" defer></script>
+</head>
+<body class="h-full bg-stone-50 text-stone-900 antialiased">
+  <div class="flex h-full">
+    <aside class="fixed inset-y-0 left-0 w-56 border-r border-stone-200 bg-white px-4 py-6 flex flex-col">
+      <a href="{% url 'core:dashboard' %}" class="text-lg font-semibold tracking-tight mb-8">Atlas</a>
+      <nav class="space-y-1 text-sm">
+        <a href="{% url 'core:dashboard' %}"
+           class="block rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'core:dashboard' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+          Dashboard
+        </a>
+        {% block sidebar_nav %}{% endblock %}
+      </nav>
+      <div class="mt-auto pt-6 text-xs text-stone-400">
+        <form action="{% url 'logout' %}" method="post">{% csrf_token %}
+          <button type="submit" class="hover:text-stone-600">Log out</button>
+        </form>
+      </div>
+    </aside>
+    <div class="ml-56 flex-1 min-w-0">
+      <main class="mx-auto max-w-5xl px-8 py-8">
+        <nav class="mb-6 text-sm text-stone-500">
+          {% block breadcrumbs %}{% endblock %}
+        </nav>
+        {% if messages %}
+          {% for message in messages %}
+            <div class="mb-4 rounded border border-stone-200 bg-white px-4 py-2 text-sm">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+</body>
+</html>
