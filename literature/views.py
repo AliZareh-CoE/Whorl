@@ -73,6 +73,8 @@ def import_bibtex(request):
 
 
 def reference_detail(request, pk):
+    from .related import related_references
+
     reference = get_object_or_404(Reference, pk=pk)
     return render(
         request,
@@ -82,6 +84,7 @@ def reference_detail(request, pk):
             "project_links": reference.project_links.select_related("project"),
             "bibtex": services.render_bibtex(reference),
             "available_projects": Project.objects.exclude(project_references__reference=reference),
+            "related": related_references(reference),
         },
     )
 

@@ -279,6 +279,27 @@ class ReferenceViewSet(AtlasViewSet):
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Most similar library references with scores")},
+        description="Related papers in the library (TF-IDF cosine over title/abstract/venue).",
+    )
+    @action(detail=True, methods=["get"])
+    def related(self, request, pk=None):
+        from literature.related import related_references
+
+        return Response(
+            [
+                {
+                    "id": ref.pk,
+                    "bibtex_key": ref.bibtex_key,
+                    "title": ref.title,
+                    "year": ref.year,
+                    "score": round(score, 3),
+                }
+                for ref, score in related_references(self.get_object())
+            ]
+        )
+
 
 class ProjectReferenceViewSet(AtlasViewSet):
     queryset = ProjectReference.objects.all()
