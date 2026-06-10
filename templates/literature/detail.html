@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}{{ reference.bibtex_key }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'literature:index' %}" class="hover:underline">Library</a> / {{ reference.bibtex_key }}
+{% endblock %}
+
+{% block content %}
+<div class="mb-1 flex items-start gap-3">
+  <h1 class="text-2xl font-semibold tracking-tight">{{ reference.title }}</h1>
+</div>
+<p class="mb-6 text-sm text-stone-500">
+  {{ reference.author_names }}{% if reference.year %} · {{ reference.year }}{% endif %}
+  {% if reference.venue %} · {{ reference.venue }}{% endif %}
+  {% if reference.citation_count is not None %} · cited {{ reference.citation_count }}×{% endif %}
+</p>
+
+<div class="mb-6 flex flex-wrap items-center gap-2 text-sm">
+  {% if reference.doi %}
+    <a href="https://doi.org/{{ reference.doi }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs hover:border-stone-400">doi:{{ reference.doi }}</a>
+  {% endif %}
+  {% if reference.arxiv_id %}
+    <a href="https://arxiv.org/abs/{{ reference.arxiv_id }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs hover:border-stone-400">arXiv:{{ reference.arxiv_id }}</a>
+  {% endif %}
+  {% if reference.url %}
+    <a href="{{ reference.url }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs hover:border-stone-400">URL</a>
+  {% endif %}
+  {% if reference.pdf %}
+    <a href="{{ reference.pdf.url }}" class="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs text-indigo-700 hover:border-indigo-400">PDF</a>
+  {% endif %}
+  <span class="ml-auto"></span>
+  <a href="{% url 'literature:edit' reference.pk %}" class="text-xs text-stone-500 hover:underline">Edit / attach PDF</a>
+  <a href="{% url 'literature:delete' reference.pk %}" class="text-xs text-red-600 hover:underline">Delete</a>
+</div>
+
+<div class="grid grid-cols-2 gap-4">
+  {% if reference.abstract %}
+    <section class="rounded border border-stone-200 bg-white p-5">
+      <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">Abstract</h2>
+      <p class="text-sm text-stone-600">{{ reference.abstract }}</p>
+    </section>
+  {% endif %}
+  <section class="rounded border border-stone-200 bg-white p-5">
+    <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">Projects</h2>
+    {% if project_links %}
+      <ul class="mb-3 space-y-1 text-sm">
+        {% for link in project_links %}
+          <li class="flex items-center gap-2">
+            <a href="{% url 'literature:project' link.project.slug %}" class="hover:underline">{{ link.project.name }}</a>
+            <span class="rounded bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{{ link.get_reading_status_display }}</span>
+            <span class="text-xs text-stone-400">{{ link.get_priority_display }} priority</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="mb-3 text-sm text-stone-500">Not linked to any project yet.</p>
+    {% endif %}
+    {% if available_projects %}
+      <form method="post" action="{% url 'literature:link' reference.pk %}" class="flex items-center gap-2">
+        {% csrf_token %}
+        <select name="project" class="rounded border border-stone-300 bg-white px-2 py-1 text-sm">
+          {% for project in available_projects %}
+            <option value="{{ project.slug }}">{{ project.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700">Link</button>
+      </form>
+    {% endif %}
+  </section>
+  <section class="rounded border border-stone-200 bg-white p-5 {% if not reference.abstract %}col-span-2{% endif %}">
+    <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">BibTeX</h2>
+    <pre class="overflow-x-auto rounded bg-stone-50 p-3 font-mono text-xs text-stone-700">{{ bibtex }}</pre>
+  </section>
+</div>
+{% endblock %}

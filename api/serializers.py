@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
 from documents.models import Document, Folder, Tag
+from literature.models import ProjectReference, Reference
+from notes.models import QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 
@@ -141,3 +143,73 @@ class DocumentSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["file_size", "content_type"]
+
+
+class ReferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reference
+        fields = [
+            "id",
+            "doi",
+            "arxiv_id",
+            "openalex_id",
+            "bibtex_key",
+            "entry_type",
+            "title",
+            "authors",
+            "year",
+            "venue",
+            "abstract",
+            "url",
+            "pdf",
+            "raw_bibtex",
+            "extra",
+            "citation_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["bibtex_key"]
+
+    def create(self, validated_data):
+        from literature.services import generate_bibtex_key
+
+        validated_data["bibtex_key"] = generate_bibtex_key(
+            validated_data.get("authors", []),
+            validated_data.get("year"),
+            validated_data.get("title", ""),
+        )
+        return super().create(validated_data)
+
+
+class ProjectReferenceSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+
+    class Meta:
+        model = ProjectReference
+        fields = [
+            "id",
+            "project",
+            "reference",
+            "reading_status",
+            "priority",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class QuickCaptureSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField(required=False, allow_null=True)
+
+    class Meta:
+        model = QuickCapture
+        fields = ["id", "text", "processed", "project", "created_at", "updated_at"]
+
+
+class AddByDoiSerializer(serializers.Serializer):
+    doi = serializers.CharField(help_text="DOI or arXiv ID, raw or as a URL.")
+    project = serializers.SlugField(
+        required=False,
+        allow_blank=True,
+        help_text="Optional project slug to link the reference to.",
+    )

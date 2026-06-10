@@ -24,6 +24,8 @@ INSTALLED_APPS = [
     "projects",
     "plans",
     "documents",
+    "literature",
+    "notes",
     "api",
 ]
 

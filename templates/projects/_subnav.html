@@ -7,6 +7,8 @@
      class="rounded px-2 py-1 {% if 'plans:plan' in vn or 'phase' in vn or 'milestone' in vn or 'task' in vn %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Plan</a>
   <a href="{% url 'documents:index' project.slug %}"
      class="rounded px-2 py-1 {% if 'documents:' in vn %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Documents</a>
+  <a href="{% url 'literature:project' project.slug %}"
+     class="rounded px-2 py-1 {% if 'literature:project' in vn or 'literature:queue' in vn or 'literature:report' in vn %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Literature</a>
   <a href="{% url 'plans:questions' project.slug %}"
      class="rounded px-2 py-1 {% if 'question' in vn %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Questions</a>
   <a href="{% url 'projects:decisions' project.slug %}"

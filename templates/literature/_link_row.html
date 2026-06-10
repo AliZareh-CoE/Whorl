@@ -1,0 +1,22 @@
+<div id="link-{{ link.pk }}" class="flex items-center gap-3 px-4 py-3 text-sm">
+  <div class="min-w-0 flex-1">
+    <a href="{{ link.reference.get_absolute_url }}" class="font-medium hover:underline">{{ link.reference.title|truncatechars:90 }}</a>
+    <p class="text-xs text-stone-400">
+      {{ link.reference.author_names|truncatechars:60 }}{% if link.reference.year %} · {{ link.reference.year }}{% endif %}
+      · <span class="font-mono">{{ link.reference.bibtex_key }}</span>
+    </p>
+    {% if link.notes %}<p class="mt-1 text-xs text-stone-500">{{ link.notes|truncatechars:120 }}</p>{% endif %}
+  </div>
+  <span class="shrink-0 rounded px-2 py-0.5 text-xs
+    {% if link.priority == 'high' %}bg-red-50 text-red-700{% elif link.priority == 'low' %}bg-stone-100 text-stone-500{% else %}bg-stone-100 text-stone-600{% endif %}">
+    {{ link.get_priority_display }}</span>
+  <select name="reading_status"
+          hx-post="{% url 'literature:set_status' project.slug link.pk %}"
+          hx-target="#link-{{ link.pk }}" hx-swap="outerHTML"
+          class="shrink-0 rounded border border-stone-300 bg-white px-2 py-1 text-xs">
+    {% for value, label in statuses %}
+      <option value="{{ value }}" {% if link.reading_status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <a href="{% url 'literature:project_ref_edit' project.slug link.pk %}" class="shrink-0 text-xs text-stone-500 hover:underline">Edit</a>
+</div>

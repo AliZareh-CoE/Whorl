@@ -15,6 +15,9 @@ router.register("decisions", views.DecisionRecordViewSet)
 router.register("folders", views.FolderViewSet)
 router.register("tags", views.TagViewSet)
 router.register("documents", views.DocumentViewSet)
+router.register("references", views.ReferenceViewSet)
+router.register("project-references", views.ProjectReferenceViewSet)
+router.register("quick-capture", views.QuickCaptureViewSet)
 
 app_name = "api"
 

@@ -1,0 +1,21 @@
+from django.contrib import admin
+
+from .models import CitationEdge, ProjectReference, Reference
+
+
+@admin.register(Reference)
+class ReferenceAdmin(admin.ModelAdmin):
+    list_display = ["bibtex_key", "title", "year", "venue", "doi", "citation_count"]
+    search_fields = ["title", "bibtex_key", "doi"]
+    list_filter = ["entry_type"]
+
+
+@admin.register(ProjectReference)
+class ProjectReferenceAdmin(admin.ModelAdmin):
+    list_display = ["reference", "project", "reading_status", "priority", "created_at"]
+    list_filter = ["project", "reading_status", "priority"]
+
+
+@admin.register(CitationEdge)
+class CitationEdgeAdmin(admin.ModelAdmin):
+    list_display = ["citing", "cited"]

@@ -1,9 +1,16 @@
 from django.contrib.auth.decorators import login_not_required
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
-from rest_framework import viewsets
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.response import Response
 
 from documents.models import Document, Folder, Tag
+from literature import services as literature_services
+from literature.models import ProjectReference, Reference
+from notes.models import QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 
@@ -80,4 +87,53 @@ class DocumentViewSet(AtlasViewSet):
     queryset = Document.objects.all()
     serializer_class = serializers.DocumentSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    project_filter = "project__slug"
+
+
+class ReferenceViewSet(AtlasViewSet):
+    queryset = Reference.objects.all()
+    serializer_class = serializers.ReferenceSerializer
+    project_filter = "project_links__project__slug"
+
+    @extend_schema(
+        request=serializers.AddByDoiSerializer,
+        responses={
+            200: serializers.ReferenceSerializer,
+            201: serializers.ReferenceSerializer,
+            400: OpenApiResponse(description="Identifier could not be resolved"),
+        },
+        description=(
+            "Add a reference by DOI or arXiv ID. Metadata is fetched from Crossref with an "
+            "OpenAlex fallback. Pass an optional project slug to also link the reference."
+        ),
+    )
+    @action(detail=False, methods=["post"], url_path="by-doi")
+    def by_doi(self, request):
+        serializer = serializers.AddByDoiSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            reference, created = literature_services.add_reference_by_identifier(
+                serializer.validated_data["doi"]
+            )
+        except literature_services.MetadataError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        slug = serializer.validated_data.get("project")
+        if slug:
+            project = get_object_or_404(Project, slug=slug)
+            ProjectReference.objects.get_or_create(project=project, reference=reference)
+        return Response(
+            serializers.ReferenceSerializer(reference, context={"request": request}).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class ProjectReferenceViewSet(AtlasViewSet):
+    queryset = ProjectReference.objects.all()
+    serializer_class = serializers.ProjectReferenceSerializer
+    project_filter = "project__slug"
+
+
+class QuickCaptureViewSet(AtlasViewSet):
+    queryset = QuickCapture.objects.all()
+    serializer_class = serializers.QuickCaptureSerializer
     project_filter = "project__slug"

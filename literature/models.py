@@ -1,0 +1,100 @@
+from django.db import models
+from django.urls import reverse
+
+from core.models import TimeStampedModel
+from projects.models import Project
+
+
+def reference_pdf_path(instance, filename):
+    return f"library/pdfs/{instance.bibtex_key}/{filename}"
+
+
+class Reference(TimeStampedModel):
+    """One paper/book/etc. in the GLOBAL library, shared across projects."""
+
+    # unique-but-optional: null (not "") so multiple references may lack a DOI
+    doi = models.CharField(max_length=255, unique=True, null=True, blank=True)  # noqa: DJ001
+    arxiv_id = models.CharField(max_length=50, blank=True, default="")
+    openalex_id = models.CharField(max_length=50, blank=True, default="")
+    bibtex_key = models.CharField(max_length=120, unique=True)
+    entry_type = models.CharField(max_length=30, default="article")
+    title = models.TextField()
+    authors = models.JSONField(default=list)  # [{"family": "...", "given": "..."}]
+    year = models.PositiveIntegerField(null=True, blank=True)
+    venue = models.CharField(max_length=300, blank=True)
+    abstract = models.TextField(blank=True)
+    url = models.URLField(blank=True)
+    pdf = models.FileField(upload_to=reference_pdf_path, null=True, blank=True)
+    raw_bibtex = models.TextField(blank=True)
+    extra = models.JSONField(default=dict)
+    citation_count = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.bibtex_key}: {self.title[:60]}"
+
+    def get_absolute_url(self):
+        return reverse("literature:detail", kwargs={"pk": self.pk})
+
+    @property
+    def author_names(self):
+        return ", ".join(
+            " ".join(filter(None, [a.get("given", ""), a.get("family", "")])) for a in self.authors
+        )
+
+
+class ProjectReference(TimeStampedModel):
+    """Per-project link to a global reference, with reading state."""
+
+    class ReadingStatus(models.TextChoices):
+        TO_READ = "to_read", "To read"
+        SKIMMED = "skimmed", "Skimmed"
+        READ = "read", "Read"
+        ANNOTATED = "annotated", "Annotated"
+
+    class Priority(models.TextChoices):
+        LOW = "low", "Low"
+        NORMAL = "normal", "Normal"
+        HIGH = "high", "High"
+
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="project_references"
+    )
+    reference = models.ForeignKey(Reference, on_delete=models.CASCADE, related_name="project_links")
+    reading_status = models.CharField(
+        max_length=20, choices=ReadingStatus.choices, default=ReadingStatus.TO_READ
+    )
+    priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.NORMAL)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "reference"], name="unique_reference_per_project"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.project.slug} ← {self.reference.bibtex_key}"
+
+
+class CitationEdge(models.Model):
+    """citing → cited, fetched from OpenAlex (synced in Phase 3)."""
+
+    citing = models.ForeignKey(
+        Reference, on_delete=models.CASCADE, related_name="outgoing_citations"
+    )
+    cited = models.ForeignKey(
+        Reference, on_delete=models.CASCADE, related_name="incoming_citations"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["citing", "cited"], name="unique_citation_edge"),
+        ]
+
+    def __str__(self):
+        return f"{self.citing.bibtex_key} → {self.cited.bibtex_key}"

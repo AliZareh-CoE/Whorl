@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Reading queue · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> /
+<a href="{% url 'literature:project' project.slug %}" class="hover:underline">Literature</a> / Queue
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+
+<h1 class="mb-2 text-2xl font-semibold tracking-tight">Reading queue</h1>
+<p class="mb-6 text-sm text-stone-500">Unread and skimmed references, highest priority first. Change the status as you go.</p>
+
+{% if links %}
+  <div class="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
+    {% for link in links %}
+      {% include "literature/_link_row.html" %}
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+    <p class="text-stone-600">Queue is clear — everything linked to this project has been read.</p>
+  </div>
+{% endif %}
+{% endblock %}

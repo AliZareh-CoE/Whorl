@@ -130,3 +130,51 @@ def test_project_delete_via_api(client, owner):
     response = client.delete(f"/api/v1/projects/{project.slug}/", **HEADERS)
     assert response.status_code == 204
     assert not Project.objects.filter(pk=project.pk).exists()
+
+
+class TestLiteratureAPI:
+    def test_by_doi_creates_and_links(self, client, owner, monkeypatch):
+        from literature.tests.factories import ReferenceFactory
+
+        project = ProjectFactory()
+        ref = ReferenceFactory()
+        monkeypatch.setattr(
+            "api.views.literature_services.add_reference_by_identifier",
+            lambda identifier: (ref, True),
+        )
+        response = client.post(
+            "/api/v1/references/by-doi/",
+            {"doi": "10.1/x", "project": project.slug},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert response.status_code == 201
+        assert project.project_references.filter(reference=ref).exists()
+
+    def test_by_doi_metadata_error_is_400(self, client, owner, monkeypatch):
+        from literature.services import MetadataError
+
+        def boom(identifier):
+            raise MetadataError("no such DOI")
+
+        monkeypatch.setattr("api.views.literature_services.add_reference_by_identifier", boom)
+        response = client.post(
+            "/api/v1/references/by-doi/",
+            {"doi": "10.1/x"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert response.status_code == 400
+        assert "no such DOI" in response.json()["detail"]
+
+    def test_quick_capture_post(self, client, owner):
+        response = client.post(
+            "/api/v1/quick-capture/",
+            {"text": "captured via API"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert response.status_code == 201
+        from notes.models import QuickCapture
+
+        assert QuickCapture.objects.filter(text="captured via API").exists()
