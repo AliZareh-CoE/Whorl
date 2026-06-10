@@ -66,6 +66,8 @@ def project_overview(request, slug):
             "decision_count": project.decisions.count(),
             "question_count": project.questions.count(),
             "phase_count": project.phases.count(),
+            "recent_documents": project.documents.all()[:5],
+            "document_count": project.documents.count(),
         },
     )
 
