@@ -2,3 +2,28 @@
 
 @source "../../templates";
 @source "../../**/templates";
+
+/* World-class focus visibility without per-element classes */
+@layer base {
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: rgb(79 70 229 / 0.18);
+  }
+}
+
+/* HTMX swap feedback: requesting elements gently dim instead of freezing silently */
+.htmx-request {
+  opacity: 0.55;
+  transition: opacity 150ms ease-in;
+  pointer-events: none;
+}

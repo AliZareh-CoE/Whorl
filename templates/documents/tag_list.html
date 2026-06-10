@@ -19,7 +19,7 @@
   <table class="w-full max-w-xl border-collapse text-sm">
     <tbody>
       {% for tag in tags %}
-        <tr class="border-b border-stone-100">
+        <tr class="border-b border-stone-100 transition-colors hover:bg-stone-50">
           <td class="py-2 pr-4">
             <span class="rounded-full border px-2 py-0.5 text-xs"
                   {% if tag.color %}style="border-color: {{ tag.color }}"{% endif %}>{{ tag.name }}</span>

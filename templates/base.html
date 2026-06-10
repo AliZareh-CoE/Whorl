@@ -10,11 +10,15 @@
   <script src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js" defer></script>
 </head>
 <body class="h-full bg-stone-50 text-stone-900 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:text-white">
+    Skip to content
+  </a>
   <div class="flex h-full">
     <aside class="fixed inset-y-0 left-0 w-56 border-r border-stone-200 bg-white px-4 py-6 flex flex-col">
       <a href="{% url 'core:dashboard' %}" class="text-lg font-semibold tracking-tight mb-4">Atlas</a>
       <form action="{% url 'core:search' %}" method="get" class="mb-4">
-        <input type="search" name="q" placeholder="Search…" value="{{ request.GET.q|default:'' }}"
+        <input type="search" name="q" id="global-search" placeholder="Search…  ( / )" value="{{ request.GET.q|default:'' }}"
+               aria-label="Search everything"
                class="w-full rounded border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm focus:border-indigo-600 focus:bg-white focus:outline-none">
       </form>
       <nav class="space-y-1 text-sm">
@@ -47,18 +51,45 @@
       </div>
     </aside>
     <div class="ml-56 flex-1 min-w-0">
-      <main class="mx-auto max-w-5xl px-8 py-8">
-        <nav class="mb-6 text-sm text-stone-500">
+      <main id="main" class="mx-auto max-w-5xl px-8 py-8">
+        <nav class="mb-6 text-sm text-stone-500" aria-label="Breadcrumb">
           {% block breadcrumbs %}{% endblock %}
         </nav>
         {% if messages %}
-          {% for message in messages %}
-            <div class="mb-4 rounded border border-stone-200 bg-white px-4 py-2 text-sm">{{ message }}</div>
-          {% endfor %}
+          <div class="mb-4 space-y-2" aria-live="polite">
+            {% for message in messages %}
+              <div x-data="{ open: true }" x-show="open" x-init="setTimeout(() => open = false, 6000)"
+                   x-transition.opacity.duration.300ms role="alert"
+                   class="flex items-start gap-2 rounded border px-4 py-2.5 text-sm
+                     {% if 'error' in message.tags %}border-red-200 bg-red-50 text-red-800
+                     {% elif 'warning' in message.tags %}border-amber-200 bg-amber-50 text-amber-800
+                     {% elif 'success' in message.tags %}border-green-200 bg-green-50 text-green-800
+                     {% else %}border-indigo-200 bg-indigo-50 text-indigo-800{% endif %}">
+                <span class="mt-0.5 shrink-0" aria-hidden="true">
+                  {% if 'error' in message.tags %}✕{% elif 'warning' in message.tags %}⚠{% elif 'success' in message.tags %}✓{% else %}ℹ{% endif %}
+                </span>
+                <span class="min-w-0 flex-1">{{ message }}</span>
+                <button type="button" @click="open = false" aria-label="Dismiss"
+                        class="shrink-0 opacity-50 hover:opacity-100">✕</button>
+              </div>
+            {% endfor %}
+          </div>
         {% endif %}
         {% block content %}{% endblock %}
       </main>
     </div>
   </div>
+  <script>
+    document.addEventListener("keydown", (event) => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) ||
+                     document.activeElement?.isContentEditable;
+      if (event.key === "/" && !typing) {
+        event.preventDefault();
+        document.getElementById("global-search")?.focus();
+      } else if (event.key === "Escape" && document.activeElement?.id === "global-search") {
+        document.activeElement.blur();
+      }
+    });
+  </script>
 </body>
 </html>

@@ -78,7 +78,7 @@
         </thead>
         <tbody>
           {% for doc in documents %}
-            <tr class="border-b border-stone-100">
+            <tr class="border-b border-stone-100 transition-colors hover:bg-stone-50">
               <td class="py-2 pr-4">
                 <a href="{% url 'documents:download' project.slug doc.pk %}" class="font-medium hover:underline">{{ doc.title }}</a>
                 {% if doc.description %}<p class="text-xs text-stone-400">{{ doc.description|truncatechars:80 }}</p>{% endif %}

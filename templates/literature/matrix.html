@@ -42,7 +42,7 @@
       </thead>
       <tbody>
         {% for row in rows %}
-          <tr class="border-b border-stone-100">
+          <tr class="border-b border-stone-100 transition-colors hover:bg-stone-50">
             <td class="sticky left-0 max-w-xs bg-white py-2 pl-4 pr-4">
               <a href="{{ row.link.reference.get_absolute_url }}" class="font-medium hover:underline">{{ row.link.reference.title|truncatechars:60 }}</a>
               <p class="font-mono text-xs text-stone-400">{{ row.link.reference.bibtex_key }}</p>

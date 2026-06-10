@@ -149,4 +149,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 12. “Read aloud” for whole PDFs — stream the PDF text-layer through Piper chapter by chapter with a mini player (idea added by cycle 6, from the TTS work)
 13. Worker-deploy note — document (README/Makefile) that `run_huey` must restart after code changes; consider a `make worker` target and a stale-worker warning on the Automations page when bots land (idea added by cycle 7, after hitting a stale TaskRegistry live)
 14. Keyword chips → reading-queue filters and a project-level keyword cloud (idea added by cycle 8, from the NLP work)
-15. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+15. Responsive layout — collapsible sidebar + mobile-friendly tables (next UI/UX cycle candidate; idea added by cycle 9)
+16. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

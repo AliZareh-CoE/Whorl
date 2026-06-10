@@ -30,7 +30,7 @@
     </thead>
     <tbody>
       {% for dataset in datasets %}
-        <tr class="border-b border-stone-100">
+        <tr class="border-b border-stone-100 transition-colors hover:bg-stone-50">
           <td class="py-2 pr-4 font-medium">{{ dataset.name }}
             {% if dataset.description %}<p class="text-xs font-normal text-stone-400">{{ dataset.description|truncatechars:80 }}</p>{% endif %}
           </td>
