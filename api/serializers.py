@@ -1,0 +1,143 @@
+from rest_framework import serializers
+
+from documents.models import Document, Folder, Tag
+from plans.models import Milestone, Phase, ResearchQuestion, Task
+from projects.models import DecisionRecord, Project
+
+
+class ProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "status",
+            "color",
+            "position",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["slug"]
+
+
+class ProjectSlugField(serializers.SlugRelatedField):
+    def __init__(self, **kwargs):
+        kwargs.setdefault("slug_field", "slug")
+        kwargs.setdefault("queryset", Project.objects.all())
+        super().__init__(**kwargs)
+
+
+class PhaseSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+    progress = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Phase
+        fields = [
+            "id",
+            "project",
+            "name",
+            "order",
+            "status",
+            "objective",
+            "target_start",
+            "target_end",
+            "progress",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class MilestoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Milestone
+        fields = [
+            "id",
+            "phase",
+            "title",
+            "due_date",
+            "completed_at",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = [
+            "id",
+            "milestone",
+            "title",
+            "done",
+            "due_date",
+            "order",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class ResearchQuestionSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+
+    class Meta:
+        model = ResearchQuestion
+        fields = ["id", "project", "question", "status", "phases", "created_at", "updated_at"]
+
+
+class DecisionRecordSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+
+    class Meta:
+        model = DecisionRecord
+        fields = [
+            "id",
+            "project",
+            "title",
+            "context",
+            "decision",
+            "alternatives",
+            "decided_on",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class FolderSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+
+    class Meta:
+        model = Folder
+        fields = ["id", "project", "parent", "name", "created_at", "updated_at"]
+
+
+class TagSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+
+    class Meta:
+        model = Tag
+        fields = ["id", "project", "name", "color", "created_at", "updated_at"]
+
+
+class DocumentSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+
+    class Meta:
+        model = Document
+        fields = [
+            "id",
+            "project",
+            "folder",
+            "file",
+            "title",
+            "description",
+            "tags",
+            "file_size",
+            "content_type",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["file_size", "content_type"]
