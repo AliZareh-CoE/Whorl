@@ -33,6 +33,34 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    suggester. Built on huey periodic tasks with an "Automations" page to enable/disable each
    bot and see its last run — and, where text understanding is needed, callable through the
    MCP/Claude side.
+8. **Open-source readiness.** Goal: a public GitHub repo worth thousands of stars. Keep a
+   living brainstorm in `OPENSOURCE.md` (positioning, killer demo GIFs, one-command install,
+   docs site, LICENSE/CONTRIBUTING, comparison table vs Zotero/Notion/Overleaf, launch plan
+   for HN/r/selfhosted). Loop may add thoughts there any cycle; polish items become slices.
+9. **LaTeX editor ("better than Overleaf", owner knows it's ambitious).** In-browser LaTeX
+   editing on manuscripts: CodeMirror editor + server-side compile (Tectonic binary is the
+   likely engine — dependency decision required first) + live PDF preview using the existing
+   pdf.js reader; cite-key autocomplete from the manuscript bibliography is the natural
+   first slice.
+10. **Commenting / annotations.** Comments anchored to things: PDFs (building on the reader),
+    LaTeX sources, notes, documents — one generic Comment model, surfaced contextually.
+11. **Better papers & literature reviews.** Continuous improvement of the lit-review
+    experience. IMPORTANT constraint from the owner: NO paid Claude/LLM API calls — smart
+    features must run either as local NLP (see #5) or through the owner's own Claude
+    subscription via MCP (Claude as interactive collaborator, which costs nothing extra).
+12. **Virtual pet 🐾.** A small companion that lives in Atlas and reacts to research life —
+    fed by completed milestones, papers read, streaks; gets creative. NOTE: CLAUDE.md §1 says
+    "no gamification", but owner directives outrank the constitution — keep it calm, charming,
+    optional (a sidebar critter, not notification spam).
+13. **Project-as-growing-tree UI.** Visualize each project as a tree that grows with real
+    progress (milestones/phases done) — sprout → sapling → full tree at completion. SVG-based,
+    calm, fits the editorial aesthetic; could live on the overview and/or projects index.
+14. **World-class file & folder handling.** Faster, cleaner, easier: drag-and-drop upload,
+    multi-file upload, inline rename, move via drag or quick-pick, breadcrumbed folder
+    navigation, file previews where cheap.
+15. **Lightning-fast search with NLP.** Upgrade global search: Postgres trigram/websearch
+    tuning, typo tolerance, prefix-as-you-type results, synonym/stemming improvements,
+    ranking tuned for research artifacts — local NLP only (see constraint in #11).
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -42,6 +70,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   (c) auto Backlog top-down. New owner messages with ideas are appended to Owner ideas
   immediately.
 - **Efficiency and security are standing constraints** on every slice, not just items 1–2.
+- **Every 10th cycle is an audit cycle:** full security review + responsiveness/performance
+  check of the whole system and everything added since the last audit (re-run the query
+  audit, check page weights, throttle behavior, upload paths, dependency CVEs). Track cycle
+  numbers in PROGRESS.md.
+- **At least 2 of every 10 cycles are UI/UX improvement cycles** to world-class standards —
+  polish, consistency, accessibility, interaction quality; not new features.
+- **No paid LLM API calls, ever** — language-smart features go local-NLP or through the
+  owner's Claude subscription via MCP.
 
 ## Decisions
 
