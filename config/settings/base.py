@@ -33,12 +33,20 @@ INSTALLED_APPS = [
     "api",
 ]
 
+X_FRAME_OPTIONS = "DENY"
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["api.authentication.APIKeyAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Brakes against runaway scripts, generous for one human + one Claude
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {"user": "3000/hour", "anon": "30/hour"},
 }
 
 SPECTACULAR_SETTINGS = {

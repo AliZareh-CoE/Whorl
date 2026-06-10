@@ -56,6 +56,11 @@ class DocumentForm(forms.ModelForm):
         if self.instance.pk:
             self.fields["file"].required = False
 
+    def clean_file(self):
+        from core.security import validate_upload_size
+
+        return validate_upload_size(self.cleaned_data.get("file"))
+
 
 class TagForm(forms.ModelForm):
     class Meta:

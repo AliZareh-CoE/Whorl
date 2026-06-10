@@ -1,5 +1,13 @@
 import pytest
 from django.contrib.auth.models import User
+from django.core.cache import cache
+
+
+@pytest.fixture(autouse=True)
+def _clean_cache():
+    """Keep Django's cache from leaking state (heatmap, login throttle) across tests."""
+    cache.clear()
+    yield
 
 
 @pytest.fixture

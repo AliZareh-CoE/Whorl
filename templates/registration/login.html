@@ -11,7 +11,11 @@
   <div class="w-full max-w-sm">
     <h1 class="mb-1 text-2xl font-semibold tracking-tight">Atlas</h1>
     <p class="mb-8 text-sm text-stone-500">Your research, in one organized place.</p>
-    {% if form.errors %}
+    {% if form.non_field_errors %}
+      <div class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+        {% for error in form.non_field_errors %}{{ error }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+      </div>
+    {% elif form.errors %}
       <div class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
         Your username and password didn't match. Please try again.
       </div>

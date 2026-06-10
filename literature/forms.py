@@ -75,6 +75,11 @@ class ReferenceForm(forms.ModelForm):
         doi = self.cleaned_data.get("doi") or ""
         return normalize_doi(doi) or None
 
+    def clean_pdf(self):
+        from core.security import validate_pdf
+
+        return validate_pdf(self.cleaned_data.get("pdf"))
+
     def save(self, commit=True):
         from .services import generate_bibtex_key
 

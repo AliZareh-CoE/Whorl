@@ -12,8 +12,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    /library/ 49→6 queries, overview 17→13, plan 11→7; aggregate-based progress roll-up;
    heatmap day-aggregated in DB + 10-min cache; query-budget regression tests.~~ Remaining:
    conditional GETs/ETags (Backlog #11), fragment caching if pages ever feel slow.
-2. **Security hardening.** Recurring concern alongside performance: login rate limiting,
-   upload type/size validation, security headers in prod settings, API-key handling audit.
+2. **Security hardening.** Recurring concern alongside performance. ~~First slice
+   (2026-06-10, cycle 5): cache-based login throttle (5 fails → 5-min lockout, 429, verified
+   live), 50 MB upload cap + .pdf-only reference attachments enforced in forms AND API
+   serializers, DRF rate throttles (3000/h keyed, 30/h anon), prod HSTS subdomains+preload +
+   referrer-policy, X-Frame-Options DENY, login template now renders lockout errors.~~
+   Remaining: API-key rotation helper, CSP if ever public-facing.
 3. **Free local text-to-speech ("read this to me").** A strong free TTS engine (e.g. Piper)
    the owner can run locally; "Read aloud" on notes, abstracts, and (eventually) PDFs.
 4. **Auto-download article PDFs.** When a reference is added, resolve and fetch the
@@ -91,3 +95,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 9. Email/calendar deadline reminders
 10. OpenAlex "discover similar" — surface related_works for a reference with one-click add-by-DOI (idea added by cycle 3, from the related-papers work)
 11. Conditional GETs — ETag/Last-Modified on API list endpoints and far-future cache headers on media/static, so MCP polling and the PDF reader get cheap revalidation (idea added by cycle 4, from the performance pass)
+12. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

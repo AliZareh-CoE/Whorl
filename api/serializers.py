@@ -127,6 +127,16 @@ class TagSerializer(serializers.ModelSerializer):
 class DocumentSerializer(serializers.ModelSerializer):
     project = ProjectSlugField()
 
+    def validate_file(self, value):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from core.security import validate_upload_size
+
+        try:
+            return validate_upload_size(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages[0]) from exc
+
     class Meta:
         model = Document
         fields = [
@@ -146,6 +156,16 @@ class DocumentSerializer(serializers.ModelSerializer):
 
 
 class ReferenceSerializer(serializers.ModelSerializer):
+    def validate_pdf(self, value):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from core.security import validate_pdf
+
+        try:
+            return validate_pdf(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages[0]) from exc
+
     class Meta:
         model = Reference
         fields = [
