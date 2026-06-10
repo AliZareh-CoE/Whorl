@@ -2,16 +2,30 @@
 
 ## Current Status
 
-- **Phase:** 4 — Writing studio
-- **Slice in progress:** 4.1 writing app — Manuscript model + status board
-- **Last completed slice:** Phase 3 gate
+- **Phase:** 5 — Research thinking tools + dashboards
+- **Slice in progress:** 5.1 research app — Hypothesis + Evidence ledger
+- **Last completed slice:** Phase 4 gate
 - **Next 3 slices:**
-  1. 4.1 writing app: Manuscript/ManuscriptReference/SubmissionEvent models + CRUD + status pipeline view + deadline countdown on overview
-  2. 4.2 Per-manuscript bibliography picker + manuscript.bib export
-  3. 4.3 Cite checker (.tex upload/paste → \cite{} keys vs bib) + submission timeline
+  1. 5.1 research app: Hypothesis/Evidence models, ledger page with evidence balance + auto-suggested status
+  2. 5.2 ExperimentEntry log + Dataset registry
+  3. 5.3 Cross-project dashboard: active projects with progress, upcoming milestones/deadlines, activity heatmap, simple stats
 - **Broken:** nothing
 
 ## Gate reports
+
+### Phase 4 — Writing studio (2026-06-10)
+
+**Built:** `writing` app — Manuscript (10-state pipeline, venue, deadline with `days_to_deadline`), ManuscriptReference (with `cite_key_override`), SubmissionEvent; status-column board per project and a global `/writing/` board in the sidebar; per-manuscript bibliography picked from the library with `manuscript.bib` export honoring key overrides; cite checker (upload or paste `.tex` → parses `\cite/\citep/\citet/\parencite/\textcite/\autocite/...` incl. optional args and multi-key) reporting cited-but-missing, in-bib-but-uncited, matched; bib checkers v1 run scoped to the manuscript on its detail page; vertical submission timeline with inline event logging; deadline countdown on the project overview.
+
+**Evidence per acceptance criterion** (clean run from fresh volume):
+- *Idea → published with events logged:* `test_full_lifecycle_idea_to_published` walks all five submission events and the status change to published, then asserts the rendered timeline. Live: seeded manuscript detail shows "Submission timeline", "Reviews received", and the deadline countdown.
+- *Cite checker flags a deliberately broken `.tex` fixture in tests:* `writing/tests/fixtures/broken.tex` + `test_broken_tex_fixture_flagged_correctly` asserts exact missing keys (anotherghost2021, ghostpaper1999, missingkey2020) and the uncited key; live curl upload of the fixture renders ghostpaper1999/missingkey2020 under "cited, missing from bib" and the "never cited" column.
+- Bib export: live `export.bib` contains 6 entries; override keys tested.
+- Suite: 129 passed; ruff check + format clean.
+
+**Decisions:** none non-obvious (board is plain status columns — no drag-and-drop JS, status changes via the edit form, consistent with "no JS where a form works").
+
+**Known gaps → Backlog:** none new.
 
 ### Phase 3 — Knowledge graph, notes, search (2026-06-10)
 
@@ -22,7 +36,7 @@
 - *Creating [[links]] updates graph and backlinks:* created "Gate Note" with `[[Load theory overview]]` via UI → backlinks panel on target shows it; graph.json note-links 4→5.
 - *Search returns mixed-type results:* `/search/?q=attention` → 13 results grouped under projects, references, phases, decisions.
 - *Background sync with visible state:* created "Sync Gate" project via API with DOIs 10.1038/nature14539 + 10.1162/neco.1997.9.8.1735 → POST graph/sync → huey consumer processed → "Last synced 2026-06-10 22:10 — 2/2 references matched on OpenAlex; 1 new edge(s)"; graph shows the real LeCun→LSTM citation edge.
-- Tests: sync (mocked transport, 4 cases), graph builder, wiki-link service (5), notes views (4), search (4). Suite: 119 passed; ruff clean.
+- Tests: sync (mocked transport, 4 cases), graph builder, wiki-link service (5), notes views (4), search (4). Suite: 118 passed; ruff clean.
 
 **Decisions:** Graph JSON has both a session-auth UI endpoint and the keyed API endpoint, both rendering from one builder. Tests run huey in immediate MemoryHuey mode.
 
