@@ -20,6 +20,7 @@ make css                      # downloads the Tailwind standalone CLI on first r
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py createsuperuser   # you are the single user
 .venv/bin/python manage.py seed_demo         # optional demo data
+.venv/bin/python manage.py download_tts_voice  # optional: ~60 MB local voice for Read aloud
 .venv/bin/python manage.py runserver
 .venv/bin/python manage.py run_huey   # background worker (citation sync), separate terminal
 ```

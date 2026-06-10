@@ -81,6 +81,16 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-06-10 — Piper TTS for "Read aloud" (owner-sanctioned dependency)
+- **Decision:** Add `piper-tts` (free, local, no cloud) for Owner idea #3. Voice model
+  (en_US-amy-medium, ~60 MB) is downloaded once via `manage.py download_tts_voice` into
+  `tts_voices/` (gitignored). Server endpoint `POST /tts/` synthesizes WAV; "Read aloud"
+  buttons on notes and reference abstracts stream it to an `<audio>` element.
+- **Why:** The owner explicitly asked for a strong free TTS engine they can run locally;
+  Piper is the best-in-class open option and runs fine on CPU.
+- **Alternatives rejected:** browser SpeechSynthesis (quality is OS-roulette, often robotic);
+  cloud TTS APIs (not free, not local, violates the no-paid-API rule).
+
 ### 2026-06-10 — Related-paper suggestions use TF-IDF cosine, not neural embeddings
 - **Decision:** Backlog #3 ships as `literature/related.py`: TF-IDF vectors over title+abstract (venue excluded — same-journal is noise, a test caught it dominating small libraries) with cosine similarity, computed in-process (single-user library sizes make O(N) per page fine). Surfaced on the reference detail page and as `GET /api/v1/references/{id}/related/`.
 - **Why:** "Embedding-based" via sentence-transformers means a multi-GB torch dependency outside the locked stack; an external embedding API adds a paid network dependency. Sparse TF-IDF vectors are embeddings enough to serve the product value (surface related papers), with zero dependencies and trivially reversible.
@@ -131,4 +141,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 9. Email/calendar deadline reminders
 10. OpenAlex "discover similar" — surface related_works for a reference with one-click add-by-DOI (idea added by cycle 3, from the related-papers work)
 11. Conditional GETs — ETag/Last-Modified on API list endpoints and far-future cache headers on media/static, so MCP polling and the PDF reader get cheap revalidation (idea added by cycle 4, from the performance pass)
-12. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+12. “Read aloud” for whole PDFs — stream the PDF text-layer through Piper chapter by chapter with a mini player (idea added by cycle 6, from the TTS work)
+13. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

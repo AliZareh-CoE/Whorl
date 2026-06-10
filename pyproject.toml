@@ -16,6 +16,7 @@ dependencies = [
     "huey>=2.5",
     "redis>=5.2",
     "mcp>=1.10",
+    "piper-tts>=1.4",
 ]
 
 [dependency-groups]

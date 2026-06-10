@@ -1,0 +1,36 @@
+{# Read-aloud button: pass `target_id` (element whose innerText gets read). #}
+<button type="button" data-read-target="{{ target_id }}"
+        class="read-aloud-btn rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 hover:border-stone-400"
+        title="Read aloud (local Piper TTS)">🔊 Read aloud</button>
+<script>
+  if (!window.__readAloudWired) {
+    window.__readAloudWired = true;
+    let currentAudio = null;
+    document.addEventListener("click", async (event) => {
+      const btn = event.target.closest(".read-aloud-btn");
+      if (!btn) return;
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; document.querySelectorAll(".read-aloud-btn").forEach(b => b.textContent = "🔊 Read aloud"); return; }
+      const source = document.getElementById(btn.dataset.readTarget);
+      if (!source) return;
+      btn.textContent = "⏳ …";
+      const body = new FormData();
+      body.append("text", source.innerText);
+      const response = await fetch("{% url 'core:tts' %}", {
+        method: "POST",
+        headers: { "X-CSRFToken": "{{ csrf_token }}" },
+        body,
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        btn.textContent = "🔇 " + (data.error || "TTS unavailable");
+        setTimeout(() => (btn.textContent = "🔊 Read aloud"), 4000);
+        return;
+      }
+      const blob = await response.blob();
+      currentAudio = new Audio(URL.createObjectURL(blob));
+      btn.textContent = "⏹ Stop";
+      currentAudio.onended = () => { btn.textContent = "🔊 Read aloud"; currentAudio = null; };
+      currentAudio.play();
+    });
+  }
+</script>

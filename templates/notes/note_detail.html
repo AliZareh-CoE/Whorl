@@ -14,12 +14,13 @@
 <div class="mb-4 flex items-center gap-3">
   <h1 class="text-2xl font-semibold tracking-tight">{{ note.title }}</h1>
   <span class="ml-auto"></span>
+  {% include "_read_aloud.html" with target_id="note-body" %}
   <a href="{% url 'notes:edit' project.slug note.pk %}" class="text-sm text-stone-500 hover:underline">Edit</a>
   <a href="{% url 'notes:delete' project.slug note.pk %}" class="text-sm text-red-600 hover:underline">Delete</a>
 </div>
 
 <div class="flex gap-6">
-  <article class="prose prose-stone min-w-0 flex-1 rounded border border-stone-200 bg-white p-6 text-sm">
+  <article id="note-body" class="prose prose-stone min-w-0 flex-1 rounded border border-stone-200 bg-white p-6 text-sm">
     {% if rendered_body %}{{ rendered_body }}{% else %}<p class="text-stone-400">(empty note)</p>{% endif %}
   </article>
   <aside class="w-64 shrink-0 space-y-4">
