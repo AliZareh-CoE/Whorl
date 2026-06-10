@@ -5,6 +5,8 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from documents.models import Document, Folder, Tag
+from literature.models import ProjectReference, Reference
+from notes.models import QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 
@@ -180,11 +182,81 @@ class Command(BaseCommand):
             decided_on=today - datetime.timedelta(days=10),
         )
 
+        # Literature: a small shared library linked to the project with reading states
+        demo_refs = [
+            {
+                "doi": "10.0000/demo.lavie.2010",
+                "bibtex_key": "lavie2010attention",
+                "title": "Attention, Distraction, and Cognitive Control Under Load",
+                "authors": [{"family": "Lavie", "given": "Nilli"}],
+                "year": 2010,
+                "venue": "Current Directions in Psychological Science",
+                "citation_count": 1200,
+                "status": ProjectReference.ReadingStatus.ANNOTATED,
+                "priority": ProjectReference.Priority.HIGH,
+            },
+            {
+                "doi": "10.0000/demo.baddeley.2003",
+                "bibtex_key": "baddeley2003working",
+                "title": "Working Memory: Looking Back and Looking Forward",
+                "authors": [{"family": "Baddeley", "given": "Alan"}],
+                "year": 2003,
+                "venue": "Nature Reviews Neuroscience",
+                "citation_count": 5400,
+                "status": ProjectReference.ReadingStatus.READ,
+                "priority": ProjectReference.Priority.NORMAL,
+            },
+            {
+                "doi": "10.0000/demo.draheim.2022",
+                "bibtex_key": "draheim2022attention",
+                "title": "Attention Control: The Missing Link Between Sensory Discrimination and Intelligence",
+                "authors": [{"family": "Draheim", "given": "Christopher"}],
+                "year": 2022,
+                "venue": "Attention, Perception, & Psychophysics",
+                "citation_count": 90,
+                "status": ProjectReference.ReadingStatus.TO_READ,
+                "priority": ProjectReference.Priority.HIGH,
+            },
+            {
+                "bibtex_key": "anonndworking",  # deliberately incomplete: exercises the bib report
+                "title": "Working Notes on Load Effects",
+                "authors": [],
+                "year": None,
+                "venue": "",
+                "citation_count": None,
+                "status": ProjectReference.ReadingStatus.TO_READ,
+                "priority": ProjectReference.Priority.LOW,
+            },
+        ]
+        for spec in demo_refs:
+            reference, _ = Reference.objects.update_or_create(
+                bibtex_key=spec["bibtex_key"],
+                defaults={
+                    "doi": spec.get("doi"),
+                    "title": spec["title"],
+                    "authors": spec["authors"],
+                    "year": spec["year"],
+                    "venue": spec["venue"],
+                    "citation_count": spec["citation_count"],
+                    "entry_type": "article",
+                },
+            )
+            ProjectReference.objects.update_or_create(
+                project=project,
+                reference=reference,
+                defaults={"reading_status": spec["status"], "priority": spec["priority"]},
+            )
+
+        QuickCapture.objects.get_or_create(
+            text="Check whether the 2024 load-modulation preprint ever got published"
+        )
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"seed_demo: created project '{project.name}' (/projects/{project.slug}/) with "
                 f"{project.phases.count()} phases, "
                 f"{Milestone.objects.filter(phase__project=project).count()} milestones, "
-                f"{project.documents.count()} documents, {project.decisions.count()} decisions."
+                f"{project.documents.count()} documents, {project.decisions.count()} decisions, "
+                f"{project.project_references.count()} linked references."
             )
         )
