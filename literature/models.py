@@ -116,3 +116,40 @@ class CitationSyncState(TimeStampedModel):
 
     def __str__(self):
         return f"{self.project.slug}: {self.status}"
+
+
+class ReviewTheme(TimeStampedModel):
+    """A column in the project's literature review matrix (a theme/topic/method)."""
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="review_themes")
+    name = models.CharField(max_length=120)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "name"]
+        constraints = [
+            models.UniqueConstraint(fields=["project", "name"], name="unique_theme_per_project"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class ReviewMark(TimeStampedModel):
+    """One cell of the review matrix: this paper addresses this theme (with an optional note)."""
+
+    theme = models.ForeignKey(ReviewTheme, on_delete=models.CASCADE, related_name="marks")
+    project_reference = models.ForeignKey(
+        ProjectReference, on_delete=models.CASCADE, related_name="review_marks"
+    )
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["theme", "project_reference"], name="unique_mark_per_cell"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.project_reference.reference.bibtex_key} × {self.theme.name}"

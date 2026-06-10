@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Review matrix · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> /
+<a href="{% url 'literature:project' project.slug %}" class="hover:underline">Literature</a> / Matrix
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+
+<div class="mb-2 flex items-center justify-between">
+  <h1 class="text-2xl font-semibold tracking-tight">Literature review matrix</h1>
+  <a href="{% url 'literature:theme_create' project.slug %}"
+     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add theme</a>
+</div>
+<p class="mb-6 text-sm text-stone-500">Which paper covers which theme. Click a cell to toggle; hover a marked cell to add a note.</p>
+
+{% if not themes %}
+  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+    <p class="mb-2 text-stone-600">Themes are the columns of your review — methods, populations, claims, whatever you compare papers by.</p>
+    <a href="{% url 'literature:theme_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Add the first theme</a>
+  </div>
+{% elif not rows %}
+  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+    <p class="text-stone-600">No references linked to this project yet — the matrix fills as the literature does.</p>
+  </div>
+{% else %}
+  <div class="overflow-x-auto rounded border border-stone-200 bg-white">
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-stone-200 text-left">
+          <th class="sticky left-0 bg-white py-2 pl-4 pr-4 text-xs font-medium uppercase tracking-wide text-stone-400">Paper</th>
+          {% for theme in themes %}
+            <th class="px-2 py-2 text-center text-xs font-medium text-stone-500">
+              <a href="{% url 'literature:theme_edit' project.slug theme.pk %}" class="hover:underline">{{ theme.name }}</a>
+            </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr class="border-b border-stone-100">
+            <td class="sticky left-0 max-w-xs bg-white py-2 pl-4 pr-4">
+              <a href="{{ row.link.reference.get_absolute_url }}" class="font-medium hover:underline">{{ row.link.reference.title|truncatechars:60 }}</a>
+              <p class="font-mono text-xs text-stone-400">{{ row.link.reference.bibtex_key }}</p>
+            </td>
+            {% for cell in row.cells %}
+              {% include "literature/_matrix_cell.html" with cell=cell link=row.link %}
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+{% endblock %}

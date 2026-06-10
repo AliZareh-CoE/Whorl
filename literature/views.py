@@ -11,7 +11,7 @@ from projects.views import ProjectScopedMixin
 
 from . import services
 from .forms import AddByIdentifierForm, BibtexImportForm, LinkReferenceForm, ReferenceForm
-from .models import ProjectReference, Reference
+from .models import ProjectReference, Reference, ReviewMark, ReviewTheme
 
 
 def library_index(request):
@@ -257,6 +257,97 @@ class ProjectReferenceDeleteView(ProjectScopedMixin, DeleteView):
 
     def get_success_url(self):
         return reverse("literature:project", kwargs={"slug": self.project.slug})
+
+
+def review_matrix(request, slug):
+    project = get_object_or_404(Project, slug=slug)
+    themes = list(project.review_themes.all())
+    links = list(project.project_references.select_related("reference"))
+    marks = {
+        (mark.theme_id, mark.project_reference_id): mark
+        for mark in ReviewMark.objects.filter(theme__project=project)
+    }
+    rows = [
+        {
+            "link": link,
+            "cells": [{"theme": theme, "mark": marks.get((theme.pk, link.pk))} for theme in themes],
+        }
+        for link in links
+    ]
+    return render(
+        request,
+        "literature/matrix.html",
+        {"project": project, "themes": themes, "rows": rows},
+    )
+
+
+@require_POST
+def toggle_mark(request, slug, theme_pk, link_pk):
+    """HTMX: toggle one matrix cell on/off; returns the cell partial."""
+    project = get_object_or_404(Project, slug=slug)
+    theme = get_object_or_404(project.review_themes, pk=theme_pk)
+    link = get_object_or_404(project.project_references, pk=link_pk)
+    mark = ReviewMark.objects.filter(theme=theme, project_reference=link).first()
+    if mark:
+        mark.delete()
+        mark = None
+    else:
+        mark = ReviewMark.objects.create(theme=theme, project_reference=link)
+    return render(
+        request,
+        "literature/_matrix_cell.html",
+        {"project": project, "cell": {"theme": theme, "mark": mark}, "link": link},
+    )
+
+
+def edit_mark_note(request, slug, pk):
+    project = get_object_or_404(Project, slug=slug)
+    mark = get_object_or_404(ReviewMark, pk=pk, theme__project=project)
+    if request.method == "POST":
+        mark.note = request.POST.get("note", "")[:300]
+        mark.save(update_fields=["note", "updated_at"])
+        return redirect("literature:matrix", slug=project.slug)
+    return render(request, "literature/mark_note_form.html", {"project": project, "mark": mark})
+
+
+class ThemeFormMixin(ProjectScopedMixin):
+    model = ReviewTheme
+    template_name = "literature/theme_form.html"
+
+    def get_form_class(self):
+        from .forms import ReviewThemeForm
+
+        return ReviewThemeForm
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.project
+        return kwargs
+
+    def get_success_url(self):
+        return reverse("literature:matrix", kwargs={"slug": self.project.slug})
+
+
+class ThemeCreateView(ThemeFormMixin, CreateView):
+    def form_valid(self, form):
+        form.instance.project = self.project
+        return super().form_valid(form)
+
+
+class ThemeUpdateView(ThemeFormMixin, UpdateView):
+    def get_queryset(self):
+        return self.project.review_themes.all()
+
+
+class ThemeDeleteView(ProjectScopedMixin, DeleteView):
+    model = ReviewTheme
+    template_name = "literature/theme_confirm_delete.html"
+
+    def get_queryset(self):
+        return self.project.review_themes.all()
+
+    def get_success_url(self):
+        return reverse("literature:matrix", kwargs={"slug": self.project.slug})
 
 
 def export_bib(request, slug):

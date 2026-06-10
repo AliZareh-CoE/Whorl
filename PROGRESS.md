@@ -3,12 +3,12 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: Backlog #2, literature review matrix)
-- **Last completed slice:** Backlog #1 — in-browser PDF reader (pdf.js, canvas + text layer at `/library/{pk}/read/`) with highlight-to-note (selection → appends blockquote with page number to "Highlights — {key}" note in a chosen linked project, note auto-linked to the reference); "Read in Atlas" button on reference detail; seed_demo attaches a generated demo PDF; verified live in a real browser.
+- **Slice in progress:** — (next: Backlog #3, embedding-based related-paper suggestions)
+- **Last completed slice:** Backlog #2 — literature review matrix at `/projects/{slug}/literature/matrix/`: ReviewTheme columns × linked-paper rows, HTMX cell toggles, per-cell 300-char notes, theme CRUD with per-project unique names; seeded with 4 themes; verified live in a real browser.
 - **Next 3 slices (Backlog top-down):**
-  1. Backlog #2 — Literature review matrix (papers × themes)
-  2. Backlog #3 — Embedding-based related-paper suggestions
-  3. Backlog #4 — GitHub commit ↔ experiment linking
+  1. Backlog #3 — Embedding-based related-paper suggestions
+  2. Backlog #4 — GitHub commit ↔ experiment linking
+  3. Backlog #5 — Cmd+K command palette
 - **Broken:** nothing
 
 ## Gate reports

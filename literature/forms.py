@@ -130,3 +130,30 @@ class LinkReferenceForm(forms.ModelForm):
             ):
                 raise forms.ValidationError("This reference is already linked to the project.")
         return cleaned
+
+
+class ReviewThemeForm(forms.ModelForm):
+    class Meta:
+        from .models import ReviewTheme
+
+        model = ReviewTheme
+        fields = ["name", "order"]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": INPUT}),
+            "order": forms.NumberInput(attrs={"class": INPUT}),
+        }
+
+    def __init__(self, *args, project=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.project = project
+
+    def clean_name(self):
+        from .models import ReviewTheme
+
+        name = self.cleaned_data["name"].strip()
+        clash = ReviewTheme.objects.filter(project=self.project, name__iexact=name).exclude(
+            pk=self.instance.pk
+        )
+        if clash.exists():
+            raise forms.ValidationError("This theme already exists in the project.")
+        return name

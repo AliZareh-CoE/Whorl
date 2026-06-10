@@ -219,3 +219,64 @@ class TestPdfReader:
             {"project": link.project.slug, "text": "   "},
         )
         assert response.status_code == 400
+
+
+class TestReviewMatrix:
+    def make_matrix(self):
+        from literature.models import ReviewTheme
+
+        link = ProjectReferenceFactory()
+        theme = ReviewTheme.objects.create(project=link.project, name="Methods", order=1)
+        return link, theme
+
+    def test_matrix_renders_papers_and_themes(self, client_logged_in):
+        link, theme = self.make_matrix()
+        response = client_logged_in.get(reverse("literature:matrix", args=[link.project.slug]))
+        assert response.status_code == 200
+        assert b"Methods" in response.content
+        assert link.reference.bibtex_key.encode() in response.content
+
+    def test_toggle_mark_on_and_off(self, client_logged_in):
+        from literature.models import ReviewMark
+
+        link, theme = self.make_matrix()
+        url = reverse("literature:toggle_mark", args=[link.project.slug, theme.pk, link.pk])
+        first = client_logged_in.post(url)
+        assert first.status_code == 200
+        assert ReviewMark.objects.filter(theme=theme, project_reference=link).exists()
+        client_logged_in.post(url)
+        assert not ReviewMark.objects.filter(theme=theme, project_reference=link).exists()
+
+    def test_toggle_scoped_to_project(self, client_logged_in):
+        link, theme = self.make_matrix()
+        other = ProjectReferenceFactory()  # different project
+        url = reverse("literature:toggle_mark", args=[other.project.slug, theme.pk, other.pk])
+        assert client_logged_in.post(url).status_code == 404
+
+    def test_mark_note_edit(self, client_logged_in):
+        from literature.models import ReviewMark
+
+        link, theme = self.make_matrix()
+        mark = ReviewMark.objects.create(theme=theme, project_reference=link)
+        response = client_logged_in.post(
+            reverse("literature:mark_note", args=[link.project.slug, mark.pk]),
+            {"note": "covers it in section 3"},
+        )
+        mark.refresh_from_db()
+        assert response.status_code == 302
+        assert mark.note == "covers it in section 3"
+
+    def test_theme_crud_and_unique_per_project(self, client_logged_in):
+        link, theme = self.make_matrix()
+        response = client_logged_in.post(
+            reverse("literature:theme_create", args=[link.project.slug]),
+            {"name": "Population", "order": 2},
+        )
+        assert response.status_code == 302
+        assert link.project.review_themes.count() == 2
+        dup = client_logged_in.post(
+            reverse("literature:theme_create", args=[link.project.slug]),
+            {"name": "Methods", "order": 3},
+        )
+        assert dup.status_code == 200  # form re-renders with error
+        assert link.project.review_themes.count() == 2

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit theme{% else %}Add theme{% endif %} · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> /
+<a href="{% url 'literature:matrix' project.slug %}" class="hover:underline">Matrix</a> /
+{% if object %}Edit theme{% else %}Add theme{% endif %}
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+<h1 class="mb-6 text-2xl font-semibold tracking-tight">{% if object %}Edit theme{% else %}Add a theme{% endif %}</h1>
+<form method="post" class="max-w-xl space-y-4">
+  {% csrf_token %}
+  {% include "_fields.html" %}
+  <div class="flex items-center gap-3 pt-2">
+    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+    <a href="{% url 'literature:matrix' project.slug %}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+    {% if object %}
+      <span class="ml-auto"></span>
+      <a href="{% url 'literature:theme_delete' project.slug object.pk %}" class="text-sm text-red-600 hover:underline">Delete…</a>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

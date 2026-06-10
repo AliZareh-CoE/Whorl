@@ -37,6 +37,32 @@ urlpatterns = [
         name="set_status",
     ),
     path("projects/<slug:slug>/literature/queue/", views.reading_queue, name="queue"),
+    path("projects/<slug:slug>/literature/matrix/", views.review_matrix, name="matrix"),
+    path(
+        "projects/<slug:slug>/literature/matrix/themes/new/",
+        views.ThemeCreateView.as_view(),
+        name="theme_create",
+    ),
+    path(
+        "projects/<slug:slug>/literature/matrix/themes/<int:pk>/edit/",
+        views.ThemeUpdateView.as_view(),
+        name="theme_edit",
+    ),
+    path(
+        "projects/<slug:slug>/literature/matrix/themes/<int:pk>/delete/",
+        views.ThemeDeleteView.as_view(),
+        name="theme_delete",
+    ),
+    path(
+        "projects/<slug:slug>/literature/matrix/<int:theme_pk>/<int:link_pk>/toggle/",
+        views.toggle_mark,
+        name="toggle_mark",
+    ),
+    path(
+        "projects/<slug:slug>/literature/matrix/marks/<int:pk>/note/",
+        views.edit_mark_note,
+        name="mark_note",
+    ),
     path("projects/<slug:slug>/literature/export.bib", views.export_bib, name="export_bib"),
     path("projects/<slug:slug>/literature/report/", views.bib_report, name="report"),
 ]

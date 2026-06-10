@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from documents.models import Document, Folder, Tag
-from literature.models import CitationEdge, ProjectReference, Reference
+from literature.models import CitationEdge, ProjectReference, Reference, ReviewMark, ReviewTheme
 from notes.models import Note, QuickCapture
 from notes.services import sync_note_links
 from plans.models import Milestone, Phase, ResearchQuestion, Task
@@ -381,6 +381,29 @@ class Command(BaseCommand):
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
         )
+
+        # Literature review matrix: themes × papers with a few marks
+        theme_specs = [
+            "Dual-task paradigm",
+            "Capacity account",
+            "Strategic account",
+            "Pupillometry",
+        ]
+        themes = [
+            ReviewTheme.objects.update_or_create(project=project, name=name, defaults={"order": i})[
+                0
+            ]
+            for i, name in enumerate(theme_specs, start=1)
+        ]
+        matrix_links = list(project.project_references.select_related("reference"))[:8]
+        for i, link in enumerate(matrix_links):
+            for j, theme in enumerate(themes):
+                if (i + j) % 3 == 0:
+                    ReviewMark.objects.update_or_create(
+                        theme=theme,
+                        project_reference=link,
+                        defaults={"note": "Directly tests this." if (i + j) % 6 == 0 else ""},
+                    )
 
         # Writing: one manuscript mid-pipeline with bibliography + submission history
         manuscript, _ = Manuscript.objects.update_or_create(

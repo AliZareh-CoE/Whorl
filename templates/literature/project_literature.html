@@ -13,6 +13,7 @@
 <div class="mb-6 flex items-center justify-between">
   <h1 class="text-2xl font-semibold tracking-tight">Literature</h1>
   <div class="flex items-center gap-2">
+    <a href="{% url 'literature:matrix' project.slug %}" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">Review matrix</a>
     <a href="{% url 'literature:report' project.slug %}" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">Bib report</a>
     <a href="{% url 'literature:export_bib' project.slug %}" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">Export .bib</a>
     <a href="{% url 'literature:queue' project.slug %}" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">Reading queue</a>

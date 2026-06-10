@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CitationEdge, ProjectReference, Reference
+from .models import CitationEdge, ProjectReference, Reference, ReviewMark, ReviewTheme
 
 
 @admin.register(Reference)
@@ -19,3 +19,14 @@ class ProjectReferenceAdmin(admin.ModelAdmin):
 @admin.register(CitationEdge)
 class CitationEdgeAdmin(admin.ModelAdmin):
     list_display = ["citing", "cited"]
+
+
+@admin.register(ReviewTheme)
+class ReviewThemeAdmin(admin.ModelAdmin):
+    list_display = ["name", "project", "order"]
+    list_filter = ["project"]
+
+
+@admin.register(ReviewMark)
+class ReviewMarkAdmin(admin.ModelAdmin):
+    list_display = ["__str__", "note"]
