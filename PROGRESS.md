@@ -2,16 +2,31 @@
 
 ## Current Status
 
-- **Phase:** 6 — Claude integration (MCP)
-- **Slice in progress:** 6.1 mcp_server package — FastMCP tools over the DRF API
-- **Last completed slice:** Phase 5 gate
-- **Next 3 slices:**
-  1. 6.1 mcp_server/: FastMCP HTTP client over /api/v1/ (ATLAS_API_URL + ATLAS_API_KEY), tools: list_projects, get_project_overview, get_plan, complete_milestone, list_documents, search, add_reference_by_doi, get_reading_queue, set_reading_status, add_note, quick_capture, run_bib_check
-  2. 6.2 Supporting API endpoints where missing (overview, search, bib-check via API; notes API)
-  3. 6.3 README MCP registration docs + smoke-test script; Phase 6 gate
+- **Phase:** Backlog (all 6 phases gated ✅)
+- **Slice in progress:** — (next: Backlog #1, in-browser PDF viewer with highlight-to-note)
+- **Last completed slice:** Phase 6 gate
+- **Next 3 slices (Backlog top-down, one at a time, same standards):**
+  1. Backlog #1 — In-browser PDF viewer with highlight-to-note
+  2. Backlog #2 — Literature review matrix (papers × themes)
+  3. Backlog #3 — Embedding-based related-paper suggestions
 - **Broken:** nothing
 
 ## Gate reports
+
+### Phase 6 — Claude integration / MCP (2026-06-10)
+
+**Built:** `mcp_server/` — standalone FastMCP stdio server (official `mcp` SDK) whose `client.py` is a pure httpx client over `/api/v1/` configured by `ATLAS_API_URL` + `ATLAS_API_KEY` (an AST test enforces zero Django/SDK imports in the client); the full initial tool set: list_projects, get_project_overview, get_plan, complete_milestone, list_documents, search, add_reference_by_doi, get_reading_queue, set_reading_status, add_note, quick_capture, run_bib_check; supporting API endpoints added with schema descriptions: `/projects/{slug}/overview|plan|reading-queue|bib-report/`, `/api/v1/search/`, `/api/v1/notes/` (wiki-link sync on create/update); README documents `claude mcp add atlas ...` and a 5-step smoke-test conversation.
+
+**Evidence per acceptance criterion** (clean run; real MCP stdio client driving the server against the live app):
+- *List projects:* `list_projects` → `['attention-and-memory']`.
+- *Check off a milestone:* `get_plan` → milestone id 4 "Pilot data collected (n=12)"; `complete_milestone(4)` → completed_at set; `get_project_overview` progress moved 3/9 (33%) → 4/9 (44%).
+- *Add a reference by DOI:* `add_reference_by_doi("10.3758/s13423-017-1271-2", project)` → 201, key `white2017testing` from live Crossref; `get_reading_queue` contains it.
+- Also exercised live: `add_note` (with a resolving wiki-link), `quick_capture`, `run_bib_check` (4 categories), `search` (mixed types). All 12 tools listed over the protocol.
+- Suite: 152 passed; ruff check + format clean.
+
+**Decisions:** `mcp` SDK added (spec-sanctioned, see DECISIONS.md); client kept SDK-free and Django-free so the API stays the single contract.
+
+**Known gaps → Backlog:** none new. **All six phases are now gated; Backlog work begins top-down.**
 
 ### Phase 5 — Research thinking tools + dashboards (2026-06-10)
 
