@@ -12,7 +12,11 @@
 <body class="h-full bg-stone-50 text-stone-900 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <div class="flex h-full">
     <aside class="fixed inset-y-0 left-0 w-56 border-r border-stone-200 bg-white px-4 py-6 flex flex-col">
-      <a href="{% url 'core:dashboard' %}" class="text-lg font-semibold tracking-tight mb-8">Atlas</a>
+      <a href="{% url 'core:dashboard' %}" class="text-lg font-semibold tracking-tight mb-4">Atlas</a>
+      <form action="{% url 'core:search' %}" method="get" class="mb-4">
+        <input type="search" name="q" placeholder="Search…" value="{{ request.GET.q|default:'' }}"
+               class="w-full rounded border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm focus:border-indigo-600 focus:bg-white focus:outline-none">
+      </form>
       <nav class="space-y-1 text-sm">
         <a href="{% url 'core:dashboard' %}"
            class="block rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'core:dashboard' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">

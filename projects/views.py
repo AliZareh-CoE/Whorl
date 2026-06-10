@@ -72,6 +72,42 @@ def project_overview(request, slug):
     )
 
 
+def project_graph_page(request, slug):
+    from literature.models import CitationSyncState
+
+    project = get_object_or_404(Project, slug=slug)
+    sync_state = CitationSyncState.objects.filter(project=project).first()
+    return render(
+        request,
+        "projects/graph.html",
+        {"project": project, "sync_state": sync_state},
+    )
+
+
+def project_graph_json(request, slug):
+    from django.http import JsonResponse
+
+    from core.graph import project_graph
+
+    project = get_object_or_404(Project, slug=slug)
+    return JsonResponse(project_graph(project))
+
+
+@require_POST
+def project_graph_sync(request, slug):
+    from literature.models import CitationSyncState
+    from literature.tasks import sync_citations_task
+
+    project = get_object_or_404(Project, slug=slug)
+    state, _ = CitationSyncState.objects.get_or_create(project=project)
+    state.status = CitationSyncState.Status.SYNCING
+    state.message = "Queued"
+    state.save()
+    sync_citations_task(project.pk)
+    messages.success(request, "Citation sync started.")
+    return redirect("projects:graph", slug=project.slug)
+
+
 class ProjectScopedMixin:
     """Mixin for views that operate on objects belonging to one project."""
 

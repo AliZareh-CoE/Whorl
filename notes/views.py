@@ -1,10 +1,103 @@
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
+from django.views.generic import CreateView, DeleteView, UpdateView
 
 from projects.models import Project
+from projects.views import ProjectScopedMixin
 
-from .models import QuickCapture
+from . import services
+from .forms import NoteForm
+from .models import Note, QuickCapture
+
+
+def note_list(request, slug):
+    project = get_object_or_404(Project, slug=slug)
+    notes = project.notes.all()
+    query = request.GET.get("q", "").strip()
+    if query:
+        notes = notes.filter(title__icontains=query)
+    return render(
+        request,
+        "notes/note_list.html",
+        {"project": project, "notes": notes, "query": query},
+    )
+
+
+def note_detail(request, slug, pk):
+    project = get_object_or_404(Project, slug=slug)
+    note = get_object_or_404(project.notes, pk=pk)
+    from core.templatetags.markdown_extras import markdownify
+
+    return render(
+        request,
+        "notes/note_detail.html",
+        {
+            "project": project,
+            "note": note,
+            "rendered_body": markdownify(services.body_with_resolved_links(note)),
+            "backlinks": [link.source for link in note.incoming_links.select_related("source")],
+            "outgoing": [link.target for link in note.outgoing_links.select_related("target")],
+        },
+    )
+
+
+@require_POST
+def note_preview(request, slug):
+    """HTMX endpoint: render the markdown body as the user writes."""
+    project = get_object_or_404(Project, slug=slug)
+    from core.templatetags.markdown_extras import markdownify
+
+    body = request.POST.get("body", "")
+    fake = Note(project=project, body=body)
+    return render(
+        request,
+        "notes/_preview.html",
+        {"rendered": markdownify(services.body_with_resolved_links(fake))},
+    )
+
+
+class NoteFormMixin(ProjectScopedMixin):
+    model = Note
+    form_class = NoteForm
+    template_name = "notes/note_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.project
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.project = self.project
+        response = super().form_valid(form)
+        unresolved = services.sync_note_links(self.object)
+        if unresolved:
+            messages.info(
+                self.request,
+                "Unresolved wiki-links (no note with that title yet): " + ", ".join(unresolved),
+            )
+        return response
+
+
+class NoteCreateView(NoteFormMixin, CreateView):
+    pass
+
+
+class NoteUpdateView(NoteFormMixin, UpdateView):
+    def get_queryset(self):
+        return self.project.notes.all()
+
+
+class NoteDeleteView(ProjectScopedMixin, DeleteView):
+    model = Note
+    template_name = "notes/note_confirm_delete.html"
+
+    def get_queryset(self):
+        return self.project.notes.all()
+
+    def get_success_url(self):
+        return reverse("notes:list", kwargs={"slug": self.project.slug})
 
 
 def inbox(request):

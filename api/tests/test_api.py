@@ -178,3 +178,19 @@ class TestLiteratureAPI:
         from notes.models import QuickCapture
 
         assert QuickCapture.objects.filter(text="captured via API").exists()
+
+
+class TestGraphAPI:
+    def test_graph_endpoint_shape(self, client, owner):
+        from literature.models import CitationEdge
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link_a = ProjectReferenceFactory()
+        link_b = ProjectReferenceFactory(project=link_a.project)
+        CitationEdge.objects.create(citing=link_a.reference, cited=link_b.reference)
+        response = client.get(f"/api/v1/projects/{link_a.project.slug}/graph/", **HEADERS)
+        assert response.status_code == 200
+        data = response.json()
+        assert {"nodes", "links"} == set(data)
+        assert len(data["nodes"]) == 2
+        assert data["links"][0]["kind"] == "citation"

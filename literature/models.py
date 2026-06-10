@@ -98,3 +98,21 @@ class CitationEdge(models.Model):
 
     def __str__(self):
         return f"{self.citing.bibtex_key} → {self.cited.bibtex_key}"
+
+
+class CitationSyncState(TimeStampedModel):
+    """Per-project state of the OpenAlex citation-edge sync."""
+
+    class Status(models.TextChoices):
+        IDLE = "idle", "Never synced"
+        SYNCING = "syncing", "Syncing"
+        DONE = "done", "Synced"
+        FAILED = "failed", "Failed"
+
+    project = models.OneToOneField(Project, on_delete=models.CASCADE, related_name="citation_sync")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.IDLE)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    message = models.CharField(max_length=300, blank=True)
+
+    def __str__(self):
+        return f"{self.project.slug}: {self.status}"

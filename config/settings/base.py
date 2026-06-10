@@ -18,8 +18,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     "rest_framework",
     "drf_spectacular",
+    "huey.contrib.djhuey",
     "core",
     "projects",
     "plans",
@@ -102,3 +104,13 @@ LOGIN_REDIRECT_URL = "core:dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
 ATLAS_API_KEY = env("ATLAS_API_KEY", default="")
+
+REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+
+HUEY = {
+    "huey_class": "huey.RedisHuey",
+    "name": "atlas",
+    "url": REDIS_URL,
+    "immediate": False,
+    "consumer": {"workers": 1},
+}

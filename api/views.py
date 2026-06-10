@@ -40,6 +40,22 @@ class ProjectViewSet(AtlasViewSet):
     serializer_class = serializers.ProjectSerializer
     lookup_field = "slug"
 
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(description="Knowledge graph: {nodes: [...], links: [...]}")
+        },
+        description=(
+            "The project's knowledge graph. Nodes are references and notes "
+            "(id, type, label, group, size); links are citations, note-links, "
+            "and note→reference citations (source, target, kind)."
+        ),
+    )
+    @action(detail=True, methods=["get"])
+    def graph(self, request, slug=None):
+        from core.graph import project_graph
+
+        return Response(project_graph(self.get_object()))
+
 
 class PhaseViewSet(AtlasViewSet):
     queryset = Phase.objects.all()

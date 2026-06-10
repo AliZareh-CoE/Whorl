@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Graph · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Graph
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+
+<div class="mb-4 flex items-center gap-3" x-data>
+  <h1 class="text-2xl font-semibold tracking-tight">Knowledge graph</h1>
+  <span class="ml-auto"></span>
+  <span class="text-xs text-stone-400">
+    {% if sync_state %}
+      {% if sync_state.status == 'syncing' %}Citation sync running…
+      {% elif sync_state.status == 'done' %}Last synced {{ sync_state.last_synced_at|date:"Y-m-d H:i" }} — {{ sync_state.message }}
+      {% elif sync_state.status == 'failed' %}Sync failed: {{ sync_state.message }}
+      {% else %}Citations never synced{% endif %}
+    {% else %}Citations never synced{% endif %}
+  </span>
+  <form method="post" action="{% url 'projects:graph_sync' project.slug %}">
+    {% csrf_token %}
+    <button type="submit" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400"
+            {% if sync_state.status == 'syncing' %}disabled{% endif %}>Sync citations from OpenAlex</button>
+  </form>
+  <button id="toggle-dim" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">2D / 3D</button>
+</div>
+
+<div class="relative overflow-hidden rounded border border-stone-200 bg-white" style="height: 70vh">
+  <div id="graph" class="h-full w-full"></div>
+  <div id="side-panel" class="absolute right-0 top-0 hidden h-full w-72 overflow-y-auto border-l border-stone-200 bg-white/95 p-4">
+    <button id="panel-close" class="mb-2 text-xs text-stone-400 hover:text-stone-600">✕ close</button>
+    <p id="panel-type" class="text-xs uppercase tracking-wide text-stone-400"></p>
+    <h2 id="panel-title" class="mb-2 text-sm font-medium"></h2>
+    <a id="panel-link" href="#" class="text-sm text-indigo-600 hover:underline">Open →</a>
+  </div>
+  <div class="absolute bottom-2 left-2 rounded bg-white/90 px-3 py-2 text-xs text-stone-500">
+    <span class="mr-3"><span style="color:#dc2626">●</span> to read</span>
+    <span class="mr-3"><span style="color:#f59e0b">●</span> skimmed</span>
+    <span class="mr-3"><span style="color:#16a34a">●</span> read / annotated</span>
+    <span><span style="color:#4f46e5">●</span> note</span>
+  </div>
+</div>
+
+<script src="https://unpkg.com/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"></script>
+<script src="https://unpkg.com/force-graph@1.43.5/dist/force-graph.min.js"></script>
+<script>
+  const COLORS = {
+    to_read: "#dc2626", skimmed: "#f59e0b", read: "#16a34a",
+    annotated: "#16a34a", note: "#4f46e5",
+  };
+  const container = document.getElementById("graph");
+  const panel = document.getElementById("side-panel");
+  let is3D = true, graph = null, data = null;
+
+  function showPanel(node) {
+    document.getElementById("panel-type").textContent = node.type;
+    document.getElementById("panel-title").textContent = node.title;
+    document.getElementById("panel-link").href = node.url;
+    panel.classList.remove("hidden");
+  }
+  document.getElementById("panel-close").onclick = () => panel.classList.add("hidden");
+
+  function render() {
+    container.innerHTML = "";
+    const factory = is3D ? ForceGraph3D : ForceGraph;
+    graph = factory()(container)
+      .graphData(data)
+      .backgroundColor("#ffffff")
+      .nodeLabel(n => `${n.label}: ${n.title}`)
+      .nodeColor(n => COLORS[n.group] || "#78716c")
+      .nodeVal(n => n.size)
+      .linkColor(l => l.kind === "citation" ? "#a8a29e" : "#818cf8")
+      .onNodeClick(showPanel)
+      .width(container.clientWidth)
+      .height(container.clientHeight);
+  }
+
+  fetch("{% url 'projects:graph_json' project.slug %}")
+    .then(r => r.json())
+    .then(d => { data = d; render(); });
+
+  document.getElementById("toggle-dim").onclick = () => { is3D = !is3D; render(); };
+</script>
+{% endblock %}

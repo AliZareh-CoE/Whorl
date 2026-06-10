@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Notes · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Notes
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-2xl font-semibold tracking-tight">Notes</h1>
+  <a href="{% url 'notes:create' project.slug %}"
+     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">New note</a>
+</div>
+
+<form method="get" class="mb-4">
+  <input type="search" name="q" value="{{ query }}" placeholder="Filter by title…"
+         class="w-full max-w-sm rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none">
+</form>
+
+{% if notes %}
+  <div class="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
+    {% for note in notes %}
+      <a href="{{ note.get_absolute_url }}" class="flex items-baseline gap-3 px-4 py-3 hover:bg-stone-50">
+        <span class="font-medium">{{ note.title }}</span>
+        <span class="ml-auto shrink-0 text-xs text-stone-400">
+          {% with in_count=note.incoming_links.count %}{% if in_count %}{{ in_count }} backlink{{ in_count|pluralize }} · {% endif %}{% endwith %}
+          {{ note.updated_at|date:"Y-m-d" }}
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+    <p class="mb-2 text-stone-600">Notes are linked thoughts: write in markdown, connect ideas with [[wiki-links]], cite references.</p>
+    <a href="{% url 'notes:create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Write the first note</a>
+  </div>
+{% endif %}
+{% endblock %}

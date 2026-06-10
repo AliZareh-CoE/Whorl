@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Search{% endblock %}
+
+{% block breadcrumbs %}Search{% endblock %}
+
+{% block content %}
+<h1 class="mb-6 text-2xl font-semibold tracking-tight">Search</h1>
+<form method="get" class="mb-8">
+  <input type="search" name="q" value="{{ query }}" autofocus placeholder="Search everything…"
+         class="w-full max-w-lg rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none">
+</form>
+
+{% if query %}
+  {% if grouped %}
+    <p class="mb-4 text-sm text-stone-500">{{ total }} result{{ total|pluralize }} for “{{ query }}”.</p>
+    <div class="space-y-6">
+      {% for type, items in grouped.items %}
+        <section>
+          <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">{{ type }}s</h2>
+          <div class="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
+            {% for item in items %}
+              <div class="flex items-baseline gap-3 px-4 py-2.5 text-sm">
+                {% if item.type == 'project' %}
+                  <a href="{{ item.object.get_absolute_url }}" class="font-medium hover:underline">{{ item.object.name }}</a>
+                {% elif item.type == 'reference' %}
+                  <a href="{{ item.object.get_absolute_url }}" class="font-medium hover:underline">{{ item.object.title|truncatechars:90 }}</a>
+                  <span class="font-mono text-xs text-stone-400">{{ item.object.bibtex_key }}</span>
+                {% elif item.type == 'note' %}
+                  <a href="{{ item.object.get_absolute_url }}" class="font-medium hover:underline">{{ item.object.title }}</a>
+                {% elif item.type == 'document' %}
+                  <a href="{% url 'documents:download' item.project.slug item.object.pk %}" class="font-medium hover:underline">{{ item.object.title }}</a>
+                {% elif item.type == 'decision' %}
+                  <a href="{% url 'projects:decisions' item.project.slug %}" class="font-medium hover:underline">{{ item.object.title }}</a>
+                {% elif item.type == 'phase' %}
+                  <a href="{% url 'plans:plan' item.project.slug %}" class="font-medium hover:underline">{{ item.object.name }}</a>
+                {% elif item.type == 'milestone' %}
+                  <a href="{% url 'plans:plan' item.project.slug %}" class="font-medium hover:underline">{{ item.object.title }}</a>
+                {% endif %}
+                {% if item.project %}
+                  <span class="ml-auto shrink-0 text-xs text-stone-400">{{ item.project.name }}</span>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-sm text-stone-500">No results for “{{ query }}”.</p>
+  {% endif %}
+{% else %}
+  <p class="text-sm text-stone-500">Search spans references, notes, documents, decisions, plans, and projects.</p>
+{% endif %}
+{% endblock %}
