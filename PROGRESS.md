@@ -2,16 +2,30 @@
 
 ## Current Status
 
-- **Phase:** 5 — Research thinking tools + dashboards
-- **Slice in progress:** 5.1 research app — Hypothesis + Evidence ledger
-- **Last completed slice:** Phase 4 gate
+- **Phase:** 6 — Claude integration (MCP)
+- **Slice in progress:** 6.1 mcp_server package — FastMCP tools over the DRF API
+- **Last completed slice:** Phase 5 gate
 - **Next 3 slices:**
-  1. 5.1 research app: Hypothesis/Evidence models, ledger page with evidence balance + auto-suggested status
-  2. 5.2 ExperimentEntry log + Dataset registry
-  3. 5.3 Cross-project dashboard: active projects with progress, upcoming milestones/deadlines, activity heatmap, simple stats
+  1. 6.1 mcp_server/: FastMCP HTTP client over /api/v1/ (ATLAS_API_URL + ATLAS_API_KEY), tools: list_projects, get_project_overview, get_plan, complete_milestone, list_documents, search, add_reference_by_doi, get_reading_queue, set_reading_status, add_note, quick_capture, run_bib_check
+  2. 6.2 Supporting API endpoints where missing (overview, search, bib-check via API; notes API)
+  3. 6.3 README MCP registration docs + smoke-test script; Phase 6 gate
 - **Broken:** nothing
 
 ## Gate reports
+
+### Phase 5 — Research thinking tools + dashboards (2026-06-10)
+
+**Built:** `research` app — Hypothesis ledger (evidence balance per hypothesis, status auto-suggested from supports/contradicts/mixed but only ever set manually), Evidence linked to references/notes/documents, dated markdown ExperimentEntry log linked to hypotheses, Dataset registry (location/version/checksum); cross-project dashboard at `/` — active projects with current phase + progress bars, upcoming milestones and manuscript deadlines across everything (overdue flagged), GitHub-style 26-week activity heatmap from created_at/updated_at across 14 models, monthly stats (papers read, notes written, milestones completed, experiments logged), inbox triage count.
+
+**Evidence per acceptance criterion** (clean run from fresh volume):
+- *Dashboard answers "what should I work on today, everywhere?" in one screen:* live `/` shows the active project with its in-progress phase and progress bar, the overdue "Pilot data collected" milestone, the manuscript deadline countdown, monthly stats, and the activity heatmap — all above the fold. Test `test_dashboard_answers_today_everywhere` asserts project, phase, milestone, deadline, stats and heatmap in one response.
+- Ledger: live page shows "2 supports · 1 contradicts" with "balance suggests" hint while the stored status (Testing) wins; `TestSuggestedStatus` covers supported/contradicted/inconclusive/manual-wins.
+- Experiment log + dataset registry render seeded entries (verified live).
+- Suite: 140 passed; ruff check + format clean.
+
+**Decisions:** evidence-balance suggestion is advisory-only (never auto-writes status) — keeps the researcher's judgment authoritative.
+
+**Known gaps → Backlog:** none new.
 
 ### Phase 4 — Writing studio (2026-06-10)
 
