@@ -2,16 +2,31 @@
 
 ## Current Status
 
-- **Phase:** 2 — API v1 + Literature core
-- **Slice in progress:** 2.1 DRF setup — X-API-Key auth, Phase 1 resources read/write, schema at /api/docs/
-- **Last completed slice:** Phase 1 gate
+- **Phase:** 3 — Knowledge graph, notes, search
+- **Slice in progress:** 3.1 huey + Redis + citation-edge sync task
+- **Last completed slice:** Phase 2 gate
 - **Next 3 slices:**
-  1. 2.1 api app: DRF + drf-spectacular, X-API-Key auth, serializers/viewsets for projects, phases, milestones, tasks, questions, decisions, folders, tags, documents (incl. upload), pagination 50
-  2. 2.2 literature app: Reference model + add-by-DOI/arXiv (Crossref→OpenAlex via httpx) + manual entry + BibTeX paste-import + PDF attach
-  3. 2.3 ProjectReference linking + per-project literature page + reading queue + .bib export
+  1. 3.1 huey + Redis in docker-compose; background task fetching citation edges among a project's references from OpenAlex with last-synced/syncing state
+  2. 3.2 Notes: Note/NoteLink models, markdown editor + preview, [[wiki-links]] parsing, backlinks panel, link notes to references
+  3. 3.3 Graph API (`GET /api/v1/projects/{slug}/graph/`) + 3D graph page (3d-force-graph, 2D toggle, side panel)
 - **Broken:** nothing
 
 ## Gate reports
+
+### Phase 2 — API v1 + Literature core (2026-06-10)
+
+**Built:** `api` app — DRF + drf-spectacular, sole auth via `X-API-Key` against `ATLAS_API_KEY` (session auth rejected on API; UI login untouched), all Phase 1 resources read/write incl. multipart document upload, pagination 50, schema + Swagger at `/api/docs/`; `literature` app — global Reference library, add by DOI (Crossref → OpenAlex fallback, httpx, 10s timeouts, `MetadataError` with human-readable reasons), add by arXiv ID (arXiv export API — see DECISIONS.md), manual entry with generated `lastnameYEARfirstword` keys, BibTeX paste-import with DOI dedup, PDF attach; ProjectReference linking with reading status + priority, per-project literature page with filters, reading queue (priority-sorted, HTMX inline status change), per-project `.bib` export with stable keys; bib checkers v1 in `literature/services.py` (duplicates DOI-exact + fuzzy-title, missing required fields per entry type, DOI resolution via doi.org, retraction flag via Crossref `updates:` filter) on a report page with offline mode; quick-capture inbox with triage + API; `POST /api/v1/references/by-doi`, `/api/v1/project-references/`, `/api/v1/quick-capture/`.
+
+**Evidence per acceptance criterion** (clean run: fresh volume → compose → migrate → seed_demo → runserver):
+- *curl with API key creates a project and adds a reference by DOI end-to-end:* `POST /api/v1/projects/ {"name": "Gate Two Project"}` → 201 slug `gate-two-project`; `POST /api/v1/references/by-doi/ {"doi": "10.1038/nature12373", "project": "gate-two-project"}` → 201, real Crossref metadata, key `kucsko2013nanometre`, linked to project. Also live arXiv: `{"doi": "1706.03762"}` → 201 `vaswani2017attention`.
+- *Bib report renders with the four checker categories:* `/projects/attention-and-memory/literature/report/` shows Duplicates, Missing fields, DOI resolution, Retractions; seeded fake DOIs correctly flagged "does not resolve (HTTP 404)"; incomplete seeded entry flagged for missing fields. Tests: `literature/tests/test_services.py::TestCheckers` (8 tests).
+- *Reading queue works:* `/literature/queue/` lists only to-read/skimmed, HighPaper before LowPaper (priority order, tested); HTMX status change → 200 and persists.
+- Auth: missing/wrong key → 401; session cookie on API → 401; UI still login-only (tested).
+- Suite: 98 passed; ruff check + format clean.
+
+**Decisions:** arXiv via arXiv export API (OpenAlex 404s DataCite DOIs — verified live); `doi` is the unique nullable identity, `arxiv_id`/`openalex_id` plain strings.
+
+**Known gaps → Backlog:** none new (OpenAlex enrichment of arXiv records arrives naturally with Phase 3 citation sync).
 
 ### Phase 1 — Projects, Documents, Plans (2026-06-10)
 
