@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Read · {{ reference.bibtex_key }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'literature:index' %}" class="hover:underline">Library</a> /
+<a href="{{ reference.get_absolute_url }}" class="hover:underline">{{ reference.bibtex_key }}</a> / Read
+{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-center gap-3">
+  <h1 class="min-w-0 flex-1 truncate text-xl font-semibold tracking-tight">{{ reference.title }}</h1>
+  {% if linked_projects %}
+    <label class="shrink-0 text-xs text-stone-400">Highlights go to</label>
+    <select id="highlight-project" class="shrink-0 rounded border border-stone-300 bg-white px-2 py-1 text-sm">
+      {% for project in linked_projects %}
+        <option value="{{ project.slug }}">{{ project.name }}</option>
+      {% endfor %}
+    </select>
+  {% else %}
+    <span class="shrink-0 text-xs text-stone-400">Link this reference to a project to save highlights.</span>
+  {% endif %}
+</div>
+
+<div id="status" class="mb-2 hidden rounded border border-green-200 bg-green-50 px-3 py-1.5 text-sm text-green-800"></div>
+
+<div class="relative rounded border border-stone-200 bg-stone-100 p-4" style="min-height: 70vh">
+  <div id="pdf-pages" class="mx-auto space-y-4" style="max-width: 60rem"></div>
+  <button id="save-highlight"
+          class="fixed z-10 hidden rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-indigo-700">
+    Save highlight → note
+  </button>
+</div>
+
+<style>
+  .pdf-page { position: relative; margin: 0 auto; background: white; box-shadow: 0 1px 3px rgb(0 0 0 / 0.1); }
+  .textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; opacity: 1; }
+  .textLayer span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; }
+  .textLayer ::selection { background: rgb(79 70 229 / 0.35); }
+</style>
+
+<script type="module">
+  import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+
+  const container = document.getElementById("pdf-pages");
+  const saveBtn = document.getElementById("save-highlight");
+  const statusBox = document.getElementById("status");
+  const projectSelect = document.getElementById("highlight-project");
+
+  const pdf = await pdfjsLib.getDocument("{{ reference.pdf.url }}").promise;
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n);
+    const viewport = page.getViewport({ scale: 1.4 });
+    const wrap = document.createElement("div");
+    wrap.className = "pdf-page";
+    wrap.dataset.page = n;
+    wrap.style.width = viewport.width + "px";
+    wrap.style.height = viewport.height + "px";
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    wrap.appendChild(canvas);
+    const textDiv = document.createElement("div");
+    textDiv.className = "textLayer";
+    wrap.appendChild(textDiv);
+    container.appendChild(wrap);
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    await new pdfjsLib.TextLayer({
+      textContentSource: page.streamTextContent(),
+      container: textDiv,
+      viewport,
+    }).render();
+  }
+
+  let current = { text: "", page: null };
+
+  document.addEventListener("mouseup", () => {
+    if (!projectSelect) return;
+    const selection = window.getSelection();
+    const text = selection ? selection.toString().trim() : "";
+    if (text.length > 2 && selection.anchorNode) {
+      const pageEl = selection.anchorNode.parentElement?.closest(".pdf-page");
+      current = { text, page: pageEl ? Number(pageEl.dataset.page) : null };
+      const rect = selection.getRangeAt(0).getBoundingClientRect();
+      saveBtn.style.left = rect.left + "px";
+      saveBtn.style.top = rect.bottom + 8 + "px";
+      saveBtn.classList.remove("hidden");
+    } else if (!saveBtn.matches(":hover")) {
+      saveBtn.classList.add("hidden");
+    }
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const body = new FormData();
+    body.append("project", projectSelect.value);
+    body.append("text", current.text);
+    if (current.page) body.append("page", current.page);
+    const response = await fetch("{% url 'literature:highlight' reference.pk %}", {
+      method: "POST",
+      headers: { "X-CSRFToken": "{{ csrf_token }}" },
+      body,
+    });
+    saveBtn.classList.add("hidden");
+    if (response.ok) {
+      const data = await response.json();
+      statusBox.innerHTML = `Highlight saved to <a class="underline" href="${data.note_url}">the highlights note</a>.`;
+      statusBox.classList.remove("hidden");
+      window.getSelection()?.removeAllRanges();
+    } else {
+      statusBox.textContent = "Could not save highlight.";
+      statusBox.classList.remove("hidden");
+    }
+  });
+</script>
+{% endblock %}

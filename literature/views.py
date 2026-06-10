@@ -117,6 +117,39 @@ def link_to_project(request, pk):
     return redirect(reference.get_absolute_url())
 
 
+def read_pdf(request, pk):
+    reference = get_object_or_404(Reference, pk=pk)
+    if not reference.pdf:
+        messages.error(request, "No PDF attached to this reference yet.")
+        return redirect(reference.get_absolute_url())
+    return render(
+        request,
+        "literature/read.html",
+        {
+            "reference": reference,
+            "linked_projects": Project.objects.filter(project_references__reference=reference),
+        },
+    )
+
+
+@require_POST
+def save_highlight(request, pk):
+    from django.http import JsonResponse
+
+    from notes.services import add_highlight_note
+
+    reference = get_object_or_404(Reference, pk=pk)
+    project = get_object_or_404(
+        Project, slug=request.POST.get("project"), project_references__reference=reference
+    )
+    text = request.POST.get("text", "").strip()
+    if not text:
+        return JsonResponse({"error": "Empty selection."}, status=400)
+    page = request.POST.get("page")
+    note = add_highlight_note(reference, project, text, int(page) if page else None)
+    return JsonResponse({"note_id": note.pk, "note_url": note.get_absolute_url()})
+
+
 def project_literature(request, slug):
     project = get_object_or_404(Project, slug=slug)
     links = project.project_references.select_related("reference")

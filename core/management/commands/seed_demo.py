@@ -16,6 +16,36 @@ from writing.models import Manuscript, ManuscriptReference, SubmissionEvent
 DEMO_SLUG = "attention-and-memory"
 
 
+def make_demo_pdf(lines: list[str]) -> bytes:
+    """A minimal valid one-page PDF with selectable text (no extra dependencies)."""
+    text_ops = "\n".join(
+        f"BT /F1 14 Tf 72 {720 - 24 * i} Td ({line}) Tj ET" for i, line in enumerate(lines)
+    )
+    stream = text_ops.encode()
+    objects = [
+        b"<</Type /Catalog /Pages 2 0 R>>",
+        b"<</Type /Pages /Kids [3 0 R] /Count 1>>",
+        b"<</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        b"/Resources <</Font <</F1 5 0 R>>>>>>",
+        b"<</Length " + str(len(stream)).encode() + b">>\nstream\n" + stream + b"\nendstream",
+        b"<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for i, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref_at = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode()
+    out += b"0000000000 65535 f \n"
+    for offset in offsets:
+        out += f"{offset:010d} 00000 n \n".encode()
+    out += (
+        f"trailer\n<</Size {len(objects) + 1} /Root 1 0 R>>\nstartxref\n{xref_at}\n%%EOF"
+    ).encode()
+    return bytes(out)
+
+
 class Command(BaseCommand):
     help = "Seed a realistic demo research project exercising every Atlas feature."
 
@@ -231,6 +261,15 @@ class Command(BaseCommand):
                 "priority": ProjectReference.Priority.LOW,
             },
         ]
+        demo_pdf = make_demo_pdf(
+            [
+                "Attention, Distraction, and Cognitive Control Under Load",
+                "Demo PDF for the Atlas in-browser reader.",
+                "Select any of this text to save a highlight to a note.",
+                "Perceptual load gates distractor processing early;",
+                "cognitive load releases it. The dissociation matters.",
+            ]
+        )
         for spec in demo_refs:
             reference, _ = Reference.objects.update_or_create(
                 bibtex_key=spec["bibtex_key"],
@@ -249,6 +288,8 @@ class Command(BaseCommand):
                 reference=reference,
                 defaults={"reading_status": spec["status"], "priority": spec["priority"]},
             )
+            if spec["bibtex_key"] == "lavie2010attention" and not reference.pdf:
+                reference.pdf.save("lavie2010-demo.pdf", ContentFile(demo_pdf), save=True)
 
         # A larger cited corpus so the knowledge graph is worth looking at (20+ refs)
         corpus_authors = [

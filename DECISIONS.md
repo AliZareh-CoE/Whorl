@@ -4,6 +4,11 @@ Running decision log for the Atlas build. Newest entries at the top of each sect
 
 ## Decisions
 
+### 2026-06-10 — PDF viewer via pdf.js CDN; highlights append to one note per reference/project
+- **Decision:** Backlog #1 uses pdf.js (pdfjs-dist via CDN, like 3d-force-graph) rendering canvas + text layer at `/library/{pk}/read/`. Selecting text offers "Save highlight", which appends a blockquote (with page number) to a single auto-created note titled "Highlights — {bibtex_key}" in a chosen linked project, and links the note to the reference.
+- **Why:** CDN JS is the established pattern for rich views in the locked stack (no Node build); one append-only highlights note per reference/project keeps "a place for everything" — highlights are findable via search, backlinks, and the graph immediately.
+- **Alternatives rejected:** a dedicated Highlight model (more machinery than the workflow needs; a note already integrates with search/graph/evidence); browser-native iframe PDF rendering (no text-selection hook for highlight-to-note).
+
 ### 2026-06-10 — `mcp` SDK added as a dependency (Phase 6, spec-sanctioned)
 - **Decision:** Add the official `mcp` Python SDK to `pyproject.toml` for `mcp_server/`. The server is stdio-only FastMCP; `mcp_server/client.py` stays a pure httpx client with zero Django and zero SDK imports (enforced by `test_no_django_imports`).
 - **Why:** CLAUDE.md §5 Phase 6 names this SDK explicitly; the API remains the single contract.

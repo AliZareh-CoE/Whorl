@@ -160,3 +160,62 @@ class TestInbox:
         client_logged_in.post(reverse("notes:triage", args=[capture.pk]), {"action": "dismiss"})
         capture.refresh_from_db()
         assert capture.processed and capture.project is None
+
+
+class TestPdfReader:
+    def make_ref_with_pdf(self):
+        from django.core.files.base import ContentFile
+
+        link = ProjectReferenceFactory()
+        link.reference.pdf.save("paper.pdf", ContentFile(b"%PDF-1.4 fake"), save=True)
+        return link
+
+    def test_read_page_renders_with_pdf(self, client_logged_in):
+        link = self.make_ref_with_pdf()
+        response = client_logged_in.get(reverse("literature:read", args=[link.reference.pk]))
+        assert response.status_code == 200
+        assert b"pdfjs" in response.content
+        assert link.project.name.encode() in response.content
+
+    def test_read_redirects_without_pdf(self, client_logged_in):
+        ref = ReferenceFactory()
+        response = client_logged_in.get(reverse("literature:read", args=[ref.pk]))
+        assert response.status_code == 302
+        assert response.url == ref.get_absolute_url()
+
+    def test_save_highlight_creates_and_appends_note(self, client_logged_in):
+        from notes.models import Note
+
+        link = self.make_ref_with_pdf()
+        url = reverse("literature:highlight", args=[link.reference.pk])
+        first = client_logged_in.post(
+            url, {"project": link.project.slug, "text": "key passage one", "page": 3}
+        )
+        assert first.status_code == 200
+        note = Note.objects.get(pk=first.json()["note_id"])
+        assert note.title == f"Highlights — {link.reference.bibtex_key}"
+        assert "> key passage one" in note.body
+        assert "p.3" in note.body
+        assert link.reference in note.references.all()
+
+        client_logged_in.post(url, {"project": link.project.slug, "text": "second passage"})
+        note.refresh_from_db()
+        assert "second passage" in note.body
+        assert Note.objects.filter(project=link.project).count() == 1
+
+    def test_highlight_rejects_unlinked_project(self, client_logged_in):
+        link = self.make_ref_with_pdf()
+        other = ProjectFactory()
+        response = client_logged_in.post(
+            reverse("literature:highlight", args=[link.reference.pk]),
+            {"project": other.slug, "text": "nope"},
+        )
+        assert response.status_code == 404
+
+    def test_highlight_rejects_empty_text(self, client_logged_in):
+        link = self.make_ref_with_pdf()
+        response = client_logged_in.post(
+            reverse("literature:highlight", args=[link.reference.pk]),
+            {"project": link.project.slug, "text": "   "},
+        )
+        assert response.status_code == 400

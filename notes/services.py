@@ -43,3 +43,18 @@ def body_with_resolved_links(note: Note) -> str:
         return f"*[[{title}]]*"
 
     return WIKI_LINK_RE.sub(replace, note.body or "")
+
+
+def add_highlight_note(reference, project, text: str, page: int | None = None) -> Note:
+    """Append a PDF highlight to the reference's per-project highlights note."""
+    title = f"Highlights — {reference.bibtex_key}"
+    note = Note.objects.filter(project=project, title__iexact=title).first()
+    if note is None:
+        note = Note.objects.create(project=project, title=title, body="")
+    quoted = "\n".join(f"> {line}" for line in text.strip().splitlines())
+    page_part = f", p.{page}" if page else ""
+    note.body = (note.body + f"\n\n{quoted}\n> — {reference.bibtex_key}{page_part}").strip()
+    note.save()
+    note.references.add(reference)
+    sync_note_links(note)
+    return note
