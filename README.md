@@ -14,13 +14,14 @@ git clone <repo-url> atlas && cd atlas
 cp .env.example .env          # edit SECRET_KEY / ATLAS_API_KEY if you like
 uv venv --python 3.12 && uv sync
 
-docker compose up -d          # Postgres 16 on localhost:5432
+docker compose up -d          # Postgres 16 (5432) + Redis 7 (6379)
 make css                      # downloads the Tailwind standalone CLI on first run
 
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py createsuperuser   # you are the single user
 .venv/bin/python manage.py seed_demo         # optional demo data
 .venv/bin/python manage.py runserver
+.venv/bin/python manage.py run_huey   # background worker (citation sync), separate terminal
 ```
 
 Open http://127.0.0.1:8000/ and log in. The Django admin lives at `/admin/`.

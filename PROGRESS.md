@@ -2,16 +2,31 @@
 
 ## Current Status
 
-- **Phase:** 3 — Knowledge graph, notes, search
-- **Slice in progress:** 3.1 huey + Redis + citation-edge sync task
-- **Last completed slice:** Phase 2 gate
+- **Phase:** 4 — Writing studio
+- **Slice in progress:** 4.1 writing app — Manuscript model + status board
+- **Last completed slice:** Phase 3 gate
 - **Next 3 slices:**
-  1. 3.1 huey + Redis in docker-compose; background task fetching citation edges among a project's references from OpenAlex with last-synced/syncing state
-  2. 3.2 Notes: Note/NoteLink models, markdown editor + preview, [[wiki-links]] parsing, backlinks panel, link notes to references
-  3. 3.3 Graph API (`GET /api/v1/projects/{slug}/graph/`) + 3D graph page (3d-force-graph, 2D toggle, side panel)
+  1. 4.1 writing app: Manuscript/ManuscriptReference/SubmissionEvent models + CRUD + status pipeline view + deadline countdown on overview
+  2. 4.2 Per-manuscript bibliography picker + manuscript.bib export
+  3. 4.3 Cite checker (.tex upload/paste → \cite{} keys vs bib) + submission timeline
 - **Broken:** nothing
 
 ## Gate reports
+
+### Phase 3 — Knowledge graph, notes, search (2026-06-10)
+
+**Built:** huey 3 + Redis 7 (compose service, `run_huey` worker, MemoryHuey-immediate in tests); `literature/sync.py` — OpenAlex citation-edge sync (batched DOI→openalex_id resolution, referenced_works edges among project refs, citation_count refresh) with `CitationSyncState` (idle/syncing/done/failed + last-synced message) surfaced on the graph page with a sync button; notes — `Note`/`NoteLink`, markdown editor with live HTMX preview, `[[wiki-links]]` parsed to links on save (unresolved titles reported), backlinks panel, note→reference citations; knowledge graph — `core/graph.py` builder, session endpoint `/projects/{slug}/graph.json` + API `GET /api/v1/projects/{slug}/graph/`, page with 3d-force-graph + 2D toggle, node size from citation count, color from reading status/type, click side panel with link to object; global Postgres FTS (`core/search.py`) across projects, references, notes, documents, decisions, phases, milestones with a sidebar search box.
+
+**Evidence per acceptance criterion** (clean run incl. `run_huey` worker):
+- *20+ references → navigable 3D citation graph:* seeded project graph.json = 22 reference nodes, 3 note nodes, links {citation: 33, note-link: 4, note-citation: 5}; graph page loads 3d-force-graph.
+- *Creating [[links]] updates graph and backlinks:* created "Gate Note" with `[[Load theory overview]]` via UI → backlinks panel on target shows it; graph.json note-links 4→5.
+- *Search returns mixed-type results:* `/search/?q=attention` → 13 results grouped under projects, references, phases, decisions.
+- *Background sync with visible state:* created "Sync Gate" project via API with DOIs 10.1038/nature14539 + 10.1162/neco.1997.9.8.1735 → POST graph/sync → huey consumer processed → "Last synced 2026-06-10 22:10 — 2/2 references matched on OpenAlex; 1 new edge(s)"; graph shows the real LeCun→LSTM citation edge.
+- Tests: sync (mocked transport, 4 cases), graph builder, wiki-link service (5), notes views (4), search (4). Suite: 119 passed; ruff clean.
+
+**Decisions:** Graph JSON has both a session-auth UI endpoint and the keyed API endpoint, both rendering from one builder. Tests run huey in immediate MemoryHuey mode.
+
+**Known gaps → Backlog:** none new.
 
 ### Phase 2 — API v1 + Literature core (2026-06-10)
 
