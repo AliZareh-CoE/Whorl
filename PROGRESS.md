@@ -3,12 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: Backlog #3, embedding-based related-paper suggestions)
-- **Last completed slice:** Backlog #2 — literature review matrix at `/projects/{slug}/literature/matrix/`: ReviewTheme columns × linked-paper rows, HTMX cell toggles, per-cell 300-char notes, theme CRUD with per-project unique names; seeded with 4 themes; verified live in a real browser.
-- **Next 3 slices (Backlog top-down):**
-  1. Backlog #3 — Embedding-based related-paper suggestions
-  2. Backlog #4 — GitHub commit ↔ experiment linking
-  3. Backlog #5 — Cmd+K command palette
+- **Slice in progress:** — (next: Owner idea #1 — performance pass, starting with an N+1 query audit)
+- **Last completed slice:** Backlog #3 — related-paper suggestions (TF-IDF cosine over title+abstract in `literature/related.py`, "Related in your library" panel on reference detail, `GET /api/v1/references/{id}/related/`).
+- **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
+- **Next 3 slices:**
+  1. Owner idea #1 — performance: N+1 query audit on list/overview pages + fixes
+  2. Owner idea #2 — security: login rate limiting + upload validation + prod headers
+  3. Owner idea #3 — local TTS "read aloud" (Piper) for notes and abstracts
 - **Broken:** nothing
 
 ## Gate reports

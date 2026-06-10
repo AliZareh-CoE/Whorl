@@ -2,6 +2,32 @@
 
 Running decision log for the Atlas build. Newest entries at the top of each section.
 
+## Owner ideas (todo — outranks the auto backlog; only broken builds come first)
+
+The owner adds ideas here (or tells the agent, who appends them). Work top-down; split big
+ones into cycle-sized slices; mark done with date. Never delete — strike through and date.
+
+1. **Performance: lightning fast & efficient.** Recurring concern, not one slice — every cycle
+   should leave the app faster or no slower. Concrete sub-slices: query audit (N+1s on list
+   pages), template fragment caching where it matters, conditional GETs/ETags on the API.
+2. **Security hardening.** Recurring concern alongside performance: login rate limiting,
+   upload type/size validation, security headers in prod settings, API-key handling audit.
+3. **Free local text-to-speech ("read this to me").** A strong free TTS engine (e.g. Piper)
+   the owner can run locally; "Read aloud" on notes, abstracts, and (eventually) PDFs.
+4. **Auto-download article PDFs.** When a reference is added, resolve and fetch the
+   open-access PDF automatically (Unpaywall API, arXiv PDFs) into `Reference.pdf`.
+5. **NLP helpers.** Language tooling where it genuinely helps: keyword extraction for
+   auto-tag suggestions, abstract/note summarization, smarter related-paper matching.
+
+## Loop rules (amendments to CLAUDE.md §5, owner-directed)
+
+- **The backlog must never be empty.** Every loop cycle MUST append at least one new,
+  concrete, valuable idea to the Backlog below before it ends — the loop runs forever.
+- **Priority order each cycle:** (a) anything broken → (b) Owner ideas top-down →
+  (c) auto Backlog top-down. New owner messages with ideas are appended to Owner ideas
+  immediately.
+- **Efficiency and security are standing constraints** on every slice, not just items 1–2.
+
 ## Decisions
 
 ### 2026-06-10 — Related-paper suggestions use TF-IDF cosine, not neural embeddings
@@ -52,3 +78,4 @@ Running decision log for the Atlas build. Newest entries at the top of each sect
 7. Protocol library with versioning
 8. Results/figure gallery
 9. Email/calendar deadline reminders
+10. OpenAlex "discover similar" — surface related_works for a reference with one-click add-by-DOI (idea added by cycle 3, from the related-papers work)
