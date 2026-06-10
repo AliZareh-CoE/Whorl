@@ -35,7 +35,9 @@ ACTIVITY_MODELS = [
 
 
 def active_projects():
-    projects = Project.objects.filter(status__in=[Project.Status.PLANNING, Project.Status.ACTIVE])
+    projects = Project.objects.filter(
+        status__in=[Project.Status.PLANNING, Project.Status.ACTIVE]
+    ).prefetch_related("phases")
     rows = []
     for project in projects:
         done, total, percent = project_progress(project)
@@ -70,19 +72,40 @@ def upcoming_deadlines(limit=5):
 
 
 def activity_heatmap(today=None):
-    """GitHub-style: list of weeks, each a list of 7 {date, count, level} cells."""
+    """GitHub-style: list of weeks, each a list of 7 {date, count, level} cells.
+
+    Cached for 10 minutes — 28 aggregate queries that change at day granularity.
+    """
+    from django.core.cache import cache
+
     today = today or timezone.localdate()
+    cache_key = f"activity_heatmap:{today.isoformat()}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    weeks = _build_heatmap(today)
+    cache.set(cache_key, weeks, 600)
+    return weeks
+
+
+def _build_heatmap(today):
     start = today - datetime.timedelta(weeks=HEATMAP_WEEKS)
     start -= datetime.timedelta(days=start.weekday())  # align to Monday
+
+    from django.db.models import Count
+    from django.db.models.functions import TruncDate
 
     counts: dict[datetime.date, int] = {}
     for model in ACTIVITY_MODELS:
         for field in ("created_at", "updated_at"):
-            for value in model.objects.filter(**{f"{field}__date__gte": start}).values_list(
-                field, flat=True
-            ):
-                day = timezone.localtime(value).date()
-                counts[day] = counts.get(day, 0) + 1
+            rows = (
+                model.objects.filter(**{f"{field}__date__gte": start})
+                .annotate(_day=TruncDate(field))
+                .values("_day")
+                .annotate(n=Count("pk"))
+            )
+            for row in rows:
+                counts[row["_day"]] = counts.get(row["_day"], 0) + row["n"]
 
     weeks = []
     cursor = start

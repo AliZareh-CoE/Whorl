@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: Owner idea #1 — performance pass, starting with an N+1 query audit)
-- **Last completed slice:** Backlog #3 — related-paper suggestions (TF-IDF cosine over title+abstract in `literature/related.py`, "Related in your library" panel on reference detail, `GET /api/v1/references/{id}/related/`).
+- **Slice in progress:** — (next: Owner idea #2 — security hardening: login rate limiting, upload validation, prod headers)
+- **Last completed slice:** Owner idea #1 first slice — performance: N+1 fixes (/library/ 49→6 queries via prefetch, overview 17→13 via single-aggregate progress roll-up, plan 11→7), heatmap aggregated per-day in DB + 10-min cache, query-budget regression tests in `core/tests/test_query_budgets.py`.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. Owner idea #1 — performance: N+1 query audit on list/overview pages + fixes
-  2. Owner idea #2 — security: login rate limiting + upload validation + prod headers
-  3. Owner idea #3 — local TTS "read aloud" (Piper) for notes and abstracts
+  1. Owner idea #2 — security: login rate limiting + upload validation + prod headers
+  2. Owner idea #3 — local TTS "read aloud" (Piper) for notes and abstracts
+  3. Owner idea #4 — auto-download open-access PDFs (Unpaywall/arXiv) on reference add
 - **Broken:** nothing
 
 ## Gate reports

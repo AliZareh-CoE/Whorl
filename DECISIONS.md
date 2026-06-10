@@ -8,8 +8,10 @@ The owner adds ideas here (or tells the agent, who appends them). Work top-down;
 ones into cycle-sized slices; mark done with date. Never delete — strike through and date.
 
 1. **Performance: lightning fast & efficient.** Recurring concern, not one slice — every cycle
-   should leave the app faster or no slower. Concrete sub-slices: query audit (N+1s on list
-   pages), template fragment caching where it matters, conditional GETs/ETags on the API.
+   should leave the app faster or no slower. ~~First slice (2026-06-10, cycle 4): N+1 audit —
+   /library/ 49→6 queries, overview 17→13, plan 11→7; aggregate-based progress roll-up;
+   heatmap day-aggregated in DB + 10-min cache; query-budget regression tests.~~ Remaining:
+   conditional GETs/ETags (Backlog #11), fragment caching if pages ever feel slow.
 2. **Security hardening.** Recurring concern alongside performance: login rate limiting,
    upload type/size validation, security headers in prod settings, API-key handling audit.
 3. **Free local text-to-speech ("read this to me").** A strong free TTS engine (e.g. Piper)
@@ -79,3 +81,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 8. Results/figure gallery
 9. Email/calendar deadline reminders
 10. OpenAlex "discover similar" — surface related_works for a reference with one-click add-by-DOI (idea added by cycle 3, from the related-papers work)
+11. Conditional GETs — ETag/Last-Modified on API list endpoints and far-future cache headers on media/static, so MCP polling and the PDF reader get cheap revalidation (idea added by cycle 4, from the performance pass)

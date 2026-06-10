@@ -15,7 +15,7 @@ from .models import ProjectReference, Reference, ReviewMark, ReviewTheme
 
 
 def library_index(request):
-    references = Reference.objects.all()
+    references = Reference.objects.prefetch_related("project_links__project")
     query = request.GET.get("q", "").strip()
     if query:
         references = references.filter(

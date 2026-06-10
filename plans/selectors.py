@@ -6,15 +6,16 @@ from .models import Milestone, Phase
 
 
 def project_progress(project: Project) -> tuple[int, int, int]:
-    """Roll milestone completion up to the project level.
+    """Roll milestone completion up to the project level, in one aggregate query.
 
     Returns (done_milestones, total_milestones, percent).
     """
-    done = total = 0
-    for phase in project.phases.all():
-        d, t = phase.milestone_counts
-        done += d
-        total += t
+    from django.db.models import Count, Q
+
+    counts = Milestone.objects.filter(phase__project=project).aggregate(
+        total=Count("pk"), done=Count("pk", filter=Q(completed_at__isnull=False))
+    )
+    done, total = counts["done"], counts["total"]
     percent = round(100 * done / total) if total else 0
     return done, total, percent
 
