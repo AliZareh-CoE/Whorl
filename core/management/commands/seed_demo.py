@@ -10,6 +10,7 @@ from notes.models import Note, QuickCapture
 from notes.services import sync_note_links
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
+from writing.models import Manuscript, ManuscriptReference, SubmissionEvent
 
 DEMO_SLUG = "attention-and-memory"
 
@@ -338,6 +339,32 @@ class Command(BaseCommand):
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
         )
+
+        # Writing: one manuscript mid-pipeline with bibliography + submission history
+        manuscript, _ = Manuscript.objects.update_or_create(
+            project=project,
+            title="Strategic Allocation of Attention Under Working Memory Load",
+            defaults={
+                "status": Manuscript.Status.REVISION,
+                "target_venue": "Journal of Experimental Psychology: General",
+                "deadline": today + datetime.timedelta(days=18),
+                "abstract": "We show that load effects on sustained attention reflect "
+                "**strategic trade-offs** rather than structural capacity limits.",
+            },
+        )
+        for reference in corpus_refs[:6]:
+            ManuscriptReference.objects.get_or_create(manuscript=manuscript, reference=reference)
+        for kind, days_ago, note in [
+            (SubmissionEvent.Kind.SUBMITTED, 95, "Initial submission."),
+            (SubmissionEvent.Kind.REVIEWS_RECEIVED, 40, "R2 wants a power analysis."),
+            (SubmissionEvent.Kind.NOTE, 20, "Power analysis done; n=80 holds."),
+        ]:
+            SubmissionEvent.objects.get_or_create(
+                manuscript=manuscript,
+                kind=kind,
+                date=today - datetime.timedelta(days=days_ago),
+                defaults={"notes": note},
+            )
 
         self.stdout.write(
             self.style.SUCCESS(
