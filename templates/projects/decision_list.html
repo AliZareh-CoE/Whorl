@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load markdown_extras %}
+
+{% block title %}Decisions · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Decisions
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-2xl font-semibold tracking-tight">Decision log</h1>
+  <a href="{% url 'projects:decision_create' project.slug %}"
+     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Record decision</a>
+</div>
+
+{% if decisions %}
+  <div class="space-y-4">
+    {% for d in decisions %}
+      <article class="rounded border border-stone-200 bg-white p-5">
+        <div class="mb-1 flex items-baseline gap-3">
+          <h2 class="font-medium">{{ d.title }}</h2>
+          <span class="text-xs text-stone-400">{{ d.decided_on }}</span>
+          <span class="ml-auto"></span>
+          <a href="{% url 'projects:decision_edit' project.slug d.pk %}" class="text-xs text-stone-500 hover:underline">Edit</a>
+        </div>
+        {% if d.context %}<div class="prose prose-stone mb-2 max-w-none text-sm text-stone-600">{{ d.context|markdownify }}</div>{% endif %}
+        <div class="prose prose-stone max-w-none text-sm">{{ d.decision|markdownify }}</div>
+        {% if d.alternatives %}
+          <details class="mt-2 text-sm text-stone-500">
+            <summary class="cursor-pointer text-xs uppercase tracking-wide">Rejected alternatives</summary>
+            <div class="prose prose-stone mt-1 max-w-none">{{ d.alternatives|markdownify }}</div>
+          </details>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+    <p class="mb-2 text-stone-600">The decision log captures what you decided, when, and what you rejected — so future-you never has to wonder why.</p>
+    <a href="{% url 'projects:decision_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Record your first decision</a>
+  </div>
+{% endif %}
+{% endblock %}

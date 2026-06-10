@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit {{ object.name }}{% else %}New project{% endif %}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+{% if object %}{{ object.name }} / Edit{% else %}New{% endif %}
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-6 text-2xl font-semibold tracking-tight">
+  {% if object %}Edit project{% else %}New project{% endif %}
+</h1>
+<form method="post" class="max-w-xl space-y-4">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {% for field in form %}
+    <div>
+      <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>{% endif %}
+    </div>
+  {% endfor %}
+  <div class="flex items-center gap-3 pt-2">
+    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+    <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'projects:list' %}{% endif %}"
+       class="text-sm text-stone-500 hover:underline">Cancel</a>
+    {% if object %}
+      <span class="ml-auto"></span>
+      <a href="{% url 'projects:delete' object.slug %}" class="text-sm text-red-600 hover:underline">Delete…</a>
+    {% endif %}
+  </div>
+</form>
+{% if object and object.status != 'archived' %}
+  <form method="post" action="{% url 'projects:archive' object.slug %}" class="mt-6 max-w-xl border-t border-stone-200 pt-4">
+    {% csrf_token %}
+    <button type="submit" class="text-sm text-stone-500 hover:underline">Archive this project</button>
+  </form>
+{% endif %}
+{% endblock %}

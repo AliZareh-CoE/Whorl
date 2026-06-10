@@ -18,6 +18,10 @@
            class="block rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'core:dashboard' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
           Dashboard
         </a>
+        <a href="{% url 'projects:list' %}"
+           class="block rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'projects' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+          Projects
+        </a>
         {% block sidebar_nav %}{% endblock %}
       </nav>
       <div class="mt-auto pt-6 text-xs text-stone-400">
