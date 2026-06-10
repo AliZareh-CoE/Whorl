@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Datasets · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Research / Datasets
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+{% include "research/_tabs.html" %}
+
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-2xl font-semibold tracking-tight">Dataset registry</h1>
+  <a href="{% url 'research:dataset_create' project.slug %}"
+     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Register dataset</a>
+</div>
+
+{% if datasets %}
+  <table class="w-full border-collapse text-sm">
+    <thead>
+      <tr class="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-400">
+        <th class="py-2 pr-4 font-medium">Name</th>
+        <th class="py-2 pr-4 font-medium">Location</th>
+        <th class="py-2 pr-4 font-medium">Version</th>
+        <th class="py-2 pr-4 font-medium">Checksum</th>
+        <th class="py-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for dataset in datasets %}
+        <tr class="border-b border-stone-100">
+          <td class="py-2 pr-4 font-medium">{{ dataset.name }}
+            {% if dataset.description %}<p class="text-xs font-normal text-stone-400">{{ dataset.description|truncatechars:80 }}</p>{% endif %}
+          </td>
+          <td class="py-2 pr-4 font-mono text-xs text-stone-500">{{ dataset.location|truncatechars:50 }}</td>
+          <td class="py-2 pr-4 text-stone-500">{{ dataset.version|default:"—" }}</td>
+          <td class="py-2 pr-4 font-mono text-xs text-stone-400">{{ dataset.checksum|truncatechars:16|default:"—" }}</td>
+          <td class="py-2 text-right">
+            <a href="{% url 'research:dataset_edit' project.slug dataset.pk %}" class="text-xs text-stone-500 hover:underline">Edit</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+    <p class="mb-2 text-stone-600">Where is the data, which version, and how do you know it's intact?</p>
+    <a href="{% url 'research:dataset_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Register the first dataset</a>
+  </div>
+{% endif %}
+{% endblock %}

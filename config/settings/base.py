@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "literature",
     "notes",
     "writing",
+    "research",
     "api",
 ]
 

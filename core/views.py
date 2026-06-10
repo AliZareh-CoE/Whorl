@@ -2,7 +2,9 @@ from django.shortcuts import render
 
 
 def dashboard(request):
-    return render(request, "core/dashboard.html")
+    from .dashboard import dashboard_context
+
+    return render(request, "core/dashboard.html", dashboard_context())
 
 
 def search(request):

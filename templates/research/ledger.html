@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Research · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Research
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+{% include "research/_tabs.html" %}
+
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-2xl font-semibold tracking-tight">Hypothesis ledger</h1>
+  <a href="{% url 'research:hypothesis_create' project.slug %}"
+     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">New hypothesis</a>
+</div>
+
+{% if hypotheses %}
+  <div class="space-y-4">
+    {% for hypothesis in hypotheses %}
+      <article class="rounded border border-stone-200 bg-white p-5">
+        <div class="mb-2 flex items-start gap-3">
+          <p class="text-sm font-medium">{{ hypothesis.statement }}</p>
+          <span class="ml-auto shrink-0 rounded px-2 py-0.5 text-xs
+            {% if hypothesis.status == 'supported' %}bg-green-50 text-green-700
+            {% elif hypothesis.status == 'contradicted' %}bg-red-50 text-red-700
+            {% elif hypothesis.status == 'testing' %}bg-indigo-50 text-indigo-700
+            {% elif hypothesis.status == 'inconclusive' %}bg-amber-50 text-amber-700
+            {% else %}bg-stone-100 text-stone-600{% endif %}">{{ hypothesis.get_status_display }}</span>
+          <a href="{% url 'research:hypothesis_edit' project.slug hypothesis.pk %}" class="shrink-0 text-xs text-stone-500 hover:underline">Edit</a>
+        </div>
+        {% with balance=hypothesis.evidence_balance suggestion=hypothesis.suggested_status %}
+          <p class="mb-2 text-xs text-stone-400">
+            Evidence: {{ balance.supports }} supports · {{ balance.contradicts }} contradicts · {{ balance.mixed }} mixed
+            {% if suggestion and suggestion != hypothesis.status %}
+              <span class="text-amber-600">— balance suggests “{{ suggestion|capfirst }}”</span>
+            {% endif %}
+          </p>
+        {% endwith %}
+        {% if hypothesis.evidence.all %}
+          <ul class="mb-2 space-y-1.5">
+            {% for item in hypothesis.evidence.all %}
+              <li class="flex items-start gap-2 text-sm">
+                <span class="mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide
+                  {% if item.direction == 'supports' %}bg-green-50 text-green-700
+                  {% elif item.direction == 'contradicts' %}bg-red-50 text-red-700
+                  {% else %}bg-amber-50 text-amber-700{% endif %}">{{ item.direction }}</span>
+                <span class="min-w-0 flex-1">
+                  {{ item.summary }}
+                  {% if item.reference %}<a href="{{ item.reference.get_absolute_url }}" class="font-mono text-xs text-indigo-600 hover:underline">{{ item.reference.bibtex_key }}</a>{% endif %}
+                  {% if item.note %}<a href="{{ item.note.get_absolute_url }}" class="text-xs text-indigo-600 hover:underline">[note: {{ item.note.title }}]</a>{% endif %}
+                  {% if item.document %}<span class="text-xs text-stone-400">[doc: {{ item.document.title }}]</span>{% endif %}
+                </span>
+                <form method="post" action="{% url 'research:evidence_delete' project.slug item.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="text-xs text-stone-300 hover:text-red-600">✕</button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <a href="{% url 'research:evidence_create' project.slug hypothesis.pk %}" class="text-xs text-indigo-600 hover:underline">+ Add evidence</a>
+      </article>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+    <p class="mb-2 text-stone-600">State what you believe, then attach evidence for and against. The ledger keeps you honest.</p>
+    <a href="{% url 'research:hypothesis_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">State your first hypothesis</a>
+  </div>
+{% endif %}
+{% endblock %}

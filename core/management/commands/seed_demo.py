@@ -10,6 +10,7 @@ from notes.models import Note, QuickCapture
 from notes.services import sync_note_links
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
+from research.models import Dataset, Evidence, ExperimentEntry, Hypothesis
 from writing.models import Manuscript, ManuscriptReference, SubmissionEvent
 
 DEMO_SLUG = "attention-and-memory"
@@ -365,6 +366,64 @@ class Command(BaseCommand):
                 date=today - datetime.timedelta(days=days_ago),
                 defaults={"notes": note},
             )
+
+        # Research: hypotheses with mixed evidence, experiment entries, datasets
+        strategic_h, _ = Hypothesis.objects.update_or_create(
+            project=project,
+            statement="Load effects on sustained attention reflect strategic resource "
+            "allocation, not a structural capacity limit.",
+            defaults={"status": Hypothesis.Status.TESTING},
+        )
+        capacity_h, _ = Hypothesis.objects.update_or_create(
+            project=project,
+            statement="High WM load uniformly degrades vigilance regardless of incentive.",
+            defaults={"status": Hypothesis.Status.PROPOSED},
+        )
+        if not strategic_h.evidence.exists():
+            Evidence.objects.create(
+                hypothesis=strategic_h,
+                direction=Evidence.Direction.SUPPORTS,
+                summary="Incentive manipulation in pilot shifted the load effect by ~40%.",
+                note=pilot_note,
+            )
+            Evidence.objects.create(
+                hypothesis=strategic_h,
+                direction=Evidence.Direction.SUPPORTS,
+                summary="Draheim (2022) finds attention-control variance explains load effects.",
+                reference=corpus_refs[2],
+            )
+            Evidence.objects.create(
+                hypothesis=strategic_h,
+                direction=Evidence.Direction.CONTRADICTS,
+                summary="Two pilot participants showed load costs even at maximal incentive.",
+            )
+        ExperimentEntry.objects.update_or_create(
+            project=project,
+            title="Pilot session block order check",
+            defaults={
+                "date": today - datetime.timedelta(days=8),
+                "body": "Counterbalancing verified across 6 pilots. **Outcome:** no order effect "
+                "visible; proceeding with frozen design.",
+            },
+        )[0].hypotheses.set([strategic_h])
+        ExperimentEntry.objects.update_or_create(
+            project=project,
+            title="Incentive manipulation dry run",
+            defaults={
+                "date": today - datetime.timedelta(days=3),
+                "body": "Bonus structure explained; comprehension check passed by 9/9.",
+            },
+        )[0].hypotheses.set([strategic_h, capacity_h])
+        Dataset.objects.update_or_create(
+            project=project,
+            name="pilot-behavioral-v1",
+            defaults={
+                "location": "/data/atlas/pilot/v1/",
+                "version": "2026-06-01",
+                "checksum": "sha256:9f86d081884c7d659a2feaa0c55ad015",
+                "description": "Pilot dual-task trials, 9 participants, pre-exclusions.",
+            },
+        )
 
         self.stdout.write(
             self.style.SUCCESS(
