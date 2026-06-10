@@ -48,14 +48,24 @@ def project_archive(request, slug):
 
 
 def project_overview(request, slug):
+    from plans import selectors as plan_selectors
+
     project = get_object_or_404(Project, slug=slug)
+    done, total, percent = plan_selectors.project_progress(project)
     return render(
         request,
         "projects/overview.html",
         {
             "project": project,
+            "current_phase": plan_selectors.current_phase(project),
+            "upcoming_milestones": plan_selectors.upcoming_milestones(project),
+            "done": done,
+            "total": total,
+            "percent": percent,
             "recent_decisions": project.decisions.all()[:5],
             "decision_count": project.decisions.count(),
+            "question_count": project.questions.count(),
+            "phase_count": project.phases.count(),
         },
     )
 

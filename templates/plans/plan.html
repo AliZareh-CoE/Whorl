@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Plan · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Plan
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-2xl font-semibold tracking-tight">Plan</h1>
+  <a href="{% url 'plans:phase_create' project.slug %}"
+     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add phase</a>
+</div>
+
+{% include "plans/_project_progress.html" %}
+
+{% if phases %}
+  <div class="mt-6 space-y-4">
+    {% for phase in phases %}
+      {% include "plans/_phase_card.html" %}
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="mt-6 rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+    <p class="mb-2 text-stone-600">A plan is ordered phases, each with milestones (and optional tasks).
+      Progress rolls up from milestones to phases to the project.</p>
+    <a href="{% url 'plans:phase_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Add the first phase</a>
+  </div>
+{% endif %}
+{% endblock %}

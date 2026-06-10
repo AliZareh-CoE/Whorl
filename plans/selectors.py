@@ -1,0 +1,44 @@
+from django.db.models import F
+
+from projects.models import Project
+
+from .models import Milestone, Phase
+
+
+def project_progress(project: Project) -> tuple[int, int, int]:
+    """Roll milestone completion up to the project level.
+
+    Returns (done_milestones, total_milestones, percent).
+    """
+    done = total = 0
+    for phase in project.phases.all():
+        d, t = phase.milestone_counts
+        done += d
+        total += t
+    percent = round(100 * done / total) if total else 0
+    return done, total, percent
+
+
+def plan_phases(project: Project):
+    """Phases with milestones and tasks prefetched for the plan page."""
+    return project.phases.prefetch_related("milestones__tasks")
+
+
+def current_phase(project: Project) -> Phase | None:
+    """The phase to surface on the overview: first in-progress/blocked, else first unfinished."""
+    phases = list(project.phases.all())
+    for phase in phases:
+        if phase.status in (Phase.Status.IN_PROGRESS, Phase.Status.BLOCKED):
+            return phase
+    for phase in phases:
+        if phase.status != Phase.Status.DONE:
+            return phase
+    return phases[-1] if phases else None
+
+
+def upcoming_milestones(project: Project, limit: int = 5):
+    return (
+        Milestone.objects.filter(phase__project=project, completed_at__isnull=True)
+        .select_related("phase")
+        .order_by(F("due_date").asc(nulls_last=True), "pk")[:limit]
+    )

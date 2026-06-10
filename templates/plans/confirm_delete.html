@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Delete · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Delete
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4 text-2xl font-semibold tracking-tight">Delete “{{ object }}”?</h1>
+<p class="mb-6 text-sm text-stone-600">Anything nested underneath it is deleted too.</p>
+<form method="post" class="flex items-center gap-3">
+  {% csrf_token %}
+  <button type="submit" class="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
+  <a href="{% url 'plans:plan' project.slug %}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+</form>
+{% endblock %}
