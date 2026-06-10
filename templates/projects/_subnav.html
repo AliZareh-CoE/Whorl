@@ -11,6 +11,8 @@
      class="rounded px-2 py-1 {% if 'literature:project' in vn or 'literature:queue' in vn or 'literature:report' in vn %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Literature</a>
   <a href="{% url 'plans:questions' project.slug %}"
      class="rounded px-2 py-1 {% if 'question' in vn %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Questions</a>
+  <a href="{% url 'writing:project' project.slug %}"
+     class="rounded px-2 py-1 {% if 'writing:' in vn %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Writing</a>
   <a href="{% url 'notes:list' project.slug %}"
      class="rounded px-2 py-1 {% if vn == 'notes:list' or vn == 'notes:detail' or vn == 'notes:create' or vn == 'notes:edit' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Notes</a>
   <a href="{% url 'projects:graph' project.slug %}"

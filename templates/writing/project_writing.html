@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Writing · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Writing
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-2xl font-semibold tracking-tight">Writing</h1>
+  <a href="{% url 'writing:create' project.slug %}"
+     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">New manuscript</a>
+</div>
+{% include "writing/_board.html" with empty_message="A manuscript tracks one paper from idea to published — bibliography, deadlines, and submission history in one place." %}
+{% endblock %}

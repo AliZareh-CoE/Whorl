@@ -68,6 +68,10 @@ def project_overview(request, slug):
             "phase_count": project.phases.count(),
             "recent_documents": project.documents.all()[:5],
             "document_count": project.documents.count(),
+            "next_deadline_manuscript": project.manuscripts.filter(deadline__isnull=False)
+            .exclude(status__in=["published", "shelved"])
+            .order_by("deadline")
+            .first(),
         },
     )
 

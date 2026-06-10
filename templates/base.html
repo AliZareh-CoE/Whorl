@@ -30,6 +30,10 @@
            class="block rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'literature' and 'project' not in request.resolver_match.view_name %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
           Library
         </a>
+        <a href="{% url 'writing:home' %}"
+           class="block rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'writing:home' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+          Writing
+        </a>
         <a href="{% url 'notes:inbox' %}"
            class="block rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'notes' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
           Inbox

@@ -31,6 +31,16 @@
   <div class="h-1.5 w-full rounded-full bg-stone-100">
     <div class="h-1.5 rounded-full" style="width: {{ percent }}%; background: {{ project.color }}"></div>
   </div>
+  {% if next_deadline_manuscript %}
+    <p class="mt-2 text-sm">
+      <span class="{% if next_deadline_manuscript.days_to_deadline < 7 %}font-medium text-red-600{% else %}text-stone-500{% endif %}">
+        ✍ “{{ next_deadline_manuscript.title|truncatechars:50 }}” —
+        {% if next_deadline_manuscript.days_to_deadline < 0 %}deadline passed
+        {% else %}{{ next_deadline_manuscript.days_to_deadline }} day{{ next_deadline_manuscript.days_to_deadline|pluralize }} to deadline{% endif %}
+        ({{ next_deadline_manuscript.deadline }})
+      </span>
+    </p>
+  {% endif %}
   {% if not current_phase %}
     <p class="mt-2 text-sm text-stone-500">
       <a href="{% url 'plans:phase_create' project.slug %}" class="text-indigo-600 hover:underline">Start the plan</a> —
