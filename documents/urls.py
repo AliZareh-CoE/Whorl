@@ -18,6 +18,11 @@ urlpatterns = [
         name="document_delete",
     ),
     path("<slug:slug>/documents/<int:pk>/download/", views.document_download, name="download"),
+    path(
+        "<slug:slug>/documents/<int:pk>/suggest-tag/",
+        views.add_suggested_tag,
+        name="add_suggested_tag",
+    ),
     path("<slug:slug>/folders/new/", views.FolderCreateView.as_view(), name="folder_create"),
     path(
         "<slug:slug>/folders/<int:pk>/edit/", views.FolderUpdateView.as_view(), name="folder_edit"

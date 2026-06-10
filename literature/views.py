@@ -80,6 +80,8 @@ def import_bibtex(request):
 
 
 def reference_detail(request, pk):
+    from core.keywords import extract_keywords
+
     from .related import related_references
 
     reference = get_object_or_404(Reference, pk=pk)
@@ -92,6 +94,7 @@ def reference_detail(request, pk):
             "bibtex": services.render_bibtex(reference),
             "available_projects": Project.objects.exclude(project_references__reference=reference),
             "related": related_references(reference),
+            "keywords": extract_keywords(f"{reference.title}. {reference.abstract}", 6),
         },
     )
 

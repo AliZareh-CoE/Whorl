@@ -12,6 +12,22 @@
 {% block content %}
 {% include "projects/_subnav.html" %}
 <h1 class="mb-6 text-2xl font-semibold tracking-tight">{% if object %}Edit document{% else %}Upload a document{% endif %}</h1>
+{% if suggested_tags %}
+  <div class="mb-4 max-w-xl rounded border border-stone-200 bg-white px-4 py-3">
+    <p class="mb-2 text-xs uppercase tracking-wide text-stone-400">Suggested tags <span class="normal-case">(from the document's text)</span></p>
+    <div class="flex flex-wrap gap-1.5">
+      {% for suggestion in suggested_tags %}
+        <form method="post" action="{% url 'documents:add_suggested_tag' project.slug object.pk %}" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="name" value="{{ suggestion }}">
+          <button type="submit" class="rounded-full border border-dashed border-stone-300 px-2 py-0.5 text-xs text-stone-600 hover:border-indigo-500 hover:text-indigo-700">
+            + {{ suggestion }}
+          </button>
+        </form>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
 <form method="post" enctype="multipart/form-data" class="max-w-xl space-y-4">
   {% csrf_token %}
   {% include "_fields.html" %}

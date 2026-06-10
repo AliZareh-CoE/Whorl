@@ -16,6 +16,16 @@
   {% if reference.citation_count is not None %} · cited {{ reference.citation_count }}×{% endif %}
 </p>
 
+{% if keywords %}
+  <div class="mb-3 flex flex-wrap items-center gap-1.5">
+    <span class="text-[10px] uppercase tracking-wide text-stone-400">Keywords</span>
+    {% for keyword in keywords %}
+      <a href="{% url 'core:search' %}?q={{ keyword|urlencode }}"
+         class="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-xs text-stone-600 hover:border-indigo-400 hover:text-indigo-700">{{ keyword }}</a>
+    {% endfor %}
+  </div>
+{% endif %}
+
 <div class="mb-6 flex flex-wrap items-center gap-2 text-sm">
   {% if reference.doi %}
     <a href="https://doi.org/{{ reference.doi }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs hover:border-stone-400">doi:{{ reference.doi }}</a>

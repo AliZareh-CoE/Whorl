@@ -1,6 +1,8 @@
+from django.contrib import messages
 from django.http import FileResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, UpdateView
 
 from projects.models import Project
@@ -85,6 +87,31 @@ class DocumentUpdateView(ProjectFormKwargsMixin, UpdateView):
 
     def get_queryset(self):
         return self.project.documents.all()
+
+    def get_context_data(self, **kwargs):
+        from core.keywords import extract_keywords
+
+        ctx = super().get_context_data(**kwargs)
+        doc = self.object
+        existing = {tag.name.lower() for tag in doc.tags.all()}
+        text = f"{doc.title}. {doc.description}. {doc.file.name.rsplit('/', 1)[-1]}"
+        ctx["suggested_tags"] = [
+            kw for kw in extract_keywords(text, 8) if kw.lower() not in existing
+        ][:5]
+        return ctx
+
+
+@require_POST
+def add_suggested_tag(request, slug, pk):
+    """Create (if needed) and attach a suggested tag, then return to the edit page."""
+    project = get_object_or_404(Project, slug=slug)
+    document = get_object_or_404(project.documents, pk=pk)
+    name = request.POST.get("name", "").strip()[:60]
+    if name:
+        tag, _ = Tag.objects.get_or_create(project=project, name=name)
+        document.tags.add(tag)
+        messages.success(request, f"Tagged with “{name}”.")
+    return redirect("documents:document_edit", slug=project.slug, pk=document.pk)
 
 
 class DocumentDeleteView(ProjectScopedMixin, DeleteView):
