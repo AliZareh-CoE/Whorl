@@ -151,24 +151,55 @@ def fetch_metadata_by_doi(doi: str) -> dict:
     raise MetadataError(f"Could not resolve DOI {doi}: " + "; ".join(errors))
 
 
+ATOM_NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+
+
 def fetch_metadata_by_arxiv(arxiv_id: str) -> dict:
-    """arXiv papers resolve through OpenAlex via their DataCite DOI."""
+    """arXiv papers resolve through arXiv's own Atom export API."""
+    import xml.etree.ElementTree as ET
+
     arxiv_id = normalize_arxiv_id(arxiv_id)
     with httpx.Client(timeout=TIMEOUT, headers={"User-Agent": USER_AGENT}) as client:
         try:
-            response = client.get(f"https://api.openalex.org/works/doi:10.48550/arxiv.{arxiv_id}")
-            if response.status_code == 200:
-                meta = _openalex_to_meta(response.json())
-                meta["arxiv_id"] = arxiv_id
-                return meta
-            raise MetadataError(
-                f"Could not resolve arXiv ID {arxiv_id}: OpenAlex returned {response.status_code}"
+            response = client.get(
+                "https://export.arxiv.org/api/query", params={"id_list": arxiv_id}
             )
         except httpx.HTTPError as exc:
             raise MetadataError(
-                f"Could not resolve arXiv ID {arxiv_id}: OpenAlex unreachable "
+                f"Could not resolve arXiv ID {arxiv_id}: arXiv API unreachable "
                 f"({exc.__class__.__name__})"
             ) from exc
+    if response.status_code != 200:
+        raise MetadataError(
+            f"Could not resolve arXiv ID {arxiv_id}: arXiv API returned {response.status_code}"
+        )
+    entry = ET.fromstring(response.text).find("atom:entry", ATOM_NS)
+    title_el = entry.find("atom:title", ATOM_NS) if entry is not None else None
+    title = (title_el.text or "").strip() if title_el is not None else ""
+    if not title or title == "Error":
+        raise MetadataError(f"Could not resolve arXiv ID {arxiv_id}: not found on arXiv")
+    authors = []
+    for author in entry.findall("atom:author", ATOM_NS):
+        name = (author.findtext("atom:name", "", ATOM_NS) or "").strip()
+        if name:
+            parts = name.rsplit(" ", 1)
+            authors.append({"family": parts[-1], "given": parts[0] if len(parts) == 2 else ""})
+    published = entry.findtext("atom:published", "", ATOM_NS) or ""
+    year = int(published[:4]) if re.match(r"^\d{4}", published) else None
+    doi = entry.findtext("arxiv:doi", "", ATOM_NS) or ""
+    abstract = re.sub(r"\s+", " ", entry.findtext("atom:summary", "", ATOM_NS) or "").strip()
+    return {
+        "doi": normalize_doi(doi) if doi else None,
+        "arxiv_id": arxiv_id,
+        "entry_type": "misc",
+        "title": re.sub(r"\s+", " ", title),
+        "authors": authors,
+        "year": year,
+        "venue": "arXiv",
+        "abstract": abstract,
+        "url": f"https://arxiv.org/abs/{arxiv_id}",
+        "extra": {"source": "arxiv"},
+    }
 
 
 def create_reference_from_metadata(meta: dict) -> tuple[Reference, bool]:

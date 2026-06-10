@@ -118,14 +118,37 @@ class TestMetadataFetch:
         assert "Crossref returned 404" in message
         assert "OpenAlex returned 404" in message
 
-    def test_arxiv_via_openalex(self, patch_http):
+    def test_arxiv_via_export_api(self, patch_http):
+        atom = """<?xml version='1.0'?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <entry>
+    <title>Attention Is All You Need</title>
+    <summary>  The dominant sequence transduction models...  </summary>
+    <published>2017-06-12T17:57:34Z</published>
+    <author><name>Ashish Vaswani</name></author>
+    <author><name>Noam Shazeer</name></author>
+  </entry>
+</feed>"""
+
         def handler(request):
-            assert "10.48550/arxiv.2106.01234" in str(request.url)
-            return httpx.Response(200, json=OPENALEX_WORK)
+            assert request.url.host == "export.arxiv.org"
+            assert request.url.params["id_list"] == "2106.01234"
+            return httpx.Response(200, text=atom)
 
         patch_http["handler"] = handler
         meta = services.fetch_metadata_by_arxiv("2106.01234v3")
         assert meta["arxiv_id"] == "2106.01234"
+        assert meta["title"] == "Attention Is All You Need"
+        assert meta["authors"][0] == {"family": "Vaswani", "given": "Ashish"}
+        assert meta["year"] == 2017
+        assert meta["venue"] == "arXiv"
+
+    def test_arxiv_not_found_raises(self, patch_http):
+        atom = """<?xml version='1.0'?>
+<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Error</title></entry></feed>"""
+        patch_http["handler"] = lambda request: httpx.Response(200, text=atom)
+        with pytest.raises(services.MetadataError, match="not found on arXiv"):
+            services.fetch_metadata_by_arxiv("9999.99999")
 
     def test_add_by_identifier_dedups_by_doi(self, patch_http):
         patch_http["handler"] = lambda request: httpx.Response(200, json=CROSSREF_WORK)
