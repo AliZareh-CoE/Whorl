@@ -20,6 +20,15 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    open-access PDF automatically (Unpaywall API, arXiv PDFs) into `Reference.pdf`.
 5. **NLP helpers.** Language tooling where it genuinely helps: keyword extraction for
    auto-tag suggestions, abstract/note summarization, smarter related-paper matching.
+6. **Prompt gallery.** A library of saved prompts (title, body, tags, copy button) for reuse
+   with Claude or any LLM — global like the reference library, searchable, exposed via
+   API/MCP so Claude can fetch the owner's prompts too.
+7. **Bots / automations.** Background helpers that handle routine work: e.g. a citation-sync
+   bot (periodic OpenAlex refresh), a retraction-watch bot (weekly bib check with findings to
+   the inbox), a deadline-reminder bot (inbox capture N days before due dates), an inbox-triage
+   suggester. Built on huey periodic tasks with an "Automations" page to enable/disable each
+   bot and see its last run — and, where text understanding is needed, callable through the
+   MCP/Claude side.
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
