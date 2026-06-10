@@ -48,5 +48,30 @@ make lint     # ruff check + ruff format --check
 make css-watch
 ```
 
+## Claude integration (MCP)
+
+`mcp_server/` exposes Atlas as MCP tools — a thin HTTP client over the API (no Django imports),
+so anything Claude can do, you can also do with curl. With the app running, register it in
+Claude Code:
+
+```bash
+claude mcp add atlas \
+  --env ATLAS_API_URL=http://127.0.0.1:8000 \
+  --env ATLAS_API_KEY=<your key from .env> \
+  -- /path/to/atlas/.venv/bin/python -m mcp_server.server
+```
+
+Tools: `list_projects`, `get_project_overview`, `get_plan`, `complete_milestone`,
+`list_documents`, `search`, `add_reference_by_doi`, `get_reading_queue`,
+`set_reading_status`, `add_note`, `quick_capture`, `run_bib_check`.
+
+Smoke-test conversation script (after `seed_demo`):
+
+1. *"List my projects"* → expect Attention and Working Memory.
+2. *"What should I work on in attention-and-memory?"* → overview with current phase + overdue pilot milestone.
+3. *"Check off the 'Pilot data collected' milestone"* → get_plan for the id, then complete_milestone; progress moves 3/9 → 4/9.
+4. *"Add 10.1038/nature12373 to that project"* → add_reference_by_doi; appears in the reading queue.
+5. *"Capture: email co-author about revisions"* → quick_capture; visible in the Inbox.
+
 State and conventions for the autonomous build live in `CLAUDE.md` (constitution),
 `PROGRESS.md` (current status + phase gate reports), and `DECISIONS.md` (decision log + backlog).

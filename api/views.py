@@ -1,20 +1,23 @@
 from django.contrib.auth.decorators import login_not_required
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from documents.models import Document, Folder, Tag
 from literature import services as literature_services
 from literature.models import ProjectReference, Reference
-from notes.models import QuickCapture
+from notes import services as note_services
+from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 
 from . import serializers
+from .authentication import APIKeyAuthentication
 
 
 @method_decorator(login_not_required, name="dispatch")
@@ -55,6 +58,140 @@ class ProjectViewSet(AtlasViewSet):
         from core.graph import project_graph
 
         return Response(project_graph(self.get_object()))
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Situational summary of the project")},
+        description="One-glance overview: current phase, progress, next milestones, counts.",
+    )
+    @action(detail=True, methods=["get"])
+    def overview(self, request, slug=None):
+        from plans import selectors as plan_selectors
+
+        project = self.get_object()
+        done, total, percent = plan_selectors.project_progress(project)
+        phase = plan_selectors.current_phase(project)
+        return Response(
+            {
+                "project": serializers.ProjectSerializer(project).data,
+                "current_phase": serializers.PhaseSerializer(phase).data if phase else None,
+                "progress": {"done": done, "total": total, "percent": percent},
+                "next_milestones": [
+                    {
+                        "id": m.pk,
+                        "title": m.title,
+                        "due_date": m.due_date,
+                        "overdue": m.is_overdue,
+                        "phase": m.phase.name,
+                    }
+                    for m in plan_selectors.upcoming_milestones(project)
+                ],
+                "counts": {
+                    "documents": project.documents.count(),
+                    "decisions": project.decisions.count(),
+                    "questions": project.questions.count(),
+                    "references": project.project_references.count(),
+                    "notes": project.notes.count(),
+                    "manuscripts": project.manuscripts.count(),
+                    "hypotheses": project.hypotheses.count(),
+                },
+            }
+        )
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Phases with nested milestones and tasks")},
+        description="The full plan: ordered phases, their milestones, and optional tasks.",
+    )
+    @action(detail=True, methods=["get"])
+    def plan(self, request, slug=None):
+        project = self.get_object()
+        phases = []
+        for phase in project.phases.prefetch_related("milestones__tasks"):
+            phases.append(
+                {
+                    "id": phase.pk,
+                    "name": phase.name,
+                    "order": phase.order,
+                    "status": phase.status,
+                    "progress": phase.progress,
+                    "milestones": [
+                        {
+                            "id": m.pk,
+                            "title": m.title,
+                            "due_date": m.due_date,
+                            "completed_at": m.completed_at,
+                            "overdue": m.is_overdue,
+                            "tasks": [
+                                {"id": t.pk, "title": t.title, "done": t.done}
+                                for t in m.tasks.all()
+                            ],
+                        }
+                        for m in phase.milestones.all()
+                    ],
+                }
+            )
+        return Response({"project": project.slug, "phases": phases})
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Unread references, highest priority first")},
+        description="The reading queue: to-read and skimmed references sorted by priority.",
+    )
+    @action(detail=True, methods=["get"], url_path="reading-queue")
+    def reading_queue(self, request, slug=None):
+        from literature.views import PRIORITY_ORDER
+
+        project = self.get_object()
+        links = list(
+            project.project_references.filter(
+                reading_status__in=["to_read", "skimmed"]
+            ).select_related("reference")
+        )
+        links.sort(key=lambda link: (PRIORITY_ORDER[link.priority], link.created_at))
+        return Response(
+            [
+                {
+                    "id": link.pk,
+                    "reference_id": link.reference_id,
+                    "bibtex_key": link.reference.bibtex_key,
+                    "title": link.reference.title,
+                    "year": link.reference.year,
+                    "reading_status": link.reading_status,
+                    "priority": link.priority,
+                }
+                for link in links
+            ]
+        )
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Bib checker findings grouped by category")},
+        description=(
+            "Run the bib checkers over the project's references. Pass ?network=1 to include "
+            "DOI-resolution and retraction checks (slower, calls external APIs)."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="bib-report")
+    def bib_report(self, request, slug=None):
+        project = self.get_object()
+        references = Reference.objects.filter(project_links__project=project)
+        include_network = request.query_params.get("network") == "1"
+        report = literature_services.run_bib_report(
+            references, include_network_checks=include_network
+        )
+        return Response(
+            {
+                "network_checks_included": include_network,
+                "findings": {
+                    category: [
+                        {
+                            "level": f["level"],
+                            "message": f["message"],
+                            "reference_ids": [r.pk for r in f["references"]],
+                        }
+                        for f in findings
+                    ]
+                    for category, findings in report.items()
+                },
+            }
+        )
 
 
 class PhaseViewSet(AtlasViewSet):
@@ -153,3 +290,44 @@ class QuickCaptureViewSet(AtlasViewSet):
     queryset = QuickCapture.objects.all()
     serializer_class = serializers.QuickCaptureSerializer
     project_filter = "project__slug"
+
+
+class NoteViewSet(AtlasViewSet):
+    queryset = Note.objects.all()
+    serializer_class = serializers.NoteSerializer
+    project_filter = "project__slug"
+
+    def perform_create(self, serializer):
+        note = serializer.save()
+        note_services.sync_note_links(note)
+
+    def perform_update(self, serializer):
+        note = serializer.save()
+        note_services.sync_note_links(note)
+
+
+@method_decorator(login_not_required, name="dispatch")
+class SearchAPIView(APIView):
+    authentication_classes = [APIKeyAuthentication]
+
+    @extend_schema(
+        parameters=[OpenApiParameter(name="q", type=str, required=True, description="Search text")],
+        responses={200: OpenApiResponse(description="Ranked results grouped by object type")},
+        description="Global full-text search across projects, references, notes, documents, decisions, and plans.",
+    )
+    def get(self, request):
+        from core.search import search_all
+
+        results = []
+        for result in search_all(request.query_params.get("q", "")):
+            obj = result["object"]
+            results.append(
+                {
+                    "type": result["type"],
+                    "id": obj.pk,
+                    "label": str(obj),
+                    "project": result["project"].slug if result["project"] else None,
+                    "url": obj.get_absolute_url() if hasattr(obj, "get_absolute_url") else None,
+                }
+            )
+        return Response({"query": request.query_params.get("q", ""), "results": results})

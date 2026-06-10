@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from documents.models import Document, Folder, Tag
 from literature.models import ProjectReference, Reference
-from notes.models import QuickCapture
+from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 
@@ -213,3 +213,12 @@ class AddByDoiSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Optional project slug to link the reference to.",
     )
+
+
+class NoteSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+
+    class Meta:
+        model = Note
+        fields = ["id", "project", "title", "body", "references", "created_at", "updated_at"]
+        extra_kwargs = {"references": {"required": False}}

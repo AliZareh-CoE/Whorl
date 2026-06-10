@@ -4,6 +4,11 @@ Running decision log for the Atlas build. Newest entries at the top of each sect
 
 ## Decisions
 
+### 2026-06-10 — `mcp` SDK added as a dependency (Phase 6, spec-sanctioned)
+- **Decision:** Add the official `mcp` Python SDK to `pyproject.toml` for `mcp_server/`. The server is stdio-only FastMCP; `mcp_server/client.py` stays a pure httpx client with zero Django and zero SDK imports (enforced by `test_no_django_imports`).
+- **Why:** CLAUDE.md §5 Phase 6 names this SDK explicitly; the API remains the single contract.
+- **Alternatives rejected:** hand-rolling the MCP protocol (pointless duplication of the official SDK).
+
 ### 2026-06-10 — arXiv metadata comes from arXiv's export API, not OpenAlex
 - **Decision:** `fetch_metadata_by_arxiv` queries `export.arxiv.org/api/query` (Atom, parsed with stdlib ElementTree). DOI lookups remain Crossref → OpenAlex.
 - **Why:** Verified live that OpenAlex returns 404 for arXiv DataCite DOIs (`doi:10.48550/arxiv.1706.03762`) and Crossref does not index them at all. arXiv's own public API is authoritative, free, and adds no dependency beyond httpx already in the stack.

@@ -194,3 +194,71 @@ class TestGraphAPI:
         assert {"nodes", "links"} == set(data)
         assert len(data["nodes"]) == 2
         assert data["links"][0]["kind"] == "citation"
+
+
+class TestMCPSupportEndpoints:
+    def test_overview_endpoint(self, client, owner):
+        from plans.tests.factories import MilestoneFactory, PhaseFactory
+
+        phase = PhaseFactory(status="in_progress", name="Pilot")
+        MilestoneFactory(phase=phase, title="Collect")
+        data = client.get(f"/api/v1/projects/{phase.project.slug}/overview/", **HEADERS).json()
+        assert data["current_phase"]["name"] == "Pilot"
+        assert data["progress"]["total"] == 1
+        assert data["next_milestones"][0]["title"] == "Collect"
+        assert data["counts"]["documents"] == 0
+
+    def test_plan_endpoint_nests_milestones_and_tasks(self, client, owner):
+        from plans.tests.factories import TaskFactory
+
+        task = TaskFactory(title="Leaf")
+        slug = task.milestone.phase.project.slug
+        data = client.get(f"/api/v1/projects/{slug}/plan/", **HEADERS).json()
+        assert data["phases"][0]["milestones"][0]["tasks"][0]["title"] == "Leaf"
+
+    def test_reading_queue_endpoint_sorted(self, client, owner):
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link_low = ProjectReferenceFactory(priority="low")
+        ProjectReferenceFactory(project=link_low.project, priority="high")
+        data = client.get(
+            f"/api/v1/projects/{link_low.project.slug}/reading-queue/", **HEADERS
+        ).json()
+        assert [item["priority"] for item in data] == ["high", "low"]
+
+    def test_bib_report_endpoint_offline(self, client, owner):
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link = ProjectReferenceFactory(reference__venue="", reference__year=None)
+        data = client.get(f"/api/v1/projects/{link.project.slug}/bib-report/", **HEADERS).json()
+        assert data["network_checks_included"] is False
+        assert data["findings"]["missing_fields"]
+
+    def test_search_endpoint(self, client, owner):
+        from notes.tests.factories import NoteFactory
+
+        NoteFactory(title="Searchable narwhal facts")
+        data = client.get("/api/v1/search/?q=narwhal", **HEADERS).json()
+        assert any(r["type"] == "note" for r in data["results"])
+
+    def test_search_requires_key(self, client, owner):
+        assert client.get("/api/v1/search/?q=x").status_code in (401, 403)
+
+    def test_note_create_via_api_syncs_wiki_links(self, client, owner):
+        from notes.models import Note
+        from notes.tests.factories import NoteFactory
+
+        target = NoteFactory(title="API Target")
+        response = client.post(
+            "/api/v1/notes/",
+            {
+                "project": target.project.slug,
+                "title": "API Source",
+                "body": "links to [[API Target]]",
+            },
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert response.status_code == 201
+        source = Note.objects.get(title="API Source")
+        assert source.outgoing_links.get().target == target

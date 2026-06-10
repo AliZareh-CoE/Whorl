@@ -18,10 +18,12 @@ router.register("documents", views.DocumentViewSet)
 router.register("references", views.ReferenceViewSet)
 router.register("project-references", views.ProjectReferenceViewSet)
 router.register("quick-capture", views.QuickCaptureViewSet)
+router.register("notes", views.NoteViewSet)
 
 app_name = "api"
 
 urlpatterns = [
+    path("v1/search/", views.SearchAPIView.as_view(), name="search"),
     path("v1/", include(router.urls)),
     path("schema/", login_not_required(SpectacularAPIView.as_view()), name="schema"),
     path(
