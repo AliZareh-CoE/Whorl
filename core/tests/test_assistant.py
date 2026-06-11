@@ -77,3 +77,10 @@ class TestAssistantEndpoint:
         assert match[0]["type"] == "note"
         assert match[0]["url"] == note.get_absolute_url()
         assert match[0]["when"] == note.updated_at.date().isoformat()
+
+
+def test_context_cacheable_repeat_calls_are_consistent(client_logged_in):
+    """The SPA caches this per path (SWR); repeat calls must return stable shape."""
+    a = endpoint(client_logged_in, "/").json()
+    b = endpoint(client_logged_in, "/").json()
+    assert set(a) == set(b) == {"context", "actions", "commands", "claude_prompt", "recent"}

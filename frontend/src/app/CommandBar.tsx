@@ -3,7 +3,7 @@
  * fuzzy jump-to-anything, real verbs (capture:, done:), page-aware quick
  * actions, and the "Ask Claude about this" MCP handoff. Local + instant.
  */
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, csrfToken } from "./api";
@@ -48,14 +48,28 @@ export default function CommandBar() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [flash, setFlash] = useState("");
-  const [assistant, setAssistant] = useState<AssistantContext | null>(null);
-  const [plan, setPlan] = useState<PlanData | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
 
   const slug = location.pathname.match(/^\/projects\/([^/]+)/)?.[1] ?? null;
+
+  // #73: the assistant index is cached per path (stale-while-revalidate) and kept warm, so
+  // ⌘K is instant on every open — the first open prefetches, repeats read from cache.
+  const { data: assistant = null } = useQuery({
+    queryKey: ["assistant-context", slug],
+    queryFn: () =>
+      fetch(`/assistant/context/?path=${encodeURIComponent("/projects/" + (slug ?? "") + "/")}`,
+            { credentials: "same-origin" }).then((r) => r.json() as Promise<AssistantContext>),
+    staleTime: 60_000,
+  });
+  const { data: plan = null } = useQuery({
+    queryKey: ["plan", slug],
+    queryFn: () => api<PlanData>(`/projects/${slug}/plan/`),
+    enabled: !!slug,
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -71,15 +85,7 @@ export default function CommandBar() {
   useEffect(() => {
     if (!open) { setQuery(""); setActive(0); setFlash(""); return; }
     setTimeout(() => inputRef.current?.focus(), 30);
-    fetch(`/assistant/context/?path=${encodeURIComponent("/projects/" + (slug ?? "") + "/")}`,
-          { credentials: "same-origin" })
-      .then((r) => r.json())
-      .then(setAssistant)
-      .catch(() => setAssistant(null));
-    if (slug) {
-      api<PlanData>(`/projects/${slug}/plan/`).then(setPlan).catch(() => setPlan(null));
-    } else setPlan(null);
-  }, [open, slug]);
+  }, [open]);
 
   const doCapture = useCallback(async (text: string) => {
     await api("/quick-capture/", {
