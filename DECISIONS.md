@@ -47,8 +47,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    with cite-key autocomplete from the manuscript bibliography, Ctrl/Cmd-S save, integrated
    cite-check on every save.~~ Remaining: server-side compile (Tectonic — dependency decision
    first) + live PDF preview via the existing pdf.js reader; snippets; section outline.
-10. **Commenting / annotations.** Comments anchored to things: PDFs (building on the reader),
-    LaTeX sources, notes, documents — one generic Comment model, surfaced contextually.
+10. **Commenting / annotations.** ~~First slice (2026-06-11, cycle 14): generic `Comment`
+    model (contenttypes) with markdown bodies; comment threads live on note, reference, and
+    manuscript pages via one `_comments.html` include; kind allowlist guards the endpoint.~~
+    Remaining: comments on documents and folders; PDF-anchored comments (page/selection)
+    building on the reader; LaTeX line-anchored comments in the editor.
 11. **Better papers & literature reviews.** Continuous improvement of the lit-review
     experience. IMPORTANT constraint from the owner: NO paid Claude/LLM API calls — smart
     features must run either as local NLP (see #5) or through the owner's own Claude
@@ -154,4 +157,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 17. Prompt variables — `{{placeholders}}` in saved prompts with a small fill-in form before copying (idea added by cycle 11)
 18. Bot run history — keep the last N results per bot and chart reminders-over-time on the Automations page (idea added by cycle 12)
 19. LaTeX compile service — vendor the Tectonic binary (like Tailwind/Piper pattern) behind a huey task with compile logs surfaced in the editor (idea added by cycle 13)
-20. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+20. Comment mentions of objects — [[wiki-links]] and @cite-keys resolving inside comment bodies (idea added by cycle 14)
+21. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

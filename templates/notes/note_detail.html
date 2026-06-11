@@ -70,4 +70,7 @@
     <p class="text-xs text-stone-400">Updated {{ note.updated_at|date:"Y-m-d H:i" }}</p>
   </aside>
 </div>
+<div class="mt-6 max-w-3xl">
+  {% include "_comments.html" with kind="note" target=note %}
+</div>
 {% endblock %}

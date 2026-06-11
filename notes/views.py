@@ -28,6 +28,7 @@ def note_list(request, slug):
 def note_detail(request, slug, pk):
     project = get_object_or_404(Project, slug=slug)
     note = get_object_or_404(project.notes, pk=pk)
+    from core.comments import comments_for
     from core.keywords import extract_keywords
     from core.templatetags.markdown_extras import markdownify
 
@@ -41,6 +42,7 @@ def note_detail(request, slug, pk):
             "backlinks": [link.source for link in note.incoming_links.select_related("source")],
             "outgoing": [link.target for link in note.outgoing_links.select_related("target")],
             "keywords": extract_keywords(f"{note.title}. {note.body}", 6),
+            "comments": comments_for(note),
         },
     )
 

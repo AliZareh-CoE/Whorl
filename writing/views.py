@@ -39,6 +39,8 @@ def project_writing(request, slug):
 
 
 def manuscript_detail(request, slug, pk):
+    from core.comments import comments_for
+
     project = get_object_or_404(Project, slug=slug)
     manuscript = get_object_or_404(project.manuscripts, pk=pk)
     cite_form = CiteCheckForm()
@@ -59,6 +61,7 @@ def manuscript_detail(request, slug, pk):
             "cite_form": cite_form,
             "cite_result": cite_result,
             "bib_report": services.manuscript_bib_report(manuscript),
+            "comments": comments_for(manuscript),
         },
     )
 

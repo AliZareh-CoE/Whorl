@@ -80,6 +80,7 @@ def import_bibtex(request):
 
 
 def reference_detail(request, pk):
+    from core.comments import comments_for
     from core.keywords import extract_keywords
 
     from .related import related_references
@@ -95,6 +96,7 @@ def reference_detail(request, pk):
             "available_projects": Project.objects.exclude(project_references__reference=reference),
             "related": related_references(reference),
             "keywords": extract_keywords(f"{reference.title}. {reference.abstract}", 6),
+            "comments": comments_for(reference),
         },
     )
 
