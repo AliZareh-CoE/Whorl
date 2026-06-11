@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { api } from "./api";
 import { toSpaUrl } from "./links";
@@ -42,9 +42,39 @@ export default function Layout() {
   }, [navigate]);
   const { data: pet } = useQuery({
     queryKey: ["pet"],
-    queryFn: () => api<{ name: string; emoji: string; mood: string; speech: string }>("/pet/"),
+    queryFn: () =>
+      api<{
+        name: string;
+        emoji: string;
+        mood: string;
+        speech: string;
+        speech_lines?: string[];
+        reactions?: Record<string, string>;
+      }>("/pet/"),
     staleTime: 300_000,
   });
+
+  // Buddy-style life (Owner idea #23): rotate observation bubbles, hop on real events.
+  const [lineIdx, setLineIdx] = useState(0);
+  const [reaction, setReaction] = useState<string | null>(null);
+  useEffect(() => {
+    const t = setInterval(() => setLineIdx((i) => i + 1), 20_000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    function onPet(e: Event) {
+      const kind = (e as CustomEvent).detail?.kind as string;
+      const line = pet?.reactions?.[kind];
+      if (!line) return;
+      setReaction(line);
+      setTimeout(() => setReaction(null), 4000);
+    }
+    window.addEventListener("atlas-pet", onPet);
+    return () => window.removeEventListener("atlas-pet", onPet);
+  }, [pet]);
+  const lines = pet?.speech_lines?.length ? pet.speech_lines : pet ? [pet.speech] : [];
+  const bubble = reaction ?? (lines.length ? lines[lineIdx % lines.length] : "");
+
   return (
     <div className="flex h-full">
       <CommandBar />
@@ -64,12 +94,27 @@ export default function Layout() {
         </nav>
         <div className="mt-auto pt-6 text-xs text-stone-400">
           {pet && (
-            <a href="/pet/" title={`${pet.name} is ${pet.mood} — ${pet.speech}`}
-               className="mb-3 flex items-center gap-2 rounded border border-stone-100 bg-stone-50 px-2 py-1.5 hover:border-stone-200">
-              <span className="pet-idle inline-block text-xl">{pet.emoji}</span>
-              <span className="min-w-0">
-                <span className="block truncate font-medium text-stone-600">{pet.name}</span>
-                <span className="block truncate text-[10px] italic text-stone-400">“{pet.speech}”</span>
+            <a href="/pet/" title={`${pet.name} is ${pet.mood}`} className="group mb-3 block">
+              <span
+                key={bubble}
+                className={`pet-bubble relative mb-1.5 block rounded-lg border px-2.5 py-1.5 text-[10px] leading-snug ${
+                  reaction
+                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                    : "border-stone-200 bg-white text-stone-500"
+                }`}
+              >
+                {bubble}
+              </span>
+              <span className="flex items-center gap-2 rounded border border-stone-100 bg-stone-50 px-2 py-1.5 group-hover:border-stone-200">
+                <span className={`inline-block text-xl ${reaction ? "pet-hop" : "pet-idle"} ${pet.mood === "sleeping" ? "opacity-70 grayscale" : ""}`}>
+                  {pet.emoji}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-stone-600">{pet.name}</span>
+                  <span className="block truncate text-[10px] text-stone-400">
+                    {pet.mood === "sleeping" ? "💤 " : ""}{pet.mood}
+                  </span>
+                </span>
               </span>
             </a>
           )}

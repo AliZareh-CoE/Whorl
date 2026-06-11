@@ -6,7 +6,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { api, csrfToken } from "./api";
+import { api, csrfToken, petReact } from "./api";
 import { toSpaUrl } from "./links";
 
 type Command = { title: string; type: string; url: string };
@@ -94,6 +94,7 @@ export default function CommandBar() {
       body: JSON.stringify({ text }),
     });
     queryClient.invalidateQueries({ queryKey: ["inbox"] });
+    petReact("capture");
     return `Captured: ${text.slice(0, 60)}`;
   }, [queryClient]);
 
@@ -105,6 +106,7 @@ export default function CommandBar() {
     });
     queryClient.invalidateQueries({ queryKey: ["plan", slug] });
     queryClient.invalidateQueries({ queryKey: ["overview", slug] });
+    petReact("milestone");
     return `✓ ${title}`;
   }, [queryClient, slug]);
 

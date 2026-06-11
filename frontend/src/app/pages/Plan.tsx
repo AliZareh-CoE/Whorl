@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../api";
+import { api, petReact } from "../api";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
 type Milestone = {
@@ -51,6 +51,7 @@ export default function Plan() {
       }),
     onMutate: async (m) => {
       // optimistic: flip locally, progress recomputes from the next refetch
+      if (!m.completed_at) petReact("milestone");
       patchPlan((plan) => ({
         ...plan,
         phases: plan.phases.map((ph) => ({

@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: Owner idea #23 Claude-style pet [cycle 97, UI/UX])
-- **Last completed slice (cycle 96):** Owner idea #10 / Backlog #93 — comments on documents: document kind in the comment allowlist (classic + `/api/v1/comments/document/{id}/`), 💬 button with live count per documents-table row opening a modal thread (ESC/backdrop/✕ dismissal per overlay-pattern research, ⌘-Enter post), counts in one extra query in documents_table_props. Browser-verified post→persist→dismiss; 2 new tests. NEW Owner idea #23 recorded: pet like the Claude Code pet.
+- **Slice in progress:** — (next: backlog top-down [cycle 98])
+- **Last completed slice (cycle 97, UI/UX):** Owner idea #23 — Buddy-style Mochi: speech bubble with tail rotating contextual lines every 20s in the SPA sidebar; live `petReact()` reactions (milestone done via plan/⌘K, paper read via literature/read-flow, quick capture) flip the bubble to a celebration + hop for 4s; personality stats (wisdom/focus/curiosity/grit, 0–10 growth curve) with dominant-trait panel on /pet/ and a trait line in the speech pool. Researched Claude Buddy first per design rule. Browser-verified all three; 3 new tests (one caught an off-by-one in the level curve).
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea AND makes a tech improvement with research-backed design (rule added cycle 94).
 - **Next 3 slices:**
-  1. Owner idea #23 [cycle 97, UI/UX]: Claude-Code-style pet — research what makes it loved, then animate/personify Mochi
-  2. Backlog top-down [98-99]: #91 seed PDF, #100 DRY mixin, #103 CI audit job, #105 matrix theme chips, #106 docs/DESIGN.md, #107/#108 timeline follow-ups
-  3. AUDIT #10 at cycle 100 (`make audit` first); keep ≥1 [REV] candidate listed (open: #62 synthesis studio)
+  1. Backlog top-down [98-99]: #91 seed PDF, #100 DRY mixin, #103 CI audit job, #105 matrix theme chips, #106 docs/DESIGN.md, #107/#108 timeline follow-ups, #110 pet hatching
+  2. AUDIT #10 at cycle 100 (`make audit` first)
+  3. Keep ≥1 [REV] candidate listed (open: #62 synthesis studio)
 - **Broken:** nothing
 
 ## Gate reports

@@ -20,3 +20,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) throw new Error(`${response.status} on ${path}`);
   return response.status === 204 ? (undefined as T) : response.json();
 }
+
+/** Tell the pet something happened (Owner idea #23) — Layout shows a reaction bubble. */
+export function petReact(kind: "milestone" | "paper" | "capture" | "note") {
+  window.dispatchEvent(new CustomEvent("atlas-pet", { detail: { kind } }));
+}

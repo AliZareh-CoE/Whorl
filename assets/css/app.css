@@ -73,3 +73,29 @@
 [x-cloak] {
   display: none !important;
 }
+
+/* Pet speech bubble (Owner idea #23): tail pointing down at the pet, gentle fade-in
+   when the line changes. */
+.pet-bubble {
+  animation: pet-bubble-in 0.4s ease-out;
+}
+.pet-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 14px;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  border-right: 1px solid;
+  border-bottom: 1px solid;
+  border-color: inherit;
+  transform: rotate(45deg);
+}
+@keyframes pet-bubble-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pet-bubble { animation: none; }
+}

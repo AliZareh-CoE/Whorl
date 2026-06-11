@@ -119,6 +119,67 @@ def pet_speech(now=None) -> str:
     return random.Random(f"{now.date()}-{now.hour}").choice(candidates)
 
 
+# Buddy-style personality (Owner idea #23): stats grown from real work, reaction
+# one-liners for live events. Observations and celebrations only — never demands.
+
+STAT_RULES = [
+    # (stat, blurb shown when it's the dominant trait)
+    ("wisdom", "Mostly WISDOM — it reads over your shoulder."),
+    ("focus", "Mostly FOCUS — it lives for a checked-off milestone."),
+    ("curiosity", "Mostly CURIOSITY — it hoards stray ideas."),
+    ("grit", "Mostly GRIT — it respects a finished experiment."),
+]
+
+REACTION_LINES = {
+    "milestone": [
+        "A milestone falls! *happy hop*",
+        "Checked. The plan advances.",
+        "That one's done. Onward.",
+    ],
+    "paper": [
+        "Om nom — knowledge.",
+        "Another paper digested.",
+        "The library grows wiser.",
+    ],
+    "capture": [
+        "Caught that thought.",
+        "Idea secured. Carry on.",
+        "Into the inbox it goes.",
+    ],
+    "note": [
+        "Scribble heard. Notebook fed.",
+        "A note! It remembers everything.",
+    ],
+}
+
+
+def _level(n: int) -> int:
+    """0–10 display level that grows fast early, slow late — pets should feel alive
+    from day one."""
+    for level, threshold in enumerate([1, 2, 4, 7, 11, 17, 26, 42, 68, 100]):
+        if n < threshold:
+            return level
+    return 10
+
+
+def pet_stats() -> dict:
+    from core.models import Comment
+    from literature.models import ProjectReference
+    from notes.models import Note
+    from plans.models import Milestone
+    from research.models import ExperimentEntry
+    from writing.models import SubmissionEvent
+
+    return {
+        "wisdom": _level(
+            ProjectReference.objects.filter(reading_status__in=["read", "annotated"]).count()
+        ),
+        "focus": _level(Milestone.objects.filter(completed_at__isnull=False).count()),
+        "curiosity": _level(Note.objects.count() + Comment.objects.count()),
+        "grit": _level(ExperimentEntry.objects.count() + SubmissionEvent.objects.count()),
+    }
+
+
 def pet_state() -> dict:
     cached = cache.get("atlas-pet-state")
     if cached is not None:
@@ -134,9 +195,22 @@ def pet_state() -> dict:
     mood = next(m for m in reversed(MOODS) if weekly >= m[0])
     next_stage = next((s for s in STAGES if s[0] > lifetime), None)
 
+    now = timezone.localtime()
+    rng = random.Random(f"{now.date()}-{now.hour}")
+    stats = pet_stats()
+    dominant = max(stats, key=lambda k: stats[k])
+    lines = _speech_candidates(now)
+    if stats[dominant] > 0:
+        lines.append(dict(STAT_RULES)[dominant])
+    rng.shuffle(lines)
+
     state = {
         "name": pet.name,
-        "speech": pet_speech(),
+        "speech": lines[0],
+        "speech_lines": lines[:6],  # the widget rotates through these, Buddy-style
+        "reactions": {kind: rng.choice(pool) for kind, pool in REACTION_LINES.items()},
+        "stats": stats,
+        "dominant_stat": dominant,
         "stage": stage[1],
         "emoji": stage[2],
         "stage_blurb": stage[3],

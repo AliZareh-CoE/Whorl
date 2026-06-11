@@ -266,6 +266,17 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     a small always-present animated pixel-art companion that visibly reacts to what's
     happening (events, streaks, completions), with personality in the reactions. Research
     what makes the Claude Code pet loved before building; UI/UX cycle candidate (97/98).
+    ~~First slice (2026-06-11, cycle 97, UI/UX): researched Claude Buddy (observes context,
+    speech-bubble reactions ~10s, stats shaping personality) and shipped the core of it:
+    real speech bubble with tail above sidebar-Mochi rotating contextual observation lines
+    every 20s; live reactions — petReact() events from milestone completion (plan + ⌘K),
+    papers marked read (literature + read-flow), and quick captures flip the bubble to a
+    celebration line + hop animation for 4s; Buddy-style personality stats (WISDOM from
+    reading, FOCUS from milestones, CURIOSITY from notes+comments, GRIT from experiments+
+    submissions, 0–10 curve) with a dominant-trait bar panel on /pet/ and a trait line in
+    the speech pool. No nagging kept; 5-min cache kept. Browser-verified: bubble rotation,
+    milestone→"A milestone falls! *happy hop*", personality panel.~~ Remaining: species/
+    hatching/rarity moment (idea #110).
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -507,3 +518,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 107. Timeline event detail expand — click a dot to expand the event in place (decision context, experiment body, note preview) without leaving the page (idea added by cycle 95)
 108. Timeline on the overview — a 5-event mini-timeline strip on the project overview linking to the full page (idea added by cycle 95)
 109. Comment threads from search — comments are invisible to global search; index comment bodies (FTS) so "where did I write that remark?" resolves (idea added by cycle 96)
+110. Pet hatching & species — a one-time hatch moment (deterministic from the install, Buddy-style) choosing among a few species/looks, with a tiny shiny chance; pairs with #49/#56 (idea added by cycle 97)

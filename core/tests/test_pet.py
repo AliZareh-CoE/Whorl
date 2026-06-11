@@ -99,3 +99,39 @@ class TestPetSpeech:
         assert "“" in content  # the sidebar speech line
         page = client_logged_in.get(reverse("core:pet")).content.decode()
         assert "pet-idle" in page
+
+
+class TestBuddyPersonality:
+    """Owner idea #23: Buddy-style stats, rotating lines, and reaction one-liners."""
+
+    def test_state_includes_stats_lines_and_reactions(self):
+        from core.pet import REACTION_LINES, pet_state
+
+        state = pet_state()
+        assert set(state["stats"]) == {"wisdom", "focus", "curiosity", "grit"}
+        assert all(0 <= v <= 10 for v in state["stats"].values())
+        assert state["dominant_stat"] in state["stats"]
+        assert isinstance(state["speech_lines"], list) and state["speech_lines"]
+        assert state["speech"] == state["speech_lines"][0]
+        assert set(state["reactions"]) == set(REACTION_LINES)
+        for kind, line in state["reactions"].items():
+            assert line in REACTION_LINES[kind]
+
+    def test_stats_grow_with_work(self):
+        from django.utils import timezone
+
+        from core.pet import pet_stats
+        from plans.tests.factories import MilestoneFactory
+
+        assert pet_stats()["focus"] == 0
+        MilestoneFactory(completed_at=timezone.now())
+        assert pet_stats()["focus"] == 1
+
+    def test_level_curve_caps_at_ten(self):
+        from core.pet import _level
+
+        assert _level(0) == 0
+        assert _level(1) == 1
+        assert _level(99) == 9
+        assert _level(100) == 10
+        assert _level(10_000) == 10

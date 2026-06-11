@@ -5,7 +5,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, csrfToken } from "../api";
+import { api, csrfToken, petReact } from "../api";
 
 type Paper = {
   id: number;
@@ -62,6 +62,7 @@ export default function ReadingFlow() {
     setFlash(`Marked ${STATUS_LABEL[status]}`);
     setTimeout(() => setFlash(""), 1200);
     queryClient.invalidateQueries({ queryKey: ["literature", slug] });
+    if (status === "read" || status === "annotated") petReact("paper");
     if (status === "read" || status === "annotated") {
       setDone((d) => new Set(d).add(paper.id));
       next();

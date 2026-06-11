@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, csrfToken } from "../api";
+import { api, csrfToken, petReact } from "../api";
 
 type Ref = { id: number; bibtex_key: string; title: string; authors: { family?: string; given?: string }[]; year: number | null; venue: string };
 type LinkRow = {
@@ -71,6 +71,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
         body: JSON.stringify({ reading_status: status }),
       }),
     onMutate: ({ id, status }) => {
+      if (status === "read" || status === "annotated") petReact("paper");
       queryClient.setQueryData<Page<LinkRow>>(listKey, (old) =>
         old
           ? { ...old, results: old.results.map((r) => (r.id === id ? { ...r, reading_status: status } : r)) }
