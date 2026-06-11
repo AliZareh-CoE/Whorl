@@ -20,7 +20,7 @@ class TestWeeklyReview:
         from notes.tests.factories import NoteFactory
         from plans.tests.factories import MilestoneFactory
 
-        note = NoteFactory(title="This week's note")
+        NoteFactory(title="This week's note")
         MilestoneFactory(title="Shipped this week", completed_at=timezone.now())
         data = weekly_review()
         assert any(n["title"] == "This week's note" for n in data["notes_written"])
