@@ -29,7 +29,9 @@ def resolve_oa_pdf_url(reference: Reference, client: httpx.Client) -> str | None
         if response.status_code != 200:
             return None
         location = response.json().get("best_oa_location") or {}
-        return location.get("url_for_pdf") or None
+        url = location.get("url_for_pdf") or ""
+        # only ever follow https links handed back by Unpaywall
+        return url if url.startswith("https://") else None
     return None
 
 

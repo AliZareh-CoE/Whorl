@@ -169,6 +169,10 @@ def save_highlight(request, pk):
     text = request.POST.get("text", "").strip()
     if not text:
         return JsonResponse({"error": "Empty selection."}, status=400)
+    if len(text) > 2000:
+        return JsonResponse(
+            {"error": "Selection too long — highlight at most 2000 characters."}, status=400
+        )
     page = request.POST.get("page")
     note = add_highlight_note(reference, project, text, int(page) if page else None)
     return JsonResponse({"note_id": note.pk, "note_url": note.get_absolute_url()})

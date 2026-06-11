@@ -280,3 +280,17 @@ class TestReviewMatrix:
         )
         assert dup.status_code == 200  # form re-renders with error
         assert link.project.review_themes.count() == 2
+
+
+class TestAuditCycle10Fixes:
+    def test_highlight_length_capped(self, client_logged_in):
+        from django.core.files.base import ContentFile
+
+        link = ProjectReferenceFactory()
+        link.reference.pdf.save("p.pdf", ContentFile(b"%PDF-1.4"), save=True)
+        response = client_logged_in.post(
+            reverse("literature:highlight", args=[link.reference.pk]),
+            {"project": link.project.slug, "text": "x" * 2001},
+        )
+        assert response.status_code == 400
+        assert "2000" in response.json()["error"]

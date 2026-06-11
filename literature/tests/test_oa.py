@@ -143,3 +143,16 @@ class TestSurfaces:
             HTTP_X_API_KEY="k",
         )
         assert called == {}
+
+
+def test_non_https_oa_url_rejected(patch_http):
+    ref = ReferenceFactory(doi="10.1/sketchy")
+
+    def handler(request):
+        assert request.url.host == "api.unpaywall.org", "must not follow the http URL"
+        return httpx.Response(
+            200, json={"best_oa_location": {"url_for_pdf": "http://evil.example/x.pdf"}}
+        )
+
+    patch_http["handler"] = handler
+    assert oa.fetch_and_attach_pdf(ref) == "No open-access PDF found."
