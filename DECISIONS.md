@@ -169,6 +169,29 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     keeps Django as source of truth.~~ Next: per-view conversions (assistant panel, graph
     chrome, LaTeX shell), one per cycle.
 
+20. **FULL REACT SPA — committed (owner, 2026-06-11, supersedes the islands compromise
+    in #19).** Owner's words: "the whole app should now be React"; confirmed via explicit
+    choice with costs stated (~10-20 cycles, little else ships meanwhile). Strangler
+    migration so Atlas stays usable every day:
+    - **Stack:** Vite + React + TypeScript in the existing frontend/ workspace; react-router;
+      data layer on the existing DRF API (gaps filled per slice). Tailwind stays. New deps
+      allowed: react-router-dom, @tanstack/react-query.
+    - **Auth:** session cookie + CSRF for the same-origin SPA — add SessionAuthentication
+      alongside X-API-Key on the API (API-key behavior for MCP unchanged); login page stays
+      server-rendered.
+    - **Serving:** SPA shell served by Django at /app/ during migration; sections cut over
+      one by one (old URLs redirect as their SPA route lands); final cutover moves / to the
+      SPA. Islands infra retires at the end (DocumentsTable + Assistant become SPA components).
+    - **Slices (one per cycle, each browser-verified):** 56 shell+router+layout+session/CSRF
+      wiring + dashboard read-only → 57 projects list/overview → 58 plan page w/ check-offs →
+      59 documents (reuse table) → [60 AUDIT #6] → 61 library+queue+reference detail →
+      62 notes+editor → 63 writing board+manuscript (CodeMirror in React) → 64 inbox, prompts,
+      automations, pet, search → [65 REV] → 66 research+decisions+questions → 67 graph →
+      68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
+    - **Standing constraints unchanged:** lightning-fast (code-split routes, prefetch),
+      security (CSRF, no token in JS-readable storage beyond the session cookie), tests
+      (API contract tests guard every migrated view), no paid LLM APIs.
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
