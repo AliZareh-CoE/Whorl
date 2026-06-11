@@ -460,3 +460,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 87. ~~Prefetch assistant index on mount (done 2026-06-11, cycle 78): Layout warms the ⌘K assistant-context query on app load, so even the very first ⌘K paints instantly.~~
 88. ~~tl;dr in reading-flow (done 2026-06-11, cycle 79): 's' summarizes the current paper's abstract inline during a read session; resets on next/prev, in the key legend. The focused session is now Listen + tl;dr + note + status, fully keyboard.~~
 89. seed_demo abstracts — give a few seeded references real abstracts so tl;dr/Listen/reading-flow demo out of the box (friction-sourced, cycle 79)
+90. seed real abstracts (escalate #89) — AUDIT #8 noted features like tl;dr/Listen can't demo on seeded data; do it so the next person who runs seed_demo sees them work (idea added by cycle 80)

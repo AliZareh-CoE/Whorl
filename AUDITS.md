@@ -2,6 +2,39 @@
 
 Every 10th loop cycle is a full security + performance audit (owner rule). Reports newest first.
 
+## Audit #8 — cycle 80 (2026-06-11), covering loop cycles 71–79 (post-cutover features + dogfooding)
+
+**No findings — a clean audit.** The catch-all routing (#77) and the disciplined dogfood
+workflow meant the surface was already tight; every probe came back as designed.
+
+**Security (all verified live):**
+- New API surfaces — manuscripts, hypotheses/experiments/datasets, bots, pet, reading-flow —
+  all 401 anonymously. Research endpoints are read-only (POST blocked; the existing test
+  asserts 405, and a session POST without CSRF 403s before even reaching the method check).
+- Bots action endpoint (the only new *write* surface): session POST without a CSRF token → 403.
+- **#77 route catch-all re-probed:** the cycle-70 open-redirect fix holds — `/app//evil.com/x`
+  stays local (`→ /evil.com/x`); `/api/v1/nonsense` still 404s (the catch-all excludes `api/`);
+  `/static/js/spa.js` serves as `text/javascript`; unknown slash-less paths serve the shell
+  (React renders its own 404, no data leak); classic trailing-slash pages unaffected.
+- X-SPA JSON branches (bulk docs/literature, synthesis, summarize) and command-bar verbs all
+  route through the authenticated, CSRF'd `api()`/fetch path and are project-scoped by the same
+  viewsets as the rest of the API.
+
+**Dependencies:** `pip-audit` (frozen) + `npm audit` (prod+dev): **zero known vulnerabilities**.
+
+**Performance:** SPA shell `/` 13 ms; new JSON endpoints 9–21 ms (dashboard 9, pet 12, bots 16,
+reading-flow 16, hypotheses 18, manuscripts 21) — well under the 50 ms bar. **Bundles:** spa.js
+29 KB gz + shared React chunk 46 KB gz (initial ~75 KB, cached); 21 lazy page chunks total 33 KB
+gz, fetched 1–3 KB on first visit — the code-splitting (cycle 69) is holding the growth flat as
+pages accumulated. Query budgets green.
+
+**Process note:** three cycles (71, 74, 75) needed a follow-up commit because test/format steps
+ran out of order; the pre-commit discipline (build + format + lint-fix BEFORE `git add`) and the
+post-push sync check are now standing chain instructions and have held since.
+
+**Verdict:** healthy. First no-fix audit — the route-rule refactor (#77) removed the bug class
+that the prior two audits' findings traced back to. 411 tests green, lint + tsc + assets-check clean.
+
 ## Audit #7 — cycle 70 (2026-06-11), covering loop cycles 61–69 (SPA completion + cutover)
 
 **Headline finding — open redirect (found + fixed):** the cutover's `/app/*` bookmark
