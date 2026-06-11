@@ -387,6 +387,24 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     project overview, plan, documents/literature tables, library, writing board — audit
     each for the centered-narrow-column antipattern and density.
 
+26. **Overleaf UI — study it properly, match and exceed (owner, 2026-06-11, during cycle 118).**
+    "go do more research on UI of overleaf and see what they really do and make sure you make it
+    to theirs and beyond." The functional parity is done; this is about the *interface* itself —
+    Overleaf's redesigned editor (2024): simplified top bar with File/Edit/View/Help menus;
+    a left vertical icon rail (file tree, settings, help at the bottom); History/Share/Layout
+    buttons top-right; a review/track-changes mode toggled top-right; collapsible panels via the
+    divider bars; the error-log pane beside Recompile. A parallel planning agent is producing a
+    gap matrix vs Atlas's editor; close the visual/interaction gaps over upcoming UI/UX cycles
+    (menu bar, collapsible panels with divider handles, a left icon rail, review mode), then go
+    beyond. Sources: docs.overleaf.com/getting-started/.../redesigned-overleaf-editor.
+27. **The pet must be a REAL pet, not an emoji (owner, 2026-06-11, emphatic, during cycle 118).**
+    "for the pet you are using an emoji and calling it a day! thats wrong you need to make a real
+    pet!" Replace the emoji glyph with a properly DESIGNED creature: inline pixel-art/vector SVG
+    (no new deps, no external assets), per growth stage (egg → hatchling → owl-scholar → sage),
+    with real CSS animation (idle breathing/bob, blink, ear/wing twitch, the hop on events),
+    expressive eyes/mood. This is the next UI/UX cycle (119) and a standing quality bar: the pet
+    should look hand-crafted, not a Unicode character.
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
