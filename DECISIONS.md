@@ -225,7 +225,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
       MCP prompt copy, recents; keyboard-only verified — and it performed its own dogfood
       duties: this cycle's friction note was captured THROUGH the bar and the REV milestone
       checked off with 'done: revolutionary')~~ →
-      66 research+decisions+questions+automations+pet → 67 graph → 68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
+      ~~66 research+decisions (done 2026-06-11: read-only hypotheses/experiments/datasets
+      API + /app/projects/:slug/research ledger page; /app/.../decisions timeline with a
+      create form — the cycle's own split decision was recorded through it; automations+pet
+      split to 67 — decision in the app's own decision log)~~ → 67 graph+automations+pet →
+      68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
     - **Standing constraints unchanged:** lightning-fast (code-split routes, prefetch),
       security (CSRF, no token in JS-readable storage beyond the session cookie), tests
       (API contract tests guard every migrated view), no paid LLM APIs.
@@ -424,3 +428,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 72. Milestone search — ?q= filter on milestones (or the plan endpoint) so scripts and the SPA can find one by title without fetching the whole plan; felt at the first dogfood ship step (idea added by cycle 64, friction-sourced)
 73. Command-index cache — stale-while-revalidate for the assistant commands index so repeat palette opens are instant (idea added by cycle 65, friction captured via the command bar itself)
 74. [REV] Reading-flow mode — a distraction-free 'read next' session: Atlas serves the queue one PDF at a time with highlights, notes, and status keys, like a flashcard flow for papers (idea added by cycle 65; [REV] candidate for cycle 75)
+75. register_readonly API helper — one-liner read-only serializer+viewset+route for simple models; felt as boilerplate friction in cycle 66 (idea added by cycle 66, friction-sourced)

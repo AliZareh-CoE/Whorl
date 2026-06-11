@@ -6,6 +6,8 @@ import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
 import Inbox from "./pages/Inbox";
 import Prompts from "./pages/Prompts";
+import Decisions from "./pages/Decisions";
+import Research from "./pages/Research";
 import Search from "./pages/Search";
 import Library from "./pages/Library";
 import { NoteEditor, NotesList } from "./pages/Notes";
@@ -34,6 +36,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/notes" element={<NotesList />} />
           <Route path="projects/:slug/notes/new" element={<NoteEditor />} />
           <Route path="projects/:slug/notes/:id" element={<NoteEditor />} />
+          <Route path="projects/:slug/research" element={<Research />} />
+          <Route path="projects/:slug/decisions" element={<Decisions />} />
           <Route path="library" element={<Library />} />
           <Route path="writing" element={<WritingBoard />} />
           <Route path="manuscripts/:id" element={<ManuscriptDetail />} />

@@ -438,3 +438,38 @@ def test_search_accepts_session_for_spa(client_logged_in):
     # SearchAPIView pinned authentication_classes and silently dropped session auth
     response = client_logged_in.get("/api/v1/search/?q=anything")
     assert response.status_code == 200
+
+
+class TestResearchAPI:
+    def test_hypotheses_with_evidence_counts(self, client_logged_in):
+        from projects.tests.factories import ProjectFactory
+        from research.models import Evidence, Hypothesis
+
+        project = ProjectFactory()
+        hypothesis = Hypothesis.objects.create(
+            project=project, statement="Load gates distraction", status="testing"
+        )
+        Evidence.objects.create(hypothesis=hypothesis, direction="supports", summary="s1")
+        Evidence.objects.create(hypothesis=hypothesis, direction="contradicts", summary="c1")
+        data = client_logged_in.get(f"/api/v1/hypotheses/?project={project.slug}").json()
+        row = data["results"][0]
+        assert row["supports"] == 1 and row["contradicts"] == 1
+
+    def test_research_endpoints_are_read_only(self, client_logged_in):
+        response = client_logged_in.post("/api/v1/hypotheses/", {}, content_type="application/json")
+        assert response.status_code == 405
+
+    def test_experiments_and_datasets_listed(self, client_logged_in):
+        from projects.tests.factories import ProjectFactory
+        from research.models import Dataset, ExperimentEntry
+
+        project = ProjectFactory()
+        ExperimentEntry.objects.create(project=project, title="Run 1", date="2026-06-01")
+        Dataset.objects.create(project=project, name="pilot-v1", location="/data/x")
+        assert (
+            client_logged_in.get(f"/api/v1/experiments/?project={project.slug}").json()["count"]
+            == 1
+        )
+        assert (
+            client_logged_in.get(f"/api/v1/datasets/?project={project.slug}").json()["count"] == 1
+        )

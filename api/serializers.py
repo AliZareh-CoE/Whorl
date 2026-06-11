@@ -268,6 +268,39 @@ class NoteSerializer(serializers.ModelSerializer):
         ]
 
 
+class HypothesisSerializer(serializers.ModelSerializer):
+    supports = serializers.SerializerMethodField()
+    contradicts = serializers.SerializerMethodField()
+
+    class Meta:
+        from research.models import Hypothesis
+
+        model = Hypothesis
+        fields = ["id", "statement", "status", "supports", "contradicts", "created_at"]
+
+    def get_supports(self, obj):
+        return sum(1 for e in obj.evidence.all() if e.direction == "supports")
+
+    def get_contradicts(self, obj):
+        return sum(1 for e in obj.evidence.all() if e.direction == "contradicts")
+
+
+class ExperimentEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        from research.models import ExperimentEntry
+
+        model = ExperimentEntry
+        fields = ["id", "date", "title", "body", "created_at"]
+
+
+class DatasetSerializer(serializers.ModelSerializer):
+    class Meta:
+        from research.models import Dataset
+
+        model = Dataset
+        fields = ["id", "name", "location", "version", "checksum", "description"]
+
+
 class SubmissionEventSerializer(serializers.ModelSerializer):
     class Meta:
         from writing.models import SubmissionEvent

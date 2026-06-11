@@ -19,6 +19,7 @@ from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 from prompts.models import Prompt
+from research.models import Dataset, ExperimentEntry, Hypothesis
 from writing.models import Manuscript
 
 from . import serializers
@@ -416,6 +417,27 @@ class QuickCaptureViewSet(AtlasViewSet):
     queryset = QuickCapture.objects.all()
     serializer_class = serializers.QuickCaptureSerializer
     project_filter = "project__slug"
+
+
+class HypothesisViewSet(AtlasViewSet):
+    queryset = Hypothesis.objects.prefetch_related("evidence")
+    serializer_class = serializers.HypothesisSerializer
+    project_filter = "project__slug"
+    http_method_names = ["get", "head", "options"]  # read-only for now
+
+
+class ExperimentEntryViewSet(AtlasViewSet):
+    queryset = ExperimentEntry.objects.all()
+    serializer_class = serializers.ExperimentEntrySerializer
+    project_filter = "project__slug"
+    http_method_names = ["get", "head", "options"]
+
+
+class DatasetViewSet(AtlasViewSet):
+    queryset = Dataset.objects.all()
+    serializer_class = serializers.DatasetSerializer
+    project_filter = "project__slug"
+    http_method_names = ["get", "head", "options"]
 
 
 class ManuscriptViewSet(AtlasViewSet):
