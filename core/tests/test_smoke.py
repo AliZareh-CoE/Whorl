@@ -95,3 +95,12 @@ class TestSpaShell:
         # the SPA has no server-rendered form; its API writes need the token
         response = client_logged_in.get("/")
         assert "csrftoken" in response.cookies
+
+
+def test_reading_flow_route_served(client_logged_in):
+    from projects.tests.factories import ProjectFactory
+
+    project = ProjectFactory()
+    response = client_logged_in.get(f"/projects/{project.slug}/read")
+    assert response.status_code == 200
+    assert b'id="root"' in response.content

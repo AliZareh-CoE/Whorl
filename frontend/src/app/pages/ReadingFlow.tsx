@@ -43,6 +43,7 @@ export default function ReadingFlow() {
   const [flash, setFlash] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [listening, setListening] = useState(false);
+  const [tldr, setTldr] = useState<string[] | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["reading-flow", slug],
@@ -66,8 +67,19 @@ export default function ReadingFlow() {
       next();
     }
   }
-  function next() { setNoteOpen(false); setI((x) => Math.min(x + 1, papers.length)); }
-  function prev() { setNoteOpen(false); setI((x) => Math.max(x - 1, 0)); }
+  function next() { setNoteOpen(false); setTldr(null); setI((x) => Math.min(x + 1, papers.length)); }
+  function prev() { setNoteOpen(false); setTldr(null); setI((x) => Math.max(x - 1, 0)); }
+
+  async function summarize() {
+    if (!paper) return;
+    if (tldr) { setTldr(null); return; }
+    const res = await fetch("/summarize/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken(), "X-SPA": "1" },
+      body: new URLSearchParams({ text: paper.reference.abstract }),
+    });
+    setTldr((await res.json()).sentences ?? []);
+  }
 
   async function listen() {
     if (listening) { audioRef.current?.pause(); setListening(false); return; }
@@ -111,6 +123,7 @@ export default function ReadingFlow() {
       else if (e.key === "p" || e.key === "ArrowLeft") prev();
       else if (e.key === "j") { e.preventDefault(); setNoteOpen(true); }
       else if (e.key === "l") listen();
+      else if (e.key === "s" && paper.reference.abstract) { e.preventDefault(); summarize(); }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -162,6 +175,11 @@ export default function ReadingFlow() {
           <Link to={`/references/${r.id}`} className="text-indigo-600 hover:underline">Open reader ↗</Link>
           {r.doi && <a href={`https://doi.org/${r.doi}`} className="text-indigo-600 hover:underline">DOI ↗</a>}
         </div>
+        {tldr && (
+          <ul className="mb-3 list-disc space-y-1 rounded bg-stone-50 p-3 pl-7 text-sm text-stone-600">
+            {tldr.map((s, i) => <li key={i}>{s}</li>)}
+          </ul>
+        )}
         {r.abstract
           ? <p className="text-sm leading-relaxed text-stone-700">{r.abstract}</p>
           : <p className="text-sm italic text-stone-400">No abstract on file — open the reader for the PDF.</p>}
@@ -182,7 +200,7 @@ export default function ReadingFlow() {
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-stone-500">
           <Key k="1" label="To read" /><Key k="2" label="Skimmed" /><Key k="3" label="Read →" /><Key k="4" label="Annotated →" />
           <span className="mx-1 text-stone-300">|</span>
-          <Key k="n" label="Next" /><Key k="p" label="Prev" /><Key k="j" label="Note" /><Key k="l" label="Listen" />
+          <Key k="n" label="Next" /><Key k="p" label="Prev" /><Key k="j" label="Note" /><Key k="l" label="Listen" /><Key k="s" label="tl;dr" />
         </div>
       )}
     </div>

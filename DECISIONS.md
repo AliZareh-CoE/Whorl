@@ -458,4 +458,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 85. Reading-flow for the whole library — a 'read flow' over any filtered reference set, not just one project's queue (idea added by cycle 75)
 86. Promote the route rule to docs — note the slash-less=SPA / trailing-slash=classic invariant in CONTRIBUTING so external contributors don't re-add per-route Django patterns (idea added by cycle 76)
 87. ~~Prefetch assistant index on mount (done 2026-06-11, cycle 78): Layout warms the ⌘K assistant-context query on app load, so even the very first ⌘K paints instantly.~~
-88. tl;dr in reading-flow — a key (e.g. 's') that summarizes the current paper's abstract inline during a read session (idea added by cycle 78)
+88. ~~tl;dr in reading-flow (done 2026-06-11, cycle 79): 's' summarizes the current paper's abstract inline during a read session; resets on next/prev, in the key legend. The focused session is now Listen + tl;dr + note + status, fully keyboard.~~
+89. seed_demo abstracts — give a few seeded references real abstracts so tl;dr/Listen/reading-flow demo out of the box (friction-sourced, cycle 79)
