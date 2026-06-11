@@ -110,7 +110,7 @@ def project_timeline(project) -> list[dict]:
             }
         )
 
-    for manuscript in project.manuscripts.prefetch_related("events"):
+    for manuscript in project.manuscripts.prefetch_related("events", "revisions"):
         for event in manuscript.events.all():
             events.append(
                 {
@@ -121,6 +121,29 @@ def project_timeline(project) -> list[dict]:
                     "url": f"/manuscripts/{manuscript.pk}",
                 }
             )
+        # writing history (beyond-Overleaf B5): the latest successful compile + labeled
+        # versions, not the 50 automatic snapshots — keep the timeline calm.
+        if manuscript.compiled_at:
+            events.append(
+                {
+                    "date": manuscript.compiled_at.date().isoformat(),
+                    "kind": "manuscript_compiled",
+                    "label": f"{manuscript.title} — compiled",
+                    "detail": "",
+                    "url": f"/projects/{slug}/writing/{manuscript.pk}/editor/",
+                }
+            )
+        for revision in manuscript.revisions.all():
+            if revision.label and revision.label != "Before restore":
+                events.append(
+                    {
+                        "date": revision.created_at.date().isoformat(),
+                        "kind": "manuscript_compiled",
+                        "label": f"{manuscript.title} — version “{revision.label}”",
+                        "detail": "",
+                        "url": f"/projects/{slug}/writing/{manuscript.pk}/editor/",
+                    }
+                )
 
     events.sort(key=lambda e: e["date"], reverse=True)
     return events

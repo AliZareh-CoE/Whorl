@@ -634,3 +634,30 @@ class TestTemplates:
         )
         m = project.manuscripts.get(title="Blank")
         assert m.latex_source == ""
+
+
+class TestTimelineCompiles:
+    """Beyond-Overleaf B5: writing/compile history on the research timeline."""
+
+    def test_compiled_and_labeled_versions_appear(self):
+        from django.utils import timezone
+
+        from core.timeline import project_timeline
+        from writing.models import snapshot_manuscript
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="x")
+        m.compiled_at = timezone.now()
+        m.save(update_fields=["compiled_at", "updated_at"])
+        snapshot_manuscript(m, label="submission draft")
+        snapshot_manuscript(m)  # automatic — must NOT flood the timeline
+        kinds = [e["kind"] for e in project_timeline(m.project)]
+        labels = [e["label"] for e in project_timeline(m.project)]
+        assert "manuscript_compiled" in kinds
+        assert any("compiled" in label for label in labels)
+        assert any("submission draft" in label for label in labels)
+        # the automatic (unlabeled) snapshot is not surfaced
+        compiled_events = [
+            e for e in project_timeline(m.project) if e["kind"] == "manuscript_compiled"
+        ]
+        assert len(compiled_events) == 2  # latest compile + 1 labeled version, not 2 snapshots

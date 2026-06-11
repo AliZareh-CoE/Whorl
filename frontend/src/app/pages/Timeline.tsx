@@ -23,6 +23,7 @@ const KINDS: Record<string, { label: string; dot: string }> = {
   hypothesis: { label: "Hypothesis", dot: "bg-fuchsia-400" },
   document: { label: "Document", dot: "bg-stone-400" },
   manuscript: { label: "Manuscript", dot: "bg-emerald-500" },
+  manuscript_compiled: { label: "Compiled", dot: "bg-teal-500" },
 };
 
 const ZOOMS = ["month", "week", "day"] as const;
