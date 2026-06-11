@@ -6,6 +6,13 @@ from .models import Bot
 from .registry import BOTS, run_bot
 
 
+def _history_bars(runs):
+    """Chart data for a bot's run history: oldest→newest bars scaled to the max count."""
+    ordered = list(reversed(runs))  # runs arrive newest-first
+    top = max((run.count or 0 for run in ordered), default=0) or 1
+    return [{"run": run, "pct": max(8, round((run.count or 0) * 100 / top))} for run in ordered]
+
+
 def automations(request):
     from django.db.models import Prefetch
 
@@ -14,10 +21,20 @@ def automations(request):
     states = {
         bot.slug: bot
         for bot in Bot.objects.filter(slug__in=BOTS).prefetch_related(
-            Prefetch("runs", queryset=BotRun.objects.all()[:5], to_attr="recent_runs")
+            Prefetch("runs", queryset=BotRun.objects.all()[:20], to_attr="recent_runs")
         )
     }
-    rows = [{"slug": slug, "spec": spec, "state": states.get(slug)} for slug, spec in BOTS.items()]
+    rows = []
+    for slug, spec in BOTS.items():
+        state = states.get(slug)
+        rows.append(
+            {
+                "slug": slug,
+                "spec": spec,
+                "state": state,
+                "bars": _history_bars(state.recent_runs) if state else [],
+            }
+        )
     return render(request, "bots/automations.html", {"rows": rows})
 
 

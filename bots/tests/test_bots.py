@@ -176,3 +176,56 @@ class TestRunHistory:
         content = response.content.decode()
         assert "Run history" in content
         assert "history works" in content
+
+
+class TestHistoryChart:
+    def test_count_parses_headline_number(self):
+        from bots.models import BotRun
+
+        run = BotRun(result="3 new reminder(s).")
+        assert run.count == 3
+        assert BotRun(result="25 DOI(s) checked, 1 retraction(s) flagged.").count == 25
+        assert BotRun(result="no active projects.").count is None
+
+    def test_chart_bars_scale_to_max(self):
+        from bots.models import BotRun
+        from bots.views import _history_bars
+
+        runs = [  # newest-first, as the prefetch delivers them
+            BotRun(result="4 new reminder(s)."),
+            BotRun(result="failed: Boom", ok=False),
+            BotRun(result="1 new reminder(s)."),
+        ]
+        bars = _history_bars(runs)
+        assert [b["run"].result for b in bars] == [
+            "1 new reminder(s).",
+            "failed: Boom",
+            "4 new reminder(s).",
+        ]  # oldest first
+        assert bars[2]["pct"] == 100
+        assert bars[0]["pct"] == 25
+        assert bars[1]["pct"] == 8  # floor keeps zero-count bars visible
+
+    def test_chart_rendered_after_multiple_runs(self, client_logged_in, monkeypatch):
+        monkeypatch.setitem(
+            registry.BOTS,
+            "deadline-reminder",
+            {**registry.BOTS["deadline-reminder"], "run": lambda: "2 new reminder(s)."},
+        )
+        registry.run_bot("deadline-reminder")
+        registry.run_bot("deadline-reminder")
+        response = client_logged_in.get(reverse("bots:automations"))
+        content = response.content.decode()
+        assert "Run history chart" in content
+        assert "bg-indigo-300" in content
+
+    def test_failed_runs_charted_red(self, client_logged_in, monkeypatch):
+        monkeypatch.setitem(
+            registry.BOTS,
+            "retraction-watch",
+            {**registry.BOTS["retraction-watch"], "run": lambda: 1 / 0},
+        )
+        registry.run_bot("retraction-watch")
+        registry.run_bot("retraction-watch")
+        response = client_logged_in.get(reverse("bots:automations"))
+        assert "bg-red-400" in response.content.decode()

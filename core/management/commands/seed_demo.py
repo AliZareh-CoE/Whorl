@@ -512,6 +512,19 @@ class Command(BaseCommand):
         ]:
             Prompt.objects.update_or_create(title=title, defaults={"body": body, "tags": tags})
 
+        from bots.models import Bot, BotRun
+
+        reminder_bot, _ = Bot.objects.get_or_create(slug="deadline-reminder")
+        if not reminder_bot.runs.exists():
+            for n in (0, 1, 0, 3, 2, 0, 1, 4, 2, 1):
+                BotRun.objects.create(bot=reminder_bot, ok=True, result=f"{n} new reminder(s).")
+            BotRun.objects.create(
+                bot=reminder_bot, ok=False, result="failed: ConnectError: network unreachable"
+            )
+            reminder_bot.last_run_at = timezone.now()
+            reminder_bot.last_result = "1 new reminder(s)."
+            reminder_bot.save()
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"seed_demo: created project '{project.name}' (/projects/{project.slug}/) with "

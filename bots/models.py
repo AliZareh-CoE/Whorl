@@ -1,3 +1,5 @@
+import re
+
 from django.db import models
 
 from core.models import TimeStampedModel
@@ -31,3 +33,9 @@ class BotRun(models.Model):
 
     def __str__(self):
         return f"{self.bot.slug} @ {self.started_at:%Y-%m-%d %H:%M}: {self.result[:40]}"
+
+    @property
+    def count(self) -> int | None:
+        """First integer in the result line — the bot's headline number, charted on the page."""
+        match = re.search(r"\d+", self.result)
+        return int(match.group()) if match else None
