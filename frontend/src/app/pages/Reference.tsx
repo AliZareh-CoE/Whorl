@@ -28,6 +28,8 @@ export default function Reference() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [listening, setListening] = useState(false);
   const [ttsError, setTtsError] = useState("");
+  const [tldr, setTldr] = useState<string[] | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
 
   const { data: ref, isLoading } = useQuery({
     queryKey: ["reference", id],
@@ -61,6 +63,21 @@ export default function Reference() {
     }
   }
 
+  async function summarize(text: string) {
+    if (tldr) { setTldr(null); return; }
+    setSummarizing(true);
+    try {
+      const res = await fetch("/summarize/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfToken(), "X-SPA": "1" },
+        body: new URLSearchParams({ text }),
+      });
+      setTldr((await res.json()).sentences ?? []);
+    } finally {
+      setSummarizing(false);
+    }
+  }
+
   if (isLoading || !ref) return <p className="text-sm text-stone-400">Loading reference…</p>;
 
   return (
@@ -90,8 +107,17 @@ export default function Reference() {
                     className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs hover:border-stone-400">
               {listening ? "⏸ Stop" : "🔊 Listen"}
             </button>
+            <button onClick={() => summarize(ref.abstract)} disabled={summarizing}
+                    className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs hover:border-stone-400 disabled:opacity-50">
+              {summarizing ? "…" : tldr ? "Hide tl;dr" : "≡ tl;dr"}
+            </button>
             {ttsError && <span className="text-xs text-red-600">{ttsError}</span>}
           </div>
+          {tldr && (
+            <ul className="mb-3 list-disc space-y-1 rounded bg-stone-50 p-3 pl-7 text-sm text-stone-600">
+              {tldr.map((s, i) => <li key={i}>{s}</li>)}
+            </ul>
+          )}
           <p className="text-sm leading-relaxed text-stone-700">{ref.abstract}</p>
         </section>
       )}

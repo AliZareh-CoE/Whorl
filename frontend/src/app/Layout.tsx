@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { api } from "./api";
@@ -11,8 +11,19 @@ const navCls = ({ isActive }: { isActive: boolean }) =>
 /** SPA chrome mirroring the classic sidebar; unmigrated sections link to server pages. */
 export default function Layout() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   // Intercept plain <a> clicks to classic URLs that have an SPA page — no full reloads
   // inside the app (owner feedback, cycle 69). True classic-only URLs still navigate.
+  // #87: warm the ⌘K assistant index so even the first open is instant
+  useEffect(() => {
+    queryClient.prefetchQuery({
+      queryKey: ["assistant-context", null],
+      queryFn: () =>
+        fetch("/assistant/context/?path=/", { credentials: "same-origin" }).then((r) => r.json()),
+      staleTime: 60_000,
+    });
+  }, [queryClient]);
+
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;

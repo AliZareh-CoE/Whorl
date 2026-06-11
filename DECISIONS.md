@@ -457,4 +457,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 84. [REV] candidate — weekly research review: an auto-assembled 'what happened this week' page (papers read, notes, milestones, decisions) you can skim every Friday (idea added by cycle 75, [REV] candidate for cycle 85)
 85. Reading-flow for the whole library — a 'read flow' over any filtered reference set, not just one project's queue (idea added by cycle 75)
 86. Promote the route rule to docs — note the slash-less=SPA / trailing-slash=classic invariant in CONTRIBUTING so external contributors don't re-add per-route Django patterns (idea added by cycle 76)
-87. Prefetch assistant index on app mount — warm the ⌘K cache before the first open so even the very first ⌘K is instant (idea added by cycle 77)
+87. ~~Prefetch assistant index on mount (done 2026-06-11, cycle 78): Layout warms the ⌘K assistant-context query on app load, so even the very first ⌘K paints instantly.~~
+88. tl;dr in reading-flow — a key (e.g. 's') that summarizes the current paper's abstract inline during a read session (idea added by cycle 78)

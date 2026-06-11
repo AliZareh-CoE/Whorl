@@ -65,3 +65,17 @@ class TestSummarizeEndpoint:
         assert b"tl;dr" in client_logged_in.get(note.get_absolute_url()).content
         ref = ReferenceFactory(abstract="An abstract that exists.")
         assert b"tl;dr" in client_logged_in.get(ref.get_absolute_url()).content
+
+
+def test_summarize_json_branch_for_spa(client_logged_in):
+    text = (
+        "Working memory load gates distractor processing. "
+        "Under high load, irrelevant stimuli are filtered earlier. "
+        "This supports a strategic-allocation account. "
+        "The effect replicates across three experiments. "
+        "Practice modulates the load effect over sessions."
+    )
+    response = client_logged_in.post("/summarize/", {"text": text}, headers={"X-SPA": "1"})
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data["sentences"], list) and len(data["sentences"]) >= 1

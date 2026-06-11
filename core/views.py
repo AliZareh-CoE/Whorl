@@ -57,11 +57,15 @@ def search_suggest(request):
 
 @require_POST
 def summarize_view(request):
-    """HTMX tl;dr: POST text, get back the key sentences."""
+    """tl;dr: POST text, get back the key sentences (HTML for HTMX, JSON for the SPA)."""
     from .summarize import summarize
 
     text = request.POST.get("text", "")[:50000]
     sentences = summarize(text)
+    if request.headers.get("X-SPA") == "1":
+        from django.http import JsonResponse
+
+        return JsonResponse({"sentences": sentences})
     return render(request, "core/_summary.html", {"sentences": sentences})
 
 
