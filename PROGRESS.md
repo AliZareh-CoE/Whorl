@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: REVOLUTIONARY cycle, Atlas Assistant panel [cycle 55])
+- **Slice in progress:** — (next: cycle 56, see DECISIONS for owner's frontend-direction answer)
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. REVOLUTIONARY cycle [55] — #59 [REV] Atlas Assistant panel as a React island (in-app Claude workspace over MCP/subscription, NO paid APIs)
-  2. Backlog/owner top-down [56-59] (incl. #18 slice 3 remaining modals)
-  3. AUDIT #6 at cycle 60
+  1. Cycle 56 — frontend direction per owner's pending answer (fast-track island conversions OR full-SPA plan kickoff); default if unanswered: convert the next most-visible view to an island
+  2. Backlog/owner top-down [57-59] (incl. #18 slice 3 remaining modals)
+  3. AUDIT #6 at cycle 60; next [REV] at 65 (#62 Synthesis studio candidate)
 - **Broken:** nothing
 
 ## Gate reports

@@ -298,8 +298,12 @@ class TestDocumentsIsland:
         assert props["documents"][0]["id"] == doc.pk
         assert "downloadUrl" in props["documents"][0]
 
-    def test_built_island_artifact_committed(self):
+    def test_built_island_artifacts_committed(self):
         from pathlib import Path
 
-        artifact = Path("static/js/islands/documents-table.js")
-        assert artifact.exists() and artifact.stat().st_size > 10_000
+        islands = Path("static/js/islands")
+        assert (islands / "documents-table.js").exists()
+        assert (islands / "assistant.js").exists()
+        # React itself lives in the shared chunk both islands import
+        chunk = islands / "client-chunk.js"
+        assert chunk.exists() and chunk.stat().st_size > 100_000

@@ -14,6 +14,7 @@ export default defineConfig({
       preserveEntrySignatures: "exports-only",
       input: {
         "documents-table": resolve(__dirname, "src/islands/documents-table.tsx"),
+        assistant: resolve(__dirname, "src/islands/assistant.tsx"),
       },
       output: {
         format: "es",

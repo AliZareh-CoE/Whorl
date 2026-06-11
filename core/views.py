@@ -64,6 +64,15 @@ def summarize_view(request):
     return render(request, "core/_summary.html", {"sentences": sentences})
 
 
+def assistant_context_view(request):
+    """JSON backend for the Assistant panel: context, actions, commands, prompt."""
+    from django.http import JsonResponse
+
+    from .assistant import assistant_context
+
+    return JsonResponse(assistant_context(request.GET.get("path", "/")))
+
+
 def pet_page(request):
     from django.core.cache import cache
     from django.shortcuts import redirect

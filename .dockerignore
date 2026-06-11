@@ -14,3 +14,4 @@ __pycache__
 docs/screenshots
 
 sandbox-ca.crt
+frontend/node_modules

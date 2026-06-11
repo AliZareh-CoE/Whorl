@@ -62,6 +62,10 @@
            class="block rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'notes' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
           Inbox
         </a>
+        <button type="button" id="assistant-summon"
+                class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-stone-600 hover:bg-stone-50">
+          <span>✨ Assistant</span><span class="text-[10px] text-stone-400">⌘K</span>
+        </button>
         {% block sidebar_nav %}{% endblock %}
       </nav>
       <div class="mt-auto pt-6 text-xs text-stone-400">
@@ -111,6 +115,8 @@
     </div>
   </div>
   <div id="modal-slot"></div>
+  <div data-island="assistant" data-props="assistant-props"></div>
+  {{ assistant_props|json_script:"assistant-props" }}
   <script type="module" src="{% static 'js/islands-loader.js' %}"></script>
   <script>
     document.addEventListener("keydown", (event) => {
