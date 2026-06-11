@@ -22,7 +22,7 @@ class TestAssistantEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert set(data) == {"context", "actions", "commands", "claude_prompt", "recent"}
-        assert data["context"]["page"] == "core:dashboard"
+        assert data["context"]["page"] == "core:spa_home"  # / is the SPA front door post-cutover
         assert "project" not in data["context"]
         labels = [action["label"] for action in data["actions"]]
         assert labels[:3] == ["New project", "Quick capture", "Search"]
