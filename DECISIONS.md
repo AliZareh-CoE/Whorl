@@ -228,7 +228,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
       ~~66 research+decisions (done 2026-06-11: read-only hypotheses/experiments/datasets
       API + /app/projects/:slug/research ledger page; /app/.../decisions timeline with a
       create form — the cycle's own split decision was recorded through it; automations+pet
-      split to 67 — decision in the app's own decision log)~~ → 67 graph+automations+pet →
+      split to 67 — decision in the app's own decision log)~~ → ~~67 graph+automations+pet (done
+      2026-06-11: /app/.../graph with CDN-lazy 3d-force-graph, 2D toggle, node side panel,
+      sync button; /app/automations on a new bots API (list w/ runs, toggle/run actions)
+      with inline run charts; /api/v1/pet/ + Mochi in the SPA sidebar with speech)~~ →
       68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
     - **Standing constraints unchanged:** lightning-fast (code-split routes, prefetch),
       security (CSRF, no token in JS-readable storage beyond the session cookie), tests
@@ -429,3 +432,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 73. Command-index cache — stale-while-revalidate for the assistant commands index so repeat palette opens are instant (idea added by cycle 65, friction captured via the command bar itself)
 74. [REV] Reading-flow mode — a distraction-free 'read next' session: Atlas serves the queue one PDF at a time with highlights, notes, and status keys, like a flashcard flow for papers (idea added by cycle 65; [REV] candidate for cycle 75)
 75. register_readonly API helper — one-liner read-only serializer+viewset+route for simple models; felt as boilerplate friction in cycle 66 (idea added by cycle 66, friction-sourced)
+76. Route-level code splitting — React.lazy per SPA section so spa.js stays lean as pages accumulate; bundle grew 30→38KB gz in cycle 67 (idea added by cycle 67, friction-sourced)

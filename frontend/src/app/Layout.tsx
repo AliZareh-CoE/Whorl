@@ -1,4 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet } from "react-router-dom";
+import { api } from "./api";
 import CommandBar from "./CommandBar";
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
@@ -6,6 +8,11 @@ const navCls = ({ isActive }: { isActive: boolean }) =>
 
 /** SPA chrome mirroring the classic sidebar; unmigrated sections link to server pages. */
 export default function Layout() {
+  const { data: pet } = useQuery({
+    queryKey: ["pet"],
+    queryFn: () => api<{ name: string; emoji: string; mood: string; speech: string }>("/pet/"),
+    staleTime: 300_000,
+  });
   return (
     <div className="flex h-full">
       <CommandBar />
@@ -23,6 +30,17 @@ export default function Layout() {
           <NavLink to="/search" className={navCls}>Search</NavLink>
         </nav>
         <div className="mt-auto pt-6 text-xs text-stone-400">
+          {pet && (
+            <a href="/pet/" title={`${pet.name} is ${pet.mood} — ${pet.speech}`}
+               className="mb-3 flex items-center gap-2 rounded border border-stone-100 bg-stone-50 px-2 py-1.5 hover:border-stone-200">
+              <span className="pet-idle inline-block text-xl">{pet.emoji}</span>
+              <span className="min-w-0">
+                <span className="block truncate font-medium text-stone-600">{pet.name}</span>
+                <span className="block truncate text-[10px] italic text-stone-400">“{pet.speech}”</span>
+              </span>
+            </a>
+          )}
+          <NavLink to="/automations" className="mb-2 block hover:text-stone-600">Automations</NavLink>
           <a href="/" className="hover:text-stone-600">← Classic Atlas</a>
         </div>
       </aside>

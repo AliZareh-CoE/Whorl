@@ -473,3 +473,40 @@ class TestResearchAPI:
         assert (
             client_logged_in.get(f"/api/v1/datasets/?project={project.slug}").json()["count"] == 1
         )
+
+
+class TestPetAndBotsAPI:
+    def test_pet_state(self, client_logged_in):
+        data = client_logged_in.get("/api/v1/pet/").json()
+        assert {"name", "emoji", "mood", "speech"} <= set(data)
+
+    def test_bots_list_and_actions(self, client_logged_in):
+        data = client_logged_in.get("/api/v1/bots/").json()
+        slugs = [b["slug"] for b in data["bots"]]
+        assert "deadline-reminder" in slugs
+
+        response = client_logged_in.post(
+            "/api/v1/bots/deadline-reminder/action/",
+            {"action": "toggle"},
+            content_type="application/json",
+        )
+        assert response.status_code == 200 and response.json()["enabled"] is True
+        # toggle back
+        client_logged_in.post(
+            "/api/v1/bots/deadline-reminder/action/",
+            {"action": "toggle"},
+            content_type="application/json",
+        )
+
+        run = client_logged_in.post(
+            "/api/v1/bots/deadline-reminder/action/",
+            {"action": "run"},
+            content_type="application/json",
+        )
+        assert "reminder" in run.json()["result"]
+
+    def test_unknown_bot_404(self, client_logged_in):
+        response = client_logged_in.post(
+            "/api/v1/bots/nope/action/", {"action": "run"}, content_type="application/json"
+        )
+        assert response.status_code == 404

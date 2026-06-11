@@ -583,3 +583,65 @@ class DashboardAPIView(APIView):
                 ],
             }
         )
+
+
+class PetAPIView(APIView):
+    """The pet's state for the SPA sidebar widget."""
+
+    @extend_schema(description="Mochi's state: stage, mood, speech line.", responses={200: None})
+    def get(self, request):
+        from core.pet import pet_state
+
+        return Response(pet_state())
+
+
+class BotsAPIView(APIView):
+    """Bots list with run history — the SPA automations page."""
+
+    @extend_schema(
+        description="All bots with enabled state and recent runs.", responses={200: None}
+    )
+    def get(self, request):
+        from bots.models import Bot
+        from bots.registry import BOTS
+
+        states = {b.slug: b for b in Bot.objects.filter(slug__in=BOTS).prefetch_related("runs")}
+        return Response(
+            {
+                "bots": [
+                    {
+                        "slug": slug,
+                        "name": spec["name"],
+                        "description": spec["description"],
+                        "enabled": states[slug].enabled if slug in states else False,
+                        "last_result": states[slug].last_result if slug in states else "",
+                        "runs": [
+                            {"ok": r.ok, "count": r.count, "started_at": r.started_at.isoformat()}
+                            for r in (states[slug].runs.all()[:20] if slug in states else [])
+                        ],
+                    }
+                    for slug, spec in BOTS.items()
+                ]
+            }
+        )
+
+
+class BotActionAPIView(APIView):
+    """Toggle or run a bot from the SPA."""
+
+    @extend_schema(description="action: 'toggle' or 'run'.", responses={200: None})
+    def post(self, request, slug):
+        from bots.models import Bot
+        from bots.registry import BOTS, run_bot
+
+        if slug not in BOTS:
+            return Response({"detail": "Unknown bot."}, status=404)
+        action_name = request.data.get("action")
+        if action_name == "toggle":
+            state, _ = Bot.objects.get_or_create(slug=slug)
+            state.enabled = not state.enabled
+            state.save(update_fields=["enabled", "updated_at"])
+            return Response({"enabled": state.enabled})
+        if action_name == "run":
+            return Response({"result": run_bot(slug)})
+        return Response({"detail": "action must be 'toggle' or 'run'."}, status=400)

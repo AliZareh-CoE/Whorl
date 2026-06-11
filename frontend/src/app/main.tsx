@@ -6,7 +6,9 @@ import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
 import Inbox from "./pages/Inbox";
 import Prompts from "./pages/Prompts";
+import Automations from "./pages/Automations";
 import Decisions from "./pages/Decisions";
+import Graph from "./pages/Graph";
 import Research from "./pages/Research";
 import Search from "./pages/Search";
 import Library from "./pages/Library";
@@ -38,6 +40,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/notes/:id" element={<NoteEditor />} />
           <Route path="projects/:slug/research" element={<Research />} />
           <Route path="projects/:slug/decisions" element={<Decisions />} />
+          <Route path="projects/:slug/graph" element={<Graph />} />
+          <Route path="automations" element={<Automations />} />
           <Route path="library" element={<Library />} />
           <Route path="writing" element={<WritingBoard />} />
           <Route path="manuscripts/:id" element={<ManuscriptDetail />} />
