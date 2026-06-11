@@ -42,7 +42,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    (enable/disable, last run/result, Run now); deadline-reminder bot (milestones ≤3 days or
    overdue, manuscripts ≤7 days → deduped inbox captures, verified live) and retraction-watch
    bot (Crossref sweep → inbox flags). Bots report to the inbox; failures recorded, never
-   crash the scheduler.~~ Remaining: citation-sync bot, inbox-triage suggester, MCP-side bots.
+   crash the scheduler.~~ ~~Citation-sync bot + run history (2026-06-11, cycle 23): third
+   bot refreshes OpenAlex edges for all active projects (verified live); BotRun model keeps
+   the last 20 runs per bot with ✓/✕ shown in a Run history panel.~~ Remaining: inbox-triage
+   suggester, MCP-side bots.
 8. **Open-source readiness.** Goal: a public GitHub repo worth thousands of stars. Keep a
    living brainstorm in `OPENSOURCE.md` (positioning, killer demo GIFs, one-command install,
    docs site, LICENSE/CONTRIBUTING, comparison table vs Zotero/Notion/Overleaf, launch plan
@@ -182,4 +185,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 26. GIN trigram indexes on searched title fields once data grows (idea added by cycle 20 audit)
 27. Last-Modified on media files + ETag support in the MCP client cache (idea added by cycle 21)
 28. Loop-resilience note — chain notifications can drop and watchdog monitors expire at 30 min; watchdog is now re-armed every cycle (lesson from the cycle-21→22 stall)
-29. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+29. Dev-process note — runserver/worker restarts must use pkill -f "[m]anage.py ..." (bracket trick) or they kill their own shell; documented after the cycle-23 debugging (idea added by cycle 23)
+30. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

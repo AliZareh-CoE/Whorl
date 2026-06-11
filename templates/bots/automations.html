@@ -37,6 +37,19 @@
           Last run {{ row.state.last_run_at|date:"Y-m-d H:i" }} — {{ row.state.last_result }}
         {% else %}Never run.{% endif %}
       </p>
+      {% if row.state.recent_runs %}
+        <details class="mt-1 text-xs text-stone-400">
+          <summary class="cursor-pointer hover:text-stone-600">Run history</summary>
+          <ul class="mt-1 space-y-0.5">
+            {% for run in row.state.recent_runs %}
+              <li>
+                <span class="{% if run.ok %}text-green-700{% else %}text-red-600{% endif %}">{% if run.ok %}✓{% else %}✕{% endif %}</span>
+                {{ run.started_at|date:"Y-m-d H:i" }} — {{ run.result|truncatechars:90 }}
+              </li>
+            {% endfor %}
+          </ul>
+        </details>
+      {% endif %}
     </article>
   {% endfor %}
 </div>

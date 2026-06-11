@@ -47,6 +47,18 @@ def run_deadline_reminder() -> str:
     return f"{created} new reminder(s)."
 
 
+def run_citation_sync() -> str:
+    """Refresh OpenAlex citation edges for every active project."""
+    from literature.sync import sync_project_citations
+    from projects.models import Project
+
+    lines = []
+    for project in Project.objects.filter(status__in=["planning", "active"]):
+        state = sync_project_citations(project)
+        lines.append(f"{project.slug}: {state.message or state.status}")
+    return "; ".join(lines) if lines else "no active projects."
+
+
 def run_retraction_watch() -> str:
     """Weekly-ish retraction sweep over every reference with a DOI."""
     from literature.models import Reference
@@ -66,6 +78,12 @@ BOTS = {
         "or a manuscript deadline within 7.",
         "run": run_deadline_reminder,
     },
+    "citation-sync": {
+        "name": "Citation sync",
+        "description": "Refreshes OpenAlex citation edges and citation counts for every "
+        "active project, keeping the knowledge graph current.",
+        "run": run_citation_sync,
+    },
     "retraction-watch": {
         "name": "Retraction watch",
         "description": "Checks every DOI in the library against Crossref retraction "
@@ -76,18 +94,25 @@ BOTS = {
 
 
 def run_bot(slug: str) -> str:
-    """Run one bot now and record the outcome on its state row."""
-    from .models import Bot
+    """Run one bot now, record the outcome on its state row and in run history."""
+    from .models import Bot, BotRun
 
     spec = BOTS[slug]
     state, _ = Bot.objects.get_or_create(slug=slug)
+    ok = True
     try:
         result = spec["run"]()
     except Exception as exc:  # bots must never take the scheduler down
+        ok = False
         result = f"failed: {exc.__class__.__name__}: {exc}"[:300]
     state.last_run_at = timezone.now()
     state.last_result = result[:300]
     state.save()
+    BotRun.objects.create(bot=state, ok=ok, result=result[:300])
+    # keep history tidy: last 20 runs per bot
+    stale = state.runs.values_list("pk", flat=True)[20:]
+    if stale:
+        BotRun.objects.filter(pk__in=list(stale)).delete()
     return result
 
 

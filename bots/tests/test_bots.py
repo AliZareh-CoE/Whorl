@@ -114,3 +114,65 @@ def test_overdue_milestones_also_remind():
     result = registry.run_deadline_reminder()
     assert result == "1 new reminder(s)."
     assert QuickCapture.objects.filter(text__contains="OVERDUE").exists()
+
+
+class TestCitationSyncBot:
+    def test_syncs_each_active_project(self, monkeypatch):
+        from projects.tests.factories import ProjectFactory
+
+        ProjectFactory(name="Active A", status="active")
+        ProjectFactory(name="Done B", status="complete")
+        synced = []
+
+        class FakeState:
+            message = "2/2 matched; 1 new edge(s)"
+            status = "done"
+
+        def fake_sync(project):
+            synced.append(project.slug)
+            return FakeState()
+
+        monkeypatch.setattr("literature.sync.sync_project_citations", fake_sync)
+        result = registry.run_citation_sync()
+        assert synced == ["active-a"]
+        assert "1 new edge" in result
+
+
+class TestRunHistory:
+    def test_runs_recorded_and_capped(self, monkeypatch):
+
+        monkeypatch.setitem(
+            registry.BOTS,
+            "deadline-reminder",
+            {**registry.BOTS["deadline-reminder"], "run": lambda: "ok"},
+        )
+        for _ in range(25):
+            registry.run_bot("deadline-reminder")
+        bot = Bot.objects.get(slug="deadline-reminder")
+        assert bot.runs.count() == 20  # capped
+        assert all(run.ok for run in bot.runs.all())
+
+    def test_failed_run_marked(self, monkeypatch):
+        from bots.models import BotRun
+
+        monkeypatch.setitem(
+            registry.BOTS,
+            "retraction-watch",
+            {**registry.BOTS["retraction-watch"], "run": lambda: 1 / 0},
+        )
+        registry.run_bot("retraction-watch")
+        run = BotRun.objects.get()
+        assert not run.ok
+        assert "ZeroDivisionError" in run.result
+
+    def test_history_rendered_on_page(self, client_logged_in, monkeypatch):
+        monkeypatch.setitem(
+            registry.BOTS,
+            "deadline-reminder",
+            {**registry.BOTS["deadline-reminder"], "run": lambda: "history works"},
+        )
+        registry.run_bot("deadline-reminder")
+        response = client_logged_in.get(reverse("bots:automations"))
+        content = response.content.decode()
+        assert "Run history" in content
+        assert "history works" in content

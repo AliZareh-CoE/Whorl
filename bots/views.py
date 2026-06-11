@@ -7,7 +7,16 @@ from .registry import BOTS, run_bot
 
 
 def automations(request):
-    states = {bot.slug: bot for bot in Bot.objects.filter(slug__in=BOTS)}
+    from django.db.models import Prefetch
+
+    from .models import BotRun
+
+    states = {
+        bot.slug: bot
+        for bot in Bot.objects.filter(slug__in=BOTS).prefetch_related(
+            Prefetch("runs", queryset=BotRun.objects.all()[:5], to_attr="recent_runs")
+        )
+    }
     rows = [{"slug": slug, "spec": spec, "state": states.get(slug)} for slug, spec in BOTS.items()]
     return render(request, "bots/automations.html", {"rows": rows})
 
