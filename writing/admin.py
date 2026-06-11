@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Manuscript, ManuscriptReference, SubmissionEvent
+from .models import Manuscript, ManuscriptFile, ManuscriptReference, SubmissionEvent
 
 
 class ManuscriptReferenceInline(admin.TabularInline):
@@ -13,11 +13,17 @@ class SubmissionEventInline(admin.TabularInline):
     extra = 0
 
 
+class ManuscriptFileInline(admin.TabularInline):
+    model = ManuscriptFile
+    fields = ["path", "kind", "is_main"]
+    extra = 0
+
+
 @admin.register(Manuscript)
 class ManuscriptAdmin(admin.ModelAdmin):
     list_display = ["title", "project", "status", "target_venue", "deadline"]
     list_filter = ["status", "project"]
-    inlines = [ManuscriptReferenceInline, SubmissionEventInline]
+    inlines = [ManuscriptReferenceInline, SubmissionEventInline, ManuscriptFileInline]
 
 
 @admin.register(ManuscriptReference)

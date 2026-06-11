@@ -13,6 +13,21 @@
     return match ? decodeURIComponent(match[1]) : "";
   }
 
+  // --- workbench file state ([REV] slice 6) ------------------------------------
+  const files = new Map((cfg.files || []).map((f) => [f.id, f]));
+  const docs = new Map();
+  const dirtySet = new Set();
+  const timers = new Map();
+  const editGen = new Map();
+  let activeId = cfg.mainFileId;
+
+  function fileUrl(id, action) {
+    return `${cfg.fileUrlBase}${id}/${action ? action + "/" : ""}`;
+  }
+  function pathOf(id) {
+    return (files.get(id) || { path: "main.tex" }).path;
+  }
+
   const textarea = document.getElementById("latex-source");
   const editor = CodeMirror(document.getElementById("editor-host"), {
     value: textarea.value || "% Start writing. \\cite{ } autocompletes from this manuscript's bibliography.\n",
@@ -23,7 +38,7 @@
     gutters: ["CodeMirror-linenumbers", "CodeMirror-lint-markers"],
     lint: {
       getAnnotations: (text, opts, cm) => (DIAGNOSTICS || [])
-        .filter((d) => d.line)
+        .filter((d) => d.line && (d.file || "main.tex") === pathOf(activeId))
         .map((d) => ({
           from: CodeMirror.Pos(d.line - 1, 0),
           to: CodeMirror.Pos(d.line - 1, (cm.getLine(d.line - 1) || " ").length),
@@ -35,6 +50,7 @@
   });
   editor.getWrapperElement().style.minHeight = "55vh";
   window.editor = editor; // console + test access
+  docs.set(cfg.mainFileId, editor.getDoc());
 
   // --- autocomplete v2 + snippets (epic slice 4) -------------------------------
   // Researched: Overleaf completes from a frequency-ranked command table PLUS the
@@ -225,11 +241,13 @@
       li.className = "flex cursor-pointer items-baseline gap-2 px-3 py-1.5 hover:bg-stone-50";
       li.innerHTML =
         `<span class="${d.level === "error" ? "text-red-600" : "text-amber-600"} text-xs font-medium">${d.level}</span>` +
-        (d.line ? `<span class="font-mono text-xs text-stone-400">L${d.line}</span>` : "") +
+        (d.line ? `<span class="font-mono text-xs text-stone-400">${d.file && d.file !== pathOf(activeId) ? d.file + " " : ""}L${d.line}</span>` : "") +
         '<span class="min-w-0 flex-1 truncate text-xs text-stone-700"></span>';
       li.lastChild.textContent = d.message;
       if (d.line) {
-        li.addEventListener("click", () => {
+        li.addEventListener("click", async () => {
+          const target = [...files.values()].find((f) => f.path === (d.file || "main.tex"));
+          if (target && target.id !== activeId) await openFile(target.id);
           editor.setCursor({ line: d.line - 1, ch: 0 });
           editor.focus();
           editor.scrollIntoView({ line: d.line - 1, ch: 0 }, 120);
@@ -240,43 +258,163 @@
   }
   renderDiagnostics(DIAGNOSTICS);
 
-  // --- autosave (epic slice 2) ------------------------------------------------
+  // --- autosave (epic slice 2, file-keyed in slice 6) ---------------------------
   const saveStatus = document.getElementById("save-status");
-  let saveTimer = null;
-  let dirty = false;
+  let dirty = false; // legacy flag for beforeunload
 
-  async function save() {
-    dirty = false;
-    saveStatus.textContent = "Saving…";
+  async function saveFile(id) {
+    // Reads from the doc map, never editor.getValue() — a debounce firing after a
+    // buffer switch must still save the right file.
+    const doc = docs.get(id);
+    if (!doc) return;
+    const gen = editGen.get(id) || 0;
+    if (id === activeId) saveStatus.textContent = "Saving…";
     try {
-      const res = await fetch(cfg.editorUrl, {
+      const res = await fetch(fileUrl(id, "save"), {
         method: "POST",
         headers: { "X-CSRFToken": csrfToken(), "X-SPA": "1" },
-        body: new URLSearchParams({ latex_source: editor.getValue() }),
+        body: new URLSearchParams({ content: doc.getValue() }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      const cite = data.cite && data.cite.missing_from_bib
-        ? ` · ${data.cite.missing_from_bib} missing cite${data.cite.missing_from_bib === 1 ? "" : "s"}`
-        : "";
-      saveStatus.textContent = `Saved ${t}${cite}`;
-      if (autoCompile.checked) triggerCompile();
+      if ((editGen.get(id) || 0) === gen) dirtySet.delete(id);
+      dirty = dirtySet.size > 0;
+      if (id === activeId) {
+        const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const cite = data.cite && data.cite.missing_from_bib
+          ? ` · ${data.cite.missing_from_bib} missing cite${data.cite.missing_from_bib === 1 ? "" : "s"}`
+          : "";
+        saveStatus.textContent = `Saved ${t}${cite}`;
+        if (autoCompile.checked) triggerCompile();
+      }
     } catch {
-      dirty = true;
-      saveStatus.textContent = "⚠ not saved — retrying";
-      setTimeout(save, 4000);
+      if (id === activeId) saveStatus.textContent = "⚠ not saved — retrying";
+      setTimeout(() => saveFile(id), 4000);
     }
   }
+  function save() { return saveFile(activeId); } // Ctrl-S path
   editor.on("change", (cm, change) => {
     if (change.origin === "setValue") return;
+    dirtySet.add(activeId);
+    editGen.set(activeId, (editGen.get(activeId) || 0) + 1);
     dirty = true;
     saveStatus.textContent = "…";
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(save, 2000);
+    clearTimeout(timers.get(activeId));
+    timers.set(activeId, setTimeout(() => saveFile(activeId), 2000));
   });
   window.addEventListener("beforeunload", (e) => {
-    if (dirty) { e.preventDefault(); e.returnValue = ""; }
+    if (dirtySet.size) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  // --- file tree ----------------------------------------------------------------
+  const tree = document.getElementById("file-tree");
+  async function openFile(id) {
+    const f = files.get(id);
+    if (!f) return;
+    if (f.kind === "asset") {
+      window.open(f.url, "_blank");
+      return;
+    }
+    clearTimeout(timers.get(activeId));
+    if (dirtySet.has(activeId)) saveFile(activeId); // fire-and-forget: doc-map reads
+    let doc = docs.get(id);
+    if (!doc) {
+      const data = await fetch(fileUrl(id, ""), { headers: { Accept: "application/json" } })
+        .then((r) => r.json());
+      doc = CodeMirror.Doc(data.content || "", "stex");
+      docs.set(id, doc);
+    }
+    activeId = id;
+    editor.swapDoc(doc);
+    renderTree();
+    editor.performLint();
+    editor.focus();
+  }
+  function renderTree() {
+    tree.innerHTML = "";
+    const sorted = [...files.values()].sort((a, b) => a.path.localeCompare(b.path));
+    for (const f of sorted) {
+      const li = document.createElement("li");
+      li.className = `group flex items-center gap-1 px-3 py-1 text-xs ${
+        f.id === activeId ? "bg-indigo-50 font-medium text-indigo-800" : "cursor-pointer hover:bg-stone-50"
+      }`;
+      const name = document.createElement("span");
+      name.className = "min-w-0 flex-1 truncate";
+      name.textContent = f.path;
+      name.title = f.path;
+      li.appendChild(name);
+      if (f.is_main) {
+        const badge = document.createElement("span");
+        badge.className = "rounded bg-stone-100 px-1 text-[10px] text-stone-500";
+        badge.textContent = "main";
+        li.appendChild(badge);
+      }
+      if (dirtySet.has(f.id)) {
+        const dot = document.createElement("span");
+        dot.className = "text-amber-500";
+        dot.textContent = "●";
+        li.appendChild(dot);
+      }
+      if (!f.is_main) {
+        const del = document.createElement("button");
+        del.className = "hidden text-stone-400 hover:text-red-600 group-hover:inline";
+        del.textContent = "✕";
+        del.title = "Delete";
+        del.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          if (!confirm(`Delete ${f.path}?`)) return;
+          await fetch(fileUrl(f.id, "delete"), {
+            method: "POST", headers: { "X-CSRFToken": csrfToken() },
+          });
+          files.delete(f.id);
+          docs.delete(f.id);
+          if (activeId === f.id) openFile(cfg.mainFileId);
+          renderTree();
+        });
+        li.appendChild(del);
+      }
+      li.addEventListener("click", () => openFile(f.id));
+      tree.appendChild(li);
+    }
+  }
+  renderTree();
+
+  const newFileForm = document.getElementById("new-file-form");
+  const newFilePath = document.getElementById("new-file-path");
+  document.getElementById("new-file-btn").addEventListener("click", () => {
+    newFileForm.classList.toggle("hidden");
+    newFilePath.focus();
+  });
+  newFileForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const res = await fetch(cfg.filesUrl, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken() },
+      body: new URLSearchParams({ path: newFilePath.value.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || "Could not create file."); return; }
+    files.set(data.id, data);
+    newFilePath.value = "";
+    newFileForm.classList.add("hidden");
+    openFile(data.id);
+  });
+
+  const assetInput = document.getElementById("asset-input");
+  document.getElementById("upload-btn").addEventListener("click", () => assetInput.click());
+  assetInput.addEventListener("change", async () => {
+    for (const file of assetInput.files) {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${cfg.filesUrl}upload/`, {
+        method: "POST", headers: { "X-CSRFToken": csrfToken() }, body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || `Could not upload ${file.name}.`); continue; }
+      files.set(data.id, data);
+    }
+    assetInput.value = "";
+    renderTree();
   });
 
   // --- pdf.js preview pane (epic slice 3) --------------------------------------
@@ -400,10 +538,11 @@
     previewStatus.textContent = "⏳ compiling…";
     pdfScroll.classList.add("opacity-50"); // old PDF stays visible, dimmed
     try {
+      for (const id of [...dirtySet]) clearTimeout(timers.get(id));
+      await Promise.all([...dirtySet].map((id) => saveFile(id)));
       await fetch(cfg.compileUrl, {
         method: "POST",
         headers: { "X-CSRFToken": csrfToken(), "X-SPA": "1" },
-        body: new URLSearchParams({ latex_source: editor.getValue() }),
       });
       if (!polling) polling = setInterval(poll, 1500);
     } catch {

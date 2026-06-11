@@ -303,6 +303,19 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     work not the flag, multi-file needs --untrusted + strict path validation (#36 urgency),
     compile queue pile-up needs generation counter, stop-on-first-error is moot (tectonic
     halts hard — verified live).
+    ~~[REV] Slice 6 (2026-06-11, cycle 105, THE REVOLUTIONARY CYCLE): multi-file
+    manuscript workbench — ManuscriptFile model (strict path validator: ASCII-only,
+    no dotfiles/.., depth-capped; tex/bib/asset kinds), latex_source two-way alias kept
+    for back-compat (queryset .update() avoids recursion; API PATCH writes the main file,
+    editor save writes back), migrations 0006+0007 (data migration seeds main.tex),
+    compile.py rewrite (writes the whole tree, --untrusted sandbox, resolve()-guard against
+    traversal, bib no-clobber, pdf from main_path.with_suffix, explicit update_fields so a
+    long compile never clobbers mid-compile edits), 6 classic X-SPA endpoints + DRF
+    manuscript-files viewset, editor file-tree sidebar with swapDoc buffers keyed by a docs
+    Map (saves read the doc never the live editor), per-file dirty/diagnostics filtering,
+    upload + create + rename + delete. 48 tests incl. a 15-case path-traversal battery.
+    Browser-verified: created sections/intro.tex, \input from main, switched buffers,
+    multi-file compile rendered. Also made the editor full-width (Owner idea #25 slice 1).~~
     ~~Slice 4 (2026-06-11, cycle 104): autocomplete v2 + snippets — one latexHint
     dispatcher (cite → ref → env → command): \ref/\autoref complete from a \label scan
     of the buffer; \begin{x} completion auto-inserts the matching \end{x} with the
@@ -332,6 +345,17 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     compile fields on the serializer, POST /manuscripts/{id}/compile/ +
     GET compile-status/; browser-verified on a real broken compile (marker on L4,
     jump works) and a clean API round-trip (202 → ok + PDF).~~
+
+25. **Use space efficiently — less whitespace, like Overleaf (owner, 2026-06-11, during
+    cycle 105).** "the interface itself has too much white space, use your space
+    efficiently! for instance look at overleaf!" — standing UI rule from now on: stop
+    centering everything in a narrow max-w-5xl column with big empty margins; tool/work
+    surfaces (editor, tables, boards, graph, dashboards) should use the full width and
+    tighter vertical rhythm. First slice (cycle 105): base.html main width became an
+    overridable {% block main_class %}; the LaTeX editor opted into max-w-none (full-width
+    3-pane workbench, taller editor+preview). Remaining (queued UI/UX cycles): dashboard,
+    project overview, plan, documents/literature tables, library, writing board — audit
+    each for the centered-narrow-column antipattern and density.
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -585,4 +609,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+118. Density pass infrastructure — a shared dense-table CSS utility + tighter card padding tokens so the Owner-idea-#25 width/density work is consistent across pages instead of per-page tweaks (idea added by cycle 105)
 117. Context-aware completions — rank \item first inside itemize/enumerate and \includegraphics inside figure (Overleaf's frequency data shows these dominate their environments); needs a tiny enclosing-environment scanner (idea added by cycle 104)

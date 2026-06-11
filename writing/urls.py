@@ -20,6 +20,32 @@ urlpatterns = [
         name="delete",
     ),
     path("projects/<slug:slug>/writing/<int:pk>/editor/", views.latex_editor, name="editor"),
+    path("projects/<slug:slug>/writing/<int:pk>/files/", views.manuscript_files, name="files"),
+    path(
+        "projects/<slug:slug>/writing/<int:pk>/files/upload/",
+        views.file_upload,
+        name="file_upload",
+    ),
+    path(
+        "projects/<slug:slug>/writing/<int:pk>/files/<int:file_pk>/",
+        views.file_content,
+        name="file_content",
+    ),
+    path(
+        "projects/<slug:slug>/writing/<int:pk>/files/<int:file_pk>/save/",
+        views.file_save,
+        name="file_save",
+    ),
+    path(
+        "projects/<slug:slug>/writing/<int:pk>/files/<int:file_pk>/rename/",
+        views.file_rename,
+        name="file_rename",
+    ),
+    path(
+        "projects/<slug:slug>/writing/<int:pk>/files/<int:file_pk>/delete/",
+        views.file_delete,
+        name="file_delete",
+    ),
     path(
         "projects/<slug:slug>/writing/<int:pk>/compile/",
         views.compile_manuscript_view,

@@ -309,10 +309,70 @@ class SubmissionEventSerializer(serializers.ModelSerializer):
         fields = ["id", "kind", "date", "notes"]
 
 
+class ManuscriptFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        from writing.models import ManuscriptFile
+
+        model = ManuscriptFile
+        fields = [
+            "id",
+            "manuscript",
+            "path",
+            "kind",
+            "content",
+            "asset",
+            "is_main",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["kind"]  # derived from path
+
+    def validate_path(self, value):
+        from writing.models import validate_manuscript_path
+
+        validate_manuscript_path(value)
+        return value
+
+    def validate_asset(self, value):
+        if value is not None:
+            from core.security import validate_upload_size
+
+            validate_upload_size(value)
+        return value
+
+    def validate(self, attrs):
+        if self.instance is not None and "manuscript" in attrs:
+            if attrs["manuscript"] != self.instance.manuscript:
+                raise serializers.ValidationError("Files can't move between manuscripts.")
+        if self.instance is not None and self.instance.is_main and attrs.get("is_main") is False:
+            raise serializers.ValidationError(
+                "A manuscript keeps exactly one main file — promote another instead."
+            )
+        return attrs
+
+    def update(self, instance, validated_data):
+        from django.db import transaction
+
+        if validated_data.get("is_main") and not instance.is_main:
+            with transaction.atomic():
+                instance.manuscript.files.filter(is_main=True).update(is_main=False)
+                return super().update(instance, validated_data)
+        return super().update(instance, validated_data)
+
+
+class ManuscriptFileSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        from writing.models import ManuscriptFile
+
+        model = ManuscriptFile
+        fields = ["id", "path", "kind", "is_main"]
+
+
 class ManuscriptSerializer(serializers.ModelSerializer):
     project = ProjectSlugField()
     events = SubmissionEventSerializer(many=True, read_only=True)
     project_name = serializers.CharField(source="project.name", read_only=True)
+    files = ManuscriptFileSummarySerializer(many=True, read_only=True)
 
     class Meta:
         from writing.models import Manuscript
@@ -332,6 +392,7 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "compile_diagnostics",
             "compiled_at",
             "events",
+            "files",
             "created_at",
             "updated_at",
         ]

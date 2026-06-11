@@ -98,6 +98,7 @@ def latex_editor(request, slug, pk):
     """In-browser LaTeX editor with cite-key autocomplete (Owner idea #9, slice 1)."""
     project = get_object_or_404(Project, slug=slug)
     manuscript = get_object_or_404(project.manuscripts, pk=pk)
+    main = manuscript.ensure_main_file()  # workbench: bootstrap main.tex lazily
     cite_result = None
     if request.method == "POST":
         manuscript.latex_source = request.POST.get("latex_source", "")
@@ -139,6 +140,11 @@ def latex_editor(request, slug, pk):
                 "hasPdf": bool(manuscript.compiled_pdf),
                 "pdfUrl": manuscript.compiled_pdf.url if manuscript.compiled_pdf else "",
                 "compileRunning": manuscript.compile_status == "running",
+                # workbench (slice 6)
+                "filesUrl": reverse("writing:files", args=[slug, manuscript.pk]),
+                "fileUrlBase": reverse("writing:files", args=[slug, manuscript.pk]),
+                "files": [_file_dict(f) for f in manuscript.files.all()],
+                "mainFileId": main.pk,
             },
         },
     )
@@ -244,3 +250,151 @@ def delete_event(request, slug, pk, event_pk):
         event.delete()
         messages.success(request, "Event removed.")
     return redirect(manuscript.get_absolute_url())
+
+
+# --- multi-file workbench endpoints (Owner idea #24 slice 6) ---
+
+
+def _file_dict(f):
+    data = {"id": f.pk, "path": f.path, "kind": f.kind, "is_main": f.is_main}
+    if f.kind == "asset" and f.asset:
+        data["url"] = f.asset.url
+        data["size"] = f.asset.size
+    return data
+
+
+def _workbench_objects(slug, pk, file_pk=None):
+    project = get_object_or_404(Project, slug=slug)
+    manuscript = get_object_or_404(project.manuscripts, pk=pk)
+    if file_pk is None:
+        return manuscript, None
+    return manuscript, get_object_or_404(manuscript.files, pk=file_pk)
+
+
+def manuscript_files(request, slug, pk):
+    """GET: list files. POST: create an empty text file."""
+    from django.core.exceptions import ValidationError
+    from django.http import JsonResponse
+
+    from .models import ManuscriptFile, kind_for_path, validate_manuscript_path
+
+    manuscript, _ = _workbench_objects(slug, pk)
+    if request.method == "POST":
+        path = request.POST.get("path", "").strip()
+        try:
+            validate_manuscript_path(path)
+        except ValidationError as exc:
+            return JsonResponse({"error": "; ".join(exc.messages)}, status=400)
+        if kind_for_path(path) == ManuscriptFile.Kind.ASSET:
+            return JsonResponse({"error": "Binary files go through upload."}, status=400)
+        if manuscript.files.filter(path=path).exists():
+            return JsonResponse({"error": "That path already exists."}, status=400)
+        f = ManuscriptFile.objects.create(manuscript=manuscript, path=path)
+        return JsonResponse(_file_dict(f), status=201)
+    return JsonResponse({"files": [_file_dict(f) for f in manuscript.files.all()]})
+
+
+def file_upload(request, slug, pk):
+    """POST multipart: upload an asset (or a text file, which lands as content)."""
+    from django.core.exceptions import ValidationError
+    from django.http import JsonResponse
+
+    from core.security import validate_upload_size
+
+    from .models import ManuscriptFile, kind_for_path, validate_manuscript_path
+
+    manuscript, _ = _workbench_objects(slug, pk)
+    upload = request.FILES.get("file")
+    if request.method != "POST" or upload is None:
+        return JsonResponse({"error": "POST a file."}, status=400)
+    path = (request.POST.get("path") or upload.name).strip().replace(" ", "_")
+    try:
+        validate_manuscript_path(path)
+        validate_upload_size(upload)
+    except ValidationError as exc:
+        return JsonResponse({"error": "; ".join(exc.messages)}, status=400)
+    if manuscript.files.filter(path=path).exists():
+        return JsonResponse({"error": "That path already exists."}, status=400)
+    kind = kind_for_path(path)
+    if kind == ManuscriptFile.Kind.ASSET:
+        suffix = path.rsplit(".", 1)[-1].lower() if "." in path else ""
+        if suffix not in {"png", "jpg", "jpeg", "pdf", "eps", "svg", "csv", "txt"}:
+            return JsonResponse({"error": f"File type .{suffix} not allowed."}, status=400)
+        f = ManuscriptFile.objects.create(manuscript=manuscript, path=path, asset=upload)
+    else:
+        try:
+            content = upload.read().decode("utf-8")
+        except UnicodeDecodeError:
+            return JsonResponse({"error": "Text file must be UTF-8."}, status=400)
+        f = ManuscriptFile.objects.create(manuscript=manuscript, path=path, content=content)
+    return JsonResponse(_file_dict(f), status=201)
+
+
+def file_content(request, slug, pk, file_pk):
+    from django.http import JsonResponse
+
+    _, f = _workbench_objects(slug, pk, file_pk)
+    data = _file_dict(f)
+    if f.kind != "asset":
+        data["content"] = f.content
+    return JsonResponse(data)
+
+
+def file_save(request, slug, pk, file_pk):
+    from django.http import JsonResponse
+    from django.views.decorators.http import require_POST  # noqa: F401  (parity w/ siblings)
+
+    manuscript, f = _workbench_objects(slug, pk, file_pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only."}, status=405)
+    if f.kind == "asset":
+        return JsonResponse({"error": "Assets are not editable."}, status=400)
+    f.content = request.POST.get("content", "")
+    f.save()
+    payload = {"saved": True}
+    if f.kind == "tex":
+        result = services.check_citations(manuscript, f.content)
+        payload["cite"] = {
+            "missing_from_bib": len(result["missing_from_bib"]),
+            "uncited_in_bib": len(result["uncited_in_bib"]),
+        }
+    return JsonResponse(payload)
+
+
+def file_rename(request, slug, pk, file_pk):
+    from django.core.exceptions import ValidationError
+    from django.http import JsonResponse
+
+    from .models import kind_for_path, validate_manuscript_path
+
+    manuscript, f = _workbench_objects(slug, pk, file_pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only."}, status=405)
+    path = request.POST.get("path", "").strip()
+    try:
+        validate_manuscript_path(path)
+    except ValidationError as exc:
+        return JsonResponse({"error": "; ".join(exc.messages)}, status=400)
+    if manuscript.files.filter(path=path).exclude(pk=f.pk).exists():
+        return JsonResponse({"error": "That path already exists."}, status=400)
+    if kind_for_path(path) != f.kind:
+        return JsonResponse({"error": "Rename must keep the file type."}, status=400)
+    f.path = path
+    f.save()
+    return JsonResponse(_file_dict(f))
+
+
+def file_delete(request, slug, pk, file_pk):
+    from django.http import JsonResponse
+
+    _, f = _workbench_objects(slug, pk, file_pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only."}, status=405)
+    if f.is_main:
+        return JsonResponse(
+            {"error": "The main file can't be deleted — rename it instead."}, status=400
+        )
+    if f.asset:
+        f.asset.delete(save=False)
+    f.delete()
+    return JsonResponse({"deleted": True})

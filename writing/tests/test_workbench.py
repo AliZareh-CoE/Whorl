@@ -1,0 +1,362 @@
+"""Multi-file manuscript workbench tests (Owner idea #24, parity slice 6)."""
+
+import pytest
+from django.core.exceptions import ValidationError
+
+from writing.models import (
+    Manuscript,
+    ManuscriptFile,
+    kind_for_path,
+    validate_manuscript_path,
+)
+from writing.tests.factories import ManuscriptFactory
+
+pytestmark = pytest.mark.django_db
+
+
+HOSTILE_PATHS = [
+    "../x.tex",
+    "a/../b.tex",
+    "/etc/passwd",
+    "C:\\evil.tex",
+    "a\\b.tex",
+    "..",
+    ".hidden",
+    "figs/",
+    "a//b.tex",
+    "",
+    "a" * 201,
+    "/".join(["d"] * 9) + ".tex",
+    "fi‮gure.png",
+    "ƒig.png",
+    "fig\x00.png",
+]
+
+
+class TestPathValidator:
+    @pytest.mark.parametrize("path", HOSTILE_PATHS)
+    def test_rejects_hostile_paths(self, path):
+        with pytest.raises(ValidationError):
+            validate_manuscript_path(path)
+
+    @pytest.mark.parametrize(
+        "path",
+        ["main.tex", "sections/01-intro.tex", "figures/fig_1-final.png", "refs.bib", "acl.sty"],
+    )
+    def test_accepts_sane_paths(self, path):
+        assert validate_manuscript_path(path) == path
+
+    def test_kind_inferred_from_extension(self):
+        assert kind_for_path("main.tex") == "tex"
+        assert kind_for_path("acl.sty") == "tex"
+        assert kind_for_path("refs.bib") == "bib"
+        assert kind_for_path("fig.png") == "asset"
+        assert kind_for_path("noext") == "asset"
+
+    def test_unique_path_and_single_main_constraints(self):
+        from django.db import IntegrityError, transaction
+
+        m = ManuscriptFactory()
+        ManuscriptFile.objects.create(manuscript=m, path="a.tex", is_main=True)
+        with pytest.raises(IntegrityError), transaction.atomic():
+            ManuscriptFile.objects.create(manuscript=m, path="a.tex")
+        with pytest.raises(IntegrityError), transaction.atomic():
+            ManuscriptFile.objects.create(manuscript=m, path="b.tex", is_main=True)
+
+
+class TestAlias:
+    def test_manuscript_save_syncs_to_main_file(self):
+        m = ManuscriptFactory(latex_source="\\documentclass{article}")
+        main = m.main_file
+        assert main is not None and main.path == "main.tex"
+        assert main.content == "\\documentclass{article}"
+        m.latex_source = "updated"
+        m.save()
+        main.refresh_from_db()
+        assert main.content == "updated"
+
+    def test_main_file_save_syncs_back_to_latex_source(self):
+        m = ManuscriptFactory(latex_source="seed")
+        main = m.main_file
+        main.content = "from the editor"
+        main.save()
+        m.refresh_from_db()
+        assert m.latex_source == "from the editor"
+
+    def test_status_only_save_does_not_clobber_main_file(self):
+        m = ManuscriptFactory(latex_source="real content")
+        assert m.main_file is not None  # ensure it exists
+        # simulate a stale in-memory latex_source while compile saves status only
+        m.latex_source = "STALE"
+        m.compile_status = Manuscript.CompileStatus.OK
+        m.save(update_fields=["compile_status", "updated_at"])
+        assert m.main_file.content == "real content"
+
+    def test_ensure_main_file_is_idempotent(self):
+        m = ManuscriptFactory(latex_source="")
+        first = m.ensure_main_file()
+        second = m.ensure_main_file()
+        assert first.pk == second.pk
+        assert m.files.count() == 1
+
+
+class TestWorkbenchCompile:
+    def _patch_tectonic(self, monkeypatch, captured):
+        from types import SimpleNamespace
+
+        from writing import compile as compile_mod
+
+        monkeypatch.setattr(compile_mod, "tectonic_available", lambda: True)
+
+        def fake_run(cmd, cwd, **kwargs):
+            captured["cmd"] = cmd
+            captured["tree"] = {
+                str(p.relative_to(cwd)): p.read_bytes()
+                for p in __import__("pathlib").Path(cwd).rglob("*")
+                if p.is_file()
+            }
+            main = cmd[-1]
+            (__import__("pathlib").Path(cwd) / main).with_suffix(".pdf").write_bytes(b"%PDF-1.4")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(compile_mod.subprocess, "run", fake_run)
+
+    def test_writes_tree_and_passes_untrusted(self, monkeypatch):
+        from writing.compile import compile_manuscript
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(
+            manuscript=m, path="main.tex", content="\\input{sections/body}", is_main=True
+        )
+        ManuscriptFile.objects.create(manuscript=m, path="sections/body.tex", content="Hi")
+        captured = {}
+        self._patch_tectonic(monkeypatch, captured)
+        compile_manuscript(m)
+        assert "--untrusted" in captured["cmd"]
+        assert "sections/body.tex" in captured["tree"]
+        m.refresh_from_db()
+        assert m.compile_status == "ok"
+
+    def test_user_references_bib_not_clobbered(self, monkeypatch):
+        from writing.compile import compile_manuscript
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(manuscript=m, path="main.tex", content="x", is_main=True)
+        ManuscriptFile.objects.create(manuscript=m, path="references.bib", content="@misc{mine}")
+        captured = {}
+        self._patch_tectonic(monkeypatch, captured)
+        compile_manuscript(m)
+        assert captured["tree"]["references.bib"] == b"@misc{mine}"
+
+    def test_legacy_manuscript_without_files_uses_latex_source(self, monkeypatch):
+        from writing.compile import compile_manuscript
+
+        m = ManuscriptFactory(latex_source="")
+        # bypass the alias so no file rows exist
+        Manuscript.objects.filter(pk=m.pk).update(latex_source="legacy body")
+        m = Manuscript.objects.get(pk=m.pk)
+        assert m.files.count() == 0
+        captured = {}
+        self._patch_tectonic(monkeypatch, captured)
+        compile_manuscript(m)
+        assert captured["tree"]["main.tex"] == b"legacy body"
+
+    def test_hostile_path_row_fails_safely(self, monkeypatch):
+        from writing.compile import compile_manuscript
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(manuscript=m, path="main.tex", content="x", is_main=True)
+        # inject a hostile row past validation via bulk_create
+        ManuscriptFile.objects.bulk_create(
+            [ManuscriptFile(manuscript=m, path="ok.tex", kind="tex", content="y")]
+        )
+        ManuscriptFile.objects.filter(manuscript=m, path="ok.tex").update(path="../escape.tex")
+        from types import SimpleNamespace
+
+        from writing import compile as compile_mod
+
+        monkeypatch.setattr(compile_mod, "tectonic_available", lambda: True)
+        monkeypatch.setattr(
+            compile_mod.subprocess,
+            "run",
+            lambda *a, **k: SimpleNamespace(returncode=0, stdout="", stderr=""),
+        )
+        compile_manuscript(m)
+        m.refresh_from_db()
+        assert m.compile_status == "failed"
+        assert "outside the build" in m.compile_log
+
+    def test_renamed_main_finds_pdf(self, monkeypatch):
+        from writing.compile import compile_manuscript
+
+        m = ManuscriptFactory(latex_source="")
+        main = ManuscriptFile.objects.create(
+            manuscript=m, path="main.tex", content="x", is_main=True
+        )
+        main.path = "paper.tex"
+        main.save()
+        captured = {}
+        self._patch_tectonic(monkeypatch, captured)
+        compile_manuscript(m)
+        m.refresh_from_db()
+        assert m.compile_status == "ok"
+        assert captured["cmd"][-1] == "paper.tex"
+
+    def test_files_but_no_main_fails(self, monkeypatch):
+        from writing.compile import compile_manuscript
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(manuscript=m, path="orphan.tex", content="x")
+        compile_manuscript(m)
+        m.refresh_from_db()
+        assert m.compile_status == "failed"
+        assert "main file" in m.compile_log.lower()
+
+
+class TestWorkbenchViews:
+    def _url(self, m, suffix=""):
+        return f"/projects/{m.project.slug}/writing/{m.pk}/files/{suffix}"
+
+    def test_list_and_create_json(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        created = client_logged_in.post(self._url(m), {"path": "sections/intro.tex"})
+        assert created.status_code == 201
+        listing = client_logged_in.get(self._url(m)).json()
+        assert {f["path"] for f in listing["files"]} == {"main.tex", "sections/intro.tex"}
+
+    def test_create_rejects_bad_path_and_duplicate(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        assert client_logged_in.post(self._url(m), {"path": "../evil.tex"}).status_code == 400
+        assert client_logged_in.post(self._url(m), {"path": "main.tex"}).status_code == 400
+
+    def test_file_save_returns_cite_counts(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        main = m.main_file
+        res = client_logged_in.post(
+            self._url(m, f"{main.pk}/save/"),
+            {"content": "\\cite{ghostkey}"},
+            headers={"X-SPA": "1"},
+        )
+        data = res.json()
+        assert data["saved"] is True
+        assert data["cite"]["missing_from_bib"] == 1
+        main.refresh_from_db()
+        assert main.content == "\\cite{ghostkey}"
+
+    def test_rename_validates_and_renames(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        f = ManuscriptFile.objects.create(manuscript=m, path="a.tex", content="")
+        ok = client_logged_in.post(self._url(m, f"{f.pk}/rename/"), {"path": "b.tex"})
+        assert ok.status_code == 200
+        bad = client_logged_in.post(self._url(m, f"{f.pk}/rename/"), {"path": "../x.tex"})
+        assert bad.status_code == 400
+
+    def test_delete_main_forbidden(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        res = client_logged_in.post(self._url(m, f"{m.main_file.pk}/delete/"))
+        assert res.status_code == 400
+
+    def test_delete_asset_removes_filefield(self, client_logged_in):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        m = ManuscriptFactory(latex_source="x")
+        f = ManuscriptFile.objects.create(
+            manuscript=m,
+            path="fig.png",
+            kind="asset",
+            asset=SimpleUploadedFile("fig.png", b"\x89PNG", "image/png"),
+        )
+        res = client_logged_in.post(self._url(m, f"{f.pk}/delete/"))
+        assert res.json()["deleted"] is True
+        assert not ManuscriptFile.objects.filter(pk=f.pk).exists()
+
+    def test_upload_rejects_disallowed_extension(self, client_logged_in):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        m = ManuscriptFactory(latex_source="x")
+        res = client_logged_in.post(
+            self._url(m, "upload/"),
+            {"file": SimpleUploadedFile("evil.exe", b"MZ", "application/octet-stream")},
+        )
+        assert res.status_code == 400
+
+    def test_upload_tex_lands_as_text(self, client_logged_in):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        m = ManuscriptFactory(latex_source="x")
+        res = client_logged_in.post(
+            self._url(m, "upload/"),
+            {"file": SimpleUploadedFile("extra.tex", b"\\section{X}", "text/x-tex")},
+        )
+        assert res.status_code == 201
+        f = ManuscriptFile.objects.get(manuscript=m, path="extra.tex")
+        assert f.kind == "tex" and f.content == "\\section{X}"
+
+    def test_endpoints_scoped_to_project(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        other = ManuscriptFactory(latex_source="y")
+        # other manuscript's file id under m's url must 404
+        res = client_logged_in.get(self._url(m, f"{other.main_file.pk}/"))
+        assert res.status_code == 404
+
+    def test_editor_get_bootstraps_main(self, client_logged_in):
+        from django.urls import reverse
+
+        m = ManuscriptFactory(latex_source="")
+        client_logged_in.get(reverse("writing:editor", args=[m.project.slug, m.pk]))
+        assert m.files.filter(is_main=True).count() == 1
+
+
+class TestWorkbenchAPI:
+    def test_files_crud_and_manuscript_filter(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        created = client_logged_in.post(
+            "/api/v1/manuscript-files/",
+            {"manuscript": m.pk, "path": "extra.tex", "content": "hi"},
+            content_type="application/json",
+        )
+        assert created.status_code == 201
+        assert created.json()["kind"] == "tex"
+        listing = client_logged_in.get(f"/api/v1/manuscript-files/?manuscript={m.pk}").json()
+        assert listing["count"] == 2
+
+    def test_create_rejects_traversal(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        res = client_logged_in.post(
+            "/api/v1/manuscript-files/",
+            {"manuscript": m.pk, "path": "../evil.tex", "content": ""},
+            content_type="application/json",
+        )
+        assert res.status_code == 400
+
+    def test_set_main_demotes_previous(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        old_main = m.main_file
+        other = ManuscriptFile.objects.create(manuscript=m, path="b.tex", content="")
+        res = client_logged_in.patch(
+            f"/api/v1/manuscript-files/{other.pk}/",
+            {"is_main": True},
+            content_type="application/json",
+        )
+        assert res.status_code == 200
+        old_main.refresh_from_db()
+        other.refresh_from_db()
+        assert other.is_main and not old_main.is_main
+
+    def test_manuscript_includes_files_summary(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="x")
+        data = client_logged_in.get(f"/api/v1/manuscripts/{m.pk}/").json()
+        assert any(f["is_main"] for f in data["files"])
+
+    def test_api_patch_latex_source_writes_main_file(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="orig")
+        client_logged_in.patch(
+            f"/api/v1/manuscripts/{m.pk}/",
+            {"latex_source": "via api"},
+            content_type="application/json",
+        )
+        assert m.main_file.content == "via api"
+
+    def test_schema_includes_manuscript_files(self, client_logged_in):
+        schema = client_logged_in.get("/api/schema/").content.decode()
+        assert "/api/v1/manuscript-files/" in schema

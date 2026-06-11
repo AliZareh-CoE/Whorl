@@ -552,6 +552,24 @@ class DatasetViewSet(AtlasViewSet):
     http_method_names = ["get", "head", "options"]
 
 
+class ManuscriptFileViewSet(AtlasViewSet):
+    serializer_class = serializers.ManuscriptFileSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    project_filter = "manuscript__project__slug"
+
+    def get_queryset(self):
+        from writing.models import ManuscriptFile
+
+        queryset = ManuscriptFile.objects.all()
+        slug = self.request.query_params.get("project")
+        if slug:
+            queryset = queryset.filter(manuscript__project__slug=slug)
+        manuscript = self.request.query_params.get("manuscript")
+        if manuscript:
+            queryset = queryset.filter(manuscript_id=manuscript)
+        return queryset
+
+
 class ManuscriptViewSet(AtlasViewSet):
     queryset = Manuscript.objects.all()
     serializer_class = serializers.ManuscriptSerializer
@@ -569,7 +587,7 @@ class ManuscriptViewSet(AtlasViewSet):
         from writing.tasks import compile_manuscript_task
 
         manuscript = self.get_object()
-        if not manuscript.latex_source.strip():
+        if not manuscript.source_text().strip():
             return Response({"detail": "latex_source is empty."}, status=400)
         manuscript.compile_generation += 1
         manuscript.compile_status = Manuscript.CompileStatus.RUNNING

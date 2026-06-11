@@ -1,10 +1,53 @@
+import re
+
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
 from core.models import TimeStampedModel
 from literature.models import Reference
 from projects.models import Project
+
+PATH_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-]{0,79}$")
+MAX_PATH_SEGMENTS = 8
+
+
+def validate_manuscript_path(path: str) -> str:
+    """Workbench file paths are deliberately strict (Owner idea #24 slice 6).
+
+    ASCII-only kills unicode tricks; segments can't start with a dot, which
+    rejects "..", ".", and dotfiles in one rule; no absolute/drive/backslash
+    forms. Compile has a resolve()-based guard as the second line of defense.
+    """
+    if not path or len(path) > 200:
+        raise ValidationError("Path must be 1-200 characters.")
+    if not path.isascii():
+        raise ValidationError("Path must be ASCII.")
+    if "\\" in path:
+        raise ValidationError("Use forward slashes.")
+    if path.startswith("/") or re.match(r"^[A-Za-z]:", path):
+        raise ValidationError("Path must be relative.")
+    segments = path.split("/")
+    if len(segments) > MAX_PATH_SEGMENTS:
+        raise ValidationError(f"At most {MAX_PATH_SEGMENTS} path segments.")
+    for segment in segments:
+        if not PATH_SEGMENT_RE.match(segment):
+            raise ValidationError(f"Invalid path segment: {segment!r}")
+    return path
+
+
+TEXT_EXTENSIONS = {".tex", ".sty", ".cls", ".bst"}
+
+
+def kind_for_path(path: str) -> str:
+    suffix = ("." + path.rsplit(".", 1)[-1]).lower() if "." in path else ""
+    if suffix in TEXT_EXTENSIONS:
+        return ManuscriptFile.Kind.TEX
+    if suffix == ".bib":
+        return ManuscriptFile.Kind.BIB
+    return ManuscriptFile.Kind.ASSET
 
 
 class Manuscript(TimeStampedModel):
@@ -59,6 +102,98 @@ class Manuscript(TimeStampedModel):
         if not self.deadline:
             return None
         return (self.deadline - timezone.localdate()).days
+
+    # --- multi-file workbench (Owner idea #24 slice 6) ---
+    # latex_source stays a real column for one release; it aliases the main file.
+
+    def save(self, *args, update_fields=None, **kwargs):
+        super().save(*args, update_fields=update_fields, **kwargs)
+        if update_fields is not None and "latex_source" not in update_fields:
+            return  # status-only saves (compile.py) must never push a stale alias
+        main = self.files.filter(is_main=True).first()
+        if main is not None:
+            if main.content != self.latex_source:
+                self.files.filter(pk=main.pk).update(
+                    content=self.latex_source, updated_at=timezone.now()
+                )
+        elif self.latex_source.strip():
+            main = ManuscriptFile(
+                manuscript=self,
+                path="main.tex",
+                kind=ManuscriptFile.Kind.TEX,
+                content=self.latex_source,
+                is_main=True,
+            )
+            main._from_alias_sync = True
+            main.save()
+
+    @property
+    def main_file(self):
+        return self.files.filter(is_main=True).first()
+
+    def ensure_main_file(self):
+        """Bootstrap main.tex from the alias column on first editor open."""
+        main = self.main_file
+        if main is None:
+            main = ManuscriptFile(
+                manuscript=self,
+                path="main.tex",
+                kind=ManuscriptFile.Kind.TEX,
+                content=self.latex_source,
+                is_main=True,
+            )
+            main._from_alias_sync = True
+            main.save()
+        return main
+
+    def source_text(self) -> str:
+        main = self.main_file
+        return main.content if main is not None else self.latex_source
+
+
+def manuscript_asset_path(instance, filename):
+    return f"manuscripts/{instance.manuscript_id}/assets/{filename}"
+
+
+class ManuscriptFile(TimeStampedModel):
+    """One file of a manuscript's source tree (Owner idea #24 slice 6)."""
+
+    class Kind(models.TextChoices):
+        TEX = "tex", "LaTeX"
+        BIB = "bib", "BibTeX"
+        ASSET = "asset", "Asset"
+
+    manuscript = models.ForeignKey(Manuscript, on_delete=models.CASCADE, related_name="files")
+    path = models.CharField(max_length=200, validators=[validate_manuscript_path])
+    kind = models.CharField(max_length=10, choices=Kind.choices, blank=True)
+    content = models.TextField(blank=True)
+    asset = models.FileField(upload_to=manuscript_asset_path, null=True, blank=True)
+    is_main = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["path"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["manuscript", "path"], name="unique_path_per_manuscript"
+            ),
+            models.UniqueConstraint(
+                fields=["manuscript"],
+                condition=Q(is_main=True),
+                name="unique_main_file_per_manuscript",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.manuscript_id}:{self.path}"
+
+    def save(self, *args, **kwargs):
+        if not self.kind:
+            self.kind = kind_for_path(self.path)
+        super().save(*args, **kwargs)
+        if self.is_main and not getattr(self, "_from_alias_sync", False):
+            Manuscript.objects.filter(pk=self.manuscript_id).update(
+                latex_source=self.content, updated_at=timezone.now()
+            )
 
 
 class ManuscriptReference(models.Model):
