@@ -26,9 +26,27 @@ def _client() -> httpx.Client:
     )
 
 
+# GET responses remembered per (path, params): the API sends weak ETags, so repeat
+# reads cost a 304 round-trip instead of a re-serialization.
+_etag_cache: dict[tuple, tuple[str, object]] = {}
+
+
+def _cache_key(path: str, params) -> tuple:
+    return (path, tuple(sorted((params or {}).items())))
+
+
 def _request(method: str, path: str, **kwargs):
+    cache_key = None
+    headers = {}
+    if method == "GET":
+        cache_key = _cache_key(path, kwargs.get("params"))
+        cached = _etag_cache.get(cache_key)
+        if cached:
+            headers["If-None-Match"] = cached[0]
     with _client() as client:
-        response = client.request(method, path, **kwargs)
+        response = client.request(method, path, headers=headers or None, **kwargs)
+    if response.status_code == 304 and cache_key:
+        return _etag_cache[cache_key][1]
     if response.status_code >= 400:
         try:
             detail = response.json()
@@ -37,7 +55,10 @@ def _request(method: str, path: str, **kwargs):
         raise AtlasClientError(f"Atlas API {response.status_code} on {path}: {detail}")
     if response.status_code == 204:
         return None
-    return response.json()
+    data = response.json()
+    if cache_key is not None and response.headers.get("ETag"):
+        _etag_cache[cache_key] = (response.headers["ETag"], data)
+    return data
 
 
 def list_projects():

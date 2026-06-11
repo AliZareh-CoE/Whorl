@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: Backlog #27 MCP ETag cache [cycle 47])
+- **Slice in progress:** — (next: UI/UX cycle 2 of 2 [cycle 48])
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. Backlog #27 — MCP client ETag cache [cycle 47]
-  2. Backlog #30, #31… top-down (skipping done items)
-  3. Second UI/UX cycle at 48 or 49; AUDIT #5 at cycle 50
+  1. UI/UX cycle 2 of 2 [cycle 48] — Backlog #46 edge-swipe to open the drawer, or #52 recent searches
+  2. Backlog #30+ top-down [cycle 49]
+  3. AUDIT #5 [cycle 50]
 - **Broken:** nothing
 
 ## Gate reports

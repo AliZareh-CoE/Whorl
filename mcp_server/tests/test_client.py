@@ -79,3 +79,49 @@ def test_no_django_imports():
             imported.add(node.module.split(".")[0])
     assert "django" not in imported
     assert imported <= {"os", "datetime", "httpx"}
+
+
+class TestETagCache:
+    @pytest.fixture(autouse=True)
+    def fresh_cache(self):
+        client._etag_cache.clear()
+        yield
+        client._etag_cache.clear()
+
+    def _transport(self, monkeypatch, statuses):
+        """Server stub: first response 200+ETag, then 304 when If-None-Match matches."""
+
+        def fake_client():
+            def handler(request):
+                statuses.append((request.method, request.headers.get("If-None-Match", "")))
+                if request.headers.get("If-None-Match") == 'W/"abc"':
+                    return httpx.Response(304)
+                return httpx.Response(200, json={"projects": [1, 2]}, headers={"ETag": 'W/"abc"'})
+
+            return httpx.Client(
+                base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
+            )
+
+        monkeypatch.setattr(client, "_client", fake_client)
+
+    def test_repeat_get_serves_cached_body_on_304(self, monkeypatch, env):
+        seen = []
+        self._transport(monkeypatch, seen)
+        first = client.list_projects()
+        second = client.list_projects()
+        assert first == second == {"projects": [1, 2]}
+        assert seen == [("GET", ""), ("GET", 'W/"abc"')]
+
+    def test_params_split_the_cache(self, monkeypatch, env):
+        seen = []
+        self._transport(monkeypatch, seen)
+        client.search("alpha")
+        client.search("beta")  # different params — must not send alpha's ETag
+        assert seen == [("GET", ""), ("GET", "")]
+
+    def test_posts_never_touch_the_cache(self, monkeypatch, env):
+        seen = []
+        self._transport(monkeypatch, seen)
+        client.quick_capture("hello")
+        assert seen == [("POST", "")]
+        assert client._etag_cache == {}
