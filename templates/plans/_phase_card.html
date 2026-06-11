@@ -36,7 +36,8 @@
           <button type="button"
                   hx-post="{% url 'plans:milestone_toggle' project.slug milestone.pk %}"
                   hx-target="#phase-{{ phase.pk }}" hx-swap="outerHTML"
-                  class="flex h-4 w-4 items-center justify-center rounded border text-xs
+                  class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs
+                         after:absolute after:-inset-2.5 after:content-['']
                          {% if milestone.completed_at %}border-green-600 bg-green-600 text-white{% else %}border-stone-300 bg-white text-transparent hover:border-stone-400{% endif %}"
                   aria-label="Toggle milestone">✓</button>
           <span class="text-sm {% if milestone.completed_at %}text-stone-400 line-through{% endif %}">{{ milestone.title }}</span>
@@ -56,7 +57,8 @@
                 <button type="button"
                         hx-post="{% url 'plans:task_toggle' project.slug task.pk %}"
                         hx-target="#phase-{{ phase.pk }}" hx-swap="outerHTML"
-                        class="flex h-3.5 w-3.5 items-center justify-center rounded border text-[10px]
+                        class="relative flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]
+                               after:absolute after:-inset-2.5 after:content-['']
                                {% if task.done %}border-stone-400 bg-stone-400 text-white{% else %}border-stone-300 bg-white text-transparent hover:border-stone-400{% endif %}"
                         aria-label="Toggle task">✓</button>
                 <span class="{% if task.done %}text-stone-400 line-through{% endif %}">{{ task.title }}</span>

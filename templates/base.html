@@ -13,7 +13,7 @@
   <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:text-white">
     Skip to content
   </a>
-  <div class="flex h-full" x-data="{ sidebarOpen: false }" @keydown.escape.window="sidebarOpen = false">
+  <div class="flex h-full" x-data="{ sidebarOpen: false, touchX: null }" @keydown.escape.window="sidebarOpen = false">
     <button type="button" @click="sidebarOpen = true" aria-label="Open navigation"
             class="fixed left-3 top-3 z-40 rounded border border-stone-200 bg-white px-2.5 py-1.5 text-sm shadow-sm lg:hidden">
       ☰
@@ -21,6 +21,8 @@
     <div x-show="sidebarOpen" x-transition.opacity @click="sidebarOpen = false"
          class="fixed inset-0 z-40 bg-stone-900/30 lg:hidden" aria-hidden="true" style="display: none"></div>
     <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+           @touchstart="touchX = $event.touches[0].clientX"
+           @touchend="if (touchX !== null && $event.changedTouches[0].clientX - touchX < -60) sidebarOpen = false; touchX = null"
            class="fixed inset-y-0 left-0 z-50 w-56 -translate-x-full transform border-r border-stone-200 bg-white px-4 py-6 flex flex-col transition-transform duration-200 lg:translate-x-0">
       <a href="{% url 'core:dashboard' %}" class="text-lg font-semibold tracking-tight mb-4">Atlas</a>
       <form action="{% url 'core:search' %}" method="get" class="relative mb-4">

@@ -242,9 +242,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 37. Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31)
 38. Listen prefetch — synthesize the next chunk while the current one plays to remove gaps (idea added by cycle 32)
 39. Doctor on the Automations page — render the same checks in the UI with a stale-worker banner (idea added by cycle 33)
-40. Swipe-to-close for the mobile drawer + larger touch targets on check-off buttons (idea added by cycle 34)
+40. ~~Swipe + touch targets (done 2026-06-11, cycle 39, UI/UX): drawer closes on a >60px left swipe (Alpine touch handlers; short swipes ignored), milestone/task check-offs grew to 20/16px visuals with an invisible `after:-inset-2.5` pseudo-element giving ≈40×40px tap targets (+ shrink-0 so flex rows can't squeeze them); verified at 420px in a real touch browser.~~
 41. Keyword cloud on the project overview card (idea added by cycle 35)
 42. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
 43. Prompt variable defaults — `{{name|default}}` syntax pre-fills the fill-in inputs, and last-used values are remembered per prompt in localStorage (idea added by cycle 36)
 44. Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)
 45. Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)
+46. Edge-swipe to open the drawer — touchstart within 24px of the left edge anywhere on the page slides the sidebar in (mirror of swipe-to-close) (idea added by cycle 39)

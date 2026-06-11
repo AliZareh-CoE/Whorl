@@ -61,3 +61,26 @@ class TestResponsiveSidebar:
         ReferenceFactory()
         response = client_logged_in.get(r("literature:index"))
         assert b'class="overflow-x-auto"><table' in response.content
+
+    def test_drawer_swipe_to_close_wiring(self, client_logged_in):
+        from django.urls import reverse as r
+
+        response = client_logged_in.get(r("core:dashboard"))
+        content = response.content.decode()
+        assert "@touchstart" in content
+        assert "@touchend" in content
+        assert "sidebarOpen = false; touchX = null" in content
+
+
+class TestTouchTargets:
+    def test_check_off_buttons_have_extended_hit_area(self, client_logged_in):
+        from django.urls import reverse as r
+
+        from plans.tests.factories import MilestoneFactory, TaskFactory
+
+        milestone = MilestoneFactory()
+        TaskFactory(milestone=milestone)
+        response = client_logged_in.get(r("plans:plan", args=[milestone.phase.project.slug]))
+        content = response.content.decode()
+        # 20px visual + 10px pseudo-element padding per side ≈ 40px tap target
+        assert content.count("after:-inset-2.5") >= 2  # milestone + task buttons
