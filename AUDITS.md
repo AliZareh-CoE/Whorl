@@ -315,3 +315,40 @@ libraries grow), #36 (containerized Tectonic if multi-user ever happens).
 
 **Verdict:** healthy — two real findings, both fixed and regression-guarded in-cycle.
 457 tests green, lint clean.
+
+## Audit #11 — cycle 110 (2026-06-11)
+
+Scope: everything since audit #10 (cycles 101–109) — the entire LaTeX workbench
+(compile diagnostics + log parser, autosave/in-place compile + compile_generation guard,
+pdf.js preview, autocomplete/snippets, find/replace + keymaps + settings, the multi-file
+workbench, word count, version history) and the Owner-idea-#25 density/full-width changes.
+
+**Probe sweep (`make audit`): clean.** pip-audit and npm audit both zero known
+vulnerabilities; anonymous/keyed/catch-all/open-redirect/static-MIME all intact.
+
+**Workbench endpoint authz:** every classic file/word-count/revisions view 302s to login
+for anonymous users; the DRF manuscript-files viewset 401s. All file/revision views are
+scoped through `project.manuscripts` → `manuscript.files`/`manuscript.revisions`, so a
+bogus or cross-manuscript id 404s (verified: revision diff on id 999999 → 404).
+
+**Path traversal (the highest-risk surface):** `../evil.tex`, `/etc/passwd`, and
+`..\evil` are rejected 400 by both the DRF serializer and the classic create endpoint
+(validate_manuscript_path: ASCII-only, no dotfiles/.., depth-capped). Defense in depth:
+compile's `_write_tree` resolve()-guard refuses any row that escapes the build dir even if
+it bypassed validation (tested: bulk_created hostile row → compile FAILED, nothing
+written). Compile runs Tectonic with `--untrusted`. Uploads are size-capped (50 MB,
+shared validate_upload_size) and extension-whitelisted; disallowed types (.exe/.html) 400.
+
+**Performance (best of 5, dev server, all under the 50 ms bar):** editor page 25 ms ·
+dashboard 15 ms · word-count 21 ms. Query-budget regression tests (7) green; no new N+1s
+(the project-references select_related from audit #10 holds).
+
+**Findings & fixes:** none — clean audit (first since audit #9's pair of no-fix audits).
+
+**Carried forward:** Backlog #36 (containerized/namespaced Tectonic) rises in priority now
+that multi-file `\input` exists — `--untrusted` + path validation are solid for single-user,
+but a container boundary is the right answer if Atlas ever goes multi-user. Revision JSON
+storage is bounded per-manuscript by the keep-50-auto trim; revisit only if it grows.
+
+**Verdict:** healthy. The workbench's security-sensitive surfaces (path handling, upload,
+sandboxed compile) are guarded in depth and tested. 522 tests green, lint clean.
