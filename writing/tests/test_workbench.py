@@ -396,3 +396,88 @@ class TestWordCount:
         ManuscriptFile.objects.create(manuscript=m, path="sections/a.tex", content="four five")
         data = client_logged_in.get(f"/projects/{m.project.slug}/writing/{m.pk}/word-count/").json()
         assert data["words"] == 5
+
+
+class TestRevisions:
+    """Owner idea #24 slice 9: version history — snapshot, label, diff, restore, trim."""
+
+    def test_snapshot_captures_text_files(self):
+        from writing.models import ManuscriptFile, snapshot_manuscript
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(manuscript=m, path="main.tex", content="hello", is_main=True)
+        ManuscriptFile.objects.create(manuscript=m, path="refs.bib", content="@misc{a}")
+        rev = snapshot_manuscript(m, label="v1")
+        assert rev.files == {"main.tex": "hello", "refs.bib": "@misc{a}"}
+        assert rev.is_labeled
+
+    def test_trim_keeps_labeled_and_last_50_auto(self):
+        from writing.models import snapshot_manuscript
+
+        m = ManuscriptFactory(latex_source="x")
+        snapshot_manuscript(m, label="keep me")
+        for _ in range(55):
+            snapshot_manuscript(m)
+        revs = m.revisions.all()
+        assert revs.filter(label="keep me").count() == 1
+        assert revs.filter(label="").count() == 50  # auto trimmed to 50
+
+    def test_compile_creates_snapshot(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from writing import compile as compile_mod
+        from writing.models import ManuscriptFile
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(manuscript=m, path="main.tex", content="hi", is_main=True)
+        monkeypatch.setattr(compile_mod, "tectonic_available", lambda: True)
+
+        def fake_run(cmd, cwd, **kwargs):
+            (__import__("pathlib").Path(cwd) / cmd[-1]).with_suffix(".pdf").write_bytes(b"%PDF")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(compile_mod.subprocess, "run", fake_run)
+        compile_mod.compile_manuscript(m)
+        assert m.revisions.filter(label="").exists()
+
+    def test_list_and_label_endpoints(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="content here")
+        labeled = client_logged_in.post(
+            f"/projects/{m.project.slug}/writing/{m.pk}/revisions/", {"label": "draft 1"}
+        )
+        assert labeled.status_code == 201
+        listing = client_logged_in.get(
+            f"/projects/{m.project.slug}/writing/{m.pk}/revisions/"
+        ).json()
+        assert listing["revisions"][0]["label"] == "draft 1"
+
+    def test_diff_endpoint(self, client_logged_in):
+        from writing.models import snapshot_manuscript
+
+        m = ManuscriptFactory(latex_source="original line")
+        rev = snapshot_manuscript(m, label="before")
+        main = m.main_file
+        main.content = "changed line"
+        main.save()
+        data = client_logged_in.get(
+            f"/projects/{m.project.slug}/writing/{m.pk}/revisions/{rev.pk}/diff/"
+        ).json()
+        assert not data["unchanged"]
+        assert any("changed line" in d["diff"] for d in data["diffs"])
+
+    def test_restore_endpoint(self, client_logged_in):
+        from writing.models import snapshot_manuscript
+
+        m = ManuscriptFactory(latex_source="version A")
+        rev = snapshot_manuscript(m, label="A")
+        main = m.main_file
+        main.content = "version B"
+        main.save()
+        res = client_logged_in.post(
+            f"/projects/{m.project.slug}/writing/{m.pk}/revisions/{rev.pk}/restore/"
+        )
+        assert res.json()["restored"] is True
+        m.refresh_from_db()
+        assert m.main_file.content == "version A"
+        # the restore itself snapshotted the pre-restore state
+        assert m.revisions.filter(label="Before restore").exists()

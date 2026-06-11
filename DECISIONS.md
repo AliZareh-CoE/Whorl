@@ -303,6 +303,13 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     work not the flag, multi-file needs --untrusted + strict path validation (#36 urgency),
     compile queue pile-up needs generation counter, stop-on-first-error is moot (tectonic
     halts hard — verified live).
+    ~~Slice 9 (2026-06-11, cycle 109): version history — ManuscriptRevision (JSON
+    snapshot of all text files) taken automatically on every successful compile + on manual
+    "★ label"; History panel lists labeled (★) and automatic (relative-time) snapshots;
+    clicking one opens a color-coded unified-diff modal (Python difflib) vs the current
+    files with a one-click Restore (which snapshots "Before restore" first, so restoring is
+    itself undoable); trim keeps all labeled + the last 50 automatic. Beats Overleaf free's
+    24h history. Browser-verified compile→snapshot, diff, restore-undoes-edit. 6 new tests.~~
     ~~Slice 8 (2026-06-11, cycle 108): outline panel + word count — the file sidebar gains
     an Outline (client-side parse of \(sub)*section/chapter/part with depth indent,
     click-to-jump, debounced refresh on edit + on file switch) and a Word count button →
@@ -625,6 +632,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+122. Revision retention policy surfacing — show "kept: all labeled + last 50 auto" somewhere in the History panel and let the user bump the auto-cap, so the trim behavior isn't a surprise (idea added by cycle 109)
 121. Live word-count badge — show the count passively in the status bar and refresh it on the autosave cycle (debounced) instead of only on button click, like Overleaf's always-visible count (idea added by cycle 108)
 120. Classic-page density — the classic base.html still defaults to max-w-5xl; sweep the remaining classic-only pages (editor done) once the SPA density work lands, or accelerate their SPA migration (idea added by cycle 107)
 119. Editor command palette — a small Ctrl/Cmd-P over editor actions (compile, find, toggle preview, new file, change keymap) so power users skip the mouse; pairs with the settings popover (idea added by cycle 106)

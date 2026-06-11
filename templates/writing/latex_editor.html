@@ -78,8 +78,29 @@
       </button>
       <span id="wordcount-out" class="ml-1 text-xs text-stone-400"></span>
     </div>
+    <div class="border-t border-stone-100 px-3 py-1.5">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-medium uppercase tracking-wide text-stone-400">History</p>
+        <button type="button" id="label-version-btn" class="text-xs text-stone-500 hover:text-indigo-700">+ label</button>
+      </div>
+      <ul id="revisions-list" class="mt-1 max-h-[24vh] overflow-y-auto text-xs"></ul>
+    </div>
   </div>
 </aside>
+<div id="revision-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="absolute inset-0 bg-stone-900/40" id="revision-modal-bg"></div>
+  <div role="dialog" aria-modal="true" class="relative flex max-h-[80vh] w-full max-w-3xl flex-col rounded-lg border border-stone-200 bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b border-stone-100 px-5 py-3">
+      <h2 class="text-base font-semibold tracking-tight" id="revision-modal-title">Version</h2>
+      <button type="button" id="revision-modal-close" class="rounded px-1.5 text-stone-400 hover:bg-stone-100">✕</button>
+    </div>
+    <div id="revision-diff" class="flex-1 overflow-auto px-5 py-4 font-mono text-xs"></div>
+    <div class="flex items-center gap-3 border-t border-stone-100 px-5 py-3">
+      <button type="button" id="revision-restore-btn" class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">Restore this version</button>
+      <button type="button" id="revision-cancel" class="text-xs text-stone-500 hover:underline">Cancel</button>
+    </div>
+  </div>
+</div>
 <div class="min-w-0 flex-1">
   <textarea name="latex_source" id="latex-source" class="hidden">{{ manuscript.latex_source }}</textarea>
   <div class="overflow-hidden rounded border border-stone-200 bg-white text-sm" id="editor-host"></div>

@@ -475,6 +475,100 @@
     }
   });
 
+  // --- version history (epic slice 9) -----------------------------------------
+  const revisionsList = document.getElementById("revisions-list");
+  const revModal = document.getElementById("revision-modal");
+  const revDiff = document.getElementById("revision-diff");
+  let activeRevisionId = null;
+  function relTime(iso) {
+    const secs = Math.round((Date.now() - new Date(iso)) / 1000);
+    if (secs < 60) return "just now";
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+    return new Date(iso).toLocaleDateString();
+  }
+  async function loadRevisions() {
+    try {
+      const data = await fetch(cfg.revisionsUrl).then((r) => r.json());
+      revisionsList.innerHTML = "";
+      if (!data.revisions.length) {
+        revisionsList.innerHTML = '<li class="py-0.5 text-stone-400">Compile to start history.</li>';
+        return;
+      }
+      for (const r of data.revisions) {
+        const li = document.createElement("li");
+        li.className = "cursor-pointer truncate py-0.5 text-stone-600 hover:text-indigo-700";
+        li.textContent = (r.labeled ? `★ ${r.label}` : relTime(r.created_at));
+        li.title = r.labeled ? `${r.label} · ${relTime(r.created_at)}` : "automatic snapshot";
+        li.addEventListener("click", () => openRevision(r));
+        revisionsList.appendChild(li);
+      }
+    } catch {
+      revisionsList.innerHTML = '<li class="py-0.5 text-stone-400">—</li>';
+    }
+  }
+  function renderDiff(diffs, unchanged) {
+    revDiff.innerHTML = "";
+    if (unchanged) {
+      revDiff.innerHTML = '<p class="font-sans text-sm text-stone-400">Identical to the current files.</p>';
+      return;
+    }
+    for (const d of diffs) {
+      const h = document.createElement("p");
+      h.className = "mb-1 font-sans font-medium text-stone-600";
+      h.textContent = d.path;
+      revDiff.appendChild(h);
+      const pre = document.createElement("pre");
+      pre.className = "mb-3 whitespace-pre-wrap";
+      for (const line of d.diff.split("\n")) {
+        const span = document.createElement("span");
+        span.className = "block " + (line.startsWith("+") && !line.startsWith("+++") ? "text-green-700 bg-green-50" :
+          line.startsWith("-") && !line.startsWith("---") ? "text-red-700 bg-red-50" :
+          line.startsWith("@@") ? "text-indigo-600" : "text-stone-500");
+        span.textContent = line;
+        pre.appendChild(span);
+      }
+      revDiff.appendChild(pre);
+    }
+  }
+  async function openRevision(r) {
+    activeRevisionId = r.id;
+    document.getElementById("revision-modal-title").textContent =
+      r.labeled ? r.label : `Snapshot · ${relTime(r.created_at)}`;
+    revDiff.innerHTML = '<p class="font-sans text-sm text-stone-400">Loading diff…</p>';
+    revModal.classList.remove("hidden");
+    revModal.classList.add("flex");
+    const data = await fetch(`${cfg.revisionsUrl}${r.id}/diff/`).then((x) => x.json());
+    renderDiff(data.diffs, data.unchanged);
+  }
+  function closeRevision() {
+    revModal.classList.add("hidden");
+    revModal.classList.remove("flex");
+    activeRevisionId = null;
+  }
+  document.getElementById("revision-modal-close").addEventListener("click", closeRevision);
+  document.getElementById("revision-cancel").addEventListener("click", closeRevision);
+  document.getElementById("revision-modal-bg").addEventListener("click", closeRevision);
+  document.getElementById("revision-restore-btn").addEventListener("click", async () => {
+    if (activeRevisionId == null) return;
+    await fetch(`${cfg.revisionsUrl}${activeRevisionId}/restore/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfToken() },
+    });
+    closeRevision();
+    location.reload(); // restored files: reload to repopulate buffers cleanly
+  });
+  document.getElementById("label-version-btn").addEventListener("click", async () => {
+    const label = prompt("Label this version:");
+    if (!label) return;
+    if (dirtySet.has(activeId)) await saveFile(activeId);
+    await fetch(cfg.revisionsUrl, {
+      method: "POST", headers: { "X-CSRFToken": csrfToken() },
+      body: new URLSearchParams({ label }),
+    });
+    loadRevisions();
+  });
+  loadRevisions();
+
   const newFileForm = document.getElementById("new-file-form");
   const newFilePath = document.getElementById("new-file-path");
   document.getElementById("new-file-btn").addEventListener("click", () => {
@@ -622,6 +716,7 @@
           previewStatus.textContent = `✓ compiled ${new Date(data.compiled_at).toLocaleTimeString()}`;
           lastPdfUrl = `${data.pdf_url}?t=${Date.parse(data.compiled_at)}`;
           renderPdf(lastPdfUrl);
+          loadRevisions(); // a successful compile created a snapshot
         } else if (data.status === "failed") {
           previewStatus.textContent = "✕ compile failed — see problems below";
           if (!pdfDoc) previewEmpty.classList.remove("hidden");

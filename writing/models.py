@@ -196,6 +196,44 @@ class ManuscriptFile(TimeStampedModel):
             )
 
 
+class ManuscriptRevision(TimeStampedModel):
+    """A point-in-time snapshot of a manuscript's whole file tree (Owner idea #24 slice 9).
+
+    Taken automatically on each successful compile and on manual labeling. Beats
+    Overleaf's free 24-hour history; trim policy keeps all labeled + the last 50 auto.
+    """
+
+    manuscript = models.ForeignKey(Manuscript, on_delete=models.CASCADE, related_name="revisions")
+    label = models.CharField(max_length=200, blank=True)  # "" = automatic
+    files = models.JSONField(default=dict)  # {path: content} for text files
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.manuscript_id} @ {self.created_at:%Y-%m-%d %H:%M}{' ' + self.label if self.label else ''}"
+
+    @property
+    def is_labeled(self) -> bool:
+        return bool(self.label)
+
+
+def snapshot_manuscript(manuscript, label: str = "") -> "ManuscriptRevision":
+    """Create a revision from the current text files, then trim automatic ones."""
+    text_files = manuscript.files.filter(kind__in=["tex", "bib"])
+    if text_files.exists():
+        files = {f.path: f.content for f in text_files}
+    else:
+        files = {"main.tex": manuscript.latex_source}
+    revision = ManuscriptRevision.objects.create(manuscript=manuscript, label=label, files=files)
+    # trim: keep all labeled + the most recent 50 automatic
+    auto = manuscript.revisions.filter(label="").order_by("-created_at")
+    stale_ids = list(auto.values_list("pk", flat=True)[50:])
+    if stale_ids:
+        ManuscriptRevision.objects.filter(pk__in=stale_ids).delete()
+    return revision
+
+
 class ManuscriptReference(models.Model):
     manuscript = models.ForeignKey(Manuscript, on_delete=models.CASCADE)
     reference = models.ForeignKey(Reference, on_delete=models.CASCADE)

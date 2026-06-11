@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import Manuscript, ManuscriptFile, ManuscriptReference, SubmissionEvent
+from .models import (
+    Manuscript,
+    ManuscriptFile,
+    ManuscriptReference,
+    ManuscriptRevision,
+    SubmissionEvent,
+)
 
 
 class ManuscriptReferenceInline(admin.TabularInline):
@@ -35,3 +41,9 @@ class ManuscriptReferenceAdmin(admin.ModelAdmin):
 class SubmissionEventAdmin(admin.ModelAdmin):
     list_display = ["manuscript", "kind", "date"]
     list_filter = ["kind"]
+
+
+@admin.register(ManuscriptRevision)
+class ManuscriptRevisionAdmin(admin.ModelAdmin):
+    list_display = ["manuscript", "label", "created_at"]
+    list_filter = ["manuscript"]

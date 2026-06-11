@@ -144,6 +144,7 @@ def latex_editor(request, slug, pk):
                 "filesUrl": reverse("writing:files", args=[slug, manuscript.pk]),
                 "fileUrlBase": reverse("writing:files", args=[slug, manuscript.pk]),
                 "wordCountUrl": reverse("writing:word_count", args=[slug, manuscript.pk]),
+                "revisionsUrl": reverse("writing:revisions", args=[slug, manuscript.pk]),
                 "files": [_file_dict(f) for f in manuscript.files.all()],
                 "mainFileId": main.pk,
             },
@@ -383,6 +384,81 @@ def file_rename(request, slug, pk, file_pk):
     f.path = path
     f.save()
     return JsonResponse(_file_dict(f))
+
+
+def manuscript_revisions(request, slug, pk):
+    """GET: list revisions. POST: snapshot the current tree with a label."""
+    from django.http import JsonResponse
+
+    from .models import snapshot_manuscript
+
+    manuscript, _ = _workbench_objects(slug, pk)
+    if request.method == "POST":
+        label = request.POST.get("label", "").strip()[:200] or "Labeled version"
+        rev = snapshot_manuscript(manuscript, label=label)
+        return JsonResponse({"id": rev.pk, "label": rev.label}, status=201)
+    revisions = [
+        {
+            "id": r.pk,
+            "label": r.label,
+            "labeled": r.is_labeled,
+            "created_at": r.created_at.isoformat(),
+            "files": sorted(r.files.keys()),
+        }
+        for r in manuscript.revisions.all()[:200]
+    ]
+    return JsonResponse({"revisions": revisions})
+
+
+def revision_diff(request, slug, pk, rev_pk):
+    """Unified diff of a revision against the manuscript's current text files."""
+    import difflib
+
+    from django.http import JsonResponse
+
+    manuscript, _ = _workbench_objects(slug, pk)
+    revision = get_object_or_404(manuscript.revisions, pk=rev_pk)
+    current = {f.path: f.content for f in manuscript.files.filter(kind__in=["tex", "bib"])} or {
+        "main.tex": manuscript.latex_source
+    }
+    diffs = []
+    for path in sorted(set(revision.files) | set(current)):
+        old = revision.files.get(path, "").splitlines()
+        new = current.get(path, "").splitlines()
+        if old == new:
+            continue
+        diff = list(
+            difflib.unified_diff(
+                old, new, fromfile=f"{path} (revision)", tofile=f"{path} (now)", lineterm=""
+            )
+        )
+        diffs.append({"path": path, "diff": "\n".join(diff)})
+    return JsonResponse({"diffs": diffs, "unchanged": not diffs})
+
+
+def revision_restore(request, slug, pk, rev_pk):
+    """Restore a revision's text files (snapshots current state first)."""
+    from django.http import JsonResponse
+
+    from .models import kind_for_path, snapshot_manuscript
+
+    manuscript, _ = _workbench_objects(slug, pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only."}, status=405)
+    revision = get_object_or_404(manuscript.revisions, pk=rev_pk)
+    snapshot_manuscript(manuscript, label="Before restore")  # so a restore is itself undoable
+    if manuscript.files.exists():
+        for path, content in revision.files.items():
+            obj, created = manuscript.files.get_or_create(
+                path=path, defaults={"kind": kind_for_path(path), "content": content}
+            )
+            if not created and obj.content != content:
+                obj.content = content
+                obj.save()
+    else:
+        manuscript.latex_source = revision.files.get("main.tex", "")
+        manuscript.save(update_fields=["latex_source", "updated_at"])
+    return JsonResponse({"restored": True})
 
 
 def word_count_view(request, slug, pk):

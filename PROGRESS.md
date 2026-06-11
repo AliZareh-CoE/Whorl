@@ -3,17 +3,18 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: LaTeX slice 9 versions/history OR slice 7 SyncTeX + templates [cycle 109])
-- **Last completed slice (cycle 108, LaTeX epic slice 8):** outline panel + word count — sidebar Outline (client-side heading parse, depth-indented, click-to-jump, refresh on edit/switch) + Word count button → writing/wordcount.py pure-Python detex over all tex files (words/headers/captions/math, "approx"); button saves active buffer first. Browser-verified; 3 new tests.
+- **Slice in progress:** — (next: AUDIT #11 [cycle 110])
+- **Last completed slice (cycle 109, LaTeX epic slice 9):** version history — ManuscriptRevision JSON snapshots on every successful compile + manual ★ labels; History panel + color-coded difflib diff modal + one-click restore (snapshots "Before restore" first); trim keeps all labeled + last 50 auto. Beats Overleaf free 24h. Browser-verified compile→snapshot→diff→restore. 6 new tests.
+- **Prior slice (cycle 108, LaTeX epic slice 8):** outline panel + word count — sidebar Outline (client-side heading parse, depth-indented, click-to-jump, refresh on edit/switch) + Word count button → writing/wordcount.py pure-Python detex over all tex files (words/headers/captions/math, "approx"); button saves active buffer first. Browser-verified; 3 new tests.
 - **Prior slice (cycle 107, density UI/UX, Owner idea #25):** SPA shell widened max-w-5xl→max-w-screen-2xl (1024→1376px content) with tighter padding — benefits every SPA page; dashboard restructured into a denser full-width 3-column lower region (Active projects/Deadlines/Upcoming milestones) + responsive stats. Researched dense-but-calm dashboard UX first. Before/after verified.
 - **Prior slice (cycle 106, LaTeX epic slice 5):** find/replace + keymaps + settings + spellcheck — CM5 search/dialog/jump-to-line addons (Find + Ctrl-F), ⚙ Editor popover (keybindings default/sublime/vim/emacs, font size, spellcheck) persisted to localStorage; spellcheck via construction-time inputStyle:contenteditable (CM5 quirk found+fixed). Browser-verified all five + contenteditable regression check.
 - **Prior slice (cycle 105, [REV] multi-file workbench):** ManuscriptFile model + strict path validator + latex_source alias, compile.py tree-writer with --untrusted + traversal guard + bib no-clobber, 6 classic endpoints + DRF manuscript-files viewset, editor file-tree sidebar with swapDoc multi-buffer + per-file autosave/dirty/diagnostics. 48 tests incl. 15-case traversal battery. Browser-verified multi-file \input compile. PLUS Owner idea #25 slice 1: editor now full-width (base.html main_class block).
 - **NEW Owner idea #25 (whitespace/density):** stop centering in narrow max-w-5xl; use full width + tighter rhythm like Overleaf. Standing UI rule; queued UI/UX cycles will sweep dashboard/overview/plan/tables/board.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → **Owner idea #24 LaTeX epic (slices 2,3,4,5 next; [REV] multi-file workbench at 105)** → other owner ideas → backlog; every cycle: ≥1 new idea + tech improvement + research-backed design + parallel planning agents for future epics.
 - **Next 3 slices:**
-  1. LaTeX slice 9 (versions/history) OR slice 7 (SyncTeX forward) + templates [cycle 109]
-  2. AUDIT #11 [cycle 110]: full security+responsiveness review of the LaTeX workbench (ManuscriptFile, file endpoints, upload, compile --untrusted/traversal) + density changes
-  3. More density passes folded in where natural (Owner idea #25 ongoing)
+  1. AUDIT #11 [cycle 110]: full security+responsiveness review of the LaTeX workbench (ManuscriptFile, 9 file/revision endpoints, upload, compile --untrusted/traversal, word-count, revisions) + density changes
+  2. LaTeX slice 7 SyncTeX forward + slice 10 templates/symbols [111-112]
+  3. Beyond-Overleaf B1-B7 (library cite autocomplete, live cite-check, side panel, MCP LaTeX tools…); Owner idea #25 density ongoing
 - **Broken:** nothing
 
 ## Gate reports

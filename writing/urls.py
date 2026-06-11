@@ -27,6 +27,21 @@ urlpatterns = [
         name="word_count",
     ),
     path(
+        "projects/<slug:slug>/writing/<int:pk>/revisions/",
+        views.manuscript_revisions,
+        name="revisions",
+    ),
+    path(
+        "projects/<slug:slug>/writing/<int:pk>/revisions/<int:rev_pk>/diff/",
+        views.revision_diff,
+        name="revision_diff",
+    ),
+    path(
+        "projects/<slug:slug>/writing/<int:pk>/revisions/<int:rev_pk>/restore/",
+        views.revision_restore,
+        name="revision_restore",
+    ),
+    path(
         "projects/<slug:slug>/writing/<int:pk>/files/upload/",
         views.file_upload,
         name="file_upload",

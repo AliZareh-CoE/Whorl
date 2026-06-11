@@ -129,4 +129,8 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
 
     manuscript.compile_diagnostics = parse_compile_log(manuscript.compile_log)
     manuscript.save(update_fields=RESULT_FIELDS)
+    if manuscript.compile_status == Manuscript.CompileStatus.OK:
+        from .models import snapshot_manuscript
+
+        snapshot_manuscript(manuscript)  # version history (slice 9)
     return manuscript.compile_log
