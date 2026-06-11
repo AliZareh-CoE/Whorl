@@ -367,13 +367,20 @@
   const panel = document.getElementById("diagnostics-panel");
   const list = document.getElementById("diagnostics-list");
   const countEl = document.getElementById("diagnostics-count");
+  const logsBadge = document.getElementById("logs-badge");
   function renderDiagnostics(diags) {
     DIAGNOSTICS = diags || [];
     editor.performLint();
     list.innerHTML = "";
-    panel.classList.toggle("hidden", DIAGNOSTICS.length === 0);
     const errors = DIAGNOSTICS.filter((d) => d.level === "error").length;
     const warnings = DIAGNOSTICS.length - errors;
+    // Overleaf pattern: a badge by Recompile shows the error count; the pane opens
+    // automatically on errors, and the Logs button toggles it.
+    if (logsBadge) {
+      logsBadge.textContent = errors ? String(errors) : "";
+      logsBadge.classList.toggle("hidden", errors === 0);
+    }
+    panel.classList.toggle("hidden", DIAGNOSTICS.length === 0);
     countEl.textContent = `· ${errors} error${errors === 1 ? "" : "s"}, ${warnings} warning${warnings === 1 ? "" : "s"}`;
     for (const d of DIAGNOSTICS) {
       const li = document.createElement("li");
@@ -1020,7 +1027,14 @@
     if (open && cfg.pdfUrl && !pdfDoc) renderPdf(cfg.pdfUrl);
   }
   toggleBtn.addEventListener("click", () => setPreview(previewPane.classList.contains("hidden")));
-  if (localStorage.getItem("atlas-editor-preview") === "1" || cfg.hasPdf) setPreview(true);
+  // the PDF pane hosts Recompile now, so it's shown by default unless explicitly collapsed
+  if (localStorage.getItem("atlas-editor-preview") !== "0") setPreview(true);
+
+  // Logs button toggles the diagnostics/error-log pane (Overleaf's "Logs and output files")
+  document.getElementById("logs-toggle")?.addEventListener("click", () => {
+    const panelEl = document.getElementById("diagnostics-panel");
+    if (panelEl) panelEl.classList.toggle("hidden");
+  });
 
   autoCompile.checked = localStorage.getItem("atlas-editor-autocompile") === "1";
   autoCompile.addEventListener("change", () => {

@@ -3,8 +3,9 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: Owner idea #26 Overleaf-UI parity cycle 1 [cycle 121])
-- **Last completed slice (cycle 120, AUDIT #12):** reviewed cycles 111-119 (cite-library, context, MCP LaTeX tools + word-count action, line comments, arXiv zip, pet SVG). Sweep clean, all surfaces authz-scoped, MCP AST constraint holds, timings <50ms, 0 CVEs. ONE defense-in-depth fix: the submission-zip now skips traversal/absolute entry names (+regression test). Report in AUDITS.md.
+- **Slice in progress:** — (next: CM6 migration Slice A [cycle 122] — OSS win + closes #114)
+- **Last completed slice (cycle 121, Owner #26 Overleaf-UI slice 1):** error-log relocation — "↻ Recompile" + "Logs" (error-count badge) + the compile-problems pane now sit at the top of the PDF pane (Overleaf pattern); PDF pane shown by default; all IDs preserved so JS logic unchanged. Browser-verified. PLUS the CM6/OSS plan of record saved (docs/plans/) per Owner #28 — re-sequenced: CM6 sub-epic BEFORE the heavy Overleaf-UI cycles.
+- **Prior slice (cycle 120, AUDIT #12):** reviewed cycles 111-119 (cite-library, context, MCP LaTeX tools + word-count action, line comments, arXiv zip, pet SVG). Sweep clean, all surfaces authz-scoped, MCP AST constraint holds, timings <50ms, 0 CVEs. ONE defense-in-depth fix: the submission-zip now skips traversal/absolute entry names (+regression test). Report in AUDITS.md.
 - **Prior slice (cycle 119, Owner idea #27, UI/UX):** REAL pet — replaced the emoji with a hand-drawn inline-SVG owl, distinct per growth stage (egg→hatchling→scholar→sage w/ cap+sparkle), shared by classic sidebar + /pet/ + React layout (PetSvg.tsx); CSS breathing/blink/sparkle/hop, sleeping closes eyes. Browser-verified all stages + in-app. NEW owner #26 Overleaf-UI plan saved to docs/plans/ for cycles 121+.
 - **Prior slice (cycle 117, beyond-Overleaf B6):** line-anchored editor comments — Comment model gains manuscript_file target with page=line; 💬 gutter dot on commented lines, click either gutter → line thread popover (⌘-Enter posts). Closes Owner idea #10 for the editor. Browser-verified comment→dot→reopen→append. 2 tests.
 - **Prior slice (cycle 116, beyond-Overleaf B5):** manuscript writing on the research timeline — latest compile + labeled versions become dated timeline events (kind manuscript_compiled, teal dot), not the 50 auto-snapshots. Query budget held. Live-verified the compile event appears on the timeline API + SPA. 1 test.
@@ -13,7 +14,7 @@
 - **The LaTeX epic (Owner idea #24) is COMPLETE:** all 10 Overleaf-parity slices + all 7 beyond-Overleaf features (B1 library cite autocomplete, B2 live cite-check, B3 research panel, B4 MCP edit/compile, B5 timeline compiles, B6 line comments, B7 arXiv zip).
 - **Next 3 slices:**
   1. AUDIT #12 [cycle 120]: full security+responsiveness review since audit #11 (MCP LaTeX tools, word-count action, templates, timeline compiles, line comments, arXiv zip, pet SVG)
-  2. Owner idea #26 Overleaf-UI parity [cycles 121+] under Owner idea #28 (use OSS, don't reinvent): error-log relocation → top toolbar → History/Share/Layout → collapsible panels (use Split.js MIT, not hand-rolled) → left icon rail → polish; evaluate CodeMirror 6 migration (native snippets/autocomplete/search/vim) vs the hand-rolled CM5 pieces
+  2. CM6 migration sub-epic [122-124, Owner #28]: Slice A (single-file CM6 island, closes #114, 11 CDN tags gone) → B (multi-file+comments+lint) → C (cite B1/B2); THEN Overleaf-UI cycles 2+ (top toolbar, History/Share/Layout, Split.js panels, icon rail, polish)
   3. Owner #25 density passes; SyncTeX (only un-built LaTeX nicety); backlog top-down; loop forever
 - **Broken:** nothing
 

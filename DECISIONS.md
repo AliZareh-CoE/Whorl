@@ -488,6 +488,32 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   violates §2, and grouping answers the same need); a `read_at` field migration (schema
   churn for marginal precision; parked — if it ever matters, log it as a backlog item).
 
+### 2026-06-11 — OSS-over-hand-rolled plan (Owner idea #28): CM6 island, Split.js, synctex-js
+
+**Decision (plan of record, docs/plans/2026-06-11-cm6-oss-migration.md):**
+- **Migrate the LaTeX editor to CodeMirror 6** as a vanilla-JS Vite island (the islands build
+  already exists), deleting ~200 lines of hand-rolled snippet-walker + 4 hint functions + the
+  lint shim and removing 11 cdnjs script/CSS tags — which also **closes Backlog #114** (the
+  editor dies offline). Native snippetCompletion / @codemirror/{autocomplete,search,lint},
+  @replit/codemirror-vim, codemirror-lang-latex (all MIT). 3 vertical slices (A single-file
+  parity → B multi-file + comments + lint → C cite B1/B2 parity). Likely drops emacs/sublime
+  keymaps (not first-class in CM6) → Default + Vim.
+- **Split.js** (MIT, ~2 KB, zero-dep) for the resizable/collapsible panels slice; onDragEnd →
+  persist localStorage + view.requestMeasure().
+- **synctex-js** (client-side, vendored) for the SyncTeX forward-jump slice; first add
+  --synctex to writing/compile.py (pairs with #131 --keep-intermediates) and pdf.js TextLayer
+  (#116). Deferred until after CM6.
+- **Keep hand-rolled:** detex word count, difflib diff, the pet — replacing them would add a
+  Perl/C runtime or weight for no gain (rule #28 is "borrow when clearly better", not always).
+- **Sequencing:** CM6 sub-epic BEFORE the heavy Overleaf-UI cycles (it fixes the offline bug
+  and gives Split.js/SyncTeX a clean view API). The cycle-121 error-log relocation was
+  template-only and independent — already shipped.
+
+**Alternatives considered:** stay on CM5 + just vendor it locally (fixes #114 only, keeps the
+hand-rolled walker — kept as the fallback if CM6 is deferred); React island for the editor
+(rejected — §2 keeps the editor vanilla; CM6 is framework-agnostic). split-grid (needs CSS
+Grid); a hand-written/ported C synctex parser (rejected per #28).
+
 ### 2026-06-11 — Containerized deployment: gunicorn + whitenoise, ATLAS_BEHIND_TLS flag
 - **Decision:** One-command install via `docker compose --profile app up -d --build`:
   single image (uv-built, Tailwind compiled and collectstatic'd at build time) running as
@@ -684,6 +710,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+135. CM6 migration sub-epic — execute docs/plans/2026-06-11-cm6-oss-migration.md slices A/B/C; closes #114 (offline editor) and deletes the hand-rolled snippet walker + hints (idea added by cycle 121, from the OSS plan)
 134. OSS-replacement audit pass — a dedicated cycle that inventories Atlas's hand-rolled pieces (CM5 snippet walker, planned drag-resize, detex word count, difflib usage, the pet animation) and swaps in mature libraries where they're clearly better (Owner idea #28); pairs with the CM6 evaluation (idea added by cycle 120)
 133. Sanitize zip member names centrally — the submission-zip traversal guard is local to the view; a shared safe_archive_name() helper would cover any future zip/tar export (idea added by cycle 120, from AUDIT #12)
 132. Pet hatch animation — when the pet crosses a stage threshold (egg→hatchling etc.), play a one-time SVG transition (shell crack/burst) instead of just swapping the drawing (idea added by cycle 119)
