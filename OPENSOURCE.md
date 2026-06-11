@@ -22,6 +22,7 @@ become backlog slices.
 - [x] README with hero screenshots, feature grid, comparison table (cycle 28; GIF still todo)
 - [ ] Demo instance or `seed_demo`-powered screenshot tour
 - [x] CONTRIBUTING.md (cycle 28); issue + PR templates + architecture invariants (cycle 82)
+- [x] CI: GitHub Actions runs pytest + ruff + tsc + assets-check on every PR (cycle 92)
 - [ ] Docs site (mkdocs-material) with the MCP setup guide front and center
 - [ ] Launch posts: HN (Show HN), r/selfhosted, r/PhD, r/AcademicPsychology, lobste.rs
 - [ ] Name check: "Atlas" is crowded — consider a distinctive rename before launch

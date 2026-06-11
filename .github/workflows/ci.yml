@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test, lint, type-check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas
+          POSTGRES_DB: atlas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://atlas:atlas@localhost:5432/atlas
+      SECRET_KEY: ci-secret-not-for-production
+      DEBUG: "true"
+      ATLAS_API_KEY: ci-test-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python deps
+        run: uv sync
+
+      - name: Lint & format check
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Tests
+        run: uv run pytest -q
+
+      - name: Node (for the frontend type-check + build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Frontend type-check
+        run: cd frontend && npm install && npm run check
+
+      - name: Built assets are committed (not stale)
+        run: |
+          make css
+          make js
+          git diff --exit-code static/css/app.css static/js \
+            || (echo "::error::Committed CSS/JS is stale — run 'make css && make js' and commit"; exit 1)

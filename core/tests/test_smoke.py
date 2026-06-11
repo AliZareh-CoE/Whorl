@@ -146,3 +146,21 @@ def test_make_audit_target_exists():
     # the script is read-only: it must not POST/PATCH/DELETE
     script = Path("scripts/audit.sh").read_text()
     assert "-X POST" not in script and "-X DELETE" not in script and "-X PATCH" not in script
+
+
+def test_ci_workflow_present_and_valid():
+    from pathlib import Path
+
+    import yaml
+
+    path = Path(".github/workflows/ci.yml")
+    assert path.exists()
+    wf = yaml.safe_load(path.read_text())
+    steps = wf["jobs"]["test"]["steps"]
+    blob = path.read_text()
+    # the gate the loop runs by hand must be in CI
+    assert "ruff check ." in blob
+    assert "pytest" in blob
+    assert "npm run check" in blob  # tsc --noEmit
+    assert "git diff --exit-code" in blob  # assets staleness
+    assert len(steps) >= 6

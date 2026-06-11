@@ -472,4 +472,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 99. Per-section copy — small copy buttons on each Review section (e.g. just the milestones) for finer-grained pasting (idea added by cycle 88)
 100. Generic list-create+search mixin — factor the bulk-create/?q= pattern (now duplicated on milestones+tasks) into an AtlasViewSet option so every resource can opt in (idea added by cycle 89)
 101. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
-102. CI workflow — a GitHub Actions job running pytest + ruff + tsc + make audit on PRs, so the gate the loop runs by hand also guards external contributions (idea added by cycle 91)
+102. ~~CI workflow (done 2026-06-11, cycle 92): .github/workflows/ci.yml runs ruff check+format, pytest (postgres service), frontend tsc, and a committed-assets-not-stale check on every push/PR — the loop's hand-run gate now guards contributions. README CI badge.~~
+103. CI make-audit job — a second CI job that boots the app (compose) and runs `make audit` against it, so the security sweep runs on PRs too (idea added by cycle 92)

@@ -1,5 +1,7 @@
 # Atlas 🗺️ — the self-hosted research workbench
 
+![CI](https://github.com/AliZareh-CoE/project-manager/actions/workflows/ci.yml/badge.svg)
+
 **Plans, papers, notes, and manuscripts in one calm place — with an AI collaborator built in.**
 
 Atlas is a single-user, self-hosted platform for researchers who find Jira-style tools noisy
