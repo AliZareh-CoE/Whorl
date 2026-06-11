@@ -307,6 +307,22 @@ class MilestoneViewSet(AtlasViewSet):
     serializer_class = serializers.MilestoneSerializer
     project_filter = "phase__project__slug"
 
+    def get_queryset(self):
+        # Backlog #72 (friction-sourced): ?q= filters milestones by title, so scripts and
+        # the SPA can find one without fetching a whole plan.
+        queryset = super().get_queryset()
+        q = self.request.query_params.get("q")
+        if q:
+            queryset = queryset.filter(title__icontains=q)
+        return queryset
+
+    def get_serializer(self, *args, **kwargs):
+        # Backlog #71 (friction-sourced): POST a JSON list to create many milestones in one
+        # call (completed_at is already settable at create time).
+        if isinstance(kwargs.get("data"), list):
+            kwargs["many"] = True
+        return super().get_serializer(*args, **kwargs)
+
 
 class TaskViewSet(AtlasViewSet):
     queryset = Task.objects.all()

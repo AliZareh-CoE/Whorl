@@ -1,3 +1,5 @@
+from datetime import UTC
+
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
@@ -510,3 +512,37 @@ class TestPetAndBotsAPI:
             "/api/v1/bots/nope/action/", {"action": "run"}, content_type="application/json"
         )
         assert response.status_code == 404
+
+
+class TestMilestoneBulkAndSearch:
+    def test_bulk_create_with_completed_at(self, client_logged_in):
+        from datetime import datetime
+
+        from plans.models import Milestone
+        from plans.tests.factories import PhaseFactory
+
+        phase = PhaseFactory()
+        now = datetime.now(UTC).isoformat()
+        response = client_logged_in.post(
+            "/api/v1/milestones/",
+            [
+                {"phase": phase.pk, "title": "Bulk A", "completed_at": now},
+                {"phase": phase.pk, "title": "Bulk B"},
+            ],
+            content_type="application/json",
+        )
+        assert response.status_code == 201
+        assert Milestone.objects.filter(phase=phase).count() == 2
+        assert Milestone.objects.get(title="Bulk A").completed_at is not None
+        assert Milestone.objects.get(title="Bulk B").completed_at is None
+
+    def test_search_by_title(self, client_logged_in):
+        from plans.tests.factories import MilestoneFactory, PhaseFactory
+
+        phase = PhaseFactory()
+        MilestoneFactory(phase=phase, title="Pilot data collected")
+        MilestoneFactory(phase=phase, title="Manuscript drafted")
+        slug = phase.project.slug
+        data = client_logged_in.get(f"/api/v1/milestones/?project={slug}&q=pilot").json()
+        assert data["count"] == 1
+        assert data["results"][0]["title"] == "Pilot data collected"

@@ -440,8 +440,8 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 68. Server-side reference search — ?search= on /api/v1/references/ (title/key/venue/authors icontains) so the SPA library scales past one page (idea added by cycle 61)
 69. Autosave for the SPA note editor — debounced PATCH 2s after typing stops, with the Saved indicator reflecting in-flight state (idea added by cycle 62)
 70. Log submission events from the SPA — small add-event form on the manuscript timeline (kind, date, notes) via a SubmissionEvent API (idea added by cycle 63)
-71. Bulk milestone create — POST /api/v1/milestones/ accepting a list (and completed_at at create time); felt as friction during dogfood setup (idea added by cycle 64, friction-sourced)
-72. Milestone search — ?q= filter on milestones (or the plan endpoint) so scripts and the SPA can find one by title without fetching the whole plan; felt at the first dogfood ship step (idea added by cycle 64, friction-sourced)
+71. ~~Bulk milestone create (done 2026-06-11, cycle 71): POST /api/v1/milestones/ accepts a JSON list (many=True) and completed_at is settable at create — used immediately to plan future self-build cycles in one call. Friction-sourced from dogfood setup, now fixed.~~
+72. ~~Milestone search (done 2026-06-11, cycle 71): ?q= filters milestones by title so scripts/SPA find one without fetching the whole plan. Friction-sourced from the first dogfood ship step.~~
 73. Command-index cache — stale-while-revalidate for the assistant commands index so repeat palette opens are instant (idea added by cycle 65, friction captured via the command bar itself)
 74. [REV] Reading-flow mode — a distraction-free 'read next' session: Atlas serves the queue one PDF at a time with highlights, notes, and status keys, like a flashcard flow for papers (idea added by cycle 65; [REV] candidate for cycle 75)
 75. register_readonly API helper — one-liner read-only serializer+viewset+route for simple models; felt as boilerplate friction in cycle 66 (idea added by cycle 66, friction-sourced)
@@ -449,3 +449,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 77. Shared route manifest — one JSON of SPA routes read by both React Router and core/urls.py so the two lists can't drift; felt while hand-mirroring routes in the cutover (idea added by cycle 68, friction-sourced)
 78. SPA decision detail — context/alternatives render in the timeline (saved now, shown truncated); felt while recording the cycle-69 decision (idea added by cycle 69)
 79. `make audit` script — codify the curl auth-matrix + open-redirect + anon-sweep probes into one target so every audit cycle starts identically (Backlog #47 restated, felt again cycle 70) (idea added by cycle 70)
+80. Bulk task create + task search — mirror #71/#72 on the tasks endpoint for symmetry (idea added by cycle 71)
