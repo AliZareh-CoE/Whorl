@@ -108,6 +108,12 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
                 className="text-indigo-600 hover:underline">
             {queue ? "All papers" : "Reading queue"}
           </Link>
+          {queue && (
+            <Link to={`/projects/${slug}/read`}
+                  className="rounded bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700">
+              ▶ Read flow
+            </Link>
+          )}
           {!queue && (
             <button onClick={draftSynthesis} disabled={drafting}
                     className="rounded border border-stone-300 bg-white px-2.5 py-1 hover:border-stone-400 disabled:opacity-50">

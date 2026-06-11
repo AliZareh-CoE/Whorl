@@ -162,6 +162,46 @@ class ProjectViewSet(AtlasViewSet):
         )
 
     @extend_schema(
+        responses={200: OpenApiResponse(description="Ordered reading queue for reading-flow mode")},
+        description="Unread/skimmed papers, priority-ordered, with the fields the focused "
+        "reading-flow session needs.",
+    )
+    @action(detail=True, methods=["get"], url_path="reading-flow")
+    def reading_flow(self, request, slug=None):
+        from literature.views import PRIORITY_ORDER
+
+        project = self.get_object()
+        links = list(
+            project.project_references.filter(
+                reading_status__in=["to_read", "skimmed"]
+            ).select_related("reference")
+        )
+        links.sort(key=lambda link: (PRIORITY_ORDER[link.priority], link.created_at))
+        return Response(
+            {
+                "papers": [
+                    {
+                        "id": link.pk,
+                        "reading_status": link.reading_status,
+                        "priority": link.priority,
+                        "reference": {
+                            "id": link.reference.pk,
+                            "bibtex_key": link.reference.bibtex_key,
+                            "title": link.reference.title,
+                            "authors": link.reference.authors,
+                            "year": link.reference.year,
+                            "venue": link.reference.venue,
+                            "abstract": link.reference.abstract,
+                            "pdf": link.reference.pdf.url if link.reference.pdf else None,
+                            "doi": link.reference.doi,
+                        },
+                    }
+                    for link in links
+                ]
+            }
+        )
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Props for the React documents table")},
         description="Documents table data for the SPA: rows, folders, tags, bulk endpoint.",
     )

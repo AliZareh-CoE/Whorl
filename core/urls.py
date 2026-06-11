@@ -11,7 +11,7 @@ spa_routes = [
     path("", views.spa_shell, name="spa_home"),
     re_path(r"^projects/[^/]+$", views.spa_shell),
     re_path(
-        r"^projects/[^/]+/(plan|documents|literature|queue|notes|research|decisions|graph)$",
+        r"^projects/[^/]+/(plan|documents|literature|queue|read|notes|research|decisions|graph)$",
         views.spa_shell,
     ),
     re_path(r"^projects/[^/]+/notes/(new|\d+)$", views.spa_shell),

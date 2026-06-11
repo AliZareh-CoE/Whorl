@@ -578,3 +578,19 @@ class TestSynthesisSpaMode:
         from notes.models import Note
 
         assert response.json()["note_id"] == Note.objects.get(project=link.project).pk
+
+
+class TestReadingFlowAPI:
+    def test_returns_priority_ordered_queue_with_fields(self, client_logged_in):
+        from literature.models import ProjectReference
+        from literature.tests.factories import ProjectReferenceFactory
+
+        high = ProjectReferenceFactory(priority="high", reading_status="to_read")
+        project = high.project
+        ProjectReferenceFactory(project=project, priority="low", reading_status="skimmed")
+        ProjectReferenceFactory(project=project, reading_status="read")  # excluded — already read
+        data = client_logged_in.get(f"/api/v1/projects/{project.slug}/reading-flow/").json()
+        assert len(data["papers"]) == 2  # the read one is gone
+        assert data["papers"][0]["priority"] == "high"  # priority order
+        ref = data["papers"][0]["reference"]
+        assert {"bibtex_key", "title", "abstract", "pdf", "doi"} <= set(ref)
