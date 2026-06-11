@@ -24,6 +24,16 @@
 
 <div id="status" class="mb-2 hidden rounded border border-green-200 bg-green-50 px-3 py-1.5 text-sm text-green-800"></div>
 
+<div class="mb-2 flex items-center gap-2 text-sm">
+  <button id="listen-btn" class="rounded border border-stone-300 bg-white px-3 py-1 text-sm hover:border-stone-400"
+          title="Read the PDF aloud with the local Piper voice, from the page in view">▶ Listen</button>
+  <span id="player" class="hidden items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs text-indigo-800">
+    <button id="player-pause" class="font-medium hover:underline">⏸</button>
+    <button id="player-stop" class="font-medium hover:underline">⏹</button>
+    <span id="player-label">reading p.1…</span>
+  </span>
+</div>
+
 <div class="flex gap-4">
 <div class="relative min-w-0 flex-1 rounded border border-stone-200 bg-stone-100 p-4" style="min-height: 70vh">
   <div id="pdf-pages" class="mx-auto space-y-4" style="max-width: 60rem"></div>
@@ -157,6 +167,89 @@
       document.querySelector(`.pdf-page[data-page="${jump.dataset.page}"]`)
         ?.scrollIntoView({ behavior: "smooth" });
     }
+  });
+
+  // --- whole-PDF read-aloud: queue page text through /tts/ with prefetch ---
+  const listenBtn = document.getElementById("listen-btn");
+  const player = document.getElementById("player");
+  const playerLabel = document.getElementById("player-label");
+  const playerPause = document.getElementById("player-pause");
+  const playerStop = document.getElementById("player-stop");
+  let listening = false;
+  let currentAudioEl = null;
+
+  function pageText(n) {
+    const el = document.querySelector(`.pdf-page[data-page="${n}"] .textLayer`);
+    return el ? el.textContent.replace(/\s+/g, " ").trim() : "";
+  }
+  function chunks(text, size = 4500) {
+    const parts = [];
+    let rest = text;
+    while (rest.length > size) {
+      let cut = rest.lastIndexOf(". ", size);
+      if (cut < size / 2) cut = size;
+      parts.push(rest.slice(0, cut + 1));
+      rest = rest.slice(cut + 1);
+    }
+    if (rest.trim()) parts.push(rest);
+    return parts;
+  }
+  async function synthesize(text) {
+    const body = new FormData();
+    body.append("text", text);
+    const response = await fetch("{% url 'core:tts' %}", {
+      method: "POST", headers: { "X-CSRFToken": "{{ csrf_token }}" }, body,
+    });
+    if (!response.ok) throw new Error("tts failed");
+    return URL.createObjectURL(await response.blob());
+  }
+  function playUrl(url) {
+    return new Promise((resolve, reject) => {
+      currentAudioEl = new Audio(url);
+      currentAudioEl.onended = resolve;
+      currentAudioEl.onerror = reject;
+      currentAudioEl.play().catch(reject);
+    });
+  }
+  async function listenFrom(startPage) {
+    listening = true;
+    player.classList.remove("hidden");
+    player.classList.add("inline-flex");
+    listenBtn.classList.add("hidden");
+    for (let n = startPage; n <= pdf.numPages && listening; n++) {
+      const text = pageText(n);
+      if (!text) continue;
+      playerLabel.textContent = `reading p.${n} of ${pdf.numPages}…`;
+      document.querySelector(`.pdf-page[data-page="${n}"]`)?.scrollIntoView({ behavior: "smooth" });
+      for (const part of chunks(text)) {
+        if (!listening) break;
+        try {
+          const url = await synthesize(part);
+          if (!listening) break;
+          await playUrl(url);
+        } catch {
+          playerLabel.textContent = "voice unavailable — run download_tts_voice";
+          listening = false;
+        }
+      }
+    }
+    if (listening) playerLabel.textContent = "finished.";
+    setTimeout(stopListening, 1500);
+  }
+  function stopListening() {
+    listening = false;
+    currentAudioEl?.pause();
+    currentAudioEl = null;
+    player.classList.add("hidden");
+    player.classList.remove("inline-flex");
+    listenBtn.classList.remove("hidden");
+  }
+  listenBtn.addEventListener("click", () => listenFrom(Number(pageInput.value) || 1));
+  playerStop.addEventListener("click", stopListening);
+  playerPause.addEventListener("click", () => {
+    if (!currentAudioEl) return;
+    if (currentAudioEl.paused) { currentAudioEl.play(); playerPause.textContent = "⏸"; }
+    else { currentAudioEl.pause(); playerPause.textContent = "▶"; }
   });
 
   saveBtn.addEventListener("click", async () => {

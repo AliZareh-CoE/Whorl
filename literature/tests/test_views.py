@@ -350,3 +350,15 @@ class TestLitReviewIntegration:
         monkeypatch.setattr(mcp_client, "_client", fake_client)
         mcp_client.get_review_matrix("my-project")
         assert calls["url"].endswith("/projects/my-project/review-matrix/")
+
+
+def test_reader_has_listen_player(client_logged_in):
+    from django.core.files.base import ContentFile
+
+    link = ProjectReferenceFactory()
+    link.reference.pdf.save("p.pdf", ContentFile(b"%PDF-1.4"), save=True)
+    response = client_logged_in.get(reverse("literature:read", args=[link.reference.pk]))
+    content = response.content.decode()
+    assert 'id="listen-btn"' in content
+    assert 'id="player-stop"' in content
+    assert "listenFrom" in content
