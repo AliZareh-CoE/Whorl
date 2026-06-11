@@ -25,8 +25,19 @@ class TestAuth:
         response = client.get("/api/v1/projects/", HTTP_X_API_KEY="nope")
         assert response.status_code == 401
 
-    def test_session_auth_not_accepted(self, client_logged_in):
-        assert client_logged_in.get("/api/v1/projects/").status_code == 401
+    def test_session_auth_accepted_for_spa(self, client_logged_in):
+        # Owner idea #20: the same-origin SPA reads the API with the session cookie
+        assert client_logged_in.get("/api/v1/projects/").status_code == 200
+
+    def test_session_writes_require_csrf(self, owner):
+        from django.test import Client
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(owner)
+        response = csrf_client.post(
+            "/api/v1/projects/", {"name": "No token"}, content_type="application/json"
+        )
+        assert response.status_code == 403  # CSRF enforced for session writes
 
     def test_valid_key_accepted(self, client, owner):
         assert client.get("/api/v1/projects/", **HEADERS).status_code == 200
@@ -272,3 +283,24 @@ class TestMCPSupportEndpoints:
         assert response.status_code == 201
         source = Note.objects.get(title="API Source")
         assert source.outgoing_links.get().target == target
+
+
+class TestDashboardAPI:
+    def test_dashboard_shape_and_session_access(self, client_logged_in):
+        import datetime
+
+        from django.utils import timezone
+
+        from plans.tests.factories import MilestoneFactory, PhaseFactory
+
+        phase = PhaseFactory(project__status="active", status="in_progress")
+        MilestoneFactory(
+            phase=phase,
+            title="API dash milestone",
+            due_date=timezone.localdate() + datetime.timedelta(days=3),
+        )
+        data = client_logged_in.get("/api/v1/dashboard/").json()
+        assert {"stats", "inbox_count", "active", "milestones", "deadlines"} <= set(data)
+        assert data["active"][0]["slug"] == phase.project.slug
+        assert data["active"][0]["total"] == 1
+        assert any("API dash milestone" == m["title"] for m in data["milestones"])

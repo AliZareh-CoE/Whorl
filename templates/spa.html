@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atlas</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="h-full bg-stone-50 text-stone-900 antialiased">
+  <div id="root" class="h-full"></div>
+  <noscript>
+    <p class="p-8 text-sm">The Atlas app needs JavaScript. The classic pages remain at <a class="underline" href="/">/</a>.</p>
+  </noscript>
+  <script type="module" src="{% static 'js/spa.js' %}"></script>
+</body>
+</html>

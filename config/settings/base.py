@@ -38,7 +38,11 @@ INSTALLED_APPS = [
 X_FRAME_OPTIONS = "DENY"
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["api.authentication.APIKeyAuthentication"],
+    # API key for MCP/scripts; session+CSRF for the same-origin SPA (Owner idea #20)
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "api.authentication.APIKeyAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,

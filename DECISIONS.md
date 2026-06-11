@@ -182,8 +182,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     - **Serving:** SPA shell served by Django at /app/ during migration; sections cut over
       one by one (old URLs redirect as their SPA route lands); final cutover moves / to the
       SPA. Islands infra retires at the end (DocumentsTable + Assistant become SPA components).
-    - **Slices (one per cycle, each browser-verified):** 56 shell+router+layout+session/CSRF
-      wiring + dashboard read-only → 57 projects list/overview → 58 plan page w/ check-offs →
+    - **Slices (one per cycle, each browser-verified):** ~~56 shell+router+layout+
+      session/CSRF wiring + dashboard read-only (done 2026-06-11: /app/* login-gated shell,
+      React Router + TanStack Query, SessionAuthentication beside the API key with CSRF
+      enforced on writes (tested), GET /api/v1/dashboard/, React dashboard + projects list,
+      deep links verified, zero JS errors)~~ → 57 projects list/overview → 58 plan page w/ check-offs →
       59 documents (reuse table) → [60 AUDIT #6] → 61 library+queue+reference detail →
       62 notes+editor → 63 writing board+manuscript (CodeMirror in React) → 64 inbox, prompts,
       automations, pet, search → [65 REV] → 66 research+decisions+questions → 67 graph →
@@ -358,3 +361,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 61. Island dev-mode — `vite dev` proxy so island development gets HMR against the running Django server (idea added by cycle 54)
 62. [REV] Synthesis studio — select N papers from the matrix and get a structured literature-synthesis scaffold (themes × claims × evidence table prefilled from reading notes + keywords, exportable to a manuscript section) — candidate for the next revolutionary cycle at 65 (idea added by cycle 55)
 63. Assistant actions that act — POST quick actions in the panel (complete milestone, set reading status) with optimistic UI, reusing the bulk endpoints pattern (idea added by cycle 55)
+63. SPA shell polish — pet widget, global search, and the assistant summon inside the React layout so /app/ feels complete while sections migrate (idea added by cycle 56)

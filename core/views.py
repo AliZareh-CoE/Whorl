@@ -89,3 +89,8 @@ def pet_page(request):
             cache.delete("atlas-pet-state")
         return redirect("core:pet")
     return render(request, "core/pet.html", {"pet": pet_state()})
+
+
+def spa_shell(request, rest=""):
+    """Serve the React SPA shell (Owner idea #20) — the router takes it from here."""
+    return render(request, "spa.html")

@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: FULL SPA slice 1 — shell/router/auth/dashboard [cycle 56])
+- **Slice in progress:** — (next: SPA slice 2, projects list/overview in React [cycle 57])
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. FULL SPA slice 1 [cycle 56] — /app/ shell: router, layout, session+CSRF API wiring, React dashboard (Owner idea #20 — see migration plan)
-  2. FULL SPA slice 2 [57] — projects list + overview; slice 3 [58] — plan page
-  3. AUDIT #6 at 60; [REV] at 65; backlog items resume post-cutover (~68)
+  1. SPA slice 2 [cycle 57] — projects list/overview in React (Owner idea #20 sequence)
+  2. SPA slice 3 [cycle 58] — plan page with live check-offs
+  3. SPA slice 4 [cycle 59] — documents (reuse table); AUDIT #6 at 60 incl. SPA auth surface
 - **Broken:** nothing
 
 ## Gate reports

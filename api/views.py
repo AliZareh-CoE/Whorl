@@ -438,3 +438,57 @@ class SearchAPIView(APIView):
                 }
             )
         return Response({"query": request.query_params.get("q", ""), "results": results})
+
+
+class DashboardAPIView(APIView):
+    """Everything the dashboard shows, as JSON — the SPA's first data source."""
+
+    @extend_schema(
+        description="Dashboard data: stats, active projects with progress, "
+        "upcoming milestones and deadlines, inbox count.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from django.urls import reverse
+
+        from core.dashboard import dashboard_context
+
+        data = dashboard_context()
+        return Response(
+            {
+                "stats": data["stats"],
+                "inbox_count": data["inbox_count"],
+                "active": [
+                    {
+                        "name": row["project"].name,
+                        "slug": row["project"].slug,
+                        "url": row["project"].get_absolute_url(),
+                        "color": row["project"].color,
+                        "phase": row["phase"].name if row["phase"] else None,
+                        "done": row["done"],
+                        "total": row["total"],
+                        "percent": row["percent"],
+                        "tree_size": row["tree_size"],
+                    }
+                    for row in data["active"]
+                ],
+                "milestones": [
+                    {
+                        "title": m.title,
+                        "project": m.phase.project.name,
+                        "due_date": m.due_date.isoformat() if m.due_date else None,
+                        "overdue": m.is_overdue,
+                        "url": reverse("plans:plan", args=[m.phase.project.slug]),
+                    }
+                    for m in data["milestones"]
+                ],
+                "deadlines": [
+                    {
+                        "title": d.title,
+                        "deadline": d.deadline.isoformat() if d.deadline else None,
+                        "url": d.get_absolute_url(),
+                    }
+                    for d in data["deadlines"]
+                ],
+            }
+        )
