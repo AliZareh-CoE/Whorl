@@ -17,10 +17,20 @@ import {
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
+import { type Diagnostic, linter, setDiagnostics } from "@codemirror/lint";
 import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from "@codemirror/search";
-import { Compartment, EditorState, type Extension } from "@codemirror/state";
+import {
+  Compartment,
+  EditorState,
+  RangeSet,
+  StateEffect,
+  StateField,
+  type Extension,
+} from "@codemirror/state";
 import {
   EditorView,
+  GutterMarker,
+  gutter,
   highlightActiveLine,
   highlightActiveLineGutter,
   keymap,
@@ -29,6 +39,38 @@ import {
 import { vim } from "@replit/codemirror-vim";
 
 export type EditorCfg = { citeKeys?: string[]; initialDoc?: string };
+
+// --- comment gutter (Slice B): a 💬 marker on lines that carry comments -------------
+class CommentMarker extends GutterMarker {
+  toDOM() {
+    const span = document.createElement("span");
+    span.textContent = "💬";
+    span.style.cursor = "pointer";
+    return span;
+  }
+}
+const setCommentLinesEffect = StateEffect.define<number[]>(); // 1-based line numbers
+const commentMarkField = StateField.define<RangeSet<GutterMarker>>({
+  create: () => RangeSet.empty,
+  update(set, tr) {
+    set = set.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setCommentLinesEffect)) {
+        const marks = e.value
+          .filter((ln) => ln >= 1 && ln <= tr.state.doc.lines)
+          .map((ln) => new CommentMarker().range(tr.state.doc.line(ln).from));
+        set = RangeSet.of(marks, true);
+      }
+    }
+    return set;
+  },
+});
+
+// --- compile diagnostics (Slice B): push status into a CM6 linter ------------------
+let currentDiagnostics: Diagnostic[] = [];
+function diagnosticsLinter() {
+  return linter(() => currentDiagnostics);
+}
 
 // Atlas-specific: \cite{key} completion from the manuscript's keys. (The whole-library
 // B1 source with auto-link lands in Slice C.) Registered as language data so it MERGES with
@@ -60,49 +102,86 @@ export type EditorAdapter = {
   setFontSize: (px: string) => void;
   setSpellcheck: (on: boolean) => void;
   openFind: () => void;
+  // --- cursor / lines (Slice B) ---
+  getCursorLine: () => number; // 1-based
+  gotoLine: (line: number) => void; // 1-based, scrolls + focuses
+  insertAtCursor: (text: string, caretOffset?: number) => void;
+  lineText: (line: number) => string; // 1-based
+  lineCount: () => number;
+  // --- multi-file buffers (Slice B): one EditorState per file id ---
+  switchFile: (id: number) => void;
+  fileValue: (id: number) => string;
+  setFileValue: (id: number, text: string) => void;
+  activeFile: () => number;
+  // --- comment gutter (Slice B) ---
+  setCommentLines: (lines: number[]) => void;
+  onGutterClick: (fn: (line: number) => void) => void;
+  // --- compile diagnostics (Slice B) ---
+  setDiagnostics: (diags: { line: number; level: string; message: string }[]) => void;
 };
 
 const keymapCompartment = new Compartment();
 
 export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
   const changeListeners: Array<() => void> = [];
+  const gutterClickListeners: Array<(line: number) => void> = [];
   const updateListener = EditorView.updateListener.of((u) => {
     if (u.docChanged) changeListeners.forEach((fn) => fn());
   });
 
-  const extensions: Extension[] = [
-    lineNumbers(),
-    highlightActiveLine(),
-    highlightActiveLineGutter(),
-    history(),
-    closeBrackets(),
-    EditorView.lineWrapping,
-    // lang-latex: grammar + folding + bracket matching + auto-close \end tags + tooltips.
-    // Autocomplete is composed explicitly below so the Atlas cite source runs alongside the
-    // library's built-in command/env/math source (rule #28: borrow the source, add cite).
-    latex({ enableAutocomplete: false, autoCloseTags: true, enableTooltips: true }),
-    autocompletion({
-      override: [citeCompletionSource(cfg.citeKeys ?? []), latexCompletionSource(true)],
-    }),
-    search(),
-    highlightSelectionMatches(),
-    keymapCompartment.of([]),
-    keymap.of([
-      ...closeBracketsKeymap,
-      ...defaultKeymap,
-      ...historyKeymap,
-      ...searchKeymap,
-      ...completionKeymap,
-      indentWithTab,
-    ]),
-    updateListener,
-  ];
+  function buildExtensions(): Extension[] {
+    return [
+      lineNumbers(),
+      gutter({
+        class: "cm-comment-gutter",
+        markers: (v) => v.state.field(commentMarkField),
+        domEventHandlers: {
+          mousedown(v, line) {
+            const ln = v.state.doc.lineAt(line.from).number;
+            gutterClickListeners.forEach((fn) => fn(ln));
+            return true;
+          },
+        },
+      }),
+      commentMarkField,
+      highlightActiveLine(),
+      highlightActiveLineGutter(),
+      history(),
+      closeBrackets(),
+      EditorView.lineWrapping,
+      // lang-latex: grammar + folding + bracket matching + auto-close \end tags + tooltips.
+      // Autocomplete is composed explicitly so the Atlas cite source runs alongside the
+      // library's built-in command/env/math source (rule #28: borrow the source, add cite).
+      latex({ enableAutocomplete: false, autoCloseTags: true, enableTooltips: true }),
+      autocompletion({
+        override: [citeCompletionSource(cfg.citeKeys ?? []), latexCompletionSource(true)],
+      }),
+      diagnosticsLinter(),
+      search(),
+      highlightSelectionMatches(),
+      keymapCompartment.of([]),
+      keymap.of([
+        ...closeBracketsKeymap,
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...searchKeymap,
+        ...completionKeymap,
+        indentWithTab,
+      ]),
+      updateListener,
+    ];
+  }
 
-  const view = new EditorView({
-    state: EditorState.create({ doc: cfg.initialDoc ?? "", extensions }),
-    parent: host,
-  });
+  const newState = (doc: string) =>
+    EditorState.create({ doc, extensions: buildExtensions() });
+
+  const view = new EditorView({ state: newState(cfg.initialDoc ?? ""), parent: host });
   view.dom.style.minHeight = "72vh";
+
+  // multi-file: keep an EditorState per file id; the live `view` holds the active one
+  const states = new Map<number, EditorState>();
+  let activeId = 0;
+  states.set(activeId, view.state);
 
   return {
     view,
@@ -120,6 +199,60 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
       view.contentDOM.setAttribute("spellcheck", on ? "true" : "false");
     },
     openFind: () => openSearchPanel(view),
+
+    getCursorLine: () => view.state.doc.lineAt(view.state.selection.main.head).number,
+    gotoLine: (line: number) => {
+      const pos = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines)).from;
+      view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+      view.focus();
+    },
+    insertAtCursor: (text: string, caretOffset?: number) => {
+      const at = view.state.selection.main.head;
+      view.dispatch({
+        changes: { from: at, insert: text },
+        selection: { anchor: at + (caretOffset ?? text.length) },
+      });
+      view.focus();
+    },
+    lineText: (line: number) => view.state.doc.line(line).text,
+    lineCount: () => view.state.doc.lines,
+
+    switchFile: (id: number) => {
+      if (id === activeId) return;
+      states.set(activeId, view.state); // stash the outgoing file's full state
+      activeId = id;
+      view.setState(states.get(id) ?? newState(""));
+    },
+    fileValue: (id: number) =>
+      id === activeId ? view.state.doc.toString() : (states.get(id)?.doc.toString() ?? ""),
+    setFileValue: (id: number, text: string) => {
+      if (id === activeId) {
+        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+      } else {
+        states.set(id, newState(text));
+      }
+    },
+    activeFile: () => activeId,
+
+    setCommentLines: (lines: number[]) =>
+      view.dispatch({ effects: setCommentLinesEffect.of(lines) }),
+    onGutterClick: (fn) => gutterClickListeners.push(fn),
+
+    setDiagnostics: (diags) => {
+      const cm: Diagnostic[] = diags
+        .filter((d) => d.line)
+        .map((d) => {
+          const ln = view.state.doc.line(Math.min(d.line, view.state.doc.lines));
+          return {
+            from: ln.from,
+            to: ln.to,
+            severity: (d.level === "error" ? "error" : "warning") as Diagnostic["severity"],
+            message: d.message,
+          };
+        });
+      currentDiagnostics = cm;
+      view.dispatch(setDiagnostics(view.state, cm));
+    },
   };
 }
 
