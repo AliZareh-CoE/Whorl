@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.contrib.postgres.indexes import GinIndex
+from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
@@ -20,7 +21,11 @@ class Project(TimeStampedModel):
     slug = models.SlugField(unique=True)
     description = models.TextField(blank=True)  # markdown
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
-    color = models.CharField(max_length=7, default="#4f46e5")
+    color = models.CharField(
+        max_length=7,
+        default="#4f46e5",
+        validators=[RegexValidator(r"^#[0-9a-fA-F]{6}$", "Use a #rrggbb hex color.")],
+    )
     position = models.PositiveIntegerField(default=0)
 
     class Meta:

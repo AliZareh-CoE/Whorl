@@ -274,3 +274,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 54. Last-Modified/If-Modified-Since on media downloads (PDFs, documents) so re-reads are free (split from old #27) (idea added by cycle 47)
 55. Pin a search — star a recent search to keep it permanently at the top of the recents dropdown (idea added by cycle 48)
 56. Pet speech variety pack — seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)
+57. Search page budget — /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)

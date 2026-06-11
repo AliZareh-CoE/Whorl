@@ -2,6 +2,32 @@
 
 Every 10th loop cycle is a full security + performance audit (owner rule). Reports newest first.
 
+## Audit #5 — cycle 50 (2026-06-11), covering loop cycles 41–49
+
+**Performance:** warm curl timings — dashboard 45 ms, projects 22 ms, overview 41 ms, plan 36 ms,
+literature 34 ms, gap-ordered queue 37 ms, library 31 ms, prompts 20 ms, automations 26 ms,
+pet 17 ms, full search 50 ms (right at the bar — watch it), trgm-backed suggest 43 ms.
+Query budgets green; the GIN trgm indexes (cycle 46) keep typo search index-served.
+
+**Security findings (both fixed same-cycle):**
+
+- **`Project.color` had no format validation** — any ≤7-char string reached
+  `style="background: …"` attributes (grove, progress bars). Autoescaping prevents attribute
+  breakout and 7 chars of CSS is inert, but belt-and-braces: a `#rrggbb` RegexValidator now
+  enforces the format at the model level, covering both the form and the API serializer
+  (tests for both paths).
+- **MCP ETag cache was unbounded** — one entry per distinct (path, params) could grow without
+  limit in a long-lived MCP session. Now capped at 256 entries, oldest dropped.
+
+**Reviewed clean:** pet speech (autoescaped everywhere incl. title attrs; phase names are the
+only user-influenced content), recent searches (localStorage only, textContent rendering,
+encodeURIComponent hrefs), edge-swipe (no injected state), queue gap badges (autoescaped),
+GIN migrations (declarative, no raw SQL), ETag values (server-controlled, single client).
+Anonymous sweep: every page 302s to login; API and schema 401; docs 302.
+`pip-audit` (uvx, frozen env): **no known vulnerabilities**.
+
+**Verdict:** healthy. Two hardening fixes, no exploitable findings. 349 tests green, lint clean.
+
 ## Audit #4 — cycle 40 (2026-06-11), covering loop cycles 31–39
 
 **Performance:** warm timings measured live with curl on every hot page — dashboard 42 ms,

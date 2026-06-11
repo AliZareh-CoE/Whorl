@@ -97,3 +97,26 @@ class TestDecisionViews:
         other = ProjectFactory()
         url = reverse("projects:decision_edit", args=[other.slug, decision.pk])
         assert client_logged_in.get(url).status_code == 404
+
+
+class TestColorValidation:
+    def test_api_rejects_non_hex_color(self, client, owner, settings):
+        settings.ATLAS_API_KEY = "test-api-key"
+        response = client.post(
+            "/api/v1/projects/",
+            {"name": "Bad color", "color": "red;x{}"},
+            content_type="application/json",
+            headers={"X-API-Key": "test-api-key"},
+        )
+        assert response.status_code == 400
+        assert "color" in response.json()
+
+    def test_form_rejects_non_hex_color(self, client_logged_in):
+        from django.urls import reverse
+
+        response = client_logged_in.post(
+            reverse("projects:create"),
+            {"name": "Bad", "status": "active", "position": 0, "color": "}{injec"},
+        )
+        assert response.status_code == 200  # re-rendered with errors
+        assert b"#rrggbb" in response.content

@@ -57,6 +57,8 @@ def _request(method: str, path: str, **kwargs):
         return None
     data = response.json()
     if cache_key is not None and response.headers.get("ETag"):
+        if len(_etag_cache) >= 256:  # bound memory in long-lived sessions
+            _etag_cache.pop(next(iter(_etag_cache)))
         _etag_cache[cache_key] = (response.headers["ETag"], data)
     return data
 
