@@ -43,20 +43,27 @@
   <div class="sticky top-4 overflow-hidden rounded border border-stone-200 bg-white">
     <div class="flex items-center gap-2 border-b border-stone-100 px-3 py-1.5 text-xs text-stone-500">
       <span id="preview-status">{% if manuscript.compiled_pdf %}Compiled PDF{% else %}No PDF yet — hit Compile{% endif %}</span>
-      <span class="ml-auto"></span>
-      {% if manuscript.compiled_pdf %}
-        <a href="{{ manuscript.compiled_pdf.url }}" target="_blank" class="text-indigo-600 hover:underline">Open ↗</a>
-      {% endif %}
+      <span class="ml-auto flex items-center gap-1">
+        <span id="page-indicator" class="mr-2 hidden text-stone-400"></span>
+        <button type="button" id="zoom-out" title="Zoom out" class="rounded border border-stone-200 px-1.5 hover:border-stone-400">−</button>
+        <button type="button" id="zoom-fit" title="Fit width" class="rounded border border-stone-200 px-1.5 hover:border-stone-400">↔</button>
+        <button type="button" id="zoom-in" title="Zoom in" class="rounded border border-stone-200 px-1.5 hover:border-stone-400">+</button>
+        <span id="zoom-label" class="w-10 text-right text-stone-400"></span>
+        {% if manuscript.compiled_pdf %}
+          <a href="{{ manuscript.compiled_pdf.url }}" target="_blank" class="ml-2 text-indigo-600 hover:underline">Open ↗</a>
+        {% endif %}
+      </span>
     </div>
-    <iframe id="preview-frame" title="Compiled PDF preview"
-            src="{% if manuscript.compiled_pdf %}{{ manuscript.compiled_pdf.url }}#toolbar=0{% endif %}"
-            class="h-[70vh] w-full {% if not manuscript.compiled_pdf %}hidden{% endif %} bg-stone-50"></iframe>
-    <div id="preview-empty" class="{% if manuscript.compiled_pdf %}hidden{% endif %} flex h-[70vh] items-center justify-center text-sm text-stone-400">
-      The compiled PDF appears here.
+    <div id="pdf-scroll" class="relative h-[70vh] overflow-y-auto bg-stone-100 transition-opacity">
+      <div id="pdf-pages" class="mx-auto flex flex-col items-center gap-3 py-3"></div>
+      <div id="preview-empty" class="flex h-full items-center justify-center text-sm text-stone-400">
+        The compiled PDF appears here.
+      </div>
     </div>
   </div>
 </div>
 </div>
+
 <div id="diagnostics-panel" class="mt-4 hidden rounded border border-stone-200 bg-white text-sm">
   <p class="border-b border-stone-100 px-3 py-1.5 text-xs font-medium text-stone-500">Compile problems <span id="diagnostics-count"></span></p>
   <ul id="diagnostics-list" class="divide-y divide-stone-50"></ul>

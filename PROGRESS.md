@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: LaTeX epic slice 3 [cycle 103, UI/UX] — pdf.js preview pane)
-- **Last completed slice (cycle 102, LaTeX epic slice 2):** autosave + in-place compile — debounced 2s autosave (JSON mode, Saved indicator + missing-cite count, beforeunload guard), fetch compile + poller (no reloads), auto-compile toggle, compile_generation stale-drop guard (tested), editor JS extracted to static/js/latex-editor.js. Browser-verified end to end with a no-reload assertion. 3 new tests (34 in writing).
+- **Slice in progress:** — (next: LaTeX epic slice 4 [cycle 104] — autocomplete v2 + snippets)
+- **Last completed slice (cycle 103, LaTeX epic slice 3, UI/UX):** pdf.js preview pane — real rendered pages with fit-width/zoom controls (persisted), page indicator, scroll position preserved across recompiles, dim-while-compiling. Verified live on a 5-page compile, zero reloads. [REV] multi-file workbench plan being produced by a parallel planning agent for cycle 105.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → **Owner idea #24 LaTeX epic (slices 2,3,4,5 next; [REV] multi-file workbench at 105)** → other owner ideas → backlog; every cycle: ≥1 new idea + tech improvement + research-backed design + parallel planning agents for future epics.
 - **Next 3 slices:**
-  1. LaTeX epic slice 3 [cycle 103, UI/UX]: pdf.js preview pane (zoom, page nav, position kept across recompiles; check literature reader's pdf.js vendoring first)
-  2. LaTeX epic slice 4 [cycle 104]: autocomplete v2 + snippets (\begin auto-close, \ref from \label scan, placeholder hopping)
-  3. [REV] multi-file workbench [105]; slices 5,7,8 [106-108]; AUDIT #11 [110]
+  1. LaTeX epic slice 4 [cycle 104]: autocomplete v2 + snippets (\begin auto-close, \ref from \label scan, placeholder hopping)
+  2. [REV] multi-file workbench [cycle 105] — execute the parallel-planner's file-level plan
+  3. Slices 5,7,8 [106-108]: find/replace+keymaps, SyncTeX, outline+word count; AUDIT #11 [110]
 - **Broken:** nothing
 
 ## Gate reports

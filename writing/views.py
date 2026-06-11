@@ -137,6 +137,7 @@ def latex_editor(request, slug, pk):
                 "compileUrl": reverse("writing:compile", args=[slug, manuscript.pk]),
                 "statusUrl": reverse("writing:compile_status", args=[slug, manuscript.pk]),
                 "hasPdf": bool(manuscript.compiled_pdf),
+                "pdfUrl": manuscript.compiled_pdf.url if manuscript.compiled_pdf else "",
                 "compileRunning": manuscript.compile_status == "running",
             },
         },
