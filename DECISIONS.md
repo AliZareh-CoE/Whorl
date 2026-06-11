@@ -450,4 +450,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 78. SPA decision detail — context/alternatives render in the timeline (saved now, shown truncated); felt while recording the cycle-69 decision (idea added by cycle 69)
 79. `make audit` script — codify the curl auth-matrix + open-redirect + anon-sweep probes into one target so every audit cycle starts identically (Backlog #47 restated, felt again cycle 70) (idea added by cycle 70)
 80. Bulk task create + task search — mirror #71/#72 on the tasks endpoint for symmetry (idea added by cycle 71)
-81. SPA synthesis button — add 'Draft synthesis' to the React literature page (currently classic-only); parity gap felt cycle 72 (idea added by cycle 72)
+81. ~~SPA synthesis + coverage (done 2026-06-11, cycle 73): React literature page gets a Draft-synthesis button (X-SPA JSON → navigates to the note, no reload) and a coverage-gap nudge highlighting themes with ≤1 paper; closes Owner idea #11's active coverage-gap suggestion too.~~
+82. Coverage-gap → queue prefill — clicking a thin theme in the nudge jumps to the queue already filtered to that theme's candidate papers (idea added by cycle 73)

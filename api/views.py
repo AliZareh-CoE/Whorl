@@ -261,7 +261,15 @@ class ProjectViewSet(AtlasViewSet):
             }
             for link in project.project_references.select_related("reference")
         ]
-        return Response({"themes": [t.name for t in themes], "papers": papers})
+        from literature.selectors import theme_coverage
+
+        return Response(
+            {
+                "themes": [t.name for t in themes],
+                "papers": papers,
+                "coverage": theme_coverage(project),
+            }
+        )
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Bib checker findings grouped by category")},

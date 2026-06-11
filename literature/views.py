@@ -480,6 +480,10 @@ def draft_synthesis_note(request, slug):
         project=project, title=title, defaults={"body": synthesis_scaffold(project)}
     )
     sync_note_links(note)
+    if request.headers.get("X-SPA") == "1":
+        from django.http import JsonResponse
+
+        return JsonResponse({"note_id": note.pk})
     messages.success(request, "Synthesis scaffold drafted from your review matrix.")
     return redirect(note.get_absolute_url())
 

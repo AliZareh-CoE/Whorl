@@ -124,3 +124,14 @@ def synthesis_scaffold(project) -> str:
     lines.append("## Synthesis")
     lines.append("_The throughline across themes — the story your review tells._")
     return "\n".join(lines)
+
+
+def theme_coverage(project) -> list[dict]:
+    """Per-theme paper counts for coverage-gap suggestions (Owner idea #11).
+
+    Returns themes sorted thinnest-first so the SPA can nudge toward under-covered ones.
+    """
+    from django.db.models import Count
+
+    rows = project.review_themes.annotate(n=Count("marks")).values("name", "n")
+    return sorted(({"name": r["name"], "count": r["n"]} for r in rows), key=lambda r: r["count"])

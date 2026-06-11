@@ -1,7 +1,7 @@
 /** Project literature + reading queue, sharing one list (SPA slice 5). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, csrfToken } from "../api";
 
 type Ref = { id: number; bibtex_key: string; title: string; authors: { family?: string; given?: string }[]; year: number | null; venue: string };
@@ -30,9 +30,27 @@ function authorLine(ref: Ref): string {
 
 export default function Literature({ queue = false }: { queue?: boolean }) {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState("read");
+  const [drafting, setDrafting] = useState(false);
+
+  const { data: matrix } = useQuery({
+    queryKey: ["review-matrix", slug],
+    queryFn: () => api<{ coverage: { name: string; count: number }[] }>(`/projects/${slug}/review-matrix/`),
+    enabled: !queue,
+  });
+
+  async function draftSynthesis() {
+    setDrafting(true);
+    const res = await fetch(`/projects/${slug}/literature/synthesis/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken(), "X-SPA": "1" },
+    });
+    const data = await res.json();
+    navigate(`/projects/${slug}/notes/${data.note_id}`);
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["literature", slug],
@@ -90,11 +108,26 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
                 className="text-indigo-600 hover:underline">
             {queue ? "All papers" : "Reading queue"}
           </Link>
+          {!queue && (
+            <button onClick={draftSynthesis} disabled={drafting}
+                    className="rounded border border-stone-300 bg-white px-2.5 py-1 hover:border-stone-400 disabled:opacity-50">
+              {drafting ? "Drafting…" : "Draft synthesis"}
+            </button>
+          )}
           <a href={`/projects/${slug}/literature/`} className="text-stone-400 underline hover:text-indigo-700">
             matrix & reports ↗
           </a>
         </div>
       </div>
+
+      {!queue && matrix && matrix.coverage.length > 0 && matrix.coverage[0].count <= 1 && (
+        <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <span className="font-medium">Coverage gap:</span>{" "}
+          {matrix.coverage.filter((c) => c.count <= 1).map((c) => c.name).join(", ")}{" "}
+          {matrix.coverage.filter((c) => c.count <= 1).length === 1 ? "has" : "have"} ≤1 paper.
+          Use <Link to={`/projects/${slug}/queue`} className="underline">the queue</Link> to fill the thinnest themes first.
+        </div>
+      )}
 
       {selected.size > 0 && (
         <div className="mb-3 flex items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm">

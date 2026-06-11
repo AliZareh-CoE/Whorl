@@ -546,3 +546,35 @@ class TestMilestoneBulkAndSearch:
         data = client_logged_in.get(f"/api/v1/milestones/?project={slug}&q=pilot").json()
         assert data["count"] == 1
         assert data["results"][0]["title"] == "Pilot data collected"
+
+
+class TestReviewMatrixCoverage:
+    def test_coverage_sorted_thinnest_first(self, client_logged_in):
+        from literature.models import ReviewMark, ReviewTheme
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link = ProjectReferenceFactory()
+        project = link.project
+        covered = ReviewTheme.objects.create(project=project, name="Covered", order=1)
+        ReviewTheme.objects.create(project=project, name="Thin", order=2)
+        ReviewMark.objects.create(theme=covered, project_reference=link)
+        data = client_logged_in.get(f"/api/v1/projects/{project.slug}/review-matrix/").json()
+        assert data["coverage"][0]["name"] == "Thin"
+        assert data["coverage"][0]["count"] == 0
+
+
+class TestSynthesisSpaMode:
+    def test_x_spa_returns_note_id(self, client_logged_in):
+        from literature.models import ReviewTheme
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link = ProjectReferenceFactory()
+        ReviewTheme.objects.create(project=link.project, name="T", order=1)
+        response = client_logged_in.post(
+            f"/projects/{link.project.slug}/literature/synthesis/",
+            headers={"X-SPA": "1"},
+        )
+        assert response.status_code == 200
+        from notes.models import Note
+
+        assert response.json()["note_id"] == Note.objects.get(project=link.project).pk
