@@ -481,3 +481,54 @@ class TestRevisions:
         assert m.main_file.content == "version A"
         # the restore itself snapshotted the pre-restore state
         assert m.revisions.filter(label="Before restore").exists()
+
+
+class TestCiteLibrary:
+    """Beyond-Overleaf B1: \\cite{} completes from the whole project library + auto-link."""
+
+    def _setup(self):
+        from literature.tests.factories import ProjectReferenceFactory
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="x")
+        # two references in the project library, neither linked to the manuscript yet
+        pr1 = ProjectReferenceFactory(project=m.project)
+        pr2 = ProjectReferenceFactory(project=m.project)
+        return m, pr1.reference, pr2.reference
+
+    def test_lists_project_library_with_linked_flag(self, client_logged_in):
+        from writing.models import ManuscriptReference
+
+        m, ref1, ref2 = self._setup()
+        ManuscriptReference.objects.create(manuscript=m, reference=ref1)
+        data = client_logged_in.get(
+            f"/projects/{m.project.slug}/writing/{m.pk}/cite-library/"
+        ).json()
+        by_key = {c["key"]: c for c in data["candidates"]}
+        assert by_key[ref1.bibtex_key]["linked"] is True
+        assert by_key[ref2.bibtex_key]["linked"] is False
+        assert "title" in by_key[ref2.bibtex_key]
+
+    def test_post_auto_links_reference(self, client_logged_in):
+        from writing.models import ManuscriptReference
+
+        m, ref1, ref2 = self._setup()
+        assert not ManuscriptReference.objects.filter(manuscript=m, reference=ref2).exists()
+        res = client_logged_in.post(
+            f"/projects/{m.project.slug}/writing/{m.pk}/cite-library/",
+            {"reference": ref2.pk},
+        )
+        assert res.status_code == 201
+        assert res.json()["key"] == ref2.bibtex_key
+        assert ManuscriptReference.objects.filter(manuscript=m, reference=ref2).exists()
+
+    def test_cannot_link_reference_outside_project(self, client_logged_in):
+        from literature.tests.factories import ReferenceFactory
+
+        m, _, _ = self._setup()
+        stranger = ReferenceFactory()  # not in this project's library
+        res = client_logged_in.post(
+            f"/projects/{m.project.slug}/writing/{m.pk}/cite-library/",
+            {"reference": stranger.pk},
+        )
+        assert res.status_code == 404

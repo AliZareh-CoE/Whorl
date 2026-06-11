@@ -144,6 +144,7 @@ def latex_editor(request, slug, pk):
                 "filesUrl": reverse("writing:files", args=[slug, manuscript.pk]),
                 "fileUrlBase": reverse("writing:files", args=[slug, manuscript.pk]),
                 "wordCountUrl": reverse("writing:word_count", args=[slug, manuscript.pk]),
+                "citeLibraryUrl": reverse("writing:cite_library", args=[slug, manuscript.pk]),
                 "revisionsUrl": reverse("writing:revisions", args=[slug, manuscript.pk]),
                 "files": [_file_dict(f) for f in manuscript.files.all()],
                 "mainFileId": main.pk,
@@ -459,6 +460,56 @@ def revision_restore(request, slug, pk, rev_pk):
         manuscript.latex_source = revision.files.get("main.tex", "")
         manuscript.save(update_fields=["latex_source", "updated_at"])
     return JsonResponse({"restored": True})
+
+
+def cite_library(request, slug, pk):
+    """Beyond-Overleaf B1: the whole project library for \cite{} autocomplete.
+
+    GET → every project reference with metadata + whether it's already linked to this
+    manuscript. POST {reference} → link an unlinked reference (auto-creates the
+    ManuscriptReference so references.bib stays in sync without .bib babysitting).
+    """
+    from django.http import JsonResponse
+
+    manuscript, _ = _workbench_objects(slug, pk)
+    if request.method == "POST":
+        ref_id = request.POST.get("reference")
+        link = ManuscriptReference.objects.filter(
+            manuscript=manuscript, reference_id=ref_id
+        ).first()
+        if link is None:
+            from literature.models import Reference
+
+            reference = get_object_or_404(
+                Reference, pk=ref_id, project_links__project=manuscript.project
+            )
+            link = ManuscriptReference.objects.create(manuscript=manuscript, reference=reference)
+        return JsonResponse({"key": link.cite_key, "linked": True}, status=201)
+
+    linked_ids = set(manuscript.manuscriptreference_set.values_list("reference_id", flat=True))
+
+    def author_line(authors):
+        names = [a.get("family") or a.get("given") or "" for a in (authors or [])]
+        names = [n for n in names if n]
+        head = ", ".join(names[:2])
+        return f"{head} et al." if len(names) > 2 else head
+
+    candidates = []
+    links = manuscript.project.project_references.select_related("reference")
+    for pr in links:
+        ref = pr.reference
+        candidates.append(
+            {
+                "reference_id": ref.pk,
+                "key": ref.bibtex_key,
+                "title": ref.title[:120],
+                "authors": author_line(ref.authors),
+                "year": ref.year,
+                "linked": ref.pk in linked_ids,
+            }
+        )
+    candidates.sort(key=lambda c: c["key"].lower())
+    return JsonResponse({"candidates": candidates})
 
 
 def word_count_view(request, slug, pk):

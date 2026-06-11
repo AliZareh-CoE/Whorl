@@ -3,8 +3,9 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: LaTeX slice 7 SyncTeX OR slice 10 templates [cycle 111])
-- **Last completed slice (cycle 110, AUDIT #11):** CLEAN — full security+responsiveness review of the LaTeX workbench (cycles 101-109) + density. Probe sweep clean, all workbench endpoints authz-scoped (302/401, cross-manuscript 404), path traversal rejected at serializer + classic + compile resolve()-guard, uploads capped+whitelisted, --untrusted compile; timings editor 25ms/dash 15ms/wordcount 21ms (<50ms); pip+npm 0 CVEs; 7 budget tests green. No findings. Escalated Backlog #36 (containerized compile). Report in AUDITS.md.
+- **Slice in progress:** — (next: beyond-Overleaf B2 live cite-check OR slice 7 SyncTeX OR slice 10 templates [cycle 112])
+- **Last completed slice (cycle 111, beyond-Overleaf B1):** library-powered cite autocomplete — \cite{} completes from the whole project library (GET .../cite-library/ with author/year/title + linked flag), fuzzy on key/title/author; unlinked papers show "+" and accepting auto-creates the ManuscriptReference link (project-scoped, outsiders 404). Browser-verified type→insert→link. 3 tests.
+- **Prior slice (cycle 110, AUDIT #11):** CLEAN — full security+responsiveness review of the LaTeX workbench (cycles 101-109) + density. Probe sweep clean, all workbench endpoints authz-scoped (302/401, cross-manuscript 404), path traversal rejected at serializer + classic + compile resolve()-guard, uploads capped+whitelisted, --untrusted compile; timings editor 25ms/dash 15ms/wordcount 21ms (<50ms); pip+npm 0 CVEs; 7 budget tests green. No findings. Escalated Backlog #36 (containerized compile). Report in AUDITS.md.
 - **Prior slice (cycle 109, LaTeX epic slice 9):** version history — ManuscriptRevision JSON snapshots on every successful compile + manual ★ labels; History panel + color-coded difflib diff modal + one-click restore (snapshots "Before restore" first); trim keeps all labeled + last 50 auto. Beats Overleaf free 24h. Browser-verified compile→snapshot→diff→restore. 6 new tests.
 - **Prior slice (cycle 108, LaTeX epic slice 8):** outline panel + word count — sidebar Outline (client-side heading parse, depth-indented, click-to-jump, refresh on edit/switch) + Word count button → writing/wordcount.py pure-Python detex over all tex files (words/headers/captions/math, "approx"); button saves active buffer first. Browser-verified; 3 new tests.
 - **Prior slice (cycle 107, density UI/UX, Owner idea #25):** SPA shell widened max-w-5xl→max-w-screen-2xl (1024→1376px content) with tighter padding — benefits every SPA page; dashboard restructured into a denser full-width 3-column lower region (Active projects/Deadlines/Upcoming milestones) + responsive stats. Researched dense-but-calm dashboard UX first. Before/after verified.
@@ -13,9 +14,9 @@
 - **NEW Owner idea #25 (whitespace/density):** stop centering in narrow max-w-5xl; use full width + tighter rhythm like Overleaf. Standing UI rule; queued UI/UX cycles will sweep dashboard/overview/plan/tables/board.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → **Owner idea #24 LaTeX epic (slices 2,3,4,5 next; [REV] multi-file workbench at 105)** → other owner ideas → backlog; every cycle: ≥1 new idea + tech improvement + research-backed design + parallel planning agents for future epics.
 - **Next 3 slices:**
-  1. LaTeX slice 7 (SyncTeX forward) OR slice 10 (templates gallery + symbol palette) [cycle 111]
-  2. The other of slice 7/10 + start beyond-Overleaf B1 (library-powered cite autocomplete) [112-113]
-  3. Beyond-Overleaf B2-B7 (live cite-check, side panel, MCP LaTeX tools, timeline, comments, arXiv export); AUDIT #12 at 120; Owner idea #25 density ongoing
+  1. Beyond-Overleaf B2 (live cite-check squiggles + add-by-DOI) OR slice 7 SyncTeX OR slice 10 templates [cycle 112]
+  2. B3 research side panel [UI/UX], B4 MCP LaTeX tools [REV candidate], remaining slices 7/10
+  3. B5-B7 (timeline compiles, line comments, arXiv export); AUDIT #12 at 120; Owner #25 density ongoing
 - **Broken:** nothing
 
 ## Gate reports

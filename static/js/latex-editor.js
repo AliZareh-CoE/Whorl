@@ -190,6 +190,32 @@
     },
   });
 
+  // Beyond-Overleaf B1: \cite{} completes from the whole project library, not just the
+  // already-linked bib. Accepting an unlinked paper auto-creates the ManuscriptReference.
+  let citeLibrary = []; // [{reference_id, key, title, authors, year, linked}]
+  function loadCiteLibrary() {
+    if (!cfg.citeLibraryUrl) return;
+    fetch(cfg.citeLibraryUrl)
+      .then((r) => r.json())
+      .then((d) => { citeLibrary = d.candidates || []; })
+      .catch(() => {});
+  }
+  loadCiteLibrary();
+
+  async function linkReference(referenceId) {
+    try {
+      await fetch(cfg.citeLibraryUrl, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfToken() },
+        body: new URLSearchParams({ reference: String(referenceId) }),
+      });
+      const row = citeLibrary.find((c) => c.reference_id === referenceId);
+      if (row) row.linked = true;
+    } catch {
+      /* the key is inserted regardless; the link can be added from the bibliography UI */
+    }
+  }
+
   function citeHint(cm) {
     const cursor = cm.getCursor();
     const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
@@ -197,8 +223,27 @@
     if (!match) return null;
     const fragment = match[1].split(",").pop().trim();
     const from = { line: cursor.line, ch: cursor.ch - fragment.length };
-    const list = CITE_KEYS.filter((k) => k.startsWith(fragment));
-    return { list: list.length ? list : CITE_KEYS, from, to: cursor };
+    const f = fragment.toLowerCase();
+    const pool = citeLibrary.length
+      ? citeLibrary
+      : CITE_KEYS.map((k) => ({ key: k, title: "", authors: "", year: null, linked: true }));
+    const matches = pool.filter(
+      (c) =>
+        c.key.toLowerCase().includes(f) ||
+        (c.title || "").toLowerCase().includes(f) ||
+        (c.authors || "").toLowerCase().includes(f),
+    );
+    const list = (matches.length ? matches : pool).map((c) => ({
+      text: c.key,
+      displayText: `${c.linked ? "" : "+ "}${c.key}${c.year ? " (" + c.year + ")" : ""}${
+        c.authors ? " · " + c.authors : ""
+      }${c.title ? " — " + c.title.slice(0, 60) : ""}`,
+      hint: (cmInner, data, completion) => {
+        cmInner.replaceRange(completion.text, from, cmInner.getCursor());
+        if (c.reference_id && !c.linked) linkReference(c.reference_id);
+      },
+    }));
+    return { list, from, to: cursor };
   }
 
   function refHint(cm) {
