@@ -4,6 +4,10 @@ DEBUG = True
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
+# dev/test: serve static straight from finders, no collectstatic or startup scan needed
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
+
 # Tests run tasks inline; `runserver` + `run_huey` use Redis as configured in base.
 import sys  # noqa: E402
 
