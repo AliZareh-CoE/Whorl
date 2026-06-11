@@ -63,6 +63,13 @@ class TestSpaShell:
         assert response.status_code == 302
         assert response.url == "/projects/x/plan"
 
+    def test_app_redirect_is_not_an_open_redirect(self, client_logged_in):
+        # /app//evil.com would become a protocol-relative redirect off-site
+        response = client_logged_in.get("/app//evil.com/x")
+        assert response.status_code == 302
+        assert response.url == "/evil.com/x"  # collapsed to a local path
+        assert not response.url.startswith("//")
+
     def test_spa_artifact_built(self):
         from pathlib import Path
 

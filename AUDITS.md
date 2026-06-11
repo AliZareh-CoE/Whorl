@@ -2,6 +2,41 @@
 
 Every 10th loop cycle is a full security + performance audit (owner rule). Reports newest first.
 
+## Audit #7 — cycle 70 (2026-06-11), covering loop cycles 61–69 (SPA completion + cutover)
+
+**Headline finding — open redirect (found + fixed):** the cutover's `/app/*` bookmark
+redirect built its target as `f"/{rest}"`, so `/app//evil.com/x` produced `//evil.com/x` —
+a protocol-relative URL that browsers follow OFF-SITE (confirmed: 302 → `http://evil.com/x`).
+Fixed by collapsing leading slashes (`"/" + rest.lstrip("/")`), so it can only ever stay
+local; regression test added. This is exactly the kind of bug the cutover introduced and
+the reason every 10th cycle audits the new surface.
+
+**Everything else on the cutover surface is clean:**
+- Anon sweep: `/`, every slash-less SPA route, `/classic/`, `/automations`, and the `/app/*`
+  redirects all 302 to login; all JSON endpoints (incl. new bots/pet/manuscripts/hypotheses)
+  401 anonymously.
+- Bots action endpoint: session POST without a CSRF token → 403 (SessionAuthentication +
+  CSRF holds for the new write surface too).
+- Link interceptor reviewed: only acts on same-origin `href` values starting with `/`
+  (no `javascript:`/`data:`/absolute-URL vectors reach it); modified-click and target/download
+  anchors are passed through untouched.
+- Command-bar verbs (`capture:`/`done:`) go through the authenticated CSRF'd api() helper and
+  are project-scoped by the same viewsets as the rest of the API.
+- Lazy chunks served as `text/javascript`. Research/experiment/dataset endpoints are read-only
+  (POST → 405, tested).
+
+**Dependencies:** `pip-audit` (frozen) and `npm audit` (prod+dev): **zero known
+vulnerabilities** in both ecosystems.
+
+**Performance:** SPA shell `/` 13 ms; the JSON diet 13–26 ms (dashboard 26, plan 17,
+documents-table 19, bots 14, pet 19, manuscripts 24, hypotheses 18); classic `/classic/`
+38 ms. All under the 50 ms bar. **Bundles after code-splitting (cycle 69):** initial load is
+spa.js 29 KB gz + shared React chunk 46 KB gz = ~75 KB; 19 page chunks total 60 KB gz,
+fetched 1–3 KB at a time on first visit. Query budgets green.
+
+**Verdict:** healthy. One real open-redirect found and closed same-cycle — the audit cadence
+earned its keep. 398 tests green, lint + tsc + assets-check clean.
+
 ## Audit #6 — cycle 60 (2026-06-11), covering loop cycles 51–59 (the SPA era)
 
 **The SPA auth surface (headline focus — all verified live with curl):**

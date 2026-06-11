@@ -448,3 +448,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 76. Route-level code splitting — React.lazy per SPA section so spa.js stays lean as pages accumulate; bundle grew 30→38KB gz in cycle 67 (idea added by cycle 67, friction-sourced)
 77. Shared route manifest — one JSON of SPA routes read by both React Router and core/urls.py so the two lists can't drift; felt while hand-mirroring routes in the cutover (idea added by cycle 68, friction-sourced)
 78. SPA decision detail — context/alternatives render in the timeline (saved now, shown truncated); felt while recording the cycle-69 decision (idea added by cycle 69)
+79. `make audit` script — codify the curl auth-matrix + open-redirect + anon-sweep probes into one target so every audit cycle starts identically (Backlog #47 restated, felt again cycle 70) (idea added by cycle 70)

@@ -93,10 +93,15 @@ def pet_page(request):
 
 
 def spa_redirect(request, rest=""):
-    """Old /app/* bookmarks land on the same route at the new front door."""
+    """Old /app/* bookmarks land on the same route at the new front door.
+
+    rest can start with a slash (e.g. //evil.com), which would become a
+    protocol-relative open redirect — collapse leading slashes to keep it local.
+    """
     from django.shortcuts import redirect
 
-    return redirect(f"/{rest}")
+    target = "/" + rest.lstrip("/")
+    return redirect(target)
 
 
 @ensure_csrf_cookie
