@@ -91,6 +91,34 @@ class ManuscriptDeleteView(ProjectScopedMixin, DeleteView):
         return reverse("writing:project", kwargs={"slug": self.project.slug})
 
 
+def latex_editor(request, slug, pk):
+    """In-browser LaTeX editor with cite-key autocomplete (Owner idea #9, slice 1)."""
+    import json
+
+    project = get_object_or_404(Project, slug=slug)
+    manuscript = get_object_or_404(project.manuscripts, pk=pk)
+    cite_result = None
+    if request.method == "POST":
+        manuscript.latex_source = request.POST.get("latex_source", "")
+        manuscript.save(update_fields=["latex_source", "updated_at"])
+        messages.success(request, "Source saved.")
+        if manuscript.latex_source.strip():
+            cite_result = services.check_citations(manuscript, manuscript.latex_source)
+    cite_keys = [
+        link.cite_key for link in manuscript.manuscriptreference_set.select_related("reference")
+    ]
+    return render(
+        request,
+        "writing/latex_editor.html",
+        {
+            "project": project,
+            "manuscript": manuscript,
+            "cite_keys_json": json.dumps(sorted(cite_keys)),
+            "cite_result": cite_result,
+        },
+    )
+
+
 def add_reference(request, slug, pk):
     project = get_object_or_404(Project, slug=slug)
     manuscript = get_object_or_404(project.manuscripts, pk=pk)

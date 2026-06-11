@@ -42,11 +42,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    living brainstorm in `OPENSOURCE.md` (positioning, killer demo GIFs, one-command install,
    docs site, LICENSE/CONTRIBUTING, comparison table vs Zotero/Notion/Overleaf, launch plan
    for HN/r/selfhosted). Loop may add thoughts there any cycle; polish items become slices.
-9. **LaTeX editor ("better than Overleaf", owner knows it's ambitious).** In-browser LaTeX
-   editing on manuscripts: CodeMirror editor + server-side compile (Tectonic binary is the
-   likely engine — dependency decision required first) + live PDF preview using the existing
-   pdf.js reader; cite-key autocomplete from the manuscript bibliography is the natural
-   first slice.
+9. **LaTeX editor ("better than Overleaf", owner knows it's ambitious).** ~~Slice 1
+   (2026-06-11, cycle 13): `latex_source` on Manuscript; CodeMirror 5 (stex mode) editor page
+   with cite-key autocomplete from the manuscript bibliography, Ctrl/Cmd-S save, integrated
+   cite-check on every save.~~ Remaining: server-side compile (Tectonic — dependency decision
+   first) + live PDF preview via the existing pdf.js reader; snippets; section outline.
 10. **Commenting / annotations.** Comments anchored to things: PDFs (building on the reader),
     LaTeX sources, notes, documents — one generic Comment model, surfaced contextually.
 11. **Better papers & literature reviews.** Continuous improvement of the lit-review
@@ -153,4 +153,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 16. `make doctor` — one command that checks services, migrations, voice model, worker freshness, and runs the query audit; useful for self-hosters (idea added by cycle 10, from the audit)
 17. Prompt variables — `{{placeholders}}` in saved prompts with a small fill-in form before copying (idea added by cycle 11)
 18. Bot run history — keep the last N results per bot and chart reminders-over-time on the Automations page (idea added by cycle 12)
-19. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+19. LaTeX compile service — vendor the Tectonic binary (like Tailwind/Piper pattern) behind a huey task with compile logs surfaced in the editor (idea added by cycle 13)
+20. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

@@ -156,3 +156,40 @@ class TestManuscriptViews:
             reverse("writing:delete_event", args=[manuscript.project.slug, manuscript.pk, event.pk])
         )
         assert manuscript.events.count() == 0
+
+
+class TestLatexEditor:
+    def test_editor_renders_with_cite_keys(self, client_logged_in):
+        manuscript = ManuscriptFactory()
+        ManuscriptReference.objects.create(
+            manuscript=manuscript, reference=ReferenceFactory(bibtex_key="editor2020key")
+        )
+        response = client_logged_in.get(
+            reverse("writing:editor", args=[manuscript.project.slug, manuscript.pk])
+        )
+        content = response.content.decode()
+        assert "codemirror" in content
+        assert '"editor2020key"' in content
+
+    def test_save_runs_cite_check(self, client_logged_in):
+        manuscript = ManuscriptFactory()
+        ManuscriptReference.objects.create(
+            manuscript=manuscript, reference=ReferenceFactory(bibtex_key="editor2020key")
+        )
+        response = client_logged_in.post(
+            reverse("writing:editor", args=[manuscript.project.slug, manuscript.pk]),
+            {"latex_source": r"Intro \cite{editor2020key} and \cite{ghost2024}."},
+        )
+        manuscript.refresh_from_db()
+        content = response.content.decode()
+        assert "editor2020key" in manuscript.latex_source
+        assert "ghost2024" in content  # flagged as missing from bib
+        assert "✓ none" not in content.split("never cited")[0]  # missing column populated
+
+    def test_editor_scoped_to_project(self, client_logged_in):
+        from projects.tests.factories import ProjectFactory
+
+        manuscript = ManuscriptFactory()
+        other = ProjectFactory()
+        response = client_logged_in.get(reverse("writing:editor", args=[other.slug, manuscript.pk]))
+        assert response.status_code == 404

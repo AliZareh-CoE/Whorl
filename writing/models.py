@@ -27,6 +27,7 @@ class Manuscript(TimeStampedModel):
     deadline = models.DateField(null=True, blank=True)
     abstract = models.TextField(blank=True)
     repo_url = models.URLField(blank=True)
+    latex_source = models.TextField(blank=True)  # edited in the in-browser LaTeX editor
     references = models.ManyToManyField(Reference, through="ManuscriptReference", blank=True)
 
     class Meta:

@@ -16,6 +16,7 @@
   <h1 class="text-2xl font-semibold tracking-tight">{{ manuscript.title }}</h1>
   <span class="rounded bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{{ manuscript.get_status_display }}</span>
   <span class="ml-auto"></span>
+  <a href="{% url 'writing:editor' project.slug manuscript.pk %}" class="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:border-indigo-400">✎ LaTeX editor</a>
   <a href="{% url 'writing:edit' project.slug manuscript.pk %}" class="text-sm text-stone-500 hover:underline">Edit</a>
 </div>
 <p class="mb-6 text-sm text-stone-500">

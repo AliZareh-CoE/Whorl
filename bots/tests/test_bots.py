@@ -110,9 +110,7 @@ class TestViews:
 def test_overdue_milestones_also_remind():
     from plans.tests.factories import MilestoneFactory
 
-    MilestoneFactory(
-        title="Slipped", due_date=timezone.localdate() - datetime.timedelta(days=4)
-    )
+    MilestoneFactory(title="Slipped", due_date=timezone.localdate() - datetime.timedelta(days=4))
     result = registry.run_deadline_reminder()
     assert result == "1 new reminder(s)."
     assert QuickCapture.objects.filter(text__contains="OVERDUE").exists()
