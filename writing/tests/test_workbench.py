@@ -566,3 +566,19 @@ class TestWritingContext:
             f"/projects/{m.project.slug}/writing/{m.pk}/context/?q=pupil"
         ).json()
         assert {n["title"] for n in data["notes"]} == {"Pupillometry rig"}
+
+
+class TestApiWordCount:
+    """B4 prerequisite: word count exposed in DRF for the MCP latex_word_count tool."""
+
+    def test_word_count_action_returns_counts(self, client_logged_in):
+        from writing.models import ManuscriptFile
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(
+            manuscript=m, path="main.tex", content="\\section{X}\none two three", is_main=True
+        )
+        data = client_logged_in.get(f"/api/v1/manuscripts/{m.pk}/word-count/").json()
+        assert data["headers"] == 1
+        assert data["words"] == 4  # "X" + one two three

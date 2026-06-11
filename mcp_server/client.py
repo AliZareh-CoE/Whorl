@@ -150,3 +150,70 @@ def get_synthesis_scaffold(slug: str):
 
 def get_timeline(slug: str):
     return _request("GET", f"/projects/{slug}/timeline/")
+
+
+# --- LaTeX manuscript workbench (beyond-Overleaf B4): edit + compile via the API ---
+
+
+def list_manuscripts(project: str | None = None):
+    params = {"project": project} if project else None
+    return _request("GET", "/manuscripts/", params=params)
+
+
+def get_manuscript(manuscript_id: int):
+    return _request("GET", f"/manuscripts/{manuscript_id}/")
+
+
+def list_manuscript_files(manuscript_id: int):
+    return _request("GET", "/manuscript-files/", params={"manuscript": manuscript_id})
+
+
+def read_manuscript_file(file_id: int):
+    return _request("GET", f"/manuscript-files/{file_id}/")
+
+
+def write_manuscript_file(manuscript_id: int, path: str, content: str):
+    """Create the file at `path` (or overwrite it if it already exists)."""
+    listing = list_manuscript_files(manuscript_id)
+    results = listing["results"] if isinstance(listing, dict) and "results" in listing else listing
+    existing = next((f for f in results if f["path"] == path), None)
+    if existing:
+        return _request("PATCH", f"/manuscript-files/{existing['id']}/", json={"content": content})
+    return _request(
+        "POST",
+        "/manuscript-files/",
+        json={"manuscript": manuscript_id, "path": path, "content": content},
+    )
+
+
+def set_main_file(file_id: int):
+    return _request("PATCH", f"/manuscript-files/{file_id}/", json={"is_main": True})
+
+
+def compile_manuscript(manuscript_id: int):
+    """Queue a compile. Returns immediately; poll get_compile_status for the result."""
+    return _request("POST", f"/manuscripts/{manuscript_id}/compile/")
+
+
+def get_compile_status(manuscript_id: int):
+    """Compile state: status (running/ok/failed), parsed diagnostics, pdf_url, log tail."""
+    return _request("GET", f"/manuscripts/{manuscript_id}/compile-status/")
+
+
+def get_compile_diagnostics(manuscript_id: int):
+    return get_compile_status(manuscript_id).get("diagnostics", [])
+
+
+def latex_word_count(manuscript_id: int):
+    return _request("GET", f"/manuscripts/{manuscript_id}/word-count/")
+
+
+def compile_and_wait(manuscript_id: int, timeout_seconds: int = 120):
+    """Compile and block until the result is ready (paced by the status round-trip — no
+    time import, so the pure-httpx import constraint holds)."""
+    compile_manuscript(manuscript_id)
+    deadline = datetime.now(UTC).timestamp() + timeout_seconds
+    status = get_compile_status(manuscript_id)
+    while status.get("status") == "running" and datetime.now(UTC).timestamp() < deadline:
+        status = get_compile_status(manuscript_id)
+    return status

@@ -128,5 +128,80 @@ def get_weekly_review(project: str = "", weeks_back: int = 0) -> dict:
     return client.get_weekly_review(project or None, weeks_back)
 
 
+@mcp.tool()
+def list_manuscripts(project: str = "") -> dict:
+    """List the owner's manuscripts (LaTeX papers), optionally scoped to one project slug.
+    Each includes its title, status, and file summary."""
+    return client.list_manuscripts(project or None)
+
+
+@mcp.tool()
+def get_manuscript(manuscript_id: int) -> dict:
+    """Full detail for one manuscript, including its source file tree (paths, kinds, which is
+    the main file) and current compile status."""
+    return client.get_manuscript(manuscript_id)
+
+
+@mcp.tool()
+def list_manuscript_files(manuscript_id: int) -> dict:
+    """The source files of a manuscript (main.tex, sections, .bib, figures): id, path, kind."""
+    return client.list_manuscript_files(manuscript_id)
+
+
+@mcp.tool()
+def read_manuscript_file(file_id: int) -> dict:
+    """Read one manuscript source file's content by its id (from list_manuscript_files)."""
+    return client.read_manuscript_file(file_id)
+
+
+@mcp.tool()
+def write_manuscript_file(manuscript_id: int, path: str, content: str) -> dict:
+    """Create or overwrite a manuscript source file at `path` (e.g. 'main.tex' or
+    'sections/intro.tex') with `content`. Use this to edit the owner's LaTeX, then call
+    compile_manuscript and poll get_compile_status to see errors and the PDF."""
+    return client.write_manuscript_file(manuscript_id, path, content)
+
+
+@mcp.tool()
+def set_main_file(file_id: int) -> dict:
+    """Mark a manuscript file as the main file that the compiler builds."""
+    return client.set_main_file(file_id)
+
+
+@mcp.tool()
+def compile_manuscript(manuscript_id: int) -> dict:
+    """Queue a LaTeX compile of the manuscript's current source. Returns immediately; then
+    poll get_compile_status until status is 'ok' or 'failed' to read diagnostics and the PDF."""
+    return client.compile_manuscript(manuscript_id)
+
+
+@mcp.tool()
+def get_compile_status(manuscript_id: int) -> dict:
+    """The latest compile result: status ('running'/'ok'/'failed'), parsed diagnostics
+    [{level, file, line, message}], the compiled PDF url, and the log tail on failure.
+    Poll this after compile_manuscript to drive an edit -> compile -> fix loop."""
+    return client.get_compile_status(manuscript_id)
+
+
+@mcp.tool()
+def get_compile_diagnostics(manuscript_id: int) -> list:
+    """Just the parsed diagnostics [{level, file, line, message}] from the manuscript's last
+    compile — a tight list to reason over when fixing LaTeX errors."""
+    return client.get_compile_diagnostics(manuscript_id)
+
+
+@mcp.tool()
+def compile_and_wait(manuscript_id: int, timeout_seconds: int = 120) -> dict:
+    """Compile the manuscript and block until it finishes (ok/failed) or the timeout, then
+    return the final status (diagnostics + pdf url). The one-shot edit->compile->result tool."""
+    return client.compile_and_wait(manuscript_id, timeout_seconds)
+
+
+@mcp.tool()
+def latex_word_count(manuscript_id: int) -> dict:
+    """Approximate word/header/caption/inline-math counts across the manuscript's text files."""
+    return client.latex_word_count(manuscript_id)
+
+
 if __name__ == "__main__":
     mcp.run()

@@ -152,3 +152,111 @@ def test_get_synthesis_scaffold_builds_request(capture):
 
     client.get_synthesis_scaffold("attention-and-memory")
     assert "/projects/attention-and-memory/synthesis/" in capture["url"]
+
+
+# --- B4: manuscript workbench + compile tools ---
+
+
+def test_list_manuscripts_scopes_by_project(capture):
+    client.list_manuscripts("attn")
+    assert "/manuscripts/" in capture["url"] and "project=attn" in capture["url"]
+
+
+def test_set_main_file_patches_is_main(capture):
+    client.set_main_file(9)
+    assert capture["method"] == "PATCH"
+    assert "/manuscript-files/9/" in capture["url"]
+    assert '"is_main":true' in capture["body"]
+
+
+def test_compile_manuscript_posts(capture):
+    client.compile_manuscript(42)
+    assert capture["method"] == "POST" and "/manuscripts/42/compile/" in capture["url"]
+
+
+def test_latex_word_count_hits_action(capture):
+    client.latex_word_count(42)
+    assert "/manuscripts/42/word-count/" in capture["url"]
+
+
+def test_write_manuscript_file_creates_when_path_new(monkeypatch, env):
+    seen = []
+
+    def fake_client():
+        def handler(request):
+            seen.append(
+                (
+                    request.method,
+                    str(request.url),
+                    request.content.decode() if request.content else "",
+                )
+            )
+            if request.method == "GET":
+                return httpx.Response(200, json=[])  # no existing files
+            return httpx.Response(201, json={"id": 5, "path": "new.tex"})
+
+        return httpx.Client(
+            base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(client, "_client", fake_client)
+    client.write_manuscript_file(42, "new.tex", "hi")
+    methods = [m for m, _, _ in seen]
+    assert "GET" in methods and "POST" in methods
+    post = next(s for s in seen if s[0] == "POST")
+    assert "/manuscript-files/" in post[1] and '"path":"new.tex"' in post[2]
+
+
+def test_write_manuscript_file_updates_when_path_exists(monkeypatch, env):
+    seen = []
+
+    def fake_client():
+        def handler(request):
+            seen.append((request.method, str(request.url)))
+            if request.method == "GET":
+                return httpx.Response(200, json=[{"id": 10, "path": "main.tex"}])
+            return httpx.Response(200, json={"id": 10})
+
+        return httpx.Client(
+            base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(client, "_client", fake_client)
+    client.write_manuscript_file(42, "main.tex", "updated")
+    assert ("PATCH", "http://testserver/api/v1/manuscript-files/10/") in seen
+
+
+def test_compile_and_wait_polls_until_done(monkeypatch, env):
+    states = iter(
+        [{"status": "running"}, {"status": "running"}, {"status": "ok", "pdf_url": "/p.pdf"}]
+    )
+
+    def fake_client():
+        def handler(request):
+            if request.method == "POST":
+                return httpx.Response(202, json={"status": "running"})
+            return httpx.Response(200, json=next(states))
+
+        return httpx.Client(
+            base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(client, "_client", fake_client)
+    result = client.compile_and_wait(42, timeout_seconds=30)
+    assert result["status"] == "ok" and result["pdf_url"] == "/p.pdf"
+
+
+def test_compile_and_wait_respects_timeout(monkeypatch, env):
+    def fake_client():
+        def handler(request):
+            if request.method == "POST":
+                return httpx.Response(202, json={"status": "running"})
+            return httpx.Response(200, json={"status": "running"})
+
+        return httpx.Client(
+            base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(client, "_client", fake_client)
+    result = client.compile_and_wait(42, timeout_seconds=0)  # immediate deadline
+    assert result["status"] == "running"  # returns, doesn't loop forever

@@ -596,9 +596,22 @@ class ManuscriptViewSet(AtlasViewSet):
         return Response({"status": "running"}, status=202)
 
     @extend_schema(
+        responses={200: OpenApiResponse(description="Approx word/header/caption/math counts")},
+        description="Approximate word count across the manuscript's text files (LaTeX detex).",
+    )
+    @action(detail=True, methods=["get"], url_path="word-count")
+    def word_count(self, request, pk=None):
+        from writing.wordcount import word_count as count
+
+        manuscript = self.get_object()
+        files = manuscript.files.filter(kind="tex")
+        source = "\n".join(f.content for f in files) if files.exists() else manuscript.latex_source
+        return Response(count(source))
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Compile status, diagnostics, pdf url")},
         description="Compile state: status, parsed diagnostics [{level,file,line,message}], "
-        "log tail on failure, and the PDF url when compiled.",
+        "log tail on failure, and the PDF url when compiled. (No ETag — polling stays fresh.)",
     )
     @action(detail=True, methods=["get"], url_path="compile-status")
     def compile_status(self, request, pk=None):
