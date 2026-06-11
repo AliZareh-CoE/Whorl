@@ -145,6 +145,7 @@ def latex_editor(request, slug, pk):
                 "fileUrlBase": reverse("writing:files", args=[slug, manuscript.pk]),
                 "wordCountUrl": reverse("writing:word_count", args=[slug, manuscript.pk]),
                 "citeLibraryUrl": reverse("writing:cite_library", args=[slug, manuscript.pk]),
+                "projectSlug": slug,
                 "revisionsUrl": reverse("writing:revisions", args=[slug, manuscript.pk]),
                 "files": [_file_dict(f) for f in manuscript.files.all()],
                 "mainFileId": main.pk,

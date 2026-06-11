@@ -28,6 +28,11 @@
     return (files.get(id) || { path: "main.tex" }).path;
   }
 
+  // cite state (hoisted above the editor: lint runs during construction — B1/B2)
+  let citeLibrary = []; // [{reference_id, key, title, authors, year, linked}]
+  let missingCiteKeys = [];
+  let editorReady = false; // cite-check helpers are declared below the editor; gate them
+
   const SETTINGS_KEY = "atlas-editor-settings";
   const settings = Object.assign(
     { keymap: "default", fontSize: "13", spellcheck: false },
@@ -45,20 +50,24 @@
     spellcheck: settings.spellcheck,
     gutters: ["CodeMirror-linenumbers", "CodeMirror-lint-markers"],
     lint: {
-      getAnnotations: (text, opts, cm) => (DIAGNOSTICS || [])
-        .filter((d) => d.line && (d.file || "main.tex") === pathOf(activeId))
-        .map((d) => ({
-          from: CodeMirror.Pos(d.line - 1, 0),
-          to: CodeMirror.Pos(d.line - 1, (cm.getLine(d.line - 1) || " ").length),
-          severity: d.level === "error" ? "error" : "warning",
-          message: d.message,
-        })),
+      getAnnotations: (text, opts, cm) => {
+        const compileAnns = (DIAGNOSTICS || [])
+          .filter((d) => d.line && (d.file || "main.tex") === pathOf(activeId))
+          .map((d) => ({
+            from: CodeMirror.Pos(d.line - 1, 0),
+            to: CodeMirror.Pos(d.line - 1, (cm.getLine(d.line - 1) || " ").length),
+            severity: d.level === "error" ? "error" : "warning",
+            message: d.message,
+          }));
+        return editorReady ? compileAnns.concat(citeCheckAnnotations(cm)) : compileAnns; // B2
+      },
       lintOnChange: false,
     },
   });
   editor.getWrapperElement().style.minHeight = "55vh";
   window.editor = editor; // console + test access
   docs.set(cfg.mainFileId, editor.getDoc());
+  editorReady = true; // const/let cite-check helpers below are now initialized
 
   // --- editor settings + find/replace (epic slice 5) ---------------------------
   function persistSettings() {
@@ -192,7 +201,6 @@
 
   // Beyond-Overleaf B1: \cite{} completes from the whole project library, not just the
   // already-linked bib. Accepting an unlinked paper auto-creates the ManuscriptReference.
-  let citeLibrary = []; // [{reference_id, key, title, authors, year, linked}]
   function loadCiteLibrary() {
     if (!cfg.citeLibraryUrl) return;
     fetch(cfg.citeLibraryUrl)
@@ -214,6 +222,47 @@
     } catch {
       /* the key is inserted regardless; the link can be added from the bibliography UI */
     }
+  }
+
+  // Beyond-Overleaf B2: live cite-check. Complete \cite{key} tokens whose key isn't in
+  // the library (or already linked) get a calm amber squiggle; a bar offers add-by-DOI.
+  const CITE_TOKEN = /\\\w*cite\w*\*?(?:\[[^\]]*\])*\{([^}]+)\}/g;
+  function knownCiteKeys() {
+    const keys = new Set(CITE_KEYS);
+    for (const c of citeLibrary) keys.add(c.key);
+    return keys;
+  }
+  function citeCheckAnnotations(cm) {
+    const known = knownCiteKeys();
+    if (!known.size && !citeLibrary.length) return []; // library not loaded yet — don't nag
+    const anns = [];
+    const missing = new Set();
+    for (let i = 0; i < cm.lineCount(); i++) {
+      const line = cm.getLine(i);
+      let m;
+      CITE_TOKEN.lastIndex = 0;
+      while ((m = CITE_TOKEN.exec(line)) !== null) {
+        const inner = m[1];
+        const keysStart = m.index + m[0].indexOf("{", 0) + 1;
+        let offset = keysStart;
+        for (const raw of inner.split(",")) {
+          const key = raw.trim();
+          const at = line.indexOf(key, offset);
+          offset = at + key.length;
+          if (key && !known.has(key)) {
+            missing.add(key);
+            anns.push({
+              from: CodeMirror.Pos(i, at),
+              to: CodeMirror.Pos(i, at + key.length),
+              severity: "warning",
+              message: `Citation “${key}” isn't in your library. Add it from the library or by DOI.`,
+            });
+          }
+        }
+      }
+    }
+    missingCiteKeys = [...missing];
+    return anns;
   }
 
   function citeHint(cm) {
@@ -503,8 +552,49 @@
   let outlineTimer = null;
   editor.on("change", () => {
     clearTimeout(outlineTimer);
-    outlineTimer = setTimeout(renderOutline, 600);
+    outlineTimer = setTimeout(() => {
+      renderOutline();
+      editor.performLint(); // re-run cite-check (B2)
+      renderMissingCites();
+    }, 600);
   });
+
+  // --- live cite-check bar (beyond-Overleaf B2) --------------------------------
+  const citeBar = document.getElementById("cite-missing-bar");
+  const citeKeysOut = document.getElementById("cite-missing-keys");
+  const citeDoiInput = document.getElementById("cite-doi-input");
+  const citeDoiStatus = document.getElementById("cite-doi-status");
+  function renderMissingCites() {
+    if (!citeBar) return;
+    if (!missingCiteKeys.length) {
+      citeBar.classList.add("hidden");
+      return;
+    }
+    citeBar.classList.remove("hidden");
+    citeKeysOut.textContent = missingCiteKeys.join(", ");
+  }
+  document.getElementById("cite-doi-add")?.addEventListener("click", async () => {
+    const doi = citeDoiInput.value.trim();
+    if (!doi) return;
+    citeDoiStatus.textContent = "adding…";
+    try {
+      const res = await fetch("/api/v1/references/by-doi/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+        body: JSON.stringify({ doi, project: cfg.projectSlug }),
+      });
+      if (!res.ok) throw new Error();
+      const ref = await res.json();
+      citeDoiStatus.textContent = `added ${ref.bibtex_key}`;
+      citeDoiInput.value = "";
+      await new Promise((r) => setTimeout(() => { loadCiteLibrary(); r(); }, 200));
+      setTimeout(() => { editor.performLint(); renderMissingCites(); }, 500);
+    } catch {
+      citeDoiStatus.textContent = "couldn't add — check the DOI";
+    }
+  });
+  // initial check once the library has loaded
+  setTimeout(() => { editor.performLint(); renderMissingCites(); }, 1000);
 
   const wcBtn = document.getElementById("wordcount-btn");
   const wcOut = document.getElementById("wordcount-out");
