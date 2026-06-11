@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: LaTeX epic slice 2 [cycle 102] — autosave + in-place compile)
-- **Last completed slice (cycle 101, LaTeX epic slice 1):** compile diagnostics — writing/log_parser.py (tectonic errors, LaTeX warnings, noise filtered) → Manuscript.compile_diagnostics; CM5 lint gutter markers + squiggles; Compile-problems panel with click→jump-to-line; API parity (latex_source + compile fields, POST compile/ + GET compile-status/ actions). Browser-verified on a real broken compile; clean API round-trip 202→ok+PDF. 5 new tests. Epic plan of record logged under Owner idea #24 (10 parity slices + B1-B7 beyond layer + risks).
+- **Slice in progress:** — (next: LaTeX epic slice 3 [cycle 103, UI/UX] — pdf.js preview pane)
+- **Last completed slice (cycle 102, LaTeX epic slice 2):** autosave + in-place compile — debounced 2s autosave (JSON mode, Saved indicator + missing-cite count, beforeunload guard), fetch compile + poller (no reloads), auto-compile toggle, compile_generation stale-drop guard (tested), editor JS extracted to static/js/latex-editor.js. Browser-verified end to end with a no-reload assertion. 3 new tests (34 in writing).
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → **Owner idea #24 LaTeX epic (slices 2,3,4,5 next; [REV] multi-file workbench at 105)** → other owner ideas → backlog; every cycle: ≥1 new idea + tech improvement + research-backed design + parallel planning agents for future epics.
 - **Next 3 slices:**
-  1. LaTeX epic slice 2 [cycle 102]: autosave + in-place compile (fetch save endpoint, compile_generation guard, auto-compile toggle, extract static/js/latex-editor.js)
-  2. LaTeX epic slice 3 [cycle 103, UI/UX]: pdf.js preview pane (zoom, page nav, position kept across recompiles)
-  3. Slice 4 autocomplete+snippets [104]; [REV] multi-file workbench [105]; AUDIT #11 [110]
+  1. LaTeX epic slice 3 [cycle 103, UI/UX]: pdf.js preview pane (zoom, page nav, position kept across recompiles; check literature reader's pdf.js vendoring first)
+  2. LaTeX epic slice 4 [cycle 104]: autocomplete v2 + snippets (\begin auto-close, \ref from \label scan, placeholder hopping)
+  3. [REV] multi-file workbench [105]; slices 5,7,8 [106-108]; AUDIT #11 [110]
 - **Broken:** nothing
 
 ## Gate reports

@@ -41,6 +41,7 @@ class Manuscript(TimeStampedModel):
     )
     compile_log = models.TextField(blank=True)
     compile_diagnostics = models.JSONField(default=list, blank=True)  # parsed from the log
+    compile_generation = models.PositiveIntegerField(default=0)  # bumped per queue; stale drops
     compiled_at = models.DateTimeField(null=True, blank=True)
     references = models.ManyToManyField(Reference, through="ManuscriptReference", blank=True)
 

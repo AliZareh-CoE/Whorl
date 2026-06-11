@@ -19,8 +19,18 @@ def tectonic_available() -> bool:
     return TECTONIC.exists()
 
 
-def compile_manuscript(manuscript: Manuscript) -> str:
+def _stale(manuscript: Manuscript, generation: int | None) -> bool:
+    """A newer compile was queued after this one — drop our results (epic slice 2)."""
+    if generation is None:
+        return False
+    current = Manuscript.objects.values_list("compile_generation", flat=True).get(pk=manuscript.pk)
+    return generation < current
+
+
+def compile_manuscript(manuscript: Manuscript, generation: int | None = None) -> str:
     """Compile latex_source to PDF; stores status, log, and the PDF on the manuscript."""
+    if _stale(manuscript, generation):
+        return "skipped: a newer compile was queued"
     if not manuscript.latex_source.strip():
         manuscript.compile_status = Manuscript.CompileStatus.FAILED
         manuscript.compile_log = "Nothing to compile — the LaTeX source is empty."
@@ -66,6 +76,8 @@ def compile_manuscript(manuscript: Manuscript) -> str:
         except subprocess.TimeoutExpired:
             log = f"Compile timed out after {COMPILE_TIMEOUT}s."
             manuscript.compile_status = Manuscript.CompileStatus.FAILED
+    if _stale(manuscript, generation):
+        return "skipped: a newer compile superseded this one"
     manuscript.compile_log = log[-10000:]
     from .log_parser import parse_compile_log
 

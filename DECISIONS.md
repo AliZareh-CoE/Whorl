@@ -303,6 +303,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     work not the flag, multi-file needs --untrusted + strict path validation (#36 urgency),
     compile queue pile-up needs generation counter, stop-on-first-error is moot (tectonic
     halts hard — verified live).
+    ~~Slice 2 (2026-06-11, cycle 102): the editor stopped reloading — debounced 2s
+    autosave (X-SPA JSON mode on the editor view, "Saved HH:MM" + missing-cite count,
+    beforeunload guard, retry on failure), fetch-based compile with the existing poller,
+    auto-compile-on-save toggle (localStorage), compile_generation counter so stale huey
+    results are dropped (guard at task start AND before result write, tested), editor JS
+    extracted to static/js/latex-editor.js (vite emptyOutDir=false keeps it); browser-
+    verified: type→Saved, broken compile→problems panel, fix→green PDF, all with zero
+    page loads (window-flag assertion).~~
     ~~Slice 1 (2026-06-11, cycle 101): writing/log_parser.py parses tectonic output
     (located errors, LaTeX warnings, bare errors; noise filtered) into
     Manuscript.compile_diagnostics; CM5 lint addon renders gutter markers + squiggles;
@@ -561,3 +569,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 112. CI audit artifacts — upload /tmp/server.log and the sweep output as workflow artifacts on failure so red audit jobs are debuggable without rerunning (idea added by cycle 99)
 113. API timing smoke in CI — extend the audit job with a best-of-5 latency check on 3 hot endpoints against the 50ms bar, so regressions like the cycle-100 N+1 surface in PRs not audits (idea added by cycle 100)
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
+115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)

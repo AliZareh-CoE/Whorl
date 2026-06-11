@@ -102,12 +102,28 @@ def latex_editor(request, slug, pk):
     if request.method == "POST":
         manuscript.latex_source = request.POST.get("latex_source", "")
         manuscript.save(update_fields=["latex_source", "updated_at"])
-        messages.success(request, "Source saved.")
         if manuscript.latex_source.strip():
             cite_result = services.check_citations(manuscript, manuscript.latex_source)
+        if request.headers.get("X-SPA"):  # epic slice 2: autosave without a page reload
+            from django.http import JsonResponse
+
+            return JsonResponse(
+                {
+                    "saved": True,
+                    "cite": {
+                        "missing_from_bib": len(cite_result["missing_from_bib"])
+                        if cite_result
+                        else 0,
+                        "uncited_in_bib": len(cite_result["uncited_in_bib"]) if cite_result else 0,
+                    },
+                }
+            )
+        messages.success(request, "Source saved.")
     cite_keys = [
         link.cite_key for link in manuscript.manuscriptreference_set.select_related("reference")
     ]
+    from django.urls import reverse
+
     return render(
         request,
         "writing/latex_editor.html",
@@ -116,6 +132,13 @@ def latex_editor(request, slug, pk):
             "manuscript": manuscript,
             "cite_keys": sorted(cite_keys),
             "cite_result": cite_result,
+            "editor_config": {
+                "editorUrl": reverse("writing:editor", args=[slug, manuscript.pk]),
+                "compileUrl": reverse("writing:compile", args=[slug, manuscript.pk]),
+                "statusUrl": reverse("writing:compile_status", args=[slug, manuscript.pk]),
+                "hasPdf": bool(manuscript.compiled_pdf),
+                "compileRunning": manuscript.compile_status == "running",
+            },
         },
     )
 
@@ -129,10 +152,16 @@ def compile_manuscript_view(request, slug, pk):
     source = request.POST.get("latex_source")
     if source is not None:
         manuscript.latex_source = source
-        manuscript.save(update_fields=["latex_source", "updated_at"])
+    manuscript.compile_generation += 1
+    manuscript.compile_status = manuscript.CompileStatus.RUNNING
+    manuscript.save()
     from .tasks import compile_manuscript_task
 
-    compile_manuscript_task(manuscript.pk)
+    compile_manuscript_task(manuscript.pk, manuscript.compile_generation)
+    if request.headers.get("X-SPA"):  # epic slice 2: compile without a page reload
+        from django.http import JsonResponse
+
+        return JsonResponse({"status": "running"})
     messages.info(request, "Compiling in the background — refresh in a few seconds.")
     return redirect("writing:editor", slug=slug, pk=pk)
 

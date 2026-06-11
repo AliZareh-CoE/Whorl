@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}LaTeX editor · {{ manuscript.title|truncatechars:40 }}{% endblock %}
 
@@ -16,29 +17,27 @@
 
 <div class="mb-4 flex items-center gap-3">
   <h1 class="min-w-0 flex-1 truncate text-xl font-semibold tracking-tight">{{ manuscript.title }}</h1>
-  <span class="shrink-0 text-xs text-stone-400">Type <code class="rounded bg-stone-100 px-1">\cite{% templatetag openbrace %}</code> for key autocomplete · Ctrl/Cmd-S saves</span>
+  <span class="shrink-0 text-xs text-stone-400">Type <code class="rounded bg-stone-100 px-1">\cite{% templatetag openbrace %}</code> for key autocomplete · autosaves as you type</span>
 </div>
 
 <div class="flex gap-3">
-<form method="post" id="editor-form" class="min-w-0 flex-1">
-  {% csrf_token %}
+<div class="min-w-0 flex-1">
   <textarea name="latex_source" id="latex-source" class="hidden">{{ manuscript.latex_source }}</textarea>
   <div class="overflow-hidden rounded border border-stone-200 bg-white text-sm" id="editor-host"></div>
-  <div class="mt-3 flex items-center gap-3">
-    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save & check citations</button>
-    <button type="submit" form="compile-form" class="rounded border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:border-indigo-500">Compile PDF</button>
+  <div class="mt-3 flex flex-wrap items-center gap-3">
+    <button type="button" id="compile-btn" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Compile PDF</button>
+    <label class="flex items-center gap-1.5 text-xs text-stone-500">
+      <input type="checkbox" id="auto-compile" class="size-3.5 rounded border-stone-300 accent-indigo-600">
+      auto-compile on save
+    </label>
+    <span id="save-status" class="text-xs text-stone-400">Autosaves as you type</span>
     {% if manuscript.compiled_pdf %}
       <a href="{{ manuscript.compiled_pdf.url }}" target="_blank" class="text-sm text-indigo-600 hover:underline">View PDF</a>
     {% endif %}
-    <span class="text-xs text-stone-400">
-      {% if manuscript.compile_status == 'ok' %}✓ compiled {{ manuscript.compiled_at|date:"H:i" }}
-      {% elif manuscript.compile_status == 'failed' %}✕ compile failed
-      {% elif manuscript.compile_status == 'running' %}⏳ compiling…{% endif %}
-    </span>
     <button type="button" id="toggle-preview" class="rounded border border-stone-300 bg-white px-3 py-2 text-sm hover:border-stone-400">Preview ⇄</button>
     <a href="{{ manuscript.get_absolute_url }}" class="ml-auto text-sm text-stone-500 hover:underline">Back to manuscript</a>
   </div>
-</form>
+</div>
 
 <div id="preview-pane" class="hidden w-[45%] shrink-0">
   <div class="sticky top-4 overflow-hidden rounded border border-stone-200 bg-white">
@@ -58,11 +57,6 @@
   </div>
 </div>
 </div>
-<form id="compile-form" method="post" action="{% url 'writing:compile' project.slug manuscript.pk %}"
-      onsubmit="document.getElementById('compile-source').value = editor.getValue();">
-  {% csrf_token %}
-  <input type="hidden" name="latex_source" id="compile-source">
-</form>
 <div id="diagnostics-panel" class="mt-4 hidden rounded border border-stone-200 bg-white text-sm">
   <p class="border-b border-stone-100 px-3 py-1.5 text-xs font-medium text-stone-500">Compile problems <span id="diagnostics-count"></span></p>
   <ul id="diagnostics-list" class="divide-y divide-stone-50"></ul>
@@ -97,131 +91,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/stex/stex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/lint/lint.min.js"></script>
-<script>
-  const CITE_KEYS = JSON.parse(document.getElementById("cite-keys-data").textContent);
-  const textarea = document.getElementById("latex-source");
-  let DIAGNOSTICS = JSON.parse(document.getElementById("diagnostics-data").textContent) || [];
-  const editor = CodeMirror(document.getElementById("editor-host"), {
-    value: textarea.value || "% Start writing. \\cite{ } autocompletes from this manuscript's bibliography.\n",
-    mode: "stex",
-    lineNumbers: true,
-    lineWrapping: true,
-    viewportMargin: Infinity,
-    gutters: ["CodeMirror-linenumbers", "CodeMirror-lint-markers"],
-    lint: { getAnnotations: (text, opts, cm) => (DIAGNOSTICS || [])
-      .filter(d => d.line)
-      .map(d => ({
-        from: CodeMirror.Pos(d.line - 1, 0),
-        to: CodeMirror.Pos(d.line - 1, (cm.getLine(d.line - 1) || " ").length),
-        severity: d.level === "error" ? "error" : "warning",
-        message: d.message,
-      })), lintOnChange: false },
-  });
-
-  // Structured problems panel (Overleaf-parity slice 1): click a row → jump to the line.
-  const panel = document.getElementById("diagnostics-panel");
-  const list = document.getElementById("diagnostics-list");
-  const countEl = document.getElementById("diagnostics-count");
-  function renderDiagnostics(diags) {
-    DIAGNOSTICS = diags || [];
-    editor.performLint();
-    list.innerHTML = "";
-    panel.classList.toggle("hidden", DIAGNOSTICS.length === 0);
-    const errors = DIAGNOSTICS.filter(d => d.level === "error").length;
-    countEl.textContent = `· ${errors} error${errors === 1 ? "" : "s"}, ${DIAGNOSTICS.length - errors} warning${DIAGNOSTICS.length - errors === 1 ? "" : "s"}`;
-    for (const d of DIAGNOSTICS) {
-      const li = document.createElement("li");
-      li.className = "flex cursor-pointer items-baseline gap-2 px-3 py-1.5 hover:bg-stone-50";
-      li.innerHTML = `<span class="${d.level === "error" ? "text-red-600" : "text-amber-600"} text-xs font-medium">${d.level}</span>` +
-        (d.line ? `<span class="font-mono text-xs text-stone-400">L${d.line}</span>` : "") +
-        `<span class="min-w-0 flex-1 truncate text-xs text-stone-700"></span>`;
-      li.lastChild.textContent = d.message;
-      if (d.line) li.addEventListener("click", () => {
-        editor.setCursor({ line: d.line - 1, ch: 0 });
-        editor.focus();
-        editor.scrollIntoView({ line: d.line - 1, ch: 0 }, 120);
-      });
-      list.appendChild(li);
-    }
-  }
-  renderDiagnostics(DIAGNOSTICS);
-  editor.getWrapperElement().style.minHeight = "55vh";
-
-  function citeHint(cm) {
-    const cursor = cm.getCursor();
-    const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
-    const match = lineStart.match(/\\\w*cite\w*\*?(?:\[[^\]]*\])*\{([^}]*)$/);
-    if (!match) return null;
-    const fragment = match[1].split(",").pop().trim();
-    const from = { line: cursor.line, ch: cursor.ch - fragment.length };
-    const list = CITE_KEYS.filter(k => k.startsWith(fragment));
-    return { list: list.length ? list : CITE_KEYS, from, to: cursor };
-  }
-
-  editor.on("inputRead", (cm, change) => {
-    if (change.text[0] === "{" || /[\w,]/.test(change.text[0])) {
-      const lineStart = cm.getLine(cm.getCursor().line).slice(0, cm.getCursor().ch);
-      if (/\\\w*cite\w*\*?(?:\[[^\]]*\])*\{[^}]*$/.test(lineStart)) {
-        cm.showHint({ hint: citeHint, completeSingle: false });
-      }
-    }
-  });
-
-  // --- split preview pane ---
-  const previewPane = document.getElementById("preview-pane");
-  const previewFrame = document.getElementById("preview-frame");
-  const previewEmpty = document.getElementById("preview-empty");
-  const previewStatus = document.getElementById("preview-status");
-  const toggleBtn = document.getElementById("toggle-preview");
-  function setPreview(open) {
-    previewPane.classList.toggle("hidden", !open);
-    localStorage.setItem("atlas-editor-preview", open ? "1" : "0");
-  }
-  toggleBtn.addEventListener("click", () => setPreview(previewPane.classList.contains("hidden")));
-  if (localStorage.getItem("atlas-editor-preview") === "1" || {{ manuscript.compiled_pdf|yesno:"true,false" }}) setPreview(true);
-
-  let polling = null;
-  document.getElementById("compile-form").addEventListener("submit", () => {
-    setPreview(true);
-    previewStatus.textContent = "⏳ compiling…";
-  });
-  // resume polling if a compile is in flight or was just queued
-  function poll() {
-    fetch("{% url 'writing:compile_status' project.slug manuscript.pk %}")
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === "running") {
-          previewStatus.textContent = "⏳ compiling…";
-          return;
-        }
-        clearInterval(polling);
-        polling = null;
-        renderDiagnostics(data.diagnostics || []);
-        if (data.status === "ok" && data.pdf_url) {
-          previewStatus.textContent = `✓ compiled ${new Date(data.compiled_at).toLocaleTimeString()}`;
-          previewFrame.src = `${data.pdf_url}?t=${Date.parse(data.compiled_at)}#toolbar=0`;
-          previewFrame.classList.remove("hidden");
-          previewEmpty.classList.add("hidden");
-        } else if (data.status === "failed") {
-          previewStatus.textContent = "✕ compile failed — see problems below";
-          previewEmpty.textContent = (data.log || "Compile failed.").slice(-1500);
-          previewEmpty.classList.remove("hidden");
-          previewFrame.classList.add("hidden");
-        }
-      })
-      .catch(() => {});
-  }
-  {% if manuscript.compile_status == "running" %}polling = setInterval(poll, 2000);{% endif %}
-  // after the compile form posts (full page nav), the redirected page resumes polling above.
-
-  const form = document.getElementById("editor-form");
-  form.addEventListener("submit", () => { textarea.value = editor.getValue(); });
-  document.addEventListener("keydown", (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key === "s") {
-      event.preventDefault();
-      textarea.value = editor.getValue();
-      form.submit();
-    }
-  });
-</script>
+{{ editor_config|json_script:"editor-config" }}
+<script src="{% static 'js/latex-editor.js' %}" defer></script>
 {% endblock %}

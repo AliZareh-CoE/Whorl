@@ -571,9 +571,10 @@ class ManuscriptViewSet(AtlasViewSet):
         manuscript = self.get_object()
         if not manuscript.latex_source.strip():
             return Response({"detail": "latex_source is empty."}, status=400)
+        manuscript.compile_generation += 1
         manuscript.compile_status = Manuscript.CompileStatus.RUNNING
-        manuscript.save(update_fields=["compile_status", "updated_at"])
-        compile_manuscript_task(manuscript.pk)
+        manuscript.save(update_fields=["compile_generation", "compile_status", "updated_at"])
+        compile_manuscript_task(manuscript.pk, manuscript.compile_generation)
         return Response({"status": "running"}, status=202)
 
     @extend_schema(

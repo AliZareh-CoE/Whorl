@@ -269,7 +269,8 @@ class TestCompile:
         manuscript = ManuscriptFactory()
         called = {}
         monkeypatch.setattr(
-            "writing.tasks.compile_manuscript_task", lambda pk: called.setdefault("pk", pk)
+            "writing.tasks.compile_manuscript_task",
+            lambda pk, gen=None: called.setdefault("pk", pk),
         )
         response = client_logged_in.post(
             reverse("writing:compile", args=[manuscript.project.slug, manuscript.pk]),
@@ -409,7 +410,8 @@ class TestCompileDiagnostics:
 
         called = {}
         monkeypatch.setattr(
-            "writing.tasks.compile_manuscript_task", lambda pk: called.setdefault("pk", pk)
+            "writing.tasks.compile_manuscript_task",
+            lambda pk, gen=None: called.setdefault("pk", pk),
         )
         queued = client_logged_in.post(f"/api/v1/manuscripts/{manuscript.pk}/compile/")
         assert queued.status_code == 202
@@ -426,3 +428,59 @@ class TestCompileDiagnostics:
         manuscript = ManuscriptFactory(latex_source="   ")
         response = client_logged_in.post(f"/api/v1/manuscripts/{manuscript.pk}/compile/")
         assert response.status_code == 400
+
+
+class TestEpicSlice2:
+    """Owner idea #24 slice 2: autosave JSON mode, in-place compile, stale-drop guard."""
+
+    def test_autosave_returns_json_with_cite_counts(self, client_logged_in):
+        from writing.tests.factories import ManuscriptFactory
+
+        manuscript = ManuscriptFactory(latex_source="")
+        url = f"/projects/{manuscript.project.slug}/writing/{manuscript.pk}/editor/"
+        response = client_logged_in.post(
+            url, {"latex_source": "\\cite{ghostkey}"}, headers={"X-SPA": "1"}
+        )
+        data = response.json()
+        assert data["saved"] is True
+        assert data["cite"]["missing_from_bib"] == 1
+        manuscript.refresh_from_db()
+        assert manuscript.latex_source == "\\cite{ghostkey}"
+
+    def test_compile_spa_mode_returns_json_and_bumps_generation(
+        self, client_logged_in, monkeypatch
+    ):
+        from writing.tests.factories import ManuscriptFactory
+
+        manuscript = ManuscriptFactory(latex_source="x")
+        seen = {}
+        monkeypatch.setattr(
+            "writing.tasks.compile_manuscript_task",
+            lambda pk, gen=None: seen.update(pk=pk, gen=gen),
+        )
+        url = f"/projects/{manuscript.project.slug}/writing/{manuscript.pk}/compile/"
+        response = client_logged_in.post(url, {"latex_source": "y"}, headers={"X-SPA": "1"})
+        assert response.json() == {"status": "running"}
+        manuscript.refresh_from_db()
+        assert manuscript.compile_generation == 1
+        assert seen == {"pk": manuscript.pk, "gen": 1}
+        assert manuscript.latex_source == "y"
+
+    def test_stale_compile_result_is_dropped(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from writing import compile as compile_mod
+        from writing.tests.factories import ManuscriptFactory
+
+        manuscript = ManuscriptFactory(latex_source="x", compile_generation=2)
+        monkeypatch.setattr(compile_mod, "tectonic_available", lambda: True)
+        monkeypatch.setattr(
+            compile_mod.subprocess,
+            "run",
+            lambda *a, **k: SimpleNamespace(returncode=1, stdout="error: nope", stderr=""),
+        )
+        # queued at generation 1, but generation 2 was queued since -> drop
+        result = compile_mod.compile_manuscript(manuscript, generation=1)
+        assert "skipped" in result
+        manuscript.refresh_from_db()
+        assert manuscript.compile_status != "failed"  # stale result never written
