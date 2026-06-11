@@ -1,20 +1,129 @@
 {% extends "base.html" %}
 
-{% block title %}Documents · {{ project.name }}{% endblock %}
+{% block title %}Documents · {{ project.name }}<input type="file" id="multi-file-input" multiple class="hidden">
+<script>
+  const dropOverlay = document.getElementById("dropzone-overlay");
+  const statusBox = document.getElementById("upload-status");
+  const fileInput = document.getElementById("multi-file-input");
+  let dragDepth = 0;
+
+  async function uploadFiles(files) {
+    if (!files.length) return;
+    statusBox.textContent = `Uploading ${files.length} file(s)…`;
+    statusBox.classList.remove("hidden");
+    const body = new FormData();
+    for (const file of files) body.append("files", file);
+    {% if current_folder %}body.append("folder", "{{ current_folder.pk }}");{% endif %}
+    const response = await fetch("{% url 'documents:bulk_upload' project.slug %}", {
+      method: "POST",
+      headers: { "X-CSRFToken": "{{ csrf_token }}" },
+      body,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      statusBox.textContent = `Uploaded ${data.created.length} file(s).` +
+        (data.errors?.length ? ` Skipped: ${data.errors.join("; ")}` : "");
+      setTimeout(() => location.reload(), 600);
+    } else {
+      statusBox.textContent = data.errors?.join("; ") || "Upload failed.";
+    }
+  }
+
+  document.addEventListener("dragenter", (e) => {
+    if (e.dataTransfer?.types?.includes("Files")) {
+      dragDepth++;
+      dropOverlay.classList.remove("hidden");
+      dropOverlay.classList.add("flex");
+    }
+  });
+  document.addEventListener("dragleave", () => {
+    if (--dragDepth <= 0) { dragDepth = 0; dropOverlay.classList.add("hidden"); dropOverlay.classList.remove("flex"); }
+  });
+  document.addEventListener("dragover", (e) => e.preventDefault());
+  document.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    dropOverlay.classList.add("hidden");
+    dropOverlay.classList.remove("flex");
+    uploadFiles([...e.dataTransfer.files]);
+  });
+  fileInput.addEventListener("change", () => uploadFiles([...fileInput.files]));
+</script>
+{% endblock %}
 
 {% block breadcrumbs %}
 <a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
 <a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Documents
+<input type="file" id="multi-file-input" multiple class="hidden">
+<script>
+  const dropOverlay = document.getElementById("dropzone-overlay");
+  const statusBox = document.getElementById("upload-status");
+  const fileInput = document.getElementById("multi-file-input");
+  let dragDepth = 0;
+
+  async function uploadFiles(files) {
+    if (!files.length) return;
+    statusBox.textContent = `Uploading ${files.length} file(s)…`;
+    statusBox.classList.remove("hidden");
+    const body = new FormData();
+    for (const file of files) body.append("files", file);
+    {% if current_folder %}body.append("folder", "{{ current_folder.pk }}");{% endif %}
+    const response = await fetch("{% url 'documents:bulk_upload' project.slug %}", {
+      method: "POST",
+      headers: { "X-CSRFToken": "{{ csrf_token }}" },
+      body,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      statusBox.textContent = `Uploaded ${data.created.length} file(s).` +
+        (data.errors?.length ? ` Skipped: ${data.errors.join("; ")}` : "");
+      setTimeout(() => location.reload(), 600);
+    } else {
+      statusBox.textContent = data.errors?.join("; ") || "Upload failed.";
+    }
+  }
+
+  document.addEventListener("dragenter", (e) => {
+    if (e.dataTransfer?.types?.includes("Files")) {
+      dragDepth++;
+      dropOverlay.classList.remove("hidden");
+      dropOverlay.classList.add("flex");
+    }
+  });
+  document.addEventListener("dragleave", () => {
+    if (--dragDepth <= 0) { dragDepth = 0; dropOverlay.classList.add("hidden"); dropOverlay.classList.remove("flex"); }
+  });
+  document.addEventListener("dragover", (e) => e.preventDefault());
+  document.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    dropOverlay.classList.add("hidden");
+    dropOverlay.classList.remove("flex");
+    uploadFiles([...e.dataTransfer.files]);
+  });
+  fileInput.addEventListener("change", () => uploadFiles([...fileInput.files]));
+</script>
 {% endblock %}
 
 {% block content %}
 {% include "projects/_subnav.html" %}
+
+<div id="dropzone-overlay" class="pointer-events-none fixed inset-0 z-40 hidden items-center justify-center bg-indigo-600/10 backdrop-blur-[1px]">
+  <div class="rounded-lg border-2 border-dashed border-indigo-500 bg-white px-10 py-8 text-center">
+    <p class="text-lg font-medium text-indigo-700">Drop files to upload</p>
+    <p class="text-sm text-stone-500">into {% if current_folder %}“{{ current_folder.path }}”{% else %}the project root{% endif %}</p>
+  </div>
+</div>
+<div id="upload-status" class="mb-3 hidden rounded border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm text-indigo-800"></div>
 
 <div class="mb-6 flex items-center justify-between">
   <h1 class="text-2xl font-semibold tracking-tight">Documents</h1>
   <div class="flex items-center gap-2">
     <a href="{% url 'documents:folder_create' project.slug %}{% if current_folder %}?parent={{ current_folder.pk }}{% endif %}"
        class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">New folder</a>
+    <button type="button" onclick="document.getElementById('multi-file-input').click()"
+            class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400"
+            title="Or just drag files anywhere onto this page">Quick upload</button>
     <a href="{% url 'documents:upload' project.slug %}{% if current_folder %}?folder={{ current_folder.pk }}{% endif %}"
        class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Upload</a>
   </div>
@@ -78,24 +187,7 @@
         </thead>
         <tbody>
           {% for doc in documents %}
-            <tr class="border-b border-stone-100 transition-colors hover:bg-stone-50">
-              <td class="py-2 pr-4">
-                <a href="{% url 'documents:download' project.slug doc.pk %}" class="font-medium hover:underline">{{ doc.title }}</a>
-                {% if doc.description %}<p class="text-xs text-stone-400">{{ doc.description|truncatechars:80 }}</p>{% endif %}
-              </td>
-              <td class="py-2 pr-4 text-stone-500">{{ doc.folder.path|default:"—" }}</td>
-              <td class="py-2 pr-4">
-                {% for tag in doc.tags.all %}
-                  <span class="rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-500">{{ tag.name }}</span>
-                {% endfor %}
-              </td>
-              <td class="py-2 pr-4 text-stone-500">{{ doc.file_size|filesizeformat }}</td>
-              <td class="py-2 pr-4 text-stone-500">{{ doc.created_at|date:"Y-m-d" }}</td>
-              <td class="py-2 text-right">
-                <a href="{% url 'documents:download' project.slug doc.pk %}" class="text-xs text-indigo-600 hover:underline">Download</a>
-                <a href="{% url 'documents:document_edit' project.slug doc.pk %}" class="ml-2 text-xs text-stone-500 hover:underline">Edit</a>
-              </td>
-            </tr>
+            {% include "documents/_doc_row.html" %}
           {% endfor %}
         </tbody>
       </table>
@@ -112,4 +204,53 @@
     {% endif %}
   </div>
 </div>
+<input type="file" id="multi-file-input" multiple class="hidden">
+<script>
+  const dropOverlay = document.getElementById("dropzone-overlay");
+  const statusBox = document.getElementById("upload-status");
+  const fileInput = document.getElementById("multi-file-input");
+  let dragDepth = 0;
+
+  async function uploadFiles(files) {
+    if (!files.length) return;
+    statusBox.textContent = `Uploading ${files.length} file(s)…`;
+    statusBox.classList.remove("hidden");
+    const body = new FormData();
+    for (const file of files) body.append("files", file);
+    {% if current_folder %}body.append("folder", "{{ current_folder.pk }}");{% endif %}
+    const response = await fetch("{% url 'documents:bulk_upload' project.slug %}", {
+      method: "POST",
+      headers: { "X-CSRFToken": "{{ csrf_token }}" },
+      body,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      statusBox.textContent = `Uploaded ${data.created.length} file(s).` +
+        (data.errors?.length ? ` Skipped: ${data.errors.join("; ")}` : "");
+      setTimeout(() => location.reload(), 600);
+    } else {
+      statusBox.textContent = data.errors?.join("; ") || "Upload failed.";
+    }
+  }
+
+  document.addEventListener("dragenter", (e) => {
+    if (e.dataTransfer?.types?.includes("Files")) {
+      dragDepth++;
+      dropOverlay.classList.remove("hidden");
+      dropOverlay.classList.add("flex");
+    }
+  });
+  document.addEventListener("dragleave", () => {
+    if (--dragDepth <= 0) { dragDepth = 0; dropOverlay.classList.add("hidden"); dropOverlay.classList.remove("flex"); }
+  });
+  document.addEventListener("dragover", (e) => e.preventDefault());
+  document.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    dropOverlay.classList.add("hidden");
+    dropOverlay.classList.remove("flex");
+    uploadFiles([...e.dataTransfer.files]);
+  });
+  fileInput.addEventListener("change", () => uploadFiles([...fileInput.files]));
+</script>
 {% endblock %}

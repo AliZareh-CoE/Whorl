@@ -114,3 +114,75 @@ class TestDocumentViews:
         )
         assert response.status_code == 302
         assert project.tags.filter(name="methods").exists()
+
+
+class TestFileHandlingUpgrades:
+    def test_bulk_upload_multiple_files_into_folder(self, client_logged_in):
+        folder = FolderFactory()
+        project = folder.project
+        response = client_logged_in.post(
+            reverse("documents:bulk_upload", args=[project.slug]),
+            {
+                "folder": folder.pk,
+                "files": [
+                    SimpleUploadedFile("pilot_data-v2.csv", b"a,b", "text/csv"),
+                    SimpleUploadedFile("notes.txt", b"hi", "text/plain"),
+                ],
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert sorted(data["created"]) == ["notes", "pilot data v2"]
+        assert project.documents.filter(folder=folder).count() == 2
+
+    def test_bulk_upload_reports_oversize_per_file(self, client_logged_in, monkeypatch):
+        from core import security
+
+        monkeypatch.setattr(security, "MAX_UPLOAD_BYTES", 5)
+        project = ProjectFactory()
+        response = client_logged_in.post(
+            reverse("documents:bulk_upload", args=[project.slug]),
+            {
+                "files": [
+                    SimpleUploadedFile("ok.txt", b"tiny"),
+                    SimpleUploadedFile("big.txt", b"toolarge"),
+                ]
+            },
+        )
+        data = response.json()
+        assert data["created"] == ["ok"]
+        assert "big.txt" in data["errors"][0]
+
+    def test_inline_rename_roundtrip(self, client_logged_in):
+        doc = DocumentFactory(title="Old name")
+        form = client_logged_in.get(reverse("documents:rename", args=[doc.project.slug, doc.pk]))
+        assert b'name="title"' in form.content
+        response = client_logged_in.post(
+            reverse("documents:rename", args=[doc.project.slug, doc.pk]),
+            {"title": "New name"},
+        )
+        doc.refresh_from_db()
+        assert doc.title == "New name"
+        assert b"New name" in response.content
+
+    def test_quick_move_to_folder_and_root(self, client_logged_in):
+        folder = FolderFactory()
+        doc = DocumentFactory(project=folder.project)
+        client_logged_in.post(
+            reverse("documents:move", args=[doc.project.slug, doc.pk]), {"folder": folder.pk}
+        )
+        doc.refresh_from_db()
+        assert doc.folder == folder
+        client_logged_in.post(
+            reverse("documents:move", args=[doc.project.slug, doc.pk]), {"folder": ""}
+        )
+        doc.refresh_from_db()
+        assert doc.folder is None
+
+    def test_move_rejects_foreign_folder(self, client_logged_in):
+        doc = DocumentFactory()
+        foreign = FolderFactory()  # different project
+        response = client_logged_in.post(
+            reverse("documents:move", args=[doc.project.slug, doc.pk]), {"folder": foreign.pk}
+        )
+        assert response.status_code == 404

@@ -7,6 +7,9 @@ app_name = "documents"
 urlpatterns = [
     path("<slug:slug>/documents/", views.documents_index, name="index"),
     path("<slug:slug>/documents/upload/", views.DocumentCreateView.as_view(), name="upload"),
+    path("<slug:slug>/documents/bulk-upload/", views.bulk_upload, name="bulk_upload"),
+    path("<slug:slug>/documents/<int:pk>/rename/", views.document_rename, name="rename"),
+    path("<slug:slug>/documents/<int:pk>/move/", views.document_move, name="move"),
     path(
         "<slug:slug>/documents/<int:pk>/edit/",
         views.DocumentUpdateView.as_view(),

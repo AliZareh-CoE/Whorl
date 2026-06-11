@@ -202,3 +202,56 @@ class TagDeleteView(ProjectScopedMixin, DeleteView):
 
     def get_success_url(self):
         return reverse("documents:tags", kwargs={"slug": self.project.slug})
+
+
+@require_POST
+def bulk_upload(request, slug):
+    """Drag-and-drop / multi-file upload into the current folder. Returns JSON."""
+    from django.core.exceptions import ValidationError
+    from django.http import JsonResponse
+
+    from core.security import validate_upload_size
+
+    project = get_object_or_404(Project, slug=slug)
+    folder = None
+    if request.POST.get("folder"):
+        folder = get_object_or_404(project.folders, pk=request.POST["folder"])
+    created, errors = [], []
+    for file in request.FILES.getlist("files"):
+        try:
+            validate_upload_size(file)
+        except ValidationError as exc:
+            errors.append(f"{file.name}: {exc.messages[0]}")
+            continue
+        title = file.name.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip() or file.name
+        document = Document.objects.create(
+            project=project, folder=folder, file=file, title=title[:300]
+        )
+        created.append(document.title)
+    return JsonResponse({"created": created, "errors": errors}, status=201 if created else 400)
+
+
+def document_rename(request, slug, pk):
+    """HTMX inline rename: GET returns the edit form, POST saves and returns the row."""
+    project = get_object_or_404(Project, slug=slug)
+    document = get_object_or_404(project.documents, pk=pk)
+    if request.method == "POST":
+        title = request.POST.get("title", "").strip()[:300]
+        if title:
+            document.title = title
+            document.save(update_fields=["title", "updated_at"])
+        return render(request, "documents/_doc_row.html", {"project": project, "doc": document})
+    return render(request, "documents/_doc_rename_form.html", {"project": project, "doc": document})
+
+
+@require_POST
+def document_move(request, slug, pk):
+    """HTMX quick-move to another folder (or the project root)."""
+    project = get_object_or_404(Project, slug=slug)
+    document = get_object_or_404(project.documents, pk=pk)
+    folder = None
+    if request.POST.get("folder"):
+        folder = get_object_or_404(project.folders, pk=request.POST["folder"])
+    document.folder = folder
+    document.save(update_fields=["folder", "updated_at"])
+    return render(request, "documents/_doc_row.html", {"project": project, "doc": document})

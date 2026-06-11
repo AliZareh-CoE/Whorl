@@ -1,0 +1,13 @@
+<tr id="doc-{{ doc.pk }}" class="border-b border-stone-100 bg-indigo-50/40">
+  <td colspan="6" class="py-2 pr-4">
+    <form hx-post="{% url 'documents:rename' project.slug doc.pk %}"
+          hx-target="#doc-{{ doc.pk }}" hx-swap="outerHTML" class="flex items-center gap-2">
+      <input type="text" name="title" value="{{ doc.title }}" maxlength="300" autofocus
+             class="flex-1 rounded border border-stone-300 bg-white px-2 py-1 text-sm focus:border-indigo-600 focus:outline-none">
+      <button type="submit" class="rounded bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700">Save</button>
+      <button type="button" hx-get="{% url 'documents:rename' project.slug doc.pk %}?cancel=1"
+              hx-target="#doc-{{ doc.pk }}" hx-swap="outerHTML"
+              class="text-xs text-stone-500 hover:underline">Cancel</button>
+    </form>
+  </td>
+</tr>
