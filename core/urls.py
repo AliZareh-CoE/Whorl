@@ -12,4 +12,5 @@ urlpatterns = [
     path("comments/<slug:kind>/<int:object_id>/add/", comments.add_comment, name="comment_add"),
     path("comments/<int:pk>/delete/", comments.delete_comment, name="comment_delete"),
     path("pet/", views.pet_page, name="pet"),
+    path("summarize/", views.summarize_view, name="summarize"),
 ]

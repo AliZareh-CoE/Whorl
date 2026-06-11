@@ -33,7 +33,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 5. **NLP helpers.** Language tooling where it genuinely helps. ~~First slice (2026-06-10,
    cycle 8): RAKE-style local keyword extraction in `core/keywords.py` (no deps, no models);
    keyword chips on reference + note pages linking into search; "Suggested tags" on document
-   edit with one-click create-and-attach.~~ Remaining: summarization, search-side NLP (#15).
+   edit with one-click create-and-attach.~~ ~~Summarization (2026-06-11, cycle 26):
+   frequency-scored extractive summarizer in `core/summarize.py` (no models/APIs, opening-
+   sentence bonus, original order preserved); ≡ tl;dr buttons on notes and abstracts via a
+   shared HTMX include.~~ Remaining: search-side NLP done in #15; future: tl;dr for PDFs.
 6. **Prompt gallery.** ~~Done (2026-06-11, cycle 11): `prompts` app — searchable, taggable
    gallery with one-click copy; sidebar entry; `/api/v1/prompts/` CRUD+search; MCP tools
    `list_prompts` / `get_prompt`; two seeded examples.~~
@@ -205,4 +208,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 29. Dev-process note — runserver/worker restarts must use pkill -f "[m]anage.py ..." (bracket trick) or they kill their own shell; documented after the cycle-23 debugging (idea added by cycle 23)
 30. Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24)
 31. Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25)
-32. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+32. tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26)
+33. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

@@ -54,6 +54,16 @@ def search_suggest(request):
     return render(request, "core/_suggest.html", {"results": results, "query": query})
 
 
+@require_POST
+def summarize_view(request):
+    """HTMX tl;dr: POST text, get back the key sentences."""
+    from .summarize import summarize
+
+    text = request.POST.get("text", "")[:50000]
+    sentences = summarize(text)
+    return render(request, "core/_summary.html", {"sentences": sentences})
+
+
 def pet_page(request):
     from django.core.cache import cache
     from django.shortcuts import redirect

@@ -1,0 +1,6 @@
+{# tl;dr button: include with `target_id` (element whose innerText is summarized) and `panel_id`. #}
+<button type="button"
+        hx-post="{% url 'core:summarize' %}" hx-target="#{{ panel_id }}" hx-swap="innerHTML"
+        hx-vals='js:{text: document.getElementById("{{ target_id }}").innerText}'
+        class="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 hover:border-stone-400"
+        title="Local extractive summary — no AI calls">≡ tl;dr</button>
