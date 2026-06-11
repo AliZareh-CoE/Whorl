@@ -32,6 +32,21 @@
   </div>
 </div>
 
+{% load project_tree %}
+<div class="mb-4 rounded border border-stone-200 bg-white p-5">
+  <h2 class="mb-1 text-sm font-medium uppercase tracking-wide text-stone-400">The grove</h2>
+  <p class="mb-2 text-xs text-stone-400">One tree per active project — bigger means more milestones, fuller means closer to done.</p>
+  <div class="flex flex-wrap items-end gap-6 overflow-x-auto pb-1">
+    {% for row in active %}
+      <a href="{{ row.project.get_absolute_url }}" class="group flex flex-col items-center"
+         title="{{ row.project.name }} — {{ row.done }}/{{ row.total }} milestones">
+        {% project_tree row.percent row.project.color row.tree_size row.project.pk %}
+        <span class="mt-1 max-w-[9rem] truncate text-xs text-stone-500 group-hover:text-indigo-700">{{ row.project.name }}</span>
+      </a>
+    {% endfor %}
+  </div>
+</div>
+
 <div class="mb-4 rounded border border-stone-200 bg-white p-5">
   <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Activity</h2>
   <div class="flex gap-[3px] overflow-x-auto">

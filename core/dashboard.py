@@ -48,6 +48,8 @@ def active_projects():
                 "done": done,
                 "total": total,
                 "percent": percent,
+                # grove tree size scales with scope: 64px floor, +5px per milestone, 112px cap
+                "tree_size": min(112, 64 + 5 * total),
             }
         )
     return rows

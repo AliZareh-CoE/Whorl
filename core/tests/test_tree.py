@@ -52,3 +52,36 @@ class TestTreeSurfaces:
 
         index = client_logged_in.get(reverse("projects:list"))
         assert b"Project tree" in index.content
+
+
+class TestGrove:
+    def test_dashboard_grove_one_tree_per_active_project(self, client_logged_in):
+        from plans.tests.factories import MilestoneFactory, PhaseFactory
+        from projects.tests.factories import ProjectFactory
+
+        small = ProjectFactory(name="Small Study", status="active")
+        big = ProjectFactory(name="Big Study", status="active")
+        ProjectFactory(name="Done Study", status="complete")
+        for _ in range(6):
+            MilestoneFactory(phase=PhaseFactory(project=big))
+        MilestoneFactory(phase=PhaseFactory(project=small))
+
+        response = client_logged_in.get(reverse("core:dashboard"))
+        content = response.content.decode()
+        assert "The grove" in content
+        assert content.count("Project tree —") == 2  # active projects only
+
+    def test_tree_size_scales_with_scope(self):
+        from core.dashboard import active_projects
+        from plans.tests.factories import MilestoneFactory, PhaseFactory
+        from projects.tests.factories import ProjectFactory
+
+        small = ProjectFactory(status="active")
+        big = ProjectFactory(status="active")
+        MilestoneFactory(phase=PhaseFactory(project=small))
+        for _ in range(20):
+            MilestoneFactory(phase=PhaseFactory(project=big))
+
+        sizes = {row["project"].pk: row["tree_size"] for row in active_projects()}
+        assert sizes[small.pk] == 69  # 64 + 5*1
+        assert sizes[big.pk] == 112  # capped
