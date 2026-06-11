@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
+import CommandBar from "./CommandBar";
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
   `block rounded px-2 py-1.5 ${isActive ? "bg-stone-100 font-medium" : "text-stone-600 hover:bg-stone-50"}`;
@@ -7,9 +8,10 @@ const navCls = ({ isActive }: { isActive: boolean }) =>
 export default function Layout() {
   return (
     <div className="flex h-full">
+      <CommandBar />
       <aside className="fixed inset-y-0 left-0 flex w-56 flex-col border-r border-stone-200 bg-white px-4 py-6">
         <a href="/app/" className="mb-1 text-lg font-semibold tracking-tight">Atlas</a>
-        <p className="mb-4 text-[10px] uppercase tracking-wide text-indigo-500">React preview</p>
+        <p className="mb-4 text-[10px] uppercase tracking-wide text-indigo-500">React preview · ⌘K</p>
         <nav className="space-y-1 text-sm">
           <NavLink to="/" end className={navCls}>Dashboard</NavLink>
           <NavLink to="/projects" className={navCls}>Projects</NavLink>

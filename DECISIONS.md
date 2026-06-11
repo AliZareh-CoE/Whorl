@@ -218,7 +218,13 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
       #21: 'Atlas — self-build' project created via the live API with 13 milestones/2
       phases/3 decisions, now at 8/13 after this cycle's self-check-off; found+fixed:
       SearchAPIView's pinned authentication_classes silently dropped session auth —
-      regression test added; 2 genuine friction items captured → backlog)~~ → [65 REV] →
+      regression test added; 2 genuine friction items captured → backlog)~~ → ~~[65 REV] (done 2026-06-11:
+      Cmd/Ctrl-K command bar as a core SPA component — fuzzy jump-to-anything over the
+      assistant index with classic→SPA URL mapping, VERBS: 'capture: text' creates inbox
+      items and 'done: fuzzy' checks milestones off, page-aware quick actions, Ask-Claude
+      MCP prompt copy, recents; keyboard-only verified — and it performed its own dogfood
+      duties: this cycle's friction note was captured THROUGH the bar and the REV milestone
+      checked off with 'done: revolutionary')~~ →
       66 research+decisions+questions+automations+pet → 67 graph → 68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
     - **Standing constraints unchanged:** lightning-fast (code-split routes, prefetch),
       security (CSRF, no token in JS-readable storage beyond the session cookie), tests
@@ -241,10 +247,13 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   (c) auto Backlog top-down. New owner messages with ideas are appended to Owner ideas
   immediately.
 - **Efficiency and security are standing constraints** on every slice, not just items 1–2.
-- **Dogfooding (owner rule, 2026-06-11):** the loop maintains "Atlas — self-build" inside
-  the running app: at every cycle's ship step, check off the matching milestone, record
-  significant decisions as DecisionRecords, and quick-capture any friction felt while doing
-  so. Friction items become backlog ideas. Using Atlas is part of building Atlas.
+- **Dogfooding (owner rule, 2026-06-11; STRENGTHENED same day: "use it for everything"):**
+  the loop maintains "Atlas — self-build" inside the running app and routes its OWN
+  workflow through the product wherever possible: plan upcoming slices as milestones
+  BEFORE building them, keep cycle working notes as Atlas notes, record decisions in the
+  decision log (not only DECISIONS.md), capture every idea via quick-capture/command bar,
+  use Atlas search to find its own context, check off milestones at ship. The point is to
+  hit obstacles a real user hits. Friction items become backlog ideas, always.
 - **Every 10th cycle is an audit cycle:** full security review + responsiveness/performance
   check of the whole system and everything added since the last audit (re-run the query
   audit, check page weights, throttle behavior, upload paths, dependency CVEs). Track cycle
@@ -413,3 +422,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 70. Log submission events from the SPA — small add-event form on the manuscript timeline (kind, date, notes) via a SubmissionEvent API (idea added by cycle 63)
 71. Bulk milestone create — POST /api/v1/milestones/ accepting a list (and completed_at at create time); felt as friction during dogfood setup (idea added by cycle 64, friction-sourced)
 72. Milestone search — ?q= filter on milestones (or the plan endpoint) so scripts and the SPA can find one by title without fetching the whole plan; felt at the first dogfood ship step (idea added by cycle 64, friction-sourced)
+73. Command-index cache — stale-while-revalidate for the assistant commands index so repeat palette opens are instant (idea added by cycle 65, friction captured via the command bar itself)
+74. [REV] Reading-flow mode — a distraction-free 'read next' session: Atlas serves the queue one PDF at a time with highlights, notes, and status keys, like a flashcard flow for papers (idea added by cycle 65; [REV] candidate for cycle 75)
