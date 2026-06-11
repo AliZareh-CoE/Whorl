@@ -220,6 +220,15 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
       security (CSRF, no token in JS-readable storage beyond the session cookie), tests
       (API contract tests guard every migrated view), no paid LLM APIs.
 
+21. **Dogfood Atlas with Atlas (owner, 2026-06-11).** "Add this project itself to the app
+    and see if it's helpful" — the build manages itself inside the running Atlas: a real
+    project ("Atlas — self-build") with the SPA migration + backlog as phases/milestones,
+    decisions mirrored as decision records, friction observations captured as notes/inbox
+    items. THE POINT: every cycle the loop must actually USE the product (check off its own
+    milestone via the API/SPA, log its decision, capture ideas through quick-capture) and
+    record anything annoying as a backlog idea — features get built from felt needs, not
+    guesses. Setup in cycle 64 via the live API (no seed scripts — real usage only).
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
@@ -228,6 +237,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   (c) auto Backlog top-down. New owner messages with ideas are appended to Owner ideas
   immediately.
 - **Efficiency and security are standing constraints** on every slice, not just items 1–2.
+- **Dogfooding (owner rule, 2026-06-11):** the loop maintains "Atlas — self-build" inside
+  the running app: at every cycle's ship step, check off the matching milestone, record
+  significant decisions as DecisionRecords, and quick-capture any friction felt while doing
+  so. Friction items become backlog ideas. Using Atlas is part of building Atlas.
 - **Every 10th cycle is an audit cycle:** full security review + responsiveness/performance
   check of the whole system and everything added since the last audit (re-run the query
   audit, check page weights, throttle behavior, upload paths, dependency CVEs). Track cycle
