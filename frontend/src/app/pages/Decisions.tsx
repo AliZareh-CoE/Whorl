@@ -13,6 +13,8 @@ export default function Decisions() {
   const [formOpen, setFormOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [decision, setDecision] = useState("");
+  const [context, setContext] = useState("");
+  const [alternatives, setAlternatives] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["decisions", slug],
@@ -28,11 +30,13 @@ export default function Decisions() {
           project: slug,
           title,
           decision,
+          context,
+          alternatives,
           decided_on: new Date().toISOString().slice(0, 10),
         }),
       }),
     onSuccess: () => {
-      setTitle(""); setDecision(""); setFormOpen(false);
+      setTitle(""); setDecision(""); setContext(""); setAlternatives(""); setFormOpen(false);
       queryClient.invalidateQueries({ queryKey: ["decisions", slug] });
     },
   });
@@ -60,6 +64,12 @@ export default function Decisions() {
                  className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none" />
           <textarea value={decision} onChange={(e) => setDecision(e.target.value)} rows={3}
                     placeholder="The decision and why (markdown ok)" aria-label="Decision body"
+                    className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none" />
+          <textarea value={context} onChange={(e) => setContext(e.target.value)} rows={2}
+                    placeholder="Context: the situation (optional)" aria-label="Decision context"
+                    className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none" />
+          <textarea value={alternatives} onChange={(e) => setAlternatives(e.target.value)} rows={2}
+                    placeholder="Alternatives considered and why rejected (optional)" aria-label="Decision alternatives"
                     className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none" />
           <button type="submit" disabled={create.isPending}
                   className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">

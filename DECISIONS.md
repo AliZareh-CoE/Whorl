@@ -250,6 +250,15 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     record anything annoying as a backlog idea — features get built from felt needs, not
     guesses. Setup in cycle 64 via the live API (no seed scripts — real usage only).
 
+22. **Owner live-usage feedback (2026-06-11, during cycle 69):** "pages changing and
+    refreshing — React shouldn't be that way" + "Ctrl-K new project not doing it".
+    ~~Both fixed same cycle: a global link interceptor routes classic-style hrefs
+    client-side wherever an SPA page exists (verified: 6 sidebar navigations + command-bar
+    flows = 0 full page loads); /projects/new is a real SPA page so ⌘K → New project
+    creates and lands on the overview without a reload. Plus Backlog #76 shipped: route-
+    level code splitting, spa.js 137→90KB (29KB gz), pages are 1-3KB lazy chunks.~~
+    Standing instruction: hard-reload feel anywhere in the SPA is a bug.
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
@@ -438,3 +447,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 75. register_readonly API helper — one-liner read-only serializer+viewset+route for simple models; felt as boilerplate friction in cycle 66 (idea added by cycle 66, friction-sourced)
 76. Route-level code splitting — React.lazy per SPA section so spa.js stays lean as pages accumulate; bundle grew 30→38KB gz in cycle 67 (idea added by cycle 67, friction-sourced)
 77. Shared route manifest — one JSON of SPA routes read by both React Router and core/urls.py so the two lists can't drift; felt while hand-mirroring routes in the cutover (idea added by cycle 68, friction-sourced)
+78. SPA decision detail — context/alternatives render in the timeline (saved now, shown truncated); felt while recording the cycle-69 decision (idea added by cycle 69)

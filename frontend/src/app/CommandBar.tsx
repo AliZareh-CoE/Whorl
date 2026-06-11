@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, csrfToken } from "./api";
+import { toSpaUrl } from "./links";
 
 type Command = { title: string; type: string; url: string };
 type Action = { label: string; url: string };
@@ -35,28 +36,6 @@ function fuzzy(needle: string, haystack: string): number | null {
     hi = found + 1;
   }
   return score - h.length * 0.01;
-}
-
-/** Classic URL → SPA route, for sections that have migrated. */
-function toSpaUrl(url: string): { to: string; spa: boolean } {
-  const maps: [RegExp, (m: RegExpMatchArray) => string][] = [
-    [/^\/projects\/([^/]+)\/$/, (m) => `/projects/${m[1]}`],
-    [/^\/projects\/([^/]+)\/plan\/$/, (m) => `/projects/${m[1]}/plan`],
-    [/^\/projects\/([^/]+)\/documents\/$/, (m) => `/projects/${m[1]}/documents`],
-    [/^\/projects\/([^/]+)\/literature\/$/, (m) => `/projects/${m[1]}/literature`],
-    [/^\/projects\/([^/]+)\/literature\/queue\/$/, (m) => `/projects/${m[1]}/queue`],
-    [/^\/projects\/([^/]+)\/notes\/$/, (m) => `/projects/${m[1]}/notes`],
-    [/^\/projects\/([^/]+)\/notes\/(\d+)\/$/, (m) => `/projects/${m[1]}/notes/${m[2]}`],
-    [/^\/library\/$/, () => "/library"],
-    [/^\/writing\/$/, () => "/writing"],
-    [/^\/inbox\/$/, () => "/inbox"],
-    [/^\/$/, () => "/"],
-  ];
-  for (const [re, build] of maps) {
-    const m = url.match(re);
-    if (m) return { to: build(m), spa: true };
-  }
-  return { to: url, spa: false };
 }
 
 type Row =

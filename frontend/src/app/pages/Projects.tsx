@@ -14,7 +14,13 @@ export default function Projects() {
   if (isLoading) return <p className="text-sm text-stone-400">Loading projects…</p>;
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Projects</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+        <Link to="/projects/new"
+              className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">
+          New project
+        </Link>
+      </div>
       <div className="space-y-3">
         {data?.results.map((p) => (
           <Link key={p.slug} to={`/projects/${p.slug}`}

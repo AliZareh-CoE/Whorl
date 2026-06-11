@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { api } from "./api";
+import { toSpaUrl } from "./links";
 import CommandBar from "./CommandBar";
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
@@ -8,6 +10,25 @@ const navCls = ({ isActive }: { isActive: boolean }) =>
 
 /** SPA chrome mirroring the classic sidebar; unmigrated sections link to server pages. */
 export default function Layout() {
+  const navigate = useNavigate();
+  // Intercept plain <a> clicks to classic URLs that have an SPA page — no full reloads
+  // inside the app (owner feedback, cycle 69). True classic-only URLs still navigate.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as HTMLElement).closest("a");
+      if (!anchor || anchor.target || anchor.hasAttribute("download")) return;
+      const href = anchor.getAttribute("href");
+      if (!href || !href.startsWith("/")) return;
+      const { to, spa } = toSpaUrl(href);
+      if (spa) {
+        e.preventDefault();
+        navigate(to);
+      }
+    }
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [navigate]);
   const { data: pet } = useQuery({
     queryKey: ["pet"],
     queryFn: () => api<{ name: string; emoji: string; mood: string; speech: string }>("/pet/"),
