@@ -596,6 +596,79 @@
   // initial check once the library has loaded
   setTimeout(() => { editor.performLint(); renderMissingCites(); }, 1000);
 
+  // --- research side panel (beyond-Overleaf B3) -------------------------------
+  const researchPanel = document.getElementById("research-panel");
+  const rpBib = document.getElementById("rp-bib");
+  const rpNotes = document.getElementById("rp-notes");
+  const rpHyps = document.getElementById("rp-hyps");
+  const rpNotesQ = document.getElementById("rp-notes-q");
+  const HYP_COLOR = {
+    supported: "text-green-700", contradicted: "text-red-700",
+    testing: "text-indigo-700", proposed: "text-stone-500",
+    inconclusive: "text-amber-700", abandoned: "text-stone-400",
+  };
+  function insertCite(key) {
+    const cur = editor.getCursor();
+    editor.replaceRange(`\\cite{${key}}`, cur);
+    editor.focus();
+  }
+  function renderContext(data) {
+    rpBib.innerHTML = "";
+    if (!data.bib.length) rpBib.innerHTML = '<li class="text-xs text-stone-400">No linked references yet.</li>';
+    for (const r of data.bib) {
+      const li = document.createElement("li");
+      li.className = "group rounded px-1.5 py-1 hover:bg-stone-50";
+      const meta = `${r.authors || ""}${r.year ? " · " + r.year : ""}`;
+      li.innerHTML =
+        `<div class="flex items-baseline gap-1"><button class="rp-cite font-mono text-xs text-indigo-700 hover:underline" title="Insert \\cite">${r.key}</button></div>` +
+        `<div class="truncate text-xs text-stone-500" title="${r.title.replace(/"/g, "&quot;")}">${r.title}</div>` +
+        (meta ? `<div class="text-[10px] text-stone-400">${meta}</div>` : "");
+      li.querySelector(".rp-cite").addEventListener("click", () => insertCite(r.key));
+      rpBib.appendChild(li);
+    }
+    renderNotes(data.notes);
+    rpHyps.innerHTML = "";
+    if (!data.hypotheses.length) rpHyps.innerHTML = '<li class="text-xs text-stone-400">No hypotheses.</li>';
+    for (const h of data.hypotheses) {
+      const li = document.createElement("li");
+      li.className = "rounded px-1.5 py-1 text-xs";
+      li.innerHTML = `<span class="${HYP_COLOR[h.status] || "text-stone-500"} font-medium">${h.status}</span> <span class="text-stone-600">${h.statement}</span>`;
+      rpHyps.appendChild(li);
+    }
+  }
+  function renderNotes(notes) {
+    rpNotes.innerHTML = "";
+    if (!notes.length) { rpNotes.innerHTML = '<li class="text-xs text-stone-400">No notes.</li>'; return; }
+    for (const n of notes) {
+      const li = document.createElement("li");
+      li.className = "truncate text-xs";
+      li.innerHTML = `<a href="${n.url}" target="_blank" class="text-stone-600 hover:text-indigo-700 hover:underline">${n.title}</a>`;
+      rpNotes.appendChild(li);
+    }
+  }
+  let contextLoaded = false;
+  async function loadContext(q) {
+    const url = cfg.contextUrl + (q ? `?q=${encodeURIComponent(q)}` : "");
+    try {
+      const data = await fetch(url).then((r) => r.json());
+      if (q !== undefined) renderNotes(data.notes); else renderContext(data);
+    } catch { /* panel stays as-is */ }
+  }
+  let notesTimer = null;
+  rpNotesQ?.addEventListener("input", () => {
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(() => loadContext(rpNotesQ.value.trim()), 300);
+  });
+  function setResearch(open) {
+    researchPanel.classList.toggle("hidden", !open);
+    localStorage.setItem("atlas-editor-research", open ? "1" : "0");
+    if (open && !contextLoaded) { contextLoaded = true; loadContext(); }
+  }
+  document.getElementById("research-toggle")?.addEventListener("click", () =>
+    setResearch(researchPanel.classList.contains("hidden"))
+  );
+  if (localStorage.getItem("atlas-editor-research") === "1") setResearch(true);
+
   const wcBtn = document.getElementById("wordcount-btn");
   const wcOut = document.getElementById("wordcount-out");
   wcBtn.addEventListener("click", async () => {

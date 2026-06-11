@@ -532,3 +532,37 @@ class TestCiteLibrary:
             {"reference": stranger.pk},
         )
         assert res.status_code == 404
+
+
+class TestWritingContext:
+    """Beyond-Overleaf B3: research side panel context — bib, notes, hypotheses."""
+
+    def test_context_returns_bib_notes_hypotheses(self, client_logged_in):
+        from literature.tests.factories import ReferenceFactory
+        from notes.models import Note
+        from research.models import Hypothesis
+        from writing.models import ManuscriptReference
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="x")
+        ref = ReferenceFactory(bibtex_key="panel2020key", year=2020)
+        ManuscriptReference.objects.create(manuscript=m, reference=ref)
+        Note.objects.create(project=m.project, title="Method note")
+        Hypothesis.objects.create(project=m.project, statement="Load degrades vigilance")
+        data = client_logged_in.get(f"/projects/{m.project.slug}/writing/{m.pk}/context/").json()
+        assert data["bib"][0]["key"] == "panel2020key"
+        assert data["bib"][0]["year"] == 2020
+        assert {n["title"] for n in data["notes"]} == {"Method note"}
+        assert data["hypotheses"][0]["statement"].startswith("Load degrades")
+
+    def test_context_notes_filter(self, client_logged_in):
+        from notes.models import Note
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="x")
+        Note.objects.create(project=m.project, title="Pupillometry rig")
+        Note.objects.create(project=m.project, title="Unrelated")
+        data = client_logged_in.get(
+            f"/projects/{m.project.slug}/writing/{m.pk}/context/?q=pupil"
+        ).json()
+        assert {n["title"] for n in data["notes"]} == {"Pupillometry rig"}

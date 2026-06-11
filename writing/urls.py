@@ -27,6 +27,11 @@ urlpatterns = [
         name="cite_library",
     ),
     path(
+        "projects/<slug:slug>/writing/<int:pk>/context/",
+        views.writing_context,
+        name="writing_context",
+    ),
+    path(
         "projects/<slug:slug>/writing/<int:pk>/word-count/",
         views.word_count_view,
         name="word_count",

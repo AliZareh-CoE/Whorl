@@ -146,6 +146,7 @@ def latex_editor(request, slug, pk):
                 "wordCountUrl": reverse("writing:word_count", args=[slug, manuscript.pk]),
                 "citeLibraryUrl": reverse("writing:cite_library", args=[slug, manuscript.pk]),
                 "projectSlug": slug,
+                "contextUrl": reverse("writing:writing_context", args=[slug, manuscript.pk]),
                 "revisionsUrl": reverse("writing:revisions", args=[slug, manuscript.pk]),
                 "files": [_file_dict(f) for f in manuscript.files.all()],
                 "mainFileId": main.pk,
@@ -461,6 +462,43 @@ def revision_restore(request, slug, pk, rev_pk):
         manuscript.latex_source = revision.files.get("main.tex", "")
         manuscript.save(update_fields=["latex_source", "updated_at"])
     return JsonResponse({"restored": True})
+
+
+def writing_context(request, slug, pk):
+    """Beyond-Overleaf B3: the writer's research beside the editor — bib, notes, hypotheses."""
+    from django.http import JsonResponse
+
+    manuscript, _ = _workbench_objects(slug, pk)
+    project = manuscript.project
+
+    bib = []
+    for link in manuscript.manuscriptreference_set.select_related("reference"):
+        ref = link.reference
+        names = [a.get("family") or a.get("given") or "" for a in (ref.authors or [])]
+        names = [n for n in names if n]
+        head = ", ".join(names[:2]) + (" et al." if len(names) > 2 else "")
+        bib.append(
+            {
+                "key": link.cite_key,
+                "title": ref.title[:140],
+                "authors": head,
+                "year": ref.year,
+                "abstract": (ref.abstract or "")[:280],
+            }
+        )
+    bib.sort(key=lambda b: b["key"].lower())
+
+    query = (request.GET.get("q") or "").strip()[:100]
+    notes_qs = project.notes.all()
+    if query:
+        notes_qs = notes_qs.filter(title__icontains=query)
+    notes = [{"id": n.pk, "title": n.title, "url": n.get_absolute_url()} for n in notes_qs[:30]]
+
+    hypotheses = [
+        {"id": h.pk, "statement": h.statement[:200], "status": h.status}
+        for h in project.hypotheses.all()[:30]
+    ]
+    return JsonResponse({"bib": bib, "notes": notes, "hypotheses": hypotheses})
 
 
 def cite_library(request, slug, pk):
