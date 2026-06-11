@@ -582,7 +582,6 @@ class TestSynthesisSpaMode:
 
 class TestReadingFlowAPI:
     def test_returns_priority_ordered_queue_with_fields(self, client_logged_in):
-        from literature.models import ProjectReference
         from literature.tests.factories import ProjectReferenceFactory
 
         high = ProjectReferenceFactory(priority="high", reading_status="to_read")
