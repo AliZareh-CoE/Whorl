@@ -201,8 +201,15 @@ class ReferenceSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class ReferenceSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reference
+        fields = ["id", "bibtex_key", "title", "authors", "year", "venue"]
+
+
 class ProjectReferenceSerializer(serializers.ModelSerializer):
     project = ProjectSlugField()
+    reference_summary = ReferenceSummarySerializer(source="reference", read_only=True)
 
     class Meta:
         model = ProjectReference
@@ -210,6 +217,7 @@ class ProjectReferenceSerializer(serializers.ModelSerializer):
             "id",
             "project",
             "reference",
+            "reference_summary",
             "reading_status",
             "priority",
             "notes",

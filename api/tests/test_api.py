@@ -347,3 +347,29 @@ class TestDocumentsTableAPI:
         # the flash queue was consumed — the next page render shows no stale message
         follow = client_logged_in.get("/projects/")
         assert b"Deleted 1" not in follow.content
+
+
+class TestLiteratureSpaSupport:
+    def test_project_references_include_summary(self, client_logged_in):
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link = ProjectReferenceFactory()
+        data = client_logged_in.get(
+            f"/api/v1/project-references/?project={link.project.slug}"
+        ).json()
+        summary = data["results"][0]["reference_summary"]
+        assert {"id", "bibtex_key", "title", "authors", "year", "venue"} <= set(summary)
+
+    def test_bulk_status_spa_mode_returns_json(self, client_logged_in):
+        from literature.models import ProjectReference
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link = ProjectReferenceFactory()
+        response = client_logged_in.post(
+            f"/projects/{link.project.slug}/literature/bulk-status/",
+            {"reading_status": "read", "ids": [link.pk]},
+            headers={"X-SPA": "1"},
+        )
+        assert response.status_code == 200
+        assert "Marked 1" in response.json()["detail"]
+        assert ProjectReference.objects.get(pk=link.pk).reading_status == "read"

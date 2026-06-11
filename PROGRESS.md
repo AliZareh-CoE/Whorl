@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: SPA slice 5, library + queue [cycle 61])
+- **Slice in progress:** — (next: SPA slice 6, notes + editor [cycle 62])
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. SPA slice 5 [cycle 61] — library + reading queue + reference detail in React
-  2. SPA slice 6 [cycle 62] — notes + editor
-  3. SPA sequence continues (writing 63, inbox/prompts/etc 64, [65 REV], …); AUDIT #7 at 70
+  1. SPA slice 6 [cycle 62] — notes list + markdown editor with wiki-links
+  2. SPA slice 7 [cycle 63] — writing board + manuscript detail
+  3. Inbox/prompts/automations/pet/search at 64; [65 REV]; AUDIT #7 at 70
 - **Broken:** nothing
 
 ## Gate reports

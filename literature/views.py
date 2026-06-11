@@ -533,6 +533,12 @@ def bulk_status(request, slug):
             count += 1
         label = dict(ProjectReference.ReadingStatus.choices)[status]
         messages.success(request, f"Marked {count} paper(s) as {label}.")
+    if request.headers.get("X-SPA") == "1":
+        from django.contrib.messages import get_messages
+        from django.http import JsonResponse
+
+        summary = [m.message for m in get_messages(request)]
+        return JsonResponse({"detail": summary[-1] if summary else "ok"})
     next_url = request.POST.get("next", "")
     if not (next_url.startswith("/") and not next_url.startswith("//")):
         next_url = reverse("literature:project", kwargs={"slug": slug})

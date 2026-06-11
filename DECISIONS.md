@@ -199,7 +199,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
       API action; SPA mode refetches via TanStack instead of reloading, bulk endpoint returns
       JSON consuming the flash queue; found+fixed: ml-56 missing from built CSS — the SPA
       layout's classes had never been through make css, so the sidebar overlapped the table;
-      folder tree + upload still classic, noted)~~ → [60 AUDIT #6] → 61 library+queue+reference detail →
+      folder tree + upload still classic, noted)~~ → [~~60 AUDIT #6 (done — see AUDITS.md)~~] → ~~61 library+queue (done 2026-06-11:
+      /app/library with add-by-DOI + filter, /app/projects/:slug/literature with optimistic
+      per-row reading-status PATCH + X-SPA bulk status, /app/projects/:slug/queue filtered
+      and priority-sorted sharing the same component; reference_summary nested on the
+      project-references API; reference detail stays classic, noted)~~ →
       62 notes+editor → 63 writing board+manuscript (CodeMirror in React) → 64 inbox, prompts,
       automations, pet, search → [65 REV] → 66 research+decisions+questions → 67 graph →
       68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
@@ -378,3 +382,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 65. SPA plan editing — phase/milestone/task create+edit modals in React so the plan page reaches full parity and the classic page can retire (idea added by cycle 58)
 66. CSS build gate — add `make css && git diff --exit-code static/css/app.css` to the cycle gate so Tailwind classes used by new TSX never ship missing (idea added by cycle 59, from the ml-56 bug)
 67. SPA error toasts — surface failed optimistic mutations (e.g. PATCH rejected) with a calm inline toast + automatic state rollback instead of relying on the next refetch (idea added by cycle 60, from AUDIT #6 review of the optimistic-write path)
+68. Server-side reference search — ?search= on /api/v1/references/ (title/key/venue/authors icontains) so the SPA library scales past one page (idea added by cycle 61)
