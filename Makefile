@@ -1,4 +1,4 @@
-.PHONY: css css-watch up migrate test lint tectonic
+.PHONY: css css-watch up migrate test lint tectonic doctor worker
 
 TAILWIND := bin/tailwindcss
 
@@ -24,6 +24,14 @@ test:
 
 lint:
 	.venv/bin/ruff check . && .venv/bin/ruff format --check .
+
+doctor:
+	.venv/bin/python manage.py doctor
+
+# The worker does NOT hot-reload: restart it after pulling or editing task code.
+worker:
+	-pkill -f "[m]anage.py run_huey"
+	.venv/bin/python manage.py run_huey
 
 TECTONIC := bin/tectonic
 

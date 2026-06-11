@@ -215,10 +215,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 10. ~~OpenAlex "discover similar" (done 2026-06-11, cycle 31): `literature/discover.py` resolves the work, batch-fetches related_works, filters out DOIs already in the library; ⌕ Discover panel on reference detail with one-click + Add (reuses by-DOI import incl. background PDF fetch); verified live on a real paper.~~
 11. Conditional GETs — ETag/Last-Modified on API list endpoints and far-future cache headers on media/static, so MCP polling and the PDF reader get cheap revalidation (idea added by cycle 4, from the performance pass)
 12. ~~“Read aloud” for whole PDFs (done 2026-06-11, cycle 32): ▶ Listen in the reader — streams text-layer pages through /tts/ from the page in view, sentence-aware chunking for long pages, pause/stop mini player, auto-scroll to the page being read, graceful voice-missing message.~~
-13. Worker-deploy note — document (README/Makefile) that `run_huey` must restart after code changes; consider a `make worker` target and a stale-worker warning on the Automations page when bots land (idea added by cycle 7, after hitting a stale TaskRegistry live)
+13. ~~Worker-deploy note (done 2026-06-11, cycle 33): `make worker` restart target + README warning; doctor detects stale workers via a CODE_STAMP round-trip task.~~
 14. Keyword chips → reading-queue filters and a project-level keyword cloud (idea added by cycle 8, from the NLP work)
 15. Responsive layout — collapsible sidebar + mobile-friendly tables (next UI/UX cycle candidate; idea added by cycle 9)
-16. `make doctor` — one command that checks services, migrations, voice model, worker freshness, and runs the query audit; useful for self-hosters (idea added by cycle 10, from the audit)
+16. ~~`make doctor` (done 2026-06-11, cycle 33): manage.py doctor checks db/migrations/redis/worker-liveness+freshness/CSS/Tectonic/voice/media/API-key with ✓⚠✕ output and exit codes; verified live incl. catching a genuinely stale worker.~~
 17. Prompt variables — `{{placeholders}}` in saved prompts with a small fill-in form before copying (idea added by cycle 11)
 18. Bot run history — keep the last N results per bot and chart reminders-over-time on the Automations page (idea added by cycle 12)
 19. LaTeX compile service — vendor the Tectonic binary (like Tailwind/Piper pattern) behind a huey task with compile logs surfaced in the editor (idea added by cycle 13)
@@ -241,4 +241,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 36. Containerized LaTeX compile — run Tectonic in a throwaway container/namespace to close the \input file-read residual risk if Atlas ever goes multi-user (idea added by cycle 30 audit)
 37. Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31)
 38. Listen prefetch — synthesize the next chunk while the current one plays to remove gaps (idea added by cycle 32)
-39. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+39. Doctor on the Automations page — render the same checks in the UI with a stale-worker banner (idea added by cycle 33)
+40. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

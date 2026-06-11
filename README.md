@@ -127,10 +127,15 @@ Smoke-test conversation script (after `seed_demo`):
 ## Development
 
 ```bash
-make test     # pytest -q (297 tests)
+make test     # pytest -q (300+ tests)
 make lint     # ruff check + ruff format --check
+make doctor   # health check: db, migrations, redis, worker freshness, optional components
+make worker   # (re)start the background worker — it does NOT hot-reload after code changes
 make css-watch
 ```
+
+Something behaving oddly after an update? `make doctor` diagnoses the usual suspects,
+including a worker still running stale code.
 
 See **CONTRIBUTING.md** for conventions. Architecture and decision history live in
 `CLAUDE.md`, `DECISIONS.md`, `PROGRESS.md`, and `AUDITS.md` — the project's entire build,
