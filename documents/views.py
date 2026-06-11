@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, UpdateView
 
+from core.modals import ModalFormMixin
 from projects.models import Project
 from projects.views import ProjectScopedMixin
 
@@ -128,7 +129,7 @@ class DocumentDeleteView(ProjectScopedMixin, DeleteView):
         return _index_url(self.project)
 
 
-class FolderCreateView(ProjectFormKwargsMixin, CreateView):
+class FolderCreateView(ModalFormMixin, ProjectFormKwargsMixin, CreateView):
     model = Folder
     form_class = FolderForm
     template_name = "documents/folder_form.html"
@@ -144,7 +145,7 @@ class FolderCreateView(ProjectFormKwargsMixin, CreateView):
         return super().form_valid(form)
 
 
-class FolderUpdateView(ProjectFormKwargsMixin, UpdateView):
+class FolderUpdateView(ModalFormMixin, ProjectFormKwargsMixin, UpdateView):
     model = Folder
     form_class = FolderForm
     template_name = "documents/folder_form.html"

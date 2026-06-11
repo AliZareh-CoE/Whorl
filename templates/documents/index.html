@@ -21,7 +21,9 @@
 <div class="mb-6 flex items-center justify-between">
   <h1 class="text-2xl font-semibold tracking-tight">Documents</h1>
   <div class="flex items-center gap-2">
-    <a href="{% url 'documents:folder_create' project.slug %}{% if current_folder %}?parent={{ current_folder.pk }}{% endif %}"
+    <a hx-get="{% url 'documents:folder_create' project.slug %}{% if current_folder %}?parent={{ current_folder.pk }}{% endif %}"
+       hx-target="#modal-slot" hx-swap="innerHTML"
+       href="{% url 'documents:folder_create' project.slug %}{% if current_folder %}?parent={{ current_folder.pk }}{% endif %}"
        class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">New folder</a>
     <button type="button" onclick="document.getElementById('multi-file-input').click()"
             class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400"
@@ -66,7 +68,7 @@
       <div class="mb-3 flex items-center gap-2 text-sm text-stone-500">
         <span>{{ current_folder.path }}</span>
         <span class="ml-auto"></span>
-        <a href="{% url 'documents:folder_edit' project.slug current_folder.pk %}" class="text-xs hover:underline">Rename / move</a>
+        <a hx-get="{% url 'documents:folder_edit' project.slug current_folder.pk %}" hx-target="#modal-slot" hx-swap="innerHTML" href="{% url 'documents:folder_edit' project.slug current_folder.pk %}" class="text-xs hover:underline">Rename / move</a>
         <a href="{% url 'documents:folder_delete' project.slug current_folder.pk %}" class="text-xs text-red-600 hover:underline">Delete</a>
       </div>
     {% endif %}

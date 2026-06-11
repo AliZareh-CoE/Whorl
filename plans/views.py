@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
+from core.modals import ModalFormMixin
 from projects.views import ProjectScopedMixin
 
 from . import selectors
@@ -32,7 +33,7 @@ def _plan_url(project):
     return reverse("plans:plan", kwargs={"slug": project.slug})
 
 
-class PhaseFormMixin(ProjectScopedMixin):
+class PhaseFormMixin(ModalFormMixin, ProjectScopedMixin):
     model = Phase
     form_class = PhaseForm
     template_name = "plans/phase_form.html"
@@ -66,7 +67,7 @@ class PhaseDeleteView(ProjectScopedMixin, DeleteView):
         return _plan_url(self.project)
 
 
-class MilestoneFormMixin(ProjectScopedMixin):
+class MilestoneFormMixin(ModalFormMixin, ProjectScopedMixin):
     model = Milestone
     form_class = MilestoneForm
     template_name = "plans/milestone_form.html"
@@ -105,7 +106,7 @@ class MilestoneDeleteView(ProjectScopedMixin, DeleteView):
         return _plan_url(self.project)
 
 
-class TaskFormMixin(ProjectScopedMixin):
+class TaskFormMixin(ModalFormMixin, ProjectScopedMixin):
     model = Task
     form_class = TaskForm
     template_name = "plans/task_form.html"

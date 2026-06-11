@@ -169,3 +169,47 @@ class TestOverviewIntegration:
         assert b"Analysis" in response.content
         assert b"Run regressions" in response.content
         assert b"0/1 milestones" in response.content
+
+
+class TestModalForms:
+    """Owner idea #18: form views render in the shared modal for HTMX requests."""
+
+    def test_htmx_get_returns_modal_partial(self, client_logged_in):
+        phase = PhaseFactory()
+        url = reverse("plans:milestone_create", args=[phase.project.slug, phase.pk])
+        response = client_logged_in.get(url, HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert 'role="dialog"' in content
+        assert "<html" not in content  # partial, not a full page
+        assert "Add milestone" in content
+
+    def test_plain_get_still_returns_full_page(self, client_logged_in):
+        phase = PhaseFactory()
+        url = reverse("plans:milestone_create", args=[phase.project.slug, phase.pk])
+        content = client_logged_in.get(url).content.decode()
+        assert "<html" in content  # no-JS fallback unchanged
+        assert 'role="dialog"' not in content
+
+    def test_htmx_post_valid_redirects_via_header(self, client_logged_in):
+        phase = PhaseFactory()
+        url = reverse("plans:milestone_create", args=[phase.project.slug, phase.pk])
+        response = client_logged_in.post(url, {"title": "From modal"}, HTTP_HX_REQUEST="true")
+        assert response.status_code == 204
+        assert response.headers["HX-Redirect"].endswith("/plan/")
+        assert phase.milestones.filter(title="From modal").exists()
+
+    def test_htmx_post_invalid_rerenders_modal_with_errors(self, client_logged_in):
+        phase = PhaseFactory()
+        url = reverse("plans:milestone_create", args=[phase.project.slug, phase.pk])
+        response = client_logged_in.post(url, {"title": ""}, HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert 'role="dialog"' in content
+        assert "required" in content.lower()
+
+    def test_plan_links_open_in_modal(self, client_logged_in):
+        phase = PhaseFactory()
+        response = client_logged_in.get(reverse("plans:plan", args=[phase.project.slug]))
+        content = response.content.decode()
+        assert content.count('hx-target="#modal-slot"') >= 3
+        assert 'id="modal-slot"' in content

@@ -134,7 +134,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     on the same page rather than navigating to separate form pages. Owner directive
     explicitly supersedes CLAUDE.md §7's "prefer full pages over modals" — modals are
     now the convention for object forms; full pages remain the no-JS fallback (HTMX
-    loads the same form views into a shared modal shell).
+    loads the same form views into a shared modal shell). ~~Slice 1 (2026-06-11, cycle
+    52): core/modals.py ModalFormMixin (HX-Request → _modal_form.html partial, valid
+    POST → 204 + HX-Redirect, invalid → re-render in slot) + shared modal shell
+    (Alpine: Escape/backdrop/✕ close) + #modal-slot in base; converted the plan page
+    (add/edit phase, milestone, task) and documents page (new folder, rename/move) —
+    browser-verified: open without URL change, Escape closes, real create lands.~~
+    Next slices: bulk actions (documents/library/inbox), then modals for projects,
+    decisions, questions, manuscripts, prompts, tags + delete confirmations.
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -148,6 +155,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   check of the whole system and everything added since the last audit (re-run the query
   audit, check page weights, throttle behavior, upload paths, dependency CVEs). Track cycle
   numbers in PROGRESS.md.
+- **One of every 10 cycles is a REVOLUTIONARY cycle (owner rule, 2026-06-11):** a big
+  idea with a big implementation — a feature whose impact is significant, not an
+  increment. Plan it deliberately (it may span the cycle's full budget), verify it live,
+  and make it count. First one: cycle 55. Candidate ideas live in the Backlog tagged
+  [REV]; the loop must always keep at least one [REV] candidate in the list.
 - **At least 2 of every 10 cycles are UI/UX improvement cycles** to world-class standards —
   polish, consistency, accessibility, interaction quality; not new features.
 - **No paid LLM API calls, ever** — language-smart features go local-NLP or through the
@@ -292,3 +304,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 56. Pet speech variety pack — seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)
 57. Search page budget — /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
 58. Tree tooltips — hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)
+59. [REV] Atlas Assistant panel — a first-class in-app Claude workspace: a persistent side panel that talks to the owner's Claude subscription via MCP, sees the current page's object as context, and can act (file papers, draft synthesis notes, check off milestones) — the "AI collaborator" promise made visible in the UI (idea added by cycle 52; candidate for the first revolutionary cycle at 55)
