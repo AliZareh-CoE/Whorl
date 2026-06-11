@@ -18,6 +18,7 @@ from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 from prompts.models import Prompt
+from writing.models import Manuscript
 
 from . import serializers
 from .authentication import APIKeyAuthentication
@@ -413,6 +414,12 @@ class ProjectReferenceViewSet(AtlasViewSet):
 class QuickCaptureViewSet(AtlasViewSet):
     queryset = QuickCapture.objects.all()
     serializer_class = serializers.QuickCaptureSerializer
+    project_filter = "project__slug"
+
+
+class ManuscriptViewSet(AtlasViewSet):
+    queryset = Manuscript.objects.all()
+    serializer_class = serializers.ManuscriptSerializer
     project_filter = "project__slug"
 
 

@@ -15,7 +15,7 @@ export default function Layout() {
           <NavLink to="/projects" className={navCls}>Projects</NavLink>
           {/* not yet migrated — classic pages */}
           <NavLink to="/library" className={navCls}>Library</NavLink>
-          <a href="/writing/" className="block rounded px-2 py-1.5 text-stone-600 hover:bg-stone-50">Writing ↗</a>
+          <NavLink to="/writing" className={navCls}>Writing</NavLink>
           <a href="/prompts/" className="block rounded px-2 py-1.5 text-stone-600 hover:bg-stone-50">Prompts ↗</a>
           <a href="/inbox/" className="block rounded px-2 py-1.5 text-stone-600 hover:bg-stone-50">Inbox ↗</a>
         </nav>

@@ -268,6 +268,38 @@ class NoteSerializer(serializers.ModelSerializer):
         ]
 
 
+class SubmissionEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        from writing.models import SubmissionEvent
+
+        model = SubmissionEvent
+        fields = ["id", "kind", "date", "notes"]
+
+
+class ManuscriptSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+    events = SubmissionEventSerializer(many=True, read_only=True)
+    project_name = serializers.CharField(source="project.name", read_only=True)
+
+    class Meta:
+        from writing.models import Manuscript
+
+        model = Manuscript
+        fields = [
+            "id",
+            "project",
+            "project_name",
+            "title",
+            "status",
+            "target_venue",
+            "deadline",
+            "abstract",
+            "events",
+            "created_at",
+            "updated_at",
+        ]
+
+
 class PromptSerializer(serializers.ModelSerializer):
     class Meta:
         from prompts.models import Prompt

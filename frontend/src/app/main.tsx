@@ -10,6 +10,7 @@ import Literature from "./pages/Literature";
 import Plan from "./pages/Plan";
 import ProjectOverview from "./pages/ProjectOverview";
 import Projects from "./pages/Projects";
+import { ManuscriptDetail, WritingBoard } from "./pages/Writing";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -31,6 +32,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/notes/new" element={<NoteEditor />} />
           <Route path="projects/:slug/notes/:id" element={<NoteEditor />} />
           <Route path="library" element={<Library />} />
+          <Route path="writing" element={<WritingBoard />} />
+          <Route path="manuscripts/:id" element={<ManuscriptDetail />} />
           <Route path="*" element={<p className="text-sm text-stone-400">Not migrated yet — try the classic pages.</p>} />
         </Route>
       </Routes>

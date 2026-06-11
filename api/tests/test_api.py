@@ -402,3 +402,33 @@ class TestNotesSpaSupport:
         NoteLink.objects.create(source=source, target=target)
         data = client_logged_in.get(f"/api/v1/notes/{target.pk}/").json()
         assert data["backlinks"] == [{"id": source.pk, "title": "Spoke"}]
+
+
+class TestManuscriptsAPI:
+    def test_list_detail_and_events(self, client_logged_in):
+        from writing.models import SubmissionEvent
+        from writing.tests.factories import ManuscriptFactory
+
+        manuscript = ManuscriptFactory(title="API Manuscript", status="submitted")
+        SubmissionEvent.objects.create(
+            manuscript=manuscript, kind="submitted", date="2026-06-01", notes="v1 in"
+        )
+        listing = client_logged_in.get("/api/v1/manuscripts/").json()
+        assert listing["count"] == 1
+        assert listing["results"][0]["project_name"] == manuscript.project.name
+
+        detail = client_logged_in.get(f"/api/v1/manuscripts/{manuscript.pk}/").json()
+        assert detail["events"][0]["kind"] == "submitted"
+
+    def test_status_patch(self, client_logged_in):
+        from writing.models import Manuscript
+        from writing.tests.factories import ManuscriptFactory
+
+        manuscript = ManuscriptFactory(status="drafting")
+        response = client_logged_in.patch(
+            f"/api/v1/manuscripts/{manuscript.pk}/",
+            {"status": "submitted"},
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert Manuscript.objects.get(pk=manuscript.pk).status == "submitted"
