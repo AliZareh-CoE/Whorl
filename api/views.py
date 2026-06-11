@@ -844,13 +844,20 @@ class CommentsAPIView(APIView):
         return Response(
             {
                 "comments": [
-                    {"id": c.pk, "body": c.body, "created_at": c.created_at.isoformat()}
+                    {
+                        "id": c.pk,
+                        "body": c.body,
+                        "line": c.page,  # page doubles as the editor line anchor (B6)
+                        "created_at": c.created_at.isoformat(),
+                    }
                     for c in comments_for(target)
                 ]
             }
         )
 
-    @extend_schema(description="Add a comment.", responses={201: None})
+    @extend_schema(
+        description="Add a comment (optionally anchored to a line).", responses={201: None}
+    )
     def post(self, request, kind, object_id):
         from core.models import Comment
 
@@ -860,9 +867,16 @@ class CommentsAPIView(APIView):
         body = str(request.data.get("body", "")).strip()[:5000]
         if not body:
             return Response({"detail": "Empty comment."}, status=400)
-        comment = Comment.objects.create(target=target, body=body)
+        line = request.data.get("line")
+        line = int(line) if str(line).isdigit() else None
+        comment = Comment.objects.create(target=target, body=body, page=line)
         return Response(
-            {"id": comment.pk, "body": comment.body, "created_at": comment.created_at.isoformat()},
+            {
+                "id": comment.pk,
+                "body": comment.body,
+                "line": comment.page,
+                "created_at": comment.created_at.isoformat(),
+            },
             status=201,
         )
 

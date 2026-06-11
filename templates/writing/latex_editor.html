@@ -97,6 +97,25 @@
     </div>
   </div>
 </aside>
+<div id="comment-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="absolute inset-0 bg-stone-900/40" id="comment-modal-bg"></div>
+  <div role="dialog" aria-modal="true" class="relative flex max-h-[80vh] w-full max-w-md flex-col rounded-lg border border-stone-200 bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b border-stone-100 px-5 py-3">
+      <h2 class="text-base font-semibold tracking-tight" id="comment-modal-title">Line comment</h2>
+      <button type="button" id="comment-modal-close" class="rounded px-1.5 text-stone-400 hover:bg-stone-100">✕</button>
+    </div>
+    <div id="comment-thread" class="flex-1 space-y-2 overflow-y-auto px-5 py-4"></div>
+    <div class="border-t border-stone-100 px-5 py-3">
+      <textarea id="comment-input" rows="2" placeholder="Comment on this line… (⌘/Ctrl-Enter)"
+                class="w-full rounded border border-stone-300 p-2 text-sm focus:border-indigo-600 focus:outline-none"></textarea>
+      <div class="mt-2 flex items-center gap-3">
+        <button type="button" id="comment-post" class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">Post</button>
+        <button type="button" id="comment-cancel" class="text-xs text-stone-500 hover:underline">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="revision-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
   <div class="absolute inset-0 bg-stone-900/40" id="revision-modal-bg"></div>
   <div role="dialog" aria-modal="true" class="relative flex max-h-[80vh] w-full max-w-3xl flex-col rounded-lg border border-stone-200 bg-white shadow-xl">

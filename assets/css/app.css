@@ -99,3 +99,6 @@
 @media (prefers-reduced-motion: reduce) {
   .pet-bubble { animation: none; }
 }
+
+/* Line-comment gutter in the LaTeX editor (B6) */
+.CodeMirror-comment-gutter { width: 16px; }

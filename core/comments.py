@@ -12,9 +12,15 @@ def _allowed_kinds() -> dict:
     from documents.models import Document
     from literature.models import Reference
     from notes.models import Note
-    from writing.models import Manuscript
+    from writing.models import Manuscript, ManuscriptFile
 
-    return {"note": Note, "reference": Reference, "manuscript": Manuscript, "document": Document}
+    return {
+        "note": Note,
+        "reference": Reference,
+        "manuscript": Manuscript,
+        "document": Document,
+        "manuscript_file": ManuscriptFile,
+    }
 
 
 def comments_for(target):

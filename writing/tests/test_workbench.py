@@ -661,3 +661,40 @@ class TestTimelineCompiles:
             e for e in project_timeline(m.project) if e["kind"] == "manuscript_compiled"
         ]
         assert len(compiled_events) == 2  # latest compile + 1 labeled version, not 2 snapshots
+
+
+class TestLineComments:
+    """Beyond-Overleaf B6 / Owner idea #10: line-anchored comments on manuscript files."""
+
+    def test_comment_on_file_line_via_api(self, client_logged_in):
+        from writing.models import ManuscriptFile
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="")
+        f = ManuscriptFile.objects.create(
+            manuscript=m, path="main.tex", content="x\ny\nz", is_main=True
+        )
+        created = client_logged_in.post(
+            f"/api/v1/comments/manuscript_file/{f.pk}/",
+            {"body": "tighten this sentence", "line": 2},
+            content_type="application/json",
+        )
+        assert created.status_code == 201
+        assert created.json()["line"] == 2
+        listing = client_logged_in.get(f"/api/v1/comments/manuscript_file/{f.pk}/").json()
+        assert listing["comments"][0]["line"] == 2
+        assert listing["comments"][0]["body"] == "tighten this sentence"
+
+    def test_comment_without_line_is_allowed(self, client_logged_in):
+        from writing.models import ManuscriptFile
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="")
+        f = ManuscriptFile.objects.create(manuscript=m, path="main.tex", content="x", is_main=True)
+        created = client_logged_in.post(
+            f"/api/v1/comments/manuscript_file/{f.pk}/",
+            {"body": "general note"},
+            content_type="application/json",
+        )
+        assert created.status_code == 201
+        assert created.json()["line"] is None

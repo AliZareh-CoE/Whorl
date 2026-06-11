@@ -3,8 +3,9 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: B6 line-anchored editor comments OR slice 7 SyncTeX OR B7 arXiv export [cycle 117])
-- **Last completed slice (cycle 116, beyond-Overleaf B5):** manuscript writing on the research timeline — latest compile + labeled versions become dated timeline events (kind manuscript_compiled, teal dot), not the 50 auto-snapshots. Query budget held. Live-verified the compile event appears on the timeline API + SPA. 1 test.
+- **Slice in progress:** — (next: parity slice 7 SyncTeX forward OR B7 arXiv export [cycle 118])
+- **Last completed slice (cycle 117, beyond-Overleaf B6):** line-anchored editor comments — Comment model gains manuscript_file target with page=line; 💬 gutter dot on commented lines, click either gutter → line thread popover (⌘-Enter posts). Closes Owner idea #10 for the editor. Browser-verified comment→dot→reopen→append. 2 tests.
+- **Prior slice (cycle 116, beyond-Overleaf B5):** manuscript writing on the research timeline — latest compile + labeled versions become dated timeline events (kind manuscript_compiled, teal dot), not the 50 auto-snapshots. Query budget held. Live-verified the compile event appears on the timeline API + SPA. 1 test.
 - **Prior slice (cycle 115, LaTeX parity slice 10):** templates gallery + symbol palette — 6 code-defined starters (writing/templates_gallery.py) seeded via a "Start from template" select on create; editor "Ω Symbols" popover with a 52-symbol grid inserting at cursor. ALL 10 OVERLEAF-PARITY SLICES NOW COMPLETE. 3 tests.
 - **Prior slice (cycle 114, [REV] beyond-Overleaf B4):** MCP LaTeX tools — Claude edits+compiles manuscripts via the owner's subscription. 11 pure-httpx tools wrapping existing DRF (only 1 new Django line: word-count @action); compile_and_wait polls without a time import (AST constraint holds). Verified the full edit→compile→read-error→fix→PDF loop live via the real MCP client. 12 tests. Plan in docs/plans/.
 - **Prior slice (cycle 113, beyond-Overleaf B3, UI/UX):** research side panel — toggleable right rail with manuscript bibliography (click key → insert \cite), project notes (live filter), and hypotheses (status-colored), from GET .../context/. Researched reference-manager panel UX. Browser-verified open + click-to-cite + filter. 2 tests.

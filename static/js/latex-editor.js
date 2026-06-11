@@ -48,7 +48,7 @@
     viewportMargin: Infinity,
     inputStyle: "contenteditable",  // required for native spellcheck (CM5: construction-time only)
     spellcheck: settings.spellcheck,
-    gutters: ["CodeMirror-linenumbers", "CodeMirror-lint-markers"],
+    gutters: ["CodeMirror-linenumbers", "CodeMirror-comment-gutter", "CodeMirror-lint-markers"],
     lint: {
       getAnnotations: (text, opts, cm) => {
         const compileAnns = (DIAGNOSTICS || [])
@@ -468,6 +468,7 @@
     renderTree();
     renderOutline();
     editor.performLint();
+    if (typeof refreshCommentGutter === "function") refreshCommentGutter();
     editor.focus();
   }
   function renderTree() {
@@ -709,6 +710,86 @@
       symGrid.appendChild(row);
     }
   }
+
+  // --- line-anchored comments (beyond-Overleaf B6, closes Owner idea #10) ------
+  function commentUrl(fileId) {
+    return `/api/v1/comments/manuscript_file/${fileId}/`;
+  }
+  let commentLine = null;
+  const commentModal = document.getElementById("comment-modal");
+  const commentThread = document.getElementById("comment-thread");
+  const commentInput = document.getElementById("comment-input");
+  const commentTitle = document.getElementById("comment-modal-title");
+
+  async function refreshCommentGutter() {
+    editor.clearGutter("CodeMirror-comment-gutter");
+    try {
+      const data = await fetch(commentUrl(activeId)).then((r) => r.json());
+      const byLine = {};
+      for (const c of data.comments || []) {
+        if (c.line) (byLine[c.line] = byLine[c.line] || []).push(c);
+      }
+      for (const [line, list] of Object.entries(byLine)) {
+        const marker = document.createElement("div");
+        marker.className = "cursor-pointer text-center text-amber-500";
+        marker.textContent = "💬";
+        marker.title = `${list.length} comment${list.length === 1 ? "" : "s"}`;
+        editor.setGutterMarker(Number(line) - 1, "CodeMirror-comment-gutter", marker);
+      }
+    } catch { /* leave the gutter empty */ }
+  }
+  // clicking either gutter opens the thread for that line (CM gives the 0-based line)
+  editor.on("gutterClick", (cm, line, gutter) => {
+    if (gutter === "CodeMirror-linenumbers" || gutter === "CodeMirror-comment-gutter") {
+      openCommentThread(line + 1);
+    }
+  });
+
+  async function openCommentThread(line) {
+    commentLine = line;
+    commentTitle.textContent = `Line ${line} — ${pathOf(activeId)}`;
+    commentThread.innerHTML = '<p class="text-sm text-stone-400">Loading…</p>';
+    commentModal.classList.remove("hidden");
+    commentModal.classList.add("flex");
+    commentInput.value = "";
+    const data = await fetch(commentUrl(activeId)).then((r) => r.json());
+    const here = (data.comments || []).filter((c) => c.line === line);
+    commentThread.innerHTML = "";
+    if (!here.length) commentThread.innerHTML = '<p class="text-sm text-stone-400">No comments on this line yet.</p>';
+    for (const c of here) {
+      const div = document.createElement("div");
+      div.className = "rounded border border-stone-100 bg-stone-50 px-3 py-2";
+      div.innerHTML = `<p class="whitespace-pre-wrap text-sm text-stone-700"></p><p class="mt-1 text-xs text-stone-400">${c.created_at.slice(0, 10)}</p>`;
+      div.querySelector("p").textContent = c.body;
+      commentThread.appendChild(div);
+    }
+    commentInput.focus();
+  }
+  function closeCommentThread() {
+    commentModal.classList.add("hidden");
+    commentModal.classList.remove("flex");
+    commentLine = null;
+  }
+  async function postComment() {
+    const body = commentInput.value.trim();
+    if (!body || commentLine == null) return;
+    await fetch(commentUrl(activeId), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+      body: JSON.stringify({ body, line: commentLine }),
+    });
+    const line = commentLine;
+    await refreshCommentGutter();
+    openCommentThread(line);
+  }
+  document.getElementById("comment-post").addEventListener("click", postComment);
+  document.getElementById("comment-cancel").addEventListener("click", closeCommentThread);
+  document.getElementById("comment-modal-close").addEventListener("click", closeCommentThread);
+  document.getElementById("comment-modal-bg").addEventListener("click", closeCommentThread);
+  commentInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) postComment();
+  });
+  refreshCommentGutter();
 
   const wcBtn = document.getElementById("wordcount-btn");
   const wcOut = document.getElementById("wordcount-out");
