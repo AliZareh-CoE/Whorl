@@ -2,6 +2,34 @@
 
 Every 10th loop cycle is a full security + performance audit (owner rule). Reports newest first.
 
+## Audit #9 — cycle 90 (2026-06-11), covering loop cycles 81–89 (weekly review, comments, MCP)
+
+**Clean again — no findings.** Second consecutive no-fix audit; the surface stayed tight.
+
+**Security (verified live):**
+- New endpoints — weekly-review, comments (GET/POST), reading-flow — all 401 anonymously.
+- Comments API: session POST without CSRF → 403; unknown kind → 404; empty body → 400;
+  5000-char cap (tested). Bots-action write still CSRF-gated.
+- weekly_review's `weeks_back` is clamped 0–52 and tolerates garbage input (`?weeks_back=abc`
+  → 200, defaults to 0) — no unbounded date math or 500s.
+- **Bulk-create scoping checked:** the milestone/task list-POST goes through DRF's
+  `PrimaryKeyRelatedField`, so a nonexistent phase/milestone FK → 400 (verified), not a
+  silent attach or 500. Single-user means there is no cross-tenant phase to leak into.
+- **#77 catch-all re-probed:** `/app//evil.com/x` stays local (open-redirect fix holds),
+  `/api/v1/nonsense` 404s, static serves correctly. The route rule continues to hold.
+
+**Dependencies:** `pip-audit` (frozen) + `npm audit` (prod+dev): **zero known vulnerabilities**.
+
+**Performance:** SPA shell `/` and `/review` ~12 ms; weekly-review 22–24 ms (global and scoped);
+comments 14 ms. All under the 50 ms bar. **weekly_review query cost: 5 queries global, 6 scoped**
+— one per model plus the project lookup, no N+1 (select_related throughout); locked in with a
+new `django_assert_max_num_queries(8)` budget test. Bundles: spa.js 29 KB gz, the Review page
+chunk a tidy 1.8 KB gz.
+
+**Verdict:** healthy. No fixes needed; the cycle-84 weekly-review data layer powers four surfaces
+(page, bot, MCP, copy-export) without a perf or security cost. 431 tests green, lint + tsc +
+assets-check clean.
+
 ## Audit #8 — cycle 80 (2026-06-11), covering loop cycles 71–79 (post-cutover features + dogfooding)
 
 **No findings — a clean audit.** The catch-all routing (#77) and the disciplined dogfood

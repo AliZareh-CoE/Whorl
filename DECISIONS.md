@@ -471,3 +471,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 98. MCP get_synthesis_scaffold tool — let Claude pull the theme-organized synthesis scaffold to draft a review section in chat (idea added by cycle 87)
 99. Per-section copy — small copy buttons on each Review section (e.g. just the milestones) for finer-grained pasting (idea added by cycle 88)
 100. Generic list-create+search mixin — factor the bulk-create/?q= pattern (now duplicated on milestones+tasks) into an AtlasViewSet option so every resource can opt in (idea added by cycle 89)
+101. Audit automation — a `make audit` (Backlog #79, still open) would have run all these curl probes in one command; overdue after two clean audits done by hand (idea added by cycle 90)

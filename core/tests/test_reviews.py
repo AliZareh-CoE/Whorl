@@ -84,3 +84,9 @@ def test_review_page_has_copy_button(client_logged_in):
     review_chunk = next(Path("static/js/islands").glob("Review-chunk.js"), None)
     text = spa + (review_chunk.read_text(errors="ignore") if review_chunk else "")
     assert "Copy week" in text and "Research week:" in text
+
+
+def test_weekly_review_query_budget(django_assert_max_num_queries):
+    # weekly_review touches several models; keep it lean (no N+1)
+    with django_assert_max_num_queries(8):
+        weekly_review()
