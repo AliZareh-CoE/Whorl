@@ -53,3 +53,8 @@ class TestSpaShell:
         from pathlib import Path
 
         assert Path("static/js/spa.js").stat().st_size > 10_000
+
+    def test_shell_sets_csrf_cookie(self, client_logged_in):
+        # the SPA has no server-rendered form; its API writes need the token
+        response = client_logged_in.get("/app/")
+        assert "csrftoken" in response.cookies

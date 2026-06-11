@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 
@@ -91,6 +92,10 @@ def pet_page(request):
     return render(request, "core/pet.html", {"pet": pet_state()})
 
 
+@ensure_csrf_cookie
 def spa_shell(request, rest=""):
-    """Serve the React SPA shell (Owner idea #20) — the router takes it from here."""
+    """Serve the React SPA shell (Owner idea #20) — the router takes it from here.
+
+    ensure_csrf_cookie: the shell has no form, but the SPA's writes need the token.
+    """
     return render(request, "spa.html")

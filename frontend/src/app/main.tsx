@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "./Layout";
 import Dashboard from "./pages/Dashboard";
+import Plan from "./pages/Plan";
 import ProjectOverview from "./pages/ProjectOverview";
 import Projects from "./pages/Projects";
 
@@ -18,6 +19,7 @@ createRoot(document.getElementById("root")!).render(
           <Route index element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:slug" element={<ProjectOverview />} />
+          <Route path="projects/:slug/plan" element={<Plan />} />
           <Route path="*" element={<p className="text-sm text-stone-400">Not migrated yet — try the classic pages.</p>} />
         </Route>
       </Routes>

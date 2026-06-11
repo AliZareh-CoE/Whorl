@@ -189,7 +189,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
       deep links verified, zero JS errors)~~ → ~~57 projects list/overview (done 2026-06-11: /app/projects/:slug overview in React —
       phase+progress bar, counts grid, next milestones with overdue, recent documents/decisions
       via extended overview endpoint; client-side nav from dashboard/list; deep links; classic
-      pages linked for unmigrated sections)~~ → 58 plan page w/ check-offs →
+      pages linked for unmigrated sections)~~ → ~~58 plan page w/ check-offs (done 2026-06-11: /app/projects/:slug/plan — phase cards
+      with status/progress, optimistic milestone+task toggles via PATCH with TanStack
+      invalidation of plan/overview/dashboard; found+fixed: the SPA shell never set the CSRF
+      cookie (no form), so the first write 403'd — ensure_csrf_cookie on the shell + test;
+      phase objectives/editing stay classic for now)~~ →
       59 documents (reuse table) → [60 AUDIT #6] → 61 library+queue+reference detail →
       62 notes+editor → 63 writing board+manuscript (CodeMirror in React) → 64 inbox, prompts,
       automations, pet, search → [65 REV] → 66 research+decisions+questions → 67 graph →
@@ -366,3 +370,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 63. Assistant actions that act — POST quick actions in the panel (complete milestone, set reading status) with optimistic UI, reusing the bulk endpoints pattern (idea added by cycle 55)
 63. SPA shell polish — pet widget, global search, and the assistant summon inside the React layout so /app/ feels complete while sections migrate (idea added by cycle 56)
 64. SPA route prefetch — hovering a project card prefetches its overview query so navigation feels instant (idea added by cycle 57)
+65. SPA plan editing — phase/milestone/task create+edit modals in React so the plan page reaches full parity and the classic page can retire (idea added by cycle 58)
