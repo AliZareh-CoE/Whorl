@@ -28,6 +28,12 @@
     return (files.get(id) || { path: "main.tex" }).path;
   }
 
+  const SETTINGS_KEY = "atlas-editor-settings";
+  const settings = Object.assign(
+    { keymap: "default", fontSize: "13", spellcheck: false },
+    JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")
+  );
+
   const textarea = document.getElementById("latex-source");
   const editor = CodeMirror(document.getElementById("editor-host"), {
     value: textarea.value || "% Start writing. \\cite{ } autocompletes from this manuscript's bibliography.\n",
@@ -35,6 +41,8 @@
     lineNumbers: true,
     lineWrapping: true,
     viewportMargin: Infinity,
+    inputStyle: "contenteditable",  // required for native spellcheck (CM5: construction-time only)
+    spellcheck: settings.spellcheck,
     gutters: ["CodeMirror-linenumbers", "CodeMirror-lint-markers"],
     lint: {
       getAnnotations: (text, opts, cm) => (DIAGNOSTICS || [])
@@ -51,6 +59,43 @@
   editor.getWrapperElement().style.minHeight = "55vh";
   window.editor = editor; // console + test access
   docs.set(cfg.mainFileId, editor.getDoc());
+
+  // --- editor settings + find/replace (epic slice 5) ---------------------------
+  function persistSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }
+  function applySettings() {
+    editor.setOption("keyMap", settings.keymap);
+    editor.getWrapperElement().style.fontSize = `${settings.fontSize}px`;
+    editor.setOption("spellcheck", settings.spellcheck); // contenteditable honors this live
+    editor.refresh();
+  }
+  const keymapSel = document.getElementById("setting-keymap");
+  const fontSel = document.getElementById("setting-fontsize");
+  const spellChk = document.getElementById("setting-spellcheck");
+  keymapSel.value = settings.keymap;
+  fontSel.value = settings.fontSize;
+  spellChk.checked = settings.spellcheck;
+  keymapSel.addEventListener("change", () => {
+    settings.keymap = keymapSel.value;
+    persistSettings();
+    applySettings();
+  });
+  fontSel.addEventListener("change", () => {
+    settings.fontSize = fontSel.value;
+    persistSettings();
+    applySettings();
+  });
+  spellChk.addEventListener("change", () => {
+    settings.spellcheck = spellChk.checked;
+    persistSettings();
+    applySettings();
+  });
+  applySettings();
+
+  document.getElementById("find-btn").addEventListener("click", () => {
+    editor.execCommand("find"); // CM5 search addon dialog (Ctrl/Cmd-F also bound)
+  });
 
   // --- autocomplete v2 + snippets (epic slice 4) -------------------------------
   // Researched: Overleaf completes from a frequency-ranked command table PLUS the

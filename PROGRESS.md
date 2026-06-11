@@ -3,14 +3,15 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: LaTeX epic slice 5 [cycle 106] — find/replace + keymaps + settings)
-- **Last completed slice (cycle 105, [REV] multi-file workbench):** ManuscriptFile model + strict path validator + latex_source alias, compile.py tree-writer with --untrusted + traversal guard + bib no-clobber, 6 classic endpoints + DRF manuscript-files viewset, editor file-tree sidebar with swapDoc multi-buffer + per-file autosave/dirty/diagnostics. 48 tests incl. 15-case traversal battery. Browser-verified multi-file \input compile. PLUS Owner idea #25 slice 1: editor now full-width (base.html main_class block).
+- **Slice in progress:** — (next: density UI/UX sweep [cycle 107, Owner idea #25])
+- **Last completed slice (cycle 106, LaTeX epic slice 5):** find/replace + keymaps + settings + spellcheck — CM5 search/dialog/jump-to-line addons (Find + Ctrl-F), ⚙ Editor popover (keybindings default/sublime/vim/emacs, font size, spellcheck) persisted to localStorage; spellcheck via construction-time inputStyle:contenteditable (CM5 quirk found+fixed). Browser-verified all five + contenteditable regression check.
+- **Prior slice (cycle 105, [REV] multi-file workbench):** ManuscriptFile model + strict path validator + latex_source alias, compile.py tree-writer with --untrusted + traversal guard + bib no-clobber, 6 classic endpoints + DRF manuscript-files viewset, editor file-tree sidebar with swapDoc multi-buffer + per-file autosave/dirty/diagnostics. 48 tests incl. 15-case traversal battery. Browser-verified multi-file \input compile. PLUS Owner idea #25 slice 1: editor now full-width (base.html main_class block).
 - **NEW Owner idea #25 (whitespace/density):** stop centering in narrow max-w-5xl; use full width + tighter rhythm like Overleaf. Standing UI rule; queued UI/UX cycles will sweep dashboard/overview/plan/tables/board.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → **Owner idea #24 LaTeX epic (slices 2,3,4,5 next; [REV] multi-file workbench at 105)** → other owner ideas → backlog; every cycle: ≥1 new idea + tech improvement + research-backed design + parallel planning agents for future epics.
 - **Next 3 slices:**
-  1. LaTeX epic slice 5 [cycle 106]: find/replace + vim/emacs keymaps + settings popover + spellcheck
-  2. Density UI/UX sweep [cycle 107, Owner idea #25]: dashboard + overview + tables to full-width/denser
-  3. Slices 7,8,9 [108-109]: SyncTeX, outline+word count, versions/history; AUDIT #11 [110]
+  1. Density UI/UX sweep [cycle 107, Owner idea #25]: dashboard + overview + tables to full-width/denser
+  2. LaTeX slices 7,8 [108]: SyncTeX forward, outline+word count
+  3. LaTeX slice 9 + templates [109]; AUDIT #11 [110]
 - **Broken:** nothing
 
 ## Gate reports

@@ -15,10 +15,41 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/lint/lint.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/dialog/dialog.min.css">
 
-<div class="mb-4 flex items-center gap-3">
+<div class="mb-3 flex items-center gap-3">
   <h1 class="min-w-0 flex-1 truncate text-xl font-semibold tracking-tight">{{ manuscript.title }}</h1>
-  <span class="shrink-0 text-xs text-stone-400">Type <code class="rounded bg-stone-100 px-1">\cite{% templatetag openbrace %}</code> for key autocomplete · autosaves as you type</span>
+  <button type="button" id="find-btn" title="Find & replace (Ctrl/Cmd-F)"
+          class="shrink-0 rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:border-stone-400">Find</button>
+  <div class="relative shrink-0" x-data="{ open: false }">
+    <button type="button" @click="open = !open"
+            class="rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:border-stone-400">⚙ Editor</button>
+    <div x-show="open" @click.outside="open = false" x-cloak x-transition.opacity
+         class="absolute right-0 z-20 mt-1 w-56 rounded border border-stone-200 bg-white p-3 text-xs shadow-lg">
+      <label class="mb-2 block">
+        <span class="mb-1 block text-stone-500">Keybindings</span>
+        <select id="setting-keymap" class="w-full rounded border border-stone-300 px-1.5 py-1">
+          <option value="default">Default</option>
+          <option value="sublime">Sublime</option>
+          <option value="vim">Vim</option>
+          <option value="emacs">Emacs</option>
+        </select>
+      </label>
+      <label class="mb-2 block">
+        <span class="mb-1 block text-stone-500">Font size</span>
+        <select id="setting-fontsize" class="w-full rounded border border-stone-300 px-1.5 py-1">
+          <option value="12">12px</option>
+          <option value="13">13px</option>
+          <option value="14">14px</option>
+          <option value="16">16px</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2">
+        <input type="checkbox" id="setting-spellcheck" class="size-3.5 rounded border-stone-300 accent-indigo-600">
+        <span class="text-stone-600">Spell check</span>
+      </label>
+    </div>
+  </div>
 </div>
 
 <div class="flex gap-3">
@@ -116,6 +147,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/stex/stex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/lint/lint.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/dialog/dialog.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/search/search.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/search/jump-to-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/keymap/vim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/keymap/emacs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/keymap/sublime.min.js"></script>
 {{ editor_config|json_script:"editor-config" }}
 <script src="{% static 'js/latex-editor.js' %}" defer></script>
 {% endblock %}

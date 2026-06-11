@@ -303,6 +303,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     work not the flag, multi-file needs --untrusted + strict path validation (#36 urgency),
     compile queue pile-up needs generation counter, stop-on-first-error is moot (tectonic
     halts hard — verified live).
+    ~~Slice 5 (2026-06-11, cycle 106): find/replace + keymaps + settings + spellcheck —
+    CM5 search/searchcursor/dialog/jump-to-line addons (Find button + Ctrl/Cmd-F), an
+    "⚙ Editor" popover with keybindings (default/sublime/vim/emacs), font size, and a
+    spell-check toggle, all persisted in localStorage. Spellcheck required constructing the
+    editor with inputStyle:contenteditable (CM5 only honors it at construction; the runtime
+    toggle silently no-ops — found and fixed during verification), then toggling the
+    spellcheck option live. Browser-verified all five + a contenteditable regression check
+    (autocomplete + compile still work).~~
     ~~[REV] Slice 6 (2026-06-11, cycle 105, THE REVOLUTIONARY CYCLE): multi-file
     manuscript workbench — ManuscriptFile model (strict path validator: ASCII-only,
     no dotfiles/.., depth-capped; tex/bib/asset kinds), latex_source two-way alias kept
@@ -609,5 +617,6 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+119. Editor command palette — a small Ctrl/Cmd-P over editor actions (compile, find, toggle preview, new file, change keymap) so power users skip the mouse; pairs with the settings popover (idea added by cycle 106)
 118. Density pass infrastructure — a shared dense-table CSS utility + tighter card padding tokens so the Owner-idea-#25 width/density work is consistent across pages instead of per-page tweaks (idea added by cycle 105)
 117. Context-aware completions — rank \item first inside itemize/enumerate and \includegraphics inside figure (Overleaf's frequency data shows these dominate their environments); needs a tiny enclosing-environment scanner (idea added by cycle 104)
