@@ -623,3 +623,19 @@ class TestTaskBulkAndSearch:
         data = client_logged_in.get(f"/api/v1/tasks/?project={slug}&q=email").json()
         assert data["count"] == 1
         assert data["results"][0]["title"] == "Email participants"
+
+
+class TestSynthesisReadOnly:
+    def test_get_scaffold_does_not_create_a_note(self, client_logged_in):
+        from literature.models import ReviewMark, ReviewTheme
+        from literature.tests.factories import ProjectReferenceFactory
+        from notes.models import Note
+
+        link = ProjectReferenceFactory()
+        theme = ReviewTheme.objects.create(project=link.project, name="Methods", order=1)
+        ReviewMark.objects.create(theme=theme, project_reference=link)
+        before = Note.objects.count()
+        data = client_logged_in.get(f"/api/v1/projects/{link.project.slug}/synthesis/").json()
+        assert "## Methods" in data["scaffold"]
+        assert link.reference.bibtex_key in data["scaffold"]
+        assert Note.objects.count() == before  # read-only, no note created

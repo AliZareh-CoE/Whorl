@@ -104,6 +104,14 @@ def get_review_matrix(project: str) -> dict:
 
 
 @mcp.tool()
+def get_synthesis_scaffold(project: str) -> dict:
+    """A theme-organized literature-review scaffold for the project — each review theme with
+    its marked papers, plus a synthesis prompt. Use it as a skeleton to draft a review section.
+    Read-only: does not create a note."""
+    return client.get_synthesis_scaffold(project)
+
+
+@mcp.tool()
 def get_weekly_review(project: str = "", weeks_back: int = 0) -> dict:
     """What happened in a research week — papers read, notes written, milestones completed,
     decisions, and experiments. Pass a project slug to scope it, or leave blank for everything;

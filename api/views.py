@@ -162,6 +162,18 @@ class ProjectViewSet(AtlasViewSet):
         )
 
     @extend_schema(
+        responses={200: OpenApiResponse(description="The synthesis scaffold markdown")},
+        description="A theme-organized literature-review scaffold for the project — read-only "
+        "(does not create a note). For drafting a review section in chat.",
+    )
+    @action(detail=True, methods=["get"])
+    def synthesis(self, request, slug=None):
+        from literature.selectors import synthesis_scaffold
+
+        project = self.get_object()
+        return Response({"scaffold": synthesis_scaffold(project)})
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Ordered reading queue for reading-flow mode")},
         description="Unread/skimmed papers, priority-ordered, with the fields the focused "
         "reading-flow session needs.",

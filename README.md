@@ -110,7 +110,7 @@ claude mcp add atlas \
 Tools: `list_projects`, `get_project_overview`, `get_plan`, `complete_milestone`,
 `list_documents`, `search`, `add_reference_by_doi`, `get_reading_queue`,
 `set_reading_status`, `add_note`, `quick_capture`, `run_bib_check`, `list_prompts`,
-`get_prompt`, `get_review_matrix`, `get_weekly_review`.
+`get_prompt`, `get_review_matrix`, `get_weekly_review`, `get_synthesis_scaffold`.
 
 Smoke-test conversation script (after `seed_demo`):
 

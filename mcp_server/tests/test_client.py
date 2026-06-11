@@ -145,3 +145,10 @@ def test_get_weekly_review_global(capture):
 
     client.get_weekly_review()
     assert "project=" not in capture["url"]
+
+
+def test_get_synthesis_scaffold_builds_request(capture):
+    from mcp_server import client
+
+    client.get_synthesis_scaffold("attention-and-memory")
+    assert "/projects/attention-and-memory/synthesis/" in capture["url"]
