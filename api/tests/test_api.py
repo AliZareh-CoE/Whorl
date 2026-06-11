@@ -319,3 +319,31 @@ class TestOverviewSpaExtras:
         assert data["recent_documents"][0]["title"] == "Overview doc"
         assert data["recent_documents"][0]["url"].endswith("/download/")
         assert data["recent_decisions"][0]["title"] == "Overview decision"
+
+
+class TestDocumentsTableAPI:
+    def test_table_props_shape(self, client_logged_in):
+        from documents.tests.factories import DocumentFactory
+
+        doc = DocumentFactory(title="SPA doc")
+        data = client_logged_in.get(f"/api/v1/projects/{doc.project.slug}/documents-table/").json()
+        assert {"documents", "folders", "tags", "bulkUrl"} <= set(data)
+        assert data["documents"][0]["title"] == "SPA doc"
+        assert data["bulkUrl"].endswith("/documents/bulk/")
+
+    def test_spa_bulk_returns_json_without_flash(self, client_logged_in):
+        from documents.models import Document
+        from documents.tests.factories import DocumentFactory
+
+        doc = DocumentFactory()
+        response = client_logged_in.post(
+            f"/projects/{doc.project.slug}/documents/bulk/",
+            {"action": "delete", "ids": [doc.pk]},
+            headers={"X-SPA": "1"},
+        )
+        assert response.status_code == 200
+        assert "Deleted 1" in response.json()["detail"]
+        assert not Document.objects.filter(pk=doc.pk).exists()
+        # the flash queue was consumed — the next page render shows no stale message
+        follow = client_logged_in.get("/projects/")
+        assert b"Deleted 1" not in follow.content

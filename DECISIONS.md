@@ -194,7 +194,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
       invalidation of plan/overview/dashboard; found+fixed: the SPA shell never set the CSRF
       cookie (no form), so the first write 403'd — ensure_csrf_cookie on the shell + test;
       phase objectives/editing stay classic for now)~~ →
-      59 documents (reuse table) → [60 AUDIT #6] → 61 library+queue+reference detail →
+      ~~59 documents (done 2026-06-11: DocumentsTable extracted to a shared component used
+      by both the classic-page island and /app/projects/:slug/documents; new documents-table
+      API action; SPA mode refetches via TanStack instead of reloading, bulk endpoint returns
+      JSON consuming the flash queue; found+fixed: ml-56 missing from built CSS — the SPA
+      layout's classes had never been through make css, so the sidebar overlapped the table;
+      folder tree + upload still classic, noted)~~ → [60 AUDIT #6] → 61 library+queue+reference detail →
       62 notes+editor → 63 writing board+manuscript (CodeMirror in React) → 64 inbox, prompts,
       automations, pet, search → [65 REV] → 66 research+decisions+questions → 67 graph →
       68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
@@ -371,3 +376,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 63. SPA shell polish — pet widget, global search, and the assistant summon inside the React layout so /app/ feels complete while sections migrate (idea added by cycle 56)
 64. SPA route prefetch — hovering a project card prefetches its overview query so navigation feels instant (idea added by cycle 57)
 65. SPA plan editing — phase/milestone/task create+edit modals in React so the plan page reaches full parity and the classic page can retire (idea added by cycle 58)
+66. CSS build gate — add `make css && git diff --exit-code static/css/app.css` to the cycle gate so Tailwind classes used by new TSX never ship missing (idea added by cycle 59, from the ml-56 bug)

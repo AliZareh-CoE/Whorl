@@ -14,27 +14,11 @@ from .forms import DocumentForm, FolderForm, TagForm
 from .models import Document, Folder, Tag
 
 
-def documents_index(request, slug):
-    project = get_object_or_404(Project, slug=slug)
-    current_folder = None
-    if request.GET.get("folder"):
-        current_folder = get_object_or_404(project.folders, pk=request.GET["folder"])
-
-    documents = project.documents.select_related("folder").prefetch_related("tags")
-    if current_folder:
-        documents = documents.filter(folder=current_folder)
-    elif "all" not in request.GET:
-        documents = documents.filter(folder__isnull=True)
-
-    current_tag = None
-    if request.GET.get("tag"):
-        current_tag = get_object_or_404(project.tags, pk=request.GET["tag"])
-        documents = documents.filter(tags=current_tag)
-
+def documents_table_props(project, documents, next_url=""):
+    """Props for the React documents table — used by the page island AND the SPA API."""
     from django.template.defaultfilters import filesizeformat
 
-    tags = project.tags.all()
-    island_props = {
+    return {
         "documents": [
             {
                 "id": doc.pk,
@@ -52,10 +36,31 @@ def documents_index(request, slug):
             for doc in documents
         ],
         "folders": [{"id": f.pk, "name": f.name} for f in project.folders.all()],
-        "tags": [{"id": t.pk, "name": t.name} for t in tags],
+        "tags": [{"id": t.pk, "name": t.name} for t in project.tags.all()],
         "bulkUrl": reverse("documents:bulk", args=[project.slug]),
-        "nextUrl": request.get_full_path(),
+        "nextUrl": next_url,
     }
+
+
+def documents_index(request, slug):
+    project = get_object_or_404(Project, slug=slug)
+    current_folder = None
+    if request.GET.get("folder"):
+        current_folder = get_object_or_404(project.folders, pk=request.GET["folder"])
+
+    documents = project.documents.select_related("folder").prefetch_related("tags")
+    if current_folder:
+        documents = documents.filter(folder=current_folder)
+    elif "all" not in request.GET:
+        documents = documents.filter(folder__isnull=True)
+
+    current_tag = None
+    if request.GET.get("tag"):
+        current_tag = get_object_or_404(project.tags, pk=request.GET["tag"])
+        documents = documents.filter(tags=current_tag)
+
+    tags = project.tags.all()
+    island_props = documents_table_props(project, documents, request.get_full_path())
     return render(
         request,
         "documents/index.html",
@@ -314,6 +319,12 @@ def bulk_action(request, slug):
         messages.success(request, f"Tagged {count} document(s) with “{tag.name}”.")
     else:
         messages.error(request, "Unknown bulk action.")
+    if request.headers.get("X-SPA") == "1":
+        from django.contrib.messages import get_messages
+        from django.http import JsonResponse
+
+        summary = [m.message for m in get_messages(request)]  # consume — SPA shows its own state
+        return JsonResponse({"detail": summary[-1] if summary else "ok"})
     next_url = request.POST.get("next", "")
     if not (next_url.startswith("/") and not next_url.startswith("//")):
         next_url = reverse("documents:index", kwargs={"slug": slug})

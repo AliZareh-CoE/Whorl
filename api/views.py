@@ -159,6 +159,20 @@ class ProjectViewSet(AtlasViewSet):
         )
 
     @extend_schema(
+        responses={200: OpenApiResponse(description="Props for the React documents table")},
+        description="Documents table data for the SPA: rows, folders, tags, bulk endpoint.",
+    )
+    @action(detail=True, methods=["get"], url_path="documents-table")
+    def documents_table(self, request, slug=None):
+        from documents.views import documents_table_props
+
+        project = self.get_object()
+        documents = project.documents.select_related("folder").prefetch_related("tags")
+        if request.query_params.get("folder"):
+            documents = documents.filter(folder_id=request.query_params["folder"])
+        return Response(documents_table_props(project, documents))
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Phases with nested milestones and tasks")},
         description="The full plan: ordered phases, their milestones, and optional tasks.",
     )
