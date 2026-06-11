@@ -95,10 +95,10 @@ class TestPetSpeech:
         cache.delete("atlas-pet-state")
         response = client_logged_in.get(reverse("core:dashboard"))
         content = response.content.decode()
-        assert "pet-idle" in content
+        assert "pet-body" in content  # the inline-SVG pet (Owner idea #27), not an emoji
         assert "“" in content  # the sidebar speech line
         page = client_logged_in.get(reverse("core:pet")).content.decode()
-        assert "pet-idle" in page
+        assert "pet-body" in page
 
 
 class TestBuddyPersonality:

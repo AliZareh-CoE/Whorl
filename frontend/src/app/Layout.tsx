@@ -4,6 +4,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { api } from "./api";
 import { toSpaUrl } from "./links";
 import CommandBar from "./CommandBar";
+import { PetSvg } from "./PetSvg";
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
   `block rounded px-2 py-1.5 ${isActive ? "bg-stone-100 font-medium" : "text-stone-600 hover:bg-stone-50"}`;
@@ -46,6 +47,7 @@ export default function Layout() {
       api<{
         name: string;
         emoji: string;
+        stage: string;
         mood: string;
         speech: string;
         speech_lines?: string[];
@@ -106,8 +108,8 @@ export default function Layout() {
                 {bubble}
               </span>
               <span className="flex items-center gap-2 rounded border border-stone-100 bg-stone-50 px-2 py-1.5 group-hover:border-stone-200">
-                <span className={`inline-block text-xl ${reaction ? "pet-hop" : "pet-idle"} ${pet.mood === "sleeping" ? "opacity-70 grayscale" : ""}`}>
-                  {pet.emoji}
+                <span className={reaction ? "pet-hop inline-block" : "inline-block"}>
+                  <PetSvg stage={pet.stage} mood={pet.mood} size={28} />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-stone-600">{pet.name}</span>

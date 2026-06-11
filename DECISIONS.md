@@ -404,6 +404,13 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     with real CSS animation (idle breathing/bob, blink, ear/wing twitch, the hop on events),
     expressive eyes/mood. This is the next UI/UX cycle (119) and a standing quality bar: the pet
     should look hand-crafted, not a Unicode character.
+    ~~Done (2026-06-11, cycle 119): templates/core/_pet_svg.html + frontend PetSvg.tsx — a
+    hand-drawn inline-SVG owl, distinct per stage (egg with crack → yellow hatchling with
+    eggshell-hat → scholar owl with ear tufts + eye-discs + beak → sage owl with a graduation
+    cap + twinkling star), shared by the classic sidebar, /pet/ page, and the React layout.
+    CSS in app.css: breathing body, off-beat blink, sage sparkle twinkle, hop on events,
+    sleeping closes the eyes + dims; prefers-reduced-motion respected. Browser-verified all
+    stages + live in-app.~~
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -657,6 +664,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+132. Pet hatch animation — when the pet crosses a stage threshold (egg→hatchling etc.), play a one-time SVG transition (shell crack/burst) instead of just swapping the drawing (idea added by cycle 119)
 131. Include the .bbl in the submission zip — persist the compiled .bbl (compile with --keep-intermediates and store it on the manuscript) so the arXiv package includes it for venues that don't run BibTeX (idea added by cycle 118)
 130. Resolve/strike line comments — let a line comment be marked resolved (greyed + dot hidden) so addressed feedback clears, like a review tool; the Comment model would need a resolved flag (idea added by cycle 117)
 129. Compile streak on the pet/timeline — a compiles-per-week sparkline (the data is now on the timeline) on the manuscript detail or as a Mochi reaction, turning the writing rhythm into a gentle signal (idea added by cycle 116)

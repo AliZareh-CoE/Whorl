@@ -102,3 +102,34 @@
 
 /* Line-comment gutter in the LaTeX editor (B6) */
 .CodeMirror-comment-gutter { width: 16px; }
+
+/* Mochi the pet — a real designed creature (Owner idea #27). The SVG breathes,
+   blinks, and (when thriving/sage) sparkles. Sleeping closes the eyes. */
+.pet-svg { transform-origin: 50% 100%; }
+.pet-svg .pet-body { animation: pet-breathe 3.4s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes pet-breathe {
+  0%, 100% { transform: scaleY(1) translateY(0); }
+  50% { transform: scaleY(1.04) translateY(-0.4px); }
+}
+/* blink: the open eyes squash shut briefly, on an off-beat interval */
+.pet-svg .pet-eyes { animation: pet-blink 5.2s steps(1, end) infinite; transform-origin: 50% 55%; }
+@keyframes pet-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+.pet-svg .pet-eyes-shut { display: none; }
+/* sleeping: hide open eyes, show the closed-eye curves, dim + grayscale */
+.pet-svg.pet-asleep .pet-eyes { display: none; }
+.pet-svg.pet-asleep .pet-eyes-shut { display: block; }
+.pet-svg.pet-asleep .pet-body { filter: grayscale(0.5); opacity: 0.85; animation-duration: 5s; }
+/* sparkle twinkle for the sage */
+.pet-svg .pet-sparkle { animation: pet-twinkle 2.2s ease-in-out infinite; transform-origin: 26px 11px; }
+@keyframes pet-twinkle {
+  0%, 100% { opacity: 0.4; transform: scale(0.8) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
+}
+/* the hop reaction reuses pet-hop; apply it to the wrapper */
+.pet-svg.pet-hop { animation: pet-hop 0.9s ease-in-out; }
+@media (prefers-reduced-motion: reduce) {
+  .pet-svg .pet-body, .pet-svg .pet-eyes, .pet-svg .pet-sparkle, .pet-svg.pet-hop { animation: none; }
+}
