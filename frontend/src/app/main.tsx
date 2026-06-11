@@ -14,6 +14,7 @@ const Plan = lazy(() => import("./pages/Plan"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Literature = lazy(() => import("./pages/Literature"));
 const Library = lazy(() => import("./pages/Library"));
+const Reference = lazy(() => import("./pages/Reference"));
 const NotesList = lazy(() => import("./pages/Notes").then((m) => ({ default: m.NotesList })));
 const NoteEditor = lazy(() => import("./pages/Notes").then((m) => ({ default: m.NoteEditor })));
 const Research = lazy(() => import("./pages/Research"));
@@ -51,6 +52,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/graph" element={<Graph />} />
           <Route path="automations" element={<Automations />} />
           <Route path="library" element={<Library />} />
+          <Route path="references/:id" element={<Reference />} />
           <Route path="writing" element={<WritingBoard />} />
           <Route path="manuscripts/:id" element={<ManuscriptDetail />} />
           <Route path="inbox" element={<Inbox />} />

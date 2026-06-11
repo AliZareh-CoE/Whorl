@@ -1,0 +1,106 @@
+/** Reference reader: metadata, abstract with Listen (TTS), PDF, status (SPA, cycle 74). */
+import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { api, csrfToken } from "../api";
+
+type Ref = {
+  id: number;
+  bibtex_key: string;
+  title: string;
+  authors: { family?: string; given?: string }[];
+  year: number | null;
+  venue: string;
+  abstract: string;
+  doi: string;
+  url: string;
+  pdf: string | null;
+  citation_count: number | null;
+};
+
+function authorLine(r: Ref): string {
+  const names = (r.authors ?? []).map((a) => [a.given, a.family].filter(Boolean).join(" ")).filter(Boolean);
+  return names.join(", ");
+}
+
+export default function Reference() {
+  const { id } = useParams();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [listening, setListening] = useState(false);
+  const [ttsError, setTtsError] = useState("");
+
+  const { data: ref, isLoading } = useQuery({
+    queryKey: ["reference", id],
+    queryFn: () => api<Ref>(`/references/${id}/`),
+  });
+
+  async function listen(text: string) {
+    if (listening) {
+      audioRef.current?.pause();
+      setListening(false);
+      return;
+    }
+    setTtsError("");
+    setListening(true);
+    try {
+      const body = new URLSearchParams({ text });
+      const res = await fetch("/tts/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfToken() },
+        body,
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Read-aloud unavailable.");
+      const blob = await res.blob();
+      const audio = new Audio(URL.createObjectURL(blob));
+      audioRef.current = audio;
+      audio.onended = () => setListening(false);
+      await audio.play();
+    } catch (e) {
+      setTtsError(String((e as Error).message ?? e));
+      setListening(false);
+    }
+  }
+
+  if (isLoading || !ref) return <p className="text-sm text-stone-400">Loading reference…</p>;
+
+  return (
+    <div>
+      <nav className="mb-6 text-sm text-stone-500">
+        <Link to="/library" className="hover:underline">Library</Link> / {ref.bibtex_key}
+      </nav>
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight">{ref.title}</h1>
+      <p className="mb-4 text-sm text-stone-500">
+        {authorLine(ref)}{ref.year ? ` · ${ref.year}` : ""}{ref.venue ? ` · ${ref.venue}` : ""}
+        {ref.citation_count != null ? ` · ${ref.citation_count} citations` : ""}
+      </p>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <span className="rounded bg-stone-100 px-2 py-0.5 font-mono text-xs text-stone-500">{ref.bibtex_key}</span>
+        {ref.doi && <a href={`https://doi.org/${ref.doi}`} className="text-indigo-600 hover:underline">DOI ↗</a>}
+        {ref.url && <a href={ref.url} className="text-indigo-600 hover:underline">Link ↗</a>}
+        {ref.pdf && <a href={ref.pdf} className="text-indigo-600 hover:underline">PDF ↗</a>}
+        <a href={`/library/${ref.id}/`} className="text-stone-400 underline hover:text-indigo-700">edit / annotate (classic) ↗</a>
+      </div>
+
+      {ref.abstract && (
+        <section className="mb-4 rounded border border-stone-200 bg-white p-5">
+          <div className="mb-2 flex items-center gap-2">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-stone-400">Abstract</h2>
+            <button onClick={() => listen(`${ref.title}. ${ref.abstract}`)}
+                    className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs hover:border-stone-400">
+              {listening ? "⏸ Stop" : "🔊 Listen"}
+            </button>
+            {ttsError && <span className="text-xs text-red-600">{ttsError}</span>}
+          </div>
+          <p className="text-sm leading-relaxed text-stone-700">{ref.abstract}</p>
+        </section>
+      )}
+
+      {ref.pdf && (
+        <section className="rounded border border-stone-200 bg-white p-2">
+          <iframe src={ref.pdf} title="PDF" className="h-[70vh] w-full rounded" />
+        </section>
+      )}
+    </div>
+  );
+}

@@ -17,6 +17,7 @@ spa_routes = [
     re_path(r"^projects/[^/]+/notes/(new|\d+)$", views.spa_shell),
     re_path(r"^(library|writing|inbox|prompts|search|automations)$", views.spa_shell),
     re_path(r"^manuscripts/\d+$", views.spa_shell),
+    re_path(r"^references/\d+$", views.spa_shell),
     # old bookmarks: /app/* → same path at the root
     path("app/", RedirectView.as_view(url="/", permanent=False)),
     path("app/<path:rest>", views.spa_redirect),

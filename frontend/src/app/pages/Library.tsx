@@ -1,6 +1,7 @@
 /** Global reference library (SPA slice 5). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 
 type Ref = { id: number; bibtex_key: string; title: string; authors: { family?: string }[]; year: number | null; venue: string };
@@ -76,13 +77,13 @@ export default function Library() {
 
       <div className="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
         {rows.map((r) => (
-          <a key={r.id} href={`/library/${r.id}/`} className="block px-4 py-3 text-sm hover:bg-stone-50">
+          <Link key={r.id} to={`/references/${r.id}`} className="block px-4 py-3 text-sm hover:bg-stone-50">
             <span className="font-medium">{r.title}</span>
             <p className="text-xs text-stone-400">
               {(r.authors ?? []).slice(0, 3).map((a) => a.family).filter(Boolean).join(", ")}
               {r.year ? ` · ${r.year}` : ""} · <span className="font-mono">{r.bibtex_key}</span>
             </p>
-          </a>
+          </Link>
         ))}
         {rows.length === 0 && <p className="px-4 py-8 text-center text-sm text-stone-400">No matches.</p>}
       </div>

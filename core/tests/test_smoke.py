@@ -43,7 +43,10 @@ class TestSpaShell:
         assert client.get("/").status_code == 302
 
     def test_front_door_and_spa_routes_serve_the_shell(self, client_logged_in):
-        for path in ("/", "/projects/some-slug", "/projects/x/plan", "/library", "/manuscripts/3"):
+        for path in (
+            "/", "/projects/some-slug", "/projects/x/plan", "/library",
+            "/manuscripts/3", "/references/24",  # references added cycle 74
+        ):
             response = client_logged_in.get(path)
             assert response.status_code == 200, path
             assert b'id="root"' in response.content, path

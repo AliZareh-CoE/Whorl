@@ -160,9 +160,9 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
               className="size-4 shrink-0 rounded border-stone-300 accent-indigo-600"
             />
             <div className="min-w-0 flex-1">
-              <a href={`/library/${row.reference_summary.id}/`} className="font-medium hover:underline">
+              <Link to={`/references/${row.reference_summary.id}`} className="font-medium hover:underline">
                 {row.reference_summary.title}
-              </a>
+              </Link>
               <p className="text-xs text-stone-400">
                 {authorLine(row.reference_summary)}
                 {row.reference_summary.year ? ` · ${row.reference_summary.year}` : ""} ·{" "}

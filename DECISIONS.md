@@ -24,6 +24,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    token_urlsafe(32) key, rewrites .env preserving other lines, prints masked old key and
    restart/MCP reminders.~~ Remaining: CSP if ever public-facing.
 3. **Free local text-to-speech ("read this to me").** A strong free TTS engine (e.g. Piper)
+    ~~SPA Listen (done 2026-06-11, cycle 74): /app/references/:id reader with a 🔊 Listen button on the abstract streaming real Piper TTS in-app; sets up the reading-flow [REV].~~
    the owner can run locally; "Read aloud" on notes, abstracts, and (eventually) PDFs.
 4. **Auto-download article PDFs.** ~~Done (2026-06-10, cycle 7): arXiv direct + Unpaywall
    best-OA resolution in `literature/oa.py`; background huey fetch on every new reference
@@ -452,3 +453,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 80. Bulk task create + task search — mirror #71/#72 on the tasks endpoint for symmetry (idea added by cycle 71)
 81. ~~SPA synthesis + coverage (done 2026-06-11, cycle 73): React literature page gets a Draft-synthesis button (X-SPA JSON → navigates to the note, no reload) and a coverage-gap nudge highlighting themes with ≤1 paper; closes Owner idea #11's active coverage-gap suggestion too.~~
 82. Coverage-gap → queue prefill — clicking a thin theme in the nudge jumps to the queue already filtered to that theme's candidate papers (idea added by cycle 73)
+83. PROMOTE #77 to next-priority — the shared route manifest; cycle 74 hit the exact predicted drift (React route added, Django pattern forgotten, 404). Do it before more routes accrue (idea escalated by cycle 74)
