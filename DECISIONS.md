@@ -127,6 +127,15 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     all 8 stages in a rendered strip + on overview/grove.~~ Remaining: gentle CSS sway on
     bloom, seasonal variants (pairs with Backlog #50 grove seasons).
 
+18. **Bulk actions + modals everywhere (owner, 2026-06-11).** Two parts: (a) **bulk
+    actions for everything** — multi-select with checkboxes and act-on-many (move/tag/
+    delete documents, set reading status on many papers, triage many inbox items, …);
+    (b) **modals instead of URL navigation** — create/edit/confirm flows open in modals
+    on the same page rather than navigating to separate form pages. Owner directive
+    explicitly supersedes CLAUDE.md §7's "prefer full pages over modals" — modals are
+    now the convention for object forms; full pages remain the no-JS fallback (HTMX
+    loads the same form views into a shared modal shell).
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
