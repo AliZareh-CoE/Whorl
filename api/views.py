@@ -174,6 +174,20 @@ class ProjectViewSet(AtlasViewSet):
         return Response({"scaffold": synthesis_scaffold(project)})
 
     @extend_schema(
+        responses={200: OpenApiResponse(description="Chronological event stream + markdown")},
+        description="The project's research timeline: every dated event (milestones, papers, "
+        "notes, decisions, experiments, hypotheses, documents, manuscript events) newest "
+        "first, plus an oldest-first markdown rendering for a paper's methods/history section.",
+    )
+    @action(detail=True, methods=["get"])
+    def timeline(self, request, slug=None):
+        from core.timeline import project_timeline, timeline_markdown
+
+        project = self.get_object()
+        events = project_timeline(project)
+        return Response({"events": events, "markdown": timeline_markdown(project, events)})
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Ordered reading queue for reading-flow mode")},
         description="Unread/skimmed papers, priority-ordered, with the fields the focused "
         "reading-flow session needs.",

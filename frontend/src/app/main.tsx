@@ -11,6 +11,7 @@ const Projects = lazy(() => import("./pages/Projects"));
 const NewProject = lazy(() => import("./pages/NewProject"));
 const ProjectOverview = lazy(() => import("./pages/ProjectOverview"));
 const Plan = lazy(() => import("./pages/Plan"));
+const Timeline = lazy(() => import("./pages/Timeline"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Literature = lazy(() => import("./pages/Literature"));
 const ReadingFlow = lazy(() => import("./pages/ReadingFlow"));
@@ -43,6 +44,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/new" element={<NewProject />} />
           <Route path="projects/:slug" element={<ProjectOverview />} />
           <Route path="projects/:slug/plan" element={<Plan />} />
+          <Route path="projects/:slug/timeline" element={<Timeline />} />
           <Route path="projects/:slug/documents" element={<Documents />} />
           <Route path="projects/:slug/literature" element={<Literature />} />
           <Route path="projects/:slug/queue" element={<Literature queue />} />

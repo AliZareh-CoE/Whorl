@@ -146,3 +146,7 @@ def get_weekly_review(project: str | None = None, weeks_back: int = 0):
 
 def get_synthesis_scaffold(slug: str):
     return _request("GET", f"/projects/{slug}/synthesis/")
+
+
+def get_timeline(slug: str):
+    return _request("GET", f"/projects/{slug}/timeline/")

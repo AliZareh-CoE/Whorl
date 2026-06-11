@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: [REV] research timeline [cycle 95])
-- **Last completed slice (cycle 94, UI/UX):** Backlog #82 — coverage-gap → queue prefill: thin themes in the literature nudge are clickable chips deep-linking `/queue?theme=X`; new `theme_candidates` selector (theme words vs title/abstract, unread only, already-marked excluded) behind `?theme=` on /api/v1/project-references/; quiet filter chip + Clear + NN/g-style filtered empty state, designed per the NEW owner rule (research-backed UI: Apple HIG clarity/deference/depth). Browser-verified with screenshots; 5 new tests.
-- **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea AND makes a tech improvement with research-backed design (new rule, cycle 94).
+- **Slice in progress:** — (next: backlog top-down [cycle 96])
+- **Last completed slice (cycle 95, [REV]):** Research timeline (#95/#104) — `core/timeline.py` aggregates 9 event kinds into one chronological stream; `GET /api/v1/projects/{slug}/timeline/` (events newest-first + oldest-first markdown for methods/history sections); MCP `get_timeline`; SPA `/projects/:slug/timeline` — vertical color-coded timeline, day/week/month zoom grouping, kind filter chips, copy-as-markdown, Timeline link on the overview. Designed per the design-research rule (vertical+grouping per timeline-pattern guides; HIG deference). Browser-verified (41 live events); 6 new tests.
+- **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea AND makes a tech improvement with research-backed design (rule added cycle 94).
 - **Next 3 slices:**
-  1. [REV] cycle 95 — research timeline (#95/#104): zoomable chronological project view
-  2. Backlog top-down [96-99]: #91 seed PDF, #93 comments on documents, #100 DRY mixin, #103 CI audit job, #105 matrix theme chips, #106 docs/DESIGN.md
-  3. AUDIT #10 at cycle 100 (starts from `make audit`)
+  1. Backlog top-down [96-99]: #91 seed PDF, #93 comments on documents, #100 DRY mixin, #103 CI audit job, #105 matrix theme chips, #106 docs/DESIGN.md, #107/#108 timeline follow-ups
+  2. AUDIT #10 at cycle 100 (starts from `make audit`)
+  3. Keep ≥1 [REV] candidate listed (open: #62 synthesis studio)
 - **Broken:** nothing
 
 ## Gate reports

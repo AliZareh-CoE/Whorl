@@ -112,6 +112,15 @@ def get_synthesis_scaffold(project: str) -> dict:
 
 
 @mcp.tool()
+def get_timeline(project: str) -> dict:
+    """The project's full research timeline: every dated event (milestones completed, papers
+    added/read, notes, decisions, experiments, hypotheses, documents, manuscript submissions)
+    newest first, plus a paste-ready oldest-first markdown chronology for a paper's
+    methods/history section."""
+    return client.get_timeline(project)
+
+
+@mcp.tool()
 def get_weekly_review(project: str = "", weeks_back: int = 0) -> dict:
     """What happened in a research week — papers read, notes written, milestones completed,
     decisions, and experiments. Pass a project slug to scope it, or leave blank for everything;

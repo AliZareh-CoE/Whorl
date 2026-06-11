@@ -299,6 +299,18 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-06-11 — Research timeline: "zoom" is period grouping; paper-read date is a proxy ([REV] cycle 95)
+- **Decision:** The timeline's zoom is day/week/month *grouping* of one flat event payload
+  (client-side), not a canvas zoom — research consulted (timeline UI pattern guides) favors
+  vertical layouts with grouping for long event lists, and it keeps the API a single simple
+  endpoint. "Paper read" uses the link's `updated_at` as a proxy (reading isn't separately
+  timestamped) and is suppressed when it lands on the add date, so same-day add+read doesn't
+  double-post. Markdown export is oldest-first because its use case is a paper's
+  methods/history chronology.
+- **Alternatives rejected:** a real zoomable canvas (d3/vis-timeline — dependency weight,
+  violates §2, and grouping answers the same need); a `read_at` field migration (schema
+  churn for marginal precision; parked — if it ever matters, log it as a backlog item).
+
 ### 2026-06-11 — Containerized deployment: gunicorn + whitenoise, ATLAS_BEHIND_TLS flag
 - **Decision:** One-command install via `docker compose --profile app up -d --build`:
   single image (uv-built, Tailwind compiled and collectstatic'd at build time) running as
@@ -473,7 +485,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 92. Docs site (mkdocs-material) with the MCP setup guide front and center — next open-source slice after templates (idea added by cycle 82)
 93. Comments on documents — give documents a detail surface (or a thread on the SPA doc row) so #10 covers documents too, not just note/reference/manuscript (idea added by cycle 83)
 94. ~~Weekly-digest bot (done 2026-06-11, cycle 86): opt-in bot posts last week's summary (papers/notes/milestones/decisions/experiments counts) to the inbox via core/reviews.py; pairs the Review page with a Friday push. Quiet weeks post nothing.~~
-95. [REV] candidate — research timeline: a zoomable chronological view of a project (milestones, papers, notes, decisions on one time axis) for the methods/history section of a paper (idea added by cycle 85)
+95. ~~Research timeline (done 2026-06-11, cycle 95, [REV]): `core/timeline.py` aggregates 9 event kinds (milestones, papers added/read, notes, decisions, experiments, hypotheses, documents, manuscript events) into one stream; `GET /api/v1/projects/{slug}/timeline/` returns events + oldest-first markdown; MCP `get_timeline` tool; SPA `/projects/:slug/timeline` — vertical, color-coded, day/week/month zoom grouping, kind filter chips, copy-as-markdown; browser-verified with 41 live events.~~
 96. ~~Review copy-as-markdown (done 2026-06-11, cycle 88): a 'Copy week' button on the Review page emits clean markdown (sectioned by papers/milestones/notes/decisions/experiments) for pasting into a lab journal or a Claude session.~~
 97. ~~MCP weekly_review tool (done 2026-06-11, cycle 87): get_weekly_review(project, weeks_back) exposed over the MCP server (client fn + tool); Claude can pull 'what did I do this week' in chat. Verified live (30 milestones for self-build). Client stays pure httpx.~~
 98. ~~MCP get_synthesis_scaffold (done 2026-06-11, cycle 93): read-only GET /projects/{slug}/synthesis/ (distinct from the note-creating POST) + MCP client fn + tool, so Claude can pull the theme-organized review scaffold to draft a section in chat — creates no note. Client stays pure httpx.~~
@@ -482,6 +494,8 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 101. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
 102. ~~CI workflow (done 2026-06-11, cycle 92): .github/workflows/ci.yml runs ruff check+format, pytest (postgres service), frontend tsc, and a committed-assets-not-stale check on every push/PR — the loop's hand-run gate now guards contributions. README CI badge.~~
 103. CI make-audit job — a second CI job that boots the app (compose) and runs `make audit` against it, so the security sweep runs on PRs too (idea added by cycle 92)
-104. [REV] candidate — research timeline: a zoomable chronological view of a project (milestones, papers, notes, decisions on one axis) for a paper's methods/history section (idea added by cycle 93, [REV] for cycle 95)
+104. ~~Duplicate of #95 — shipped together in cycle 95.~~
 105. Theme chips beyond the gap nudge — make every theme in the review matrix header link to its candidate queue, not just thin ones, so the prefilter is discoverable from the matrix too (idea added by cycle 94)
 106. Design-notes file — a docs/DESIGN.md capturing the HIG-derived rules now binding (clarity/deference/depth, filtered-empty-state pattern, chip vocabulary) so every future UI slice starts from the same language (idea added by cycle 94, from the new owner design-research rule)
+107. Timeline event detail expand — click a dot to expand the event in place (decision context, experiment body, note preview) without leaving the page (idea added by cycle 95)
+108. Timeline on the overview — a 5-event mini-timeline strip on the project overview linking to the full page (idea added by cycle 95)
