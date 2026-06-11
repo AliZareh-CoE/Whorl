@@ -123,7 +123,7 @@ export default function Layout() {
         </div>
       </aside>
       <main className="ml-56 min-w-0 flex-1">
-        <div className="mx-auto max-w-5xl px-8 py-8">
+        <div className="mx-auto max-w-screen-2xl px-6 py-6">
           <Outlet />
         </div>
       </main>

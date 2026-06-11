@@ -26,9 +26,9 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Today, everywhere</h1>
+      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Today, everywhere</h1>
 
-      <div className="mb-4 grid grid-cols-4 gap-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className={card}>
           <p className="text-2xl font-semibold">{data.stats.papers_read}</p>
           <p className="text-xs text-stone-400">papers read this month</p>
@@ -47,16 +47,16 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <section className="rounded border border-stone-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Active projects</h2>
+      <div className="grid gap-3 lg:grid-cols-3">
+        <section className="rounded border border-stone-200 bg-white p-4">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-stone-400">Active projects</h2>
           <div className="space-y-3">
             {data.active.map((p) => (
               <Link key={p.slug} to={`/projects/${p.slug}`} className="block">
                 <div className="mb-1 flex items-baseline justify-between text-sm">
                   <span className="font-medium">{p.name}</span>
                   <span className="text-xs text-stone-400">
-                    {p.phase ? `${p.phase} · ` : ""}{p.done}/{p.total} milestones
+                    {p.phase ? `${p.phase} · ` : ""}{p.done}/{p.total}
                   </span>
                 </div>
                 <div className="h-1.5 w-full rounded-full bg-stone-100">
@@ -68,9 +68,9 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="rounded border border-stone-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Coming up</h2>
-          <ul className="space-y-2 text-sm">
+        <section className="rounded border border-stone-200 bg-white p-4">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-stone-400">Deadlines</h2>
+          <ul className="space-y-1.5 text-sm">
             {data.deadlines.map((d) => (
               <li key={d.url + d.title}>
                 <a href={d.url} className="flex items-baseline gap-2 hover:text-indigo-700">
@@ -80,6 +80,13 @@ export default function Dashboard() {
                 </a>
               </li>
             ))}
+            {data.deadlines.length === 0 && <p className="text-sm text-stone-400">No manuscript deadlines.</p>}
+          </ul>
+        </section>
+
+        <section className="rounded border border-stone-200 bg-white p-4">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-stone-400">Upcoming milestones</h2>
+          <ul className="space-y-1.5 text-sm">
             {data.milestones.map((m) => (
               <li key={m.url + m.title}>
                 <a href={m.url} className="flex items-baseline gap-2 hover:text-indigo-700">
@@ -91,6 +98,7 @@ export default function Dashboard() {
                 </a>
               </li>
             ))}
+            {data.milestones.length === 0 && <p className="text-sm text-stone-400">Nothing scheduled.</p>}
           </ul>
         </section>
       </div>
