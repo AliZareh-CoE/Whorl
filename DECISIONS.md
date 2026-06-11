@@ -412,6 +412,26 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     sleeping closes the eyes + dims; prefers-reduced-motion respected. Browser-verified all
     stages + live in-app.~~
 
+28. **Lean on open source — don't reinvent (owner, 2026-06-11, during cycle 120).** "never
+    underestimate the power of open source community! we can use many things that they have
+    built! there are lots of technologies out there that we dont need to reinvent them!" —
+    standing engineering rule: BEFORE hand-rolling something non-trivial, check whether a
+    mature, well-licensed (MIT/BSD/Apache/AGPL-compatible) library already solves it, and
+    prefer it — vendored like Tailwind/Tectonic/Piper, via CDN like CodeMirror/pdf.js/
+    3d-force-graph, or as a pinned dependency within §2's spirit. This must be weighed at
+    every slice and especially at phase gates; raising a new dependency at a gate is
+    encouraged when it replaces hand-rolled code with a battle-tested one. Concrete near-term
+    applications (Overleaf-UI epic, idea #26): (a) the collapsible/drag-resize panels — use a
+    proven splitter (e.g. Split.js, MIT) instead of hand-rolling pointer math; (b) consider
+    migrating the editor to CodeMirror 6 (the snippet engine + multi-buffer were hand-rolled
+    against EOL CM5 — CM6 has @codemirror/autocomplete, snippets, search, vim natively);
+    (c) the SyncTeX parser — look for an existing JS/Python synctex reader before writing one.
+    Caveat: stay within §2's no-Node-build-beyond-Vite and single-binary-vendoring spirit;
+    every added dep gets a DECISIONS entry with the alternative-considered. Re-audit current
+    hand-rolled code (snippet walker, drag logic, detex word count, diff) for OSS replacements
+    when touched. The owner's earlier rule still binds: NO paid LLM APIs — but free/open-source
+    tools and the owner's own Claude subscription are exactly the point of this rule.
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
@@ -664,6 +684,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+134. OSS-replacement audit pass — a dedicated cycle that inventories Atlas's hand-rolled pieces (CM5 snippet walker, planned drag-resize, detex word count, difflib usage, the pet animation) and swaps in mature libraries where they're clearly better (Owner idea #28); pairs with the CM6 evaluation (idea added by cycle 120)
 133. Sanitize zip member names centrally — the submission-zip traversal guard is local to the view; a shared safe_archive_name() helper would cover any future zip/tar export (idea added by cycle 120, from AUDIT #12)
 132. Pet hatch animation — when the pet crosses a stage threshold (egg→hatchling etc.), play a one-time SVG transition (shell crack/burst) instead of just swapping the drawing (idea added by cycle 119)
 131. Include the .bbl in the submission zip — persist the compiled .bbl (compile with --keep-intermediates and store it on the manuscript) so the arXiv package includes it for venues that don't run BibTeX (idea added by cycle 118)

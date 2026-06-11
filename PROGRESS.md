@@ -13,7 +13,7 @@
 - **The LaTeX epic (Owner idea #24) is COMPLETE:** all 10 Overleaf-parity slices + all 7 beyond-Overleaf features (B1 library cite autocomplete, B2 live cite-check, B3 research panel, B4 MCP edit/compile, B5 timeline compiles, B6 line comments, B7 arXiv zip).
 - **Next 3 slices:**
   1. AUDIT #12 [cycle 120]: full security+responsiveness review since audit #11 (MCP LaTeX tools, word-count action, templates, timeline compiles, line comments, arXiv zip, pet SVG)
-  2. Owner idea #26 Overleaf-UI parity [cycles 121+]: execute docs/plans/2026-06-11-overleaf-ui-parity.md — error-log relocation → top toolbar → History/Share/Layout → collapsible drag dividers → left icon rail → polish
+  2. Owner idea #26 Overleaf-UI parity [cycles 121+] under Owner idea #28 (use OSS, don't reinvent): error-log relocation → top toolbar → History/Share/Layout → collapsible panels (use Split.js MIT, not hand-rolled) → left icon rail → polish; evaluate CodeMirror 6 migration (native snippets/autocomplete/search/vim) vs the hand-rolled CM5 pieces
   3. Owner #25 density passes; SyncTeX (only un-built LaTeX nicety); backlog top-down; loop forever
 - **Broken:** nothing
 
