@@ -44,6 +44,11 @@ app_name = "api"
 urlpatterns = [
     path("v1/search/", views.SearchAPIView.as_view(), name="search"),
     path("v1/dashboard/", views.DashboardAPIView.as_view(), name="dashboard"),
+    path(
+        "v1/comments/<slug:kind>/<int:object_id>/",
+        views.CommentsAPIView.as_view(),
+        name="comments",
+    ),
     path("v1/pet/", views.PetAPIView.as_view(), name="pet"),
     path("v1/bots/", views.BotsAPIView.as_view(), name="bots"),
     path("v1/bots/<slug:slug>/action/", views.BotActionAPIView.as_view(), name="bot_action"),

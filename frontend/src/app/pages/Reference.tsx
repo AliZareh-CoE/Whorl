@@ -1,5 +1,5 @@
 /** Reference reader: metadata, abstract with Listen (TTS), PDF, status (SPA, cycle 74). */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, csrfToken } from "../api";
@@ -31,9 +31,27 @@ export default function Reference() {
   const [tldr, setTldr] = useState<string[] | null>(null);
   const [summarizing, setSummarizing] = useState(false);
 
+  const queryClient = useQueryClient();
   const { data: ref, isLoading } = useQuery({
     queryKey: ["reference", id],
     queryFn: () => api<Ref>(`/references/${id}/`),
+  });
+  const { data: commentData } = useQuery({
+    queryKey: ["comments", "reference", id],
+    queryFn: () => api<{ comments: { id: number; body: string; created_at: string }[] }>(`/comments/reference/${id}/`),
+  });
+  const [commentBody, setCommentBody] = useState("");
+  const addComment = useMutation({
+    mutationFn: () =>
+      api(`/comments/reference/${id}/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: commentBody }),
+      }),
+    onSuccess: () => {
+      setCommentBody("");
+      queryClient.invalidateQueries({ queryKey: ["comments", "reference", id] });
+    },
   });
 
   async function listen(text: string) {
@@ -123,10 +141,38 @@ export default function Reference() {
       )}
 
       {ref.pdf && (
-        <section className="rounded border border-stone-200 bg-white p-2">
+        <section className="mb-4 rounded border border-stone-200 bg-white p-2">
           <iframe src={ref.pdf} title="PDF" className="h-[70vh] w-full rounded" />
         </section>
       )}
+
+      <section className="rounded border border-stone-200 bg-white p-5">
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">
+          Comments {commentData && commentData.comments.length > 0 && <span className="text-stone-300">{commentData.comments.length}</span>}
+        </h2>
+        {commentData && commentData.comments.length > 0 ? (
+          <ul className="mb-4 space-y-3">
+            {commentData.comments.map((c) => (
+              <li key={c.id} className="border-l-2 border-stone-200 pl-3 text-sm">
+                <p className="whitespace-pre-wrap text-stone-700">{c.body}</p>
+                <p className="mt-0.5 text-xs text-stone-400">{c.created_at.slice(0, 16).replace("T", " ")}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mb-3 text-sm text-stone-400">No comments yet — thoughts, caveats, todos about this paper.</p>
+        )}
+        <form className="flex items-start gap-2"
+              onSubmit={(e) => { e.preventDefault(); if (commentBody.trim()) addComment.mutate(); }}>
+          <textarea value={commentBody} onChange={(e) => setCommentBody(e.target.value)} rows={2}
+                    placeholder="Add a comment…" aria-label="Add comment"
+                    className="flex-1 rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none" />
+          <button type="submit" disabled={addComment.isPending || !commentBody.trim()}
+                  className="rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+            Comment
+          </button>
+        </form>
+      </section>
     </div>
   );
 }

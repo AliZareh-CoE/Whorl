@@ -169,3 +169,34 @@ class TestCommentMentions:
         content = page.content.decode()
         assert f'<a href="{linked.get_absolute_url()}"' in content  # nh3 appends rel=…
         assert "[[Pilot Plan]]" not in content
+
+
+class TestCommentsAPI:
+    def test_get_and_post_comments(self, client_logged_in):
+        from literature.tests.factories import ReferenceFactory
+
+        ref = ReferenceFactory()
+        empty = client_logged_in.get(f"/api/v1/comments/reference/{ref.pk}/").json()
+        assert empty["comments"] == []
+        created = client_logged_in.post(
+            f"/api/v1/comments/reference/{ref.pk}/",
+            {"body": "key methods paper"},
+            content_type="application/json",
+        )
+        assert created.status_code == 201
+        listing = client_logged_in.get(f"/api/v1/comments/reference/{ref.pk}/").json()
+        assert listing["comments"][0]["body"] == "key methods paper"
+
+    def test_unknown_kind_404s(self, client_logged_in):
+        assert client_logged_in.get("/api/v1/comments/bogus/1/").status_code == 404
+
+    def test_empty_body_rejected(self, client_logged_in):
+        from literature.tests.factories import ReferenceFactory
+
+        ref = ReferenceFactory()
+        response = client_logged_in.post(
+            f"/api/v1/comments/reference/{ref.pk}/",
+            {"body": "   "},
+            content_type="application/json",
+        )
+        assert response.status_code == 400

@@ -709,3 +709,47 @@ class BotActionAPIView(APIView):
         if action_name == "run":
             return Response({"result": run_bot(slug)})
         return Response({"detail": "action must be 'toggle' or 'run'."}, status=400)
+
+
+class CommentsAPIView(APIView):
+    """List + add comments on an Atlas object from the SPA (Owner idea #10)."""
+
+    def _target(self, kind, object_id):
+        from core.comments import _allowed_kinds
+
+        model = _allowed_kinds().get(kind)
+        if model is None:
+            return None
+        return model.objects.filter(pk=object_id).first()
+
+    @extend_schema(description="Comments on a note/reference/manuscript.", responses={200: None})
+    def get(self, request, kind, object_id):
+        from core.comments import comments_for
+
+        target = self._target(kind, object_id)
+        if target is None:
+            return Response({"detail": "Unknown target."}, status=404)
+        return Response(
+            {
+                "comments": [
+                    {"id": c.pk, "body": c.body, "created_at": c.created_at.isoformat()}
+                    for c in comments_for(target)
+                ]
+            }
+        )
+
+    @extend_schema(description="Add a comment.", responses={201: None})
+    def post(self, request, kind, object_id):
+        from core.models import Comment
+
+        target = self._target(kind, object_id)
+        if target is None:
+            return Response({"detail": "Unknown target."}, status=404)
+        body = str(request.data.get("body", "")).strip()[:5000]
+        if not body:
+            return Response({"detail": "Empty comment."}, status=400)
+        comment = Comment.objects.create(target=target, body=body)
+        return Response(
+            {"id": comment.pk, "body": comment.body, "created_at": comment.created_at.isoformat()},
+            status=201,
+        )
