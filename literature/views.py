@@ -144,6 +144,8 @@ def fetch_pdf(request, pk):
 
 
 def read_pdf(request, pk):
+    from core.comments import comments_for
+
     reference = get_object_or_404(Reference, pk=pk)
     if not reference.pdf:
         messages.error(request, "No PDF attached to this reference yet.")
@@ -154,6 +156,7 @@ def read_pdf(request, pk):
         {
             "reference": reference,
             "linked_projects": Project.objects.filter(project_references__reference=reference),
+            "page_comments": comments_for(reference).filter(page__isnull=False),
         },
     )
 

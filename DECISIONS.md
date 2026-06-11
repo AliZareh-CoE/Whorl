@@ -61,8 +61,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 10. **Commenting / annotations.** ~~First slice (2026-06-11, cycle 14): generic `Comment`
     model (contenttypes) with markdown bodies; comment threads live on note, reference, and
     manuscript pages via one `_comments.html` include; kind allowlist guards the endpoint.~~
-    Remaining: comments on documents and folders; PDF-anchored comments (page/selection)
-    building on the reader; LaTeX line-anchored comments in the editor.
+    ~~PDF-anchored comments (2026-06-11, cycle 25): `page` anchor on Comment; reader gains
+    a sticky "Page comments" panel — IntersectionObserver tracks the page in view, comments
+    pin to it, clicking one scrolls back to its page; page badges on detail threads; the
+    `next` redirect is validated local-only (open-redirect guard + tests).~~
+    Remaining: comments on documents/folders; selection-anchored PDF comments; LaTeX
+    line-anchored comments in the editor.
 11. **Better papers & literature reviews.** Continuous improvement; NO paid LLM APIs —
     local NLP or the owner's Claude subscription via MCP only. ~~First slice (2026-06-11,
     cycle 15): reading queue shows per-paper theme coverage badges (n/N themes); review
@@ -200,4 +204,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 28. Loop-resilience note — chain notifications can drop and watchdog monitors expire at 30 min; watchdog is now re-armed every cycle (lesson from the cycle-21→22 stall)
 29. Dev-process note — runserver/worker restarts must use pkill -f "[m]anage.py ..." (bracket trick) or they kill their own shell; documented after the cycle-23 debugging (idea added by cycle 23)
 30. Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24)
-31. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+31. Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25)
+32. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

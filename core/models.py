@@ -21,6 +21,7 @@ class Comment(TimeStampedModel):
     object_id = models.PositiveIntegerField()
     target = GenericForeignKey("content_type", "object_id")
     body = models.TextField()  # markdown
+    page = models.PositiveIntegerField(null=True, blank=True)  # PDF page anchor (reader)
 
     class Meta:
         ordering = ["created_at"]

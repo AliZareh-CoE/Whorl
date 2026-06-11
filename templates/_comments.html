@@ -11,6 +11,7 @@
           <div class="prose prose-stone max-w-none text-sm">{{ comment.body|markdownify }}</div>
           <div class="mt-0.5 flex items-center gap-2 text-xs text-stone-400">
             <span>{{ comment.created_at|date:"Y-m-d H:i" }}</span>
+            {% if comment.page %}<span class="rounded bg-stone-100 px-1.5 py-0.5">p.{{ comment.page }}</span>{% endif %}
             <form method="post" action="{% url 'core:comment_delete' comment.pk %}"
                   class="opacity-0 transition-opacity group-hover:opacity-100">
               {% csrf_token %}

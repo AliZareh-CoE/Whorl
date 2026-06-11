@@ -35,10 +35,15 @@ def add_comment(request, kind, object_id):
         raise Http404("Unknown comment target.")
     target = get_object_or_404(model, pk=object_id)
     body = request.POST.get("body", "").strip()[:5000]
+    page = request.POST.get("page")
+    page = int(page) if page and page.isdigit() else None
     if body:
-        Comment.objects.create(target=target, body=body)
+        Comment.objects.create(target=target, body=body, page=page)
         messages.success(request, "Comment added.")
-    return redirect(_target_url(target))
+    next_url = request.POST.get("next", "")
+    if not (next_url.startswith("/") and not next_url.startswith("//")):
+        next_url = _target_url(target)  # local paths only — no open redirects
+    return redirect(next_url)
 
 
 @require_POST

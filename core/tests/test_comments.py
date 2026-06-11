@@ -73,3 +73,59 @@ class TestComments:
             reverse("core:comment_add", args=["note", note.pk]), {"body": "x" * 6000}
         )
         assert len(comments_for(note).get().body) == 5000
+
+
+class TestPageAnchoredComments:
+    def make_pdf_ref(self):
+        from django.core.files.base import ContentFile
+
+        from literature.tests.factories import ReferenceFactory
+
+        ref = ReferenceFactory()
+        ref.pdf.save("p.pdf", ContentFile(b"%PDF-1.4"), save=True)
+        return ref
+
+    def test_comment_with_page_and_next_redirect(self, client_logged_in):
+        ref = self.make_pdf_ref()
+        read_url = reverse("literature:read", args=[ref.pk])
+        response = client_logged_in.post(
+            reverse("core:comment_add", args=["reference", ref.pk]),
+            {"body": "key claim here", "page": "3", "next": read_url},
+        )
+        assert response.status_code == 302
+        assert response.url == read_url
+        comment = comments_for(ref).get()
+        assert comment.page == 3
+
+    def test_open_redirect_rejected(self, client_logged_in):
+        ref = self.make_pdf_ref()
+        response = client_logged_in.post(
+            reverse("core:comment_add", args=["reference", ref.pk]),
+            {"body": "x", "next": "https://evil.example/phish"},
+        )
+        assert response.url == ref.get_absolute_url()
+        response2 = client_logged_in.post(
+            reverse("core:comment_add", args=["reference", ref.pk]),
+            {"body": "y", "next": "//evil.example"},
+        )
+        assert response2.url == ref.get_absolute_url()
+
+    def test_reader_shows_page_comments(self, client_logged_in):
+        from core.models import Comment
+
+        ref = self.make_pdf_ref()
+        Comment.objects.create(target=ref, body="anchored thought", page=2)
+        Comment.objects.create(target=ref, body="general thought")  # no page
+        response = client_logged_in.get(reverse("literature:read", args=[ref.pk]))
+        content = response.content.decode()
+        assert "anchored thought" in content
+        assert "p.2" in content
+        assert "general thought" not in content  # reader panel is page-anchored only
+
+    def test_invalid_page_stored_as_null(self, client_logged_in):
+        ref = self.make_pdf_ref()
+        client_logged_in.post(
+            reverse("core:comment_add", args=["reference", ref.pk]),
+            {"body": "no page", "page": "abc"},
+        )
+        assert comments_for(ref).get().page is None
