@@ -5,7 +5,7 @@
  * shift-click range selection, and a sticky action bar driving the cycle-53
  * bulk endpoints. The server table remains the no-JS fallback.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Tag = { id: number; name: string };
 type Folder = { id: number; name: string };
@@ -19,9 +19,11 @@ type Doc = {
   size: number;
   sizeDisplay: string;
   added: string;
+  comments: number;
   downloadUrl: string;
   editUrl: string;
 };
+type Comment = { id: number; body: string; created_at: string };
 type Props = {
   documents: Doc[];
   folders: Folder[];
@@ -48,6 +50,8 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
   const [folderChoice, setFolderChoice] = useState("");
   const [tagChoice, setTagChoice] = useState(tags[0] ? String(tags[0].id) : "");
   const [busy, setBusy] = useState(false);
+  const [commentsDoc, setCommentsDoc] = useState<Doc | null>(null);
+  const [extraCounts, setExtraCounts] = useState<Record<number, number>>({});
 
   const rows = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -265,7 +269,15 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                 <td className="py-2 pr-4 text-stone-500">{doc.sizeDisplay}</td>
                 <td className="py-2 pr-4 text-stone-500">{doc.added}</td>
                 <td className="whitespace-nowrap py-2 text-right">
-                  <a href={doc.downloadUrl} className="text-xs text-indigo-600 hover:underline">
+                  <button
+                    onClick={() => setCommentsDoc(doc)}
+                    aria-haspopup="dialog"
+                    aria-label={`Comments on ${doc.title}`}
+                    className="text-xs text-stone-500 hover:text-indigo-700"
+                  >
+                    💬 {(doc.comments ?? 0) + (extraCounts[doc.id] ?? 0) || ""}
+                  </button>
+                  <a href={doc.downloadUrl} className="ml-2 text-xs text-indigo-600 hover:underline">
                     Download
                   </a>
                   <a href={doc.editUrl} className="ml-2 text-xs text-stone-500 hover:underline">
@@ -284,6 +296,14 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
           </tbody>
         </table>
       </div>
+
+      {commentsDoc && (
+        <CommentsModal
+          doc={commentsDoc}
+          onClose={() => setCommentsDoc(null)}
+          onAdded={(id) => setExtraCounts((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }))}
+        />
+      )}
 
       {confirmOpen && (
         <div
@@ -326,6 +346,115 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Comment thread on one document (Owner idea #10 / Backlog #93), modal per owner rule #18. */
+function CommentsModal({
+  doc,
+  onClose,
+  onAdded,
+}: {
+  doc: Doc;
+  onClose: () => void;
+  onAdded: (docId: number) => void;
+}) {
+  const [comments, setComments] = useState<Comment[] | null>(null);
+  const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/v1/comments/document/${doc.id}/`, { headers: { Accept: "application/json" } })
+      .then((r) => r.json())
+      .then((data) => setComments(data.comments ?? []))
+      .catch(() => setComments([]));
+  }, [doc.id]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function save() {
+    const text = body.trim();
+    if (!text || saving) return;
+    setSaving(true);
+    const res = await fetch(`/api/v1/comments/document/${doc.id}/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+      body: JSON.stringify({ body: text }),
+    });
+    if (res.ok) {
+      setComments([...(comments ?? []), await res.json()]);
+      setBody("");
+      onAdded(doc.id);
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-stone-900/40" onClick={onClose} aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Comments on ${doc.title}`}
+        className="relative flex max-h-[80vh] w-full max-w-md flex-col rounded-lg border border-stone-200 bg-white shadow-xl"
+      >
+        <div className="flex items-start justify-between border-b border-stone-100 px-5 py-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold tracking-tight">{doc.title}</h2>
+            <p className="text-xs text-stone-400">Comments</p>
+          </div>
+          <button onClick={onClose} aria-label="Close"
+                  className="ml-3 rounded px-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600">
+            ✕
+          </button>
+        </div>
+        <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+          {comments === null && <p className="text-sm text-stone-400">Loading…</p>}
+          {comments?.length === 0 && (
+            <p className="text-sm text-stone-400">
+              No comments yet — notes to self about this file go here.
+            </p>
+          )}
+          {comments?.map((c) => (
+            <div key={c.id} className="rounded border border-stone-100 bg-stone-50 px-3 py-2">
+              <p className="whitespace-pre-wrap text-sm text-stone-700">{c.body}</p>
+              <p className="mt-1 text-xs text-stone-400">{c.created_at.slice(0, 10)}</p>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-stone-100 px-5 py-3">
+          <textarea
+            autoFocus
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
+            }}
+            rows={2}
+            placeholder="Add a comment… (⌘/Ctrl-Enter to post)"
+            className="w-full rounded border border-stone-300 bg-white p-2 text-sm focus:border-indigo-600 focus:outline-none"
+          />
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              onClick={save}
+              disabled={saving || !body.trim()}
+              className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {saving ? "Posting…" : "Post comment"}
+            </button>
+            <button onClick={onClose} className="text-xs text-stone-500 hover:underline">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

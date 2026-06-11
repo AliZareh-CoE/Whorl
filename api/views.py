@@ -773,7 +773,9 @@ class CommentsAPIView(APIView):
             return None
         return model.objects.filter(pk=object_id).first()
 
-    @extend_schema(description="Comments on a note/reference/manuscript.", responses={200: None})
+    @extend_schema(
+        description="Comments on a note/reference/manuscript/document.", responses={200: None}
+    )
     def get(self, request, kind, object_id):
         from core.comments import comments_for
 

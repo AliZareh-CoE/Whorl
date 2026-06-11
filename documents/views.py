@@ -16,8 +16,20 @@ from .models import Document, Folder, Tag
 
 def documents_table_props(project, documents, next_url=""):
     """Props for the React documents table — used by the page island AND the SPA API."""
+    from django.contrib.contenttypes.models import ContentType
+    from django.db.models import Count
     from django.template.defaultfilters import filesizeformat
 
+    from core.models import Comment
+
+    comment_counts = dict(
+        Comment.objects.filter(
+            content_type=ContentType.objects.get_for_model(Document),
+            object_id__in=[doc.pk for doc in documents],
+        )
+        .values_list("object_id")
+        .annotate(n=Count("id"))
+    )
     return {
         "documents": [
             {
@@ -30,6 +42,7 @@ def documents_table_props(project, documents, next_url=""):
                 "size": doc.file_size,
                 "sizeDisplay": filesizeformat(doc.file_size),
                 "added": doc.created_at.strftime("%Y-%m-%d"),
+                "comments": comment_counts.get(doc.pk, 0),
                 "downloadUrl": reverse("documents:download", args=[project.slug, doc.pk]),
                 "editUrl": reverse("documents:document_edit", args=[project.slug, doc.pk]),
             }

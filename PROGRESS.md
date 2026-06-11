@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: backlog top-down [cycle 96])
-- **Last completed slice (cycle 95, [REV]):** Research timeline (#95/#104) — `core/timeline.py` aggregates 9 event kinds into one chronological stream; `GET /api/v1/projects/{slug}/timeline/` (events newest-first + oldest-first markdown for methods/history sections); MCP `get_timeline`; SPA `/projects/:slug/timeline` — vertical color-coded timeline, day/week/month zoom grouping, kind filter chips, copy-as-markdown, Timeline link on the overview. Designed per the design-research rule (vertical+grouping per timeline-pattern guides; HIG deference). Browser-verified (41 live events); 6 new tests.
+- **Slice in progress:** — (next: Owner idea #23 Claude-style pet [cycle 97, UI/UX])
+- **Last completed slice (cycle 96):** Owner idea #10 / Backlog #93 — comments on documents: document kind in the comment allowlist (classic + `/api/v1/comments/document/{id}/`), 💬 button with live count per documents-table row opening a modal thread (ESC/backdrop/✕ dismissal per overlay-pattern research, ⌘-Enter post), counts in one extra query in documents_table_props. Browser-verified post→persist→dismiss; 2 new tests. NEW Owner idea #23 recorded: pet like the Claude Code pet.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea AND makes a tech improvement with research-backed design (rule added cycle 94).
 - **Next 3 slices:**
-  1. Backlog top-down [96-99]: #91 seed PDF, #93 comments on documents, #100 DRY mixin, #103 CI audit job, #105 matrix theme chips, #106 docs/DESIGN.md, #107/#108 timeline follow-ups
-  2. AUDIT #10 at cycle 100 (starts from `make audit`)
-  3. Keep ≥1 [REV] candidate listed (open: #62 synthesis studio)
+  1. Owner idea #23 [cycle 97, UI/UX]: Claude-Code-style pet — research what makes it loved, then animate/personify Mochi
+  2. Backlog top-down [98-99]: #91 seed PDF, #100 DRY mixin, #103 CI audit job, #105 matrix theme chips, #106 docs/DESIGN.md, #107/#108 timeline follow-ups
+  3. AUDIT #10 at cycle 100 (`make audit` first); keep ≥1 [REV] candidate listed (open: #62 synthesis studio)
 - **Broken:** nothing
 
 ## Gate reports

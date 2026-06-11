@@ -200,3 +200,33 @@ class TestCommentsAPI:
             content_type="application/json",
         )
         assert response.status_code == 400
+
+
+class TestDocumentComments:
+    """Backlog #93: comments cover documents too (Owner idea #10)."""
+
+    def test_get_and_post_on_document(self, client_logged_in):
+        from documents.tests.factories import DocumentFactory
+
+        doc = DocumentFactory()
+        created = client_logged_in.post(
+            f"/api/v1/comments/document/{doc.pk}/",
+            {"body": "superseded by v2 of this dataset"},
+            content_type="application/json",
+        )
+        assert created.status_code == 201
+        listing = client_logged_in.get(f"/api/v1/comments/document/{doc.pk}/").json()
+        assert listing["comments"][0]["body"] == "superseded by v2 of this dataset"
+
+    def test_table_props_include_comment_counts(self):
+        from core.models import Comment
+        from documents.tests.factories import DocumentFactory
+        from documents.views import documents_table_props
+
+        doc = DocumentFactory()
+        quiet = DocumentFactory(project=doc.project)
+        Comment.objects.create(target=doc, body="one")
+        Comment.objects.create(target=doc, body="two")
+        props = documents_table_props(doc.project, [doc, quiet])
+        by_id = {row["id"]: row["comments"] for row in props["documents"]}
+        assert by_id == {doc.pk: 2, quiet.pk: 0}

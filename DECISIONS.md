@@ -75,8 +75,9 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     a sticky "Page comments" panel — IntersectionObserver tracks the page in view, comments
     pin to it, clicking one scrolls back to its page; page badges on detail threads; the
     `next` redirect is validated local-only (open-redirect guard + tests).~~
-    Remaining: comments on documents/folders; selection-anchored PDF comments; LaTeX
-    line-anchored comments in the editor.
+    ~~Comments on documents (2026-06-11, cycle 96): modal thread + live counts on every
+    documents-table row, SPA and classic island both.~~ Remaining: comments on folders;
+    selection-anchored PDF comments; LaTeX line-anchored comments in the editor.
 11. **Better papers & literature reviews.** Continuous improvement; NO paid LLM APIs —
     local NLP or the owner's Claude subscription via MCP only. ~~First slice (2026-06-11,
     cycle 15): reading queue shows per-paper theme coverage badges (n/N themes); review
@@ -259,6 +260,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     creates and lands on the overview without a reload. Plus Backlog #76 shipped: route-
     level code splitting, spa.js 137→90KB (29KB gz), pages are 1-3KB lazy chunks.~~
     Standing instruction: hard-reload feel anywhere in the SPA is a bug.
+
+23. **Pet like the Claude pet (owner, 2026-06-11, during cycle 96).** "I want the pet to be
+    something like the claude PET" — evolve Mochi toward the Claude Code pet experience:
+    a small always-present animated pixel-art companion that visibly reacts to what's
+    happening (events, streaks, completions), with personality in the reactions. Research
+    what makes the Claude Code pet loved before building; UI/UX cycle candidate (97/98).
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -483,7 +490,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 90. ~~Seeded abstracts (done 2026-06-11, cycle 81): three demo references (incl. one to_read) now carry real abstracts, so tl;dr/Listen/reading-flow demo out of the box; closes the AUDIT #8 finding.~~
 91. Sample PDF for a to_read paper in seed_demo — so the PDF reader/iframe also demos in the reading-flow, not just the abstract (idea added by cycle 81)
 92. Docs site (mkdocs-material) with the MCP setup guide front and center — next open-source slice after templates (idea added by cycle 82)
-93. Comments on documents — give documents a detail surface (or a thread on the SPA doc row) so #10 covers documents too, not just note/reference/manuscript (idea added by cycle 83)
+93. ~~Comments on documents (done 2026-06-11, cycle 96): document kind added to the comment allowlist (classic endpoint + /api/v1/comments/document/{id}/ both lit up); 💬 button with live count on every documents-table row opens a modal thread (ESC/backdrop/✕ dismissal, ⌘-Enter post) per owner modals rule + overlay-pattern research; counts piggyback on documents_table_props in one query; browser-verified post→persist→dismiss.~~
 94. ~~Weekly-digest bot (done 2026-06-11, cycle 86): opt-in bot posts last week's summary (papers/notes/milestones/decisions/experiments counts) to the inbox via core/reviews.py; pairs the Review page with a Friday push. Quiet weeks post nothing.~~
 95. ~~Research timeline (done 2026-06-11, cycle 95, [REV]): `core/timeline.py` aggregates 9 event kinds (milestones, papers added/read, notes, decisions, experiments, hypotheses, documents, manuscript events) into one stream; `GET /api/v1/projects/{slug}/timeline/` returns events + oldest-first markdown; MCP `get_timeline` tool; SPA `/projects/:slug/timeline` — vertical, color-coded, day/week/month zoom grouping, kind filter chips, copy-as-markdown; browser-verified with 41 live events.~~
 96. ~~Review copy-as-markdown (done 2026-06-11, cycle 88): a 'Copy week' button on the Review page emits clean markdown (sectioned by papers/milestones/notes/decisions/experiments) for pasting into a lab journal or a Claude session.~~
@@ -499,3 +506,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 106. Design-notes file — a docs/DESIGN.md capturing the HIG-derived rules now binding (clarity/deference/depth, filtered-empty-state pattern, chip vocabulary) so every future UI slice starts from the same language (idea added by cycle 94, from the new owner design-research rule)
 107. Timeline event detail expand — click a dot to expand the event in place (decision context, experiment body, note preview) without leaving the page (idea added by cycle 95)
 108. Timeline on the overview — a 5-event mini-timeline strip on the project overview linking to the full page (idea added by cycle 95)
+109. Comment threads from search — comments are invisible to global search; index comment bodies (FTS) so "where did I write that remark?" resolves (idea added by cycle 96)

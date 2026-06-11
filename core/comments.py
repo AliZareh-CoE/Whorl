@@ -9,11 +9,12 @@ from .models import Comment
 
 
 def _allowed_kinds() -> dict:
+    from documents.models import Document
     from literature.models import Reference
     from notes.models import Note
     from writing.models import Manuscript
 
-    return {"note": Note, "reference": Reference, "manuscript": Manuscript}
+    return {"note": Note, "reference": Reference, "manuscript": Manuscript, "document": Document}
 
 
 def comments_for(target):
