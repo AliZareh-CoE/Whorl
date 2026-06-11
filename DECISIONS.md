@@ -104,6 +104,15 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     on the boolean match instead of a rank threshold — ts_rank ignores ! and & so negated
     terms previously leaked.~~ Remaining: synonym dictionaries, per-type ranking boosts,
     keyboard navigation in the dropdown.
+16. **Animated, talking pet (owner, 2026-06-11; UI idea).** Mochi should be animated (idle
+    breathing/blinking, not just the milestone hop) and should *talk* — short, meaningful
+    lines based on context, habits, and general state: what's overdue, reading streaks,
+    "you wrote 3 notes today", time-of-day greetings. Local logic only, no LLM APIs; calm
+    tone, never naggy (consistent with the pet's no-guilt design).
+17. **Professional tree illustration with more growth phases (owner, 2026-06-11; UI idea).**
+    Redraw the project tree as a more polished, professional SVG illustration with more
+    distinct phases than the current five — richer trunk/branch structure, layered foliage,
+    smoother stage transitions; keep it server-rendered, deterministic, and accent-colored.
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
