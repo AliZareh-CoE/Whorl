@@ -466,6 +466,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 93. Comments on documents — give documents a detail surface (or a thread on the SPA doc row) so #10 covers documents too, not just note/reference/manuscript (idea added by cycle 83)
 94. ~~Weekly-digest bot (done 2026-06-11, cycle 86): opt-in bot posts last week's summary (papers/notes/milestones/decisions/experiments counts) to the inbox via core/reviews.py; pairs the Review page with a Friday push. Quiet weeks post nothing.~~
 95. [REV] candidate — research timeline: a zoomable chronological view of a project (milestones, papers, notes, decisions on one time axis) for the methods/history section of a paper (idea added by cycle 85)
-96. Review → copy digest — a 'copy as markdown' button on the weekly review so it pastes into a lab journal or a Claude session (idea added by cycle 85)
+96. ~~Review copy-as-markdown (done 2026-06-11, cycle 88): a 'Copy week' button on the Review page emits clean markdown (sectioned by papers/milestones/notes/decisions/experiments) for pasting into a lab journal or a Claude session.~~
 97. ~~MCP weekly_review tool (done 2026-06-11, cycle 87): get_weekly_review(project, weeks_back) exposed over the MCP server (client fn + tool); Claude can pull 'what did I do this week' in chat. Verified live (30 milestones for self-build). Client stays pure httpx.~~
 98. MCP get_synthesis_scaffold tool — let Claude pull the theme-organized synthesis scaffold to draft a review section in chat (idea added by cycle 87)
+99. Per-section copy — small copy buttons on each Review section (e.g. just the milestones) for finer-grained pasting (idea added by cycle 88)

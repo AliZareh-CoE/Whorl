@@ -41,11 +41,33 @@ function Section<T>({ title, items, render, empty }: {
 export default function Review() {
   const { slug } = useParams();
   const [weeksBack, setWeeksBack] = useState(0);
+  const [copied, setCopied] = useState(false);
   const qs = `?weeks_back=${weeksBack}${slug ? `&project=${slug}` : ""}`;
   const { data, isLoading } = useQuery({
     queryKey: ["review", slug ?? null, weeksBack],
     queryFn: () => api<Review>(`/weekly-review/${qs}`),
   });
+
+  function asMarkdown(d: Review): string {
+    const lines: string[] = [`# Research week: ${d.start} – ${d.end}${d.project ? ` (${d.project})` : ""}`, ""];
+    const sec = (title: string, items: string[]) => {
+      if (!items.length) return;
+      lines.push(`## ${title}`, ...items.map((x) => `- ${x}`), "");
+    };
+    sec("Papers read", d.papers_read.map((p) => `${p.title} (${p.key})`));
+    sec("Milestones completed", d.milestones_done.map((m) => m.title));
+    sec("Notes written", d.notes_written.map((n) => n.title));
+    sec("Decisions", d.decisions.map((x) => x.title));
+    sec("Experiments", d.experiments.map((e) => `${e.title} (${e.date})`));
+    return lines.join("\n").trim();
+  }
+
+  async function copyWeek() {
+    if (!data) return;
+    await navigator.clipboard.writeText(asMarkdown(data));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   if (isLoading || !data) return <p className="text-sm text-stone-400">Assembling your week…</p>;
 
@@ -61,11 +83,17 @@ export default function Review() {
         <h1 className="text-2xl font-semibold tracking-tight">
           {weeksBack === 0 ? "This week" : weeksBack === 1 ? "Last week" : `${weeksBack} weeks ago`}
         </h1>
-        <div className="flex items-center gap-1 text-sm">
-          <button onClick={() => setWeeksBack((w) => w + 1)}
-                  className="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400" aria-label="Previous week">◀</button>
-          <button onClick={() => setWeeksBack((w) => Math.max(0, w - 1))} disabled={weeksBack === 0}
-                  className="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400 disabled:opacity-40" aria-label="Next week">▶</button>
+        <div className="flex items-center gap-2 text-sm">
+          <button onClick={copyWeek}
+                  className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs hover:border-stone-400">
+            {copied ? "✓ Copied" : "⧉ Copy week"}
+          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setWeeksBack((w) => w + 1)}
+                    className="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400" aria-label="Previous week">◀</button>
+            <button onClick={() => setWeeksBack((w) => Math.max(0, w - 1))} disabled={weeksBack === 0}
+                    className="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400 disabled:opacity-40" aria-label="Next week">▶</button>
+          </div>
         </div>
       </div>
       <p className="mb-6 text-sm text-stone-500">

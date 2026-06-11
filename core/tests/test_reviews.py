@@ -74,3 +74,13 @@ def test_review_page_route_served(client_logged_in):
         response = client_logged_in.get(path)
         assert response.status_code == 200
         assert b'id="root"' in response.content
+
+
+def test_review_page_has_copy_button(client_logged_in):
+    # the SPA shell serves it; the button text lives in the built JS
+    from pathlib import Path
+
+    spa = Path("static/js/spa.js").read_text(errors="ignore")
+    review_chunk = next(Path("static/js/islands").glob("Review-chunk.js"), None)
+    text = spa + (review_chunk.read_text(errors="ignore") if review_chunk else "")
+    assert "Copy week" in text and "Research week:" in text
