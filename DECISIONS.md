@@ -249,3 +249,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 44. Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)
 45. Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)
 46. Edge-swipe to open the drawer — touchstart within 24px of the left edge anywhere on the page slides the sidebar in (mirror of swipe-to-close) (idea added by cycle 39)
+47. `make audit` target — pip-audit via uvx + the curl auth sweep as a one-command pre-audit script, so every 10th cycle starts from the same checklist (idea added by cycle 40, from AUDIT #4)

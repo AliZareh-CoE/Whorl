@@ -1,9 +1,23 @@
-from django.contrib.auth.decorators import login_not_required
+from django.conf import settings
+from django.contrib.auth.decorators import login_not_required, login_required
+from django.http import HttpResponse
 from django.urls import include, path
+from django.utils.crypto import constant_time_compare
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 
 from . import views
+
+
+@login_not_required
+def _schema_view(request):
+    """Schema for humans (session) and machines (X-API-Key) — never anonymous."""
+    key = request.headers.get("X-API-Key", "")
+    key_ok = settings.ATLAS_API_KEY and constant_time_compare(key, settings.ATLAS_API_KEY)
+    if not (request.user.is_authenticated or key_ok):
+        return HttpResponse(status=401, headers={"WWW-Authenticate": "X-API-Key"})
+    return SpectacularAPIView.as_view()(request)
+
 
 router = DefaultRouter()
 router.register("projects", views.ProjectViewSet)
@@ -26,10 +40,11 @@ app_name = "api"
 urlpatterns = [
     path("v1/search/", views.SearchAPIView.as_view(), name="search"),
     path("v1/", include(router.urls)),
-    path("schema/", login_not_required(SpectacularAPIView.as_view()), name="schema"),
+    path("schema/", _schema_view, name="schema"),
+    # DRF APIViews opt out of LoginRequiredMiddleware, so gate the docs page explicitly
     path(
         "docs/",
-        login_not_required(SpectacularSwaggerView.as_view(url_name="api:schema")),
+        login_required(SpectacularSwaggerView.as_view(url_name="api:schema")),
         name="docs",
     ),
 ]

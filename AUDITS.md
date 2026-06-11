@@ -2,6 +2,40 @@
 
 Every 10th loop cycle is a full security + performance audit (owner rule). Reports newest first.
 
+## Audit #4 — cycle 40 (2026-06-11), covering loop cycles 31–39
+
+**Performance:** warm timings measured live with curl on every hot page — dashboard 42 ms,
+projects 21 ms, overview 39 ms, plan 33 ms, literature 33 ms, notes 27 ms, library 33 ms,
+prompts 22 ms, automations 29 ms, inbox 27 ms. All under 50 ms (owner's lightning-fast bar).
+API ETag round-trip re-verified live (`If-None-Match` → 304). Query-budget tests green;
+keyword-cloud cache (cycle 35) keeps the literature page flat.
+
+**Security findings:**
+
+- **Schema/docs exposure (fixed — headline finding):** `/api/schema/` and `/api/docs/` were
+  `login_not_required` since Phase 2 and served the full API description to anonymous users.
+  Two layers fixed: the schema endpoint now requires a session **or** a valid `X-API-Key`
+  (constant-time compare, 401 + `WWW-Authenticate` otherwise) so MCP tooling still works; the
+  Swagger docs page is `login_required` — notably, **DRF APIViews opt out of Django's
+  `LoginRequiredMiddleware`**, so the gate must be explicit. Live-verified all five
+  combinations; regression tests added.
+- **Mentions XSS probe (clean):** hostile note titles `x](javascript:alert(1))` and
+  `"><img src=x onerror=alert(1)>` pushed through resolve_mentions → markdownify: nh3 strips
+  the `javascript:` href and the `onerror` handler; nothing executes. The markdown-link
+  construction cannot escape the sanitizer.
+- Reviewed clean: prompt `{{variables}}` (client-side clipboard substitution only, no DOM
+  writes); bot charts (autoescaped title attrs, server-side int heights); keyword-cloud `?kw=`
+  (parameterized ORM, autoescaped reflection); TTS Listen (input capped at MAX_TTS_CHARS);
+  swipe handlers (no injected state). Auth sweep: every page 302s to login anonymously.
+- Low-risk note: OpenAlex discover interpolates DB-sourced DOIs/work-ids into the request
+  path — host is pinned to api.openalex.org, worst case is a malformed GET there. Accepted.
+- `pip-audit` (uvx, 63 pinned packages): **no known vulnerabilities**.
+
+**Process finding:** the shared `client` fixture is mutated by `client_logged_in`
+(force_login on the same instance) — tests needing both must construct a fresh `Client()`.
+
+**Verdict:** healthy. One real auth gap found and closed same-cycle. 327 tests green, lint clean.
+
 ## Audit #3 — cycle 30 (2026-06-11), covering loop cycles 21–29
 
 **Performance:** query counts stable across every page (originals unchanged; reader 5q,

@@ -31,9 +31,19 @@ class TestAuth:
     def test_valid_key_accepted(self, client, owner):
         assert client.get("/api/v1/projects/", **HEADERS).status_code == 200
 
-    def test_schema_and_docs_render_without_login(self, client, owner):
-        assert client.get("/api/schema/").status_code == 200
-        assert client.get("/api/docs/").status_code == 200
+    def test_schema_requires_session_or_api_key(self, client_logged_in, owner):
+        from django.test import Client
+
+        anon = Client()
+        assert anon.get("/api/schema/").status_code == 401  # anonymous: rejected
+        assert anon.get("/api/schema/", **HEADERS).status_code == 200  # API key ok
+        assert client_logged_in.get("/api/schema/").status_code == 200  # session ok
+
+    def test_docs_page_requires_login(self, client_logged_in, owner):
+        from django.test import Client
+
+        assert Client().get("/api/docs/").status_code == 302  # to login
+        assert client_logged_in.get("/api/docs/").status_code == 200
 
 
 class TestProjects:
