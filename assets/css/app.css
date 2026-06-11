@@ -27,3 +27,22 @@
   transition: opacity 150ms ease-in;
   pointer-events: none;
 }
+
+/* The pet's happy hop when a milestone is completed — two small, calm bounces */
+@keyframes pet-hop {
+  0%, 100% { transform: translateY(0); }
+  20% { transform: translateY(-7px); }
+  40% { transform: translateY(0); }
+  60% { transform: translateY(-4px); }
+  80% { transform: translateY(0); }
+}
+
+.pet-hop {
+  animation: pet-hop 0.9s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-hop {
+    animation: none;
+  }
+}

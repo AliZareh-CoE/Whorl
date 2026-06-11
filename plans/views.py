@@ -171,7 +171,10 @@ def milestone_toggle(request, slug, pk):
         phase__project__slug=slug,
     )
     milestone.toggle_completed()
-    return _phase_card_response(request, milestone.phase)
+    response = _phase_card_response(request, milestone.phase)
+    if milestone.completed_at:  # completion (not un-checking) makes the pet hop
+        response["HX-Trigger"] = "atlas:milestone-completed"
+    return response
 
 
 @require_POST

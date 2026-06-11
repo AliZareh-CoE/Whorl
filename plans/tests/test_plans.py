@@ -86,9 +86,18 @@ class TestPlanPage:
         assert response.status_code == 200
         assert milestone.completed_at is not None
         assert b"1/1 milestones" in response.content
-        client_logged_in.post(url)
+        # completion fires the pet-hop event; un-checking stays quiet
+        assert response.headers.get("HX-Trigger") == "atlas:milestone-completed"
+        response = client_logged_in.post(url)
         milestone.refresh_from_db()
         assert milestone.completed_at is None
+        assert "HX-Trigger" not in response.headers
+
+    def test_pet_hop_listener_wired_in_base_template(self, client_logged_in):
+        response = client_logged_in.get(reverse("core:dashboard"))
+        content = response.content.decode()
+        assert 'id="atlas-pet-emoji"' in content
+        assert "atlas:milestone-completed" in content
 
     def test_milestone_toggle_scoped_to_project(self, client_logged_in):
         milestone = MilestoneFactory()
