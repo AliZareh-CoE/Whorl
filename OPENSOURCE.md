@@ -21,7 +21,7 @@ become backlog slices.
 - [x] One-command install — `docker compose --profile app up -d --build` runs web+worker+db+redis (cycle 29)
 - [x] README with hero screenshots, feature grid, comparison table (cycle 28; GIF still todo)
 - [ ] Demo instance or `seed_demo`-powered screenshot tour
-- [x] CONTRIBUTING.md (cycle 28); issue templates still todo
+- [x] CONTRIBUTING.md (cycle 28); issue + PR templates + architecture invariants (cycle 82)
 - [ ] Docs site (mkdocs-material) with the MCP setup guide front and center
 - [ ] Launch posts: HN (Show HN), r/selfhosted, r/PhD, r/AcademicPsychology, lobste.rs
 - [ ] Name check: "Atlas" is crowded — consider a distinctive rename before launch

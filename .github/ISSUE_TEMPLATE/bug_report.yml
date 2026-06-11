@@ -1,0 +1,38 @@
+name: Bug report
+description: Something in Atlas isn't working as expected.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what did you get?
+      placeholder: "On the reading queue I pressed 'Read flow' and…"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Atlas version / commit
+      description: Output of `git rev-parse --short HEAD`
+    validations:
+      required: false
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where?
+      options:
+        - The React app (/)
+        - The classic UI (/classic/ or a trailing-slash page)
+        - The API (/api/v1/)
+        - The MCP server
+        - seed_demo / setup
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / console output
+      render: shell
+    validations:
+      required: false

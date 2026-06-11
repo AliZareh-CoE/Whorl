@@ -123,3 +123,16 @@ def test_reading_flow_route_served(client_logged_in):
     response = client_logged_in.get(f"/projects/{project.slug}/read")
     assert response.status_code == 200
     assert b'id="root"' in response.content
+
+
+def test_github_templates_present_and_valid():
+    from pathlib import Path
+
+    import yaml
+
+    base = Path(".github")
+    assert (base / "PULL_REQUEST_TEMPLATE.md").exists()
+    for name in ("bug_report.yml", "feature_request.yml", "config.yml"):
+        path = base / "ISSUE_TEMPLATE" / name
+        assert path.exists(), name
+        yaml.safe_load(path.read_text())  # raises if malformed

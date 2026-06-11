@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest something Atlas should do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What research workflow is awkward today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How might Atlas help? Rough is fine.
+    validations:
+      required: true
+  - type: checkboxes
+    id: values
+    attributes:
+      label: Fits Atlas's values?
+      description: Atlas is single-user, research-first, calm, and uses NO paid LLM APIs (local NLP or the owner's Claude via MCP only).
+      options:
+        - label: This is for a single researcher (not teams/multi-tenant)
+        - label: It doesn't require a paid LLM API
