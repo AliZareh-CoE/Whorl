@@ -81,7 +81,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     cycle 15): reading queue shows per-paper theme coverage badges (n/N themes); review
     matrix exports as a markdown table; `GET /api/v1/projects/{slug}/review-matrix/` +
     MCP tool `get_review_matrix` so Claude can discuss coverage gaps in chat.~~
-    Remaining: coverage-gap suggestions in the queue ordering, synthesis-note scaffolds.
+    ~~Synthesis-note scaffolds (done 2026-06-11, cycle 72): 'Draft synthesis note' on the review matrix creates a theme-organized markdown note (papers under each theme with cell notes, unthemed backlog, synthesis prompt) — local logic, a running start for the write-up.~~ Remaining: coverage-gap suggestions beyond the queue gap-ordering already shipped.
 12. **Virtual pet 🐾.** ~~Done (2026-06-11, cycle 16): Mochi the research owl — sidebar
     widget + /pet/ page; mood from 7-day activity (sleeping/content/happy/thriving), lifetime
     stages (egg→hatchling→scholar→sage) derived live from milestones/papers/notes/experiments/
@@ -450,3 +450,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 78. SPA decision detail — context/alternatives render in the timeline (saved now, shown truncated); felt while recording the cycle-69 decision (idea added by cycle 69)
 79. `make audit` script — codify the curl auth-matrix + open-redirect + anon-sweep probes into one target so every audit cycle starts identically (Backlog #47 restated, felt again cycle 70) (idea added by cycle 70)
 80. Bulk task create + task search — mirror #71/#72 on the tasks endpoint for symmetry (idea added by cycle 71)
+81. SPA synthesis button — add 'Draft synthesis' to the React literature page (currently classic-only); parity gap felt cycle 72 (idea added by cycle 72)

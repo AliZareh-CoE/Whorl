@@ -73,3 +73,54 @@ def project_keyword_cloud(project: Project, limit: int = 18) -> list[dict]:
     ]
     cache.set(cache_key, cloud, 600)
     return cloud
+
+
+def synthesis_scaffold(project) -> str:
+    """A markdown scaffold for a literature-review write-up (Owner idea #11).
+
+    Organized by review theme, each section lists the papers marked under it (with any
+    cell notes) and a one-line synthesis prompt. Papers under no theme go to a backlog.
+    Pure local logic — a running start, not a generated review.
+    """
+    from .models import ReviewMark
+
+    themes = list(project.review_themes.all())
+    links = list(project.project_references.select_related("reference"))
+    marks = ReviewMark.objects.filter(theme__project=project).select_related(
+        "theme", "project_reference__reference"
+    )
+    by_theme: dict[int, list] = {t.pk: [] for t in themes}
+    marked_links: set[int] = set()
+    for mark in marks:
+        by_theme.setdefault(mark.theme_id, []).append(mark)
+        marked_links.add(mark.project_reference_id)
+
+    lines = [f"# {project.name} — synthesis", ""]
+    lines.append(
+        f"_Scaffold from {len(links)} papers across {len(themes)} themes. "
+        "Fill each section; the prompts are just nudges._"
+    )
+    lines.append("")
+    for theme in themes:
+        theme_marks = by_theme.get(theme.pk, [])
+        lines.append(f"## {theme.name}")
+        if not theme_marks:
+            lines.append("_No papers marked under this theme yet — a gap to fill or drop._")
+        else:
+            lines.append(f"_What do these {len(theme_marks)} papers agree and disagree on?_")
+            for mark in theme_marks:
+                ref = mark.project_reference.reference
+                note = f" — {mark.note}" if mark.note else ""
+                lines.append(f"- **{ref.bibtex_key}** ({ref.year or 'n.d.'}): {ref.title}{note}")
+        lines.append("")
+    uncovered = [link for link in links if link.pk not in marked_links]
+    if uncovered:
+        lines.append("## Not yet themed")
+        lines.append("_Place these, or decide they're out of scope._")
+        for link in uncovered:
+            ref = link.reference
+            lines.append(f"- **{ref.bibtex_key}** ({ref.year or 'n.d.'}): {ref.title}")
+        lines.append("")
+    lines.append("## Synthesis")
+    lines.append("_The throughline across themes — the story your review tells._")
+    return "\n".join(lines)

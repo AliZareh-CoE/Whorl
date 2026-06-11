@@ -48,6 +48,11 @@ urlpatterns = [
         name="matrix_export",
     ),
     path(
+        "projects/<slug:slug>/literature/synthesis/",
+        views.draft_synthesis_note,
+        name="draft_synthesis",
+    ),
+    path(
         "projects/<slug:slug>/literature/matrix/themes/new/",
         views.ThemeCreateView.as_view(),
         name="theme_create",

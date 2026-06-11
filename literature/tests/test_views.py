@@ -495,3 +495,53 @@ class TestBulkStatus:
         for name in ("literature:project", "literature:queue"):
             content = client_logged_in.get(reverse(name, args=[link.project.slug])).content.decode()
             assert 'id="bulk-status-form"' in content
+
+
+class TestSynthesisScaffold:
+    def _matrix(self):
+        from literature.models import ReviewMark, ReviewTheme
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link = ProjectReferenceFactory()
+        project = link.project
+        theme = ReviewTheme.objects.create(project=project, name="Load theory", order=1)
+        ReviewTheme.objects.create(project=project, name="Empty theme", order=2)
+        ReviewMark.objects.create(theme=theme, project_reference=link, note="key paper")
+        unthemed = ProjectReferenceFactory(project=project)
+        return project, link, unthemed
+
+    def test_scaffold_groups_by_theme(self):
+        from literature.selectors import synthesis_scaffold
+
+        project, link, unthemed = self._matrix()
+        text = synthesis_scaffold(project)
+        assert "## Load theory" in text
+        assert link.reference.bibtex_key in text
+        assert "key paper" in text
+        assert "## Empty theme" in text and "a gap to fill or drop" in text
+        assert "## Not yet themed" in text
+        assert unthemed.reference.bibtex_key in text
+        assert "## Synthesis" in text
+
+    def test_draft_creates_note_and_redirects(self, client_logged_in):
+        from django.urls import reverse
+
+        from notes.models import Note
+
+        project, link, _ = self._matrix()
+        response = client_logged_in.post(reverse("literature:draft_synthesis", args=[project.slug]))
+        assert response.status_code == 302
+        note = Note.objects.get(project=project, title=f"Synthesis — {project.name}")
+        assert link.reference.bibtex_key in note.body
+        assert response.url == note.get_absolute_url()
+
+    def test_draft_is_idempotent(self, client_logged_in):
+        from django.urls import reverse
+
+        from notes.models import Note
+
+        project, *_ = self._matrix()
+        url = reverse("literature:draft_synthesis", args=[project.slug])
+        client_logged_in.post(url)
+        client_logged_in.post(url)
+        assert Note.objects.filter(title=f"Synthesis — {project.name}").count() == 1

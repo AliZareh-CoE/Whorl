@@ -466,6 +466,24 @@ class ThemeDeleteView(ProjectScopedMixin, DeleteView):
         return reverse("literature:matrix", kwargs={"slug": self.project.slug})
 
 
+@require_POST
+def draft_synthesis_note(request, slug):
+    """Create a synthesis note pre-filled with a theme-organized scaffold (Owner idea #11)."""
+    from notes.models import Note
+    from notes.services import sync_note_links
+
+    from .selectors import synthesis_scaffold
+
+    project = get_object_or_404(Project, slug=slug)
+    title = f"Synthesis — {project.name}"
+    note, _ = Note.objects.update_or_create(
+        project=project, title=title, defaults={"body": synthesis_scaffold(project)}
+    )
+    sync_note_links(note)
+    messages.success(request, "Synthesis scaffold drafted from your review matrix.")
+    return redirect(note.get_absolute_url())
+
+
 def matrix_export_markdown(request, slug):
     """The review matrix as a markdown table — paste-able into anything, including Claude."""
     project = get_object_or_404(Project, slug=slug)

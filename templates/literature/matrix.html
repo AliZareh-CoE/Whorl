@@ -16,6 +16,12 @@
   <div class="flex items-center gap-2">
     <a href="{% url 'literature:matrix_export' project.slug %}"
        class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">Export .md</a>
+    <form method="post" action="{% url 'literature:draft_synthesis' project.slug %}" class="inline">
+      {% csrf_token %}
+      <button type="submit"
+              class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400"
+              title="Create a synthesis note scaffold organized by your themes">Draft synthesis note</button>
+    </form>
     <a href="{% url 'literature:theme_create' project.slug %}"
        class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add theme</a>
   </div>
