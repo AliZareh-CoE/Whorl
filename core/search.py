@@ -52,9 +52,11 @@ def _trigram_fallback(text: str) -> list[dict]:
     results = []
     for kind, queryset in model_map.items():
         field, project_of = TRIGRAM_FIELDS[kind]
+        # __trigram_similar compiles to the % operator, which the GIN trgm indexes serve;
+        # similarity() > x alone would force a sequential scan
         matches = (
-            queryset.annotate(sim=TrigramSimilarity(field, text))
-            .filter(sim__gt=0.25)
+            queryset.filter(**{f"{field}__trigram_similar": text})
+            .annotate(sim=TrigramSimilarity(field, text))
             .order_by("-sim")[:5]
         )
         for obj in matches:

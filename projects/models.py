@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
@@ -24,6 +25,7 @@ class Project(TimeStampedModel):
 
     class Meta:
         ordering = ["position", "name"]
+        indexes = [GinIndex(fields=["name"], opclasses=["gin_trgm_ops"], name="project_name_trgm")]
 
     def __str__(self):
         return self.name
@@ -53,6 +55,9 @@ class DecisionRecord(TimeStampedModel):
 
     class Meta:
         ordering = ["-decided_on", "-created_at"]
+        indexes = [
+            GinIndex(fields=["title"], opclasses=["gin_trgm_ops"], name="decision_title_trgm")
+        ]
 
     def __str__(self):
         return self.title

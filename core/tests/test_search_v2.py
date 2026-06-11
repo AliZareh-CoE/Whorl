@@ -54,3 +54,25 @@ class TestSuggest:
     def test_sidebar_wired_for_suggestions(self, client_logged_in):
         response = client_logged_in.get(reverse("core:dashboard"))
         assert b'hx-get="/search/suggest/"' in response.content
+
+
+class TestTrigramIndexes:
+    def test_all_five_trgm_indexes_exist(self):
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT indexname FROM pg_indexes WHERE indexname LIKE '%_trgm'")
+            names = {row[0] for row in cursor.fetchall()}
+        assert {
+            "project_name_trgm",
+            "decision_title_trgm",
+            "reference_title_trgm",
+            "document_title_trgm",
+            "note_title_trgm",
+        } <= names
+
+    def test_fallback_filters_with_index_served_operator(self):
+        from literature.models import Reference
+
+        sql = str(Reference.objects.filter(title__trigram_similar="load theory").query)
+        assert " % " in sql  # the % operator is what the GIN trgm indexes serve

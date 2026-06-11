@@ -1,3 +1,4 @@
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.urls import reverse
 
@@ -31,6 +32,9 @@ class Reference(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            GinIndex(fields=["title"], opclasses=["gin_trgm_ops"], name="reference_title_trgm")
+        ]
 
     def __str__(self):
         return f"{self.bibtex_key}: {self.title[:60]}"
