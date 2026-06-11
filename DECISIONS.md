@@ -278,6 +278,20 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     milestone→"A milestone falls! *happy hop*", personality panel.~~ Remaining: species/
     hatching/rarity moment (idea #110).
 
+24. **LaTeX: Overleaf parity, then beyond (owner, 2026-06-11, during cycle 100).** "this
+    latex feature that we have is too stupid! still overleaf is better! we need to first
+    add everything that overleaf has and on top of that make it even better than overleaf!"
+    — escalates idea #9 into a multi-cycle epic, top owner priority from cycle 101:
+    (a) research Overleaf's actual feature set and build a gap matrix logged in
+    DECISIONS.md; (b) close the gaps slice by slice (likely: live preview/auto-compile,
+    SyncTeX source↔PDF jump (#33), error parsing with inline markers, multi-file projects
+    with \input/\include, templates, figures/asset management, snippets+autocomplete
+    beyond cite keys, find-in-source, word count, track-changes-ish history); (c) then the
+    better-than-Overleaf layer: deep Atlas integration (bibliography from the project
+    library, cite-check on save, references/notes side panel, compile in the timeline,
+    MCP tools so Claude can edit/compile). Owner ideas outrank backlog — this is the
+    standing default slice source until parity is declared.
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
@@ -306,6 +320,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   polish, consistency, accessibility, interaction quality; not new features.
 - **No paid LLM API calls, ever** — language-smart features go local-NLP or through the
   owner's Claude subscription via MCP.
+- **Parallel planning workflows (owner rule, 2026-06-11, cycle 100):** while build cycles
+  run, background planning agents design future additions "so they would be really good" —
+  each big epic gets a researched, file-specific plan BEFORE its build cycles start; plan
+  outputs land in DECISIONS.md (gap matrices, slice sequences) and drive the next cycles.
+  First use: the LaTeX Overleaf-parity epic plan (launched during cycle 100's gate).
 - **Tech improvement + design research every cycle (owner rule, 2026-06-11, cycle 94):**
   each cycle must also make a technological improvement, and UI work must be informed by
   researching what people actually like — specifically Apple's HIG design principles
@@ -521,3 +540,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 110. Pet hatching & species — a one-time hatch moment (deterministic from the install, Buddy-style) choosing among a few species/looks, with a tiny shiny chance; pairs with #49/#56 (idea added by cycle 97)
 111. Document the ?q= convention in the API schema — a reusable OpenApiParameter on every q_fields viewset so MCP/scripts discover searchability from /api/docs/ (idea added by cycle 98)
 112. CI audit artifacts — upload /tmp/server.log and the sweep output as workflow artifacts on failure so red audit jobs are debuggable without rerunning (idea added by cycle 99)
+113. API timing smoke in CI — extend the audit job with a best-of-5 latency check on 3 hot endpoints against the 50ms bar, so regressions like the cycle-100 N+1 surface in PRs not audits (idea added by cycle 100)

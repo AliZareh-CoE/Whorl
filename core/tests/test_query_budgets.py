@@ -60,3 +60,30 @@ class TestQueryBudgets:
         with django_assert_max_num_queries(20):
             response = client_logged_in.get(reverse("core:dashboard"))
         assert response.status_code == 200
+
+
+class TestApiQueryBudgets:
+    """AUDIT #10: the project-references list ran 48 queries (N+1 via the nested
+    reference serializer) before select_related; these ceilings keep the API flat."""
+
+    def test_project_references_list_constant_queries(
+        self, client_logged_in, django_assert_max_num_queries
+    ):
+        project = build_busy_project()
+        with django_assert_max_num_queries(8):
+            response = client_logged_in.get(f"/api/v1/project-references/?project={project.slug}")
+        assert response.status_code == 200
+        assert response.json()["count"] == 20
+
+    def test_timeline_constant_queries(self, client_logged_in, django_assert_max_num_queries):
+        project = build_busy_project()
+        with django_assert_max_num_queries(14):
+            response = client_logged_in.get(f"/api/v1/projects/{project.slug}/timeline/")
+        assert response.status_code == 200
+
+    def test_q_param_is_capped(self, client_logged_in):
+        project = build_busy_project()
+        response = client_logged_in.get(
+            f"/api/v1/milestones/?project={project.slug}&q={'a' * 5000}"
+        )
+        assert response.status_code == 200  # capped to 200 chars, not an error

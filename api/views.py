@@ -45,7 +45,8 @@ class AtlasViewSet(viewsets.ModelViewSet):
         slug = self.request.query_params.get("project")
         if slug and self.project_filter:
             queryset = queryset.filter(**{self.project_filter: slug})
-        q = self.request.query_params.get("q")
+        # AUDIT #10: cap the needle like ?theme= — unbounded input is free DoS surface
+        q = (self.request.query_params.get("q") or "").strip()[:200]
         if q and self.q_fields:
             from django.db.models import Q
 
@@ -505,7 +506,8 @@ class ReferenceViewSet(AtlasViewSet):
 
 
 class ProjectReferenceViewSet(AtlasViewSet):
-    queryset = ProjectReference.objects.all()
+    # AUDIT #10: select_related kills the 48-query N+1 the nested serializer caused
+    queryset = ProjectReference.objects.select_related("reference", "project")
     serializer_class = serializers.ProjectReferenceSerializer
     project_filter = "project__slug"
 

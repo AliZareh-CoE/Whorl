@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: AUDIT #10 [cycle 100])
-- **Last completed slice (cycle 99, tech improvement):** Backlog #103 — CI security-audit job: second workflow job boots the app (postgres service, migrate, runserver readiness loop) and runs `make audit` on every PR; audit.sh prefers $ATLAS_API_KEY over .env. Verified locally including the env-var-only CI path.
-- **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea AND makes a tech improvement with research-backed design (rule added cycle 94).
+- **Slice in progress:** — (next: LaTeX epic slice 1 [cycle 101] — Overleaf gap matrix + first parity feature)
+- **Last completed slice (cycle 100, AUDIT #10):** probe sweep clean; 2 findings fixed in-cycle: project-references N+1 (48→4 queries, 58→23ms, select_related + budget test) and unbounded ?q= (capped 200 + test). Timeline budget test added. Report in AUDITS.md.
+- **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → **Owner idea #24: LaTeX Overleaf-parity epic (standing top priority)** → other owner ideas → backlog; every cycle: ≥1 new idea + tech improvement + research-backed design.
 - **Next 3 slices:**
-  1. AUDIT #10 [cycle 100]: `make audit`, then full security+responsiveness review of cycles 91-99 (timeline endpoint, ?theme= candidates, ?q= expansion, document comments, pet payload) → AUDITS.md + in-app decision log
-  2. Backlog top-down [101+]: #91 seed PDF, #105 matrix theme chips, #106 docs/DESIGN.md, #107/#108 timeline follow-ups, #110 pet hatching, #111 ?q= schema docs, #112 CI artifacts
-  3. Keep ≥1 [REV] candidate listed (open: #62 synthesis studio)
+  1. LaTeX epic [cycle 101]: research Overleaf's feature set → gap matrix in DECISIONS.md → ship the highest-value parity slice (likely auto-compile-on-save with debounce + inline error markers from the compile log)
+  2. LaTeX epic [102-104]: next gaps top-down (SyncTeX jump #33, multi-file \input support, snippets/autocomplete, templates)
+  3. AUDIT #11 at cycle 110; [REV] at 105 (candidate: #62 synthesis studio or a LaTeX epic centerpiece); 2 UI/UX in 101-110 (LaTeX editor UX counts with research)
 - **Broken:** nothing
 
 ## Gate reports

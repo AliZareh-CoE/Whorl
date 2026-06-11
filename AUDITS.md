@@ -281,3 +281,37 @@ sidebar (#15). Dashboard heatmap query count is structural (14 models × 2 field
 revisit only if the dashboard ever feels slow.
 
 **Verdict:** healthy. 212 tests green, lint clean.
+
+## Audit #10 — cycle 100 (2026-06-11)
+
+Scope: everything since audit #9 (cycles 91–99): `make audit` script + CI job, research
+timeline endpoint + MCP tool, `?theme=` candidate filter, AtlasViewSet `q_fields`/
+`bulk_create` knobs (5 newly searchable resources), comments on documents, Buddy-style
+pet payload.
+
+**Probe sweep (`make audit`): clean.** Anonymous 401 on all new API surfaces (timeline,
+synthesis, themed project-references, document comments, ?q= resources); keyed access 200;
+catch-all and static MIME intact; `/app//evil.com/x` stays on-origin; pip-audit and
+npm audit both zero known vulnerabilities. The sweep now also runs in CI on every PR
+(cycle 99), so drift between audits gets caught at review time.
+
+**Edge inputs:** 5000-char `?theme=` (capped 120) and SQL-ish metacharacters → 200, no
+errors (ORM-parameterized icontains). Bogus comment kinds and missing object ids → 404.
+
+**Findings & fixes (2):**
+- `/api/v1/project-references/` ran **48 queries** for a 22-paper project (N+1: nested
+  reference serializer + project slug field) and clocked 58 ms — over the 50 ms bar →
+  **fixed**: `select_related("reference", "project")` → 4 queries, 23 ms. Regression
+  budget test added (≤8 queries).
+- `?q=` accepted unbounded input (the older `?theme=` was capped) → **fixed**: stripped
+  and capped at 200 chars in `AtlasViewSet.get_queryset`; cap test added.
+
+**Performance spot-checks (best of 5, dev server):** SPA shell 1 ms · overview 31 ms ·
+timeline 31 ms (10 queries / 41 events, budget test added at ≤14) · project-references
+23 ms (post-fix) · pet 14 ms (cached). All under the 50 ms bar.
+
+**Carried forward:** #57 (search page at the 50 ms boundary), #53 (trgm index when
+libraries grow), #36 (containerized Tectonic if multi-user ever happens).
+
+**Verdict:** healthy — two real findings, both fixed and regression-guarded in-cycle.
+457 tests green, lint clean.
