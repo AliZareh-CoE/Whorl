@@ -38,7 +38,47 @@ import {
 } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 
-export type EditorCfg = { citeKeys?: string[]; initialDoc?: string };
+export type EditorCfg = {
+  citeKeys?: string[];
+  initialDoc?: string;
+  citeLibraryUrl?: string; // B1: whole-library cite source + auto-link (Slice C)
+  csrfToken?: string;
+};
+
+// Beyond-Overleaf B1/B2 (Slice C): \cite{} completes from the WHOLE project library; an
+// unlinked paper shows "+ " and accepting it auto-creates the ManuscriptReference. Unknown
+// \cite keys get a live amber cite-check diagnostic. The library loads async on mount.
+type CiteRow = {
+  reference_id?: number;
+  key: string;
+  title?: string;
+  authors?: string;
+  year?: number | null;
+  linked?: boolean;
+};
+let citeLibrary: CiteRow[] = [];
+let citeKnown = new Set<string>();
+function loadCiteLibrary(cfg: EditorCfg) {
+  citeKnown = new Set(cfg.citeKeys ?? []);
+  if (!cfg.citeLibraryUrl) return;
+  fetch(cfg.citeLibraryUrl)
+    .then((r) => r.json())
+    .then((d) => {
+      citeLibrary = d.candidates || [];
+      citeKnown = new Set([...(cfg.citeKeys ?? []), ...citeLibrary.map((c) => c.key)]);
+    })
+    .catch(() => {});
+}
+function autoLink(cfg: EditorCfg, referenceId: number) {
+  if (!cfg.citeLibraryUrl) return;
+  fetch(cfg.citeLibraryUrl, {
+    method: "POST",
+    headers: { "X-CSRFToken": cfg.csrfToken ?? "" },
+    body: new URLSearchParams({ reference: String(referenceId) }),
+  }).catch(() => {});
+  const row = citeLibrary.find((c) => c.reference_id === referenceId);
+  if (row) row.linked = true;
+}
 
 // --- comment gutter (Slice B): a 💬 marker on lines that carry comments -------------
 class CommentMarker extends GutterMarker {
@@ -67,15 +107,14 @@ const commentMarkField = StateField.define<RangeSet<GutterMarker>>({
 });
 
 // --- compile diagnostics (Slice B): push status into a CM6 linter ------------------
-let currentDiagnostics: Diagnostic[] = [];
+let currentDiagnostics: Diagnostic[] = []; // compile diagnostics (pushed on poll)
 function diagnosticsLinter() {
-  return linter(() => currentDiagnostics);
+  return linter((view) => [...currentDiagnostics, ...citeCheckDiagnostics(view.state)]);
 }
 
-// Atlas-specific: \cite{key} completion from the manuscript's keys. (The whole-library
-// B1 source with auto-link lands in Slice C.) Registered as language data so it MERGES with
-// lang-latex's built-in command/env completion instead of overriding it.
-function citeCompletionSource(citeKeys: string[]) {
+// B1: \cite{key} completes from the whole project library; accepting an unlinked paper
+// auto-creates the ManuscriptReference link.
+function citeCompletionSource(cfg: EditorCfg) {
   return (context: CompletionContext): CompletionResult | null => {
     const before = context.state.sliceDoc(
       context.state.doc.lineAt(context.pos).from,
@@ -84,12 +123,57 @@ function citeCompletionSource(citeKeys: string[]) {
     const cite = before.match(/\\\w*cite\w*\*?(?:\[[^\]]*\])*\{([^}]*)$/);
     if (!cite) return null;
     const frag = cite[1].split(",").pop()!.trim();
+    const pool: CiteRow[] = citeLibrary.length
+      ? citeLibrary
+      : (cfg.citeKeys ?? []).map((k) => ({ key: k, linked: true }));
     return {
       from: context.pos - frag.length,
-      options: citeKeys.map((k) => ({ label: k, type: "variable" })),
+      options: pool.map((c) => ({
+        label: c.key,
+        detail:
+          (c.linked ? "" : "+ ") +
+          [c.authors, c.year ? String(c.year) : "", c.title?.slice(0, 50)]
+            .filter(Boolean)
+            .join(" · "),
+        type: "variable",
+        apply: (view: EditorView, _c: unknown, from: number, to: number) => {
+          view.dispatch({ changes: { from, to, insert: c.key }, selection: { anchor: from + c.key.length } });
+          if (c.reference_id && !c.linked) autoLink(cfg, c.reference_id);
+        },
+      })),
       validFor: /^[^},]*$/,
     };
   };
+}
+
+// B2: unknown \cite keys → live amber cite-check diagnostics (merged with compile diags).
+const CITE_TOKEN = /\\\w*cite\w*\*?(?:\[[^\]]*\])*\{([^}]+)\}/g;
+function citeCheckDiagnostics(state: EditorState): Diagnostic[] {
+  if (!citeKnown.size) return [];
+  const out: Diagnostic[] = [];
+  for (let i = 1; i <= state.doc.lines; i++) {
+    const line = state.doc.line(i);
+    let m: RegExpExecArray | null;
+    CITE_TOKEN.lastIndex = 0;
+    while ((m = CITE_TOKEN.exec(line.text)) !== null) {
+      const keysStart = m.index + m[0].indexOf("{") + 1;
+      let offset = keysStart;
+      for (const raw of m[1].split(",")) {
+        const key = raw.trim();
+        const at = line.text.indexOf(key, offset);
+        offset = at + key.length;
+        if (key && !citeKnown.has(key)) {
+          out.push({
+            from: line.from + at,
+            to: line.from + at + key.length,
+            severity: "warning",
+            message: `Citation “${key}” isn't in your library. Add it from the library or by DOI.`,
+          });
+        }
+      }
+    }
+  }
+  return out;
 }
 
 export type EditorAdapter = {
@@ -154,7 +238,7 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
       // library's built-in command/env/math source (rule #28: borrow the source, add cite).
       latex({ enableAutocomplete: false, autoCloseTags: true, enableTooltips: true }),
       autocompletion({
-        override: [citeCompletionSource(cfg.citeKeys ?? []), latexCompletionSource(true)],
+        override: [citeCompletionSource(cfg), latexCompletionSource(true)],
       }),
       diagnosticsLinter(),
       search(),
@@ -175,6 +259,7 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
   const newState = (doc: string) =>
     EditorState.create({ doc, extensions: buildExtensions() });
 
+  loadCiteLibrary(cfg);
   const view = new EditorView({ state: newState(cfg.initialDoc ?? ""), parent: host });
   view.dom.style.minHeight = "72vh";
 
@@ -251,7 +336,7 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
           };
         });
       currentDiagnostics = cm;
-      view.dispatch(setDiagnostics(view.state, cm));
+      view.dispatch(setDiagnostics(view.state, [...cm, ...citeCheckDiagnostics(view.state)]));
     },
   };
 }
