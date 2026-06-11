@@ -432,6 +432,15 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     when touched. The owner's earlier rule still binds: NO paid LLM APIs — but free/open-source
     tools and the owner's own Claude subscription are exactly the point of this rule.
 
+29. **Give the pet a voice (owner, 2026-06-11, during cycle 122).** "we can also let our pet
+    to have a voice and speak :)" — Mochi already has contextual speech lines (speech_lines)
+    and Atlas already has a LOCAL TTS engine (Owner idea #3: Piper, the /tts/ endpoint, the
+    "Read aloud" buttons) — NO paid API needed. Wire a small 🔊 affordance on the pet (sidebar
+    widget + /pet/ page) that speaks the current speech line via /tts/, and optionally speak a
+    reaction line in the hop moment (milestone done / paper read / capture) — gated behind a
+    remembered mute toggle so it's never noisy (the no-nagging pet principle). Pixel-pet charm,
+    not a chatterbox. Next pet UI/UX cycle.
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
@@ -710,6 +719,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+136. Pet voice (Owner idea #29) — 🔊 on the pet speaks its line via the existing Piper /tts/ endpoint; optional spoken reaction in the hop moment behind a remembered mute toggle (idea added by cycle 122)
 135. CM6 migration sub-epic — execute docs/plans/2026-06-11-cm6-oss-migration.md slices A/B/C; closes #114 (offline editor) and deletes the hand-rolled snippet walker + hints (idea added by cycle 121, from the OSS plan)
 134. OSS-replacement audit pass — a dedicated cycle that inventories Atlas's hand-rolled pieces (CM5 snippet walker, planned drag-resize, detex word count, difflib usage, the pet animation) and swaps in mature libraries where they're clearly better (Owner idea #28); pairs with the CM6 evaluation (idea added by cycle 120)
 133. Sanitize zip member names centrally — the submission-zip traversal guard is local to the view; a shared safe_archive_name() helper would cover any future zip/tar export (idea added by cycle 120, from AUDIT #12)
