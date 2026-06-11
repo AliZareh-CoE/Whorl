@@ -5,7 +5,8 @@
 set -uo pipefail
 
 BASE="${ATLAS_BASE:-http://127.0.0.1:8000}"
-KEY="$(grep -E '^ATLAS_API_KEY=' .env | cut -d= -f2)"
+# Env var first (CI has no .env), then the dev .env file.
+KEY="${ATLAS_API_KEY:-$(grep -E '^ATLAS_API_KEY=' .env 2>/dev/null | cut -d= -f2)}"
 fail=0
 pass() { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; fail=1; }

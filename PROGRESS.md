@@ -3,12 +3,12 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: backlog top-down [cycle 99])
-- **Last completed slice (cycle 98, tech improvement):** Backlog #100 — AtlasViewSet `q_fields`/`bulk_create` knobs replace the duplicated per-viewset overrides (milestones/tasks/prompts collapsed); notes, decisions, research questions, hypotheses, datasets opted into `?q=` for free. Live-verified on notes + decisions; 3 new tests.
+- **Slice in progress:** — (next: AUDIT #10 [cycle 100])
+- **Last completed slice (cycle 99, tech improvement):** Backlog #103 — CI security-audit job: second workflow job boots the app (postgres service, migrate, runserver readiness loop) and runs `make audit` on every PR; audit.sh prefers $ATLAS_API_KEY over .env. Verified locally including the env-var-only CI path.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea AND makes a tech improvement with research-backed design (rule added cycle 94).
 - **Next 3 slices:**
-  1. Backlog top-down [cycle 99]: #91 seed PDF, #103 CI audit job, #105 matrix theme chips, #106 docs/DESIGN.md, #107/#108 timeline follow-ups, #110 pet hatching, #111 ?q= schema docs
-  2. AUDIT #10 at cycle 100 (`make audit` first)
+  1. AUDIT #10 [cycle 100]: `make audit`, then full security+responsiveness review of cycles 91-99 (timeline endpoint, ?theme= candidates, ?q= expansion, document comments, pet payload) → AUDITS.md + in-app decision log
+  2. Backlog top-down [101+]: #91 seed PDF, #105 matrix theme chips, #106 docs/DESIGN.md, #107/#108 timeline follow-ups, #110 pet hatching, #111 ?q= schema docs, #112 CI artifacts
   3. Keep ≥1 [REV] candidate listed (open: #62 synthesis studio)
 - **Broken:** nothing
 

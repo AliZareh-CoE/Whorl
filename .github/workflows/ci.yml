@@ -60,3 +60,53 @@ jobs:
           make js
           git diff --exit-code static/css/app.css static/js \
             || (echo "::error::Committed CSS/JS is stale — run 'make css && make js' and commit"; exit 1)
+
+  audit:
+    name: Security audit sweep
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas
+          POSTGRES_DB: atlas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://atlas:atlas@localhost:5432/atlas
+      SECRET_KEY: ci-secret-not-for-production
+      DEBUG: "true"
+      ATLAS_API_KEY: ci-audit-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python deps
+        run: uv sync
+
+      - name: Migrate
+        run: uv run python manage.py migrate
+
+      - name: Boot the app
+        run: |
+          nohup uv run python manage.py runserver 0.0.0.0:8000 > /tmp/server.log 2>&1 &
+          ok=0
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8000/login/ > /dev/null && ok=1 && break
+            sleep 1
+          done
+          if [ "$ok" != 1 ]; then
+            echo "::error::Server never came up"; cat /tmp/server.log; exit 1
+          fi
+
+      - name: Probe sweep (make audit)
+        run: make audit
