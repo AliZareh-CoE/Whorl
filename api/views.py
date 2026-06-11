@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status, viewsets
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -483,7 +484,7 @@ class NoteViewSet(AtlasViewSet):
 
 @method_decorator(login_not_required, name="dispatch")
 class SearchAPIView(APIView):
-    authentication_classes = [APIKeyAuthentication]
+    authentication_classes = [APIKeyAuthentication, SessionAuthentication]
 
     @extend_schema(
         parameters=[OpenApiParameter(name="q", type=str, required=True, description="Search text")],

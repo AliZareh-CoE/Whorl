@@ -213,9 +213,13 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
       nested events + project_name, viewset, route); /app/writing status-column board,
       /app/manuscripts/:id detail with optimistic status select + submission timeline;
       LaTeX editor + cite check stay classic links until their own slice — CodeMirror-in-
-      React deferred to that slice)~~ → 64 inbox, prompts,
-      automations, pet, search → [65 REV] → 66 research+decisions+questions → 67 graph →
-      68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
+      React deferred to that slice)~~ → ~~64 inbox, prompts, search (done
+      2026-06-11; automations+pet split to 66 — noted; PLUS dogfood setup per Owner idea
+      #21: 'Atlas — self-build' project created via the live API with 13 milestones/2
+      phases/3 decisions, now at 8/13 after this cycle's self-check-off; found+fixed:
+      SearchAPIView's pinned authentication_classes silently dropped session auth —
+      regression test added; 2 genuine friction items captured → backlog)~~ → [65 REV] →
+      66 research+decisions+questions+automations+pet → 67 graph → 68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
     - **Standing constraints unchanged:** lightning-fast (code-split routes, prefetch),
       security (CSRF, no token in JS-readable storage beyond the session cookie), tests
       (API contract tests guard every migrated view), no paid LLM APIs.
@@ -407,3 +411,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 68. Server-side reference search — ?search= on /api/v1/references/ (title/key/venue/authors icontains) so the SPA library scales past one page (idea added by cycle 61)
 69. Autosave for the SPA note editor — debounced PATCH 2s after typing stops, with the Saved indicator reflecting in-flight state (idea added by cycle 62)
 70. Log submission events from the SPA — small add-event form on the manuscript timeline (kind, date, notes) via a SubmissionEvent API (idea added by cycle 63)
+71. Bulk milestone create — POST /api/v1/milestones/ accepting a list (and completed_at at create time); felt as friction during dogfood setup (idea added by cycle 64, friction-sourced)
+72. Milestone search — ?q= filter on milestones (or the plan endpoint) so scripts and the SPA can find one by title without fetching the whole plan; felt at the first dogfood ship step (idea added by cycle 64, friction-sourced)

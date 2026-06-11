@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: SPA slice 8, small pages [cycle 64])
+- **Slice in progress:** — (next: [REV] revolutionary cycle [65])
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. SPA slice 8 [cycle 64] — inbox, prompts, automations, pet, search
-  2. [65 REV] revolutionary cycle
-  3. research+decisions 66; graph 67; cutover 68; AUDIT #7 at 70
+  1. [65 REV] — assistant command bar as a first-class SPA feature (Cmd-K everywhere)
+  2. research+decisions+automations+pet [66]; graph [67]
+  3. cutover /app/ → / [68]; AUDIT #7 at 70; dogfood ship-step every cycle
 - **Broken:** nothing
 
 ## Gate reports

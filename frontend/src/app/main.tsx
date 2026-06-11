@@ -4,6 +4,9 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "./Layout";
 import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
+import Inbox from "./pages/Inbox";
+import Prompts from "./pages/Prompts";
+import Search from "./pages/Search";
 import Library from "./pages/Library";
 import { NoteEditor, NotesList } from "./pages/Notes";
 import Literature from "./pages/Literature";
@@ -34,6 +37,9 @@ createRoot(document.getElementById("root")!).render(
           <Route path="library" element={<Library />} />
           <Route path="writing" element={<WritingBoard />} />
           <Route path="manuscripts/:id" element={<ManuscriptDetail />} />
+          <Route path="inbox" element={<Inbox />} />
+          <Route path="prompts" element={<Prompts />} />
+          <Route path="search" element={<Search />} />
           <Route path="*" element={<p className="text-sm text-stone-400">Not migrated yet — try the classic pages.</p>} />
         </Route>
       </Routes>

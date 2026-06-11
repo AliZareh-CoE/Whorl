@@ -432,3 +432,9 @@ class TestManuscriptsAPI:
         )
         assert response.status_code == 200
         assert Manuscript.objects.get(pk=manuscript.pk).status == "submitted"
+
+
+def test_search_accepts_session_for_spa(client_logged_in):
+    # SearchAPIView pinned authentication_classes and silently dropped session auth
+    response = client_logged_in.get("/api/v1/search/?q=anything")
+    assert response.status_code == 200
