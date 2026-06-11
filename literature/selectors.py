@@ -4,6 +4,42 @@ from django.core.cache import cache
 
 from projects.models import Project
 
+READ_STATUSES = ("read", "annotated")
+
+
+def theme_read_counts(project: Project) -> dict[int, int]:
+    """Per-theme count of READ/ANNOTATED papers — fewer read means a bigger gap."""
+    from django.db.models import Count, Q
+
+    return {
+        theme.pk: theme.read_count
+        for theme in project.review_themes.annotate(
+            read_count=Count(
+                "marks",
+                filter=Q(marks__project_reference__reading_status__in=READ_STATUSES),
+            )
+        )
+    }
+
+
+def annotate_gap_scores(project: Project, links: list) -> None:
+    """Attach gap_score/gap_theme to queued links: the least-read theme each paper covers.
+
+    Papers marked with an under-read theme get a low score (read them first);
+    papers with no theme marks sort last.
+    """
+    read_counts = theme_read_counts(project)
+    names = dict(project.review_themes.values_list("pk", "name"))
+    for link in links:
+        theme_ids = [mark.theme_id for mark in link.review_marks.all()]
+        if theme_ids:
+            gap_theme_id = min(theme_ids, key=lambda pk: read_counts.get(pk, 0))
+            link.gap_score = read_counts.get(gap_theme_id, 0)
+            link.gap_theme = names.get(gap_theme_id, "")
+        else:
+            link.gap_score = None  # sorts after every marked paper
+            link.gap_theme = ""
+
 
 def project_keyword_cloud(project: Project, limit: int = 18) -> list[dict]:
     """Top keywords across the project's linked references, weighted 1-3. Cached 10 min."""

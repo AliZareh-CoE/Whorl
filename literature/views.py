@@ -276,8 +276,26 @@ def reading_queue(request, slug):
         queue = queue.filter(
             DQ(reference__title__icontains=keyword) | DQ(reference__abstract__icontains=keyword)
         )
-    links = list(queue.select_related("reference").annotate(theme_coverage=Count("review_marks")))
-    links.sort(key=lambda link: (PRIORITY_ORDER[link.priority], link.created_at))
+    order = request.GET.get("order", "")
+    links = list(
+        queue.select_related("reference")
+        .prefetch_related("review_marks")
+        .annotate(theme_coverage=Count("review_marks"))
+    )
+    if order == "gaps":
+        from .selectors import annotate_gap_scores
+
+        annotate_gap_scores(project, links)
+        links.sort(
+            key=lambda link: (
+                link.gap_score is None,  # unmarked papers last
+                link.gap_score or 0,
+                PRIORITY_ORDER[link.priority],
+                link.created_at,
+            )
+        )
+    else:
+        links.sort(key=lambda link: (PRIORITY_ORDER[link.priority], link.created_at))
     return render(
         request,
         "literature/reading_queue.html",
@@ -285,6 +303,7 @@ def reading_queue(request, slug):
             "project": project,
             "links": links,
             "keyword": keyword,
+            "order": order,
             "statuses": ProjectReference.ReadingStatus.choices,
             "theme_count": project.review_themes.count(),
         },

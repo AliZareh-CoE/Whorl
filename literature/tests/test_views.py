@@ -404,3 +404,59 @@ class TestKeywordCloud:
         project_keyword_cloud(link.project)  # warm
         with django_assert_num_queries(0):
             project_keyword_cloud(link.project)
+
+
+class TestQueueGapOrdering:
+    def _setup_matrix(self):
+        from literature.models import ProjectReference, ReviewMark, ReviewTheme
+        from literature.tests.factories import ProjectReferenceFactory
+
+        # theme "Covered" has 2 read papers; theme "Gap" has none
+        queued_covered = ProjectReferenceFactory()
+        project = queued_covered.project
+        covered = ReviewTheme.objects.create(project=project, name="Covered", order=1)
+        gap = ReviewTheme.objects.create(project=project, name="Gap", order=2)
+        for _ in range(2):
+            done = ProjectReferenceFactory(
+                project=project, reading_status=ProjectReference.ReadingStatus.READ
+            )
+            ReviewMark.objects.create(theme=covered, project_reference=done)
+        ReviewMark.objects.create(theme=covered, project_reference=queued_covered)
+        queued_gap = ProjectReferenceFactory(project=project)
+        ReviewMark.objects.create(theme=gap, project_reference=queued_gap)
+        queued_unmarked = ProjectReferenceFactory(project=project)
+        return project, queued_gap, queued_covered, queued_unmarked
+
+    def test_gap_scores_annotated(self):
+        from literature.selectors import annotate_gap_scores
+
+        project, queued_gap, queued_covered, queued_unmarked = self._setup_matrix()
+        links = list(
+            project.project_references.filter(reading_status="to_read").prefetch_related(
+                "review_marks"
+            )
+        )
+        annotate_gap_scores(project, links)
+        by_pk = {link.pk: link for link in links}
+        assert by_pk[queued_gap.pk].gap_score == 0
+        assert by_pk[queued_gap.pk].gap_theme == "Gap"
+        assert by_pk[queued_covered.pk].gap_score == 2
+        assert by_pk[queued_unmarked.pk].gap_score is None
+
+    def test_queue_orders_gap_papers_first(self, client_logged_in):
+        project, queued_gap, queued_covered, queued_unmarked = self._setup_matrix()
+        url = reverse("literature:queue", args=[project.slug]) + "?order=gaps"
+        response = client_logged_in.get(url)
+        content = response.content.decode()
+        positions = [
+            content.index(link.reference.title)
+            for link in (queued_gap, queued_covered, queued_unmarked)
+        ]
+        assert positions == sorted(positions)  # gap paper first, unmarked last
+        assert "fills: Gap (0 read)" in content
+
+    def test_default_order_unchanged(self, client_logged_in):
+        project, *_ = self._setup_matrix()
+        response = client_logged_in.get(reverse("literature:queue", args=[project.slug]))
+        assert response.status_code == 200
+        assert "Fill matrix gaps" in response.content.decode()

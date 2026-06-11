@@ -223,7 +223,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 18. ~~Bot run history charts (done 2026-06-11, cycle 37): pure-CSS bar sparkline of the last 20 runs per bot on the Automations page — bar height = headline number parsed from each result line (`BotRun.count`), failed runs in red, hover tooltip with date + result; history list capped at 5 with chart above; seeded demo runs. (Last-N retention shipped earlier in cycle 12.)~~
 19. LaTeX compile service — vendor the Tectonic binary (like Tailwind/Piper pattern) behind a huey task with compile logs surfaced in the editor (idea added by cycle 13)
 20. ~~Comment mentions (done 2026-06-11, cycle 38): `core/mentions.py` resolves `[[Note Title]]` (when exactly one note matches, any project) and `@cite-key` into markdown links before markdownify/nh3; applied via the `mentions` template filter in comment threads; unresolved/ambiguous mentions stay as typed; seeded demo comment exercises both.~~
-21. Queue ordering option "least-covered themes first" — triage papers that fill matrix gaps (idea added by cycle 15)
+21. ~~Queue gap-ordering (done 2026-06-11, cycle 41): "Fill matrix gaps" toggle on the reading queue — each queued paper scores by its least-read theme (READ/ANNOTATED counts), under-read themes float up with an amber "fills: <theme> (n read)" badge, unmarked papers sort last; default priority order unchanged.~~
 22. Pet reactions to events — a brief happy hop via HTMX when a milestone is checked off on the plan page (idea added by cycle 16)
 23. Tree grove view — all projects as one grove on the dashboard, trees sized by scope (idea added by cycle 17)
 24. Upload progress bars per file for large uploads (idea added by cycle 18)
@@ -250,3 +250,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 45. Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)
 46. Edge-swipe to open the drawer — touchstart within 24px of the left edge anywhere on the page slides the sidebar in (mirror of swipe-to-close) (idea added by cycle 39)
 47. `make audit` target — pip-audit via uvx + the curl auth sweep as a one-command pre-audit script, so every 10th cycle starts from the same checklist (idea added by cycle 40, from AUDIT #4)
+48. Matrix gap column hints — show each theme's read-count in the review matrix header so gaps are visible there too, linking back to the gap-ordered queue (idea added by cycle 41)

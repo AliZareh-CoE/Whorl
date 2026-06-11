@@ -12,14 +12,30 @@
 {% include "projects/_subnav.html" %}
 
 <h1 class="mb-2 text-2xl font-semibold tracking-tight">Reading queue</h1>
-<p class="mb-6 text-sm text-stone-500">Unread and skimmed references, highest priority first. Change the status as you go.</p>
+<p class="mb-4 text-sm text-stone-500">Unread and skimmed references{% if order == "gaps" %}, papers that fill review-matrix gaps first{% else %}, highest priority first{% endif %}. Change the status as you go.</p>
+
+{% if theme_count %}
+  <div class="mb-6 flex items-center gap-1 text-xs">
+    <span class="mr-1 uppercase tracking-wide text-stone-400">Order</span>
+    <a href="?{% if keyword %}kw={{ keyword|urlencode }}{% endif %}"
+       class="rounded-full border px-2.5 py-1 {% if order != 'gaps' %}border-indigo-600 bg-indigo-50 text-indigo-700{% else %}border-stone-200 text-stone-500 hover:border-stone-400{% endif %}">Priority</a>
+    <a href="?order=gaps{% if keyword %}&kw={{ keyword|urlencode }}{% endif %}"
+       class="rounded-full border px-2.5 py-1 {% if order == 'gaps' %}border-indigo-600 bg-indigo-50 text-indigo-700{% else %}border-stone-200 text-stone-500 hover:border-stone-400{% endif %}">Fill matrix gaps</a>
+  </div>
+{% endif %}
 
 {% if links %}
   <div class="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
     {% for link in links %}
       <div class="flex items-center">
         <div class="min-w-0 flex-1">{% include "literature/_link_row.html" %}</div>
-        {% if theme_count %}
+        {% if order == "gaps" and link.gap_theme %}
+          <a href="{% url 'literature:matrix' project.slug %}"
+             title="“{{ link.gap_theme }}” has only {{ link.gap_score }} read paper(s) so far"
+             class="mr-4 shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+            fills: {{ link.gap_theme }} ({{ link.gap_score }} read)
+          </a>
+        {% elif theme_count %}
           <a href="{% url 'literature:matrix' project.slug %}"
              title="Covers {{ link.theme_coverage }} of {{ theme_count }} review themes"
              class="mr-4 shrink-0 rounded-full px-2 py-0.5 text-xs
