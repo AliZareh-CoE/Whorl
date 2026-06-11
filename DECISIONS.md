@@ -459,5 +459,6 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 86. Promote the route rule to docs — note the slash-less=SPA / trailing-slash=classic invariant in CONTRIBUTING so external contributors don't re-add per-route Django patterns (idea added by cycle 76)
 87. ~~Prefetch assistant index on mount (done 2026-06-11, cycle 78): Layout warms the ⌘K assistant-context query on app load, so even the very first ⌘K paints instantly.~~
 88. ~~tl;dr in reading-flow (done 2026-06-11, cycle 79): 's' summarizes the current paper's abstract inline during a read session; resets on next/prev, in the key legend. The focused session is now Listen + tl;dr + note + status, fully keyboard.~~
-89. seed_demo abstracts — give a few seeded references real abstracts so tl;dr/Listen/reading-flow demo out of the box (friction-sourced, cycle 79)
-90. seed real abstracts (escalate #89) — AUDIT #8 noted features like tl;dr/Listen can't demo on seeded data; do it so the next person who runs seed_demo sees them work (idea added by cycle 80)
+89. ~~Seeded abstracts (done 2026-06-11, cycle 81): three demo references (incl. one to_read) now carry real abstracts, so tl;dr/Listen/reading-flow demo out of the box; closes the AUDIT #8 finding.~~
+90. ~~Seeded abstracts (done 2026-06-11, cycle 81): three demo references (incl. one to_read) now carry real abstracts, so tl;dr/Listen/reading-flow demo out of the box; closes the AUDIT #8 finding.~~
+91. Sample PDF for a to_read paper in seed_demo — so the PDF reader/iframe also demos in the reading-flow, not just the abstract (idea added by cycle 81)

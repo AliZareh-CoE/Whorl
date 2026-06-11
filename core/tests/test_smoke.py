@@ -36,6 +36,25 @@ def test_seed_demo_runs():
     call_command("seed_demo")
 
 
+def test_seed_demo_includes_abstracts(db):
+    # AUDIT #8 finding: tl;dr/Listen/reading-flow need real abstracts to demo (#90)
+    from django.core.management import call_command
+
+    from literature.models import Reference
+
+    call_command("seed_demo")
+    with_abstracts = Reference.objects.exclude(abstract="").count()
+    assert with_abstracts >= 3
+    # at least one to_read paper has an abstract, so reading-flow tl;dr demos out of the box
+    from literature.models import ProjectReference
+
+    assert (
+        ProjectReference.objects.filter(reading_status="to_read")
+        .exclude(reference__abstract="")
+        .exists()
+    )
+
+
 class TestSpaShell:
     """Owner idea #20: after the cutover the SPA owns / and slash-less routes."""
 

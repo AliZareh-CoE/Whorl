@@ -226,6 +226,16 @@ class Command(BaseCommand):
                 "year": 2010,
                 "venue": "Current Directions in Psychological Science",
                 "citation_count": 1200,
+                "abstract": (
+                    "Selective attention determines which stimuli reach awareness. Load theory "
+                    "proposes that the level and type of information load in a task determines the "
+                    "efficiency of selective attention. Under high perceptual load that engages "
+                    "full capacity, distractor processing is reduced because no spare capacity "
+                    "spills over to irrelevant stimuli. In contrast, high cognitive load on "
+                    "working memory reduces control over attention, increasing distractor "
+                    "interference. This dissociation reconciles decades of conflicting findings "
+                    "on early versus late selection and predicts when distraction will help or hurt."
+                ),
                 "status": ProjectReference.ReadingStatus.ANNOTATED,
                 "priority": ProjectReference.Priority.HIGH,
             },
@@ -237,6 +247,16 @@ class Command(BaseCommand):
                 "year": 2003,
                 "venue": "Nature Reviews Neuroscience",
                 "citation_count": 5400,
+                "abstract": (
+                    "Working memory is the system that holds and manipulates information over "
+                    "short timescales in service of cognition. The multicomponent model "
+                    "distinguishes a central executive from two storage buffers, the phonological "
+                    "loop and the visuospatial sketchpad, later joined by an episodic buffer that "
+                    "binds information across modalities and links to long-term memory. Three "
+                    "decades of evidence support fractionation of the system, with implications "
+                    "for attention control, fluid intelligence, and the cognitive consequences of "
+                    "neurological damage."
+                ),
                 "status": ProjectReference.ReadingStatus.READ,
                 "priority": ProjectReference.Priority.NORMAL,
             },
@@ -248,6 +268,16 @@ class Command(BaseCommand):
                 "year": 2022,
                 "venue": "Attention, Perception, & Psychophysics",
                 "citation_count": 90,
+                "abstract": (
+                    "Attention control — the ability to maintain task goals against "
+                    "interference — has emerged as a strong candidate for the mechanism "
+                    "linking low-level sensory discrimination to higher-order fluid intelligence. "
+                    "Across a battery of tasks, individual differences in attention control "
+                    "mediate the relationship between processing speed and reasoning ability. The "
+                    "authors argue that measurement reliability, not construct invalidity, "
+                    "explains prior null results, and propose toolbox tasks that isolate control "
+                    "from working-memory capacity."
+                ),
                 "status": ProjectReference.ReadingStatus.TO_READ,
                 "priority": ProjectReference.Priority.HIGH,
             },
@@ -281,6 +311,7 @@ class Command(BaseCommand):
                     "year": spec["year"],
                     "venue": spec["venue"],
                     "citation_count": spec["citation_count"],
+                    "abstract": spec.get("abstract", ""),
                     "entry_type": "article",
                 },
             )
