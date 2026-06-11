@@ -502,6 +502,17 @@ class ProjectReferenceViewSet(AtlasViewSet):
     serializer_class = serializers.ProjectReferenceSerializer
     project_filter = "project__slug"
 
+    def get_queryset(self):
+        # Backlog #82: ?theme= narrows to unread papers that look like candidates for a
+        # review-matrix theme, so the coverage-gap nudge can deep-link a prefilled queue.
+        queryset = super().get_queryset()
+        theme = self.request.query_params.get("theme", "").strip()[:120]
+        if theme:
+            from literature.selectors import theme_candidates
+
+            queryset = theme_candidates(queryset, theme)
+        return queryset
+
 
 class QuickCaptureViewSet(AtlasViewSet):
     queryset = QuickCapture.objects.all()

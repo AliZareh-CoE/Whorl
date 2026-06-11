@@ -288,6 +288,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   polish, consistency, accessibility, interaction quality; not new features.
 - **No paid LLM API calls, ever** — language-smart features go local-NLP or through the
   owner's Claude subscription via MCP.
+- **Tech improvement + design research every cycle (owner rule, 2026-06-11, cycle 94):**
+  each cycle must also make a technological improvement, and UI work must be informed by
+  researching what people actually like — specifically Apple's HIG design principles
+  (clarity: every element immediately understandable; deference: the interface recedes,
+  content stays front and center; depth/hierarchy: layers communicate relationships) and
+  current UI/UX best practice (e.g. NN/g on filtered empty states: name the filter, never
+  imply fault, always offer the clear action). Not Apple's ecosystem — their design
+  thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
 
@@ -452,7 +460,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 79. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
 80. ~~Bulk task create + search (done 2026-06-11, cycle 89): tasks endpoint mirrors milestones — POST a JSON list to create many (done settable at create), ?q= filters by title. The plan API is now uniform across milestones and tasks.~~
 81. ~~SPA synthesis + coverage (done 2026-06-11, cycle 73): React literature page gets a Draft-synthesis button (X-SPA JSON → navigates to the note, no reload) and a coverage-gap nudge highlighting themes with ≤1 paper; closes Owner idea #11's active coverage-gap suggestion too.~~
-82. Coverage-gap → queue prefill — clicking a thin theme in the nudge jumps to the queue already filtered to that theme's candidate papers (idea added by cycle 73)
+82. ~~Coverage-gap → queue prefill (done 2026-06-11, cycle 94, UI/UX): thin themes in the nudge are clickable chips → `/queue?theme=X` shows unread candidates (theme words matched against title/abstract, already-marked excluded) via `theme_candidates` selector + `?theme=` on /api/v1/project-references/; quiet filter chip with Clear, NN/g-style filtered empty state; browser-verified.~~
 83. PROMOTE #77 to next-priority — the shared route manifest; cycle 74 hit the exact predicted drift (React route added, Django pattern forgotten, 404). Do it before more routes accrue (idea escalated by cycle 74)
 84. ~~Weekly research review (done 2026-06-11, cycles 84-85): data layer core/reviews.py + /api/v1/weekly-review/, then the SPA page at /review + /projects/:slug/review — a calm skimmable 'this week' digest (papers/notes/milestones/decisions/experiments, each linked), top-line summary, ◀▶ week-back nav, per-project + cross-project, sidebar 'Review' link. The self-build project's own review shows the loop's week.~~
 85. Reading-flow for the whole library — a 'read flow' over any filtered reference set, not just one project's queue (idea added by cycle 75)
@@ -475,3 +483,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 102. ~~CI workflow (done 2026-06-11, cycle 92): .github/workflows/ci.yml runs ruff check+format, pytest (postgres service), frontend tsc, and a committed-assets-not-stale check on every push/PR — the loop's hand-run gate now guards contributions. README CI badge.~~
 103. CI make-audit job — a second CI job that boots the app (compose) and runs `make audit` against it, so the security sweep runs on PRs too (idea added by cycle 92)
 104. [REV] candidate — research timeline: a zoomable chronological view of a project (milestones, papers, notes, decisions on one axis) for a paper's methods/history section (idea added by cycle 93, [REV] for cycle 95)
+105. Theme chips beyond the gap nudge — make every theme in the review matrix header link to its candidate queue, not just thin ones, so the prefilter is discoverable from the matrix too (idea added by cycle 94)
+106. Design-notes file — a docs/DESIGN.md capturing the HIG-derived rules now binding (clarity/deference/depth, filtered-empty-state pattern, chip vocabulary) so every future UI slice starts from the same language (idea added by cycle 94, from the new owner design-research rule)

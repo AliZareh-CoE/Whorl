@@ -545,3 +545,60 @@ class TestSynthesisScaffold:
         client_logged_in.post(url)
         client_logged_in.post(url)
         assert Note.objects.filter(title=f"Synthesis — {project.name}").count() == 1
+
+
+class TestThemeCandidates:
+    """Backlog #82: the coverage-gap nudge deep-links the queue to a theme's candidates."""
+
+    def _setup(self):
+        from literature.models import ReviewMark, ReviewTheme
+
+        hit = ProjectReferenceFactory(reference__title="Attention mechanisms in working memory")
+        project = hit.project
+        theme = ReviewTheme.objects.create(project=project, name="Attention", order=1)
+        miss = ProjectReferenceFactory(
+            project=project, reference__title="Bayesian models of perception"
+        )
+        marked = ProjectReferenceFactory(
+            project=project, reference__title="Attention as a resource"
+        )
+        ReviewMark.objects.create(theme=theme, project_reference=marked)
+        return project, hit, miss, marked
+
+    def _candidates(self, project, theme_name):
+        from literature.selectors import theme_candidates
+
+        return list(theme_candidates(project.project_references.all(), theme_name))
+
+    def test_matches_title_excludes_marked_and_misses(self):
+        project, hit, miss, marked = self._setup()
+        assert self._candidates(project, "Attention") == [hit]
+
+    def test_matches_abstract_words_individually(self):
+        project, *_ = self._setup()
+        extra = ProjectReferenceFactory(
+            project=project,
+            reference__title="An unrelated title",
+            reference__abstract="We study selective attention under load.",
+        )
+        assert extra in self._candidates(project, "Selective Attention")
+
+    def test_excludes_read_papers(self):
+        project, hit, *_ = self._setup()
+        hit.reading_status = ProjectReference.ReadingStatus.READ
+        hit.save()
+        assert self._candidates(project, "Attention") == []
+
+    def test_stopword_only_theme_matches_nothing(self):
+        project, *_ = self._setup()
+        assert self._candidates(project, "the of") == []
+        assert self._candidates(project, "") == []
+
+    def test_api_theme_param_filters_queue(self, client, owner, settings):
+        settings.ATLAS_API_KEY = "k"
+        project, hit, miss, marked = self._setup()
+        data = client.get(
+            f"/api/v1/project-references/?project={project.slug}&theme=Attention",
+            HTTP_X_API_KEY="k",
+        ).json()
+        assert [row["id"] for row in data["results"]] == [hit.pk]

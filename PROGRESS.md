@@ -2,14 +2,14 @@
 
 ## Current Status
 
-- **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: backlog/owner top-down [cycle 94])
-- **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
-- **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
+- **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
+- **Slice in progress:** — (next: [REV] research timeline [cycle 95])
+- **Last completed slice (cycle 94, UI/UX):** Backlog #82 — coverage-gap → queue prefill: thin themes in the literature nudge are clickable chips deep-linking `/queue?theme=X`; new `theme_candidates` selector (theme words vs title/abstract, unread only, already-marked excluded) behind `?theme=` on /api/v1/project-references/; quiet filter chip + Clear + NN/g-style filtered empty state, designed per the NEW owner rule (research-backed UI: Apple HIG clarity/deference/depth). Browser-verified with screenshots; 5 new tests.
+- **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea AND makes a tech improvement with research-backed design (new rule, cycle 94).
 - **Next 3 slices:**
-  1. Backlog/owner top-down [cycle 71] — open Owner ideas first (TTS #3 PDF read-aloud? lit-review #11?), then numbered backlog
-  2. Backlog [72-74]; [REV] reading-flow mode [75]
-  3. AUDIT #8 at 80; dogfood-everything + use-it-for-everything active every cycle
+  1. [REV] cycle 95 — research timeline (#95/#104): zoomable chronological project view
+  2. Backlog top-down [96-99]: #91 seed PDF, #93 comments on documents, #100 DRY mixin, #103 CI audit job, #105 matrix theme chips, #106 docs/DESIGN.md
+  3. AUDIT #10 at cycle 100 (starts from `make audit`)
 - **Broken:** nothing
 
 ## Gate reports

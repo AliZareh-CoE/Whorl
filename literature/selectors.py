@@ -126,6 +126,41 @@ def synthesis_scaffold(project) -> str:
     return "\n".join(lines)
 
 
+def theme_candidates(project_references, theme_name: str):
+    """Unread papers that look relevant to a theme but aren't marked under it (Backlog #82).
+
+    Powers the coverage-gap nudge's deep link: theme words (stopwords dropped) are
+    matched against title/abstract, only to-read/skimmed links survive, and papers
+    already marked under the theme are excluded — what's left is what would actually
+    fill the gap.
+    """
+    from django.db.models import Q
+
+    from core.keywords import ALL_STOPWORDS, WORD_RE
+    from literature.models import ProjectReference
+
+    theme_name = theme_name.strip()
+    words = [w for w in WORD_RE.findall(theme_name.lower()) if w not in ALL_STOPWORDS]
+    if not words and theme_name:
+        words = [theme_name.lower()]
+    if not words:
+        return project_references.none()
+    match = Q()
+    for word in words:
+        match |= Q(reference__title__icontains=word) | Q(reference__abstract__icontains=word)
+    return (
+        project_references.filter(
+            match,
+            reading_status__in=(
+                ProjectReference.ReadingStatus.TO_READ,
+                ProjectReference.ReadingStatus.SKIMMED,
+            ),
+        )
+        .exclude(review_marks__theme__name__iexact=theme_name)
+        .distinct()
+    )
+
+
 def theme_coverage(project) -> list[dict]:
     """Per-theme paper counts for coverage-gap suggestions (Owner idea #11).
 

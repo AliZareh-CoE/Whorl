@@ -1,7 +1,7 @@
 /** Project literature + reading queue, sharing one list (SPA slice 5). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, csrfToken } from "../api";
 
 type Ref = { id: number; bibtex_key: string; title: string; authors: { family?: string; given?: string }[]; year: number | null; venue: string };
@@ -32,6 +32,9 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
   const { slug } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const theme = queue ? (searchParams.get("theme") ?? "") : "";
+  const listKey = ["literature", slug, theme];
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState("read");
   const [drafting, setDrafting] = useState(false);
@@ -53,8 +56,11 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
   }
 
   const { data, isLoading } = useQuery({
-    queryKey: ["literature", slug],
-    queryFn: () => api<Page<LinkRow>>(`/project-references/?project=${slug}`),
+    queryKey: listKey,
+    queryFn: () =>
+      api<Page<LinkRow>>(
+        `/project-references/?project=${slug}${theme ? `&theme=${encodeURIComponent(theme)}` : ""}`,
+      ),
   });
 
   const setStatus = useMutation({
@@ -65,7 +71,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
         body: JSON.stringify({ reading_status: status }),
       }),
     onMutate: ({ id, status }) => {
-      queryClient.setQueryData<Page<LinkRow>>(["literature", slug], (old) =>
+      queryClient.setQueryData<Page<LinkRow>>(listKey, (old) =>
         old
           ? { ...old, results: old.results.map((r) => (r.id === id ? { ...r, reading_status: status } : r)) }
           : old,
@@ -129,9 +135,27 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
       {!queue && matrix && matrix.coverage.length > 0 && matrix.coverage[0].count <= 1 && (
         <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           <span className="font-medium">Coverage gap:</span>{" "}
-          {matrix.coverage.filter((c) => c.count <= 1).map((c) => c.name).join(", ")}{" "}
-          {matrix.coverage.filter((c) => c.count <= 1).length === 1 ? "has" : "have"} ≤1 paper.
-          Use <Link to={`/projects/${slug}/queue`} className="underline">the queue</Link> to fill the thinnest themes first.
+          {matrix.coverage.filter((c) => c.count <= 1).map((c) => (
+            <Link key={c.name} to={`/projects/${slug}/queue?theme=${encodeURIComponent(c.name)}`}
+                  className="mr-1 inline-block rounded-full border border-amber-300 bg-white px-2 py-0.5 font-medium hover:border-amber-500 hover:text-amber-950"
+                  title={`Show unread candidates for “${c.name}”`}>
+              {c.name} · {c.count}
+            </Link>
+          ))}
+          {matrix.coverage.filter((c) => c.count <= 1).length === 1 ? "has" : "have"} ≤1 paper —
+          click a theme to see unread candidates for it.
+        </div>
+      )}
+
+      {theme && (
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+            Candidates for “{theme}”
+          </span>
+          <span className="text-xs text-stone-400">unread papers that look relevant and aren’t marked under it yet</span>
+          <Link to={`/projects/${slug}/queue`} className="text-xs text-stone-500 underline hover:text-indigo-700">
+            Clear
+          </Link>
         </div>
       )}
 
@@ -190,7 +214,19 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
         ))}
         {rows.length === 0 && (
           <p className="px-4 py-8 text-center text-sm text-stone-400">
-            {queue ? "Queue is clear — everything has been read." : "No papers linked yet."}
+            {theme ? (
+              <>
+                No unread candidates for “{theme}” —{" "}
+                <Link to={`/projects/${slug}/queue`} className="underline hover:text-indigo-700">
+                  show the whole queue
+                </Link>{" "}
+                or add papers to the library.
+              </>
+            ) : queue ? (
+              "Queue is clear — everything has been read."
+            ) : (
+              "No papers linked yet."
+            )}
           </p>
         )}
       </div>
