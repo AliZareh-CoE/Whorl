@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "./Layout";
 import Dashboard from "./pages/Dashboard";
+import ProjectOverview from "./pages/ProjectOverview";
 import Projects from "./pages/Projects";
 
 const queryClient = new QueryClient({
@@ -16,6 +17,7 @@ createRoot(document.getElementById("root")!).render(
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />
+          <Route path="projects/:slug" element={<ProjectOverview />} />
           <Route path="*" element={<p className="text-sm text-stone-400">Not migrated yet — try the classic pages.</p>} />
         </Route>
       </Routes>

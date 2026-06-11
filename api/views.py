@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.utils.decorators import method_decorator
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status, viewsets
@@ -136,6 +137,24 @@ class ProjectViewSet(AtlasViewSet):
                     "manuscripts": project.manuscripts.count(),
                     "hypotheses": project.hypotheses.count(),
                 },
+                # SPA overview extras (Owner idea #20 slice 2)
+                "recent_documents": [
+                    {
+                        "id": d.pk,
+                        "title": d.title,
+                        "added": d.created_at.strftime("%Y-%m-%d"),
+                        "url": reverse("documents:download", args=[project.slug, d.pk]),
+                    }
+                    for d in project.documents.order_by("-created_at")[:5]
+                ],
+                "recent_decisions": [
+                    {
+                        "id": dec.pk,
+                        "title": dec.title,
+                        "decided_on": dec.decided_on.isoformat(),
+                    }
+                    for dec in project.decisions.all()[:5]
+                ],
             }
         )
 

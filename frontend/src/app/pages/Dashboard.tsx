@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 
 type Dash = {
@@ -51,7 +52,7 @@ export default function Dashboard() {
           <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Active projects</h2>
           <div className="space-y-3">
             {data.active.map((p) => (
-              <a key={p.slug} href={p.url} className="block">
+              <Link key={p.slug} to={`/projects/${p.slug}`} className="block">
                 <div className="mb-1 flex items-baseline justify-between text-sm">
                   <span className="font-medium">{p.name}</span>
                   <span className="text-xs text-stone-400">
@@ -61,7 +62,7 @@ export default function Dashboard() {
                 <div className="h-1.5 w-full rounded-full bg-stone-100">
                   <div className="h-1.5 rounded-full" style={{ width: `${p.percent}%`, background: p.color }} />
                 </div>
-              </a>
+              </Link>
             ))}
             {data.active.length === 0 && <p className="text-sm text-stone-400">No active projects.</p>}
           </div>

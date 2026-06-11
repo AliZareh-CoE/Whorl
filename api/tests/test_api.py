@@ -304,3 +304,18 @@ class TestDashboardAPI:
         assert data["active"][0]["slug"] == phase.project.slug
         assert data["active"][0]["total"] == 1
         assert any("API dash milestone" == m["title"] for m in data["milestones"])
+
+
+class TestOverviewSpaExtras:
+    def test_overview_includes_recents(self, client_logged_in):
+        from documents.tests.factories import DocumentFactory
+        from projects.models import DecisionRecord
+
+        doc = DocumentFactory(title="Overview doc")
+        DecisionRecord.objects.create(
+            project=doc.project, title="Overview decision", decision="Yes."
+        )
+        data = client_logged_in.get(f"/api/v1/projects/{doc.project.slug}/overview/").json()
+        assert data["recent_documents"][0]["title"] == "Overview doc"
+        assert data["recent_documents"][0]["url"].endswith("/download/")
+        assert data["recent_decisions"][0]["title"] == "Overview decision"
