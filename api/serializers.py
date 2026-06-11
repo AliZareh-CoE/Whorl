@@ -327,10 +327,15 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "target_venue",
             "deadline",
             "abstract",
+            "latex_source",
+            "compile_status",
+            "compile_diagnostics",
+            "compiled_at",
             "events",
             "created_at",
             "updated_at",
         ]
+        read_only_fields = ["compile_status", "compile_diagnostics", "compiled_at"]
 
 
 class PromptSerializer(serializers.ModelSerializer):

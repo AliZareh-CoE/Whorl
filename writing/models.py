@@ -40,6 +40,7 @@ class Manuscript(TimeStampedModel):
         max_length=10, choices=CompileStatus.choices, default=CompileStatus.IDLE
     )
     compile_log = models.TextField(blank=True)
+    compile_diagnostics = models.JSONField(default=list, blank=True)  # parsed from the log
     compiled_at = models.DateTimeField(null=True, blank=True)
     references = models.ManyToManyField(Reference, through="ManuscriptReference", blank=True)
 

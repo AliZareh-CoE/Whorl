@@ -24,11 +24,13 @@ def compile_manuscript(manuscript: Manuscript) -> str:
     if not manuscript.latex_source.strip():
         manuscript.compile_status = Manuscript.CompileStatus.FAILED
         manuscript.compile_log = "Nothing to compile — the LaTeX source is empty."
+        manuscript.compile_diagnostics = []
         manuscript.save()
         return manuscript.compile_log
     if not tectonic_available():
         manuscript.compile_status = Manuscript.CompileStatus.FAILED
         manuscript.compile_log = "Tectonic binary missing — run `make tectonic` first."
+        manuscript.compile_diagnostics = []
         manuscript.save()
         return manuscript.compile_log
 
@@ -65,5 +67,8 @@ def compile_manuscript(manuscript: Manuscript) -> str:
             log = f"Compile timed out after {COMPILE_TIMEOUT}s."
             manuscript.compile_status = Manuscript.CompileStatus.FAILED
     manuscript.compile_log = log[-10000:]
+    from .log_parser import parse_compile_log
+
+    manuscript.compile_diagnostics = parse_compile_log(manuscript.compile_log)
     manuscript.save()
     return manuscript.compile_log

@@ -556,6 +556,45 @@ class ManuscriptViewSet(AtlasViewSet):
     queryset = Manuscript.objects.all()
     serializer_class = serializers.ManuscriptSerializer
     project_filter = "project__slug"
+    q_fields = ("title",)
+
+    @extend_schema(
+        request=None,
+        responses={202: OpenApiResponse(description="Compile queued")},
+        description="Queue a background LaTeX compile of the manuscript's current source. "
+        "Poll compile-status for the result.",
+    )
+    @action(detail=True, methods=["post"])
+    def compile(self, request, pk=None):
+        from writing.tasks import compile_manuscript_task
+
+        manuscript = self.get_object()
+        if not manuscript.latex_source.strip():
+            return Response({"detail": "latex_source is empty."}, status=400)
+        manuscript.compile_status = Manuscript.CompileStatus.RUNNING
+        manuscript.save(update_fields=["compile_status", "updated_at"])
+        compile_manuscript_task(manuscript.pk)
+        return Response({"status": "running"}, status=202)
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Compile status, diagnostics, pdf url")},
+        description="Compile state: status, parsed diagnostics [{level,file,line,message}], "
+        "log tail on failure, and the PDF url when compiled.",
+    )
+    @action(detail=True, methods=["get"], url_path="compile-status")
+    def compile_status(self, request, pk=None):
+        manuscript = self.get_object()
+        return Response(
+            {
+                "status": manuscript.compile_status,
+                "diagnostics": manuscript.compile_diagnostics,
+                "compiled_at": manuscript.compiled_at,
+                "pdf_url": manuscript.compiled_pdf.url if manuscript.compiled_pdf else None,
+                "log": manuscript.compile_log[-3000:]
+                if manuscript.compile_status == "failed"
+                else "",
+            }
+        )
 
 
 class PromptViewSet(AtlasViewSet):

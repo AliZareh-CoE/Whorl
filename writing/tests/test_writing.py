@@ -334,3 +334,95 @@ class TestEditorSplitView:
         assert 'id="preview-pane"' in content
         assert 'id="toggle-preview"' in content
         assert "compile/status/" in content
+
+
+class TestCompileDiagnostics:
+    """Owner idea #24 parity slice 1: parsed diagnostics + API compile surface."""
+
+    def test_parser_handles_real_tectonic_output(self):
+        from writing.log_parser import parse_compile_log
+
+        log = (
+            "error: main.tex:4: Undefined control sequence\n"
+            "error: halted on potentially-recoverable error as specified\n"
+        )
+        diags = parse_compile_log(log)
+        assert diags == [
+            {
+                "level": "error",
+                "file": "main.tex",
+                "line": 4,
+                "message": "Undefined control sequence",
+            }
+        ]
+
+    def test_parser_latex_warnings_and_bare_lines(self):
+        from writing.log_parser import parse_compile_log
+
+        log = (
+            "LaTeX Warning: Reference `nolabel' on page 1 undefined on input line 3.\n"
+            "warning: main.tex:9: Citation `nokey' undefined\n"
+            "error: something engine-level went wrong\n"
+        )
+        diags = parse_compile_log(log)
+        assert diags[0]["line"] == 3 and diags[0]["level"] == "warning"
+        assert diags[1] == {
+            "level": "warning",
+            "file": "main.tex",
+            "line": 9,
+            "message": "Citation `nokey' undefined",
+        }
+        assert diags[2]["line"] is None and diags[2]["level"] == "error"
+
+    def test_failed_compile_stores_diagnostics(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from writing import compile as compile_mod
+        from writing.tests.factories import ManuscriptFactory
+
+        manuscript = ManuscriptFactory(latex_source="\\broken")
+        monkeypatch.setattr(compile_mod, "tectonic_available", lambda: True)
+        monkeypatch.setattr(
+            compile_mod.subprocess,
+            "run",
+            lambda *a, **k: SimpleNamespace(
+                returncode=1, stdout="error: main.tex:1: Undefined control sequence", stderr=""
+            ),
+        )
+        compile_mod.compile_manuscript(manuscript)
+        manuscript.refresh_from_db()
+        assert manuscript.compile_status == "failed"
+        assert manuscript.compile_diagnostics[0]["line"] == 1
+
+    def test_api_exposes_source_and_compile(self, client_logged_in, monkeypatch):
+        from writing.tests.factories import ManuscriptFactory
+
+        manuscript = ManuscriptFactory(latex_source="")
+        patched = client_logged_in.patch(
+            f"/api/v1/manuscripts/{manuscript.pk}/",
+            {"latex_source": "\\documentclass{article}"},
+            content_type="application/json",
+        )
+        assert patched.status_code == 200
+        manuscript.refresh_from_db()
+        assert manuscript.latex_source.startswith("\\documentclass")
+
+        called = {}
+        monkeypatch.setattr(
+            "writing.tasks.compile_manuscript_task", lambda pk: called.setdefault("pk", pk)
+        )
+        queued = client_logged_in.post(f"/api/v1/manuscripts/{manuscript.pk}/compile/")
+        assert queued.status_code == 202
+        assert called["pk"] == manuscript.pk
+        status_data = client_logged_in.get(
+            f"/api/v1/manuscripts/{manuscript.pk}/compile-status/"
+        ).json()
+        assert status_data["status"] == "running"
+        assert status_data["diagnostics"] == []
+
+    def test_api_compile_empty_source_rejected(self, client_logged_in):
+        from writing.tests.factories import ManuscriptFactory
+
+        manuscript = ManuscriptFactory(latex_source="   ")
+        response = client_logged_in.post(f"/api/v1/manuscripts/{manuscript.pk}/compile/")
+        assert response.status_code == 400

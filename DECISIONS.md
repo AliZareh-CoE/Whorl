@@ -282,15 +282,34 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     latex feature that we have is too stupid! still overleaf is better! we need to first
     add everything that overleaf has and on top of that make it even better than overleaf!"
     — escalates idea #9 into a multi-cycle epic, top owner priority from cycle 101:
-    (a) research Overleaf's actual feature set and build a gap matrix logged in
-    DECISIONS.md; (b) close the gaps slice by slice (likely: live preview/auto-compile,
-    SyncTeX source↔PDF jump (#33), error parsing with inline markers, multi-file projects
-    with \input/\include, templates, figures/asset management, snippets+autocomplete
-    beyond cite keys, find-in-source, word count, track-changes-ish history); (c) then the
-    better-than-Overleaf layer: deep Atlas integration (bibliography from the project
-    library, cite-check on save, references/notes side panel, compile in the timeline,
-    MCP tools so Claude can edit/compile). Owner ideas outrank backlog — this is the
-    standing default slice source until parity is declared.
+    PLANNED (parallel planning agent, cycle 100→101) — the epic plan of record:
+    **Parity slices** (one per cycle): 1✅ compile diagnostics (parsed errors, inline
+    markers, problems panel, API compile surface) · 2 autosave + in-place compile (no page
+    reloads, compile_generation guard against stale results) · 3 pdf.js preview pane
+    [UI/UX] · 4 autocomplete v2 + snippets (\begin auto-close, \ref from \label scan,
+    placeholder hopping) · 5 find/replace + vim/emacs keymaps + settings + native
+    spellcheck · 6 [REV cycle 105] multi-file manuscript workbench (ManuscriptFile model,
+    file tree, figures upload, compile with --untrusted, path traversal tests, latex_source
+    synced to main.tex for back-compat) · 7 SyncTeX both directions (--synctex verified in
+    vendored tectonic 0.15; Python .synctex.gz parser; forward first) · 8 outline panel +
+    word count (Python detex) · 9 versions/history (ManuscriptRevision snapshots on
+    compile + labels + difflib diff + restore; beats Overleaf free) · 10 templates gallery
+    + symbol palette + zip export [UI/UX]. **Beyond-Overleaf** (111+): B1 library-powered
+    cite autocomplete (whole project library, auto-links ManuscriptReference) · B2 live
+    cite-check squiggles with add-by-DOI · B3 research side panel · B4 MCP LaTeX tools
+    (read/update files, compile, diagnostics — Claude gets the full fix loop) · B5 compiles
+    on the research timeline · B6 line-anchored comments · B7 arXiv submission package
+    export. **Risks logged:** CM5 EOL (CM6-island contingency), SyncTeX parsing is the real
+    work not the flag, multi-file needs --untrusted + strict path validation (#36 urgency),
+    compile queue pile-up needs generation counter, stop-on-first-error is moot (tectonic
+    halts hard — verified live).
+    ~~Slice 1 (2026-06-11, cycle 101): writing/log_parser.py parses tectonic output
+    (located errors, LaTeX warnings, bare errors; noise filtered) into
+    Manuscript.compile_diagnostics; CM5 lint addon renders gutter markers + squiggles;
+    "Compile problems" panel with click→jump-to-line; API parity: latex_source +
+    compile fields on the serializer, POST /manuscripts/{id}/compile/ +
+    GET compile-status/; browser-verified on a real broken compile (marker on L4,
+    jump works) and a clean API round-trip (202 → ok + PDF).~~
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -541,3 +560,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 111. Document the ?q= convention in the API schema — a reusable OpenApiParameter on every q_fields viewset so MCP/scripts discover searchability from /api/docs/ (idea added by cycle 98)
 112. CI audit artifacts — upload /tmp/server.log and the sweep output as workflow artifacts on failure so red audit jobs are debuggable without rerunning (idea added by cycle 99)
 113. API timing smoke in CI — extend the audit job with a best-of-5 latency check on 3 hot endpoints against the 50ms bar, so regressions like the cycle-100 N+1 surface in PRs not audits (idea added by cycle 100)
+114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)

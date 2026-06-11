@@ -149,6 +149,7 @@ def compile_status(request, slug, pk):
             "compiled_at": manuscript.compiled_at.isoformat() if manuscript.compiled_at else None,
             "pdf_url": manuscript.compiled_pdf.url if manuscript.compiled_pdf else None,
             "log": manuscript.compile_log[-3000:] if manuscript.compile_status == "failed" else "",
+            "diagnostics": manuscript.compile_diagnostics,
         }
     )
 
