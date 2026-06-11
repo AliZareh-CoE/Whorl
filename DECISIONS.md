@@ -20,7 +20,9 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    live), 50 MB upload cap + .pdf-only reference attachments enforced in forms AND API
    serializers, DRF rate throttles (3000/h keyed, 30/h anon), prod HSTS subdomains+preload +
    referrer-policy, X-Frame-Options DENY, login template now renders lockout errors.~~
-   Remaining: API-key rotation helper, CSP if ever public-facing.
+   ~~API-key rotation helper (2026-06-11, cycle 22): `manage.py rotate_api_key` mints a
+   token_urlsafe(32) key, rewrites .env preserving other lines, prints masked old key and
+   restart/MCP reminders.~~ Remaining: CSP if ever public-facing.
 3. **Free local text-to-speech ("read this to me").** A strong free TTS engine (e.g. Piper)
    the owner can run locally; "Read aloud" on notes, abstracts, and (eventually) PDFs.
 4. **Auto-download article PDFs.** ~~Done (2026-06-10, cycle 7): arXiv direct + Unpaywall
@@ -179,4 +181,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 25. Search suggestion keyboard navigation (↑/↓/Enter) + recent-searches memory (idea added by cycle 19)
 26. GIN trigram indexes on searched title fields once data grows (idea added by cycle 20 audit)
 27. Last-Modified on media files + ETag support in the MCP client cache (idea added by cycle 21)
-28. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+28. Loop-resilience note — chain notifications can drop and watchdog monitors expire at 30 min; watchdog is now re-armed every cycle (lesson from the cycle-21→22 stall)
+29. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

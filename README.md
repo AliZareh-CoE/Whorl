@@ -35,6 +35,9 @@ Authenticate with the `X-API-Key` header, checked against `ATLAS_API_KEY` in you
 ```bash
 curl -H "X-API-Key: $ATLAS_API_KEY" http://127.0.0.1:8000/api/v1/projects/
 
+# rotate the key any time (updates .env; restart the server afterwards)
+.venv/bin/python manage.py rotate_api_key
+
 # add a reference by DOI and link it to a project
 curl -H "X-API-Key: $ATLAS_API_KEY" -H "Content-Type: application/json" \
      -d '{"doi": "10.1038/nature12373", "project": "my-project"}' \
