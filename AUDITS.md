@@ -2,6 +2,37 @@
 
 Every 10th loop cycle is a full security + performance audit (owner rule). Reports newest first.
 
+## Audit #6 — cycle 60 (2026-06-11), covering loop cycles 51–59 (the SPA era)
+
+**The SPA auth surface (headline focus — all verified live with curl):**
+
+- Auth matrix exactly as designed: anon → `/app/*` 302s to login, JSON endpoints 401;
+  API key GET/POST work (CSRF-exempt by design — header auth, not cookies); session GET 200;
+  **session POST without a CSRF token → 403**; anon X-SPA bulk POST → 403.
+- The SPA shell sets the csrftoken cookie (`ensure_csrf_cookie`, regression-tested after the
+  cycle-58 find); the `api()` helper redirects 401/403 to login rather than failing silently.
+- Assistant context endpoint probed with hostile paths (`/../../etc/passwd`, `//evil.com/x`,
+  encoded traversal, unknown routes): every probe returns the generic context — no leaks,
+  no 500s, resolution is wrapped exactly as intended.
+- Modal mixin HX-Redirect reviewed: success URLs are always server-built via reverse() —
+  no user-controlled redirect target. X-SPA JSON path consumes the flash queue (tested),
+  so no message leakage across UIs.
+
+**Dependencies:** `pip-audit` (frozen env) and `npm audit` (prod AND dev deps): **zero known
+vulnerabilities** in both ecosystems.
+
+**Performance (warm, live):** classic pages 23–37 ms; SPA shell 11 ms; the SPA's JSON diet —
+dashboard 27 ms, plan 18 ms, overview 29 ms, documents-table 20 ms, assistant context 29 ms.
+All far under the 50 ms bar. Bundles (gzipped): spa.js 28.7 KB, shared React chunk 45.6 KB
+(loaded once, cached), CSS 7.1 KB. Query budgets green.
+
+**Process fix shipped with the audit:** `make assets-check` (Backlog #66) rebuilds CSS+JS and
+fails if committed outputs are stale — the cycle-59 `ml-56` class of bug is now machine-caught.
+
+**Verdict:** healthy. No findings requiring fixes — the cycle-58 CSRF-cookie and cycle-59
+stale-CSS bugs were caught and fixed in their own cycles by live verification, and the
+audit confirms the repairs hold. 382+ tests green, lint + tsc clean.
+
 ## Audit #5 — cycle 50 (2026-06-11), covering loop cycles 41–49
 
 **Performance:** warm curl timings — dashboard 45 ms, projects 22 ms, overview 41 ms, plan 36 ms,
