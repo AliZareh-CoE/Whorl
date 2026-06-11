@@ -2,6 +2,38 @@
 
 Every 10th loop cycle is a full security + performance audit (owner rule). Reports newest first.
 
+## Audit #3 — cycle 30 (2026-06-11), covering loop cycles 21–29
+
+**Performance:** query counts stable across every page (originals unchanged; reader 5q,
+matrix 6q, prompts/automations 4q, pet 2q, suggest 9q cold). No regressions; budget tests green.
+
+**Security review of cycles 21–29:**
+
+- ETags (21): weak, derived from count+max(updated_at)+path — no data leakage, vary correctly
+  with query params (tested). OK.
+- `rotate_api_key` (22): local CLI, no web surface. OK.
+- Bots (23): registry allowlist + crash-safe runner re-verified; `run_now` for network bots is
+  synchronous in-request — accepted for single-user, noted for a future task offload.
+- **Tectonic compile (24): threat model documented.** Subprocess uses list args (no shell),
+  temp-dir cwd, 180 s timeout; Tectonic runs without shell-escape. Residual accepted risk:
+  LaTeX `\input` of absolute paths could read host files readable by the app user — irrelevant
+  while the only author is the owner, revisit if Atlas ever becomes multi-user (noted in
+  Backlog as a containerized-compile hardening idea).
+- Page comments (25): open-redirect guard re-verified by tests; page parses via isdigit. OK.
+- Summarize (26): login-gated, POST-only, 50 k cap. OK.
+- Compile-status endpoint (27): session-gated, project-scoped. OK.
+- **Docker packaging (29): image hygiene verified live** — no `.env`, `media/`, or
+  `tts_voices/` baked into the image; container venv intact (`.dockerignore` doing its job);
+  build-time SECRET_KEY used only for collectstatic. `ATLAS_BEHIND_TLS` documented as
+  localhost-only relaxation.
+- `pip-audit` (now incl. gunicorn, whitenoise): **no known vulnerabilities**.
+
+**Process finding:** cycle 29 briefly pushed a lint-red commit because the verify chain didn't
+gate the commit command; fixed within minutes. Loop rule reinforced: commit only after an
+explicit green echo from the full verify chain.
+
+**Verdict:** healthy. 297 tests green, lint clean.
+
 ## Audit #2 — cycle 20 (2026-06-11), covering loop cycles 11–19
 
 **Performance:** all original pages within budget (library 6q, plan 7q, overview 13q — unchanged);

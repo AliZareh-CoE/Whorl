@@ -3,12 +3,12 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: AUDIT #3 [cycle 30] — security + performance review of cycles 21–29)
+- **Slice in progress:** — (next: auto Backlog top-down — #10 OpenAlex discover-similar [cycle 31])
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. AUDIT #3 [cycle 30] — review cycles 21–29 (ETags, rotation, bots, Tectonic, comments, summarize, split-view, OSS packaging)
-  2. Auto Backlog top-down (36 items: demo GIF, image slimming, SyncTeX jump, …)
+  1. Backlog #10 — OpenAlex "discover similar" with one-click add [cycle 31]
+  2. Backlog #12 — Read-aloud for whole PDFs / #13 worker-restart doc / #14 keyword-cloud … top-down
   3. ≥2 UI/UX cycles in 31–40; AUDIT #4 at cycle 40
 - **Broken:** nothing
 

@@ -238,4 +238,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 33. SyncTeX-style jump — click in the PDF preview to jump to the matching source line (idea added by cycle 27)
 34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
 35. Slim the Docker image — multi-stage build, piper/onnx as optional extra (~800 MB → ~300 MB) (idea added by cycle 29)
-36. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+36. Containerized LaTeX compile — run Tectonic in a throwaway container/namespace to close the \input file-read residual risk if Atlas ever goes multi-user (idea added by cycle 30 audit)
+37. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
