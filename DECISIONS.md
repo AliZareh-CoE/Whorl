@@ -108,7 +108,13 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     breathing/blinking, not just the milestone hop) and should *talk* — short, meaningful
     lines based on context, habits, and general state: what's overdue, reading streaks,
     "you wrote 3 notes today", time-of-day greetings. Local logic only, no LLM APIs; calm
-    tone, never naggy (consistent with the pet's no-guilt design).
+    tone, never naggy (consistent with the pet's no-guilt design). ~~Slice 1 (2026-06-11,
+    cycle 49): idle breathing loop (CSS, reduced-motion safe, hop takes over then idle
+    resumes) + `pet_speech()` — context lines from overdue/done milestones, today's notes,
+    weekly reading streak, active phase progress, time-of-day fallback; hour-stable pick;
+    speech bubble on /pet/ and italic line in the sidebar widget; browser-verified with a
+    real data-driven line.~~ Remaining: occasional blink/tilt, more habit signals (streak
+    days, usual working hours), speech on hop.
 17. **Professional tree illustration with more growth phases (owner, 2026-06-11; UI idea).**
     Redraw the project tree as a more polished, professional SVG illustration with more
     distinct phases than the current five — richer trunk/branch structure, layered foliage,
@@ -267,3 +273,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 53. Trigram index for the literature `?kw=` filter — reference.abstract icontains scans could use a GIN trgm index too once libraries grow past a few thousand rows (idea added by cycle 46)
 54. Last-Modified/If-Modified-Since on media downloads (PDFs, documents) so re-reads are free (split from old #27) (idea added by cycle 47)
 55. Pin a search — star a recent search to keep it permanently at the top of the recents dropdown (idea added by cycle 48)
+56. Pet speech variety pack — seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)

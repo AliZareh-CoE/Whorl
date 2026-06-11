@@ -46,3 +46,24 @@
     animation: none;
   }
 }
+
+/* Idle life for the pet: a slow breath. The hop temporarily takes over, then idle resumes. */
+.pet-idle {
+  animation: pet-idle 4s ease-in-out infinite;
+}
+
+@keyframes pet-idle {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-1.5px) scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-idle {
+    animation: none;
+  }
+}
+
+/* Cascade: the hop must beat the idle breath while it plays (idle resumes on animationend) */
+.pet-hop {
+  animation: pet-hop 0.9s ease-in-out;
+}

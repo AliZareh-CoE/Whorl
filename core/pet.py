@@ -5,6 +5,7 @@ guilt, and "sleeping" just means you rested too. Activity is cached for 5 minute
 """
 
 import datetime
+import random
 
 from django.core.cache import cache
 from django.utils import timezone
@@ -53,6 +54,71 @@ def _activity_points(since=None) -> int:
     return points
 
 
+def _speech_candidates(now) -> list[str]:
+    """Short, calm lines drawn from real context — observations, never nagging."""
+    from literature.models import ProjectReference
+    from notes.models import Note
+    from plans.models import Milestone, Phase
+
+    today = now.date()
+    lines = []
+
+    overdue = Milestone.objects.filter(completed_at__isnull=True, due_date__lt=today).count()
+    if overdue == 1:
+        lines.append("One milestone slipped past its date. Tomorrow counts too.")
+    elif overdue > 1:
+        lines.append(f"{overdue} milestones are past due — pick one, forget the rest for today.")
+
+    done_today = Milestone.objects.filter(completed_at__date=today).count()
+    if done_today:
+        lines.append(
+            f"{done_today} milestone{'s' if done_today > 1 else ''} done today. I saw that."
+        )
+
+    notes_today = Note.objects.filter(created_at__date=today).count()
+    if notes_today >= 3:
+        lines.append(f"{notes_today} notes today — the lab notebook is humming.")
+    elif notes_today:
+        lines.append("A note written today. Small steps stack up.")
+
+    read_week = ProjectReference.objects.filter(
+        reading_status__in=["read", "annotated"], updated_at__gte=now - WEEK
+    ).count()
+    if read_week >= 5:
+        lines.append(f"{read_week} papers read this week. Genuinely scholarly.")
+    elif read_week:
+        lines.append(
+            f"{read_week} paper{'s' if read_week > 1 else ''} read this week — steady wins."
+        )
+
+    phase = (
+        Phase.objects.filter(status="in_progress", project__status="active")
+        .select_related("project")
+        .first()
+    )
+    if phase:
+        done, total = phase.milestone_counts
+        lines.append(f"“{phase.name}” is moving — {done}/{total} milestones.")
+
+    hour = now.hour
+    if hour < 6:
+        lines.append("Up before the birds. I'll keep watch.")
+    elif hour < 12:
+        lines.append("Morning. Big ideas like coffee.")
+    elif hour < 18:
+        lines.append("A fine afternoon to check one small thing off.")
+    else:
+        lines.append("Evening session — stop while it's still fun.")
+    return lines
+
+
+def pet_speech(now=None) -> str:
+    """One line, stable within the hour so it doesn't flicker between page loads."""
+    now = now or timezone.localtime()
+    candidates = _speech_candidates(now)
+    return random.Random(f"{now.date()}-{now.hour}").choice(candidates)
+
+
 def pet_state() -> dict:
     cached = cache.get("atlas-pet-state")
     if cached is not None:
@@ -70,6 +136,7 @@ def pet_state() -> dict:
 
     state = {
         "name": pet.name,
+        "speech": pet_speech(),
         "stage": stage[1],
         "emoji": stage[2],
         "stage_blurb": stage[3],

@@ -6,7 +6,11 @@
 
 {% block content %}
 <div class="mx-auto max-w-md text-center">
-  <div class="mb-2 text-7xl {% if pet.mood == 'thriving' %}animate-bounce{% endif %}"
+  <div class="relative mx-auto mb-3 inline-block rounded-2xl border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 shadow-sm">
+    “{{ pet.speech }}”
+    <span class="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-stone-200 bg-white"></span>
+  </div>
+  <div class="pet-idle mb-2 inline-block text-7xl {% if pet.mood == 'thriving' %}animate-bounce{% endif %}"
        style="{% if pet.mood == 'sleeping' %}filter: grayscale(0.6); opacity: 0.8;{% endif %}">
     {{ pet.emoji }}
   </div>

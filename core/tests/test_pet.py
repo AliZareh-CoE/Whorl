@@ -58,3 +58,44 @@ class TestPetPage:
     def test_sidebar_widget_everywhere(self, client_logged_in):
         response = client_logged_in.get(reverse("core:dashboard"))
         assert b"Mochi" in response.content
+
+
+class TestPetSpeech:
+    def test_always_has_a_line(self):
+        from core.pet import pet_speech
+
+        assert isinstance(pet_speech(), str) and pet_speech()
+
+    def test_overdue_milestones_mentioned_gently(self):
+        import datetime
+
+        from django.utils import timezone
+
+        from core.pet import _speech_candidates
+        from plans.tests.factories import MilestoneFactory
+
+        MilestoneFactory(due_date=timezone.localdate() - datetime.timedelta(days=2))
+        MilestoneFactory(due_date=timezone.localdate() - datetime.timedelta(days=9))
+        lines = _speech_candidates(timezone.localtime())
+        assert any("past due" in line for line in lines)
+        assert not any("hurry" in line.lower() for line in lines)
+
+    def test_stable_within_the_hour(self):
+        from django.utils import timezone
+
+        from core.pet import pet_speech
+
+        now = timezone.localtime()
+        assert pet_speech(now) == pet_speech(now)
+
+    def test_speech_rendered_in_sidebar_and_pet_page(self, client_logged_in):
+        from django.core.cache import cache
+        from django.urls import reverse
+
+        cache.delete("atlas-pet-state")
+        response = client_logged_in.get(reverse("core:dashboard"))
+        content = response.content.decode()
+        assert "pet-idle" in content
+        assert "“" in content  # the sidebar speech line
+        page = client_logged_in.get(reverse("core:pet")).content.decode()
+        assert "pet-idle" in page
