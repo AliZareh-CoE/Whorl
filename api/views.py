@@ -377,6 +377,20 @@ class TaskViewSet(AtlasViewSet):
     serializer_class = serializers.TaskSerializer
     project_filter = "milestone__phase__project__slug"
 
+    def get_queryset(self):
+        # Backlog #80 (mirrors milestones #72): ?q= filters tasks by title.
+        queryset = super().get_queryset()
+        q = self.request.query_params.get("q")
+        if q:
+            queryset = queryset.filter(title__icontains=q)
+        return queryset
+
+    def get_serializer(self, *args, **kwargs):
+        # Backlog #80 (mirrors milestones #71): POST a JSON list to create many tasks at once.
+        if isinstance(kwargs.get("data"), list):
+            kwargs["many"] = True
+        return super().get_serializer(*args, **kwargs)
+
 
 class ResearchQuestionViewSet(AtlasViewSet):
     queryset = ResearchQuestion.objects.all()

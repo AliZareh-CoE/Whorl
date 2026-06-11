@@ -593,3 +593,33 @@ class TestReadingFlowAPI:
         assert data["papers"][0]["priority"] == "high"  # priority order
         ref = data["papers"][0]["reference"]
         assert {"bibtex_key", "title", "abstract", "pdf", "doi"} <= set(ref)
+
+
+class TestTaskBulkAndSearch:
+    def test_bulk_create(self, client_logged_in):
+        from plans.models import Task
+        from plans.tests.factories import MilestoneFactory
+
+        milestone = MilestoneFactory()
+        response = client_logged_in.post(
+            "/api/v1/tasks/",
+            [
+                {"milestone": milestone.pk, "title": "Task one"},
+                {"milestone": milestone.pk, "title": "Task two", "done": True},
+            ],
+            content_type="application/json",
+        )
+        assert response.status_code == 201
+        assert Task.objects.filter(milestone=milestone).count() == 2
+        assert Task.objects.get(title="Task two").done is True
+
+    def test_search_by_title(self, client_logged_in):
+        from plans.tests.factories import MilestoneFactory, TaskFactory
+
+        milestone = MilestoneFactory()
+        TaskFactory(milestone=milestone, title="Email participants")
+        TaskFactory(milestone=milestone, title="Book the room")
+        slug = milestone.phase.project.slug
+        data = client_logged_in.get(f"/api/v1/tasks/?project={slug}&q=email").json()
+        assert data["count"] == 1
+        assert data["results"][0]["title"] == "Email participants"
