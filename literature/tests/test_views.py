@@ -362,3 +362,45 @@ def test_reader_has_listen_player(client_logged_in):
     assert 'id="listen-btn"' in content
     assert 'id="player-stop"' in content
     assert "listenFrom" in content
+
+
+class TestKeywordCloud:
+    def test_cloud_built_from_linked_refs(self, client_logged_in):
+        project = ProjectFactory()
+        for _i in range(3):
+            ProjectReferenceFactory(
+                project=project,
+                reference__title="Working memory load study variant",
+                reference__abstract="working memory load drives attention lapses",
+            )
+        response = client_logged_in.get(reverse("literature:project", args=[project.slug]))
+        content = response.content.decode()
+        assert "Keywords" in content
+        assert "working memory load" in content
+
+    def test_keyword_filters_literature_and_queue(self, client_logged_in):
+        project = ProjectFactory()
+        ProjectReferenceFactory(
+            project=project, reference__title="Working memory load study", reference__abstract=""
+        )
+        ProjectReferenceFactory(
+            project=project, reference__title="Coral reef bleaching", reference__abstract=""
+        )
+        lit = client_logged_in.get(
+            reverse("literature:project", args=[project.slug]), {"kw": "memory"}
+        )
+        assert b"Working memory" in lit.content
+        assert b"Coral reef" not in lit.content
+        queue = client_logged_in.get(
+            reverse("literature:queue", args=[project.slug]), {"kw": "memory"}
+        )
+        assert b"Working memory" in queue.content
+        assert b"Coral reef" not in queue.content
+
+    def test_cloud_cached(self, django_assert_num_queries, client_logged_in):
+        from literature.selectors import project_keyword_cloud
+
+        link = ProjectReferenceFactory()
+        project_keyword_cloud(link.project)  # warm
+        with django_assert_num_queries(0):
+            project_keyword_cloud(link.project)

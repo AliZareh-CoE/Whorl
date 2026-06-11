@@ -223,14 +223,23 @@ def save_highlight(request, pk):
 
 
 def project_literature(request, slug):
+    from django.db.models import Q as DQ
+
+    from .selectors import project_keyword_cloud
+
     project = get_object_or_404(Project, slug=slug)
     links = project.project_references.select_related("reference")
     status = request.GET.get("status", "")
     priority = request.GET.get("priority", "")
+    keyword = request.GET.get("kw", "").strip()[:80]
     if status:
         links = links.filter(reading_status=status)
     if priority:
         links = links.filter(priority=priority)
+    if keyword:
+        links = links.filter(
+            DQ(reference__title__icontains=keyword) | DQ(reference__abstract__icontains=keyword)
+        )
     return render(
         request,
         "literature/project_literature.html",
@@ -239,6 +248,8 @@ def project_literature(request, slug):
             "links": links,
             "status": status,
             "priority": priority,
+            "keyword": keyword,
+            "cloud": project_keyword_cloud(project),
             "statuses": ProjectReference.ReadingStatus.choices,
             "priorities": ProjectReference.Priority.choices,
         },
@@ -252,16 +263,20 @@ def reading_queue(request, slug):
     from django.db.models import Count
 
     project = get_object_or_404(Project, slug=slug)
-    links = list(
-        project.project_references.filter(
-            reading_status__in=[
-                ProjectReference.ReadingStatus.TO_READ,
-                ProjectReference.ReadingStatus.SKIMMED,
-            ]
-        )
-        .select_related("reference")
-        .annotate(theme_coverage=Count("review_marks"))
+    keyword = request.GET.get("kw", "").strip()[:80]
+    queue = project.project_references.filter(
+        reading_status__in=[
+            ProjectReference.ReadingStatus.TO_READ,
+            ProjectReference.ReadingStatus.SKIMMED,
+        ]
     )
+    if keyword:
+        from django.db.models import Q as DQ
+
+        queue = queue.filter(
+            DQ(reference__title__icontains=keyword) | DQ(reference__abstract__icontains=keyword)
+        )
+    links = list(queue.select_related("reference").annotate(theme_coverage=Count("review_marks")))
     links.sort(key=lambda link: (PRIORITY_ORDER[link.priority], link.created_at))
     return render(
         request,
@@ -269,6 +284,7 @@ def reading_queue(request, slug):
         {
             "project": project,
             "links": links,
+            "keyword": keyword,
             "statuses": ProjectReference.ReadingStatus.choices,
             "theme_count": project.review_themes.count(),
         },
