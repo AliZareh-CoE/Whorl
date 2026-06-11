@@ -36,7 +36,99 @@
   editor.getWrapperElement().style.minHeight = "55vh";
   window.editor = editor; // console + test access
 
-  // --- cite-key autocomplete -------------------------------------------------
+  // --- autocomplete v2 + snippets (epic slice 4) -------------------------------
+  // Researched: Overleaf completes from a frequency-ranked command table PLUS the
+  // commands already used in the document, and expands snippets like \fig with
+  // Tab-hoppable placeholders.
+  const COMMANDS = (
+    "section subsection subsubsection paragraph chapter title author date maketitle " +
+    "label ref eqref autoref pageref footnote emph textbf textit texttt textsc underline " +
+    "item begin end usepackage documentclass input include includegraphics caption " +
+    "centering frac sqrt sum int prod lim infty alpha beta gamma delta epsilon theta " +
+    "lambda mu pi sigma phi psi omega Gamma Delta Theta Lambda Sigma Phi Psi Omega " +
+    "mathbb mathcal mathrm mathbf text left right cdot times pm mp leq geq neq approx " +
+    "partial nabla hat bar tilde vec dot ddot newcommand renewcommand newenvironment " +
+    "bibliography bibliographystyle cite citep citet parencite textcite autocite " +
+    "tableofcontents listoffigures listoftables appendix hline toprule midrule bottomrule " +
+    "multicolumn multirow vspace hspace newpage clearpage linebreak noindent quad qquad " +
+    "small large Large huge tiny normalsize itshape bfseries url href verb"
+  ).split(" ");
+  const ENVIRONMENTS = (
+    "document figure table tabular itemize enumerate description equation align " +
+    "align* eqnarray gather matrix pmatrix bmatrix cases abstract center quote " +
+    "verbatim minipage theorem lemma proof definition algorithm subfigure"
+  ).split(" ");
+  const SNIPPETS = {
+    fig: "\\begin{figure}[ht]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{$1}\n  \\caption{$2}\n  \\label{fig:$3}\n\\end{figure}",
+    tab: "\\begin{table}[ht]\n  \\centering\n  \\caption{$1}\n  \\label{tab:$2}\n  \\begin{tabular}{lll}\n    \\toprule\n    $3 \\\\\n    \\bottomrule\n  \\end{tabular}\n\\end{table}",
+    enum: "\\begin{enumerate}\n  \\item $1\n\\end{enumerate}",
+    itemz: "\\begin{itemize}\n  \\item $1\n\\end{itemize}",
+    eq: "\\begin{equation}\n  $1\n  \\label{eq:$2}\n\\end{equation}",
+  };
+
+  function usedCommands(cm) {
+    const found = new Set();
+    const re = /\\([a-zA-Z]{2,})/g;
+    let m;
+    const text = cm.getValue();
+    while ((m = re.exec(text)) !== null) found.add(m[1]);
+    return found;
+  }
+  function usedLabels(cm) {
+    const labels = [];
+    const re = /\\label\{([^}]+)\}/g;
+    let m;
+    const text = cm.getValue();
+    while ((m = re.exec(text)) !== null) labels.push(m[1]);
+    return labels;
+  }
+
+  // Snippet placeholders: insert, mark each $n, Tab hops through the marks.
+  let snippetMarks = [];
+  function insertSnippet(cm, from, to, template) {
+    const positions = [];
+    let text = "";
+    let line = from.line;
+    let ch = from.ch;
+    for (const piece of template.split(/(\$\d)/)) {
+      if (/^\$\d$/.test(piece)) {
+        positions.push({ line, ch });
+        continue;
+      }
+      text += piece;
+      const parts = piece.split("\n");
+      if (parts.length > 1) {
+        line += parts.length - 1;
+        ch = parts[parts.length - 1].length;
+      } else {
+        ch += piece.length;
+      }
+    }
+    cm.replaceRange(text, from, to);
+    snippetMarks = positions.map((pos) =>
+      cm.setBookmark(pos, { insertLeft: true })
+    );
+    hopSnippet(cm);
+  }
+  function hopSnippet(cm) {
+    while (snippetMarks.length) {
+      const mark = snippetMarks.shift();
+      const pos = mark.find();
+      mark.clear();
+      if (pos) {
+        cm.setCursor(pos);
+        return true;
+      }
+    }
+    return false;
+  }
+  editor.addKeyMap({
+    Tab: (cm) => {
+      if (snippetMarks.length && hopSnippet(cm)) return;
+      return CodeMirror.Pass;
+    },
+  });
+
   function citeHint(cm) {
     const cursor = cm.getCursor();
     const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
@@ -47,13 +139,73 @@
     const list = CITE_KEYS.filter((k) => k.startsWith(fragment));
     return { list: list.length ? list : CITE_KEYS, from, to: cursor };
   }
-  editor.on("inputRead", (cm, change) => {
-    if (change.text[0] === "{" || /[\w,]/.test(change.text[0])) {
-      const lineStart = cm.getLine(cm.getCursor().line).slice(0, cm.getCursor().ch);
-      if (/\\\w*cite\w*\*?(?:\[[^\]]*\])*\{[^}]*$/.test(lineStart)) {
-        cm.showHint({ hint: citeHint, completeSingle: false });
+
+  function refHint(cm) {
+    const cursor = cm.getCursor();
+    const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
+    const match = lineStart.match(/\\(?:ref|eqref|autoref|pageref)\{([^}]*)$/);
+    if (!match) return null;
+    const fragment = match[1];
+    const from = { line: cursor.line, ch: cursor.ch - fragment.length };
+    const list = usedLabels(cm).filter((l) => l.startsWith(fragment));
+    return list.length ? { list, from, to: cursor } : null;
+  }
+
+  function envHint(cm) {
+    const cursor = cm.getCursor();
+    const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
+    const match = lineStart.match(/\\(begin|end)\{([^}]*)$/);
+    if (!match) return null;
+    const [, kind, fragment] = match;
+    const from = { line: cursor.line, ch: cursor.ch - fragment.length };
+    const list = ENVIRONMENTS.filter((e) => e.startsWith(fragment)).map((env) => ({
+      text: env,
+      hint: (cmInner, data, completion) => {
+        cmInner.replaceRange(completion.text + "}", from, cmInner.getCursor());
+        if (kind === "begin") {
+          const after = cmInner.getCursor();
+          cmInner.replaceRange("\n  \n\\end{" + env + "}", after, after);
+          cmInner.setCursor({ line: after.line + 1, ch: 2 });
+        }
+      },
+    }));
+    return list.length ? { list, from, to: cursor } : null;
+  }
+
+  function commandHint(cm) {
+    const cursor = cm.getCursor();
+    const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
+    const match = lineStart.match(/\\([a-zA-Z]{2,})$/);
+    if (!match) return null;
+    const fragment = match[1];
+    const from = { line: cursor.line, ch: cursor.ch - fragment.length - 1 };
+    const seen = new Set();
+    const list = [];
+    for (const key of Object.keys(SNIPPETS)) {
+      if (key.startsWith(fragment)) {
+        seen.add(key);
+        list.push({
+          text: "\\" + key,
+          displayText: "\\" + key + " → snippet",
+          hint: (cmInner) => insertSnippet(cmInner, from, cmInner.getCursor(), SNIPPETS[key]),
+        });
       }
     }
+    for (const word of [...COMMANDS, ...usedCommands(cm)]) {
+      if (!seen.has(word) && word.startsWith(fragment) && word !== fragment) {
+        seen.add(word);
+        list.push("\\" + word);
+      }
+    }
+    return list.length ? { list, from, to: cursor } : null;
+  }
+
+  function latexHint(cm) {
+    return citeHint(cm) || refHint(cm) || envHint(cm) || commandHint(cm);
+  }
+  editor.on("inputRead", (cm, change) => {
+    if (!/[\w{,\\]/.test(change.text[0] || "")) return;
+    if (latexHint(cm)) cm.showHint({ hint: latexHint, completeSingle: false });
   });
 
   // --- diagnostics panel -----------------------------------------------------

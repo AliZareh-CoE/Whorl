@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: LaTeX epic slice 4 [cycle 104] — autocomplete v2 + snippets)
-- **Last completed slice (cycle 103, LaTeX epic slice 3, UI/UX):** pdf.js preview pane — real rendered pages with fit-width/zoom controls (persisted), page indicator, scroll position preserved across recompiles, dim-while-compiling. Verified live on a 5-page compile, zero reloads. [REV] multi-file workbench plan being produced by a parallel planning agent for cycle 105.
+- **Slice in progress:** — (next: [REV] multi-file workbench [cycle 105] — execute docs/plans/2026-06-11-multifile-workbench-cycle105.md)
+- **Last completed slice (cycle 104, LaTeX epic slice 4):** autocomplete v2 + snippets — latexHint dispatcher: \ref from \label scan, \begin{x}→auto \end{x}, ~130-command table ∪ document-used commands, 5 snippets with Tab-hoppable placeholders. All four flows browser-verified.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → **Owner idea #24 LaTeX epic (slices 2,3,4,5 next; [REV] multi-file workbench at 105)** → other owner ideas → backlog; every cycle: ≥1 new idea + tech improvement + research-backed design + parallel planning agents for future epics.
 - **Next 3 slices:**
-  1. LaTeX epic slice 4 [cycle 104]: autocomplete v2 + snippets (\begin auto-close, \ref from \label scan, placeholder hopping)
-  2. [REV] multi-file workbench [cycle 105] — execute the parallel-planner's file-level plan
-  3. Slices 5,7,8 [106-108]: find/replace+keymaps, SyncTeX, outline+word count; AUDIT #11 [110]
+  1. [REV] multi-file workbench [cycle 105]: execute docs/plans/2026-06-11-multifile-workbench-cycle105.md verbatim (6 internal slices, 37 named tests; restart huey after compile.py changes)
+  2. Slices 5,7,8 [106-108]: find/replace+keymaps+settings, SyncTeX forward, outline+word count
+  3. Slices 9,10 [108-109]: versions/history, templates+symbols; AUDIT #11 [110]
 - **Broken:** nothing
 
 ## Gate reports
