@@ -63,9 +63,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     stages (egg→hatchling→scholar→sage) derived live from milestones/papers/notes/experiments/
     comments; renameable; 5-min cached so pages stay fast (query-budget guards verified it);
     explicitly no nagging — it sleeps when you rest.~~ Possible later: tiny seasonal accessories.
-13. **Project-as-growing-tree UI.** Visualize each project as a tree that grows with real
-    progress (milestones/phases done) — sprout → sapling → full tree at completion. SVG-based,
-    calm, fits the editorial aesthetic; could live on the overview and/or projects index.
+13. **Project-as-growing-tree UI.** ~~First slice (2026-06-11, cycle 17): server-rendered
+    SVG tree (`{% project_tree %}` tag) with five stages (sprout→sapling→young→mature→bloom
+    with blossoms at 100%), deterministic per project, accent-colored foliage; lives on the
+    project overview and as minis on the projects index.~~ Polish later: richer branch
+    artwork at middle stages, gentle CSS sway on bloom.
 14. **World-class file & folder handling.** Faster, cleaner, easier: drag-and-drop upload,
     multi-file upload, inline rename, move via drag or quick-pick, breadcrumbed folder
     navigation, file previews where cheap.
@@ -163,4 +165,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 20. Comment mentions of objects — [[wiki-links]] and @cite-keys resolving inside comment bodies (idea added by cycle 14)
 21. Queue ordering option "least-covered themes first" — triage papers that fill matrix gaps (idea added by cycle 15)
 22. Pet reactions to events — a brief happy hop via HTMX when a milestone is checked off on the plan page (idea added by cycle 16)
-23. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+23. Tree grove view — all projects as one grove on the dashboard, trees sized by scope (idea added by cycle 17)
+24. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

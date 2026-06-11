@@ -13,8 +13,13 @@ class ProjectListView(ListView):
     context_object_name = "projects"
 
     def get_context_data(self, **kwargs):
+        from plans.selectors import project_progress
+
         ctx = super().get_context_data(**kwargs)
-        ctx["active_projects"] = [p for p in ctx["projects"] if p.status != Project.Status.ARCHIVED]
+        active = [p for p in ctx["projects"] if p.status != Project.Status.ARCHIVED]
+        for project in active:
+            _, _, project.progress_percent = project_progress(project)
+        ctx["active_projects"] = active
         ctx["archived_projects"] = [
             p for p in ctx["projects"] if p.status == Project.Status.ARCHIVED
         ]

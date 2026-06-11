@@ -19,7 +19,12 @@
   <div class="prose prose-stone mb-8 max-w-none text-sm">{{ project.description|markdownify }}</div>
 {% endif %}
 
-<div class="mb-4 rounded border border-stone-200 bg-white px-5 py-4">
+{% load project_tree %}
+<div class="mb-4 flex items-center gap-5 rounded border border-stone-200 bg-white px-5 py-4">
+  <div class="shrink-0" title="{{ done }}/{{ total }} milestones — the tree grows as the project completes">
+    {% project_tree percent project.color 96 project.pk %}
+  </div>
+  <div class="min-w-0 flex-1">
   <div class="mb-1 flex items-baseline justify-between text-sm">
     <span class="font-medium">
       {% if current_phase %}Current phase: {{ current_phase.name }}
@@ -47,6 +52,7 @@
       ordered phases with milestones drive this page.
     </p>
   {% endif %}
+  </div>
 </div>
 
 <div class="grid grid-cols-2 gap-4">
