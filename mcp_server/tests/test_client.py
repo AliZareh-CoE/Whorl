@@ -6,6 +6,10 @@ import pytest
 from mcp_server import client
 
 
+def calls_url_has(calls, fragment):
+    return fragment in calls["url"]
+
+
 @pytest.fixture
 def env(monkeypatch):
     monkeypatch.setenv("ATLAS_API_URL", "http://testserver")
@@ -125,3 +129,19 @@ class TestETagCache:
         client.quick_capture("hello")
         assert seen == [("POST", "")]
         assert client._etag_cache == {}
+
+
+def test_get_weekly_review_builds_request(capture):
+    from mcp_server import client
+
+    client.get_weekly_review("attention-and-memory", weeks_back=2)
+    assert calls_url_has(capture, "/weekly-review/")
+    assert "project=attention-and-memory" in capture["url"]
+    assert "weeks_back=2" in capture["url"]
+
+
+def test_get_weekly_review_global(capture):
+    from mcp_server import client
+
+    client.get_weekly_review()
+    assert "project=" not in capture["url"]

@@ -103,5 +103,13 @@ def get_review_matrix(project: str) -> dict:
     return client.get_review_matrix(project)
 
 
+@mcp.tool()
+def get_weekly_review(project: str = "", weeks_back: int = 0) -> dict:
+    """What happened in a research week — papers read, notes written, milestones completed,
+    decisions, and experiments. Pass a project slug to scope it, or leave blank for everything;
+    weeks_back=0 is this week, 1 is last week, etc."""
+    return client.get_weekly_review(project or None, weeks_back)
+
+
 if __name__ == "__main__":
     mcp.run()

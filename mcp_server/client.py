@@ -135,3 +135,10 @@ def get_prompt(prompt_id: int):
 
 def get_review_matrix(slug: str):
     return _request("GET", f"/projects/{slug}/review-matrix/")
+
+
+def get_weekly_review(project: str | None = None, weeks_back: int = 0):
+    params = {"weeks_back": weeks_back}
+    if project:
+        params["project"] = project
+    return _request("GET", "/weekly-review/", params=params)
