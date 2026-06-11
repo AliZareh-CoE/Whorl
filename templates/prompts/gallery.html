@@ -42,6 +42,21 @@
           </button>
           <a href="{% url 'prompts:edit' prompt.pk %}" class="text-xs text-stone-500 hover:underline">Edit</a>
         </div>
+        {% if prompt.variable_names %}
+          <div class="border-t border-stone-100 px-5 py-2" data-vars-for="prompt-body-{{ prompt.pk }}">
+            <p class="mb-1 text-[10px] uppercase tracking-wide text-stone-400">Fill in before copying</p>
+            <div class="flex flex-wrap gap-2">
+              {% for name in prompt.variable_names %}
+                <label class="flex items-center gap-1 text-xs text-stone-500">
+                  {{ name }}
+                  <input type="text" data-var-name="{{ name }}"
+                         class="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs focus:border-indigo-600 focus:outline-none"
+                         placeholder="{{ name }}">
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
         <details class="border-t border-stone-100 px-5 py-2">
           <summary class="cursor-pointer text-xs text-stone-400 hover:text-stone-600">Show prompt</summary>
           <pre id="prompt-body-{{ prompt.pk }}" class="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-stone-50 p-3 font-mono text-xs text-stone-700">{{ prompt.body }}</pre>
@@ -60,7 +75,20 @@
   document.addEventListener("click", async (event) => {
     const btn = event.target.closest(".copy-prompt");
     if (!btn) return;
-    const body = document.getElementById(btn.dataset.copyTarget)?.innerText || "";
+    let body = document.getElementById(btn.dataset.copyTarget)?.innerText || "";
+    // substitute {{variables}} from the card's fill-in inputs (filled ones only)
+    const varsBox = document.querySelector(`[data-vars-for="${btn.dataset.copyTarget}"]`);
+    if (varsBox) {
+      for (const input of varsBox.querySelectorAll("[data-var-name]")) {
+        if (input.value.trim()) {
+          const pattern = new RegExp(
+            "\\{\\{\\s*" + input.dataset.varName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\}\\}",
+            "g"
+          );
+          body = body.replace(pattern, input.value.trim());
+        }
+      }
+    }
     try {
       await navigator.clipboard.writeText(body);
       btn.textContent = "✓ Copied";

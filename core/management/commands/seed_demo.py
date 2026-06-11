@@ -498,6 +498,12 @@ class Command(BaseCommand):
                 "lit-review, summarize",
             ),
             (
+                "Summarize {{paper}} for {{venue}}",
+                "Summarize {{paper}} in 5 bullets aimed at {{venue}} reviewers: claim, "
+                "method, sample, key result, limitation.",
+                "lit-review, variables",
+            ),
+            (
                 "Reviewer-2 pass",
                 "Act as a tough but fair Reviewer 2 on the draft below. List the three weakest "
                 "points with concrete fixes. Be specific about stats and framing.",

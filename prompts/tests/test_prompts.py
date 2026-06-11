@@ -88,3 +88,23 @@ def test_mcp_client_prompt_functions(monkeypatch):
     assert "/prompts/" in calls["url"] and "q=review" in calls["url"]
     mcp_client.get_prompt(3)
     assert calls["url"].endswith("/prompts/3/")
+
+
+class TestPromptVariables:
+    def test_variable_names_parsed_in_order_and_deduped(self):
+        prompt = Prompt.objects.create(
+            title="Var prompt",
+            body="Review {{ paper }} for {{venue}}. Focus on {{paper}} stats.",
+        )
+        assert prompt.variable_names == ["paper", "venue"]
+
+    def test_no_variables(self):
+        prompt = Prompt.objects.create(title="Plain", body="No placeholders here.")
+        assert prompt.variable_names == []
+
+    def test_gallery_renders_fillin_inputs(self, client_logged_in):
+        Prompt.objects.create(title="Var prompt", body="Summarize {{paper}} briefly.")
+        response = client_logged_in.get(reverse("prompts:gallery"))
+        content = response.content.decode()
+        assert "Fill in before copying" in content
+        assert 'data-var-name="paper"' in content

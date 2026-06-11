@@ -21,3 +21,15 @@ class Prompt(TimeStampedModel):
     @property
     def tag_list(self) -> list[str]:
         return [t.strip() for t in self.tags.split(",") if t.strip()]
+
+    @property
+    def variable_names(self) -> list[str]:
+        """Distinct {{placeholders}} in the body, in order of first appearance."""
+        import re
+
+        seen: list[str] = []
+        for match in re.finditer(r"\{\{\s*([a-zA-Z0-9_ -]{1,40}?)\s*\}\}", self.body or ""):
+            name = match.group(1).strip()
+            if name and name not in seen:
+                seen.append(name)
+        return seen
