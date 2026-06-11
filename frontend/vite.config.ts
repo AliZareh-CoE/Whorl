@@ -15,11 +15,17 @@ export default defineConfig({
       input: {
         "documents-table": resolve(__dirname, "src/islands/documents-table.tsx"),
         assistant: resolve(__dirname, "src/islands/assistant.tsx"),
+        "latex-editor": resolve(__dirname, "src/editor/index.ts"),
         spa: resolve(__dirname, "src/app/main.tsx"),
       },
       output: {
         format: "es",
-        entryFileNames: (chunk) => (chunk.name === "spa" ? "spa.js" : "islands/[name].js"),
+        entryFileNames: (chunk) =>
+          chunk.name === "spa"
+            ? "spa.js"
+            : chunk.name === "latex-editor"
+              ? "latex-editor-cm6.js" // Slice A: build alongside CM5; cut over in B/C
+              : "islands/[name].js",
         chunkFileNames: "islands/[name]-chunk.js",
         assetFileNames: "islands/[name][extname]",
       },
