@@ -18,7 +18,8 @@
   <span class="shrink-0 text-xs text-stone-400">Type <code class="rounded bg-stone-100 px-1">\cite{% templatetag openbrace %}</code> for key autocomplete · Ctrl/Cmd-S saves</span>
 </div>
 
-<form method="post" id="editor-form">
+<div class="flex gap-3">
+<form method="post" id="editor-form" class="min-w-0 flex-1">
   {% csrf_token %}
   <textarea name="latex_source" id="latex-source" class="hidden">{{ manuscript.latex_source }}</textarea>
   <div class="overflow-hidden rounded border border-stone-200 bg-white text-sm" id="editor-host"></div>
@@ -33,9 +34,29 @@
       {% elif manuscript.compile_status == 'failed' %}✕ compile failed
       {% elif manuscript.compile_status == 'running' %}⏳ compiling…{% endif %}
     </span>
+    <button type="button" id="toggle-preview" class="rounded border border-stone-300 bg-white px-3 py-2 text-sm hover:border-stone-400">Preview ⇄</button>
     <a href="{{ manuscript.get_absolute_url }}" class="ml-auto text-sm text-stone-500 hover:underline">Back to manuscript</a>
   </div>
 </form>
+
+<div id="preview-pane" class="hidden w-[45%] shrink-0">
+  <div class="sticky top-4 overflow-hidden rounded border border-stone-200 bg-white">
+    <div class="flex items-center gap-2 border-b border-stone-100 px-3 py-1.5 text-xs text-stone-500">
+      <span id="preview-status">{% if manuscript.compiled_pdf %}Compiled PDF{% else %}No PDF yet — hit Compile{% endif %}</span>
+      <span class="ml-auto"></span>
+      {% if manuscript.compiled_pdf %}
+        <a href="{{ manuscript.compiled_pdf.url }}" target="_blank" class="text-indigo-600 hover:underline">Open ↗</a>
+      {% endif %}
+    </div>
+    <iframe id="preview-frame" title="Compiled PDF preview"
+            src="{% if manuscript.compiled_pdf %}{{ manuscript.compiled_pdf.url }}#toolbar=0{% endif %}"
+            class="h-[70vh] w-full {% if not manuscript.compiled_pdf %}hidden{% endif %} bg-stone-50"></iframe>
+    <div id="preview-empty" class="{% if manuscript.compiled_pdf %}hidden{% endif %} flex h-[70vh] items-center justify-center text-sm text-stone-400">
+      The compiled PDF appears here.
+    </div>
+  </div>
+</div>
+</div>
 <form id="compile-form" method="post" action="{% url 'writing:compile' project.slug manuscript.pk %}"
       onsubmit="document.getElementById('compile-source').value = editor.getValue();">
   {% csrf_token %}
@@ -100,6 +121,52 @@
       }
     }
   });
+
+  // --- split preview pane ---
+  const previewPane = document.getElementById("preview-pane");
+  const previewFrame = document.getElementById("preview-frame");
+  const previewEmpty = document.getElementById("preview-empty");
+  const previewStatus = document.getElementById("preview-status");
+  const toggleBtn = document.getElementById("toggle-preview");
+  function setPreview(open) {
+    previewPane.classList.toggle("hidden", !open);
+    localStorage.setItem("atlas-editor-preview", open ? "1" : "0");
+  }
+  toggleBtn.addEventListener("click", () => setPreview(previewPane.classList.contains("hidden")));
+  if (localStorage.getItem("atlas-editor-preview") === "1" || {{ manuscript.compiled_pdf|yesno:"true,false" }}) setPreview(true);
+
+  let polling = null;
+  document.getElementById("compile-form").addEventListener("submit", () => {
+    setPreview(true);
+    previewStatus.textContent = "⏳ compiling…";
+  });
+  // resume polling if a compile is in flight or was just queued
+  function poll() {
+    fetch("{% url 'writing:compile_status' project.slug manuscript.pk %}")
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === "running") {
+          previewStatus.textContent = "⏳ compiling…";
+          return;
+        }
+        clearInterval(polling);
+        polling = null;
+        if (data.status === "ok" && data.pdf_url) {
+          previewStatus.textContent = `✓ compiled ${new Date(data.compiled_at).toLocaleTimeString()}`;
+          previewFrame.src = `${data.pdf_url}?t=${Date.parse(data.compiled_at)}#toolbar=0`;
+          previewFrame.classList.remove("hidden");
+          previewEmpty.classList.add("hidden");
+        } else if (data.status === "failed") {
+          previewStatus.textContent = "✕ compile failed — see log below";
+          previewEmpty.textContent = (data.log || "Compile failed.").slice(-1500);
+          previewEmpty.classList.remove("hidden");
+          previewFrame.classList.add("hidden");
+        }
+      })
+      .catch(() => {});
+  }
+  {% if manuscript.compile_status == "running" %}polling = setInterval(poll, 2000);{% endif %}
+  // after the compile form posts (full page nav), the redirected page resumes polling above.
 
   const form = document.getElementById("editor-form");
   form.addEventListener("submit", () => { textarea.value = editor.getValue(); });

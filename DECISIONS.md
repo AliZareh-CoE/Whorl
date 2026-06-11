@@ -60,7 +60,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    first)~~ ~~Slice 2 (2026-06-11, cycle 24): Tectonic compile — `make tectonic` vendoring,
    background compile task, Compile PDF button (saves source first), status line, failure log
    panel in the editor, View PDF link; real end-to-end compile in the test suite.~~
-   Remaining: PDF preview pane beside the editor, snippets, section outline.
+   ~~Split-view preview (2026-06-11, cycle 27 UI/UX): toggleable PDF pane beside the
+   source (preference remembered), compile-status polling endpoint, pane auto-opens on
+   Compile, ✓/⏳/✕ status with failure log inline; verified with a real Tectonic compile.~~
+   Remaining: snippets, section outline.
 10. **Commenting / annotations.** ~~First slice (2026-06-11, cycle 14): generic `Comment`
     model (contenttypes) with markdown bodies; comment threads live on note, reference, and
     manuscript pages via one `_comments.html` include; kind allowlist guards the endpoint.~~
@@ -209,4 +212,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 30. Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24)
 31. Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25)
 32. tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26)
-33. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+33. SyncTeX-style jump — click in the PDF preview to jump to the matching source line (idea added by cycle 27)
+34. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

@@ -293,3 +293,44 @@ class TestCompile:
         manuscript.refresh_from_db()
         assert manuscript.compile_status == "ok", manuscript.compile_log
         assert manuscript.compiled_pdf.read().startswith(b"%PDF")
+
+
+class TestEditorSplitView:
+    def test_compile_status_endpoint(self, client_logged_in):
+        manuscript = ManuscriptFactory()
+        manuscript.compile_status = "failed"
+        manuscript.compile_log = "error: undefined control sequence"
+        manuscript.save()
+        response = client_logged_in.get(
+            reverse("writing:compile_status", args=[manuscript.project.slug, manuscript.pk])
+        )
+        data = response.json()
+        assert data["status"] == "failed"
+        assert "undefined" in data["log"]
+        assert data["pdf_url"] is None
+
+    def test_status_includes_pdf_url_when_compiled(self, client_logged_in):
+        from django.core.files.base import ContentFile
+        from django.utils import timezone
+
+        manuscript = ManuscriptFactory()
+        manuscript.compiled_pdf.save("m.pdf", ContentFile(b"%PDF-1.4"), save=False)
+        manuscript.compile_status = "ok"
+        manuscript.compiled_at = timezone.now()
+        manuscript.save()
+        data = client_logged_in.get(
+            reverse("writing:compile_status", args=[manuscript.project.slug, manuscript.pk])
+        ).json()
+        assert data["status"] == "ok"
+        assert data["pdf_url"].endswith(".pdf")
+        assert data["log"] == ""
+
+    def test_editor_has_preview_pane(self, client_logged_in):
+        manuscript = ManuscriptFactory()
+        response = client_logged_in.get(
+            reverse("writing:editor", args=[manuscript.project.slug, manuscript.pk])
+        )
+        content = response.content.decode()
+        assert 'id="preview-pane"' in content
+        assert 'id="toggle-preview"' in content
+        assert "compile/status/" in content

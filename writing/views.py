@@ -137,6 +137,22 @@ def compile_manuscript_view(request, slug, pk):
     return redirect("writing:editor", slug=slug, pk=pk)
 
 
+def compile_status(request, slug, pk):
+    """JSON status for the editor's compile polling."""
+    from django.http import JsonResponse
+
+    project = get_object_or_404(Project, slug=slug)
+    manuscript = get_object_or_404(project.manuscripts, pk=pk)
+    return JsonResponse(
+        {
+            "status": manuscript.compile_status,
+            "compiled_at": manuscript.compiled_at.isoformat() if manuscript.compiled_at else None,
+            "pdf_url": manuscript.compiled_pdf.url if manuscript.compiled_pdf else None,
+            "log": manuscript.compile_log[-3000:] if manuscript.compile_status == "failed" else "",
+        }
+    )
+
+
 def add_reference(request, slug, pk):
     project = get_object_or_404(Project, slug=slug)
     manuscript = get_object_or_404(project.manuscripts, pk=pk)

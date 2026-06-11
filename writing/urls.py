@@ -26,6 +26,11 @@ urlpatterns = [
         name="compile",
     ),
     path(
+        "projects/<slug:slug>/writing/<int:pk>/compile/status/",
+        views.compile_status,
+        name="compile_status",
+    ),
+    path(
         "projects/<slug:slug>/writing/<int:pk>/references/add/",
         views.add_reference,
         name="add_reference",

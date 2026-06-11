@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: UI/UX cycle — editor split-view PDF preview [cycle 27])
+- **Slice in progress:** — (next: open-source polish #8 — LICENSE, README hero, app containerization [cycles 28–29])
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. UI/UX cycle — editor split-view PDF preview [cycle 27]
-  2. UI/UX cycle 2 / open-source polish (#8: LICENSE, README hero, compose packaging) [28–29]
-  3. AUDIT #3 [cycle 30]
+  1. Open-source polish #8: LICENSE + README hero + screenshots [cycle 28]
+  2. Open-source polish #8: app in docker-compose (one-command install) [cycle 29]
+  3. AUDIT #3 [cycle 30]; then auto Backlog top-down (34 items)
 - **Broken:** nothing
 
 ## Gate reports
