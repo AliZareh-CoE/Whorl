@@ -66,3 +66,11 @@ class TestWeeklyReviewAPI:
 
     def test_requires_login(self, client):
         assert client.get("/api/v1/weekly-review/").status_code == 401
+
+
+def test_review_page_route_served(client_logged_in):
+    # the SPA review page (cross-project + scoped) — catch-all serves both
+    for path in ("/review", "/projects/x/review"):
+        response = client_logged_in.get(path)
+        assert response.status_code == 200
+        assert b'id="root"' in response.content

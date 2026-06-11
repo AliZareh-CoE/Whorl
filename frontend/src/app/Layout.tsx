@@ -53,6 +53,7 @@ export default function Layout() {
         <p className="mb-4 text-[10px] uppercase tracking-wide text-stone-400">⌘K for anything</p>
         <nav className="space-y-1 text-sm">
           <NavLink to="/" end className={navCls}>Dashboard</NavLink>
+          <NavLink to="/review" className={navCls}>Review</NavLink>
           <NavLink to="/projects" className={navCls}>Projects</NavLink>
           {/* not yet migrated — classic pages */}
           <NavLink to="/library" className={navCls}>Library</NavLink>

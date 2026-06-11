@@ -454,7 +454,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 81. ~~SPA synthesis + coverage (done 2026-06-11, cycle 73): React literature page gets a Draft-synthesis button (X-SPA JSON → navigates to the note, no reload) and a coverage-gap nudge highlighting themes with ≤1 paper; closes Owner idea #11's active coverage-gap suggestion too.~~
 82. Coverage-gap → queue prefill — clicking a thin theme in the nudge jumps to the queue already filtered to that theme's candidate papers (idea added by cycle 73)
 83. PROMOTE #77 to next-priority — the shared route manifest; cycle 74 hit the exact predicted drift (React route added, Django pattern forgotten, 404). Do it before more routes accrue (idea escalated by cycle 74)
-84. [REV] candidate — weekly research review PAGE (cycle 85): the data layer landed cycle 84 (core/reviews.py + /api/v1/weekly-review/); cycle 85 renders the skimmable 'this week' SPA page from it (papers read, notes, milestones, decisions, experiments; per-project + cross-project; week-back nav).
+84. ~~Weekly research review (done 2026-06-11, cycles 84-85): data layer core/reviews.py + /api/v1/weekly-review/, then the SPA page at /review + /projects/:slug/review — a calm skimmable 'this week' digest (papers/notes/milestones/decisions/experiments, each linked), top-line summary, ◀▶ week-back nav, per-project + cross-project, sidebar 'Review' link. The self-build project's own review shows the loop's week.~~
 85. Reading-flow for the whole library — a 'read flow' over any filtered reference set, not just one project's queue (idea added by cycle 75)
 86. Promote the route rule to docs — note the slash-less=SPA / trailing-slash=classic invariant in CONTRIBUTING so external contributors don't re-add per-route Django patterns (idea added by cycle 76)
 87. ~~Prefetch assistant index on mount (done 2026-06-11, cycle 78): Layout warms the ⌘K assistant-context query on app load, so even the very first ⌘K paints instantly.~~
@@ -465,3 +465,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 92. Docs site (mkdocs-material) with the MCP setup guide front and center — next open-source slice after templates (idea added by cycle 82)
 93. Comments on documents — give documents a detail surface (or a thread on the SPA doc row) so #10 covers documents too, not just note/reference/manuscript (idea added by cycle 83)
 94. Weekly review digest bot — an opt-in bot that drops a Friday 'this week' summary into the inbox using the new weekly_review selector (idea added by cycle 84)
+95. [REV] candidate — research timeline: a zoomable chronological view of a project (milestones, papers, notes, decisions on one time axis) for the methods/history section of a paper (idea added by cycle 85)
+96. Review → copy digest — a 'copy as markdown' button on the weekly review so it pastes into a lab journal or a Claude session (idea added by cycle 85)
