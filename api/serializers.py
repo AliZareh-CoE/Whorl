@@ -245,11 +245,27 @@ class AddByDoiSerializer(serializers.Serializer):
 
 class NoteSerializer(serializers.ModelSerializer):
     project = ProjectSlugField()
+    backlinks = serializers.SerializerMethodField()
 
     class Meta:
         model = Note
-        fields = ["id", "project", "title", "body", "references", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "project",
+            "title",
+            "body",
+            "references",
+            "backlinks",
+            "created_at",
+            "updated_at",
+        ]
         extra_kwargs = {"references": {"required": False}}
+
+    def get_backlinks(self, note):
+        return [
+            {"id": link.source_id, "title": link.source.title}
+            for link in note.incoming_links.select_related("source")
+        ]
 
 
 class PromptSerializer(serializers.ModelSerializer):

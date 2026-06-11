@@ -204,7 +204,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
       per-row reading-status PATCH + X-SPA bulk status, /app/projects/:slug/queue filtered
       and priority-sorted sharing the same component; reference_summary nested on the
       project-references API; reference detail stays classic, noted)~~ →
-      62 notes+editor → 63 writing board+manuscript (CodeMirror in React) → 64 inbox, prompts,
+      ~~62 notes+editor (done 2026-06-11: /app/projects/:slug/notes list with backlink counts,
+      textarea markdown editor (decision: no CodeMirror for notes — calm wins) with Ctrl-S,
+      create+edit via the notes API (wiki-links sync server-side), POST /api/v1/notes/preview/
+      renders nh3-sanitized HTML with [[wiki-links]] resolved — dangerouslySetInnerHTML is
+      justified ONLY by that server-side sanitization; backlinks on the serializer)~~ →
+      63 writing board+manuscript (CodeMirror in React) → 64 inbox, prompts,
       automations, pet, search → [65 REV] → 66 research+decisions+questions → 67 graph →
       68 cutover+cleanup. Audits and revolutionary cycles continue on schedule.
     - **Standing constraints unchanged:** lightning-fast (code-split routes, prefetch),
@@ -383,3 +388,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 66. CSS build gate — add `make css && git diff --exit-code static/css/app.css` to the cycle gate so Tailwind classes used by new TSX never ship missing (idea added by cycle 59, from the ml-56 bug)
 67. SPA error toasts — surface failed optimistic mutations (e.g. PATCH rejected) with a calm inline toast + automatic state rollback instead of relying on the next refetch (idea added by cycle 60, from AUDIT #6 review of the optimistic-write path)
 68. Server-side reference search — ?search= on /api/v1/references/ (title/key/venue/authors icontains) so the SPA library scales past one page (idea added by cycle 61)
+69. Autosave for the SPA note editor — debounced PATCH 2s after typing stops, with the Saved indicator reflecting in-flight state (idea added by cycle 62)

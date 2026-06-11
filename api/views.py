@@ -437,6 +437,34 @@ class NoteViewSet(AtlasViewSet):
     serializer_class = serializers.NoteSerializer
     project_filter = "project__slug"
 
+    @extend_schema(
+        description="Render a markdown body to sanitized HTML with [[wiki-links]] resolved "
+        "against the given project — preview for the SPA editor.",
+        responses={200: None},
+    )
+    @action(detail=False, methods=["post"])
+    def preview(self, request):
+        import re
+
+        from core.templatetags.markdown_extras import markdownify
+        from notes.services import WIKI_LINK_RE
+        from projects.models import Project
+
+        body = str(request.data.get("body", ""))[:50_000]
+        project = Project.objects.filter(slug=request.data.get("project", "")).first()
+        if project:
+            by_title = {n.title.lower(): n for n in project.notes.all()}
+
+            def replace(match: re.Match) -> str:
+                title = match.group(1).strip()
+                target = by_title.get(title.lower())
+                if target:
+                    return f"[{title}]({target.get_absolute_url()})"
+                return f"*[[{title}]]*"
+
+            body = WIKI_LINK_RE.sub(replace, body)
+        return Response({"html": str(markdownify(body))})
+
     def perform_create(self, serializer):
         note = serializer.save()
         note_services.sync_note_links(note)

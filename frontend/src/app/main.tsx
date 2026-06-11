@@ -5,6 +5,7 @@ import Layout from "./Layout";
 import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
 import Library from "./pages/Library";
+import { NoteEditor, NotesList } from "./pages/Notes";
 import Literature from "./pages/Literature";
 import Plan from "./pages/Plan";
 import ProjectOverview from "./pages/ProjectOverview";
@@ -26,6 +27,9 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/documents" element={<Documents />} />
           <Route path="projects/:slug/literature" element={<Literature />} />
           <Route path="projects/:slug/queue" element={<Literature queue />} />
+          <Route path="projects/:slug/notes" element={<NotesList />} />
+          <Route path="projects/:slug/notes/new" element={<NoteEditor />} />
+          <Route path="projects/:slug/notes/:id" element={<NoteEditor />} />
           <Route path="library" element={<Library />} />
           <Route path="*" element={<p className="text-sm text-stone-400">Not migrated yet — try the classic pages.</p>} />
         </Route>

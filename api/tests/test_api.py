@@ -373,3 +373,32 @@ class TestLiteratureSpaSupport:
         assert response.status_code == 200
         assert "Marked 1" in response.json()["detail"]
         assert ProjectReference.objects.get(pk=link.pk).reading_status == "read"
+
+
+class TestNotesSpaSupport:
+    def test_preview_renders_sanitized_html_with_wiki_links(self, client_logged_in):
+        from notes.tests.factories import NoteFactory
+
+        target = NoteFactory(title="Linked Note")
+        response = client_logged_in.post(
+            "/api/v1/notes/preview/",
+            {
+                "body": "see [[Linked Note]] and <script>alert(1)</script> **bold**",
+                "project": target.project.slug,
+            },
+            content_type="application/json",
+        )
+        html = response.json()["html"]
+        assert f'href="{target.get_absolute_url()}"' in html
+        assert "<script>" not in html  # nh3 strips it
+        assert "<strong>bold</strong>" in html
+
+    def test_note_serializer_includes_backlinks(self, client_logged_in):
+        from notes.models import NoteLink
+        from notes.tests.factories import NoteFactory
+
+        target = NoteFactory(title="Hub")
+        source = NoteFactory(project=target.project, title="Spoke")
+        NoteLink.objects.create(source=source, target=target)
+        data = client_logged_in.get(f"/api/v1/notes/{target.pk}/").json()
+        assert data["backlinks"] == [{"id": source.pk, "title": "Spoke"}]
