@@ -9,3 +9,4 @@ db.sqlite3
 .ruff_cache/
 bin/tailwindcss
 tts_voices/
+bin/tectonic

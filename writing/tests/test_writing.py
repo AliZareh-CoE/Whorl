@@ -209,3 +209,87 @@ def test_editor_cite_keys_xss_safe(client_logged_in):
     content = response.content.decode()
     assert "<script>alert(1)</script>" not in content
     assert "\\u003C/script" in content or "\\u003c/script" in content  # json_script escaping
+
+
+class TestCompile:
+    def make_manuscript(self, source=r"\documentclass{article}\begin{document}Hi\end{document}"):
+        manuscript = ManuscriptFactory()
+        manuscript.latex_source = source
+        manuscript.save()
+        return manuscript
+
+    def test_compile_success_with_mocked_tectonic(self, monkeypatch, tmp_path):
+        import subprocess as sp
+
+        from writing import compile as compile_mod
+
+        manuscript = self.make_manuscript()
+        monkeypatch.setattr(compile_mod, "tectonic_available", lambda: True)
+
+        def fake_run(cmd, cwd, **kwargs):
+            (cwd / "main.pdf").write_bytes(b"%PDF-1.4 compiled")
+            return sp.CompletedProcess(cmd, 0, stdout="note: ok", stderr="")
+
+        monkeypatch.setattr(compile_mod.subprocess, "run", fake_run)
+        compile_mod.compile_manuscript(manuscript)
+        manuscript.refresh_from_db()
+        assert manuscript.compile_status == "ok"
+        assert manuscript.compiled_pdf.read().startswith(b"%PDF")
+        assert manuscript.compiled_at is not None
+
+    def test_compile_failure_keeps_log(self, monkeypatch):
+        import subprocess as sp
+
+        from writing import compile as compile_mod
+
+        manuscript = self.make_manuscript(source=r"\badcommand")
+        monkeypatch.setattr(compile_mod, "tectonic_available", lambda: True)
+        monkeypatch.setattr(
+            compile_mod.subprocess,
+            "run",
+            lambda cmd, cwd, **kw: sp.CompletedProcess(
+                cmd, 1, stdout="", stderr="error: undefined"
+            ),
+        )
+        compile_mod.compile_manuscript(manuscript)
+        manuscript.refresh_from_db()
+        assert manuscript.compile_status == "failed"
+        assert "undefined" in manuscript.compile_log
+
+    def test_empty_source_fails_cleanly(self):
+        from writing.compile import compile_manuscript
+
+        manuscript = ManuscriptFactory()
+        compile_manuscript(manuscript)
+        manuscript.refresh_from_db()
+        assert manuscript.compile_status == "failed"
+        assert "empty" in manuscript.compile_log
+
+    def test_compile_view_saves_source_and_enqueues(self, client_logged_in, monkeypatch):
+        manuscript = ManuscriptFactory()
+        called = {}
+        monkeypatch.setattr(
+            "writing.tasks.compile_manuscript_task", lambda pk: called.setdefault("pk", pk)
+        )
+        response = client_logged_in.post(
+            reverse("writing:compile", args=[manuscript.project.slug, manuscript.pk]),
+            {"latex_source": r"\documentclass{article}fresh"},
+        )
+        manuscript.refresh_from_db()
+        assert response.status_code == 302
+        assert "fresh" in manuscript.latex_source
+        assert called["pk"] == manuscript.pk
+
+    @pytest.mark.skipif(
+        not __import__("pathlib").Path("bin/tectonic").exists(), reason="tectonic not vendored"
+    )
+    def test_real_tectonic_compiles_pdf(self):
+        from writing.compile import compile_manuscript
+
+        manuscript = self.make_manuscript(
+            "\\documentclass{article}\n\\begin{document}\nReal compile.\n\\end{document}\n"
+        )
+        compile_manuscript(manuscript)
+        manuscript.refresh_from_db()
+        assert manuscript.compile_status == "ok", manuscript.compile_log
+        assert manuscript.compiled_pdf.read().startswith(b"%PDF")

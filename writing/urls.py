@@ -21,6 +21,11 @@ urlpatterns = [
     ),
     path("projects/<slug:slug>/writing/<int:pk>/editor/", views.latex_editor, name="editor"),
     path(
+        "projects/<slug:slug>/writing/<int:pk>/compile/",
+        views.compile_manuscript_view,
+        name="compile",
+    ),
+    path(
         "projects/<slug:slug>/writing/<int:pk>/references/add/",
         views.add_reference,
         name="add_reference",

@@ -54,7 +54,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    (2026-06-11, cycle 13): `latex_source` on Manuscript; CodeMirror 5 (stex mode) editor page
    with cite-key autocomplete from the manuscript bibliography, Ctrl/Cmd-S save, integrated
    cite-check on every save.~~ Remaining: server-side compile (Tectonic — dependency decision
-   first) + live PDF preview via the existing pdf.js reader; snippets; section outline.
+   first)~~ ~~Slice 2 (2026-06-11, cycle 24): Tectonic compile — `make tectonic` vendoring,
+   background compile task, Compile PDF button (saves source first), status line, failure log
+   panel in the editor, View PDF link; real end-to-end compile in the test suite.~~
+   Remaining: PDF preview pane beside the editor, snippets, section outline.
 10. **Commenting / annotations.** ~~First slice (2026-06-11, cycle 14): generic `Comment`
     model (contenttypes) with markdown bodies; comment threads live on note, reference, and
     manuscript pages via one `_comments.html` include; kind allowlist guards the endpoint.~~
@@ -107,6 +110,16 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   owner's Claude subscription via MCP.
 
 ## Decisions
+
+### 2026-06-11 — Tectonic vendored as the LaTeX engine (owner-sanctioned)
+- **Decision:** LaTeX compilation uses the Tectonic 0.15 standalone binary, downloaded into
+  `bin/` via `make tectonic` (same pattern as Tailwind and the Piper voice). Compiles run in a
+  temp dir through a huey task with a 180 s timeout; PDF, status, log, and timestamp stored on
+  the Manuscript. No new Python dependency.
+- **Why:** Owner idea #9 needs real PDF output; Tectonic is the only modern self-contained
+  LaTeX engine (auto-fetches packages, caches in ~/.cache/Tectonic, single binary).
+- **Alternatives rejected:** TeX Live (gigabytes, apt-managed, breaks the 5-minute quick
+  start); LaTeX-to-HTML approximations (not real output researchers can submit).
 
 ### 2026-06-10 — Piper TTS for "Read aloud" (owner-sanctioned dependency)
 - **Decision:** Add `piper-tts` (free, local, no cloud) for Owner idea #3. Voice model
@@ -186,4 +199,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 27. Last-Modified on media files + ETag support in the MCP client cache (idea added by cycle 21)
 28. Loop-resilience note — chain notifications can drop and watchdog monitors expire at 30 min; watchdog is now re-armed every cycle (lesson from the cycle-21→22 stall)
 29. Dev-process note — runserver/worker restarts must use pkill -f "[m]anage.py ..." (bracket trick) or they kill their own shell; documented after the cycle-23 debugging (idea added by cycle 23)
-30. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+30. Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24)
+31. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

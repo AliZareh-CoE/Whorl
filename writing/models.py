@@ -28,6 +28,19 @@ class Manuscript(TimeStampedModel):
     abstract = models.TextField(blank=True)
     repo_url = models.URLField(blank=True)
     latex_source = models.TextField(blank=True)  # edited in the in-browser LaTeX editor
+
+    class CompileStatus(models.TextChoices):
+        IDLE = "idle", "Not compiled"
+        RUNNING = "running", "Compiling…"
+        OK = "ok", "Compiled"
+        FAILED = "failed", "Failed"
+
+    compiled_pdf = models.FileField(upload_to="manuscripts/pdf/", null=True, blank=True)
+    compile_status = models.CharField(
+        max_length=10, choices=CompileStatus.choices, default=CompileStatus.IDLE
+    )
+    compile_log = models.TextField(blank=True)
+    compiled_at = models.DateTimeField(null=True, blank=True)
     references = models.ManyToManyField(Reference, through="ManuscriptReference", blank=True)
 
     class Meta:

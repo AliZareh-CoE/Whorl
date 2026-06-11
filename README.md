@@ -16,6 +16,7 @@ uv venv --python 3.12 && uv sync
 
 docker compose up -d          # Postgres 16 (5432) + Redis 7 (6379)
 make css                      # downloads the Tailwind standalone CLI on first run
+make tectonic                 # optional: LaTeX engine for compiling manuscripts to PDF
 
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py createsuperuser   # you are the single user

@@ -24,9 +24,29 @@
   <div class="overflow-hidden rounded border border-stone-200 bg-white text-sm" id="editor-host"></div>
   <div class="mt-3 flex items-center gap-3">
     <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save & check citations</button>
-    <a href="{{ manuscript.get_absolute_url }}" class="text-sm text-stone-500 hover:underline">Back to manuscript</a>
+    <button type="submit" form="compile-form" class="rounded border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:border-indigo-500">Compile PDF</button>
+    {% if manuscript.compiled_pdf %}
+      <a href="{{ manuscript.compiled_pdf.url }}" target="_blank" class="text-sm text-indigo-600 hover:underline">View PDF</a>
+    {% endif %}
+    <span class="text-xs text-stone-400">
+      {% if manuscript.compile_status == 'ok' %}✓ compiled {{ manuscript.compiled_at|date:"H:i" }}
+      {% elif manuscript.compile_status == 'failed' %}✕ compile failed
+      {% elif manuscript.compile_status == 'running' %}⏳ compiling…{% endif %}
+    </span>
+    <a href="{{ manuscript.get_absolute_url }}" class="ml-auto text-sm text-stone-500 hover:underline">Back to manuscript</a>
   </div>
 </form>
+<form id="compile-form" method="post" action="{% url 'writing:compile' project.slug manuscript.pk %}"
+      onsubmit="document.getElementById('compile-source').value = editor.getValue();">
+  {% csrf_token %}
+  <input type="hidden" name="latex_source" id="compile-source">
+</form>
+{% if manuscript.compile_log and manuscript.compile_status == 'failed' %}
+  <details class="mt-4 rounded border border-red-200 bg-red-50 p-3 text-xs" open>
+    <summary class="cursor-pointer font-medium text-red-700">Compile log</summary>
+    <pre class="mt-2 overflow-x-auto whitespace-pre-wrap text-red-900">{{ manuscript.compile_log }}</pre>
+  </details>
+{% endif %}
 
 {% if cite_result %}
   <div class="mt-6 grid grid-cols-3 gap-4 text-sm">

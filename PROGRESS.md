@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: Owner idea #9 remainder — LaTeX compile via Tectonic [cycle 24])
+- **Slice in progress:** — (next: Owner idea #10 remainder — PDF-anchored comments [cycle 25])
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. Owner idea #9 remainder — LaTeX compile via Tectonic [cycle 24]
-  2. Owner idea #10 remainder — PDF-anchored comments [cycle 25]
-  3. #5 summarization, UI/UX cycles ×2 by 30, AUDIT #3 at cycle 30
+  1. Owner idea #10 remainder — PDF-anchored comments [cycle 25]
+  2. Owner idea #5 remainder — local summarization [cycle 26]
+  3. UI/UX cycles ×2 by 30 (editor split-view is a candidate), AUDIT #3 at cycle 30
 - **Broken:** nothing
 
 ## Gate reports

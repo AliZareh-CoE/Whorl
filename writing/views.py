@@ -120,6 +120,23 @@ def latex_editor(request, slug, pk):
     )
 
 
+def compile_manuscript_view(request, slug, pk):
+    """Save the latest source, then queue a background compile."""
+    project = get_object_or_404(Project, slug=slug)
+    manuscript = get_object_or_404(project.manuscripts, pk=pk)
+    if request.method != "POST":
+        return redirect("writing:editor", slug=slug, pk=pk)
+    source = request.POST.get("latex_source")
+    if source is not None:
+        manuscript.latex_source = source
+        manuscript.save(update_fields=["latex_source", "updated_at"])
+    from .tasks import compile_manuscript_task
+
+    compile_manuscript_task(manuscript.pk)
+    messages.info(request, "Compiling in the background — refresh in a few seconds.")
+    return redirect("writing:editor", slug=slug, pk=pk)
+
+
 def add_reference(request, slug, pk):
     project = get_object_or_404(Project, slug=slug)
     manuscript = get_object_or_404(project.manuscripts, pk=pk)
