@@ -7,9 +7,9 @@
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. Owner idea #18 slice 2 [cycle 53] — bulk actions: documents multi-select (move/tag/delete), library/queue bulk reading-status, inbox bulk triage
-  2. Owner idea #18 slice 3 [cycle 54] — modals for remaining forms (projects, decisions, questions, manuscripts, prompts, tags, delete confirms)
-  3. REVOLUTIONARY cycle [55] (owner rule: 1 per 10 — first candidate: Backlog #59 [REV] Atlas Assistant panel); AUDIT #6 at 60
+  1. Owner idea #18 slice 2 [cycle 53] — bulk-action endpoints + functional UI (documents multi-select move/tag/delete, library bulk status, inbox bulk triage); endpoints persist under the islands plan
+  2. Owner idea #19 slice 1 [cycle 54] — React islands infra (frontend/ Vite workspace, data-island loader, make js, committed artifacts) + documents table island consuming the new bulk endpoints
+  3. REVOLUTIONARY cycle [55] — #59 [REV] Atlas Assistant panel (as a React island); AUDIT #6 at 60; #18 slice 3 (remaining modals) after
 - **Broken:** nothing
 
 ## Gate reports

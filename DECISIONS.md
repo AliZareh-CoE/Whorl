@@ -143,6 +143,19 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     Next slices: bulk actions (documents/library/inbox), then modals for projects,
     decisions, questions, manuscripts, prompts, tags + delete confirmations.
 
+19. **React islands — hybrid frontend (owner, 2026-06-11).** Owner considered a full React
+    SPA ("basic HTML/CSS can't make a pleasing UI"); after discussing trade-offs chose the
+    **hybrid islands** path: Django pages remain the skeleton, but genuinely rich views
+    mount React components — candidates in order: documents table (bulk actions UX),
+    Atlas Assistant panel ([REV] #59), graph page chrome, LaTeX editor shell. Amends the
+    constitution's "no React/no Node build" rule to: **a contained, islands-only Vite
+    workspace** (`frontend/`, TypeScript, builds to `static/js/islands/`, `make js`,
+    committed build artifacts so self-hosters still need no Node). Convention:
+    `<div data-island="name" data-props="…json_script…">` + one loader script. Pages must
+    still render useful content without the island (progressive enhancement).
+    Slices: (1) islands infra + first island = documents table w/ bulk actions; then
+    per-view conversions, one per cycle, each browser-verified.
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
