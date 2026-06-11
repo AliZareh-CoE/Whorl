@@ -1,0 +1,44 @@
+{% if results is None %}
+  <p class="text-sm text-stone-400">OpenAlex is unreachable right now — try again in a bit.</p>
+{% elif not results %}
+  <p class="text-sm text-stone-400">Nothing new found — either OpenAlex doesn't know this paper, or you already have its neighbors.</p>
+{% else %}
+  <ul class="space-y-1.5 text-sm">
+    {% for work in results %}
+      <li class="flex items-baseline gap-2" id="disc-{{ forloop.counter }}">
+        <span class="min-w-0 flex-1">
+          {{ work.title|truncatechars:80 }}
+          <span class="text-xs text-stone-400">
+            {{ work.first_author }}{% if work.year %} · {{ work.year }}{% endif %}{% if work.citations is not None %} · {{ work.citations }}×{% endif %}
+          </span>
+        </span>
+        <button type="button" data-doi="{{ work.doi }}" data-row="disc-{{ forloop.counter }}"
+                class="discover-add shrink-0 rounded border border-stone-300 bg-white px-2 py-0.5 text-xs hover:border-indigo-500 hover:text-indigo-700">
+          + Add
+        </button>
+      </li>
+    {% endfor %}
+  </ul>
+  <script>
+    if (!window.__discoverWired) {
+      window.__discoverWired = true;
+      document.addEventListener("click", async (event) => {
+        const btn = event.target.closest(".discover-add");
+        if (!btn) return;
+        btn.textContent = "…";
+        const body = new FormData();
+        body.append("doi", btn.dataset.doi);
+        const response = await fetch("{% url 'literature:discover_add' reference.pk %}", {
+          method: "POST", headers: { "X-CSRFToken": "{{ csrf_token }}" }, body,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok) {
+          btn.outerHTML = `<a href="${data.url}" class="shrink-0 text-xs text-green-700 hover:underline">✓ ${data.bibtex_key}</a>`;
+        } else {
+          btn.textContent = "failed";
+          btn.title = data.error || "";
+        }
+      });
+    }
+  </script>
+{% endif %}

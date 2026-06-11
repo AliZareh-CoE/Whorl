@@ -212,7 +212,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 7. Protocol library with versioning
 8. Results/figure gallery
 9. Email/calendar deadline reminders
-10. OpenAlex "discover similar" — surface related_works for a reference with one-click add-by-DOI (idea added by cycle 3, from the related-papers work)
+10. ~~OpenAlex "discover similar" (done 2026-06-11, cycle 31): `literature/discover.py` resolves the work, batch-fetches related_works, filters out DOIs already in the library; ⌕ Discover panel on reference detail with one-click + Add (reuses by-DOI import incl. background PDF fetch); verified live on a real paper.~~
 11. Conditional GETs — ETag/Last-Modified on API list endpoints and far-future cache headers on media/static, so MCP polling and the PDF reader get cheap revalidation (idea added by cycle 4, from the performance pass)
 12. “Read aloud” for whole PDFs — stream the PDF text-layer through Piper chapter by chapter with a mini player (idea added by cycle 6, from the TTS work)
 13. Worker-deploy note — document (README/Makefile) that `run_huey` must restart after code changes; consider a `make worker` target and a stale-worker warning on the Automations page when bots land (idea added by cycle 7, after hitting a stale TaskRegistry live)
@@ -239,4 +239,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
 35. Slim the Docker image — multi-stage build, piper/onnx as optional extra (~800 MB → ~300 MB) (idea added by cycle 29)
 36. Containerized LaTeX compile — run Tectonic in a throwaway container/namespace to close the \input file-read residual risk if Atlas ever goes multi-user (idea added by cycle 30 audit)
-37. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+37. Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31)
+38. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

@@ -132,6 +132,45 @@ def link_to_project(request, pk):
     return redirect(reference.get_absolute_url())
 
 
+def discover_panel(request, pk):
+    """HTMX: related papers from OpenAlex that aren't in the library yet."""
+    from . import discover
+
+    reference = get_object_or_404(Reference, pk=pk)
+    try:
+        results = discover.discover_similar(reference)
+    except Exception:
+        results = None  # network trouble — render the panel's error state
+    return render(
+        request,
+        "literature/_discover.html",
+        {"reference": reference, "results": results},
+    )
+
+
+@require_POST
+def discover_add(request, pk):
+    """Add one discovered DOI to the library (background PDF fetch applies as usual)."""
+    from django.conf import settings
+    from django.http import JsonResponse
+
+    get_object_or_404(Reference, pk=pk)  # anchor must exist
+    doi = request.POST.get("doi", "").strip()
+    if not doi:
+        return JsonResponse({"error": "Missing DOI."}, status=400)
+    try:
+        new_ref, created = services.add_reference_by_identifier(doi)
+    except services.MetadataError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    if created and settings.ATLAS_AUTO_FETCH_PDF and not new_ref.pdf:
+        from .tasks import fetch_oa_pdf_task
+
+        fetch_oa_pdf_task(new_ref.pk)
+    return JsonResponse(
+        {"url": new_ref.get_absolute_url(), "bibtex_key": new_ref.bibtex_key, "created": created}
+    )
+
+
 @require_POST
 def fetch_pdf(request, pk):
     """Manual 'Fetch open-access PDF' from the reference detail page (synchronous)."""

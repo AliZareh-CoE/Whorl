@@ -109,7 +109,20 @@
       <p class="text-sm text-stone-500">Nothing similar yet — suggestions appear as the library grows.</p>
     {% endif %}
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5 {% if not reference.abstract %}col-span-2{% endif %}">
+  <section class="rounded border border-stone-200 bg-white p-5">
+    <div class="mb-2 flex items-center justify-between">
+      <h2 class="text-sm font-medium uppercase tracking-wide text-stone-400">Discover similar on OpenAlex</h2>
+      <button type="button" hx-get="{% url 'literature:discover' reference.pk %}"
+              hx-target="#discover-results" hx-swap="innerHTML"
+              class="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 hover:border-stone-400">
+        ⌕ Discover
+      </button>
+    </div>
+    <div id="discover-results">
+      <p class="text-xs text-stone-400">Papers OpenAlex considers related, that aren't in your library yet.</p>
+    </div>
+  </section>
+  <section class="rounded border border-stone-200 bg-white p-5">
     <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">BibTeX</h2>
     <pre class="overflow-x-auto rounded bg-stone-50 p-3 font-mono text-xs text-stone-700">{{ bibtex }}</pre>
   </section>
