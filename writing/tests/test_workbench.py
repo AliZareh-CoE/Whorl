@@ -582,3 +582,55 @@ class TestApiWordCount:
         data = client_logged_in.get(f"/api/v1/manuscripts/{m.pk}/word-count/").json()
         assert data["headers"] == 1
         assert data["words"] == 4  # "X" + one two three
+
+
+class TestTemplates:
+    """Owner idea #24 parity slice 10: starter templates seed main.tex on create."""
+
+    def test_template_body_returns_latex(self):
+        from writing.templates_gallery import TEMPLATES, template_body
+
+        assert "\\documentclass" in template_body("article")
+        assert "twocolumn" in template_body("two-column")
+        assert template_body("nonsense") == TEMPLATES["article"]["body"]  # safe fallback
+
+    def test_create_with_template_seeds_main_file(self, client_logged_in):
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        from django.urls import reverse
+
+        client_logged_in.post(
+            reverse("writing:create", args=[project.slug]),
+            {
+                "title": "Beamer talk",
+                "status": "drafting",
+                "target_venue": "",
+                "abstract": "",
+                "repo_url": "",
+                "starter": "beamer",
+            },
+        )
+        m = project.manuscripts.get(title="Beamer talk")
+        assert "\\documentclass{beamer}" in m.latex_source
+        assert m.main_file.content == m.latex_source  # alias synced
+
+    def test_create_blank_template_is_empty(self, client_logged_in):
+        from django.urls import reverse
+
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        client_logged_in.post(
+            reverse("writing:create", args=[project.slug]),
+            {
+                "title": "Blank",
+                "status": "idea",
+                "target_venue": "",
+                "abstract": "",
+                "repo_url": "",
+                "starter": "",
+            },
+        )
+        m = project.manuscripts.get(title="Blank")
+        assert m.latex_source == ""

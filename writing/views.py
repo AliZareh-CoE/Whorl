@@ -75,6 +75,11 @@ class ManuscriptFormMixin(ProjectScopedMixin):
 class ManuscriptCreateView(ManuscriptFormMixin, CreateView):
     def form_valid(self, form):
         form.instance.project = self.project
+        starter = form.cleaned_data.get("starter")
+        if starter:
+            from .templates_gallery import template_body
+
+            form.instance.latex_source = template_body(starter)
         return super().form_valid(form)
 
 

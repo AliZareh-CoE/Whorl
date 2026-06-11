@@ -326,6 +326,13 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     toggle silently no-ops — found and fixed during verification), then toggling the
     spellcheck option live. Browser-verified all five + a contenteditable regression check
     (autocomplete + compile still work).~~
+    ~~Slice 10 (2026-06-11, cycle 115): templates gallery + symbol palette — writing/
+    templates_gallery.py with 6 code-defined starters (article, two-column, IEEE, beamer,
+    thesis chapter, cover letter); "Start from template" select on the new-manuscript form
+    seeds main.tex via the alias (create-only). Editor "Ω Symbols" popover: a 52-symbol grid
+    (Greek/operators/relations/arrows) inserting at the cursor, placing the caret inside the
+    first {} — free where Overleaf charges. Browser-verified: 7 options, 52 symbols, \alpha
+    inserted. 3 tests. ALL 10 PARITY SLICES COMPLETE.~~
     ~~[REV] Slice 6 (2026-06-11, cycle 105, THE REVOLUTIONARY CYCLE): multi-file
     manuscript workbench — ManuscriptFile model (strict path validator: ASCII-only,
     no dotfiles/.., depth-capped; tex/bib/asset kinds), latex_source two-way alias kept
@@ -632,6 +639,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+128. User-defined templates — let the owner save any manuscript's current files AS a reusable template (a thin ManuscriptTemplate model or just "duplicate manuscript"), beyond the 6 built-ins (idea added by cycle 115)
 127. MCP figure upload — write_manuscript_file is text-only; add an MCP tool to attach a figure (multipart to manuscript-files asset) so Claude can complete a paper end-to-end incl. plots (idea added by cycle 114)
 126. Abstract peek in the panel — expand a bibliography row in the research rail to read the full abstract inline (the context endpoint already sends a 280-char snippet; show it on click) without opening the reference page (idea added by cycle 113)
 125. Cite-check across files — the missing-citations check currently scans the active buffer only; aggregate unknown \cite keys across ALL tex files so a citation defined nowhere in a multi-file project is caught (idea added by cycle 112)

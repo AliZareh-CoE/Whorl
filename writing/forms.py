@@ -7,6 +7,12 @@ from .models import Manuscript, ManuscriptReference, SubmissionEvent
 
 
 class ManuscriptForm(forms.ModelForm):
+    starter = forms.ChoiceField(
+        required=False,
+        label="Start from template",
+        help_text="Seeds main.tex (new manuscripts only).",
+    )
+
     class Meta:
         model = Manuscript
         fields = ["title", "status", "target_venue", "deadline", "abstract", "repo_url"]
@@ -18,6 +24,16 @@ class ManuscriptForm(forms.ModelForm):
             "abstract": forms.Textarea(attrs={"class": INPUT, "rows": 5}),
             "repo_url": forms.TextInput(attrs={"class": INPUT}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .templates_gallery import template_choices
+
+        if self.instance and self.instance.pk:
+            self.fields.pop("starter", None)  # template seeding is create-only
+        else:
+            self.fields["starter"].choices = [("", "— blank —"), *template_choices()]
+            self.fields["starter"].widget.attrs["class"] = INPUT
 
 
 class ManuscriptReferenceForm(forms.ModelForm):

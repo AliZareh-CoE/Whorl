@@ -669,6 +669,47 @@
   );
   if (localStorage.getItem("atlas-editor-research") === "1") setResearch(true);
 
+  // --- symbol palette (epic slice 10): insert LaTeX symbols at the cursor ------
+  const SYMBOLS = {
+    Greek: ["\\alpha", "\\beta", "\\gamma", "\\delta", "\\epsilon", "\\theta",
+            "\\lambda", "\\mu", "\\pi", "\\sigma", "\\phi", "\\psi", "\\omega",
+            "\\Gamma", "\\Delta", "\\Theta", "\\Lambda", "\\Sigma", "\\Phi", "\\Omega"],
+    Operators: ["\\sum", "\\prod", "\\int", "\\partial", "\\nabla", "\\infty",
+                "\\sqrt{}", "\\frac{}{}", "\\cdot", "\\times", "\\pm", "\\mp"],
+    Relations: ["\\leq", "\\geq", "\\neq", "\\approx", "\\equiv", "\\propto",
+                "\\sim", "\\in", "\\subset", "\\forall", "\\exists"],
+    Arrows: ["\\to", "\\rightarrow", "\\leftarrow", "\\Rightarrow", "\\Leftarrow",
+             "\\leftrightarrow", "\\mapsto", "\\uparrow", "\\downarrow"],
+  };
+  const symGrid = document.getElementById("symbol-grid");
+  if (symGrid) {
+    for (const [cat, syms] of Object.entries(SYMBOLS)) {
+      const h = document.createElement("p");
+      h.className = "mb-1 mt-1 text-[10px] font-medium uppercase tracking-wide text-stone-400";
+      h.textContent = cat;
+      symGrid.appendChild(h);
+      const row = document.createElement("div");
+      row.className = "mb-1 grid grid-cols-6 gap-0.5";
+      for (const sym of syms) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "rounded px-1 py-0.5 text-center font-mono text-xs text-stone-600 hover:bg-stone-100";
+        btn.textContent = sym.replace(/\\/g, "").replace(/\{\}/g, "").replace(/\{\}\{\}/g, "") || sym;
+        btn.title = sym;
+        btn.addEventListener("click", () => {
+          const cur = editor.getCursor();
+          editor.replaceRange(sym, cur);
+          // place cursor inside the first {} if present
+          const brace = sym.indexOf("{}");
+          if (brace !== -1) editor.setCursor({ line: cur.line, ch: cur.ch + brace + 1 });
+          editor.focus();
+        });
+        row.appendChild(btn);
+      }
+      symGrid.appendChild(row);
+    }
+  }
+
   const wcBtn = document.getElementById("wordcount-btn");
   const wcOut = document.getElementById("wordcount-out");
   wcBtn.addEventListener("click", async () => {
