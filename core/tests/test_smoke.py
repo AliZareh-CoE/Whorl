@@ -42,18 +42,27 @@ class TestSpaShell:
     def test_requires_login(self, client):
         assert client.get("/").status_code == 302
 
-    def test_front_door_and_spa_routes_serve_the_shell(self, client_logged_in):
+    def test_any_slashless_path_serves_the_shell(self, client_logged_in):
+        # Backlog #77: one catch-all rule — even a page no Django route names serves the
+        # shell, so adding a React route never needs a Django change.
         for path in (
             "/",
             "/projects/some-slug",
             "/projects/x/plan",
+            "/projects/x/read",
             "/library",
+            "/references/24",
             "/manuscripts/3",
-            "/references/24",  # references added cycle 74
+            "/automations",
+            "/a-page-nobody-registered",
         ):
             response = client_logged_in.get(path)
             assert response.status_code == 200, path
             assert b'id="root"' in response.content, path
+
+    def test_unknown_api_path_still_404s(self, client_logged_in):
+        # the catch-all must NOT swallow unmatched /api/ paths
+        assert client_logged_in.get("/api/v1/nonsense").status_code == 404
 
     def test_classic_pages_keep_their_urls(self, client_logged_in):
         from projects.tests.factories import ProjectFactory

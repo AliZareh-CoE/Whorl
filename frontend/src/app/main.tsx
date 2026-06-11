@@ -60,7 +60,13 @@ createRoot(document.getElementById("root")!).render(
           <Route path="inbox" element={<Inbox />} />
           <Route path="prompts" element={<Prompts />} />
           <Route path="search" element={<Search />} />
-          <Route path="*" element={<p className="text-sm text-stone-400">Not migrated yet — try the classic pages.</p>} />
+          <Route path="*" element={
+            <div className="pt-24 text-center">
+              <p className="mb-2 text-4xl">🧭</p>
+              <h1 className="mb-2 text-2xl font-semibold tracking-tight">Page not found</h1>
+              <p className="text-sm text-stone-500">No Atlas page lives here. Try the <a href="/" className="text-indigo-600 hover:underline">dashboard</a> or the <a href="/classic/" className="text-indigo-600 hover:underline">classic UI</a>.</p>
+            </div>
+          } />
         </Route>
       </Routes>
       </Suspense>

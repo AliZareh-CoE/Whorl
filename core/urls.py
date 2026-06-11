@@ -5,20 +5,14 @@ from . import comments, views
 
 app_name = "core"
 
-# THE CUTOVER (Owner idea #20, cycle 68): the SPA owns / and the slash-less routes;
-# classic pages keep their trailing-slash URLs, with the old dashboard at /classic/.
+# THE CUTOVER (Owner idea #20, cycle 68) + SHARED ROUTE RULE (Backlog #77, cycle 76):
+# the SPA owns / and EVERY slash-less path; classic pages keep their trailing-slash URLs.
+# A single catch-all replaces the old hand-mirrored route list (which drifted twice, cycles
+# 74-75) — adding a React page now needs zero Django changes. core.urls is included last in
+# config.urls, so this only ever runs after every classic app route has had its turn.
 spa_routes = [
     path("", views.spa_shell, name="spa_home"),
-    re_path(r"^projects/[^/]+$", views.spa_shell),
-    re_path(
-        r"^projects/[^/]+/(plan|documents|literature|queue|read|notes|research|decisions|graph)$",
-        views.spa_shell,
-    ),
-    re_path(r"^projects/[^/]+/notes/(new|\d+)$", views.spa_shell),
-    re_path(r"^(library|writing|inbox|prompts|search|automations)$", views.spa_shell),
-    re_path(r"^manuscripts/\d+$", views.spa_shell),
-    re_path(r"^references/\d+$", views.spa_shell),
-    # old bookmarks: /app/* → same path at the root
+    # old /app/* bookmarks → same path at the root (must precede the catch-all)
     path("app/", RedirectView.as_view(url="/", permanent=False)),
     path("app/<path:rest>", views.spa_redirect),
 ]
@@ -33,4 +27,8 @@ urlpatterns = spa_routes + [
     path("assistant/context/", views.assistant_context_view, name="assistant_context"),
     path("pet/", views.pet_page, name="pet"),
     path("summarize/", views.summarize_view, name="summarize"),
+    # SPA catch-all (Backlog #77): any slash-less path not under app/static/media serves the
+    # shell; the React router resolves it (or renders its own 404). Trailing-slash paths fall
+    # through to classic/APPEND_SLASH. MUST stay last.
+    re_path(r"^(?!api/|app/|static/|media/)(?!.*/$).+$", views.spa_shell, name="spa_catchall"),
 ]
