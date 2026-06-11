@@ -106,3 +106,23 @@ class TestSuggestKeyboardNav:
         assert 'aria-controls="suggest-listbox"' in content
         assert "ArrowDown" in content
         assert "aria-activedescendant" in content
+
+
+class TestEdgeSwipeAndRecentSearches:
+    def test_edge_swipe_wiring(self, client_logged_in):
+        from django.urls import reverse as r
+
+        response = client_logged_in.get(r("core:dashboard"))
+        content = response.content.decode()
+        assert "edgeX" in content
+        assert "@touchstart.window" in content
+        assert "sidebarOpen = true" in content
+
+    def test_recent_searches_wiring(self, client_logged_in):
+        from django.urls import reverse as r
+
+        response = client_logged_in.get(r("core:dashboard"))
+        content = response.content.decode()
+        assert "atlas-recent-searches" in content
+        assert "Recent searches" in content
+        assert "textContent = q" in content  # stored queries rendered inertly

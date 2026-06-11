@@ -13,7 +13,10 @@
   <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:text-white">
     Skip to content
   </a>
-  <div class="flex h-full" x-data="{ sidebarOpen: false, touchX: null }" @keydown.escape.window="sidebarOpen = false">
+  <div class="flex h-full" x-data="{ sidebarOpen: false, touchX: null, edgeX: null }"
+       @keydown.escape.window="sidebarOpen = false"
+       @touchstart.window="edgeX = (!sidebarOpen && $event.touches[0].clientX <= 24) ? $event.touches[0].clientX : null"
+       @touchend.window="if (edgeX !== null && $event.changedTouches[0].clientX - edgeX > 60) sidebarOpen = true; edgeX = null">
     <button type="button" @click="sidebarOpen = true" aria-label="Open navigation"
             class="fixed left-3 top-3 z-40 rounded border border-stone-200 bg-white px-2.5 py-1.5 text-sm shadow-sm lg:hidden">
       ☰
@@ -146,6 +149,46 @@
           input.removeAttribute("aria-activedescendant");
         }
       }
+      // Recent searches: remembered locally, shown when the box is focused while empty
+      const RECENT_KEY = "atlas-recent-searches";
+      function recentList() {
+        try { return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch { return []; }
+      }
+      input.form?.addEventListener("submit", () => {
+        const q = input.value.trim();
+        if (!q) return;
+        try {
+          const list = [q, ...recentList().filter((x) => x !== q)].slice(0, 5);
+          localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+        } catch {}
+      });
+      input.addEventListener("focus", () => {
+        if (input.value.trim() || items().length) return;
+        const list = recentList();
+        if (!list.length) return;
+        const wrap = document.createElement("div");
+        wrap.id = "suggest-listbox";
+        wrap.setAttribute("role", "listbox");
+        wrap.setAttribute("aria-label", "Recent searches");
+        wrap.className = "mt-1 max-h-80 overflow-y-auto rounded border border-stone-200 bg-white py-1 shadow-lg";
+        const label = document.createElement("p");
+        label.className = "px-3 py-1 text-[10px] uppercase tracking-wide text-stone-400";
+        label.textContent = "Recent searches";
+        wrap.appendChild(label);
+        list.forEach((q, i) => {
+          const a = document.createElement("a");
+          a.href = "{% url 'core:search' %}?q=" + encodeURIComponent(q);
+          a.id = "recent-opt-" + i;
+          a.setAttribute("role", "option");
+          a.setAttribute("aria-selected", "false");
+          a.className = "suggest-item block px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50";
+          a.textContent = q; // textContent keeps stored queries inert
+          wrap.appendChild(a);
+        });
+        box.replaceChildren(wrap);
+        setActive(items(), -1);
+        input.setAttribute("aria-expanded", "true");
+      });
       input.addEventListener("keydown", (e) => {
         const list = items();
         if (!list.length) return;
