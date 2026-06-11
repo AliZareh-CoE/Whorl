@@ -372,6 +372,7 @@
     activeId = id;
     editor.swapDoc(doc);
     renderTree();
+    renderOutline();
     editor.performLint();
     editor.focus();
   }
@@ -423,6 +424,56 @@
     }
   }
   renderTree();
+
+  // --- outline panel + word count (epic slice 8) ------------------------------
+  const outlineList = document.getElementById("outline-list");
+  const HEADING_RE = /\\(part|chapter|section|subsection|subsubsection|paragraph)\*?\{([^}]*)\}/;
+  const HEADING_DEPTH = {
+    part: 0, chapter: 0, section: 0, subsection: 1, subsubsection: 2, paragraph: 3,
+  };
+  function renderOutline() {
+    outlineList.innerHTML = "";
+    const doc = editor.getDoc();
+    for (let i = 0; i < doc.lineCount(); i++) {
+      const m = HEADING_RE.exec(doc.getLine(i));
+      if (!m) continue;
+      const li = document.createElement("li");
+      li.className = "cursor-pointer truncate py-0.5 text-stone-600 hover:text-indigo-700";
+      li.style.paddingLeft = `${HEADING_DEPTH[m[1]] * 10}px`;
+      li.textContent = m[2] || "(untitled)";
+      li.title = m[2];
+      const line = i;
+      li.addEventListener("click", () => {
+        editor.setCursor({ line, ch: 0 });
+        editor.focus();
+        editor.scrollIntoView({ line, ch: 0 }, 120);
+      });
+      outlineList.appendChild(li);
+    }
+    if (!outlineList.children.length) {
+      outlineList.innerHTML = '<li class="py-0.5 text-stone-400">No sections yet.</li>';
+    }
+  }
+  renderOutline();
+  let outlineTimer = null;
+  editor.on("change", () => {
+    clearTimeout(outlineTimer);
+    outlineTimer = setTimeout(renderOutline, 600);
+  });
+
+  const wcBtn = document.getElementById("wordcount-btn");
+  const wcOut = document.getElementById("wordcount-out");
+  wcBtn.addEventListener("click", async () => {
+    wcOut.textContent = "…";
+    await saveFile(activeId); // count what's on screen, not the last autosave
+    try {
+      const data = await fetch(cfg.wordCountUrl).then((r) => r.json());
+      wcOut.textContent = `~${data.words} words · ${data.headers} headings`;
+      wcOut.title = `approx ${data.words} words, ${data.headers} headings, ${data.captions} captions, ${data.math_inlines} inline math`;
+    } catch {
+      wcOut.textContent = "—";
+    }
+  });
 
   const newFileForm = document.getElementById("new-file-form");
   const newFilePath = document.getElementById("new-file-path");

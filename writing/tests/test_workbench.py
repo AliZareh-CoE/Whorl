@@ -360,3 +360,39 @@ class TestWorkbenchAPI:
     def test_schema_includes_manuscript_files(self, client_logged_in):
         schema = client_logged_in.get("/api/schema/").content.decode()
         assert "/api/v1/manuscript-files/" in schema
+
+
+class TestWordCount:
+    """Owner idea #24 slice 8: approximate detex word count."""
+
+    def test_strips_commands_math_and_comments(self):
+        from writing.wordcount import word_count
+
+        src = (
+            "% a comment with five words here\n"
+            "\\section{Introduction}\n"
+            "This sentence has exactly six words.\n"
+            "\\begin{equation} E = mc^2 \\end{equation}\n"
+            "Inline $x + y$ math and \\textbf{bold text} here.\n"
+        )
+        result = word_count(src)
+        assert result["headers"] == 1
+        assert result["math_inlines"] == 1
+        # "This sentence has exactly six words" (6) + "Inline math and bold text here" (6)
+        # + "Introduction" heading text (1) = 13; comment excluded
+        assert result["words"] == 13
+
+    def test_counts_captions(self):
+        from writing.wordcount import word_count
+
+        src = "\\caption{First}\n\\caption{Second}\nbody words two"
+        assert word_count(src)["captions"] == 2
+
+    def test_endpoint_counts_all_tex_files(self, client_logged_in):
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(
+            manuscript=m, path="main.tex", content="one two three", is_main=True
+        )
+        ManuscriptFile.objects.create(manuscript=m, path="sections/a.tex", content="four five")
+        data = client_logged_in.get(f"/projects/{m.project.slug}/writing/{m.pk}/word-count/").json()
+        assert data["words"] == 5

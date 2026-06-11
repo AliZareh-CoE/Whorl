@@ -22,6 +22,11 @@ urlpatterns = [
     path("projects/<slug:slug>/writing/<int:pk>/editor/", views.latex_editor, name="editor"),
     path("projects/<slug:slug>/writing/<int:pk>/files/", views.manuscript_files, name="files"),
     path(
+        "projects/<slug:slug>/writing/<int:pk>/word-count/",
+        views.word_count_view,
+        name="word_count",
+    ),
+    path(
         "projects/<slug:slug>/writing/<int:pk>/files/upload/",
         views.file_upload,
         name="file_upload",

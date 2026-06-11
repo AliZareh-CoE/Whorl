@@ -143,6 +143,7 @@ def latex_editor(request, slug, pk):
                 # workbench (slice 6)
                 "filesUrl": reverse("writing:files", args=[slug, manuscript.pk]),
                 "fileUrlBase": reverse("writing:files", args=[slug, manuscript.pk]),
+                "wordCountUrl": reverse("writing:word_count", args=[slug, manuscript.pk]),
                 "files": [_file_dict(f) for f in manuscript.files.all()],
                 "mainFileId": main.pk,
             },
@@ -382,6 +383,21 @@ def file_rename(request, slug, pk, file_pk):
     f.path = path
     f.save()
     return JsonResponse(_file_dict(f))
+
+
+def word_count_view(request, slug, pk):
+    """Approximate word count across all text files of the manuscript (slice 8)."""
+    from django.http import JsonResponse
+
+    from .wordcount import word_count
+
+    manuscript, _ = _workbench_objects(slug, pk)
+    files = manuscript.files.filter(kind__in=["tex"])
+    if files.exists():
+        source = "\n".join(f.content for f in files)
+    else:
+        source = manuscript.latex_source
+    return JsonResponse(word_count(source))
 
 
 def file_delete(request, slug, pk, file_pk):
