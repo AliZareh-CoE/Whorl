@@ -16,15 +16,23 @@ def render_tree(percent, seed=1):
 
 class TestTreeStages:
     def test_stage_thresholds(self):
-        assert 'data-stage="sprout"' in render_tree(0)
-        assert 'data-stage="sapling"' in render_tree(15)
+        assert 'data-stage="seed"' in render_tree(0)
+        assert 'data-stage="sprout"' in render_tree(5)
+        assert 'data-stage="seedling"' in render_tree(20)
+        assert 'data-stage="sapling"' in render_tree(35)
         assert 'data-stage="young"' in render_tree(50)
+        assert 'data-stage="established"' in render_tree(65)
         assert 'data-stage="mature"' in render_tree(85)
         assert 'data-stage="bloom"' in render_tree(100)
 
-    def test_bloom_has_blossoms_sprout_does_not(self):
+    def test_bloom_has_blossoms_seed_does_not(self):
         assert render_tree(100).count('fill="#fff"') >= 4
         assert 'fill="#fff"' not in render_tree(0)
+
+    def test_trunk_is_a_filled_path_with_branches_when_grown(self):
+        grown = render_tree(80)
+        assert 'fill="#78716c"' in grown  # tapered filled trunk, not a stroked line
+        assert grown.count("stroke-linecap") >= 4  # branches + roots + ground
 
     def test_deterministic_per_seed(self):
         assert render_tree(60, seed=7) == render_tree(60, seed=7)
@@ -32,8 +40,8 @@ class TestTreeStages:
 
     def test_clamps_out_of_range(self):
         assert 'data-stage="bloom"' in render_tree(150)
-        assert 'data-stage="sprout"' in render_tree(-5)
-        assert 'data-stage="sprout"' in render_tree(None)
+        assert 'data-stage="seed"' in render_tree(-5)
+        assert 'data-stage="seed"' in render_tree(None)
 
 
 class TestTreeSurfaces:

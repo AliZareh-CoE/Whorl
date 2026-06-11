@@ -119,6 +119,13 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     Redraw the project tree as a more polished, professional SVG illustration with more
     distinct phases than the current five — richer trunk/branch structure, layered foliage,
     smoother stage transitions; keep it server-rendered, deterministic, and accent-colored.
+    ~~Slice 1 (2026-06-11, cycle 51): full redraw — 8 stages (seed→sprout→seedling→sapling→
+    young→established→mature→bloom), filled tapered curved trunk with per-project lean,
+    staggered tapered branches with foliage tufts at their tips, 3-depth-layer canopy
+    (back/mid/front opacities) densifying with progress, soft ground mound + roots from 45%,
+    white-and-gold blossoms at 100%; everything interpolates with percent; verified across
+    all 8 stages in a rendered strip + on overview/grove.~~ Remaining: gentle CSS sway on
+    bloom, seasonal variants (pairs with Backlog #50 grove seasons).
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -275,3 +282,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 55. Pin a search — star a recent search to keep it permanently at the top of the recents dropdown (idea added by cycle 48)
 56. Pet speech variety pack — seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)
 57. Search page budget — /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
+58. Tree tooltips — hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)

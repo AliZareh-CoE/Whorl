@@ -1,26 +1,42 @@
 <svg viewBox="0 0 100 100" width="{{ size }}" height="{{ size }}" role="img"
      aria-label="Project tree — {{ stage }}, {{ percent }}% complete" data-stage="{{ stage }}"
      class="overflow-visible">
-  <!-- ground -->
-  <line x1="22" y1="92" x2="78" y2="92" stroke="#d6d3d1" stroke-width="1.5" stroke-linecap="round"/>
-  {% if stage == "sprout" %}
-    <path d="M50 92 Q50 84 50 {{ canopy_y }}" stroke="#78716c" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <path d="M50 {{ canopy_y }} Q44 78 42 74" stroke="{{ color }}" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <circle cx="42" cy="74" r="3.5" fill="{{ color }}" opacity="0.55"/>
-    <path d="M50 {{ canopy_y }} Q56 80 58 77" stroke="{{ color }}" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <circle cx="58" cy="77" r="3" fill="{{ color }}" opacity="0.45"/>
+  <!-- ground: a soft mound, not a hard line -->
+  <path d="M20 {{ ground_y }} Q50 90.2 80 {{ ground_y }}" stroke="#d6d3d1" stroke-width="1.5"
+        fill="none" stroke-linecap="round"/>
+
+  {% if stage == "seed" %}
+    <ellipse cx="50" cy="{{ ground_y }}" rx="2.6" ry="1.8" fill="#a8a29e"/>
+    <path d="M50 90.5 Q50.5 88.5 52 87.8" stroke="{{ color }}" stroke-width="1.2"
+          fill="none" stroke-linecap="round" opacity="0.7"/>
+  {% elif stage == "sprout" or stage == "seedling" %}
+    <path d="M50 {{ ground_y }} Q49.6 88 50 {{ stem_top }}" stroke="#78716c" stroke-width="1.8"
+          fill="none" stroke-linecap="round"/>
+    <path d="M50 {{ leaf_l }} Q45 {{ leaf_l|add:-2 }} 43.5 {{ leaf_l|add:-4 }} Q47 {{ leaf_l|add:-4 }} 50 {{ leaf_l }}"
+          fill="{{ color }}" opacity="0.5"/>
+    <path d="M50 {{ leaf_r }} Q55 {{ leaf_r|add:-2 }} 56.5 {{ leaf_r|add:-3 }} Q53 {{ leaf_r|add:-4 }} 50 {{ leaf_r }}"
+          fill="{{ color }}" opacity="0.4"/>
+    {% for circle in puff %}
+      <circle cx="{{ circle.cx }}" cy="{{ circle.cy }}" r="{{ circle.r }}"
+              fill="{{ color }}" opacity="{{ circle.o }}"/>
+    {% endfor %}
   {% else %}
-    <path d="M50 92 Q49 {{ canopy_y|add:10 }} 50 {{ canopy_y }}" stroke="#78716c"
-          stroke-width="{% if stage == 'sapling' %}2.5{% else %}4{% endif %}" fill="none" stroke-linecap="round"/>
-    {% if branch %}
-      <path d="M50 {{ canopy_y|add:14 }} Q42 {{ canopy_y|add:8 }} 38 {{ canopy_y|add:4 }}" stroke="#78716c" stroke-width="2" fill="none" stroke-linecap="round"/>
-      <path d="M50 {{ canopy_y|add:18 }} Q58 {{ canopy_y|add:12 }} 63 {{ canopy_y|add:8 }}" stroke="#78716c" stroke-width="2" fill="none" stroke-linecap="round"/>
-    {% endif %}
+    {% for root in roots %}
+      <path d="{{ root }}" stroke="#78716c" stroke-width="1.1" fill="none"
+            stroke-linecap="round" opacity="0.65"/>
+    {% endfor %}
+    <path d="{{ trunk_path }}" fill="#78716c"/>
+    {% for branch in branches %}
+      <path d="{{ branch.d }}" stroke="#78716c" stroke-width="{{ branch.w }}" fill="none"
+            stroke-linecap="round"/>
+    {% endfor %}
     {% for circle in foliage %}
-      <circle cx="{{ circle.cx }}" cy="{{ circle.cy }}" r="{{ circle.r }}" fill="{{ color }}" opacity="{{ circle.opacity }}"/>
+      <circle cx="{{ circle.cx }}" cy="{{ circle.cy }}" r="{{ circle.r }}"
+              fill="{{ color }}" opacity="{{ circle.o }}"/>
     {% endfor %}
     {% for blossom in blossoms %}
-      <circle cx="{{ blossom.cx }}" cy="{{ blossom.cy }}" r="1.6" fill="#fff" opacity="0.9"/>
+      <circle cx="{{ blossom.cx }}" cy="{{ blossom.cy }}" r="1.5" fill="#fff" opacity="0.9"/>
+      <circle cx="{{ blossom.cx }}" cy="{{ blossom.cy }}" r="0.6" fill="#fbbf24" opacity="0.9"/>
     {% endfor %}
   {% endif %}
 </svg>
