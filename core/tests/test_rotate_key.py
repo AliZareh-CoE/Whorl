@@ -14,9 +14,8 @@ def test_rotates_existing_key_preserving_other_lines(tmp_path, capsys):
     assert "old-key-value" not in content
     assert "DEBUG=true" in content
     assert "DATABASE_URL=postgres://x" in content
-    new_key = [l for l in content.splitlines() if l.startswith("ATLAS_API_KEY=")][0].split("=", 1)[
-        1
-    ]
+    key_line = next(line for line in content.splitlines() if line.startswith("ATLAS_API_KEY="))
+    new_key = key_line.split("=", 1)[1]
     assert len(new_key) >= 40
 
 
