@@ -229,3 +229,35 @@ class TestHistoryChart:
         registry.run_bot("retraction-watch")
         response = client_logged_in.get(reverse("bots:automations"))
         assert "bg-red-400" in response.content.decode()
+
+
+class TestWeeklyDigestBot:
+    def test_posts_last_weeks_summary(self):
+        import datetime
+
+        from django.utils import timezone
+
+        from bots import registry
+        from notes.models import QuickCapture
+
+        # a milestone completed LAST week (Mon-Sun before this one)
+        last_week = timezone.now() - datetime.timedelta(days=8)
+        from plans.tests.factories import MilestoneFactory
+
+        MilestoneFactory(title="Done last week", completed_at=last_week)
+        result = registry.run_weekly_digest()
+        assert "milestones" in result
+        assert QuickCapture.objects.filter(text__contains="Last week").exists()
+
+    def test_quiet_week_posts_nothing(self):
+        from bots import registry
+        from notes.models import QuickCapture
+
+        result = registry.run_weekly_digest()
+        assert "quiet" in result
+        assert not QuickCapture.objects.filter(text__contains="Last week").exists()
+
+    def test_registered_in_bots(self):
+        from bots.registry import BOTS
+
+        assert "weekly-digest" in BOTS

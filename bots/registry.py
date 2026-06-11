@@ -71,6 +71,29 @@ def run_retraction_watch() -> str:
     return f"{references.count()} DOI(s) checked, {len(findings)} retraction(s) flagged."
 
 
+def run_weekly_digest() -> str:
+    """Drop a skimmable 'last week' summary into the inbox (Owner idea #94).
+
+    Reuses the weekly-review data layer; runs Monday-ish for the week just ended.
+    """
+    from core.reviews import weekly_review
+
+    review = weekly_review(weeks_back=1)
+    counts = {
+        "papers read": len(review["papers_read"]),
+        "notes": len(review["notes_written"]),
+        "milestones": len(review["milestones_done"]),
+        "decisions": len(review["decisions"]),
+        "experiments": len(review["experiments"]),
+    }
+    total = sum(counts.values())
+    if total == 0:
+        return "quiet week — nothing to report."
+    parts = ", ".join(f"{n} {label}" for label, n in counts.items() if n)
+    _capture_once(f"📅 Last week ({review['start']}–{review['end']}): {parts}. See /review.")
+    return f"digest posted: {parts}."
+
+
 BOTS = {
     "deadline-reminder": {
         "name": "Deadline reminder",
@@ -89,6 +112,12 @@ BOTS = {
         "description": "Checks every DOI in the library against Crossref retraction "
         "notices and flags hits to the inbox.",
         "run": run_retraction_watch,
+    },
+    "weekly-digest": {
+        "name": "Weekly digest",
+        "description": "Posts a skimmable summary of last week's research — papers read, "
+        "notes, milestones, decisions — to the inbox. Pairs with the Review page.",
+        "run": run_weekly_digest,
     },
 }
 

@@ -464,6 +464,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 91. Sample PDF for a to_read paper in seed_demo — so the PDF reader/iframe also demos in the reading-flow, not just the abstract (idea added by cycle 81)
 92. Docs site (mkdocs-material) with the MCP setup guide front and center — next open-source slice after templates (idea added by cycle 82)
 93. Comments on documents — give documents a detail surface (or a thread on the SPA doc row) so #10 covers documents too, not just note/reference/manuscript (idea added by cycle 83)
-94. Weekly review digest bot — an opt-in bot that drops a Friday 'this week' summary into the inbox using the new weekly_review selector (idea added by cycle 84)
+94. ~~Weekly-digest bot (done 2026-06-11, cycle 86): opt-in bot posts last week's summary (papers/notes/milestones/decisions/experiments counts) to the inbox via core/reviews.py; pairs the Review page with a Friday push. Quiet weeks post nothing.~~
 95. [REV] candidate — research timeline: a zoomable chronological view of a project (milestones, papers, notes, decisions on one time axis) for the methods/history section of a paper (idea added by cycle 85)
 96. Review → copy digest — a 'copy as markdown' button on the weekly review so it pastes into a lab journal or a Claude session (idea added by cycle 85)
+97. MCP tool for weekly review — expose weekly_review over the MCP server so Claude can pull 'what did I do this week' in a chat (idea added by cycle 86)
