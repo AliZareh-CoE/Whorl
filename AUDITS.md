@@ -352,3 +352,44 @@ storage is bounded per-manuscript by the keep-50-auto trim; revisit only if it g
 
 **Verdict:** healthy. The workbench's security-sensitive surfaces (path handling, upload,
 sandboxed compile) are guarded in depth and tested. 522 tests green, lint clean.
+
+## Audit #12 — cycle 120 (2026-06-11)
+
+Scope: everything since audit #11 (cycles 111–119) — library cite-autocomplete
+(cite-library), live cite-check, research side panel (context), MCP LaTeX tools
+(client + server + word-count @action), timeline compiles, line-anchored comments
+(manuscript_file in the Comment allowlist), arXiv submission zip, templates gallery,
+and the inline-SVG pet.
+
+**Probe sweep (`make audit`): clean.** pip-audit + npm audit zero CVEs.
+
+**Authz:** every new classic surface (cite-library, context, submission.zip) 302s to login
+for anonymous users; the new DRF surfaces (comments/manuscript_file, manuscripts/word-count,
+manuscript-files) 401 without a key and 200 with one. All scoped through
+project→manuscript→file, so cross-manuscript/cross-project ids 404 (cite-library link of a
+Reference outside the project 404s — tested cycle 111).
+
+**MCP LaTeX tools:** the AST import-constraint test still passes — client.py imports remain
+⊆ {os, datetime, httpx} (compile_and_wait polls via a datetime deadline, no time import).
+The tools wrap existing key-authed DRF endpoints; no new auth surface. The compile loop
+writes only through manuscript-files (path-validated) and reads source_text()/diagnostics —
+no shell/injection path.
+
+**Edge inputs:** context `?q=<script>` → 200, ORM-parameterized icontains (no injection);
+cite-library cross-project link → 404; comment line accepts only digits (else null).
+
+**Finding & fix (1):** the submission-zip builder emitted entry names straight from
+ManuscriptFile.path. Those are validated on create, but a row injected past validation
+(admin/bulk_create) could place a `..`/absolute name in the archive (an extraction-time
+traversal risk for whoever unzips). **Fixed:** the zip now skips any entry whose path is
+absolute or contains a `..` segment, with a regression test (hostile bulk_created row →
+excluded, main.tex still present).
+
+**Performance (best of 5, all under the 50 ms bar):** cite-library 24 ms · context 24 ms ·
+submission.zip 24 ms · /pet/ 19 ms. Query budgets + MCP client tests green (26).
+
+**Pet SVG:** static template markup; the only interpolated value is the pet name in an
+aria-label (auto-escaped by Django). No XSS surface.
+
+**Verdict:** healthy — one defense-in-depth fix (zip traversal guard), everything else
+clean. 545 tests green, lint clean.

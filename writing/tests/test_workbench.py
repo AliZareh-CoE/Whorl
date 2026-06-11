@@ -741,3 +741,26 @@ class TestSubmissionZip:
         resp = client_logged_in.get(f"/projects/{m.project.slug}/writing/{m.pk}/submission.zip")
         zf = zipfile.ZipFile(io.BytesIO(resp.getvalue()))
         assert zf.read("references.bib") == b"@misc{mine}"  # not clobbered
+
+
+class TestZipTraversalGuard:
+    """AUDIT #12: the submission zip never emits a traversal/absolute entry name."""
+
+    def test_hostile_path_row_excluded_from_zip(self, client_logged_in):
+        import io
+        import zipfile
+
+        from writing.models import ManuscriptFile
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(manuscript=m, path="main.tex", content="ok", is_main=True)
+        # inject a hostile row past validation
+        ManuscriptFile.objects.bulk_create(
+            [ManuscriptFile(manuscript=m, path="safe.tex", kind="tex", content="x")]
+        )
+        ManuscriptFile.objects.filter(manuscript=m, path="safe.tex").update(path="../escape.tex")
+        resp = client_logged_in.get(f"/projects/{m.project.slug}/writing/{m.pk}/submission.zip")
+        names = zipfile.ZipFile(io.BytesIO(resp.getvalue())).namelist()
+        assert "main.tex" in names
+        assert not any(".." in n or n.startswith("/") for n in names)

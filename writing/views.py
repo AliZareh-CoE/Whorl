@@ -238,9 +238,15 @@ def export_submission_zip(request, slug, pk):
     from .services import export_manuscript_bib
 
     manuscript, _ = _workbench_objects(slug, pk)
+
+    def _safe(path: str) -> bool:
+        # AUDIT #12: zip entries derive from validated paths, but defend in depth against
+        # a row injected past validation — never emit a traversal/absolute archive name.
+        return not (path.startswith("/") or path.startswith("\\") or ".." in path.split("/"))
+
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        files = list(manuscript.files.all())
+        files = [f for f in manuscript.files.all() if _safe(f.path)]
         if files:
             for f in files:
                 if f.kind == "asset" and f.asset:

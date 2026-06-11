@@ -3,8 +3,9 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: AUDIT #12 [cycle 120])
-- **Last completed slice (cycle 119, Owner idea #27, UI/UX):** REAL pet — replaced the emoji with a hand-drawn inline-SVG owl, distinct per growth stage (egg→hatchling→scholar→sage w/ cap+sparkle), shared by classic sidebar + /pet/ + React layout (PetSvg.tsx); CSS breathing/blink/sparkle/hop, sleeping closes eyes. Browser-verified all stages + in-app. NEW owner #26 Overleaf-UI plan saved to docs/plans/ for cycles 121+.
+- **Slice in progress:** — (next: Owner idea #26 Overleaf-UI parity cycle 1 [cycle 121])
+- **Last completed slice (cycle 120, AUDIT #12):** reviewed cycles 111-119 (cite-library, context, MCP LaTeX tools + word-count action, line comments, arXiv zip, pet SVG). Sweep clean, all surfaces authz-scoped, MCP AST constraint holds, timings <50ms, 0 CVEs. ONE defense-in-depth fix: the submission-zip now skips traversal/absolute entry names (+regression test). Report in AUDITS.md.
+- **Prior slice (cycle 119, Owner idea #27, UI/UX):** REAL pet — replaced the emoji with a hand-drawn inline-SVG owl, distinct per growth stage (egg→hatchling→scholar→sage w/ cap+sparkle), shared by classic sidebar + /pet/ + React layout (PetSvg.tsx); CSS breathing/blink/sparkle/hop, sleeping closes eyes. Browser-verified all stages + in-app. NEW owner #26 Overleaf-UI plan saved to docs/plans/ for cycles 121+.
 - **Prior slice (cycle 117, beyond-Overleaf B6):** line-anchored editor comments — Comment model gains manuscript_file target with page=line; 💬 gutter dot on commented lines, click either gutter → line thread popover (⌘-Enter posts). Closes Owner idea #10 for the editor. Browser-verified comment→dot→reopen→append. 2 tests.
 - **Prior slice (cycle 116, beyond-Overleaf B5):** manuscript writing on the research timeline — latest compile + labeled versions become dated timeline events (kind manuscript_compiled, teal dot), not the 50 auto-snapshots. Query budget held. Live-verified the compile event appears on the timeline API + SPA. 1 test.
 - **NEW Owner idea #25 (whitespace/density):** stop centering in narrow max-w-5xl; use full width + tighter rhythm like Overleaf. Standing UI rule; queued UI/UX cycles will sweep dashboard/overview/plan/tables/board.
