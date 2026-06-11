@@ -39,6 +39,46 @@ class AtlasViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(**{self.project_filter: slug})
         return queryset
 
+    # --- conditional GETs: cheap ETags so MCP/scripted polling can 304 ---
+
+    def _list_etag(self):
+        import hashlib
+
+        from django.db.models import Count, Max
+
+        try:
+            agg = self.filter_queryset(self.get_queryset()).aggregate(
+                n=Count("pk"), latest=Max("updated_at")
+            )
+        except Exception:
+            return None
+        raw = f"{self.request.get_full_path()}|{agg['n']}|{agg['latest']}"
+        return f'W/"{hashlib.md5(raw.encode()).hexdigest()}"'
+
+    def _conditional(self, request, etag, render):
+        if etag and request.headers.get("If-None-Match") == etag:
+            response = Response(status=status.HTTP_304_NOT_MODIFIED)
+        else:
+            response = render()
+        if etag:
+            response["ETag"] = etag
+        return response
+
+    def list(self, request, *args, **kwargs):
+        return self._conditional(
+            request,
+            self._list_etag(),
+            lambda: super(AtlasViewSet, self).list(request, *args, **kwargs),
+        )
+
+    def retrieve(self, request, *args, **kwargs):
+        obj = self.get_object()
+        updated = getattr(obj, "updated_at", None)
+        etag = f'W/"{obj.pk}-{updated.timestamp()}"' if updated else None
+        return self._conditional(
+            request, etag, lambda: super(AtlasViewSet, self).retrieve(request, *args, **kwargs)
+        )
+
 
 class ProjectViewSet(AtlasViewSet):
     queryset = Project.objects.all()

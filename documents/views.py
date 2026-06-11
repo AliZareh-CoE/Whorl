@@ -47,7 +47,10 @@ def documents_index(request, slug):
 
 def document_download(request, slug, pk):
     document = get_object_or_404(Document, pk=pk, project__slug=slug)
-    return FileResponse(document.file.open("rb"), as_attachment=True)
+    response = FileResponse(document.file.open("rb"), as_attachment=True)
+    # files are immutable once uploaded (edits create new files) — let browsers cache
+    response["Cache-Control"] = "private, max-age=86400"
+    return response
 
 
 def _index_url(project):

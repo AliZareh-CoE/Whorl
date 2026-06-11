@@ -11,7 +11,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    should leave the app faster or no slower. ~~First slice (2026-06-10, cycle 4): N+1 audit —
    /library/ 49→6 queries, overview 17→13, plan 11→7; aggregate-based progress roll-up;
    heatmap day-aggregated in DB + 10-min cache; query-budget regression tests.~~ Remaining:
-   conditional GETs/ETags (Backlog #11), fragment caching if pages ever feel slow.
+   ~~conditional GETs/ETags (2026-06-11, cycle 21): weak ETags on all API list/retrieve
+   endpoints (count+max-updated aggregate — 304s skip serialization entirely, verified live
+   0-byte revalidation), Cache-Control on document downloads.~~ Fragment caching only if
+   pages ever feel slow.
 2. **Security hardening.** Recurring concern alongside performance. ~~First slice
    (2026-06-10, cycle 5): cache-based login throttle (5 fails → 5-min lockout, 429, verified
    live), 50 MB upload cap + .pdf-only reference attachments enforced in forms AND API
@@ -175,4 +178,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 24. Upload progress bars per file for large uploads (idea added by cycle 18)
 25. Search suggestion keyboard navigation (↑/↓/Enter) + recent-searches memory (idea added by cycle 19)
 26. GIN trigram indexes on searched title fields once data grows (idea added by cycle 20 audit)
-27. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+27. Last-Modified on media files + ETag support in the MCP client cache (idea added by cycle 21)
+28. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
