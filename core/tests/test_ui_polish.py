@@ -84,3 +84,25 @@ class TestTouchTargets:
         content = response.content.decode()
         # 20px visual + 10px pseudo-element padding per side ≈ 40px tap target
         assert content.count("after:-inset-2.5") >= 2  # milestone + task buttons
+
+
+class TestSuggestKeyboardNav:
+    def test_suggest_partial_has_listbox_roles(self, client_logged_in):
+        from projects.tests.factories import ProjectFactory
+
+        ProjectFactory(name="Attention pilot")
+        response = client_logged_in.get("/search/suggest/?q=attention")
+        content = response.content.decode()
+        assert 'role="listbox"' in content
+        assert content.count('role="option"') >= 2  # result + the all-results row
+        assert 'class="suggest-item' in content
+
+    def test_combobox_wiring_in_base_template(self, client_logged_in):
+        from django.urls import reverse as r
+
+        response = client_logged_in.get(r("core:dashboard"))
+        content = response.content.decode()
+        assert 'role="combobox"' in content
+        assert 'aria-controls="suggest-listbox"' in content
+        assert "ArrowDown" in content
+        assert "aria-activedescendant" in content

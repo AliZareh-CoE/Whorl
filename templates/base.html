@@ -28,6 +28,7 @@
       <form action="{% url 'core:search' %}" method="get" class="relative mb-4">
         <input type="search" name="q" id="global-search" placeholder="Search…  ( / )" value="{{ request.GET.q|default:'' }}"
                aria-label="Search everything" autocomplete="off"
+               role="combobox" aria-autocomplete="list" aria-controls="suggest-listbox" aria-expanded="false"
                hx-get="{% url 'core:search_suggest' %}" hx-trigger="keyup changed delay:250ms"
                hx-target="#search-suggest" hx-swap="innerHTML"
                class="w-full rounded border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm focus:border-indigo-600 focus:bg-white focus:outline-none">
@@ -125,6 +126,52 @@
       void pet.offsetWidth; // restart the animation on rapid check-offs
       pet.classList.add("pet-hop");
     });
+    // Keyboard navigation for the search suggestions (combobox + listbox pattern)
+    (() => {
+      const input = document.getElementById("global-search");
+      const box = document.getElementById("search-suggest");
+      if (!input || !box) return;
+      let active = -1;
+      const items = () => [...box.querySelectorAll(".suggest-item")];
+      function setActive(list, idx) {
+        list.forEach((el, i) => {
+          el.classList.toggle("bg-stone-100", i === idx);
+          el.setAttribute("aria-selected", i === idx ? "true" : "false");
+        });
+        active = idx;
+        if (idx >= 0 && list[idx]) {
+          input.setAttribute("aria-activedescendant", list[idx].id);
+          list[idx].scrollIntoView({ block: "nearest" });
+        } else {
+          input.removeAttribute("aria-activedescendant");
+        }
+      }
+      input.addEventListener("keydown", (e) => {
+        const list = items();
+        if (!list.length) return;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setActive(list, (active + 1) % list.length);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setActive(list, (active - 1 + list.length) % list.length);
+        } else if (e.key === "Enter" && active >= 0) {
+          e.preventDefault();
+          list[active].click();
+        } else if (e.key === "Escape") {
+          e.stopPropagation(); // first Escape only clears the list; the next blurs
+          box.replaceChildren();
+          setActive([], -1);
+          input.setAttribute("aria-expanded", "false");
+        }
+      });
+      document.body.addEventListener("htmx:afterSwap", (e) => {
+        if (e.target === box) {
+          setActive(items(), -1);
+          input.setAttribute("aria-expanded", items().length ? "true" : "false");
+        }
+      });
+    })();
   </script>
 </body>
 </html>
