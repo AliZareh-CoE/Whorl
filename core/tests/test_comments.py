@@ -129,3 +129,43 @@ class TestPageAnchoredComments:
             {"body": "no page", "page": "abc"},
         )
         assert comments_for(ref).get().page is None
+
+
+class TestCommentMentions:
+    def test_wiki_link_resolves_to_unique_note(self):
+        from core.mentions import resolve_mentions
+        from notes.tests.factories import NoteFactory
+
+        note = NoteFactory(title="Pilot Plan")
+        out = resolve_mentions("see [[Pilot Plan]] for details")
+        assert out == f"see [Pilot Plan]({note.get_absolute_url()}) for details"
+
+    def test_missing_or_ambiguous_titles_left_as_typed(self):
+        from core.mentions import resolve_mentions
+        from notes.tests.factories import NoteFactory
+
+        assert resolve_mentions("[[No Such Note]]") == "[[No Such Note]]"
+        NoteFactory(title="Twin")
+        NoteFactory(title="Twin")  # second project — ambiguous
+        assert resolve_mentions("[[Twin]]") == "[[Twin]]"
+
+    def test_cite_key_resolves_to_reference(self):
+        from core.mentions import resolve_mentions
+        from literature.tests.factories import ReferenceFactory
+
+        ref = ReferenceFactory(bibtex_key="lecun2015deep")
+        out = resolve_mentions("ties into @lecun2015deep nicely")
+        assert out == f"ties into [@lecun2015deep]({ref.get_absolute_url()}) nicely"
+        assert resolve_mentions("@nobody2099nothing") == "@nobody2099nothing"
+        assert resolve_mentions("mail me a@b") == "mail me a@b"  # not a mention
+
+    def test_mentions_render_as_links_in_comment_thread(self, client_logged_in):
+        from notes.tests.factories import NoteFactory
+
+        target = NoteFactory(title="Lab Meeting")
+        linked = NoteFactory(project=target.project, title="Pilot Plan")
+        Comment.objects.create(target=target, body="moved to [[Pilot Plan]]")
+        page = client_logged_in.get(target.get_absolute_url())
+        content = page.content.decode()
+        assert f'<a href="{linked.get_absolute_url()}"' in content  # nh3 appends rel=…
+        assert "[[Pilot Plan]]" not in content

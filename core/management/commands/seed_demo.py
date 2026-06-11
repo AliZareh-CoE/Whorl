@@ -379,6 +379,17 @@ class Command(BaseCommand):
         hub.references.set(corpus_refs[:3])
         strategic.references.set(corpus_refs[3:5])
 
+        from core.models import Comment
+
+        if not Comment.objects.filter(object_id=hub.pk).exists():
+            Comment.objects.create(
+                target=hub,
+                body=(
+                    f"Chunking effect in [[Pilot observations]] might explain the "
+                    f"outlier — see @{corpus_refs[0].bibtex_key} for a similar pattern."
+                ),
+            )
+
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
         )
