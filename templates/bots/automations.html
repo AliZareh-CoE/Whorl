@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Automations{% endblock %}
+
+{% block breadcrumbs %}Automations{% endblock %}
+
+{% block content %}
+<h1 class="mb-2 text-2xl font-semibold tracking-tight">Automations</h1>
+<p class="mb-6 text-sm text-stone-500">
+  Bots that handle routine work and report to your <a href="{% url 'notes:inbox' %}" class="text-indigo-600 hover:underline">Inbox</a>.
+  Enabled bots run daily at 06:00 (worker required: <code class="rounded bg-stone-100 px-1">manage.py run_huey</code>).
+</p>
+
+<div class="max-w-3xl space-y-3">
+  {% for row in rows %}
+    <article class="rounded border border-stone-200 bg-white px-5 py-4">
+      <div class="flex items-center gap-3">
+        <h2 class="font-medium">{{ row.spec.name }}</h2>
+        <span class="rounded px-2 py-0.5 text-xs {% if row.state.enabled %}bg-green-50 text-green-700{% else %}bg-stone-100 text-stone-500{% endif %}">
+          {% if row.state.enabled %}On{% else %}Off{% endif %}
+        </span>
+        <span class="ml-auto"></span>
+        <form method="post" action="{% url 'bots:run_now' row.slug %}">
+          {% csrf_token %}
+          <button type="submit" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400">Run now</button>
+        </form>
+        <form method="post" action="{% url 'bots:toggle' row.slug %}">
+          {% csrf_token %}
+          <button type="submit" class="rounded px-3 py-1 text-xs font-medium {% if row.state.enabled %}border border-stone-300 bg-white text-stone-600 hover:border-stone-400{% else %}bg-indigo-600 text-white hover:bg-indigo-700{% endif %}">
+            {% if row.state.enabled %}Disable{% else %}Enable{% endif %}
+          </button>
+        </form>
+      </div>
+      <p class="mt-1 text-sm text-stone-500">{{ row.spec.description }}</p>
+      <p class="mt-2 text-xs text-stone-400">
+        {% if row.state.last_run_at %}
+          Last run {{ row.state.last_run_at|date:"Y-m-d H:i" }} — {{ row.state.last_result }}
+        {% else %}Never run.{% endif %}
+      </p>
+    </article>
+  {% endfor %}
+</div>
+{% endblock %}

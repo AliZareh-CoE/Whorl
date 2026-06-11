@@ -32,12 +32,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 6. **Prompt gallery.** ~~Done (2026-06-11, cycle 11): `prompts` app — searchable, taggable
    gallery with one-click copy; sidebar entry; `/api/v1/prompts/` CRUD+search; MCP tools
    `list_prompts` / `get_prompt`; two seeded examples.~~
-7. **Bots / automations.** Background helpers that handle routine work: e.g. a citation-sync
-   bot (periodic OpenAlex refresh), a retraction-watch bot (weekly bib check with findings to
-   the inbox), a deadline-reminder bot (inbox capture N days before due dates), an inbox-triage
-   suggester. Built on huey periodic tasks with an "Automations" page to enable/disable each
-   bot and see its last run — and, where text understanding is needed, callable through the
-   MCP/Claude side.
+7. **Bots / automations.** ~~First slice (2026-06-11, cycle 12): `bots` app — registry +
+   per-bot state rows, daily 06:00 huey periodic tick over enabled bots, Automations page
+   (enable/disable, last run/result, Run now); deadline-reminder bot (milestones ≤3 days or
+   overdue, manuscripts ≤7 days → deduped inbox captures, verified live) and retraction-watch
+   bot (Crossref sweep → inbox flags). Bots report to the inbox; failures recorded, never
+   crash the scheduler.~~ Remaining: citation-sync bot, inbox-triage suggester, MCP-side bots.
 8. **Open-source readiness.** Goal: a public GitHub repo worth thousands of stars. Keep a
    living brainstorm in `OPENSOURCE.md` (positioning, killer demo GIFs, one-command install,
    docs site, LICENSE/CONTRIBUTING, comparison table vs Zotero/Notion/Overleaf, launch plan
@@ -152,4 +152,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 15. Responsive layout — collapsible sidebar + mobile-friendly tables (next UI/UX cycle candidate; idea added by cycle 9)
 16. `make doctor` — one command that checks services, migrations, voice model, worker freshness, and runs the query audit; useful for self-hosters (idea added by cycle 10, from the audit)
 17. Prompt variables — `{{placeholders}}` in saved prompts with a small fill-in form before copying (idea added by cycle 11)
-18. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+18. Bot run history — keep the last N results per bot and chart reminders-over-time on the Automations page (idea added by cycle 12)
+19. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
