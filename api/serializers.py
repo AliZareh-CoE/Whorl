@@ -242,3 +242,11 @@ class NoteSerializer(serializers.ModelSerializer):
         model = Note
         fields = ["id", "project", "title", "body", "references", "created_at", "updated_at"]
         extra_kwargs = {"references": {"required": False}}
+
+
+class PromptSerializer(serializers.ModelSerializer):
+    class Meta:
+        from prompts.models import Prompt
+
+        model = Prompt
+        fields = ["id", "title", "body", "tags", "created_at", "updated_at"]

@@ -16,6 +16,7 @@ from notes import services as note_services
 from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
+from prompts.models import Prompt
 
 from . import serializers
 from .authentication import APIKeyAuthentication
@@ -316,6 +317,22 @@ class QuickCaptureViewSet(AtlasViewSet):
     queryset = QuickCapture.objects.all()
     serializer_class = serializers.QuickCaptureSerializer
     project_filter = "project__slug"
+
+
+class PromptViewSet(AtlasViewSet):
+    queryset = Prompt.objects.all()
+    serializer_class = serializers.PromptSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        query = self.request.query_params.get("q")
+        if query:
+            from django.db.models import Q
+
+            queryset = queryset.filter(
+                Q(title__icontains=query) | Q(body__icontains=query) | Q(tags__icontains=query)
+            )
+        return queryset
 
 
 class NoteViewSet(AtlasViewSet):

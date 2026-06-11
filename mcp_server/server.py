@@ -85,5 +85,17 @@ def run_bib_check(project: str, network: bool = False) -> dict:
     return client.run_bib_check(project, network)
 
 
+@mcp.tool()
+def list_prompts(query: str = "") -> dict:
+    """The owner's saved prompt gallery; optionally filter by a search query."""
+    return client.list_prompts(query)
+
+
+@mcp.tool()
+def get_prompt(prompt_id: int) -> dict:
+    """Fetch one saved prompt (full body) by id from list_prompts."""
+    return client.get_prompt(prompt_id)
+
+
 if __name__ == "__main__":
     mcp.run()

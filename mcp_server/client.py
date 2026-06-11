@@ -99,3 +99,12 @@ def run_bib_check(slug: str, network: bool = False):
     return _request(
         "GET", f"/projects/{slug}/bib-report/", params={"network": "1" if network else "0"}
     )
+
+
+def list_prompts(query: str = ""):
+    params = {"q": query} if query else None
+    return _request("GET", "/prompts/", params=params)
+
+
+def get_prompt(prompt_id: int):
+    return _request("GET", f"/prompts/{prompt_id}/")

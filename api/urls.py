@@ -19,6 +19,7 @@ router.register("references", views.ReferenceViewSet)
 router.register("project-references", views.ProjectReferenceViewSet)
 router.register("quick-capture", views.QuickCaptureViewSet)
 router.register("notes", views.NoteViewSet)
+router.register("prompts", views.PromptViewSet)
 
 app_name = "api"
 

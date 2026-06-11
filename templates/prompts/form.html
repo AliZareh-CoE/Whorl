@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit prompt{% else %}New prompt{% endif %}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'prompts:gallery' %}" class="hover:underline">Prompts</a> /
+{% if object %}Edit{% else %}New{% endif %}
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-6 text-2xl font-semibold tracking-tight">{% if object %}Edit prompt{% else %}Save a prompt{% endif %}</h1>
+<form method="post" class="max-w-2xl space-y-4">
+  {% csrf_token %}
+  {% include "_fields.html" %}
+  <div class="flex items-center gap-3 pt-2">
+    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+    <a href="{% url 'prompts:gallery' %}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+    {% if object %}
+      <span class="ml-auto"></span>
+      <a href="{% url 'prompts:delete' object.pk %}" class="text-sm text-red-600 hover:underline">Delete…</a>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

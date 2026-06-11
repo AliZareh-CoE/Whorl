@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "notes",
     "writing",
     "research",
+    "prompts",
     "api",
 ]
 

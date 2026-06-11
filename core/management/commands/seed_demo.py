@@ -10,6 +10,7 @@ from notes.models import Note, QuickCapture
 from notes.services import sync_note_links
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
+from prompts.models import Prompt
 from research.models import Dataset, Evidence, ExperimentEntry, Hypothesis
 from writing.models import Manuscript, ManuscriptReference, SubmissionEvent
 
@@ -488,6 +489,22 @@ class Command(BaseCommand):
                 "description": "Pilot dual-task trials, 9 participants, pre-exclusions.",
             },
         )
+
+        for title, body, tags in [
+            (
+                "Summarize paper for the lit matrix",
+                "Summarize the attached paper in 5 bullets: claim, method, sample, key result, "
+                "limitation. Then say which of my review-matrix themes it speaks to.",
+                "lit-review, summarize",
+            ),
+            (
+                "Reviewer-2 pass",
+                "Act as a tough but fair Reviewer 2 on the draft below. List the three weakest "
+                "points with concrete fixes. Be specific about stats and framing.",
+                "writing, review",
+            ),
+        ]:
+            Prompt.objects.update_or_create(title=title, defaults={"body": body, "tags": tags})
 
         self.stdout.write(
             self.style.SUCCESS(

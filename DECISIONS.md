@@ -29,9 +29,9 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    cycle 8): RAKE-style local keyword extraction in `core/keywords.py` (no deps, no models);
    keyword chips on reference + note pages linking into search; "Suggested tags" on document
    edit with one-click create-and-attach.~~ Remaining: summarization, search-side NLP (#15).
-6. **Prompt gallery.** A library of saved prompts (title, body, tags, copy button) for reuse
-   with Claude or any LLM — global like the reference library, searchable, exposed via
-   API/MCP so Claude can fetch the owner's prompts too.
+6. **Prompt gallery.** ~~Done (2026-06-11, cycle 11): `prompts` app — searchable, taggable
+   gallery with one-click copy; sidebar entry; `/api/v1/prompts/` CRUD+search; MCP tools
+   `list_prompts` / `get_prompt`; two seeded examples.~~
 7. **Bots / automations.** Background helpers that handle routine work: e.g. a citation-sync
    bot (periodic OpenAlex refresh), a retraction-watch bot (weekly bib check with findings to
    the inbox), a deadline-reminder bot (inbox capture N days before due dates), an inbox-triage
@@ -151,4 +151,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 14. Keyword chips → reading-queue filters and a project-level keyword cloud (idea added by cycle 8, from the NLP work)
 15. Responsive layout — collapsible sidebar + mobile-friendly tables (next UI/UX cycle candidate; idea added by cycle 9)
 16. `make doctor` — one command that checks services, migrations, voice model, worker freshness, and runs the query audit; useful for self-hosters (idea added by cycle 10, from the audit)
-17. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+17. Prompt variables — `{{placeholders}}` in saved prompts with a small fill-in form before copying (idea added by cycle 11)
+18. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
