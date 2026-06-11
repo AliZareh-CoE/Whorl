@@ -753,3 +753,30 @@ class CommentsAPIView(APIView):
             {"id": comment.pk, "body": comment.body, "created_at": comment.created_at.isoformat()},
             status=201,
         )
+
+
+class WeeklyReviewAPIView(APIView):
+    """This week's research activity for the SPA review page (Owner idea #84)."""
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="project", type=str, required=False),
+            OpenApiParameter(name="weeks_back", type=int, required=False),
+        ],
+        description="Papers read, notes written, milestones done, decisions, and experiments "
+        "in a week window, optionally scoped to one project.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from core.reviews import weekly_review
+        from projects.models import Project
+
+        project = None
+        slug = request.query_params.get("project")
+        if slug:
+            project = get_object_or_404(Project, slug=slug)
+        try:
+            weeks_back = max(0, min(52, int(request.query_params.get("weeks_back", 0))))
+        except ValueError:
+            weeks_back = 0
+        return Response(weekly_review(project=project, weeks_back=weeks_back))
