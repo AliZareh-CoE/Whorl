@@ -186,3 +186,27 @@ class TestFileHandlingUpgrades:
             reverse("documents:move", args=[doc.project.slug, doc.pk]), {"folder": foreign.pk}
         )
         assert response.status_code == 404
+
+
+class TestUploadProgressUI:
+    def test_index_has_single_clean_upload_script(self, client_logged_in):
+        """Regression: the upload script was once duplicated into the title and
+        breadcrumbs blocks, redeclaring consts and breaking drag-and-drop."""
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        response = client_logged_in.get(reverse("documents:index", args=[project.slug]))
+        content = response.content.decode()
+        assert content.count("const dropOverlay") == 1
+        assert content.count('id="multi-file-input"') == 1
+        title = content.split("<title>")[1].split("</title>")[0]
+        assert "<script" not in title and "input" not in title
+
+    def test_index_renders_per_file_progress_markup(self, client_logged_in):
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        response = client_logged_in.get(reverse("documents:index", args=[project.slug]))
+        content = response.content.decode()
+        assert "upload-bar" in content
+        assert "xhr.upload.addEventListener" in content

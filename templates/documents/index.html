@@ -1,108 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Documents · {{ project.name }}<input type="file" id="multi-file-input" multiple class="hidden">
-<script>
-  const dropOverlay = document.getElementById("dropzone-overlay");
-  const statusBox = document.getElementById("upload-status");
-  const fileInput = document.getElementById("multi-file-input");
-  let dragDepth = 0;
-
-  async function uploadFiles(files) {
-    if (!files.length) return;
-    statusBox.textContent = `Uploading ${files.length} file(s)…`;
-    statusBox.classList.remove("hidden");
-    const body = new FormData();
-    for (const file of files) body.append("files", file);
-    {% if current_folder %}body.append("folder", "{{ current_folder.pk }}");{% endif %}
-    const response = await fetch("{% url 'documents:bulk_upload' project.slug %}", {
-      method: "POST",
-      headers: { "X-CSRFToken": "{{ csrf_token }}" },
-      body,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok) {
-      statusBox.textContent = `Uploaded ${data.created.length} file(s).` +
-        (data.errors?.length ? ` Skipped: ${data.errors.join("; ")}` : "");
-      setTimeout(() => location.reload(), 600);
-    } else {
-      statusBox.textContent = data.errors?.join("; ") || "Upload failed.";
-    }
-  }
-
-  document.addEventListener("dragenter", (e) => {
-    if (e.dataTransfer?.types?.includes("Files")) {
-      dragDepth++;
-      dropOverlay.classList.remove("hidden");
-      dropOverlay.classList.add("flex");
-    }
-  });
-  document.addEventListener("dragleave", () => {
-    if (--dragDepth <= 0) { dragDepth = 0; dropOverlay.classList.add("hidden"); dropOverlay.classList.remove("flex"); }
-  });
-  document.addEventListener("dragover", (e) => e.preventDefault());
-  document.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dragDepth = 0;
-    dropOverlay.classList.add("hidden");
-    dropOverlay.classList.remove("flex");
-    uploadFiles([...e.dataTransfer.files]);
-  });
-  fileInput.addEventListener("change", () => uploadFiles([...fileInput.files]));
-</script>
-{% endblock %}
+{% block title %}Documents · {{ project.name }}{% endblock %}
 
 {% block breadcrumbs %}
 <a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
 <a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Documents
-<input type="file" id="multi-file-input" multiple class="hidden">
-<script>
-  const dropOverlay = document.getElementById("dropzone-overlay");
-  const statusBox = document.getElementById("upload-status");
-  const fileInput = document.getElementById("multi-file-input");
-  let dragDepth = 0;
-
-  async function uploadFiles(files) {
-    if (!files.length) return;
-    statusBox.textContent = `Uploading ${files.length} file(s)…`;
-    statusBox.classList.remove("hidden");
-    const body = new FormData();
-    for (const file of files) body.append("files", file);
-    {% if current_folder %}body.append("folder", "{{ current_folder.pk }}");{% endif %}
-    const response = await fetch("{% url 'documents:bulk_upload' project.slug %}", {
-      method: "POST",
-      headers: { "X-CSRFToken": "{{ csrf_token }}" },
-      body,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok) {
-      statusBox.textContent = `Uploaded ${data.created.length} file(s).` +
-        (data.errors?.length ? ` Skipped: ${data.errors.join("; ")}` : "");
-      setTimeout(() => location.reload(), 600);
-    } else {
-      statusBox.textContent = data.errors?.join("; ") || "Upload failed.";
-    }
-  }
-
-  document.addEventListener("dragenter", (e) => {
-    if (e.dataTransfer?.types?.includes("Files")) {
-      dragDepth++;
-      dropOverlay.classList.remove("hidden");
-      dropOverlay.classList.add("flex");
-    }
-  });
-  document.addEventListener("dragleave", () => {
-    if (--dragDepth <= 0) { dragDepth = 0; dropOverlay.classList.add("hidden"); dropOverlay.classList.remove("flex"); }
-  });
-  document.addEventListener("dragover", (e) => e.preventDefault());
-  document.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dragDepth = 0;
-    dropOverlay.classList.add("hidden");
-    dropOverlay.classList.remove("flex");
-    uploadFiles([...e.dataTransfer.files]);
-  });
-  fileInput.addEventListener("change", () => uploadFiles([...fileInput.files]));
-</script>
 {% endblock %}
 
 {% block content %}
@@ -211,26 +113,61 @@
   const fileInput = document.getElementById("multi-file-input");
   let dragDepth = 0;
 
+  function fileRow(name) {
+    const row = document.createElement("div");
+    row.className = "flex items-center gap-3 py-1";
+    row.innerHTML =
+      '<span class="upload-name min-w-0 flex-1 truncate text-xs"></span>' +
+      '<div class="h-1.5 w-40 shrink-0 rounded-full bg-stone-200">' +
+      '<div class="upload-bar h-1.5 rounded-full bg-indigo-600 transition-[width] duration-150" style="width: 0%"></div></div>' +
+      '<span class="upload-pct w-12 shrink-0 text-right text-[10px] text-stone-400">0%</span>';
+    row.querySelector(".upload-name").textContent = name; // textContent keeps filenames inert
+    return row;
+  }
+
+  function uploadOne(file) {
+    return new Promise((resolve) => {
+      const row = statusBox.appendChild(fileRow(file.name));
+      const bar = row.querySelector(".upload-bar");
+      const pct = row.querySelector(".upload-pct");
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "{% url 'documents:bulk_upload' project.slug %}");
+      xhr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const p = Math.round((100 * e.loaded) / e.total);
+          bar.style.width = p + "%";
+          pct.textContent = p + "%";
+        }
+      });
+      xhr.addEventListener("loadend", () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText); } catch {}
+        const failed = xhr.status >= 400 || (data.errors && data.errors.length);
+        bar.style.width = "100%";
+        if (failed) {
+          bar.classList.replace("bg-indigo-600", "bg-red-500");
+          pct.textContent = "failed";
+          row.title = (data.errors && data.errors[0]) || "Upload failed.";
+        } else {
+          pct.textContent = "done";
+        }
+        resolve(!failed);
+      });
+      const body = new FormData();
+      body.append("files", file);
+      {% if current_folder %}body.append("folder", "{{ current_folder.pk }}");{% endif %}
+      xhr.send(body);
+    });
+  }
+
   async function uploadFiles(files) {
     if (!files.length) return;
-    statusBox.textContent = `Uploading ${files.length} file(s)…`;
+    statusBox.replaceChildren();
     statusBox.classList.remove("hidden");
-    const body = new FormData();
-    for (const file of files) body.append("files", file);
-    {% if current_folder %}body.append("folder", "{{ current_folder.pk }}");{% endif %}
-    const response = await fetch("{% url 'documents:bulk_upload' project.slug %}", {
-      method: "POST",
-      headers: { "X-CSRFToken": "{{ csrf_token }}" },
-      body,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok) {
-      statusBox.textContent = `Uploaded ${data.created.length} file(s).` +
-        (data.errors?.length ? ` Skipped: ${data.errors.join("; ")}` : "");
-      setTimeout(() => location.reload(), 600);
-    } else {
-      statusBox.textContent = data.errors?.join("; ") || "Upload failed.";
-    }
+    let uploaded = 0;
+    for (const file of files) uploaded += (await uploadOne(file)) ? 1 : 0;
+    if (uploaded) setTimeout(() => location.reload(), 800);
   }
 
   document.addEventListener("dragenter", (e) => {
