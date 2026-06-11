@@ -639,3 +639,40 @@ class TestSynthesisReadOnly:
         assert "## Methods" in data["scaffold"]
         assert link.reference.bibtex_key in data["scaffold"]
         assert Note.objects.count() == before  # read-only, no note created
+
+
+class TestGenericQSearch:
+    """Backlog #100: ?q= is an AtlasViewSet knob — resources opt in with q_fields."""
+
+    def test_notes_q_searches_title_and_body(self, client_logged_in):
+        from notes.tests.factories import NoteFactory
+
+        match = NoteFactory(title="Pupillometry pipeline", body="")
+        NoteFactory(project=match.project, title="Other", body="nothing relevant")
+        body_match = NoteFactory(
+            project=match.project, title="Misc", body="see the pupillometry rig"
+        )
+        slug = match.project.slug
+        data = client_logged_in.get(f"/api/v1/notes/?project={slug}&q=pupillometry").json()
+        assert {n["id"] for n in data["results"]} == {match.pk, body_match.pk}
+
+    def test_decisions_q_searches_title_and_decision(self, client_logged_in):
+        from projects.models import DecisionRecord
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        hit = DecisionRecord.objects.create(
+            project=project, title="Stats package", decision="Use lme4 mixed models"
+        )
+        DecisionRecord.objects.create(project=project, title="Other", decision="nope")
+        data = client_logged_in.get(f"/api/v1/decisions/?project={project.slug}&q=lme4").json()
+        assert [d["id"] for d in data["results"]] == [hit.pk]
+
+    def test_q_ignored_without_q_fields(self, client_logged_in):
+        from projects.tests.factories import ProjectFactory
+
+        ProjectFactory(name="Alpha")
+        ProjectFactory(name="Beta")
+        # ProjectViewSet declares no q_fields — ?q= must be a no-op, not an error
+        data = client_logged_in.get("/api/v1/projects/?q=alpha").json()
+        assert data["count"] >= 2

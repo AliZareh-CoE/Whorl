@@ -30,18 +30,35 @@ from .authentication import APIKeyAuthentication
 class AtlasViewSet(viewsets.ModelViewSet):
     """Base viewset: exempt from session-login middleware; guarded by X-API-Key auth instead.
 
-    Subclasses can set `project_filter` to a lookup path that allows filtering the
-    queryset with the `?project=<slug>` query parameter.
+    Subclass knobs (Backlog #100 — one place instead of per-viewset overrides):
+    - `project_filter`: lookup path enabling the `?project=<slug>` query parameter.
+    - `q_fields`: fields searched (icontains, OR) by the `?q=` query parameter.
+    - `bulk_create`: POST a JSON list to create many objects in one call.
     """
 
     project_filter: str | None = None
+    q_fields: tuple[str, ...] = ()
+    bulk_create = False
 
     def get_queryset(self):
         queryset = super().get_queryset()
         slug = self.request.query_params.get("project")
         if slug and self.project_filter:
             queryset = queryset.filter(**{self.project_filter: slug})
+        q = self.request.query_params.get("q")
+        if q and self.q_fields:
+            from django.db.models import Q
+
+            match = Q()
+            for field in self.q_fields:
+                match |= Q(**{f"{field}__icontains": q})
+            queryset = queryset.filter(match)
         return queryset
+
+    def get_serializer(self, *args, **kwargs):
+        if self.bulk_create and isinstance(kwargs.get("data"), list):
+            kwargs["many"] = True
+        return super().get_serializer(*args, **kwargs)
 
     # --- conditional GETs: cheap ETags so MCP/scripted polling can 304 ---
 
@@ -380,54 +397,30 @@ class MilestoneViewSet(AtlasViewSet):
     queryset = Milestone.objects.all()
     serializer_class = serializers.MilestoneSerializer
     project_filter = "phase__project__slug"
-
-    def get_queryset(self):
-        # Backlog #72 (friction-sourced): ?q= filters milestones by title, so scripts and
-        # the SPA can find one without fetching a whole plan.
-        queryset = super().get_queryset()
-        q = self.request.query_params.get("q")
-        if q:
-            queryset = queryset.filter(title__icontains=q)
-        return queryset
-
-    def get_serializer(self, *args, **kwargs):
-        # Backlog #71 (friction-sourced): POST a JSON list to create many milestones in one
-        # call (completed_at is already settable at create time).
-        if isinstance(kwargs.get("data"), list):
-            kwargs["many"] = True
-        return super().get_serializer(*args, **kwargs)
+    q_fields = ("title",)  # Backlog #72
+    bulk_create = True  # Backlog #71
 
 
 class TaskViewSet(AtlasViewSet):
     queryset = Task.objects.all()
     serializer_class = serializers.TaskSerializer
     project_filter = "milestone__phase__project__slug"
-
-    def get_queryset(self):
-        # Backlog #80 (mirrors milestones #72): ?q= filters tasks by title.
-        queryset = super().get_queryset()
-        q = self.request.query_params.get("q")
-        if q:
-            queryset = queryset.filter(title__icontains=q)
-        return queryset
-
-    def get_serializer(self, *args, **kwargs):
-        # Backlog #80 (mirrors milestones #71): POST a JSON list to create many tasks at once.
-        if isinstance(kwargs.get("data"), list):
-            kwargs["many"] = True
-        return super().get_serializer(*args, **kwargs)
+    q_fields = ("title",)  # Backlog #80
+    bulk_create = True
 
 
 class ResearchQuestionViewSet(AtlasViewSet):
     queryset = ResearchQuestion.objects.all()
     serializer_class = serializers.ResearchQuestionSerializer
     project_filter = "project__slug"
+    q_fields = ("question",)  # Backlog #100: search opt-in
 
 
 class DecisionRecordViewSet(AtlasViewSet):
     queryset = DecisionRecord.objects.all()
     serializer_class = serializers.DecisionRecordSerializer
     project_filter = "project__slug"
+    q_fields = ("title", "decision")  # Backlog #100: search opt-in
 
 
 class FolderViewSet(AtlasViewSet):
@@ -538,6 +531,7 @@ class HypothesisViewSet(AtlasViewSet):
     queryset = Hypothesis.objects.prefetch_related("evidence")
     serializer_class = serializers.HypothesisSerializer
     project_filter = "project__slug"
+    q_fields = ("statement",)  # Backlog #100: search opt-in
     http_method_names = ["get", "head", "options"]  # read-only for now
 
 
@@ -552,6 +546,7 @@ class DatasetViewSet(AtlasViewSet):
     queryset = Dataset.objects.all()
     serializer_class = serializers.DatasetSerializer
     project_filter = "project__slug"
+    q_fields = ("name", "description")  # Backlog #100: search opt-in
     http_method_names = ["get", "head", "options"]
 
 
@@ -564,23 +559,14 @@ class ManuscriptViewSet(AtlasViewSet):
 class PromptViewSet(AtlasViewSet):
     queryset = Prompt.objects.all()
     serializer_class = serializers.PromptSerializer
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        query = self.request.query_params.get("q")
-        if query:
-            from django.db.models import Q
-
-            queryset = queryset.filter(
-                Q(title__icontains=query) | Q(body__icontains=query) | Q(tags__icontains=query)
-            )
-        return queryset
+    q_fields = ("title", "body", "tags")
 
 
 class NoteViewSet(AtlasViewSet):
     queryset = Note.objects.all()
     serializer_class = serializers.NoteSerializer
     project_filter = "project__slug"
+    q_fields = ("title", "body")  # Backlog #100: search opt-in
 
     @extend_schema(
         description="Render a markdown body to sanitized HTML with [[wiki-links]] resolved "
