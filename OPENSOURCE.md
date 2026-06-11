@@ -17,11 +17,11 @@ become backlog slices.
 
 ## Star-worthiness checklist (becomes slices later)
 
-- [ ] LICENSE (MIT or AGPL — decide deliberately; AGPL protects against SaaS clones)
+- [x] LICENSE — AGPL-3.0 (cycle 28; rationale in DECISIONS.md)
 - [ ] One-command install: `docker compose up` with the app containerized, not just Postgres
-- [ ] README with hero screenshot, GIFs, feature grid, comparison table (Zotero/Notion/Overleaf/Linear)
+- [x] README with hero screenshots, feature grid, comparison table (cycle 28; GIF still todo)
 - [ ] Demo instance or `seed_demo`-powered screenshot tour
-- [ ] CONTRIBUTING.md, issue templates, architecture doc (CLAUDE.md is already most of it)
+- [x] CONTRIBUTING.md (cycle 28); issue templates still todo
 - [ ] Docs site (mkdocs-material) with the MCP setup guide front and center
 - [ ] Launch posts: HN (Show HN), r/selfhosted, r/PhD, r/AcademicPsychology, lobste.rs
 - [ ] Name check: "Atlas" is crowded — consider a distinctive rename before launch

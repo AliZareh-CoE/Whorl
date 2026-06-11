@@ -49,10 +49,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    bot refreshes OpenAlex edges for all active projects (verified live); BotRun model keeps
    the last 20 runs per bot with ✓/✕ shown in a Run history panel.~~ Remaining: inbox-triage
    suggester, MCP-side bots.
-8. **Open-source readiness.** Goal: a public GitHub repo worth thousands of stars. Keep a
-   living brainstorm in `OPENSOURCE.md` (positioning, killer demo GIFs, one-command install,
-   docs site, LICENSE/CONTRIBUTING, comparison table vs Zotero/Notion/Overleaf, launch plan
-   for HN/r/selfhosted). Loop may add thoughts there any cycle; polish items become slices.
+8. **Open-source readiness.** Goal: thousands of stars; brainstorm lives in `OPENSOURCE.md`.
+   ~~First slice (2026-06-11, cycle 28): AGPL-3.0 LICENSE (decision logged), hero README
+   (positioning line, screenshot grid from docs/screenshots/, feature list, comparison table
+   vs Zotero/Notion/Overleaf, MCP front and center), CONTRIBUTING.md.~~ Remaining: app
+   containerization for one-command install (cycle 29), demo GIF, docs site, launch posts.
 9. **LaTeX editor ("better than Overleaf", owner knows it's ambitious).** ~~Slice 1
    (2026-06-11, cycle 13): `latex_source` on Manuscript; CodeMirror 5 (stex mode) editor page
    with cite-key autocomplete from the manuscript bibliography, Ctrl/Cmd-S save, integrated
@@ -120,6 +121,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   owner's Claude subscription via MCP.
 
 ## Decisions
+
+### 2026-06-11 — AGPL-3.0 license (open-source readiness, Owner idea #8)
+- **Decision:** Atlas is licensed AGPL-3.0.
+- **Why:** Free for every researcher to self-host and modify, while the network-use clause
+  prevents closed SaaS clones from taking the work proprietary — the failure mode that most
+  worries single-maintainer self-hosted projects.
+- **Alternatives rejected:** MIT (invites closed forks of a hosted product), BSL/fair-source
+  (not OSI-open, hurts adoption and the thousands-of-stars goal).
 
 ### 2026-06-11 — Tectonic vendored as the LaTeX engine (owner-sanctioned)
 - **Decision:** LaTeX compilation uses the Tectonic 0.15 standalone binary, downloaded into
@@ -213,4 +222,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 31. Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25)
 32. tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26)
 33. SyncTeX-style jump — click in the PDF preview to jump to the matching source line (idea added by cycle 27)
-34. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
+35. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

@@ -1,8 +1,36 @@
-# Atlas
+# Atlas 🗺️ — the self-hosted research workbench
 
-Self-hosted, single-user, research-oriented project management. Django, batteries included:
-projects → phases → milestones, documents, literature, notes, manuscripts — everything in
-exactly one obvious place.
+**Plans, papers, notes, and manuscripts in one calm place — with an AI collaborator built in.**
+
+Atlas is a single-user, self-hosted platform for researchers who find Jira-style tools noisy
+and task-obsessed. It treats the things researchers actually care about as first-class:
+project **plans** (phases → milestones), a **reference library** with one-click DOI import,
+**linked notes** with a 3D knowledge graph, a **writing studio** that compiles LaTeX, and an
+**MCP server** so Claude can work inside your research base — list projects, check off
+milestones, add papers, fetch your saved prompts.
+
+> Built like Django itself: boring technology, strong conventions, everything has exactly
+> one obvious place. No SPA, no Node build, no cloud, no telemetry.
+
+| | |
+|---|---|
+| ![Project overview](docs/screenshots/overview.png) | ![Knowledge graph](docs/screenshots/graph3d.png) |
+| *One-glance project overview with a tree that grows with progress* | *3D citation + notes graph, synced from OpenAlex* |
+| ![LaTeX editor](docs/screenshots/latex-editor.png) | ![PDF reader](docs/screenshots/pdf-reader.png) |
+| *LaTeX editor: cite-key autocomplete, Tectonic compile, live PDF preview* | *In-browser PDF reader with highlight-to-note and page comments* |
+
+## What's inside
+
+- **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm
+- **Reference library** — add by DOI/arXiv (Crossref/OpenAlex metadata), BibTeX import/export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers
+- **Literature review matrix** — papers × themes grid with markdown export
+- **Notes & knowledge graph** — `[[wiki-links]]`, backlinks, typo-tolerant full-text search, related-paper suggestions (local TF-IDF, no API calls)
+- **Writing studio** — manuscript pipeline (idea → published), cite checker against your `.tex`, **server-side LaTeX compilation** (vendored Tectonic) with split-view preview
+- **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
+- **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
+- **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
+- **Claude/MCP integration** — 16 tools over the REST API; your AI assistant operates the same contract you do
+- **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
 ## Quick start
 
@@ -23,7 +51,7 @@ make tectonic                 # optional: LaTeX engine for compiling manuscripts
 .venv/bin/python manage.py seed_demo         # optional demo data
 .venv/bin/python manage.py download_tts_voice  # optional: ~60 MB local voice for Read aloud
 .venv/bin/python manage.py runserver
-.venv/bin/python manage.py run_huey   # background worker (citation sync), separate terminal
+.venv/bin/python manage.py run_huey   # background worker (citation sync, bots), separate terminal
 ```
 
 Open http://127.0.0.1:8000/ and log in. The Django admin lives at `/admin/`.
@@ -45,14 +73,6 @@ curl -H "X-API-Key: $ATLAS_API_KEY" -H "Content-Type: application/json" \
      http://127.0.0.1:8000/api/v1/references/by-doi/
 ```
 
-## Development
-
-```bash
-make test     # pytest -q
-make lint     # ruff check + ruff format --check
-make css-watch
-```
-
 ## Claude integration (MCP)
 
 `mcp_server/` exposes Atlas as MCP tools — a thin HTTP client over the API (no Django imports),
@@ -68,7 +88,8 @@ claude mcp add atlas \
 
 Tools: `list_projects`, `get_project_overview`, `get_plan`, `complete_milestone`,
 `list_documents`, `search`, `add_reference_by_doi`, `get_reading_queue`,
-`set_reading_status`, `add_note`, `quick_capture`, `run_bib_check`.
+`set_reading_status`, `add_note`, `quick_capture`, `run_bib_check`, `list_prompts`,
+`get_prompt`, `get_review_matrix`.
 
 Smoke-test conversation script (after `seed_demo`):
 
@@ -78,5 +99,30 @@ Smoke-test conversation script (after `seed_demo`):
 4. *"Add 10.1038/nature12373 to that project"* → add_reference_by_doi; appears in the reading queue.
 5. *"Capture: email co-author about revisions"* → quick_capture; visible in the Inbox.
 
-State and conventions for the autonomous build live in `CLAUDE.md` (constitution),
-`PROGRESS.md` (current status + phase gate reports), and `DECISIONS.md` (decision log + backlog).
+## How Atlas compares
+
+| | Atlas | Zotero | Notion | Overleaf |
+|---|---|---|---|---|
+| Research project plans | ✅ phases/milestones | — | manual | — |
+| Reference manager + DOI import | ✅ | ✅ | — | — |
+| Knowledge graph of citations & notes | ✅ 3D | — | — | — |
+| LaTeX editing + compile | ✅ Tectonic | — | — | ✅ |
+| Cite checker against your bib | ✅ | — | — | partial |
+| Self-hosted, your data | ✅ | ✅ | — | — |
+| AI collaborator via MCP | ✅ | — | — | — |
+
+## Development
+
+```bash
+make test     # pytest -q (297 tests)
+make lint     # ruff check + ruff format --check
+make css-watch
+```
+
+See **CONTRIBUTING.md** for conventions. Architecture and decision history live in
+`CLAUDE.md`, `DECISIONS.md`, `PROGRESS.md`, and `AUDITS.md` — the project's entire build,
+including its security audits, is documented in-repo.
+
+## License
+
+[AGPL-3.0](LICENSE) — free to self-host, modify, and share; improvements stay open.
