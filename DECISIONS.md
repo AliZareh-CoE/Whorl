@@ -217,7 +217,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 12. ~~“Read aloud” for whole PDFs (done 2026-06-11, cycle 32): ▶ Listen in the reader — streams text-layer pages through /tts/ from the page in view, sentence-aware chunking for long pages, pause/stop mini player, auto-scroll to the page being read, graceful voice-missing message.~~
 13. ~~Worker-deploy note (done 2026-06-11, cycle 33): `make worker` restart target + README warning; doctor detects stale workers via a CODE_STAMP round-trip task.~~
 14. Keyword chips → reading-queue filters and a project-level keyword cloud (idea added by cycle 8, from the NLP work)
-15. Responsive layout — collapsible sidebar + mobile-friendly tables (next UI/UX cycle candidate; idea added by cycle 9)
+15. ~~Responsive layout (done 2026-06-11, cycle 34, UI/UX): hamburger drawer below lg with backdrop + Escape close (Alpine), content reflows with responsive padding, wide tables scroll horizontally; verified at 420px in a real browser.~~
 16. ~~`make doctor` (done 2026-06-11, cycle 33): manage.py doctor checks db/migrations/redis/worker-liveness+freshness/CSS/Tectonic/voice/media/API-key with ✓⚠✕ output and exit codes; verified live incl. catching a genuinely stale worker.~~
 17. Prompt variables — `{{placeholders}}` in saved prompts with a small fill-in form before copying (idea added by cycle 11)
 18. Bot run history — keep the last N results per bot and chart reminders-over-time on the Automations page (idea added by cycle 12)
@@ -242,4 +242,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 37. Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31)
 38. Listen prefetch — synthesize the next chunk while the current one plays to remove gaps (idea added by cycle 32)
 39. Doctor on the Automations page — render the same checks in the UI with a stale-worker banner (idea added by cycle 33)
-40. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+40. Swipe-to-close for the mobile drawer + larger touch targets on check-off buttons (idea added by cycle 34)
+41. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

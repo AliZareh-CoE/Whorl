@@ -40,3 +40,24 @@ class TestUIPolish:
         response = client_logged_in.get(reverse("literature:read", args=[ref.pk]), follow=True)
         content = response.content.decode()
         assert "border-red-200" in content  # error styling on "No PDF attached"
+
+
+class TestResponsiveSidebar:
+    def test_hamburger_and_drawer_classes(self, client_logged_in):
+        from django.urls import reverse as r
+
+        response = client_logged_in.get(r("core:dashboard"))
+        content = response.content.decode()
+        assert 'aria-label="Open navigation"' in content
+        assert "lg:hidden" in content
+        assert "-translate-x-full" in content
+        assert "lg:translate-x-0" in content
+
+    def test_tables_scroll_on_narrow_screens(self, client_logged_in):
+        from django.urls import reverse as r
+
+        from literature.tests.factories import ReferenceFactory
+
+        ReferenceFactory()
+        response = client_logged_in.get(r("literature:index"))
+        assert b'class="overflow-x-auto"><table' in response.content
