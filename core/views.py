@@ -92,6 +92,13 @@ def pet_page(request):
     return render(request, "core/pet.html", {"pet": pet_state()})
 
 
+def spa_redirect(request, rest=""):
+    """Old /app/* bookmarks land on the same route at the new front door."""
+    from django.shortcuts import redirect
+
+    return redirect(f"/{rest}")
+
+
 @ensure_csrf_cookie
 def spa_shell(request, rest=""):
     """Serve the React SPA shell (Owner idea #20) — the router takes it from here.

@@ -119,7 +119,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "login"
-LOGIN_REDIRECT_URL = "core:dashboard"
+LOGIN_REDIRECT_URL = "/"  # the SPA front door (classic dashboard lives at /classic/)
 LOGOUT_REDIRECT_URL = "login"
 
 ATLAS_API_KEY = env("ATLAS_API_KEY", default="")

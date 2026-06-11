@@ -37,17 +37,31 @@ def test_seed_demo_runs():
 
 
 class TestSpaShell:
-    """Owner idea #20: the SPA shell at /app/."""
+    """Owner idea #20: after the cutover the SPA owns / and slash-less routes."""
 
     def test_requires_login(self, client):
-        assert client.get("/app/").status_code == 302
+        assert client.get("/").status_code == 302
 
-    def test_serves_shell_for_any_subpath(self, client_logged_in):
-        for path in ("/app/", "/app/projects", "/app/anything/deep"):
+    def test_front_door_and_spa_routes_serve_the_shell(self, client_logged_in):
+        for path in ("/", "/projects/some-slug", "/projects/x/plan", "/library", "/manuscripts/3"):
             response = client_logged_in.get(path)
-            assert response.status_code == 200
-            assert b'id="root"' in response.content
-            assert b"js/spa.js" in response.content
+            assert response.status_code == 200, path
+            assert b'id="root"' in response.content, path
+
+    def test_classic_pages_keep_their_urls(self, client_logged_in):
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        response = client_logged_in.get(f"/projects/{project.slug}/")  # trailing slash = classic
+        assert b'id="root"' not in response.content
+        assert project.name.encode() in response.content
+        classic_home = client_logged_in.get("/classic/")
+        assert b"Today, everywhere" in classic_home.content
+
+    def test_old_app_bookmarks_redirect(self, client_logged_in):
+        response = client_logged_in.get("/app/projects/x/plan")
+        assert response.status_code == 302
+        assert response.url == "/projects/x/plan"
 
     def test_spa_artifact_built(self):
         from pathlib import Path
@@ -56,5 +70,5 @@ class TestSpaShell:
 
     def test_shell_sets_csrf_cookie(self, client_logged_in):
         # the SPA has no server-rendered form; its API writes need the token
-        response = client_logged_in.get("/app/")
+        response = client_logged_in.get("/")
         assert "csrftoken" in response.cookies

@@ -43,7 +43,9 @@ docker compose --profile app up -d --build
 docker compose exec web .venv/bin/python manage.py createsuperuser
 ```
 
-Atlas is on http://127.0.0.1:8000 — web app, background worker, Postgres, and Redis all running.
+Atlas is on http://127.0.0.1:8000 — the React app is the front door (the classic
+server-rendered UI remains at /classic/ and trailing-slash URLs); web app, background
+worker, Postgres, and Redis all running.
 
 ## Quick start (development)
 

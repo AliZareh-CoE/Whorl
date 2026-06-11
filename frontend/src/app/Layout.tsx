@@ -17,8 +17,8 @@ export default function Layout() {
     <div className="flex h-full">
       <CommandBar />
       <aside className="fixed inset-y-0 left-0 flex w-56 flex-col border-r border-stone-200 bg-white px-4 py-6">
-        <a href="/app/" className="mb-1 text-lg font-semibold tracking-tight">Atlas</a>
-        <p className="mb-4 text-[10px] uppercase tracking-wide text-indigo-500">React preview · ⌘K</p>
+        <a href="/" className="mb-1 text-lg font-semibold tracking-tight">Atlas</a>
+        <p className="mb-4 text-[10px] uppercase tracking-wide text-stone-400">⌘K for anything</p>
         <nav className="space-y-1 text-sm">
           <NavLink to="/" end className={navCls}>Dashboard</NavLink>
           <NavLink to="/projects" className={navCls}>Projects</NavLink>
@@ -41,7 +41,7 @@ export default function Layout() {
             </a>
           )}
           <NavLink to="/automations" className="mb-2 block hover:text-stone-600">Automations</NavLink>
-          <a href="/" className="hover:text-stone-600">← Classic Atlas</a>
+          <a href="/classic/" className="hover:text-stone-600">← Classic Atlas</a>
         </div>
       </aside>
       <main className="ml-56 min-w-0 flex-1">

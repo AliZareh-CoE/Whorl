@@ -25,7 +25,7 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
-    <BrowserRouter basename="/app">
+    <BrowserRouter basename="/">
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
