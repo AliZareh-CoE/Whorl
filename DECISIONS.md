@@ -174,4 +174,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 23. Tree grove view — all projects as one grove on the dashboard, trees sized by scope (idea added by cycle 17)
 24. Upload progress bars per file for large uploads (idea added by cycle 18)
 25. Search suggestion keyboard navigation (↑/↓/Enter) + recent-searches memory (idea added by cycle 19)
-26. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+26. GIN trigram indexes on searched title fields once data grows (idea added by cycle 20 audit)
+27. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

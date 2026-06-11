@@ -45,11 +45,12 @@
   </div>
 {% endif %}
 
+{{ cite_keys|json_script:"cite-keys-data" }}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/stex/stex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.js"></script>
 <script>
-  const CITE_KEYS = {{ cite_keys_json|safe }};
+  const CITE_KEYS = JSON.parse(document.getElementById("cite-keys-data").textContent);
   const textarea = document.getElementById("latex-source");
   const editor = CodeMirror(document.getElementById("editor-host"), {
     value: textarea.value || "% Start writing. \\cite{ } autocompletes from this manuscript's bibliography.\n",

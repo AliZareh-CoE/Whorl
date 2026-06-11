@@ -2,6 +2,32 @@
 
 Every 10th loop cycle is a full security + performance audit (owner rule). Reports newest first.
 
+## Audit #2 — cycle 20 (2026-06-11), covering loop cycles 11–19
+
+**Performance:** all original pages within budget (library 6q, plan 7q, overview 13q — unchanged);
+new pages cheap: prompts 4q, automations 3q, pet page 2q, suggest endpoint 9q cold. Dashboard is
+53q cold (pet + heatmap caches empty in the audit harness) but steady-state-cached and guarded by
+budget tests. All hot pages remain <100 ms warm.
+
+**Security findings:**
+
+- **XSS (fixed):** the LaTeX editor injected cite keys via `json.dumps` + `|safe`; a hostile
+  `cite_key_override` containing `</script>` could escape the script block. Replaced with
+  Django's `json_script` (HTML-safe escaping) + a regression test asserting the payload stays
+  inert. This is the audit's headline catch.
+- Reviewed clean: prompts CRUD (login+throttle), bots (POST-only, slug allowlist, crash-safe
+  runner), comments (nh3-sanitized markdown, kind allowlist, 5 000-char cap), pet rename (40-char
+  cap, exception-safe context processor), tree (percent clamped, color attribute auto-escaped),
+  bulk upload (per-file size validation, folder scoping), rename/move (project-scoped, 404s
+  verified), search suggest (auto-escaped reflection, length-gated).
+- `pip-audit`: **no known vulnerabilities** across the full environment.
+
+**Notes carried forward:** trigram fallback runs unindexed (fine at single-user scale; add GIN
+trgm indexes if the library passes ~50k rows); `run_now` on retraction-watch is synchronous
+network in-request (acceptable single-user; move to task if it ever feels slow).
+
+**Verdict:** healthy. 265 tests green, lint clean.
+
 ## Audit #1 — cycle 10 (2026-06-11), covering loop cycles 1–9
 
 **Performance (re-run of the cycle-4 query audit + timings, seeded data, warm):**

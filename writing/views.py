@@ -96,8 +96,6 @@ class ManuscriptDeleteView(ProjectScopedMixin, DeleteView):
 
 def latex_editor(request, slug, pk):
     """In-browser LaTeX editor with cite-key autocomplete (Owner idea #9, slice 1)."""
-    import json
-
     project = get_object_or_404(Project, slug=slug)
     manuscript = get_object_or_404(project.manuscripts, pk=pk)
     cite_result = None
@@ -116,7 +114,7 @@ def latex_editor(request, slug, pk):
         {
             "project": project,
             "manuscript": manuscript,
-            "cite_keys_json": json.dumps(sorted(cite_keys)),
+            "cite_keys": sorted(cite_keys),
             "cite_result": cite_result,
         },
     )

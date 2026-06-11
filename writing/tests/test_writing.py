@@ -193,3 +193,19 @@ class TestLatexEditor:
         other = ProjectFactory()
         response = client_logged_in.get(reverse("writing:editor", args=[other.slug, manuscript.pk]))
         assert response.status_code == 404
+
+
+def test_editor_cite_keys_xss_safe(client_logged_in):
+    """Audit #2: a hostile cite_key_override must not escape the JSON script block."""
+    manuscript = ManuscriptFactory()
+    ManuscriptReference.objects.create(
+        manuscript=manuscript,
+        reference=ReferenceFactory(bibtex_key="benign2020key"),
+        cite_key_override="</script><script>alert(1)</script>",
+    )
+    response = client_logged_in.get(
+        reverse("writing:editor", args=[manuscript.project.slug, manuscript.pk])
+    )
+    content = response.content.decode()
+    assert "<script>alert(1)</script>" not in content
+    assert "\\u003C/script" in content or "\\u003c/script" in content  # json_script escaping
