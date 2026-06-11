@@ -28,3 +28,12 @@ class Comment(TimeStampedModel):
 
     def __str__(self):
         return self.body[:60]
+
+
+class Pet(TimeStampedModel):
+    """The single Atlas companion (Owner idea #12). State is derived; only the name is stored."""
+
+    name = models.CharField(max_length=40, default="Mochi")
+
+    def __str__(self):
+        return self.name

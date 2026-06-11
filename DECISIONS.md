@@ -58,10 +58,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     matrix exports as a markdown table; `GET /api/v1/projects/{slug}/review-matrix/` +
     MCP tool `get_review_matrix` so Claude can discuss coverage gaps in chat.~~
     Remaining: coverage-gap suggestions in the queue ordering, synthesis-note scaffolds.
-12. **Virtual pet 🐾.** A small companion that lives in Atlas and reacts to research life —
-    fed by completed milestones, papers read, streaks; gets creative. NOTE: CLAUDE.md §1 says
-    "no gamification", but owner directives outrank the constitution — keep it calm, charming,
-    optional (a sidebar critter, not notification spam).
+12. **Virtual pet 🐾.** ~~Done (2026-06-11, cycle 16): Mochi the research owl — sidebar
+    widget + /pet/ page; mood from 7-day activity (sleeping/content/happy/thriving), lifetime
+    stages (egg→hatchling→scholar→sage) derived live from milestones/papers/notes/experiments/
+    comments; renameable; 5-min cached so pages stay fast (query-budget guards verified it);
+    explicitly no nagging — it sleeps when you rest.~~ Possible later: tiny seasonal accessories.
 13. **Project-as-growing-tree UI.** Visualize each project as a tree that grows with real
     progress (milestones/phases done) — sprout → sapling → full tree at completion. SVG-based,
     calm, fits the editorial aesthetic; could live on the overview and/or projects index.
@@ -161,4 +162,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 19. LaTeX compile service — vendor the Tectonic binary (like Tailwind/Piper pattern) behind a huey task with compile logs surfaced in the editor (idea added by cycle 13)
 20. Comment mentions of objects — [[wiki-links]] and @cite-keys resolving inside comment bodies (idea added by cycle 14)
 21. Queue ordering option "least-covered themes first" — triage papers that fill matrix gaps (idea added by cycle 15)
-22. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+22. Pet reactions to events — a brief happy hop via HTMX when a milestone is checked off on the plan page (idea added by cycle 16)
+23. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

@@ -14,6 +14,14 @@ from projects.tests.factories import ProjectFactory
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def warm_pet_cache(db):
+    """The sidebar pet is 5-min cached; budgets measure steady-state pages."""
+    from core.pet import pet_state
+
+    pet_state()
+
+
 def build_busy_project():
     project = ProjectFactory()
     for order in range(4):

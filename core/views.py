@@ -39,3 +39,21 @@ def search(request):
         "core/search.html",
         {"query": query, "grouped": grouped, "total": len(results)},
     )
+
+
+def pet_page(request):
+    from django.core.cache import cache
+    from django.shortcuts import redirect
+
+    from .models import Pet
+    from .pet import pet_state
+
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()[:40]
+        if name:
+            pet, _ = Pet.objects.get_or_create(pk=1)
+            pet.name = name
+            pet.save()
+            cache.delete("atlas-pet-state")
+        return redirect("core:pet")
+    return render(request, "core/pet.html", {"pet": pet_state()})
