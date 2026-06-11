@@ -97,5 +97,11 @@ def get_prompt(prompt_id: int) -> dict:
     return client.get_prompt(prompt_id)
 
 
+@mcp.tool()
+def get_review_matrix(project: str) -> dict:
+    """The project's literature review matrix: themes, papers, and which paper covers which theme."""
+    return client.get_review_matrix(project)
+
+
 if __name__ == "__main__":
     mcp.run()

@@ -52,10 +52,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     manuscript pages via one `_comments.html` include; kind allowlist guards the endpoint.~~
     Remaining: comments on documents and folders; PDF-anchored comments (page/selection)
     building on the reader; LaTeX line-anchored comments in the editor.
-11. **Better papers & literature reviews.** Continuous improvement of the lit-review
-    experience. IMPORTANT constraint from the owner: NO paid Claude/LLM API calls — smart
-    features must run either as local NLP (see #5) or through the owner's own Claude
-    subscription via MCP (Claude as interactive collaborator, which costs nothing extra).
+11. **Better papers & literature reviews.** Continuous improvement; NO paid LLM APIs —
+    local NLP or the owner's Claude subscription via MCP only. ~~First slice (2026-06-11,
+    cycle 15): reading queue shows per-paper theme coverage badges (n/N themes); review
+    matrix exports as a markdown table; `GET /api/v1/projects/{slug}/review-matrix/` +
+    MCP tool `get_review_matrix` so Claude can discuss coverage gaps in chat.~~
+    Remaining: coverage-gap suggestions in the queue ordering, synthesis-note scaffolds.
 12. **Virtual pet 🐾.** A small companion that lives in Atlas and reacts to research life —
     fed by completed milestones, papers read, streaks; gets creative. NOTE: CLAUDE.md §1 says
     "no gamification", but owner directives outrank the constitution — keep it calm, charming,
@@ -158,4 +160,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 18. Bot run history — keep the last N results per bot and chart reminders-over-time on the Automations page (idea added by cycle 12)
 19. LaTeX compile service — vendor the Tectonic binary (like Tailwind/Piper pattern) behind a huey task with compile logs surfaced in the editor (idea added by cycle 13)
 20. Comment mentions of objects — [[wiki-links]] and @cite-keys resolving inside comment bodies (idea added by cycle 14)
-21. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+21. Queue ordering option "least-covered themes first" — triage papers that fill matrix gaps (idea added by cycle 15)
+22. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

@@ -108,3 +108,7 @@ def list_prompts(query: str = ""):
 
 def get_prompt(prompt_id: int):
     return _request("GET", f"/prompts/{prompt_id}/")
+
+
+def get_review_matrix(slug: str):
+    return _request("GET", f"/projects/{slug}/review-matrix/")

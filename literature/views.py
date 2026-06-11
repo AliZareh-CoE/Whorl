@@ -207,6 +207,8 @@ PRIORITY_ORDER = {"high": 0, "normal": 1, "low": 2}
 
 
 def reading_queue(request, slug):
+    from django.db.models import Count
+
     project = get_object_or_404(Project, slug=slug)
     links = list(
         project.project_references.filter(
@@ -214,13 +216,20 @@ def reading_queue(request, slug):
                 ProjectReference.ReadingStatus.TO_READ,
                 ProjectReference.ReadingStatus.SKIMMED,
             ]
-        ).select_related("reference")
+        )
+        .select_related("reference")
+        .annotate(theme_coverage=Count("review_marks"))
     )
     links.sort(key=lambda link: (PRIORITY_ORDER[link.priority], link.created_at))
     return render(
         request,
         "literature/reading_queue.html",
-        {"project": project, "links": links, "statuses": ProjectReference.ReadingStatus.choices},
+        {
+            "project": project,
+            "links": links,
+            "statuses": ProjectReference.ReadingStatus.choices,
+            "theme_count": project.review_themes.count(),
+        },
     )
 
 
@@ -378,6 +387,29 @@ class ThemeDeleteView(ProjectScopedMixin, DeleteView):
 
     def get_success_url(self):
         return reverse("literature:matrix", kwargs={"slug": self.project.slug})
+
+
+def matrix_export_markdown(request, slug):
+    """The review matrix as a markdown table — paste-able into anything, including Claude."""
+    project = get_object_or_404(Project, slug=slug)
+    themes = list(project.review_themes.all())
+    marks = {
+        (mark.theme_id, mark.project_reference_id): mark
+        for mark in ReviewMark.objects.filter(theme__project=project)
+    }
+    lines = [
+        "| Paper | " + " | ".join(t.name for t in themes) + " |",
+        "|---" * (len(themes) + 1) + "|",
+    ]
+    for link in project.project_references.select_related("reference"):
+        cells = []
+        for theme in themes:
+            mark = marks.get((theme.pk, link.pk))
+            cells.append((mark.note or "✓") if mark else "")
+        lines.append(f"| {link.reference.bibtex_key} | " + " | ".join(cells) + " |")
+    response = HttpResponse("\n".join(lines), content_type="text/markdown; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{project.slug}-review-matrix.md"'
+    return response
 
 
 def export_bib(request, slug):

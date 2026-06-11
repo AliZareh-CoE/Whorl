@@ -17,7 +17,17 @@
 {% if links %}
   <div class="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
     {% for link in links %}
-      {% include "literature/_link_row.html" %}
+      <div class="flex items-center">
+        <div class="min-w-0 flex-1">{% include "literature/_link_row.html" %}</div>
+        {% if theme_count %}
+          <a href="{% url 'literature:matrix' project.slug %}"
+             title="Covers {{ link.theme_coverage }} of {{ theme_count }} review themes"
+             class="mr-4 shrink-0 rounded-full px-2 py-0.5 text-xs
+               {% if link.theme_coverage %}bg-indigo-50 text-indigo-700{% else %}bg-stone-100 text-stone-400{% endif %}">
+            {{ link.theme_coverage }}/{{ theme_count }} themes
+          </a>
+        {% endif %}
+      </div>
     {% endfor %}
   </div>
 {% else %}

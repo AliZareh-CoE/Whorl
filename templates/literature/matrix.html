@@ -13,8 +13,12 @@
 
 <div class="mb-2 flex items-center justify-between">
   <h1 class="text-2xl font-semibold tracking-tight">Literature review matrix</h1>
-  <a href="{% url 'literature:theme_create' project.slug %}"
-     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add theme</a>
+  <div class="flex items-center gap-2">
+    <a href="{% url 'literature:matrix_export' project.slug %}"
+       class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">Export .md</a>
+    <a href="{% url 'literature:theme_create' project.slug %}"
+       class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add theme</a>
+  </div>
 </div>
 <p class="mb-6 text-sm text-stone-500">Which paper covers which theme. Click a cell to toggle; hover a marked cell to add a note.</p>
 

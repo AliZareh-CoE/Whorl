@@ -294,3 +294,59 @@ class TestAuditCycle10Fixes:
         )
         assert response.status_code == 400
         assert "2000" in response.json()["error"]
+
+
+class TestLitReviewIntegration:
+    def make_matrix_with_mark(self):
+        from literature.models import ReviewMark, ReviewTheme
+
+        link = ProjectReferenceFactory()
+        theme = ReviewTheme.objects.create(project=link.project, name="Methods", order=1)
+        ReviewMark.objects.create(theme=theme, project_reference=link, note="tests it directly")
+        return link, theme
+
+    def test_queue_shows_theme_coverage(self, client_logged_in):
+        link, theme = self.make_matrix_with_mark()
+        ProjectReferenceFactory(project=link.project)  # uncovered paper
+        response = client_logged_in.get(reverse("literature:queue", args=[link.project.slug]))
+        content = response.content.decode()
+        assert "1/1 themes" in content
+        assert "0/1 themes" in content
+
+    def test_matrix_markdown_export(self, client_logged_in):
+        link, theme = self.make_matrix_with_mark()
+        response = client_logged_in.get(
+            reverse("literature:matrix_export", args=[link.project.slug])
+        )
+        body = response.content.decode()
+        assert response["Content-Type"].startswith("text/markdown")
+        assert "| Paper | Methods |" in body
+        assert f"| {link.reference.bibtex_key} | tests it directly |" in body
+
+    def test_review_matrix_api_endpoint(self, client, owner, settings):
+        settings.ATLAS_API_KEY = "k"
+        link, theme = self.make_matrix_with_mark()
+        data = client.get(
+            f"/api/v1/projects/{link.project.slug}/review-matrix/", HTTP_X_API_KEY="k"
+        ).json()
+        assert data["themes"] == ["Methods"]
+        assert data["papers"][0]["marks"] == {"Methods": "tests it directly"}
+
+    def test_mcp_client_review_matrix(self, monkeypatch):
+        import httpx
+
+        from mcp_server import client as mcp_client
+
+        monkeypatch.setenv("ATLAS_API_KEY", "k")
+        calls = {}
+
+        def fake_client():
+            def handler(request):
+                calls["url"] = str(request.url)
+                return httpx.Response(200, json={"ok": True})
+
+            return httpx.Client(base_url="http://t/api/v1", transport=httpx.MockTransport(handler))
+
+        monkeypatch.setattr(mcp_client, "_client", fake_client)
+        mcp_client.get_review_matrix("my-project")
+        assert calls["url"].endswith("/projects/my-project/review-matrix/")

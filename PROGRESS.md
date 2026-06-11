@@ -3,13 +3,13 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); 30-minute self-improving loop is running
-- **Slice in progress:** — (next: Owner idea #11 — lit-review improvements [cycle 15])
+- **Slice in progress:** — (next: Owner idea #12 — virtual pet 🐾 [cycle 16])
 - **Last completed slice (cycle 6 of the loop; cycle 10 = first audit cycle):** Owner idea #3 — Read aloud: local Piper TTS (en_US-amy-medium, `download_tts_voice` command), `POST /tts/` WAV endpoint, 🔊 buttons on notes and reference abstracts, verified live (188 KB of real speech). Previously: Owner idea #2 security: cache-based login throttle (5 fails/IP → 5-min 429 lockout, verified live), 50 MB upload cap + .pdf-only reference attachments (forms + API), DRF rate throttles, prod HSTS subdomains/preload + referrer policy, X-Frame-Options DENY, cache-leak test hygiene fixture.
 - **Priority now (per Owner loop rules in DECISIONS.md):** broken builds → Owner ideas top-down → auto Backlog top-down; every cycle appends ≥1 new idea to the Backlog.
 - **Next 3 slices:**
-  1. Owner idea #11 — lit-review improvements (MCP/local only) [cycle 15]
-  2. Owner idea #12 — virtual pet 🐾 [cycle 16]
-  3. #13 tree / #14 files / #15 search; UI/UX cycle ~17 and ~19; AUDIT #2 at cycle 20
+  1. Owner idea #12 — virtual pet 🐾 [cycle 16]
+  2. Owner idea #13 — project-as-growing-tree UI [cycle 17, doubles as UI/UX cycle]
+  3. #14 files / #15 search; second UI/UX cycle by 19; AUDIT #2 at cycle 20
 - **Broken:** nothing
 
 ## Gate reports

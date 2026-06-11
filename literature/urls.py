@@ -40,6 +40,11 @@ urlpatterns = [
     path("projects/<slug:slug>/literature/queue/", views.reading_queue, name="queue"),
     path("projects/<slug:slug>/literature/matrix/", views.review_matrix, name="matrix"),
     path(
+        "projects/<slug:slug>/literature/matrix/export.md",
+        views.matrix_export_markdown,
+        name="matrix_export",
+    ),
+    path(
         "projects/<slug:slug>/literature/matrix/themes/new/",
         views.ThemeCreateView.as_view(),
         name="theme_create",

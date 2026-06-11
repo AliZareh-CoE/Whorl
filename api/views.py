@@ -164,6 +164,30 @@ class ProjectViewSet(AtlasViewSet):
         )
 
     @extend_schema(
+        responses={200: OpenApiResponse(description="Themes × papers with marks and notes")},
+        description="The literature review matrix: which paper covers which theme.",
+    )
+    @action(detail=True, methods=["get"], url_path="review-matrix")
+    def review_matrix(self, request, slug=None):
+        from literature.models import ReviewMark
+
+        project = self.get_object()
+        themes = list(project.review_themes.all())
+        marks = {}
+        for mark in ReviewMark.objects.filter(theme__project=project).select_related("theme"):
+            marks.setdefault(mark.project_reference_id, {})[mark.theme.name] = mark.note or True
+        papers = [
+            {
+                "bibtex_key": link.reference.bibtex_key,
+                "title": link.reference.title,
+                "reading_status": link.reading_status,
+                "marks": marks.get(link.pk, {}),
+            }
+            for link in project.project_references.select_related("reference")
+        ]
+        return Response({"themes": [t.name for t in themes], "papers": papers})
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Bib checker findings grouped by category")},
         description=(
             "Run the bib checkers over the project's references. Pass ?network=1 to include "
