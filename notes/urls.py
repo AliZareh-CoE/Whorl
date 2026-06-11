@@ -7,6 +7,7 @@ app_name = "notes"
 urlpatterns = [
     path("inbox/", views.inbox, name="inbox"),
     path("inbox/<int:pk>/triage/", views.triage, name="triage"),
+    path("inbox/bulk/", views.inbox_bulk, name="inbox_bulk"),
     path("projects/<slug:slug>/notes/", views.note_list, name="list"),
     path("projects/<slug:slug>/notes/new/", views.NoteCreateView.as_view(), name="create"),
     path("projects/<slug:slug>/notes/preview/", views.note_preview, name="preview"),

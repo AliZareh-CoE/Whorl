@@ -460,3 +460,38 @@ class TestQueueGapOrdering:
         response = client_logged_in.get(reverse("literature:queue", args=[project.slug]))
         assert response.status_code == 200
         assert "Fill matrix gaps" in response.content.decode()
+
+
+class TestBulkStatus:
+    def test_bulk_marks_selected_papers(self, client_logged_in):
+        from literature.models import ProjectReference
+        from literature.tests.factories import ProjectReferenceFactory
+
+        first = ProjectReferenceFactory()
+        second = ProjectReferenceFactory(project=first.project)
+        other = ProjectReferenceFactory()  # different project — must be ignored
+        url = reverse("literature:bulk_status", args=[first.project.slug])
+        response = client_logged_in.post(
+            url, {"reading_status": "read", "ids": [first.pk, second.pk, other.pk]}
+        )
+        assert response.status_code == 302
+        assert ProjectReference.objects.get(pk=first.pk).reading_status == "read"
+        assert ProjectReference.objects.get(pk=second.pk).reading_status == "read"
+        assert ProjectReference.objects.get(pk=other.pk).reading_status == "to_read"
+
+    def test_invalid_status_rejected(self, client_logged_in):
+        from literature.models import ProjectReference
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link = ProjectReferenceFactory()
+        url = reverse("literature:bulk_status", args=[link.project.slug])
+        client_logged_in.post(url, {"reading_status": "nonsense", "ids": [link.pk]})
+        assert ProjectReference.objects.get(pk=link.pk).reading_status == "to_read"
+
+    def test_pages_render_bulk_bar(self, client_logged_in):
+        from literature.tests.factories import ProjectReferenceFactory
+
+        link = ProjectReferenceFactory()
+        for name in ("literature:project", "literature:queue"):
+            content = client_logged_in.get(reverse(name, args=[link.project.slug])).content.decode()
+            assert 'id="bulk-status-form"' in content

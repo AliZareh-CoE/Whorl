@@ -16,9 +16,28 @@
 </form>
 
 {% if captures %}
-  <div class="max-w-2xl divide-y divide-stone-100 rounded border border-stone-200 bg-white">
+  <div x-data="{ n: 0 }" @change="n = document.querySelectorAll('input[name=ids]:checked').length"
+       class="max-w-2xl">
+  <form id="inbox-bulk-form" method="post" action="{% url 'notes:inbox_bulk' %}">
+    {% csrf_token %}
+    <div x-show="n" x-cloak class="mb-3 flex items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm">
+      <span class="font-medium text-indigo-800" x-text="n + ' selected'"></span>
+      <span class="mx-1 text-indigo-200">|</span>
+      <select name="project" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs">
+        {% for project in projects %}<option value="{{ project.slug }}">{{ project.name }}</option>{% endfor %}
+      </select>
+      <button type="submit" name="action" value="assign"
+              class="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700">File all</button>
+      <span class="ml-auto"></span>
+      <button type="submit" name="action" value="dismiss"
+              class="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-400">Dismiss all</button>
+    </div>
+  </form>
+  <div class="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
     {% for capture in captures %}
       <div class="flex items-center gap-3 px-4 py-3">
+        <input type="checkbox" name="ids" value="{{ capture.pk }}" form="inbox-bulk-form"
+               aria-label="Select capture" class="size-4 shrink-0 rounded border-stone-300 accent-indigo-600">
         <div class="min-w-0 flex-1">
           <p class="text-sm">{{ capture.text }}</p>
           <p class="text-xs text-stone-400">{{ capture.created_at|timesince }} ago</p>
@@ -33,6 +52,7 @@
         </form>
       </div>
     {% endfor %}
+  </div>
   </div>
 {% else %}
   <div class="max-w-2xl rounded border border-dashed border-stone-300 bg-white p-10 text-center">

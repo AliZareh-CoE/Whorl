@@ -89,3 +89,35 @@ class TestNoteViews:
             reverse("notes:preview", args=[project.slug]), {"body": "**bold**"}
         )
         assert b"<strong>bold</strong>" in response.content
+
+
+class TestInboxBulk:
+    def test_bulk_dismiss_and_assign(self, client_logged_in):
+        from notes.models import QuickCapture
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        a = QuickCapture.objects.create(text="bulk a")
+        b = QuickCapture.objects.create(text="bulk b")
+        c = QuickCapture.objects.create(text="bulk c")
+
+        client_logged_in.post(
+            reverse("notes:inbox_bulk"), {"action": "dismiss", "ids": [a.pk, b.pk]}
+        )
+        a.refresh_from_db(), b.refresh_from_db(), c.refresh_from_db()
+        assert a.processed and b.processed and not c.processed
+
+        client_logged_in.post(
+            reverse("notes:inbox_bulk"),
+            {"action": "assign", "ids": [c.pk], "project": project.slug},
+        )
+        c.refresh_from_db()
+        assert c.processed and c.project == project
+
+    def test_inbox_renders_bulk_bar(self, client_logged_in):
+        from notes.models import QuickCapture
+
+        QuickCapture.objects.create(text="something")
+        content = client_logged_in.get(reverse("notes:inbox")).content.decode()
+        assert 'id="inbox-bulk-form"' in content
+        assert "Dismiss all" in content

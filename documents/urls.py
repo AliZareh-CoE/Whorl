@@ -35,6 +35,7 @@ urlpatterns = [
         views.FolderDeleteView.as_view(),
         name="folder_delete",
     ),
+    path("<slug:slug>/documents/bulk/", views.bulk_action, name="bulk"),
     path("<slug:slug>/tags/", views.tag_list, name="tags"),
     path("<slug:slug>/tags/new/", views.TagCreateView.as_view(), name="tag_create"),
     path("<slug:slug>/tags/<int:pk>/edit/", views.TagUpdateView.as_view(), name="tag_edit"),

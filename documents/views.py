@@ -259,3 +259,36 @@ def document_move(request, slug, pk):
     document.folder = folder
     document.save(update_fields=["folder", "updated_at"])
     return render(request, "documents/_doc_row.html", {"project": project, "doc": document})
+
+
+@require_POST
+def bulk_action(request, slug):
+    """Act on many documents at once: move, tag, or delete (Owner idea #18)."""
+    project = get_object_or_404(Project, slug=slug)
+    documents = project.documents.filter(pk__in=request.POST.getlist("ids"))
+    count = documents.count()
+    action = request.POST.get("action", "")
+    if not count:
+        messages.error(request, "Nothing selected.")
+    elif action == "delete":
+        documents.delete()
+        messages.success(request, f"Deleted {count} document(s).")
+    elif action == "move":
+        folder = None
+        if request.POST.get("folder"):
+            folder = get_object_or_404(project.folders, pk=request.POST["folder"])
+        documents.update(folder=folder)
+        messages.success(
+            request, f"Moved {count} document(s) to {folder.name if folder else 'the root'}."
+        )
+    elif action == "tag":
+        tag = get_object_or_404(project.tags, pk=request.POST.get("tag"))
+        for document in documents:
+            document.tags.add(tag)
+        messages.success(request, f"Tagged {count} document(s) with “{tag.name}”.")
+    else:
+        messages.error(request, "Unknown bulk action.")
+    next_url = request.POST.get("next", "")
+    if not (next_url.startswith("/") and not next_url.startswith("//")):
+        next_url = reverse("documents:index", kwargs={"slug": slug})
+    return redirect(next_url)

@@ -140,8 +140,15 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     (Alpine: Escape/backdrop/✕ close) + #modal-slot in base; converted the plan page
     (add/edit phase, milestone, task) and documents page (new folder, rename/move) —
     browser-verified: open without URL change, Escape closes, real create lands.~~
-    Next slices: bulk actions (documents/library/inbox), then modals for projects,
-    decisions, questions, manuscripts, prompts, tags + delete confirmations.
+    ~~Slice 2 (2026-06-11, cycle 53): bulk actions — documents page grew per-row
+    checkboxes + select-all with an action bar (Move to folder, Add tag, Delete with a
+    confirm modal); literature list AND reading queue: bulk set reading status; inbox:
+    bulk dismiss / file-to-project. All endpoints act on id lists scoped to the project
+    (cross-project ids ignored, tested), open-redirect guard on next, per-row saves keep
+    updated_at honest for ETags/pet. Browser-verified end to end. These endpoints are the
+    contract for the cycle-54 React documents-table island.~~
+    Next slices: modals for projects, decisions, questions, manuscripts, prompts, tags +
+    delete confirmations.
 
 19. **React islands — hybrid frontend (owner, 2026-06-11).** Owner considered a full React
     SPA ("basic HTML/CSS can't make a pleasing UI"); after discussing trade-offs chose the
@@ -318,3 +325,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 57. Search page budget — /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
 58. Tree tooltips — hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)
 59. [REV] Atlas Assistant panel — a first-class in-app Claude workspace: a persistent side panel that talks to the owner's Claude subscription via MCP, sees the current page's object as context, and can act (file papers, draft synthesis notes, check off milestones) — the "AI collaborator" promise made visible in the UI (idea added by cycle 52; candidate for the first revolutionary cycle at 55)
+60. Bulk-bar keyboard shortcuts — x toggles selection on the focused row, shift-click selects ranges, Esc clears the selection (idea added by cycle 53)

@@ -1,4 +1,7 @@
 <div id="link-{{ link.pk }}" class="flex items-center gap-3 px-4 py-3 text-sm">
+  <input type="checkbox" name="ids" value="{{ link.pk }}" form="bulk-status-form"
+         aria-label="Select {{ link.reference.title|truncatechars:40 }}"
+         class="size-4 shrink-0 rounded border-stone-300 accent-indigo-600">
   <div class="min-w-0 flex-1">
     <a href="{{ link.reference.get_absolute_url }}" class="font-medium hover:underline">{{ link.reference.title|truncatechars:90 }}</a>
     <p class="text-xs text-stone-400">

@@ -67,3 +67,8 @@
 .pet-hop {
   animation: pet-hop 0.9s ease-in-out;
 }
+
+/* Alpine: hide x-cloak elements until Alpine initializes them */
+[x-cloak] {
+  display: none !important;
+}

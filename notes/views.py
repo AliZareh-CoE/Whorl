@@ -136,3 +136,23 @@ def triage(request, pk):
         capture.save(update_fields=["processed", "updated_at"])
         messages.success(request, "Dismissed.")
     return redirect("notes:inbox")
+
+
+@require_POST
+def inbox_bulk(request):
+    """Triage many captures at once: dismiss or assign to a project (Owner idea #18)."""
+    captures = QuickCapture.objects.filter(pk__in=request.POST.getlist("ids"), processed=False)
+    action = request.POST.get("action")
+    count = captures.count()
+    if not count:
+        messages.error(request, "Nothing selected.")
+    elif action == "dismiss":
+        captures.update(processed=True)
+        messages.success(request, f"Dismissed {count} item(s).")
+    elif action == "assign":
+        project = get_object_or_404(Project, slug=request.POST.get("project"))
+        captures.update(project=project, processed=True)
+        messages.success(request, f"Filed {count} item(s) to {project.name}.")
+    else:
+        messages.error(request, "Unknown bulk action.")
+    return redirect("notes:inbox")

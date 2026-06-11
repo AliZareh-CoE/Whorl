@@ -210,3 +210,60 @@ class TestUploadProgressUI:
         content = response.content.decode()
         assert "upload-bar" in content
         assert "xhr.upload.addEventListener" in content
+
+
+class TestBulkActions:
+    def _docs(self, n=3):
+        from documents.tests.factories import DocumentFactory
+
+        first = DocumentFactory()
+        return [first] + [DocumentFactory(project=first.project) for _ in range(n - 1)]
+
+    def test_bulk_move_and_tag_and_delete(self, client_logged_in):
+        from documents.models import Document, Folder, Tag
+
+        docs = self._docs()
+        project = docs[0].project
+        folder = Folder.objects.create(project=project, name="Bulk target")
+        tag = Tag.objects.create(project=project, name="bulky")
+        url = reverse("documents:bulk", args=[project.slug])
+        ids = [d.pk for d in docs[:2]]
+
+        client_logged_in.post(url, {"action": "move", "ids": ids, "folder": folder.pk})
+        assert Document.objects.filter(folder=folder).count() == 2
+
+        client_logged_in.post(url, {"action": "tag", "ids": ids, "tag": tag.pk})
+        assert all(tag in d.tags.all() for d in Document.objects.filter(pk__in=ids))
+
+        response = client_logged_in.post(url, {"action": "delete", "ids": ids})
+        assert response.status_code == 302
+        assert Document.objects.filter(pk__in=ids).count() == 0
+        assert Document.objects.filter(pk=docs[2].pk).exists()  # untouched
+
+    def test_cross_project_ids_ignored(self, client_logged_in):
+        from documents.models import Document
+        from documents.tests.factories import DocumentFactory
+
+        mine = DocumentFactory()
+        other = DocumentFactory()  # different project
+        url = reverse("documents:bulk", args=[mine.project.slug])
+        client_logged_in.post(url, {"action": "delete", "ids": [mine.pk, other.pk]})
+        assert not Document.objects.filter(pk=mine.pk).exists()
+        assert Document.objects.filter(pk=other.pk).exists()  # scoping protected it
+
+    def test_open_redirect_guard_on_next(self, client_logged_in):
+        docs = self._docs(1)
+        url = reverse("documents:bulk", args=[docs[0].project.slug])
+        response = client_logged_in.post(
+            url, {"action": "delete", "ids": [docs[0].pk], "next": "//evil.example.com"}
+        )
+        assert response.url.startswith("/")
+        assert "evil" not in response.url
+
+    def test_page_renders_bulk_ui(self, client_logged_in):
+        docs = self._docs(1)
+        response = client_logged_in.get(reverse("documents:index", args=[docs[0].project.slug]))
+        content = response.content.decode()
+        assert 'id="bulk-form"' in content
+        assert 'name="ids"' in content
+        assert "Select all documents" in content

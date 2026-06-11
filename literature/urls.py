@@ -39,6 +39,7 @@ urlpatterns = [
         views.set_reading_status,
         name="set_status",
     ),
+    path("projects/<slug:slug>/literature/bulk-status/", views.bulk_status, name="bulk_status"),
     path("projects/<slug:slug>/literature/queue/", views.reading_queue, name="queue"),
     path("projects/<slug:slug>/literature/matrix/", views.review_matrix, name="matrix"),
     path(

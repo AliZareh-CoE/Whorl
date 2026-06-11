@@ -512,3 +512,28 @@ def bib_report(request, slug):
             "reference_count": references.count(),
         },
     )
+
+
+@require_POST
+def bulk_status(request, slug):
+    """Set reading status on many linked papers at once (Owner idea #18)."""
+    project = get_object_or_404(Project, slug=slug)
+    status = request.POST.get("reading_status", "")
+    valid = {value for value, _ in ProjectReference.ReadingStatus.choices}
+    links = project.project_references.filter(pk__in=request.POST.getlist("ids"))
+    if status not in valid:
+        messages.error(request, "Pick a reading status.")
+    elif not links:
+        messages.error(request, "Nothing selected.")
+    else:
+        count = 0
+        for link in links:  # per-row save keeps updated_at (ETags, pet) honest
+            link.reading_status = status
+            link.save(update_fields=["reading_status", "updated_at"])
+            count += 1
+        label = dict(ProjectReference.ReadingStatus.choices)[status]
+        messages.success(request, f"Marked {count} paper(s) as {label}.")
+    next_url = request.POST.get("next", "")
+    if not (next_url.startswith("/") and not next_url.startswith("//")):
+        next_url = reverse("literature:project", kwargs={"slug": slug})
+    return redirect(next_url)
