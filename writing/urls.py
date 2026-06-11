@@ -97,6 +97,11 @@ urlpatterns = [
         name="remove_reference",
     ),
     path("projects/<slug:slug>/writing/<int:pk>/export.bib", views.export_bib, name="export_bib"),
+    path(
+        "projects/<slug:slug>/writing/<int:pk>/submission.zip",
+        views.export_submission_zip,
+        name="export_zip",
+    ),
     path("projects/<slug:slug>/writing/<int:pk>/events/add/", views.add_event, name="add_event"),
     path(
         "projects/<slug:slug>/writing/<int:pk>/events/<int:event_pk>/delete/",

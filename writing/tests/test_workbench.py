@@ -698,3 +698,46 @@ class TestLineComments:
         )
         assert created.status_code == 201
         assert created.json()["line"] is None
+
+
+class TestSubmissionZip:
+    """Beyond-Overleaf B7: arXiv-ready submission .zip export."""
+
+    def test_zip_contains_source_tree_and_bib(self, client_logged_in):
+        import io
+        import zipfile
+
+        from literature.tests.factories import ReferenceFactory
+        from writing.models import ManuscriptFile, ManuscriptReference
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(
+            manuscript=m, path="main.tex", content="\\input{sections/intro}", is_main=True
+        )
+        ManuscriptFile.objects.create(manuscript=m, path="sections/intro.tex", content="Hello")
+        ManuscriptReference.objects.create(
+            manuscript=m, reference=ReferenceFactory(bibtex_key="zip2020paper")
+        )
+        resp = client_logged_in.get(f"/projects/{m.project.slug}/writing/{m.pk}/submission.zip")
+        assert resp.status_code == 200
+        assert resp["Content-Type"] == "application/zip"
+        zf = zipfile.ZipFile(io.BytesIO(resp.getvalue()))
+        names = set(zf.namelist())
+        assert {"main.tex", "sections/intro.tex", "references.bib"} <= names
+        assert b"Hello" == zf.read("sections/intro.tex")
+        assert b"zip2020paper" in zf.read("references.bib")
+
+    def test_zip_keeps_user_references_bib(self, client_logged_in):
+        import io
+        import zipfile
+
+        from writing.models import ManuscriptFile
+        from writing.tests.factories import ManuscriptFactory
+
+        m = ManuscriptFactory(latex_source="")
+        ManuscriptFile.objects.create(manuscript=m, path="main.tex", content="x", is_main=True)
+        ManuscriptFile.objects.create(manuscript=m, path="references.bib", content="@misc{mine}")
+        resp = client_logged_in.get(f"/projects/{m.project.slug}/writing/{m.pk}/submission.zip")
+        zf = zipfile.ZipFile(io.BytesIO(resp.getvalue()))
+        assert zf.read("references.bib") == b"@misc{mine}"  # not clobbered

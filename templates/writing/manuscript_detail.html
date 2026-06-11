@@ -39,6 +39,7 @@
       <h2 class="text-sm font-medium uppercase tracking-wide text-stone-400">Bibliography</h2>
       <div class="flex gap-2 text-xs">
         <a href="{% url 'writing:export_bib' project.slug manuscript.pk %}" class="text-indigo-600 hover:underline">Export .bib</a>
+        <a href="{% url 'writing:export_zip' project.slug manuscript.pk %}" class="ml-3 text-indigo-600 hover:underline" title="arXiv-ready source + bib">Submission .zip</a>
         <a href="{% url 'writing:add_reference' project.slug manuscript.pk %}" class="text-indigo-600 hover:underline">+ Add</a>
       </div>
     </div>

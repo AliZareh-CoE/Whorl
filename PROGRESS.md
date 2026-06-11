@@ -3,8 +3,9 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: parity slice 7 SyncTeX forward OR B7 arXiv export [cycle 118])
-- **Last completed slice (cycle 117, beyond-Overleaf B6):** line-anchored editor comments — Comment model gains manuscript_file target with page=line; 💬 gutter dot on commented lines, click either gutter → line thread popover (⌘-Enter posts). Closes Owner idea #10 for the editor. Browser-verified comment→dot→reopen→append. 2 tests.
+- **Slice in progress:** — (next: parity slice 7 SyncTeX forward jump OR LaTeX polish [cycle 119])
+- **Last completed slice (cycle 118, beyond-Overleaf B7):** arXiv submission .zip — one-click flattened source tree + generated references.bib (user's own bib kept), buttons on editor + detail. Live-verified the download. 2 tests. **ALL 7 BEYOND-OVERLEAF FEATURES DONE — the LaTeX epic has everything Overleaf has + 7 it can't.**
+- **Prior slice (cycle 117, beyond-Overleaf B6):** line-anchored editor comments — Comment model gains manuscript_file target with page=line; 💬 gutter dot on commented lines, click either gutter → line thread popover (⌘-Enter posts). Closes Owner idea #10 for the editor. Browser-verified comment→dot→reopen→append. 2 tests.
 - **Prior slice (cycle 116, beyond-Overleaf B5):** manuscript writing on the research timeline — latest compile + labeled versions become dated timeline events (kind manuscript_compiled, teal dot), not the 50 auto-snapshots. Query budget held. Live-verified the compile event appears on the timeline API + SPA. 1 test.
 - **Prior slice (cycle 115, LaTeX parity slice 10):** templates gallery + symbol palette — 6 code-defined starters (writing/templates_gallery.py) seeded via a "Start from template" select on create; editor "Ω Symbols" popover with a 52-symbol grid inserting at cursor. ALL 10 OVERLEAF-PARITY SLICES NOW COMPLETE. 3 tests.
 - **Prior slice (cycle 114, [REV] beyond-Overleaf B4):** MCP LaTeX tools — Claude edits+compiles manuscripts via the owner's subscription. 11 pure-httpx tools wrapping existing DRF (only 1 new Django line: word-count @action); compile_and_wait polls without a time import (AST constraint holds). Verified the full edit→compile→read-error→fix→PDF loop live via the real MCP client. 12 tests. Plan in docs/plans/.

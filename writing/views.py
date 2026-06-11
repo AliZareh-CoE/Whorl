@@ -227,6 +227,43 @@ def remove_reference(request, slug, pk, link_pk):
     return redirect(manuscript.get_absolute_url())
 
 
+def export_submission_zip(request, slug, pk):
+    """Beyond-Overleaf B7: a flattened arXiv-ready submission .zip of the manuscript's
+    source tree + the generated references.bib. The thing every researcher zips by hand."""
+    import io
+    import zipfile
+
+    from django.http import HttpResponse
+
+    from .services import export_manuscript_bib
+
+    manuscript, _ = _workbench_objects(slug, pk)
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        files = list(manuscript.files.all())
+        if files:
+            for f in files:
+                if f.kind == "asset" and f.asset:
+                    with f.asset.open("rb") as src:
+                        zf.writestr(f.path, src.read())
+                else:
+                    zf.writestr(f.path, f.content)
+            has_bib = any(f.path == "references.bib" for f in files)
+        else:
+            zf.writestr("main.tex", manuscript.latex_source)
+            has_bib = False
+        # add the generated bibliography unless the user already ships one
+        if not has_bib:
+            bib = export_manuscript_bib(manuscript)
+            if bib:
+                zf.writestr("references.bib", bib)
+    buffer.seek(0)
+    slug_name = "".join(c if c.isalnum() else "-" for c in manuscript.title.lower())[:60].strip("-")
+    response = HttpResponse(buffer.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{slug_name or "submission"}.zip"'
+    return response
+
+
 def export_bib(request, slug, pk):
     project = get_object_or_404(Project, slug=slug)
     manuscript = get_object_or_404(project.manuscripts, pk=pk)
