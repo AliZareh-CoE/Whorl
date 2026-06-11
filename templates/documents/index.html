@@ -78,6 +78,8 @@
     {% endif %}
 
     {% if documents %}
+      {{ island_props|json_script:"documents-table-props" }}
+      <div data-island="documents-table" data-props="documents-table-props">
       <div x-data="{ n: 0 }"
            @change="n = document.querySelectorAll('input[name=ids]:checked').length">
       <form id="bulk-form" method="post" action="{% url 'documents:bulk' project.slug %}"
@@ -140,6 +142,7 @@
           {% endfor %}
         </tbody>
       </table></div>
+      </div>
       </div>
     {% else %}
       <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">

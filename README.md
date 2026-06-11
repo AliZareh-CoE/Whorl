@@ -69,6 +69,10 @@ make tectonic                 # optional: LaTeX engine for compiling manuscripts
 
 Open http://127.0.0.1:8000/ and log in. The Django admin lives at `/admin/`.
 
+**React islands (optional, for island development only).** `make js` rebuilds the islands
+in `frontend/` (Vite + TypeScript, Node 20+ required). Built artifacts are committed under
+`static/js/islands/`, so running Atlas never needs Node.
+
 ## API
 
 Everything in the UI is also available under `/api/v1/` (interactive docs at `/api/docs/`).

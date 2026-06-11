@@ -39,3 +39,6 @@ tectonic:
 	curl -sL --fail -o /tmp/tectonic.tar.gz "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-x86_64-unknown-linux-musl.tar.gz"
 	tar -xzf /tmp/tectonic.tar.gz -C bin/
 	chmod +x $(TECTONIC)
+
+js:  ## build the React islands (Node only needed for island development)
+	cd frontend && npm install && node_modules/.bin/vite build

@@ -2,6 +2,7 @@
 
 @source "../../templates";
 @source "../../**/templates";
+@source "../../frontend/src";
 
 /* World-class focus visibility without per-element classes */
 @layer base {

@@ -160,8 +160,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     committed build artifacts so self-hosters still need no Node). Convention:
     `<div data-island="name" data-props="…json_script…">` + one loader script. Pages must
     still render useful content without the island (progressive enhancement).
-    Slices: (1) islands infra + first island = documents table w/ bulk actions; then
-    per-view conversions, one per cycle, each browser-verified.
+    ~~Slice 1 (2026-06-11, cycle 54): frontend/ Vite+TS workspace building self-contained
+    ES modules to static/js/islands/ (committed; make js); vanilla islands-loader.js
+    (data-island/data-props/json_script convention, server markup stays as fallback on
+    failure); first island = DocumentsTable — client-side sort + instant filter,
+    shift-click range selection, sticky bulk bar (move/tag/delete with confirm dialog)
+    calling the cycle-53 endpoints with CSRF from the cookie, server reload after actions
+    keeps Django as source of truth.~~ Next: per-view conversions (assistant panel, graph
+    chrome, LaTeX shell), one per cycle.
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -326,3 +332,4 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 58. Tree tooltips — hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)
 59. [REV] Atlas Assistant panel — a first-class in-app Claude workspace: a persistent side panel that talks to the owner's Claude subscription via MCP, sees the current page's object as context, and can act (file papers, draft synthesis notes, check off milestones) — the "AI collaborator" promise made visible in the UI (idea added by cycle 52; candidate for the first revolutionary cycle at 55)
 60. Bulk-bar keyboard shortcuts — x toggles selection on the focused row, shift-click selects ranges, Esc clears the selection (idea added by cycle 53)
+61. Island dev-mode — `vite dev` proxy so island development gets HMR against the running Django server (idea added by cycle 54)

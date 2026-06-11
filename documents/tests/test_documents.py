@@ -267,3 +267,39 @@ class TestBulkActions:
         assert 'id="bulk-form"' in content
         assert 'name="ids"' in content
         assert "Select all documents" in content
+
+
+class TestDocumentsIsland:
+    """Owner idea #19: the documents table mounts as a React island."""
+
+    def test_island_mount_point_and_props(self, client_logged_in):
+        from documents.tests.factories import DocumentFactory
+
+        doc = DocumentFactory(title="Island doc")
+        response = client_logged_in.get(reverse("documents:index", args=[doc.project.slug]))
+        content = response.content.decode()
+        assert 'data-island="documents-table"' in content
+        assert 'id="documents-table-props"' in content  # json_script payload
+        assert "Island doc" in content  # server fallback still renders the table
+        assert "islands-loader.js" in content
+
+    def test_props_payload_shape(self, client_logged_in):
+        import json
+
+        from documents.tests.factories import DocumentFactory
+
+        doc = DocumentFactory()
+        response = client_logged_in.get(reverse("documents:index", args=[doc.project.slug]))
+        content = response.content.decode()
+        payload = content.split('id="documents-table-props"')[1]
+        payload = payload.split(">", 1)[1].split("</script>")[0]
+        props = json.loads(payload)
+        assert props["bulkUrl"].endswith("/documents/bulk/")
+        assert props["documents"][0]["id"] == doc.pk
+        assert "downloadUrl" in props["documents"][0]
+
+    def test_built_island_artifact_committed(self):
+        from pathlib import Path
+
+        artifact = Path("static/js/islands/documents-table.js")
+        assert artifact.exists() and artifact.stat().st_size > 10_000

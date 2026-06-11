@@ -31,6 +31,31 @@ def documents_index(request, slug):
         current_tag = get_object_or_404(project.tags, pk=request.GET["tag"])
         documents = documents.filter(tags=current_tag)
 
+    from django.template.defaultfilters import filesizeformat
+
+    tags = project.tags.all()
+    island_props = {
+        "documents": [
+            {
+                "id": doc.pk,
+                "title": doc.title,
+                "description": doc.description[:80],
+                "folder": doc.folder.name if doc.folder else "",
+                "folderId": doc.folder_id,
+                "tags": [tag.name for tag in doc.tags.all()],
+                "size": doc.file_size,
+                "sizeDisplay": filesizeformat(doc.file_size),
+                "added": doc.created_at.strftime("%Y-%m-%d"),
+                "downloadUrl": reverse("documents:download", args=[project.slug, doc.pk]),
+                "editUrl": reverse("documents:document_edit", args=[project.slug, doc.pk]),
+            }
+            for doc in documents
+        ],
+        "folders": [{"id": f.pk, "name": f.name} for f in project.folders.all()],
+        "tags": [{"id": t.pk, "name": t.name} for t in tags],
+        "bulkUrl": reverse("documents:bulk", args=[project.slug]),
+        "nextUrl": request.get_full_path(),
+    }
     return render(
         request,
         "documents/index.html",
@@ -41,7 +66,8 @@ def documents_index(request, slug):
             "current_folder": current_folder,
             "current_tag": current_tag,
             "show_all": "all" in request.GET,
-            "tags": project.tags.all(),
+            "tags": tags,
+            "island_props": island_props,
         },
     )
 
