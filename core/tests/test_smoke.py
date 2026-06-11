@@ -136,3 +136,13 @@ def test_github_templates_present_and_valid():
         path = base / "ISSUE_TEMPLATE" / name
         assert path.exists(), name
         yaml.safe_load(path.read_text())  # raises if malformed
+
+
+def test_make_audit_target_exists():
+    from pathlib import Path
+
+    assert Path("scripts/audit.sh").exists()
+    assert "audit:" in Path("Makefile").read_text()
+    # the script is read-only: it must not POST/PATCH/DELETE
+    script = Path("scripts/audit.sh").read_text()
+    assert "-X POST" not in script and "-X DELETE" not in script and "-X PATCH" not in script

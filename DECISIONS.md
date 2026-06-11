@@ -416,7 +416,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 44. Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)
 45. Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)
 46. ~~Edge-swipe open (done 2026-06-11, cycle 48, UI/UX): touchstart within 24px of the left edge + >60px rightward swipe opens the drawer (window-level Alpine handlers); mid-screen swipes ignored — touch-verified at 420px.~~
-47. `make audit` target — pip-audit via uvx + the curl auth sweep as a one-command pre-audit script, so every 10th cycle starts from the same checklist (idea added by cycle 40, from AUDIT #4)
+47. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
 48. Matrix gap column hints — show each theme's read-count in the review matrix header so gaps are visible there too, linking back to the gap-ordered queue (idea added by cycle 41)
 49. More pet reactions — a sparkle on phase completion and a brief "om nom" when a reference is marked read, all through the same HX-Trigger pattern (idea added by cycle 42)
 50. Grove seasons — paused projects show bare autumn trees and archived ones fade out, so the grove reflects the whole portfolio at a glance (idea added by cycle 43)
@@ -449,7 +449,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 76. Route-level code splitting — React.lazy per SPA section so spa.js stays lean as pages accumulate; bundle grew 30→38KB gz in cycle 67 (idea added by cycle 67, friction-sourced)
 77. ~~Shared route rule (done 2026-06-11, cycle 76): replaced the hand-mirrored SPA route list in core/urls.py with ONE catch-all — `^(?!api/|app/|static/|media/)(?!.*/$).+$` serves the shell for any slash-less path (classic keeps trailing-slash URLs). Adding a React page now needs zero Django changes; the cycle-74/75 drift class is gone. Tests cover unlisted pages served, classic intact, unknown /api/ still 404.~~
 78. SPA decision detail — context/alternatives render in the timeline (saved now, shown truncated); felt while recording the cycle-69 decision (idea added by cycle 69)
-79. `make audit` script — codify the curl auth-matrix + open-redirect + anon-sweep probes into one target so every audit cycle starts identically (Backlog #47 restated, felt again cycle 70) (idea added by cycle 70)
+79. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
 80. ~~Bulk task create + search (done 2026-06-11, cycle 89): tasks endpoint mirrors milestones — POST a JSON list to create many (done settable at create), ?q= filters by title. The plan API is now uniform across milestones and tasks.~~
 81. ~~SPA synthesis + coverage (done 2026-06-11, cycle 73): React literature page gets a Draft-synthesis button (X-SPA JSON → navigates to the note, no reload) and a coverage-gap nudge highlighting themes with ≤1 paper; closes Owner idea #11's active coverage-gap suggestion too.~~
 82. Coverage-gap → queue prefill — clicking a thin theme in the nudge jumps to the queue already filtered to that theme's candidate papers (idea added by cycle 73)
@@ -471,4 +471,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 98. MCP get_synthesis_scaffold tool — let Claude pull the theme-organized synthesis scaffold to draft a review section in chat (idea added by cycle 87)
 99. Per-section copy — small copy buttons on each Review section (e.g. just the milestones) for finer-grained pasting (idea added by cycle 88)
 100. Generic list-create+search mixin — factor the bulk-create/?q= pattern (now duplicated on milestones+tasks) into an AtlasViewSet option so every resource can opt in (idea added by cycle 89)
-101. Audit automation — a `make audit` (Backlog #79, still open) would have run all these curl probes in one command; overdue after two clean audits done by hand (idea added by cycle 90)
+101. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
+102. CI workflow — a GitHub Actions job running pytest + ruff + tsc + make audit on PRs, so the gate the loop runs by hand also guards external contributions (idea added by cycle 91)
