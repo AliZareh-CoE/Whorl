@@ -18,7 +18,7 @@ become backlog slices.
 ## Star-worthiness checklist (becomes slices later)
 
 - [x] LICENSE — AGPL-3.0 (cycle 28; rationale in DECISIONS.md)
-- [ ] One-command install: `docker compose up` with the app containerized, not just Postgres
+- [x] One-command install — `docker compose --profile app up -d --build` runs web+worker+db+redis (cycle 29)
 - [x] README with hero screenshots, feature grid, comparison table (cycle 28; GIF still todo)
 - [ ] Demo instance or `seed_demo`-powered screenshot tour
 - [x] CONTRIBUTING.md (cycle 28); issue templates still todo

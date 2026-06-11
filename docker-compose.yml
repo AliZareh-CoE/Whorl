@@ -25,5 +25,51 @@ services:
       timeout: 5s
       retries: 10
 
+  web:
+    profiles: ["app"]
+    build: .
+    command: ["./docker-entrypoint.sh"]
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DATABASE_URL: postgres://atlas:atlas@db:5432/atlas
+      REDIS_URL: redis://redis:6379/0
+      ATLAS_BEHIND_TLS: "false"  # localhost/LAN default; put a TLS proxy in front for the internet
+    ports:
+      - "8000:8000"
+    volumes:
+      - media:/app/media
+      - tts:/app/tts_voices
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8000/login/ -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    profiles: ["app"]
+    build: .
+    command: [".venv/bin/python", "manage.py", "run_huey"]
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DATABASE_URL: postgres://atlas:atlas@db:5432/atlas
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - media:/app/media
+      - tts:/app/tts_voices
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:
+  media:
+  tts:

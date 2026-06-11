@@ -1,0 +1,16 @@
+.git
+.venv
+media
+staticfiles
+tts_voices
+bin
+static/css/app.css
+db.sqlite3
+.pytest_cache
+.ruff_cache
+__pycache__
+*.pyc
+.env
+docs/screenshots
+
+sandbox-ca.crt

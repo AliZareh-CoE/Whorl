@@ -32,7 +32,20 @@ milestones, add papers, fetch your saved prompts.
 - **Claude/MCP integration** — 16 tools over the REST API; your AI assistant operates the same contract you do
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
-## Quick start
+## Quick start (one command)
+
+With just Docker installed:
+
+```bash
+git clone <repo-url> atlas && cd atlas
+cp .env.example .env                       # set SECRET_KEY, ATLAS_API_KEY, DEBUG=false
+docker compose --profile app up -d --build
+docker compose exec web .venv/bin/python manage.py createsuperuser
+```
+
+Atlas is on http://127.0.0.1:8000 — web app, background worker, Postgres, and Redis all running.
+
+## Quick start (development)
 
 Prerequisites: Python 3.12+, [uv](https://docs.astral.sh/uv/), Docker with Compose, `make`, `curl`.
 

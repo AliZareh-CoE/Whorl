@@ -17,6 +17,8 @@ dependencies = [
     "redis>=5.2",
     "mcp>=1.10",
     "piper-tts>=1.4",
+    "gunicorn>=23",
+    "whitenoise>=6.8",
 ]
 
 [dependency-groups]

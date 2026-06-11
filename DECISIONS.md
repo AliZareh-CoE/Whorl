@@ -53,7 +53,9 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    ~~First slice (2026-06-11, cycle 28): AGPL-3.0 LICENSE (decision logged), hero README
    (positioning line, screenshot grid from docs/screenshots/, feature list, comparison table
    vs Zotero/Notion/Overleaf, MCP front and center), CONTRIBUTING.md.~~ Remaining: app
-   containerization for one-command install (cycle 29), demo GIF, docs site, launch posts.
+   ~~containerization (2026-06-11, cycle 29): Dockerfile + compose app profile (web+worker),
+   verified by building the image and serving /login/ from the container in-sandbox.~~
+   Remaining: demo GIF, docs site, issue templates, launch posts.
 9. **LaTeX editor ("better than Overleaf", owner knows it's ambitious).** ~~Slice 1
    (2026-06-11, cycle 13): `latex_source` on Manuscript; CodeMirror 5 (stex mode) editor page
    with cite-key autocomplete from the manuscript bibliography, Ctrl/Cmd-S save, integrated
@@ -121,6 +123,18 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   owner's Claude subscription via MCP.
 
 ## Decisions
+
+### 2026-06-11 — Containerized deployment: gunicorn + whitenoise, ATLAS_BEHIND_TLS flag
+- **Decision:** One-command install via `docker compose --profile app up -d --build`:
+  single image (uv-built, Tailwind compiled and collectstatic'd at build time) running as
+  `web` (migrate + gunicorn) and `worker` (run_huey); whitenoise serves static with the
+  manifest storage in prod; `.dockerignore` keeps host artifacts out (host `.venv` clobbering
+  the image's was a real bug caught during the live build). `ATLAS_BEHIND_TLS=false` relaxes
+  SSL-redirect/HSTS/secure-cookies for localhost/LAN compose use; defaults stay strict.
+- **Why:** Open-source adoption (Owner idea #8) lives or dies on install friction; gunicorn +
+  whitenoise is the boring standard for single-box Django.
+- **Alternatives rejected:** runserver in the container (not production-grade); nginx sidecar
+  (a second container and config surface for marginal gain at this scale).
 
 ### 2026-06-11 — AGPL-3.0 license (open-source readiness, Owner idea #8)
 - **Decision:** Atlas is licensed AGPL-3.0.
@@ -223,4 +237,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 32. tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26)
 33. SyncTeX-style jump — click in the PDF preview to jump to the matching source line (idea added by cycle 27)
 34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
-35. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+35. Slim the Docker image — multi-stage build, piper/onnx as optional extra (~800 MB → ~300 MB) (idea added by cycle 29)
+36. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)

@@ -8,10 +8,10 @@ $(TAILWIND):
 	chmod +x $(TAILWIND)
 
 css: $(TAILWIND)
-	$(TAILWIND) -i static/src/app.css -o static/css/app.css --minify
+	$(TAILWIND) -i assets/css/app.css -o static/css/app.css --minify
 
 css-watch: $(TAILWIND)
-	$(TAILWIND) -i static/src/app.css -o static/css/app.css --watch
+	$(TAILWIND) -i assets/css/app.css -o static/css/app.css --watch
 
 up:
 	docker compose up -d
