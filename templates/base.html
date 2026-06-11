@@ -16,10 +16,13 @@
   <div class="flex h-full">
     <aside class="fixed inset-y-0 left-0 w-56 border-r border-stone-200 bg-white px-4 py-6 flex flex-col">
       <a href="{% url 'core:dashboard' %}" class="text-lg font-semibold tracking-tight mb-4">Atlas</a>
-      <form action="{% url 'core:search' %}" method="get" class="mb-4">
+      <form action="{% url 'core:search' %}" method="get" class="relative mb-4">
         <input type="search" name="q" id="global-search" placeholder="Search…  ( / )" value="{{ request.GET.q|default:'' }}"
-               aria-label="Search everything"
+               aria-label="Search everything" autocomplete="off"
+               hx-get="{% url 'core:search_suggest' %}" hx-trigger="keyup changed delay:250ms"
+               hx-target="#search-suggest" hx-swap="innerHTML"
                class="w-full rounded border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm focus:border-indigo-600 focus:bg-white focus:outline-none">
+        <div id="search-suggest" class="absolute left-0 right-0 top-full z-50"></div>
       </form>
       <nav class="space-y-1 text-sm">
         <a href="{% url 'core:dashboard' %}"

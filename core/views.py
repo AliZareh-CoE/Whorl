@@ -41,6 +41,19 @@ def search(request):
     )
 
 
+def search_suggest(request):
+    """As-you-type results for the sidebar box (HTMX)."""
+    from .search import search_all
+
+    query = request.GET.get("q", "").strip()
+    if len(query) < 2:
+        from django.http import HttpResponse
+
+        return HttpResponse("")
+    results = search_all(query)[:8]
+    return render(request, "core/_suggest.html", {"results": results, "query": query})
+
+
 def pet_page(request):
     from django.core.cache import cache
     from django.shortcuts import redirect

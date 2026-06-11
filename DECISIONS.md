@@ -73,9 +73,13 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     titles from filenames) and multi-file Quick upload button; inline rename (HTMX) and
     quick-move folder dropdown on every row, project-scoped.~~ Remaining: breadcrumbed
     folder navigation, cheap previews (text/image), drag rows between folders.
-15. **Lightning-fast search with NLP.** Upgrade global search: Postgres trigram/websearch
-    tuning, typo tolerance, prefix-as-you-type results, synonym/stemming improvements,
-    ranking tuned for research artifacts — local NLP only (see constraint in #11).
+15. **Lightning-fast search with NLP.** ~~First slice (2026-06-11, cycle 19): pg_trgm
+    extension + trigram typo-tolerance fallback; websearch query parsing ("quoted phrases",
+    OR, -negation); as-you-type suggestion dropdown on the sidebar box (HTMX, 250 ms
+    debounce, top 8 mixed results). Bonus correctness fix the tests forced: FTS now filters
+    on the boolean match instead of a rank threshold — ts_rank ignores ! and & so negated
+    terms previously leaked.~~ Remaining: synonym dictionaries, per-type ranking boosts,
+    keyboard navigation in the dropdown.
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -169,4 +173,5 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 22. Pet reactions to events — a brief happy hop via HTMX when a milestone is checked off on the plan page (idea added by cycle 16)
 23. Tree grove view — all projects as one grove on the dashboard, trees sized by scope (idea added by cycle 17)
 24. Upload progress bars per file for large uploads (idea added by cycle 18)
-25. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
+25. Search suggestion keyboard navigation (↑/↓/Enter) + recent-searches memory (idea added by cycle 19)
+26. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
