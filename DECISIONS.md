@@ -468,6 +468,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   decision log (not only DECISIONS.md), capture every idea via quick-capture/command bar,
   use Atlas search to find its own context, check off milestones at ship. The point is to
   hit obstacles a real user hits. Friction items become backlog ideas, always.
+  **Anti-decay clause (added cycle 144, owner-prompted assessment):** dogfooding ROTS if
+  the ritual is only quick-capture. EVERY ship must ALSO log+complete a milestone on
+  atlas-self-build (Quality loop, phase 30) — not just a capture — and the inbox must be
+  triaged down (cycle-log captures → assign to atlas-self-build + processed) at least every
+  audit cycle, kept in single digits. An untriaged-inbox pile or a milestone ledger lagging
+  the cycle count is itself a failure to surface, exactly the task-soup §1 opposes. Cycle 144
+  caught this: ledger had stalled at cycle 131 (13 cycles missing) and 54/66 captures were
+  untriaged; both were corrected via the API and the ritual updated.
 - **Every 10th cycle is an audit cycle:** full security review + responsiveness/performance
   check of the whole system and everything added since the last audit (re-run the query
   audit, check page weights, throttle behavior, upload paths, dependency CVEs). Track cycle
