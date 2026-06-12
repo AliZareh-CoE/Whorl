@@ -393,3 +393,42 @@ aria-label (auto-escaped by Django). No XSS surface.
 
 **Verdict:** healthy — one defense-in-depth fix (zip traversal guard), everything else
 clean. 545 tests green, lint clean.
+
+## Audit #13 — cycle 130 (2026-06-12)
+
+Scope: everything since audit #12 (cycles 121–129) — the error-log relocation, the entire
+CodeMirror 6 migration (island + glue rewrite + cutover), the new npm dependencies, Split.js
+panels with collapse chevrons, the File/Edit/Insert/View toolbar, the Ctrl-Enter binding,
+and the container-snapshot-rollback recovery.
+
+**Probe sweep (`make audit`): clean.** pip-audit + npm audit zero known vulnerabilities —
+including an explicit npm audit after adding the editor dependencies.
+
+**New dependencies (Owner rule #28):** codemirror/@codemirror/*, @replit/codemirror-vim,
+codemirror-lang-latex, split.js — **all MIT**, all pinned via package-lock, all bundled
+locally by the existing Vite pipeline (no new build infrastructure, no CDN). Net effect of
+the migration: ~250 lines of hand-rolled editor code deleted, 15 CDN tags removed, and the
+offline-editor availability bug (#114) closed.
+
+**Authz unchanged and verified:** the editor page and its endpoints (cite-library, files,
+manuscript_file comments) still 302/401 anonymously; the cutover touched no backend auth.
+
+**CSRF:** the island's only mutating fetch (the cite auto-link POST) carries X-CSRFToken
+from config; all nine mutating fetches in the glue carry it. `window.editor` exposes only
+read/write of the current document to same-origin scripts — no new surface.
+
+**Performance:** authenticated editor page 21 ms server-side (dashboard 13 ms) — well under
+the 50 ms bar. The CM6 bundle is 203 KB gzipped (the Lezer LaTeX grammar dominates); accepted
+as a one-time cached cost for the editor page, with #137 (manualChunks / lazy vim) open if it
+ever matters. Query-budget + MCP AST-constraint tests green (26).
+
+**Resilience note:** this stretch survived a container snapshot rollback that reverted the
+workdir and DB ~20 cycles; recovery was a fetch + hard-reset because every cycle had been
+pushed. The watchdog and chain prompts now carry the recovery rule (check git log first,
+reset to origin, npm install, revive services).
+
+**Findings & fixes:** none — clean audit.
+
+**Verdict:** healthy. The CM6 migration shipped with authz, CSRF, and performance intact,
+and the dependency posture is exactly what rule #28 wants: pinned, MIT, locally bundled.
+545 tests green, lint clean.
