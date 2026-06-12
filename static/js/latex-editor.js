@@ -18,6 +18,16 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     return match ? decodeURIComponent(match[1]) : "";
   }
 
+  // Escape discipline (#151, from AUDIT #14): EVERY `${...}` inside an innerHTML
+  // template must be `${esc(...)}` — a pytest (writing/test_glue_escapes.py) greps
+  // this file and fails the build otherwise. Prefer textContent where possible.
+  function esc(s) {
+    return String(s ?? "").replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+    );
+  }
+
   // --- workbench file state ([REV] slice 6) ------------------------------------
   const files = new Map((cfg.files || []).map((f) => [f.id, f]));
   const loadedFiles = new Set([cfg.mainFileId]); // ids whose content is in the island
@@ -123,9 +133,11 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     for (const d of DIAGNOSTICS) {
       const li = document.createElement("li");
       li.className = "flex cursor-pointer items-baseline gap-2 px-3 py-1.5 hover:bg-stone-50";
+      const levelClass = d.level === "error" ? "text-red-600" : "text-amber-600";
+      const fileLabel = d.file && d.file !== pathOf(activeId) ? d.file + " " : "";
       li.innerHTML =
-        `<span class="${d.level === "error" ? "text-red-600" : "text-amber-600"} text-xs font-medium">${d.level}</span>` +
-        (d.line ? `<span class="font-mono text-xs text-stone-400">${d.file && d.file !== pathOf(activeId) ? d.file + " " : ""}L${d.line}</span>` : "") +
+        `<span class="${esc(levelClass)} text-xs font-medium">${esc(d.level)}</span>` +
+        (d.line ? `<span class="font-mono text-xs text-stone-400">${esc(fileLabel)}L${esc(d.line)}</span>` : "") +
         '<span class="min-w-0 flex-1 truncate text-xs text-stone-700"></span>';
       li.lastChild.textContent = d.message;
       if (d.line) {
@@ -344,13 +356,7 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     ad.insertAtCursor(`\\cite{${key}}`);
   }
   // AUDIT #14: titles/authors/statements arrive from external metadata APIs
-  // (Crossref, BibTeX imports) — escape before any innerHTML interpolation
-  function esc(s) {
-    return String(s ?? "").replace(
-      /[&<>"']/g,
-      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
-    );
-  }
+  // (Crossref, BibTeX imports) — esc() everything (helper at the top of the file)
   function renderContext(data) {
     rpBib.innerHTML = "";
     if (!data.bib.length) rpBib.innerHTML = '<li class="text-xs text-stone-400">No linked references yet.</li>';
@@ -371,7 +377,8 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     for (const h of data.hypotheses) {
       const li = document.createElement("li");
       li.className = "rounded px-1.5 py-1 text-xs";
-      li.innerHTML = `<span class="${HYP_COLOR[h.status] || "text-stone-500"} font-medium">${esc(h.status)}</span> <span class="text-stone-600">${esc(h.statement)}</span>`;
+      const hypColor = HYP_COLOR[h.status] || "text-stone-500";
+      li.innerHTML = `<span class="${esc(hypColor)} font-medium">${esc(h.status)}</span> <span class="text-stone-600">${esc(h.statement)}</span>`;
       rpHyps.appendChild(li);
     }
   }
@@ -479,7 +486,7 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     for (const c of here) {
       const div = document.createElement("div");
       div.className = "rounded border border-stone-100 bg-stone-50 px-3 py-2";
-      div.innerHTML = `<p class="whitespace-pre-wrap text-sm text-stone-700"></p><p class="mt-1 text-xs text-stone-400">${c.created_at.slice(0, 10)}</p>`;
+      div.innerHTML = `<p class="whitespace-pre-wrap text-sm text-stone-700"></p><p class="mt-1 text-xs text-stone-400">${esc(c.created_at.slice(0, 10))}</p>`;
       div.querySelector("p").textContent = c.body;
       commentThread.appendChild(div);
     }
