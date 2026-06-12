@@ -432,3 +432,52 @@ reset to origin, npm install, revive services).
 **Verdict:** healthy. The CM6 migration shipped with authz, CSRF, and performance intact,
 and the dependency posture is exactly what rule #28 wants: pinned, MIT, locally bundled.
 545 tests green, lint clean.
+
+## Audit #14 — 2026-06-12, cycle 140 (covers cycles 131–139, commits 2f61908..2503e1b)
+
+**Scope:** pet voice (TTS endpoint + stage-shaped delivery), CI editor smoke + failure
+artifacts + 4xx/5xx probe, layout presets + active-layout check, vim lazy chunk +
+modulePreload:false, the left icon rail, and the stroke-SVG icon sweep.
+
+**TTS surface (`POST /tts/`):** anonymous → 403 (LoginRequiredMiddleware + CSRF), text capped
+at MAX_TTS_CHARS=5000 before synthesis, response is `Cache-Control: no-store`. The growth
+stage is derived server-side from `pet_state()` — the client cannot select a voice shape.
+Piper is a library call on plain text; no shell, no injection vector.
+
+**CI artifacts carry no secrets:** `audit.sh` uses `$KEY` only in request headers and never
+echoes it; the smoke's console log captures browser console output (no key logging exists in
+the editor JS); `server.log` is runserver request lines (keys travel in headers, not URLs).
+The seeded CI credentials (`ci-smoke-pass`, `ci-audit-key`) are job-local throwaways.
+
+**FINDING (fixed in-cycle): stored XSS via external metadata in the research panel.**
+`renderContext`/`renderNotes` interpolated reference titles, authors, bibtex keys, hypothesis
+statements, and note titles into `innerHTML` unescaped. Titles arrive from Crossref/OpenAlex
+and BibTeX imports — external data. Proven live: a reference titled
+`<img src=x onerror=window.__xss=1>` would have executed (single-user session, so
+self-XSS-by-upstream — low severity, real bug). Fixed with an `esc()` helper on every
+interpolation; re-tested live with the hostile title — renders literally, nothing executes.
+Everything else on the page already used `textContent` (comments, diagnostics messages, file
+tree), and manuscript file paths are constrained to `[A-Za-z0-9._-]` by the model validator,
+so the diagnostics `d.file` interpolation cannot carry HTML.
+
+**Icon rail / presets / icon sweep:** pure client-side UI on existing authz'd pages; the
+CommentMarker `innerHTML` is a static SVG constant; new localStorage keys are all
+`atlas-editor-*` namespaced.
+
+**Dependencies (rule #28):** 145 packages locked; codemirror-lang-latex 0.4.1, 
+@replit/codemirror-vim 6.3.0, split.js 1.6.5 — MIT. `pip-audit` and `npm audit` clean
+(via `make audit`, which also re-verified anon-401/302, key auth, the #77 catch-all, and
+the open-redirect guard — all green). vim-keymap-chunk and the core chunk are local files;
+the smoke's 4xx/5xx probe now guards the loading topology that modulePreload:false fixed.
+
+**Performance:** in-process best-of-5 — project overview 18 ms / 13 queries, editor page
+9 ms / 7 queries, `/api/v1/projects/` 5 ms / 5 queries — all well under the 50 ms bar.
+(Through runserver on this loaded container the same pages read 60–76 ms; the delta is WSGI
++ container noise, not query work — verified by the in-process numbers.)
+
+**Gates:** 549 tests green, ruff check/format clean, tsc clean, editor smoke 6/6, SPA route
+check green.
+
+**Verdict:** healthy, one real find fixed and proven inert. The stretch's CI work (smoke,
+artifacts, 4xx/5xx probe) has already paid for itself twice — it caught the modulePreload
+404 class and forced this audit's escaping fix to be verifiable end-to-end.

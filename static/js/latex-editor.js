@@ -343,6 +343,14 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
   function insertCite(key) {
     ad.insertAtCursor(`\\cite{${key}}`);
   }
+  // AUDIT #14: titles/authors/statements arrive from external metadata APIs
+  // (Crossref, BibTeX imports) — escape before any innerHTML interpolation
+  function esc(s) {
+    return String(s ?? "").replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+    );
+  }
   function renderContext(data) {
     rpBib.innerHTML = "";
     if (!data.bib.length) rpBib.innerHTML = '<li class="text-xs text-stone-400">No linked references yet.</li>';
@@ -351,9 +359,9 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
       li.className = "group rounded px-1.5 py-1 hover:bg-stone-50";
       const meta = `${r.authors || ""}${r.year ? " · " + r.year : ""}`;
       li.innerHTML =
-        `<div class="flex items-baseline gap-1"><button class="rp-cite font-mono text-xs text-indigo-700 hover:underline" title="Insert \\cite">${r.key}</button></div>` +
-        `<div class="truncate text-xs text-stone-500" title="${r.title.replace(/"/g, "&quot;")}">${r.title}</div>` +
-        (meta ? `<div class="text-[10px] text-stone-400">${meta}</div>` : "");
+        `<div class="flex items-baseline gap-1"><button class="rp-cite font-mono text-xs text-indigo-700 hover:underline" title="Insert \\cite">${esc(r.key)}</button></div>` +
+        `<div class="truncate text-xs text-stone-500" title="${esc(r.title)}">${esc(r.title)}</div>` +
+        (meta ? `<div class="text-[10px] text-stone-400">${esc(meta)}</div>` : "");
       li.querySelector(".rp-cite").addEventListener("click", () => insertCite(r.key));
       rpBib.appendChild(li);
     }
@@ -363,7 +371,7 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     for (const h of data.hypotheses) {
       const li = document.createElement("li");
       li.className = "rounded px-1.5 py-1 text-xs";
-      li.innerHTML = `<span class="${HYP_COLOR[h.status] || "text-stone-500"} font-medium">${h.status}</span> <span class="text-stone-600">${h.statement}</span>`;
+      li.innerHTML = `<span class="${HYP_COLOR[h.status] || "text-stone-500"} font-medium">${esc(h.status)}</span> <span class="text-stone-600">${esc(h.statement)}</span>`;
       rpHyps.appendChild(li);
     }
   }
@@ -373,7 +381,7 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     for (const n of notes) {
       const li = document.createElement("li");
       li.className = "truncate text-xs";
-      li.innerHTML = `<a href="${n.url}" target="_blank" class="text-stone-600 hover:text-indigo-700 hover:underline">${n.title}</a>`;
+      li.innerHTML = `<a href="${esc(n.url)}" target="_blank" class="text-stone-600 hover:text-indigo-700 hover:underline">${esc(n.title)}</a>`;
       rpNotes.appendChild(li);
     }
   }
