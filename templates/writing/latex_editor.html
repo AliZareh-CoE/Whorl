@@ -12,10 +12,6 @@
 {% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/lint/lint.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/dialog/dialog.min.css">
 
 <div class="mb-3 flex items-center gap-3">
   <h1 class="min-w-0 flex-1 truncate text-xl font-semibold tracking-tight">{{ manuscript.title }}</h1>
@@ -40,9 +36,7 @@
         <span class="mb-1 block text-stone-500">Keybindings</span>
         <select id="setting-keymap" class="w-full rounded border border-stone-300 px-1.5 py-1">
           <option value="default">Default</option>
-          <option value="sublime">Sublime</option>
           <option value="vim">Vim</option>
-          <option value="emacs">Emacs</option>
         </select>
       </label>
       <label class="mb-2 block">
@@ -239,17 +233,6 @@
 
 {{ cite_keys|json_script:"cite-keys-data" }}
 {{ manuscript.compile_diagnostics|json_script:"diagnostics-data" }}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/stex/stex.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/lint/lint.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/dialog/dialog.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/search/searchcursor.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/search/search.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/search/jump-to-line.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/keymap/vim.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/keymap/emacs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/keymap/sublime.min.js"></script>
 {{ editor_config|json_script:"editor-config" }}
-<script src="{% static 'js/latex-editor.js' %}" defer></script>
+<script type="module" src="{% static 'js/latex-editor.js' %}"></script>
 {% endblock %}

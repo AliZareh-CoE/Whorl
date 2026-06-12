@@ -1,7 +1,12 @@
-/* Atlas LaTeX editor (Owner idea #24).
-   Extracted from latex_editor.html in epic slice 2: debounced autosave, in-place
-   compile (no page reloads), auto-compile toggle, compile diagnostics rendering. */
-/* global CodeMirror */
+/* Atlas LaTeX editor glue (Owner idea #24/#28).
+   Drives the CodeMirror 6 island (latex-editor-cm6.js, Backlog #135) — the editor
+   mechanics (language, autocomplete, snippets, search, vim, cite B1/B2, diagnostics
+   lint) live in the island; this module is the app glue: file tree, autosave, outline,
+   word count, history, research panel, symbols, comments, pdf.js preview, compile.
+   The hand-rolled CM5 snippet walker, hint functions, and cite-check moved into the
+   island (or its libraries) and were deleted from here. Zero CDN editor dependencies
+   remain (closes Backlog #114). */
+import { mountEditor } from "./latex-editor-cm6.js";
 
 (function () {
   const cfg = JSON.parse(document.getElementById("editor-config").textContent);
@@ -15,7 +20,7 @@
 
   // --- workbench file state ([REV] slice 6) ------------------------------------
   const files = new Map((cfg.files || []).map((f) => [f.id, f]));
-  const docs = new Map();
+  const loadedFiles = new Set([cfg.mainFileId]); // ids whose content is in the island
   const dirtySet = new Set();
   const timers = new Map();
   const editGen = new Map();
@@ -28,60 +33,48 @@
     return (files.get(id) || { path: "main.tex" }).path;
   }
 
-  // cite state (hoisted above the editor: lint runs during construction — B1/B2)
-  let citeLibrary = []; // [{reference_id, key, title, authors, year, linked}]
-  let missingCiteKeys = [];
-  let editorReady = false; // cite-check helpers are declared below the editor; gate them
-
   const SETTINGS_KEY = "atlas-editor-settings";
   const settings = Object.assign(
     { keymap: "default", fontSize: "13", spellcheck: false },
     JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")
   );
 
+  // --- mount the CM6 island ----------------------------------------------------
   const textarea = document.getElementById("latex-source");
-  const editor = CodeMirror(document.getElementById("editor-host"), {
-    value: textarea.value || "% Start writing. \\cite{ } autocompletes from this manuscript's bibliography.\n",
-    mode: "stex",
-    lineNumbers: true,
-    lineWrapping: true,
-    viewportMargin: Infinity,
-    inputStyle: "contenteditable",  // required for native spellcheck (CM5: construction-time only)
-    spellcheck: settings.spellcheck,
-    gutters: ["CodeMirror-linenumbers", "CodeMirror-comment-gutter", "CodeMirror-lint-markers"],
-    lint: {
-      getAnnotations: (text, opts, cm) => {
-        const compileAnns = (DIAGNOSTICS || [])
-          .filter((d) => d.line && (d.file || "main.tex") === pathOf(activeId))
-          .map((d) => ({
-            from: CodeMirror.Pos(d.line - 1, 0),
-            to: CodeMirror.Pos(d.line - 1, (cm.getLine(d.line - 1) || " ").length),
-            severity: d.level === "error" ? "error" : "warning",
-            message: d.message,
-          }));
-        return editorReady ? compileAnns.concat(citeCheckAnnotations(cm)) : compileAnns; // B2
-      },
-      lintOnChange: false,
-    },
+  const ad = mountEditor(document.getElementById("editor-host"), {
+    citeKeys: CITE_KEYS,
+    initialDoc: textarea.value || "% Start writing. \\cite{ } autocompletes from your library.\n",
+    initialFileId: cfg.mainFileId,
+    citeLibraryUrl: cfg.citeLibraryUrl,
+    csrfToken: csrfToken(),
   });
-  editor.getWrapperElement().style.minHeight = "55vh";
-  window.editor = editor; // console + test access
-  docs.set(cfg.mainFileId, editor.getDoc());
-  editorReady = true; // const/let cite-check helpers below are now initialized
+
+  // a small CM5-shaped surface for the console and browser tests
+  window.editor = {
+    getValue: () => ad.getValue(),
+    setValue: (s) => ad.setValue(s),
+    getCursor: () => ({ line: ad.getCursorLine() - 1, ch: 0 }),
+    setCursor: (p) => ad.gotoLine((p.line || 0) + 1),
+    getLine: (n) => ad.lineText(n + 1),
+    lineCount: () => ad.lineCount(),
+    lastLine: () => ad.lineCount() - 1,
+    replaceRange: (text) => ad.insertAtCursor(text),
+    focus: () => ad.focus(),
+  };
 
   // --- editor settings + find/replace (epic slice 5) ---------------------------
   function persistSettings() {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }
   function applySettings() {
-    editor.setOption("keyMap", settings.keymap);
-    editor.getWrapperElement().style.fontSize = `${settings.fontSize}px`;
-    editor.setOption("spellcheck", settings.spellcheck); // contenteditable honors this live
-    editor.refresh();
+    ad.setKeymap(settings.keymap);
+    ad.setFontSize(settings.fontSize);
+    ad.setSpellcheck(settings.spellcheck);
   }
   const keymapSel = document.getElementById("setting-keymap");
   const fontSel = document.getElementById("setting-fontsize");
   const spellChk = document.getElementById("setting-spellcheck");
+  if (!["default", "vim"].includes(settings.keymap)) settings.keymap = "default"; // CM6: default+vim
   keymapSel.value = settings.keymap;
   fontSel.value = settings.fontSize;
   spellChk.checked = settings.spellcheck;
@@ -102,280 +95,25 @@
   });
   applySettings();
 
-  document.getElementById("find-btn").addEventListener("click", () => {
-    editor.execCommand("find"); // CM5 search addon dialog (Ctrl/Cmd-F also bound)
-  });
+  document.getElementById("find-btn").addEventListener("click", () => ad.openFind());
 
-  // --- autocomplete v2 + snippets (epic slice 4) -------------------------------
-  // Researched: Overleaf completes from a frequency-ranked command table PLUS the
-  // commands already used in the document, and expands snippets like \fig with
-  // Tab-hoppable placeholders.
-  const COMMANDS = (
-    "section subsection subsubsection paragraph chapter title author date maketitle " +
-    "label ref eqref autoref pageref footnote emph textbf textit texttt textsc underline " +
-    "item begin end usepackage documentclass input include includegraphics caption " +
-    "centering frac sqrt sum int prod lim infty alpha beta gamma delta epsilon theta " +
-    "lambda mu pi sigma phi psi omega Gamma Delta Theta Lambda Sigma Phi Psi Omega " +
-    "mathbb mathcal mathrm mathbf text left right cdot times pm mp leq geq neq approx " +
-    "partial nabla hat bar tilde vec dot ddot newcommand renewcommand newenvironment " +
-    "bibliography bibliographystyle cite citep citet parencite textcite autocite " +
-    "tableofcontents listoffigures listoftables appendix hline toprule midrule bottomrule " +
-    "multicolumn multirow vspace hspace newpage clearpage linebreak noindent quad qquad " +
-    "small large Large huge tiny normalsize itshape bfseries url href verb"
-  ).split(" ");
-  const ENVIRONMENTS = (
-    "document figure table tabular itemize enumerate description equation align " +
-    "align* eqnarray gather matrix pmatrix bmatrix cases abstract center quote " +
-    "verbatim minipage theorem lemma proof definition algorithm subfigure"
-  ).split(" ");
-  const SNIPPETS = {
-    fig: "\\begin{figure}[ht]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{$1}\n  \\caption{$2}\n  \\label{fig:$3}\n\\end{figure}",
-    tab: "\\begin{table}[ht]\n  \\centering\n  \\caption{$1}\n  \\label{tab:$2}\n  \\begin{tabular}{lll}\n    \\toprule\n    $3 \\\\\n    \\bottomrule\n  \\end{tabular}\n\\end{table}",
-    enum: "\\begin{enumerate}\n  \\item $1\n\\end{enumerate}",
-    itemz: "\\begin{itemize}\n  \\item $1\n\\end{itemize}",
-    eq: "\\begin{equation}\n  $1\n  \\label{eq:$2}\n\\end{equation}",
-  };
-
-  function usedCommands(cm) {
-    const found = new Set();
-    const re = /\\([a-zA-Z]{2,})/g;
-    let m;
-    const text = cm.getValue();
-    while ((m = re.exec(text)) !== null) found.add(m[1]);
-    return found;
-  }
-  function usedLabels(cm) {
-    const labels = [];
-    const re = /\\label\{([^}]+)\}/g;
-    let m;
-    const text = cm.getValue();
-    while ((m = re.exec(text)) !== null) labels.push(m[1]);
-    return labels;
-  }
-
-  // Snippet placeholders: insert, mark each $n, Tab hops through the marks.
-  let snippetMarks = [];
-  function insertSnippet(cm, from, to, template) {
-    const positions = [];
-    let text = "";
-    let line = from.line;
-    let ch = from.ch;
-    for (const piece of template.split(/(\$\d)/)) {
-      if (/^\$\d$/.test(piece)) {
-        positions.push({ line, ch });
-        continue;
-      }
-      text += piece;
-      const parts = piece.split("\n");
-      if (parts.length > 1) {
-        line += parts.length - 1;
-        ch = parts[parts.length - 1].length;
-      } else {
-        ch += piece.length;
-      }
-    }
-    cm.replaceRange(text, from, to);
-    snippetMarks = positions.map((pos) =>
-      cm.setBookmark(pos, { insertLeft: true })
-    );
-    hopSnippet(cm);
-  }
-  function hopSnippet(cm) {
-    while (snippetMarks.length) {
-      const mark = snippetMarks.shift();
-      const pos = mark.find();
-      mark.clear();
-      if (pos) {
-        cm.setCursor(pos);
-        return true;
-      }
-    }
-    return false;
-  }
-  editor.addKeyMap({
-    Tab: (cm) => {
-      if (snippetMarks.length && hopSnippet(cm)) return;
-      return CodeMirror.Pass;
-    },
-  });
-
-  // Beyond-Overleaf B1: \cite{} completes from the whole project library, not just the
-  // already-linked bib. Accepting an unlinked paper auto-creates the ManuscriptReference.
-  function loadCiteLibrary() {
-    if (!cfg.citeLibraryUrl) return;
-    fetch(cfg.citeLibraryUrl)
-      .then((r) => r.json())
-      .then((d) => { citeLibrary = d.candidates || []; })
-      .catch(() => {});
-  }
-  loadCiteLibrary();
-
-  async function linkReference(referenceId) {
-    try {
-      await fetch(cfg.citeLibraryUrl, {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfToken() },
-        body: new URLSearchParams({ reference: String(referenceId) }),
-      });
-      const row = citeLibrary.find((c) => c.reference_id === referenceId);
-      if (row) row.linked = true;
-    } catch {
-      /* the key is inserted regardless; the link can be added from the bibliography UI */
-    }
-  }
-
-  // Beyond-Overleaf B2: live cite-check. Complete \cite{key} tokens whose key isn't in
-  // the library (or already linked) get a calm amber squiggle; a bar offers add-by-DOI.
-  const CITE_TOKEN = /\\\w*cite\w*\*?(?:\[[^\]]*\])*\{([^}]+)\}/g;
-  function knownCiteKeys() {
-    const keys = new Set(CITE_KEYS);
-    for (const c of citeLibrary) keys.add(c.key);
-    return keys;
-  }
-  function citeCheckAnnotations(cm) {
-    const known = knownCiteKeys();
-    if (!known.size && !citeLibrary.length) return []; // library not loaded yet — don't nag
-    const anns = [];
-    const missing = new Set();
-    for (let i = 0; i < cm.lineCount(); i++) {
-      const line = cm.getLine(i);
-      let m;
-      CITE_TOKEN.lastIndex = 0;
-      while ((m = CITE_TOKEN.exec(line)) !== null) {
-        const inner = m[1];
-        const keysStart = m.index + m[0].indexOf("{", 0) + 1;
-        let offset = keysStart;
-        for (const raw of inner.split(",")) {
-          const key = raw.trim();
-          const at = line.indexOf(key, offset);
-          offset = at + key.length;
-          if (key && !known.has(key)) {
-            missing.add(key);
-            anns.push({
-              from: CodeMirror.Pos(i, at),
-              to: CodeMirror.Pos(i, at + key.length),
-              severity: "warning",
-              message: `Citation “${key}” isn't in your library. Add it from the library or by DOI.`,
-            });
-          }
-        }
-      }
-    }
-    missingCiteKeys = [...missing];
-    return anns;
-  }
-
-  function citeHint(cm) {
-    const cursor = cm.getCursor();
-    const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
-    const match = lineStart.match(/\\\w*cite\w*\*?(?:\[[^\]]*\])*\{([^}]*)$/);
-    if (!match) return null;
-    const fragment = match[1].split(",").pop().trim();
-    const from = { line: cursor.line, ch: cursor.ch - fragment.length };
-    const f = fragment.toLowerCase();
-    const pool = citeLibrary.length
-      ? citeLibrary
-      : CITE_KEYS.map((k) => ({ key: k, title: "", authors: "", year: null, linked: true }));
-    const matches = pool.filter(
-      (c) =>
-        c.key.toLowerCase().includes(f) ||
-        (c.title || "").toLowerCase().includes(f) ||
-        (c.authors || "").toLowerCase().includes(f),
-    );
-    const list = (matches.length ? matches : pool).map((c) => ({
-      text: c.key,
-      displayText: `${c.linked ? "" : "+ "}${c.key}${c.year ? " (" + c.year + ")" : ""}${
-        c.authors ? " · " + c.authors : ""
-      }${c.title ? " — " + c.title.slice(0, 60) : ""}`,
-      hint: (cmInner, data, completion) => {
-        cmInner.replaceRange(completion.text, from, cmInner.getCursor());
-        if (c.reference_id && !c.linked) linkReference(c.reference_id);
-      },
-    }));
-    return { list, from, to: cursor };
-  }
-
-  function refHint(cm) {
-    const cursor = cm.getCursor();
-    const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
-    const match = lineStart.match(/\\(?:ref|eqref|autoref|pageref)\{([^}]*)$/);
-    if (!match) return null;
-    const fragment = match[1];
-    const from = { line: cursor.line, ch: cursor.ch - fragment.length };
-    const list = usedLabels(cm).filter((l) => l.startsWith(fragment));
-    return list.length ? { list, from, to: cursor } : null;
-  }
-
-  function envHint(cm) {
-    const cursor = cm.getCursor();
-    const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
-    const match = lineStart.match(/\\(begin|end)\{([^}]*)$/);
-    if (!match) return null;
-    const [, kind, fragment] = match;
-    const from = { line: cursor.line, ch: cursor.ch - fragment.length };
-    const list = ENVIRONMENTS.filter((e) => e.startsWith(fragment)).map((env) => ({
-      text: env,
-      hint: (cmInner, data, completion) => {
-        cmInner.replaceRange(completion.text + "}", from, cmInner.getCursor());
-        if (kind === "begin") {
-          const after = cmInner.getCursor();
-          cmInner.replaceRange("\n  \n\\end{" + env + "}", after, after);
-          cmInner.setCursor({ line: after.line + 1, ch: 2 });
-        }
-      },
-    }));
-    return list.length ? { list, from, to: cursor } : null;
-  }
-
-  function commandHint(cm) {
-    const cursor = cm.getCursor();
-    const lineStart = cm.getLine(cursor.line).slice(0, cursor.ch);
-    const match = lineStart.match(/\\([a-zA-Z]{2,})$/);
-    if (!match) return null;
-    const fragment = match[1];
-    const from = { line: cursor.line, ch: cursor.ch - fragment.length - 1 };
-    const seen = new Set();
-    const list = [];
-    for (const key of Object.keys(SNIPPETS)) {
-      if (key.startsWith(fragment)) {
-        seen.add(key);
-        list.push({
-          text: "\\" + key,
-          displayText: "\\" + key + " → snippet",
-          hint: (cmInner) => insertSnippet(cmInner, from, cmInner.getCursor(), SNIPPETS[key]),
-        });
-      }
-    }
-    for (const word of [...COMMANDS, ...usedCommands(cm)]) {
-      if (!seen.has(word) && word.startsWith(fragment) && word !== fragment) {
-        seen.add(word);
-        list.push("\\" + word);
-      }
-    }
-    return list.length ? { list, from, to: cursor } : null;
-  }
-
-  function latexHint(cm) {
-    return citeHint(cm) || refHint(cm) || envHint(cm) || commandHint(cm);
-  }
-  editor.on("inputRead", (cm, change) => {
-    if (!/[\w{,\\]/.test(change.text[0] || "")) return;
-    if (latexHint(cm)) cm.showHint({ hint: latexHint, completeSingle: false });
-  });
-
-  // --- diagnostics panel -----------------------------------------------------
+  // --- diagnostics panel -------------------------------------------------------
   const panel = document.getElementById("diagnostics-panel");
   const list = document.getElementById("diagnostics-list");
   const countEl = document.getElementById("diagnostics-count");
   const logsBadge = document.getElementById("logs-badge");
+  function pushDiagnostics() {
+    // the island lints with these (and merges its own live cite-check)
+    ad.setDiagnostics(
+      (DIAGNOSTICS || []).filter((d) => d.line && (d.file || "main.tex") === pathOf(activeId))
+    );
+  }
   function renderDiagnostics(diags) {
     DIAGNOSTICS = diags || [];
-    editor.performLint();
+    pushDiagnostics();
     list.innerHTML = "";
     const errors = DIAGNOSTICS.filter((d) => d.level === "error").length;
     const warnings = DIAGNOSTICS.length - errors;
-    // Overleaf pattern: a badge by Recompile shows the error count; the pane opens
-    // automatically on errors, and the Logs button toggles it.
     if (logsBadge) {
       logsBadge.textContent = errors ? String(errors) : "";
       logsBadge.classList.toggle("hidden", errors === 0);
@@ -394,9 +132,7 @@
         li.addEventListener("click", async () => {
           const target = [...files.values()].find((f) => f.path === (d.file || "main.tex"));
           if (target && target.id !== activeId) await openFile(target.id);
-          editor.setCursor({ line: d.line - 1, ch: 0 });
-          editor.focus();
-          editor.scrollIntoView({ line: d.line - 1, ch: 0 }, 120);
+          ad.gotoLine(d.line);
         });
       }
       list.appendChild(li);
@@ -406,25 +142,22 @@
 
   // --- autosave (epic slice 2, file-keyed in slice 6) ---------------------------
   const saveStatus = document.getElementById("save-status");
-  let dirty = false; // legacy flag for beforeunload
 
   async function saveFile(id) {
-    // Reads from the doc map, never editor.getValue() — a debounce firing after a
-    // buffer switch must still save the right file.
-    const doc = docs.get(id);
-    if (!doc) return;
+    // Reads the island's per-file state, never a shared live value — a debounce firing
+    // after a buffer switch must still save the right file.
+    const content = ad.fileValue(id);
     const gen = editGen.get(id) || 0;
     if (id === activeId) saveStatus.textContent = "Saving…";
     try {
       const res = await fetch(fileUrl(id, "save"), {
         method: "POST",
         headers: { "X-CSRFToken": csrfToken(), "X-SPA": "1" },
-        body: new URLSearchParams({ content: doc.getValue() }),
+        body: new URLSearchParams({ content }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
       if ((editGen.get(id) || 0) === gen) dirtySet.delete(id);
-      dirty = dirtySet.size > 0;
       if (id === activeId) {
         const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         const cite = data.cite && data.cite.missing_from_bib
@@ -438,12 +171,9 @@
       setTimeout(() => saveFile(id), 4000);
     }
   }
-  function save() { return saveFile(activeId); } // Ctrl-S path
-  editor.on("change", (cm, change) => {
-    if (change.origin === "setValue") return;
+  ad.onChange(() => {
     dirtySet.add(activeId);
     editGen.set(activeId, (editGen.get(activeId) || 0) + 1);
-    dirty = true;
     saveStatus.textContent = "…";
     clearTimeout(timers.get(activeId));
     timers.set(activeId, setTimeout(() => saveFile(activeId), 2000));
@@ -462,21 +192,20 @@
       return;
     }
     clearTimeout(timers.get(activeId));
-    if (dirtySet.has(activeId)) saveFile(activeId); // fire-and-forget: doc-map reads
-    let doc = docs.get(id);
-    if (!doc) {
+    if (dirtySet.has(activeId)) saveFile(activeId); // fire-and-forget: island-state reads
+    if (!loadedFiles.has(id)) {
       const data = await fetch(fileUrl(id, ""), { headers: { Accept: "application/json" } })
         .then((r) => r.json());
-      doc = CodeMirror.Doc(data.content || "", "stex");
-      docs.set(id, doc);
+      ad.setFileValue(id, data.content || "");
+      loadedFiles.add(id);
     }
     activeId = id;
-    editor.swapDoc(doc);
+    ad.switchFile(id);
     renderTree();
     renderOutline();
-    editor.performLint();
-    if (typeof refreshCommentGutter === "function") refreshCommentGutter();
-    editor.focus();
+    pushDiagnostics();
+    refreshCommentGutter();
+    ad.focus();
   }
   function renderTree() {
     tree.innerHTML = "";
@@ -515,7 +244,7 @@
             method: "POST", headers: { "X-CSRFToken": csrfToken() },
           });
           files.delete(f.id);
-          docs.delete(f.id);
+          loadedFiles.delete(f.id);
           if (activeId === f.id) openFile(cfg.mainFileId);
           renderTree();
         });
@@ -535,9 +264,8 @@
   };
   function renderOutline() {
     outlineList.innerHTML = "";
-    const doc = editor.getDoc();
-    for (let i = 0; i < doc.lineCount(); i++) {
-      const m = HEADING_RE.exec(doc.getLine(i));
+    for (let i = 1; i <= ad.lineCount(); i++) {
+      const m = HEADING_RE.exec(ad.lineText(i));
       if (!m) continue;
       const li = document.createElement("li");
       li.className = "cursor-pointer truncate py-0.5 text-stone-600 hover:text-indigo-700";
@@ -545,11 +273,7 @@
       li.textContent = m[2] || "(untitled)";
       li.title = m[2];
       const line = i;
-      li.addEventListener("click", () => {
-        editor.setCursor({ line, ch: 0 });
-        editor.focus();
-        editor.scrollIntoView({ line, ch: 0 }, 120);
-      });
+      li.addEventListener("click", () => ad.gotoLine(line));
       outlineList.appendChild(li);
     }
     if (!outlineList.children.length) {
@@ -558,20 +282,21 @@
   }
   renderOutline();
   let outlineTimer = null;
-  editor.on("change", () => {
+  ad.onChange(() => {
     clearTimeout(outlineTimer);
-    outlineTimer = setTimeout(() => {
-      renderOutline();
-      editor.performLint(); // re-run cite-check (B2)
-      renderMissingCites();
-    }, 600);
+    outlineTimer = setTimeout(renderOutline, 600);
   });
 
-  // --- live cite-check bar (beyond-Overleaf B2) --------------------------------
+  // --- live cite-check bar (beyond-Overleaf B2; the island computes the keys) ---
   const citeBar = document.getElementById("cite-missing-bar");
   const citeKeysOut = document.getElementById("cite-missing-keys");
   const citeDoiInput = document.getElementById("cite-doi-input");
   const citeDoiStatus = document.getElementById("cite-doi-status");
+  let missingCiteKeys = [];
+  ad.onCiteCheck((keys) => {
+    missingCiteKeys = keys;
+    renderMissingCites();
+  });
   function renderMissingCites() {
     if (!citeBar) return;
     if (!missingCiteKeys.length) {
@@ -595,14 +320,14 @@
       const ref = await res.json();
       citeDoiStatus.textContent = `added ${ref.bibtex_key}`;
       citeDoiInput.value = "";
-      await new Promise((r) => setTimeout(() => { loadCiteLibrary(); r(); }, 200));
-      setTimeout(() => { editor.performLint(); renderMissingCites(); }, 500);
+      setTimeout(() => {
+        ad.reloadCiteLibrary();
+        setTimeout(pushDiagnostics, 600); // re-lint with the refreshed library
+      }, 200);
     } catch {
       citeDoiStatus.textContent = "couldn't add — check the DOI";
     }
   });
-  // initial check once the library has loaded
-  setTimeout(() => { editor.performLint(); renderMissingCites(); }, 1000);
 
   // --- research side panel (beyond-Overleaf B3) -------------------------------
   const researchPanel = document.getElementById("research-panel");
@@ -616,9 +341,7 @@
     inconclusive: "text-amber-700", abandoned: "text-stone-400",
   };
   function insertCite(key) {
-    const cur = editor.getCursor();
-    editor.replaceRange(`\\cite{${key}}`, cur);
-    editor.focus();
+    ad.insertAtCursor(`\\cite{${key}}`);
   }
   function renderContext(data) {
     rpBib.innerHTML = "";
@@ -705,12 +428,8 @@
         btn.textContent = sym.replace(/\\/g, "").replace(/\{\}/g, "").replace(/\{\}\{\}/g, "") || sym;
         btn.title = sym;
         btn.addEventListener("click", () => {
-          const cur = editor.getCursor();
-          editor.replaceRange(sym, cur);
-          // place cursor inside the first {} if present
           const brace = sym.indexOf("{}");
-          if (brace !== -1) editor.setCursor({ line: cur.line, ch: cur.ch + brace + 1 });
-          editor.focus();
+          ad.insertAtCursor(sym, brace !== -1 ? brace + 1 : undefined);
         });
         row.appendChild(btn);
       }
@@ -718,7 +437,7 @@
     }
   }
 
-  // --- line-anchored comments (beyond-Overleaf B6, closes Owner idea #10) ------
+  // --- line-anchored comments (beyond-Overleaf B6) ------------------------------
   function commentUrl(fileId) {
     return `/api/v1/comments/manuscript_file/${fileId}/`;
   }
@@ -729,28 +448,14 @@
   const commentTitle = document.getElementById("comment-modal-title");
 
   async function refreshCommentGutter() {
-    editor.clearGutter("CodeMirror-comment-gutter");
     try {
       const data = await fetch(commentUrl(activeId)).then((r) => r.json());
-      const byLine = {};
-      for (const c of data.comments || []) {
-        if (c.line) (byLine[c.line] = byLine[c.line] || []).push(c);
-      }
-      for (const [line, list] of Object.entries(byLine)) {
-        const marker = document.createElement("div");
-        marker.className = "cursor-pointer text-center text-amber-500";
-        marker.textContent = "💬";
-        marker.title = `${list.length} comment${list.length === 1 ? "" : "s"}`;
-        editor.setGutterMarker(Number(line) - 1, "CodeMirror-comment-gutter", marker);
-      }
+      const lines = [...new Set((data.comments || []).filter((c) => c.line).map((c) => c.line))];
+      ad.setCommentLines(lines);
     } catch { /* leave the gutter empty */ }
   }
-  // clicking either gutter opens the thread for that line (CM gives the 0-based line)
-  editor.on("gutterClick", (cm, line, gutter) => {
-    if (gutter === "CodeMirror-linenumbers" || gutter === "CodeMirror-comment-gutter") {
-      openCommentThread(line + 1);
-    }
-  });
+  // clicking either gutter opens the thread for that line (the island reports 1-based)
+  ad.onGutterClick((line) => openCommentThread(line));
 
   async function openCommentThread(line) {
     commentLine = line;
@@ -1027,7 +732,7 @@
     if (open && cfg.pdfUrl && !pdfDoc) renderPdf(cfg.pdfUrl);
   }
   toggleBtn.addEventListener("click", () => setPreview(previewPane.classList.contains("hidden")));
-  // the PDF pane hosts Recompile now, so it's shown by default unless explicitly collapsed
+  // the PDF pane hosts Recompile, so it's shown by default unless explicitly collapsed
   if (localStorage.getItem("atlas-editor-preview") !== "0") setPreview(true);
 
   // Logs button toggles the diagnostics/error-log pane (Overleaf's "Logs and output files")
@@ -1093,8 +798,8 @@
   document.addEventListener("keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "s") {
       event.preventDefault();
-      clearTimeout(saveTimer);
-      save();
+      clearTimeout(timers.get(activeId));
+      saveFile(activeId);
     }
   });
 })();

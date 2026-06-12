@@ -168,7 +168,7 @@ class TestLatexEditor:
             reverse("writing:editor", args=[manuscript.project.slug, manuscript.pk])
         )
         content = response.content.decode()
-        assert "codemirror" in content
+        assert "latex-editor.js" in content  # the CM6 island module (no CDN editor)
         assert '"editor2020key"' in content
 
     def test_save_runs_cite_check(self, client_logged_in):

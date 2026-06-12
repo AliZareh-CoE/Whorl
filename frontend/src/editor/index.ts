@@ -41,6 +41,7 @@ import { vim } from "@replit/codemirror-vim";
 export type EditorCfg = {
   citeKeys?: string[];
   initialDoc?: string;
+  initialFileId?: number; // the file id the initial doc belongs to (multi-file)
   citeLibraryUrl?: string; // B1: whole-library cite source + auto-link (Slice C)
   csrfToken?: string;
 };
@@ -211,6 +212,7 @@ export type EditorAdapter = {
   setDiagnostics: (diags: { line: number; level: string; message: string }[]) => void;
   // --- cite-check (Slice C): fires with the unknown \cite keys after each lint ---
   onCiteCheck: (fn: (missingKeys: string[]) => void) => void;
+  reloadCiteLibrary: () => void; // after add-by-DOI, refresh the completion pool
 };
 
 const keymapCompartment = new Compartment();
@@ -224,7 +226,15 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
 
   function buildExtensions(): Extension[] {
     return [
-      lineNumbers(),
+      lineNumbers({
+        domEventHandlers: {
+          mousedown(v, line) {
+            const ln = v.state.doc.lineAt(line.from).number;
+            gutterClickListeners.forEach((fn) => fn(ln));
+            return false; // don't swallow — selection still works
+          },
+        },
+      }),
       gutter({
         class: "cm-comment-gutter",
         markers: (v) => v.state.field(commentMarkField),
@@ -274,7 +284,7 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
 
   // multi-file: keep an EditorState per file id; the live `view` holds the active one
   const states = new Map<number, EditorState>();
-  let activeId = 0;
+  let activeId = cfg.initialFileId ?? 0;
   states.set(activeId, view.state);
 
   return {
@@ -333,6 +343,7 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
     onGutterClick: (fn) => gutterClickListeners.push(fn),
 
     onCiteCheck: (fn) => citeCheckListeners.push(fn),
+    reloadCiteLibrary: () => loadCiteLibrary(cfg),
 
     setDiagnostics: (diags) => {
       const cm: Diagnostic[] = diags
