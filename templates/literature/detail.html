@@ -55,7 +55,7 @@
 
 <div class="grid grid-cols-2 gap-4">
   {% if reference.abstract %}
-    <section class="rounded border border-stone-200 bg-white p-5">
+    <section class="card">
       <div class="mb-2 flex items-center justify-between">
         <h2 class="text-sm font-medium uppercase tracking-wide text-stone-400">Abstract</h2>
         <span class="flex gap-1.5">
@@ -67,7 +67,7 @@
       <p id="abstract-text" class="text-sm text-stone-600">{{ reference.abstract }}</p>
     </section>
   {% endif %}
-  <section class="rounded border border-stone-200 bg-white p-5">
+  <section class="card">
     <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">Projects</h2>
     {% if project_links %}
       <ul class="mb-3 space-y-1 text-sm">
@@ -94,7 +94,7 @@
       </form>
     {% endif %}
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5">
+  <section class="card">
     <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">Related in your library</h2>
     {% if related %}
       <ul class="space-y-1.5 text-sm">
@@ -109,7 +109,7 @@
       <p class="text-sm text-stone-500">Nothing similar yet — suggestions appear as the library grows.</p>
     {% endif %}
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5">
+  <section class="card">
     <div class="mb-2 flex items-center justify-between">
       <h2 class="text-sm font-medium uppercase tracking-wide text-stone-400">Discover similar on OpenAlex</h2>
       <button type="button" hx-get="{% url 'literature:discover' reference.pk %}"
@@ -122,7 +122,7 @@
       <p class="text-xs text-stone-400">Papers OpenAlex considers related, that aren't in your library yet.</p>
     </div>
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5">
+  <section class="card">
     <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">BibTeX</h2>
     <pre class="overflow-x-auto rounded bg-stone-50 p-3 font-mono text-xs text-stone-700">{{ bibtex }}</pre>
   </section>

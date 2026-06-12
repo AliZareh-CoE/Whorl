@@ -25,17 +25,17 @@
 </p>
 
 <div class="space-y-4">
-  <section class="rounded border border-stone-200 bg-white p-5">
+  <section class="card">
     <h2 class="mb-1 text-sm font-medium uppercase tracking-wide text-stone-400">Duplicates</h2>
     <p class="mb-3 text-xs text-stone-400">Exact DOI matches and suspiciously similar titles.</p>
     {% include "literature/_findings.html" with findings=report.duplicates empty="No duplicates found." %}
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5">
+  <section class="card">
     <h2 class="mb-1 text-sm font-medium uppercase tracking-wide text-stone-400">Missing fields</h2>
     <p class="mb-3 text-xs text-stone-400">Required BibTeX fields per entry type (author, title, venue, year…).</p>
     {% include "literature/_findings.html" with findings=report.missing_fields empty="No entries with missing required fields." %}
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5">
+  <section class="card">
     <h2 class="mb-1 text-sm font-medium uppercase tracking-wide text-stone-400">DOI resolution</h2>
     <p class="mb-3 text-xs text-stone-400">Each DOI is checked against doi.org.</p>
     {% if include_network %}
@@ -44,7 +44,7 @@
       <p class="text-sm text-stone-400">Skipped in offline mode.</p>
     {% endif %}
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5">
+  <section class="card">
     <h2 class="mb-1 text-sm font-medium uppercase tracking-wide text-stone-400">Retractions</h2>
     <p class="mb-3 text-xs text-stone-400">Crossref is queried for retraction notices pointing at each DOI.</p>
     {% if include_network %}

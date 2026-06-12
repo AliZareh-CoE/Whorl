@@ -288,15 +288,15 @@
 
 {% if cite_result %}
   <div class="mt-6 grid grid-cols-3 gap-4 text-sm">
-    <div class="rounded border border-stone-200 bg-white p-4">
+    <div class="card">
       <h3 class="mb-1 text-xs font-medium uppercase tracking-wide text-red-600">Cited, missing from bib ({{ cite_result.missing_from_bib|length }})</h3>
       {% for key in cite_result.missing_from_bib %}<p class="font-mono text-xs">{{ key }}</p>{% empty %}<p class="text-xs text-green-700">✓ none</p>{% endfor %}
     </div>
-    <div class="rounded border border-stone-200 bg-white p-4">
+    <div class="card">
       <h3 class="mb-1 text-xs font-medium uppercase tracking-wide text-amber-600">In bib, never cited ({{ cite_result.uncited_in_bib|length }})</h3>
       {% for key in cite_result.uncited_in_bib %}<p class="font-mono text-xs">{{ key }}</p>{% empty %}<p class="text-xs text-green-700">✓ none</p>{% endfor %}
     </div>
-    <div class="rounded border border-stone-200 bg-white p-4">
+    <div class="card">
       <h3 class="mb-1 text-xs font-medium uppercase tracking-wide text-green-700">Matched ({{ cite_result.matched|length }})</h3>
       {% for key in cite_result.matched %}<p class="font-mono text-xs">{{ key }}</p>{% empty %}<p class="text-xs text-stone-400">none</p>{% endfor %}
     </div>
