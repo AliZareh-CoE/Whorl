@@ -126,3 +126,13 @@ jobs:
           SMOKE_PASS: ci-smoke-pass
           ATLAS_API_KEY: ci-audit-key
         run: uv run python scripts/editor_smoke.py
+
+      - name: Upload smoke artifacts (screenshot, console, failures)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-smoke-artifacts
+          path: |
+            /tmp/editor-smoke/
+            /tmp/server.log
+          if-no-files-found: ignore
