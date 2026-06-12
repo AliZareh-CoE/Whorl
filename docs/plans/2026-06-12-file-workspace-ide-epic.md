@@ -69,6 +69,41 @@ core tech. The hard part is the migration's correctness and not breaking 2 live 
 
 ---
 
+## 0bis. Build vs adopt (Owner #28 — normative; thin glue only)
+
+| Capability | Adopt (OSS project) | License | What we write ourselves |
+|---|---|---|---|
+| Code/text editing | CodeMirror 6 (already bundled in `frontend/`) | MIT | language wiring + autosave glue |
+| Per-file language modes | `@codemirror/language-data` (lazy-loads modes on open) | MIT | extension→mode map only |
+| Explorer tree | **react-arborist** (virtualized, drag-drop, inline rename, multi-select, keyboard/aria) | MIT | a data adapter over the `tree/` endpoint |
+| PDF preview | `pdfjs-dist` — **moved off the CDN into the Vite bundle** (literature reader + editor preview relinked to the same local copy) | Apache-2.0 | viewer mount glue (exists; relink) |
+| CSV/TSV preview | **papaparse** | MIT | a `<table>` renderer over parsed rows |
+| Markdown preview | existing server pipeline (`markdown` + `nh3`) | BSD-3 / MIT | nothing new |
+| Image preview | `<img>` (browser-native) | — | nothing |
+| File-type icons | **lucide** static stroke SVGs, tree-shaken imports (matches the editor's stroke-SVG icon language; feeds Backlog #148) | ISC | extension→icon map |
+| Resizable panes | split.js (already bundled) | MIT | none |
+| Desktop shell | **Tauri 2** + official plugins **`fs`, `dialog`, `shell`** | MIT/Apache-2.0 | thin `desktop/` crate + config + menu wiring |
+| Terminal UI | **xterm.js** (`@xterm/xterm`) + **`@xterm/addon-fit`**, bundled locally like CM6 | MIT | mount + resize + panel chrome |
+| PTY | **`portable-pty`** crate (MIT, WezTerm's) in the Rust shell; first evaluate an existing community **tauri-pty / tauri-plugin-pty** and use it only if actively maintained | MIT | ~100 lines: spawn shell, pump bytes over IPC events, resize, kill |
+| Project templates | none needed | — | data + glue: declarative definitions + scaffold service (cookiecutter would be overkill) |
+
+Rules: every dependency **pinned** (`frontend/package.json` / `desktop/src-tauri/Cargo.toml`),
+license MIT/BSD/ISC/Apache only, **zero CDN tags** — this epic also retires the last pdf.js
+CDN usage, finishing what the CM6 migration (#114) started. `npm audit` + `cargo audit` join
+the audit-cycle checklist.
+
+**Explorer: adopt react-arborist (evaluated vs growing our hand-rolled trees).** We currently
+have three hand-rolled trees (`templates/documents/_folder_nodes.html` HTMX, the manuscript
+file sidebar in `latex-editor.js`, and the SPA `Documents.tsx` list). The Workspace explorer
+needs virtualization (data/ folders get big), drag-drop move, inline rename, multi-select, and
+full keyboard/aria nav — react-arborist ships all five out of the box, is MIT, actively
+maintained, React-18 compatible, and we already ship React in the islands build; hand-rolling
+that feature set is weeks of pointer math and a11y debt for zero product value. **Recommendation:
+adopt react-arborist for `Workspace.tsx`**; the existing hand-rolled trees are not migrated in
+this epic (they get *retired* by Slice 8's unification, which is cheaper than porting them).
+
+---
+
 ## A. UNIFIED DATA MODEL (the load-bearing decision)
 
 ### Chosen shape: ONE tree, manuscript = a view over nodes
@@ -145,28 +180,35 @@ core tech. The hard part is the migration's correctness and not breaking 2 live 
 
 ## B. SLICE SEQUENCE (vertical, each shippable + tested, like #24)
 
-> Re-sequenced so the **unified model+migration is Slice 1** and a **working Tauri shell is
-> Slice 4** (right after the explorer tree), maturing through the epic. Web app fully functional
-> at every slice.
+> Re-sequenced so the **unified model+migration is Slice 1**, a **working Tauri shell is
+> Slice 4** (right after the explorer tree), and the **built-in terminal is Slice 5 —
+> immediately after the shell exists** (owner directive #3). Web app fully functional at
+> every slice. Every slice names its OSS building block (owner directive #4).
 
 **Slice 1 — Unified model + migration + contract bridge** (§A). The whole epic's foundation.
 Reversible data migration; `manuscript-files` API + MCP file tools re-pointed, contract tests
-prove byte-identity; compile/revisions/alias preserved. *Gate: full suite green, contract tests
-green, a real manuscript still compiles end-to-end.*
+prove byte-identity; compile/revisions/alias preserved. **OSS:** none new — Django migration +
+model glue (the validator and `kind_for_path` move, they aren't rewritten). *Gate: full suite
+green, contract tests green, a real manuscript still compiles end-to-end.*
 
 **Slice 2 — Explorer tree (read + open-anything preview).** One project **Workspace** page
 (SPA `Workspace.tsx` + classic fallback): the full `Folder`/`ProjectFile` tree in a left pane
-(keyboard nav: ↑↓ move, →/← expand/collapse, Enter open), a content pane that **opens ANY file
-type in-app** reusing what's already bundled:
+(keyboard nav: ↑↓ move, →/← expand/collapse, Enter open — free from arborist), a content pane
+that **opens ANY file type in-app** reusing what's already bundled:
 - text/code/tex/bib/md → CM6 editor island (read+edit; tex/bib in a manuscript subtree get the
-  full LaTeX affordances already built),
-- PDF → the existing pdf.js reader,
-- images → `<img>`, CSV/data → a simple table render, markdown → the existing sanitized render,
+  full LaTeX affordances already built; other languages via lazy `@codemirror/language-data`),
+- PDF → the existing pdf.js reader, **relinked to a locally bundled `pdfjs-dist`** (the last
+  CDN tag dies here),
+- images → `<img>`, CSV/TSV → **papaparse** parse + a plain `<table>` (first 500 rows, row/col
+  counts), markdown → the existing sanitized server render,
 - unknown → download + metadata card.
+**OSS:** **react-arborist** (tree, per §0bis recommendation), `@codemirror/language-data`,
+`pdfjs-dist` (bundled), **papaparse**, **lucide** stroke SVGs for file-type icons (one
+`iconFor(ext)` map). All pinned, bundled, no CDN.
 `GET /api/v1/projects/{slug}/tree/` returns `{nodes:[{id,name,rel_path,kind,role,is_text,
 folder_id,size}], folders:[{id,name,parent_id}]}` (one fetch, drives both shells). Empty-state
 explains the workspace + offers "new file / upload / apply template." *Gate: open a tex, a PDF,
-an image, a CSV from one tree; keyboard nav; both shells.*
+an image, a CSV from one tree; keyboard nav; both shells; `grep` finds zero CDN script tags.*
 
 **Slice 3 — Explorer write ops (IDE affordances).** Inline create-file/create-folder,
 rename, **move (drag-drop + cut/paste)**, delete, duplicate, multi-select; upload (single +
@@ -174,8 +216,10 @@ drag-drop, reuse `bulk_upload`); reuses existing `document_move`/folder-CRUD end
 generalized to `ProjectFile`. Save-on-edit for text nodes (debounced autosave, the editor's
 existing pattern). rel_path + uniqueness maintained on every move/rename (cycle guard via
 `descendant_ids()`). Per-slice security: every op re-checks project scope + the strict path
-validator for manuscript-subtree nodes. *Gate: create/rename/move/delete across folders; move a
-tex within a manuscript subtree keeps it compilable; drag-drop upload.*
+validator for manuscript-subtree nodes. **OSS:** react-arborist's built-in drag-drop, inline
+rename, and multi-select — the server stays authoritative; we write only the op→endpoint
+adapter. *Gate: create/rename/move/delete across folders; move a tex within a manuscript
+subtree keeps it compilable; drag-drop upload.*
 
 **Slice 4 — Tauri shell v1 (the desktop app ships).** `desktop/` Tauri project (Rust shell,
 `tauri.conf.json`), thin wrapper that loads the **same Django+SPA**:
@@ -187,22 +231,58 @@ tex within a manuscript subtree keeps it compilable; drag-drop upload.*
 - **Security shift (FLAGGED, first appearance):** the desktop changes the threat model from the
   single-login web app. v1 keeps the **same API-key + session auth**, binds Django to
   **localhost only**, and the webview is allowlisted to the local origin (Tauri CSP +
-  `dangerousRemoteDomainIpcAccess` off). No raw disk access yet (that's Slice 6). DECISIONS
+  `dangerousRemoteDomainIpcAccess` off). No raw disk access yet (that's Slice 7). DECISIONS
   entry: reachable surface = the local app only; key still required.
+**OSS:** **Tauri 2** + official plugins **`shell`** (open external links) and **`dialog`**
+(native dialogs from Slice 7); we write only the thin crate, config, and menu wiring.
 *Gate: `cargo tauri build` produces a launchable binary on Linux that shows the full workspace;
 web app unchanged.*
 
-**Slice 5 — Project templates that scaffold organized folders.** Generalize the manuscript
+**Slice 5 — Built-in terminal (xterm.js + portable-pty) — lands immediately after the shell
+exists** (owner directive #3 — *"I would like to have terminal in it as well!"*).
+- **UI:** a bottom panel in the Workspace (split.js divider, like the editor's panes), rendered
+  **only when `window.__TAURI__` is present** — the web build ships no terminal UI.
+  **`@xterm/xterm` + `@xterm/addon-fit`**, pinned and bundled locally exactly like CM6 — no
+  CDN. **One terminal in v1; multiple tabs/splits later** (parked, §E).
+- **PTY lives in the Rust shell, not Django.** First evaluate an existing community
+  **tauri-pty / tauri-plugin-pty** and adopt it only if actively maintained; otherwise write
+  the thin glue ourselves on **`portable-pty`** (MIT, WezTerm's crate — also abstracts ConPTY
+  on Windows): spawn `$SHELL` (PowerShell on Windows), pump bytes both ways over Tauri IPC
+  events (`term://data` / `term://input` / `term://resize` keyed by session id), resize on
+  fit-addon callbacks, kill the child on panel close/window close. ~100 lines either way.
+- **cwd = the project directory:** the terminal opens in the current project's local folder —
+  default the project's documents directory under `MEDIA_ROOT` (the server is local in the
+  desktop case by definition); a per-project local-path override lives in the Tauri store
+  (shell-side), never in Django.
+- **Architecture honesty:** this route needs **NO Django websockets** and keeps the web app
+  untouched — the least-effort path. A **web-browser fallback** (Django Channels / websocket
+  PTY) is recorded as a later, **separate** decision: CLAUDE.md non-goals exclude websockets,
+  and nothing in this epic depends on it.
+- **Security (FLAGGED):** a terminal is **arbitrary code execution by design**. That is
+  acceptable in the local, single-user desktop context — the same trust model as VS Code's
+  integrated terminal — because the PTY speaks only over Tauri IPC inside the user's own
+  session. It must **NEVER** be exposed through the web API/server: no Django view, no DRF
+  route, no MCP tool may reach a PTY — **desktop-IPC only**. A grep-guard test (the
+  `test_glue_escapes.py` pattern) fails the build if any pty/terminal endpoint ever appears
+  in `api/`, `config/urls.py`, or `mcp_server/`; audit cycles re-check it.
+**OSS:** xterm.js + fit addon (MIT), portable-pty (MIT) or a maintained tauri-pty plugin; we
+write mount/resize/panel chrome + the IPC pump only.
+*Gate: in the desktop build, open the terminal in a project, run `ls` and see the project's
+files; resize reflows; web build contains no terminal assets; the no-web-PTY guard test passes.*
+
+**Slice 6 — Project templates that scaffold organized folders.** Generalize the manuscript
 gallery (`templates_gallery.py`, code-defined, versioned-with-code, `#128`-paired and later
 user-extensible) into **project templates**: a template = a declarative folder/file tree
 (e.g. `literature/`, `data/`, `analysis/`, `manuscript/main.tex` (role=MANUSCRIPT_SOURCE, set
 as main), `protocols/`, `notes/README.md`). New-project flow + a "Apply template" action on an
 existing project scaffold the tree (idempotent, never clobbers existing nodes). Definitions live
 in `core/project_templates.py`; `GET /api/v1/project-templates/` lists them; `POST …/apply`.
-seed_demo uses one. *Gate: new project from a template shows the prebuilt organized tree; the
+seed_demo uses one. **OSS:** none needed — declarative data + a scaffold service is trivial
+glue (cookiecutter evaluated and rejected: Jinja templating + a new dep for what is a dict→
+nodes loop). *Gate: new project from a template shows the prebuilt organized tree; the
 scaffolded `manuscript/main.tex` compiles.*
 
-**Slice 6 — Tauri local-filesystem access ("contain/open any file from disk").** The owner's
+**Slice 7 — Tauri local-filesystem access ("contain/open any file from disk").** The owner's
 "contain any file" ask: from the desktop app, open/import files **from the real filesystem**
 (not only MEDIA_ROOT uploads) and reveal/open workspace files in the OS:
 - Tauri `dialog` + `fs` (scoped) for "Open from disk → import into workspace" and "Reveal in
@@ -218,22 +298,28 @@ scaffolded `manuscript/main.tex` compiles.*
   explicit commands). API key + localhost binding still hold. DECISIONS entry enumerates
   reachable directories + the canonicalization guard. Tests: a Rust/integration test that a
   path outside scope is refused; a Django test that a LINK node outside its granted root 403s.
+**OSS:** Tauri official plugins **`fs`** (scoped) + **`dialog`** — no hand-rolled native
+dialogs or file IO; we write the scope checks and the import/link commands only.
 *Gate: from the desktop app, open a PDF from disk into a project, reveal a file in the OS file
 manager, and a link-in-place node renders — with an out-of-scope path refused.*
 
-**Slice 7 — IDE polish + unify the old surfaces.** Command palette over files (the existing
+**Slice 8 — IDE polish + unify the old surfaces.** Command palette over files (the existing
 `CommandBar` gains file-open), breadcrumb path bar, recent files, split view (existing
 `split.js`), "open in editor" everywhere, find-in-file (CM6 search) + project-wide search
 folded into the existing global search. Retire the standalone Documents page and the separate
 manuscript file-sidebar in favor of the unified Workspace (redirects kept). Drop the
 `ManuscriptFile` shadow table + the `Document` proxy alias (the "one release later" cleanup),
-once contract tests have ridden a release. *Gate: Documents/manuscript-files redirect to
+once contract tests have ridden a release. **OSS:** all already in hand (CM6 search, split.js,
+lucide); evaluate porting the retired trees' last consumers onto react-arborist here rather
+than maintaining two tree implementations. *Gate: Documents/manuscript-files redirect to
 Workspace; shadow table dropped; all file tools/endpoints green on the unified model.*
 
-**Slice 8 — Tauri maturation + release.** Auto-update channel, code-signing notes (per-OS),
+**Slice 9 — Tauri maturation + release (incl. terminal polish: multiple tabs if cheap, else
+parked).** Auto-update channel, code-signing notes (per-OS),
 app icon/menu polish, offline-first behavior (the CM6/editor already works offline since #114),
-crash/log surface, packaged installers in CI artifacts. *Gate: signed/notarized build notes
-documented; installer artifact in CI; smoke battery passes inside the desktop webview.*
+crash/log surface, packaged installers in CI artifacts. **OSS:** Tauri's built-in updater +
+bundler — nothing hand-rolled. *Gate: signed/notarized build notes documented; installer
+artifact in CI; smoke battery passes inside the desktop webview (incl. the terminal).*
 
 ---
 
@@ -241,8 +327,12 @@ documented; installer artifact in CI; smoke battery passes inside the desktop we
 
 - **Security:** project-scope re-checked on every file op; strict `validate_manuscript_path`
   for manuscript-subtree nodes; compile keeps its `resolve()` last-line guard; from Slice 4
-  the desktop binds localhost + keeps API-key auth; from Slice 6 disk scope is allowlisted +
-  canonicalized. Each slice adds its hostile-path / out-of-scope test.
+  the desktop binds localhost + keeps API-key auth; from Slice 5 the PTY is desktop-IPC only
+  (no-web-PTY grep-guard); from Slice 7 disk scope is allowlisted + canonicalized. Each slice
+  adds its hostile-path / out-of-scope test.
+- **OSS-first (owner directive #4):** before any non-trivial hand-roll inside a slice, check
+  §0bis; deviations (a new adoption or a deliberate build) get a DECISIONS.md entry with the
+  alternative considered. All deps pinned, MIT/BSD/ISC/Apache, bundled locally — no CDN.
 - **Tests:** every new service/selector + computed property unit-tested; every page a logged-in
   smoke test; migration + contract tests in Slice 1; a desktop integration smoke from Slice 4.
 - **Both shells stay functional:** the SPA Workspace and a classic fallback; same `tree/` API.
@@ -256,7 +346,7 @@ documented; installer artifact in CI; smoke battery passes inside the desktop we
 - **Migration correctness is the whole ballgame.** Two live contracts (`manuscript-files` API +
   6 MCP file tools) must not break. Mitigation: keep `ManuscriptFile` as a read-only shadow one
   release; contract tests assert byte-identical shapes pre/post; reverse migration restores the
-  table; idempotent + counted. Don't drop the shadow until Slice 7 after a release.
+  table; idempotent + counted. Don't drop the shadow until Slice 8 after a release.
 - **rel_path drift.** Moves/renames must recompute `rel_path` for a whole subtree atomically and
   keep `(project, rel_path)` unique; a missed update silently breaks compile. Mitigation:
   recompute via the folder chain in one transaction, reuse `descendant_ids()` cycle guard, test
@@ -269,15 +359,32 @@ documented; installer artifact in CI; smoke battery passes inside the desktop we
   (loads the existing SPA, no React rewrite); Rust touches only window/menu/fs commands; CI adds
   one Tauri build job; §2's "no Node project beyond Vite" is honored (Tauri consumes prebuilt
   `static/`).
-- **Desktop threat-model shift (Slice 6).** Real disk access is the genuinely new risk surface.
+- **Desktop threat-model shift (Slice 7).** Real disk access is the genuinely new risk surface.
   Mitigation (above): scoped fs allowlist, canonicalized path sandbox, webview can't touch disk
   directly, localhost binding, API key retained, explicit Rust commands only, out-of-scope
   refusal tests. Default to copy-into-MEDIA_ROOT; link-in-place is opt-in.
+- **The terminal is arbitrary code execution by design (Slice 5).** Acceptable in the local
+  single-user desktop context — the VS Code trust model — but ONLY because it never leaves
+  Tauri IPC. The catastrophic failure mode is a future "convenience" that bridges the PTY
+  through Django (an endpoint, a websocket, an MCP tool): a remote-shell-as-a-feature.
+  Mitigation: the no-web-PTY grep-guard test fails the build on any pty/terminal route in
+  `api/`, `config/urls.py`, or `mcp_server/`; the web bundle ships no xterm assets; every
+  audit cycle re-verifies; the web-terminal fallback stays a separate, owner-gated decision.
+- **tauri-pty plugin maintenance.** A community plugin may be stale. Mitigation: decide at
+  Slice 5 start; the fallback (portable-pty + ~100 lines of our own IPC glue) is small,
+  fully under our control, and portable-pty itself is battle-tested (WezTerm) incl. ConPTY
+  on Windows.
+- **New frontend deps must not bloat first paint.** react-arborist/papaparse/xterm land only
+  in the Workspace island chunk (code-split like vim-keymap, #137); pdfjs-dist is already
+  paid for today via CDN — bundling moves it, not adds it. Mitigation: track gz sizes in the
+  slice gates.
 - **Text-vs-binary authority on one node.** `content` xor `file` must be unambiguous.
   Mitigation: `is_text` derived from extension at save, exactly one populated, migration
   backfills, a model check + test enforces it.
 - **CM6/pdf.js reuse, not rebuild.** Preview must reuse the bundled editor + reader, not add a
-  viewer lib. Mitigation: Slice 2 wires existing islands; no new frontend deps.
+  competing viewer lib. Mitigation: Slice 2 wires the existing islands; the only new frontend
+  deps are the §0bis adoptions (react-arborist, papaparse, lucide, language-data, xterm) —
+  anything beyond that list needs a DECISIONS entry first.
 - **Manuscript "view over tree" vs the old `Manuscript.files` related set.** Code that did
   `manuscript.files.all()` (compile, snapshot, serializer) must move to the subtree query.
   Mitigation: one `manuscript.source_files()` selector is the single chokepoint; everything
@@ -287,11 +394,22 @@ documented; installer artifact in CI; smoke battery passes inside the desktop we
 
 ## E. What we do NOT build in v1 (parked → Backlog)
 
-- Real-time multi-cursor / collaborative editing in the workspace (§1 non-goal).
-- A full general-purpose code IDE (LSP, language servers, debuggers, integrated terminal) —
-  CM6 syntax + edit/compile loop only; no per-language tooling beyond LaTeX.
-- Git integration / version control of the workspace beyond the existing `ManuscriptRevision`
-  snapshots (GitHub commit↔experiment linking already parked in §5 Backlog).
+> Updated for owner directive #3: ~~integrated terminal~~ **moves IN** (Slice 5, desktop-only).
+> Still out: git client UI, collaborative editing, remote workspaces.
+
+- Real-time multi-cursor / collaborative editing in the workspace (§1 non-goal) — still out.
+- A full general-purpose code IDE (LSP, language servers, debuggers) — CM6 syntax + the
+  edit/compile loop + **the integrated terminal (now IN, Slice 5)**; no per-language tooling
+  beyond LaTeX.
+- **Web-browser terminal** (Django Channels / websocket PTY) — a later, SEPARATE decision:
+  CLAUDE.md non-goals exclude websockets, the desktop terminal needs none, and exposing a PTY
+  over HTTP changes the security story entirely (owner-gated if ever raised).
+- **Multiple terminal tabs / split terminals** — Slice 5 ships one; tabs land in Slice 9 only
+  if cheap, else parked here.
+- Git client UI (stage/commit/diff panes) / version control of the workspace beyond the
+  existing `ManuscriptRevision` snapshots (GitHub commit↔experiment linking already parked in
+  §5 Backlog) — still out; the terminal gives CLI git for free.
+- Remote workspaces / remote file systems (SSH/containers, VS Code-style) — still out.
 - User-authored project templates UI (definitions stay code-defined in v1; user-extensible is
   noted, deferred — pairs with #128).
 - Mobile/native iOS-Android apps (Tauri targets desktop; responsive web covers mobile, §1).
@@ -312,6 +430,10 @@ validator + generalized kind_for_path), `documents/views.py` + `documents/urls.p
 `core/project_templates.py`, `api/views.py` + `api/serializers.py` + `api/urls.py`
 (manuscript-files bridge over ProjectFile, new `tree/` + `project-templates/` endpoints),
 `mcp_server/server.py` + `client.py` (unchanged shapes — contract held),
-`frontend/src/app/pages/Workspace.tsx` (new) + `Documents.tsx` (retire), `frontend/vite.config.ts`,
-the CM6 editor island + pdf.js reader (reused), and a new `desktop/` Tauri project
-(`tauri.conf.json`, Rust `src-tauri/`, `make desktop`).
+`frontend/src/app/pages/Workspace.tsx` (new; react-arborist tree + viewer pane + terminal
+panel) + `Documents.tsx` (retire), `frontend/vite.config.ts` (workspace chunk + local
+pdfjs-dist worker), `frontend/package.json` (pinned: react-arborist, papaparse, lucide,
+@codemirror/language-data, @xterm/xterm, @xterm/addon-fit), the CM6 editor island + pdf.js
+reader (reused), a new `desktop/` Tauri project (`tauri.conf.json`, Rust `src-tauri/` with
+`pty.rs` on portable-pty, `make desktop`), and the no-web-PTY grep-guard test (e.g.
+`api/tests/test_no_pty_surface.py`).

@@ -472,6 +472,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     stays, but architect so a Tauri shell (local app, file-system access, OS file associations)
     can wrap the same Django+SPA later; do NOT block the epic on it. Plan of record to
     docs/plans/ via a parallel planner, then execute in slices like the LaTeX epic (#24).
+    OWNER DECISIONS (same day, via question + follow-ups): (1) UNIFY into one tree — Documents
+    + manuscript sources become one per-project hierarchy; (2) FULL desktop commitment NOW —
+    Tauri first-class target, not a note; (3) "because I would like to have terminal in it as
+    well!" — integrated terminal IS in scope (xterm.js + portable-pty over Tauri IPC,
+    desktop-only, never web-exposed — grep-guard enforced); (4) "try your best to use open
+    source projects so we can seriously get this done with the least effort" — build-vs-adopt
+    table is normative (react-arborist, papaparse, lucide, Tauri plugins, pdf.js vendored).
+    Plan of record: docs/plans/2026-06-12-file-workspace-ide-epic.md (9 slices).
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
