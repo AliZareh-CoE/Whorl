@@ -787,11 +787,16 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     panes.push("#editor-column");
     if (previewOpen) panes.push("#preview-pane");
     const key = SPLIT_KEY + (sidebarOpen ? "s" : "") + (previewOpen ? "p" : "");
+    const editorColumn = document.getElementById("editor-column");
     if (panes.length < 2) {
-      document.getElementById("editor-column").style.width = "";
+      // no split: the editor is the only pane, so let it grow (Split.js isn't
+      // managing widths and the column has no flex-grow of its own)
+      editorColumn.style.width = "";
+      editorColumn.style.flexGrow = "1";
       ad.view.requestMeasure();
       return;
     }
+    editorColumn.style.flexGrow = "";
     const saved = JSON.parse(localStorage.getItem(key) || "null");
     const defaults =
       sidebarOpen && previewOpen ? [14, 44, 42] :
@@ -829,8 +834,34 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
   toggleBtn.addEventListener("click", () => setPreview(previewPane.classList.contains("hidden")));
   if (localStorage.getItem("atlas-editor-sidebar") === "0") sidebar.classList.add("hidden");
   // the PDF pane hosts Recompile, so it's shown by default unless explicitly collapsed
-  if (localStorage.getItem("atlas-editor-preview") !== "0") setPreview(true);
-  else makeSplit();
+  // (setPreview(false) here too — the pane starts visible in the markup, so a bare
+  // makeSplit() would silently undo a persisted collapse)
+  setPreview(localStorage.getItem("atlas-editor-preview") !== "0");
+
+  // Layout presets (#140): one-shot research-task arrangements on the View menu.
+  // Each preset seeds the matching per-layout split key, then drives the same
+  // setSidebar/setPreview machinery a manual toggle uses.
+  const LAYOUT_PRESETS = {
+    drafting: { sidebar: false, preview: false },
+    reviewing: { sidebar: false, preview: true, sizes: [50, 50] },
+    submitting: { sidebar: true, preview: true, sizes: [14, 44, 42] },
+  };
+  function applyLayout(name) {
+    const preset = LAYOUT_PRESETS[name];
+    if (!preset) return;
+    if (preset.sizes) {
+      const key = SPLIT_KEY + (preset.sidebar ? "s" : "") + (preset.preview ? "p" : "");
+      localStorage.setItem(key, JSON.stringify(preset.sizes));
+    }
+    sidebar.classList.toggle("hidden", !preset.sidebar);
+    localStorage.setItem("atlas-editor-sidebar", preset.sidebar ? "1" : "0");
+    setPreview(preset.preview); // rebuilds the split with the seeded sizes
+    if (preset.preview && pdfDoc && (lastPdfUrl || cfg.pdfUrl)) renderPdf(lastPdfUrl || cfg.pdfUrl);
+    ad.focus();
+  }
+  for (const btn of document.querySelectorAll("[data-layout]")) {
+    btn.addEventListener("click", () => applyLayout(btn.dataset.layout));
+  }
 
   // Logs button toggles the diagnostics/error-log pane (Overleaf's "Logs and output files")
   document.getElementById("logs-toggle")?.addEventListener("click", () => {

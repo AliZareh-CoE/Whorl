@@ -65,6 +65,14 @@
             class="rounded px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">View</button>
     <div x-show="open" @click.outside="open = false" x-cloak x-transition.opacity
          class="absolute left-0 z-20 mt-1 w-56 rounded border border-stone-200 bg-white py-1 text-xs shadow-lg">
+      <p class="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-stone-400">Layout</p>
+      <button type="button" data-layout="drafting" @click="open = false" title="Editor only — full width, no distractions"
+              class="block w-full px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50">✍ Drafting <span class="text-stone-400">— editor only</span></button>
+      <button type="button" data-layout="reviewing" @click="open = false" title="Editor and PDF side by side, half and half"
+              class="block w-full px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50">⇆ Reviewing <span class="text-stone-400">— editor + PDF</span></button>
+      <button type="button" data-layout="submitting" @click="open = false" title="Everything visible: files, editor, PDF"
+              class="block w-full px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50">▦ Submitting <span class="text-stone-400">— files + editor + PDF</span></button>
+      <div class="my-1 border-t border-stone-100"></div>
       <button type="button" id="toggle-preview"
               class="block w-full px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50">PDF preview ⇄</button>
       <button type="button" id="research-toggle"
