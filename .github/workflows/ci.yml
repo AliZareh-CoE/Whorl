@@ -109,7 +109,9 @@ jobs:
           fi
 
       - name: Probe sweep (make audit)
-        run: make audit
+        run: |
+          set -o pipefail
+          make audit 2>&1 | tee /tmp/audit-output.txt
 
       - name: Smoke login user
         run: |
@@ -135,4 +137,5 @@ jobs:
           path: |
             /tmp/editor-smoke/
             /tmp/server.log
+            /tmp/audit-output.txt
           if-no-files-found: ignore

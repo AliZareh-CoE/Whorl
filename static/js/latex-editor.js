@@ -811,6 +811,7 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
       gutterSize: 6,
       onDragEnd: (sizes) => {
         localStorage.setItem(key, JSON.stringify(sizes));
+        clearLayoutName(); // hand-resizing diverges from any named preset
         ad.view.requestMeasure(); // CM6 re-measures after a container resize
         if (pdfDoc && lastPdfUrl) renderPdf(lastPdfUrl);
         else if (pdfDoc && cfg.pdfUrl) renderPdf(cfg.pdfUrl);
@@ -819,14 +820,34 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     decorateGutters(sidebarOpen, previewOpen);
     ad.view.requestMeasure();
   }
+  // Active-layout memory (#144): a preset's name sticks until the geometry diverges
+  // (manual toggle or divider drag), so the View menu's checkmark reflects reality.
+  const LAYOUT_NAME_KEY = "atlas-editor-layout";
+  let applyingPreset = false;
+  function paintLayoutMenu() {
+    const act = localStorage.getItem(LAYOUT_NAME_KEY);
+    for (const btn of document.querySelectorAll("[data-layout]")) {
+      const chk = btn.querySelector("[data-check]");
+      if (chk) chk.classList.toggle("hidden", btn.dataset.layout !== act);
+    }
+  }
+  function clearLayoutName() {
+    if (!applyingPreset && localStorage.getItem(LAYOUT_NAME_KEY)) {
+      localStorage.removeItem(LAYOUT_NAME_KEY);
+      paintLayoutMenu();
+    }
+  }
+
   function setSidebar(open) {
     sidebar.classList.toggle("hidden", !open);
     localStorage.setItem("atlas-editor-sidebar", open ? "1" : "0");
+    clearLayoutName();
     makeSplit();
   }
   function setPreview(open) {
     previewPane.classList.toggle("hidden", !open);
     localStorage.setItem("atlas-editor-preview", open ? "1" : "0");
+    clearLayoutName();
     makeSplit();
     if (open && cfg.pdfUrl && !pdfDoc) renderPdf(cfg.pdfUrl);
   }
@@ -880,7 +901,10 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
   // the PDF pane hosts Recompile, so it's shown by default unless explicitly collapsed
   // (setPreview(false) here too — the pane starts visible in the markup, so a bare
   // makeSplit() would silently undo a persisted collapse)
+  applyingPreset = true; // restoring saved state is not a divergence (#144)
   setPreview(localStorage.getItem("atlas-editor-preview") !== "0");
+  applyingPreset = false;
+  paintLayoutMenu();
 
   // Layout presets (#140): one-shot research-task arrangements on the View menu.
   // Each preset seeds the matching per-layout split key, then drives the same
@@ -897,9 +921,13 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
       const key = SPLIT_KEY + (preset.sidebar ? "s" : "") + (preset.preview ? "p" : "");
       localStorage.setItem(key, JSON.stringify(preset.sizes));
     }
+    applyingPreset = true;
     sidebar.classList.toggle("hidden", !preset.sidebar);
     localStorage.setItem("atlas-editor-sidebar", preset.sidebar ? "1" : "0");
     setPreview(preset.preview); // rebuilds the split with the seeded sizes
+    applyingPreset = false;
+    localStorage.setItem(LAYOUT_NAME_KEY, name);
+    paintLayoutMenu();
     if (preset.preview && pdfDoc && (lastPdfUrl || cfg.pdfUrl)) renderPdf(lastPdfUrl || cfg.pdfUrl);
     ad.focus();
   }
