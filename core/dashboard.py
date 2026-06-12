@@ -55,6 +55,36 @@ def active_projects():
     return rows
 
 
+def needs_attention(today=None, window_days=14):
+    """The lead of the dashboard ([REV] cycle 145): the ANSWER to "what should I
+    work on today?", not just data. Overdue milestones, manuscript deadlines
+    inside the window, and untriaged inbox items — each one actionable."""
+    today = today or timezone.localdate()
+    soon = today + datetime.timedelta(days=window_days)
+    overdue = list(
+        Milestone.objects.filter(
+            completed_at__isnull=True,
+            due_date__lt=today,
+            phase__project__status__in=["planning", "active"],
+        )
+        .select_related("phase__project")
+        .order_by("due_date")
+    )
+    deadlines = list(
+        Manuscript.objects.filter(deadline__isnull=False, deadline__lte=soon)
+        .exclude(status__in=["published", "shelved"])
+        .select_related("project")
+        .order_by("deadline")
+    )
+    inbox = list(QuickCapture.objects.filter(processed=False).order_by("created_at")[:5])
+    return {
+        "overdue": overdue,
+        "deadlines": deadlines,
+        "inbox": inbox,
+        "empty": not (overdue or deadlines or inbox),
+    }
+
+
 def upcoming_milestones(limit=10):
     return (
         Milestone.objects.filter(completed_at__isnull=True, due_date__isnull=False)
@@ -148,6 +178,7 @@ def monthly_stats(today=None):
 def dashboard_context():
     return {
         "active": active_projects(),
+        "attention": needs_attention(),
         "milestones": upcoming_milestones(),
         "deadlines": upcoming_deadlines(),
         "heatmap": activity_heatmap(),

@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 
 {% block title %}Dashboard{% endblock %}
+{# Owner #25 density + [REV] cycle 145: answer-first mission control #}
+{% block main_class %}mx-auto max-w-6xl{% endblock %}
 
 {% block breadcrumbs %}Dashboard{% endblock %}
 
 {% block content %}
-<h1 class="mb-6 text-2xl font-semibold tracking-tight">Today, everywhere</h1>
+<h1 class="mb-4 text-2xl font-semibold tracking-tight">Today, everywhere</h1>
 
 {% if not active %}
   <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
@@ -13,63 +15,102 @@
     <a href="{% url 'projects:create' %}" class="text-sm font-medium text-indigo-600 hover:underline">Create a project</a>
   </div>
 {% else %}
-<div class="mb-4 grid grid-cols-4 gap-4">
-  <div class="rounded border border-stone-200 bg-white px-4 py-3">
-    <p class="text-2xl font-semibold">{{ stats.papers_read }}</p>
+
+{# The answer first ([REV]): what needs me today — overdue, deadlines, inbox. #}
+{% if attention.empty %}
+  <div class="mb-3 rounded border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-500">
+    All clear — nothing overdue, no deadlines inside two weeks, inbox triaged.
+  </div>
+{% else %}
+  <section class="mb-3 card border-l-2 border-l-red-400">
+    <h2 class="card-title">Needs attention</h2>
+    <ul class="space-y-1 text-sm">
+      {% for m in attention.overdue %}
+        <li class="flex items-baseline gap-2">
+          <span class="shrink-0 text-xs font-medium text-red-600">overdue</span>
+          <a href="{% url 'plans:plan' m.phase.project.slug %}" class="min-w-0 flex-1 truncate hover:underline">{{ m.title }}</a>
+          <span class="shrink-0 text-xs text-stone-400">{{ m.phase.project.name|truncatechars:24 }} · due {{ m.due_date }}</span>
+        </li>
+      {% endfor %}
+      {% for ms in attention.deadlines %}
+        <li class="flex items-baseline gap-2">
+          <span class="shrink-0 text-xs font-medium {% if ms.days_to_deadline < 7 %}text-red-600{% else %}text-amber-600{% endif %}">deadline</span>
+          <a href="{{ ms.get_absolute_url }}" class="min-w-0 flex-1 truncate hover:underline">{{ ms.title }}</a>
+          <span class="shrink-0 text-xs text-stone-400">{{ ms.project.name|truncatechars:24 }} ·
+            {% if ms.days_to_deadline < 0 %}passed{% else %}{{ ms.days_to_deadline }} day{{ ms.days_to_deadline|pluralize }}{% endif %}
+            ({{ ms.deadline }})</span>
+        </li>
+      {% endfor %}
+      {% for q in attention.inbox %}
+        <li class="flex items-baseline gap-2">
+          <span class="shrink-0 text-xs font-medium text-indigo-600">inbox</span>
+          <span class="min-w-0 flex-1 truncate text-stone-600">{{ q.text|truncatechars:90 }}</span>
+          <a href="{% url 'notes:inbox' %}" class="shrink-0 text-xs text-indigo-600 hover:underline">triage →</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endif %}
+
+<div class="mb-3 grid grid-cols-4 gap-3">
+  <div class="rounded border border-stone-200 bg-white px-4 py-2">
+    <p class="text-xl font-semibold">{{ stats.papers_read }}</p>
     <p class="text-xs text-stone-400">papers read this month</p>
   </div>
-  <div class="rounded border border-stone-200 bg-white px-4 py-3">
-    <p class="text-2xl font-semibold">{{ stats.notes_written }}</p>
+  <div class="rounded border border-stone-200 bg-white px-4 py-2">
+    <p class="text-xl font-semibold">{{ stats.notes_written }}</p>
     <p class="text-xs text-stone-400">notes written this month</p>
   </div>
-  <div class="rounded border border-stone-200 bg-white px-4 py-3">
-    <p class="text-2xl font-semibold">{{ stats.milestones_done }}</p>
+  <div class="rounded border border-stone-200 bg-white px-4 py-2">
+    <p class="text-xl font-semibold">{{ stats.milestones_done }}</p>
     <p class="text-xs text-stone-400">milestones completed</p>
   </div>
-  <div class="rounded border border-stone-200 bg-white px-4 py-3">
-    <p class="text-2xl font-semibold">{{ inbox_count }}</p>
+  <div class="rounded border border-stone-200 bg-white px-4 py-2">
+    <p class="text-xl font-semibold">{{ inbox_count }}</p>
     <p class="text-xs text-stone-400"><a href="{% url 'notes:inbox' %}" class="hover:underline">inbox items to triage</a></p>
   </div>
 </div>
 
 {% load project_tree %}
-<div class="mb-4 card">
-  <h2 class="mb-1 text-sm font-medium uppercase tracking-wide text-stone-400">The grove</h2>
-  <p class="mb-2 text-xs text-stone-400">One tree per active project — bigger means more milestones, fuller means closer to done.</p>
-  <div class="flex flex-wrap items-end gap-6 overflow-x-auto pb-1">
-    {% for row in active %}
-      <a href="{{ row.project.get_absolute_url }}" class="group flex flex-col items-center"
-         title="{{ row.project.name }} — {{ row.done }}/{{ row.total }} milestones">
-        {% project_tree row.percent row.project.color row.tree_size row.project.pk %}
-        <span class="mt-1 max-w-[9rem] truncate text-xs text-stone-500 group-hover:text-indigo-700">{{ row.project.name }}</span>
-      </a>
-    {% endfor %}
+<div class="mb-3 grid grid-cols-2 gap-3">
+  <div class="card">
+    <h2 class="card-title">The grove</h2>
+    <p class="mb-2 text-xs text-stone-400">One tree per active project — bigger means more milestones, fuller means closer to done.</p>
+    <div class="flex flex-wrap items-end gap-6 overflow-x-auto pb-1">
+      {% for row in active %}
+        <a href="{{ row.project.get_absolute_url }}" class="group flex flex-col items-center"
+           title="{{ row.project.name }} — {{ row.done }}/{{ row.total }} milestones">
+          {% project_tree row.percent row.project.color row.tree_size row.project.pk %}
+          <span class="mt-1 max-w-[9rem] truncate text-xs text-stone-500 group-hover:text-indigo-700">{{ row.project.name }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">Activity</h2>
+    <div class="flex gap-[3px] overflow-x-auto">
+      {% for week in heatmap %}
+        <div class="flex flex-col gap-[3px]">
+          {% for cell in week %}
+            <div title="{{ cell.date }}: {{ cell.count }}"
+                 class="h-2.5 w-2.5 rounded-[2px]
+                   {% if cell.future %}bg-transparent
+                   {% elif cell.level == 0 %}bg-stone-100
+                   {% elif cell.level == 1 %}bg-indigo-100
+                   {% elif cell.level == 2 %}bg-indigo-300
+                   {% elif cell.level == 3 %}bg-indigo-500
+                   {% else %}bg-indigo-700{% endif %}"></div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
   </div>
 </div>
 
-<div class="mb-4 card">
-  <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Activity</h2>
-  <div class="flex gap-[3px] overflow-x-auto">
-    {% for week in heatmap %}
-      <div class="flex flex-col gap-[3px]">
-        {% for cell in week %}
-          <div title="{{ cell.date }}: {{ cell.count }}"
-               class="h-2.5 w-2.5 rounded-[2px]
-                 {% if cell.future %}bg-transparent
-                 {% elif cell.level == 0 %}bg-stone-100
-                 {% elif cell.level == 1 %}bg-indigo-100
-                 {% elif cell.level == 2 %}bg-indigo-300
-                 {% elif cell.level == 3 %}bg-indigo-500
-                 {% else %}bg-indigo-700{% endif %}"></div>
-        {% endfor %}
-      </div>
-    {% endfor %}
-  </div>
-</div>
-
-<div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-2 gap-3">
   <section class="card">
-    <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Active projects</h2>
+    <h2 class="card-title">Active projects</h2>
     <div class="space-y-3">
       {% for row in active %}
         <a href="{{ row.project.get_absolute_url }}" class="block">
@@ -88,9 +129,9 @@
   </section>
 
   <section class="card">
-    <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Coming up</h2>
+    <h2 class="card-title">Coming up</h2>
     {% if deadlines %}
-      <ul class="mb-3 space-y-1.5 text-sm">
+      <ul class="mb-3 space-y-1 text-sm">
         {% for manuscript in deadlines %}
           <li class="flex items-baseline gap-2">
             <span class="text-xs text-stone-400">✍</span>
@@ -103,7 +144,7 @@
       </ul>
     {% endif %}
     {% if milestones %}
-      <ul class="space-y-1.5 text-sm">
+      <ul class="space-y-1 text-sm">
         {% for milestone in milestones %}
           <li class="flex items-baseline gap-2">
             <span class="text-xs text-stone-400">◆</span>
