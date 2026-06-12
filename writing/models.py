@@ -71,6 +71,12 @@ class Manuscript(TimeStampedModel):
     root_folder = models.ForeignKey(
         "documents.Folder", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
+    # the unified-tree node that is this manuscript's main file (slice 1c-ii-A, inert
+    # until 1c-ii-B; named *_node to avoid colliding with the main_file PROPERTY, which
+    # 1c-ii-B reworks; renamed to main_file once the ManuscriptFile property is removed).
+    main_file_node = models.ForeignKey(
+        "documents.Document", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
 
     class Meta:
         ordering = ["-updated_at"]
