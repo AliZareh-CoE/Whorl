@@ -37,6 +37,8 @@ import {
   lineNumbers,
 } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
+// Resizable panels (Owner idea #28: Split.js, MIT ~2KB, instead of hand-rolled drag math)
+export { default as Split } from "split.js";
 
 export type EditorCfg = {
   citeKeys?: string[];

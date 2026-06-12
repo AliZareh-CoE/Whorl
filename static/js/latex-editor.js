@@ -6,7 +6,7 @@
    The hand-rolled CM5 snippet walker, hint functions, and cite-check moved into the
    island (or its libraries) and were deleted from here. Zero CDN editor dependencies
    remain (closes Backlog #114). */
-import { mountEditor } from "./latex-editor-cm6.js";
+import { mountEditor, Split } from "./latex-editor-cm6.js";
 
 (function () {
   const cfg = JSON.parse(document.getElementById("editor-config").textContent);
@@ -726,14 +726,39 @@ import { mountEditor } from "./latex-editor-cm6.js";
   document.getElementById("zoom-out").addEventListener("click", () => setZoom("manual", (fitWidth ? 1 : zoom) - 0.2));
   document.getElementById("zoom-fit").addEventListener("click", () => setZoom("fit"));
 
+  // --- Split.js resizable panels (Owner idea #26/#28: borrowed, not hand-rolled) ---
+  const SPLIT_KEY = "atlas-editor-split";
+  let split = null;
+  function makeSplit() {
+    if (split) { split.destroy(); split = null; }
+    const previewOpen = !previewPane.classList.contains("hidden");
+    const panes = previewOpen
+      ? ["#file-sidebar", "#editor-column", "#preview-pane"]
+      : ["#file-sidebar", "#editor-column"];
+    const saved = JSON.parse(localStorage.getItem(SPLIT_KEY + (previewOpen ? "3" : "2")) || "null");
+    split = Split(panes, {
+      sizes: saved || (previewOpen ? [14, 44, 42] : [16, 84]),
+      minSize: previewOpen ? [120, 280, 220] : [120, 320],
+      gutterSize: 6,
+      onDragEnd: (sizes) => {
+        localStorage.setItem(SPLIT_KEY + (previewOpen ? "3" : "2"), JSON.stringify(sizes));
+        ad.view.requestMeasure(); // CM6 re-measures after a container resize
+        if (pdfDoc && lastPdfUrl) renderPdf(lastPdfUrl);
+        else if (pdfDoc && cfg.pdfUrl) renderPdf(cfg.pdfUrl);
+      },
+    });
+    ad.view.requestMeasure();
+  }
   function setPreview(open) {
     previewPane.classList.toggle("hidden", !open);
     localStorage.setItem("atlas-editor-preview", open ? "1" : "0");
+    makeSplit();
     if (open && cfg.pdfUrl && !pdfDoc) renderPdf(cfg.pdfUrl);
   }
   toggleBtn.addEventListener("click", () => setPreview(previewPane.classList.contains("hidden")));
   // the PDF pane hosts Recompile, so it's shown by default unless explicitly collapsed
   if (localStorage.getItem("atlas-editor-preview") !== "0") setPreview(true);
+  else makeSplit();
 
   // Logs button toggles the diagnostics/error-log pane (Overleaf's "Logs and output files")
   document.getElementById("logs-toggle")?.addEventListener("click", () => {
