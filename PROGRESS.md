@@ -3,8 +3,8 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (next: AUDIT #13 [cycle 129→130 — run it at 130; 129 = History/Layout cluster or collapse chevrons #138])
-- **Last completed slice (cycle 128, Overleaf-UI toolbar):** File/Edit/Insert/View menu bar replaces the scattered buttons (File: zip/bib/back · Edit: find · Insert: symbols · View: preview/research toggles + settings), save-status right-aligned; pure template restructure, all IDs preserved, JS untouched. Live-verified all 7 relocated actions.
+- **Slice in progress:** — (next: AUDIT #13 [cycle 130])
+- **Last completed slice (cycle 129, Overleaf-UI polish pair):** collapse chevrons on the Split.js dividers + thin edge restore strips (persisted; position-based gutter decoration after sibling checks broke on hidden modals) + Ctrl/Cmd-Enter recompile with menu shortcut hints (#138 + #139 done). Live-verified all flows.
 - **Prior slice (cycle 120, AUDIT #12):** reviewed cycles 111-119 (cite-library, context, MCP LaTeX tools + word-count action, line comments, arXiv zip, pet SVG). Sweep clean, all surfaces authz-scoped, MCP AST constraint holds, timings <50ms, 0 CVEs. ONE defense-in-depth fix: the submission-zip now skips traversal/absolute entry names (+regression test). Report in AUDITS.md.
 - **Prior slice (cycle 119, Owner idea #27, UI/UX):** REAL pet — replaced the emoji with a hand-drawn inline-SVG owl, distinct per growth stage (egg→hatchling→scholar→sage w/ cap+sparkle), shared by classic sidebar + /pet/ + React layout (PetSvg.tsx); CSS breathing/blink/sparkle/hop, sleeping closes eyes. Browser-verified all stages + in-app. NEW owner #26 Overleaf-UI plan saved to docs/plans/ for cycles 121+.
 - **Prior slice (cycle 117, beyond-Overleaf B6):** line-anchored editor comments — Comment model gains manuscript_file target with page=line; 💬 gutter dot on commented lines, click either gutter → line thread popover (⌘-Enter posts). Closes Owner idea #10 for the editor. Browser-verified comment→dot→reopen→append. 2 tests.

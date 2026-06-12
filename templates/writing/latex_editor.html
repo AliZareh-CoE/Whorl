@@ -41,6 +41,12 @@
               class="flex w-full items-center justify-between px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50">
         Find &amp; replace <span class="text-stone-400">Ctrl-F</span>
       </button>
+      <div class="flex w-full items-center justify-between px-3 py-1.5 text-stone-400">
+        Save now <span>Ctrl-S</span>
+      </div>
+      <div class="flex w-full items-center justify-between px-3 py-1.5 text-stone-400">
+        Recompile <span>Ctrl-Enter</span>
+      </div>
     </div>
   </div>
 
@@ -169,7 +175,7 @@
   <div class="sticky top-4 overflow-hidden rounded border border-stone-200 bg-white">
     {# Overleaf-pattern compile bar: Recompile + error-log indicator at the top of the PDF pane #}
     <div class="flex items-center gap-2 border-b border-stone-100 bg-stone-50 px-3 py-2">
-      <button type="button" id="compile-btn" class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">↻ Recompile</button>
+      <button type="button" id="compile-btn" title="Ctrl/Cmd-Enter" class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">↻ Recompile</button>
       <button type="button" id="logs-toggle" title="Compile logs &amp; problems"
               class="rounded border border-stone-300 bg-white px-2 py-1.5 text-xs text-stone-600 hover:border-stone-400">
         Logs <span id="logs-badge" class="hidden rounded-full bg-red-100 px-1.5 text-red-700"></span>

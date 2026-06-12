@@ -728,26 +728,97 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
 
   // --- Split.js resizable panels (Owner idea #26/#28: borrowed, not hand-rolled) ---
   const SPLIT_KEY = "atlas-editor-split";
+  const sidebar = document.getElementById("file-sidebar");
   let split = null;
+
+  // thin restore strips at the edges (Overleaf's "thin panel" affordance, #138)
+  function makeStrip(label, title, onClick) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.title = title;
+    btn.className =
+      "hidden shrink-0 self-stretch rounded border border-stone-200 bg-stone-50 px-0.5 " +
+      "text-[10px] text-stone-400 hover:bg-stone-100 hover:text-indigo-700";
+    btn.addEventListener("click", onClick);
+    return btn;
+  }
+  const sidebarRestore = makeStrip("»", "Show the file sidebar", () => setSidebar(true));
+  const previewRestore = makeStrip("«", "Show the PDF preview", () => setPreview(true));
+  sidebar.parentElement.insertBefore(sidebarRestore, sidebar);
+  previewPane.parentElement.insertBefore(previewRestore, previewPane.nextSibling);
+
+  function addChevron(g, label, title, onClick) {
+    const chev = document.createElement("button");
+    chev.type = "button";
+    chev.textContent = label;
+    chev.title = title;
+    chev.className =
+      "absolute left-1/2 top-8 z-10 -translate-x-1/2 rounded-full border border-stone-200 " +
+      "bg-white px-1 text-[9px] leading-4 text-stone-400 shadow-sm hover:text-indigo-700";
+    chev.addEventListener("mousedown", (e) => e.stopPropagation());
+    chev.addEventListener("click", onClick);
+    g.style.position = "relative";
+    g.appendChild(chev);
+  }
+  function decorateGutters(sidebarOpen, previewOpen) {
+    // gutters appear in pane order; hidden modals in the container break sibling checks,
+    // so decorate by position: first gutter = sidebar|editor when the sidebar is open,
+    // last gutter = editor|preview when the preview is open.
+    const gutters = [...sidebar.parentElement.querySelectorAll(".gutter")];
+    if (!gutters.length) return;
+    if (sidebarOpen) addChevron(gutters[0], "«", "Collapse the file sidebar", () => setSidebar(false));
+    if (previewOpen) {
+      const last = gutters[gutters.length - 1];
+      if (!sidebarOpen || gutters.length > 1) {
+        addChevron(last, "»", "Collapse the PDF preview", () => setPreview(false));
+      }
+    }
+  }
+
   function makeSplit() {
     if (split) { split.destroy(); split = null; }
     const previewOpen = !previewPane.classList.contains("hidden");
-    const panes = previewOpen
-      ? ["#file-sidebar", "#editor-column", "#preview-pane"]
-      : ["#file-sidebar", "#editor-column"];
-    const saved = JSON.parse(localStorage.getItem(SPLIT_KEY + (previewOpen ? "3" : "2")) || "null");
+    const sidebarOpen = !sidebar.classList.contains("hidden");
+    sidebarRestore.classList.toggle("hidden", sidebarOpen);
+    previewRestore.classList.toggle("hidden", previewOpen);
+    const panes = [];
+    if (sidebarOpen) panes.push("#file-sidebar");
+    panes.push("#editor-column");
+    if (previewOpen) panes.push("#preview-pane");
+    const key = SPLIT_KEY + (sidebarOpen ? "s" : "") + (previewOpen ? "p" : "");
+    if (panes.length < 2) {
+      document.getElementById("editor-column").style.width = "";
+      ad.view.requestMeasure();
+      return;
+    }
+    const saved = JSON.parse(localStorage.getItem(key) || "null");
+    const defaults =
+      sidebarOpen && previewOpen ? [14, 44, 42] :
+      sidebarOpen ? [16, 84] :
+      [55, 45];
+    const minSizes =
+      sidebarOpen && previewOpen ? [120, 280, 220] :
+      sidebarOpen ? [120, 320] :
+      [320, 220];
     split = Split(panes, {
-      sizes: saved || (previewOpen ? [14, 44, 42] : [16, 84]),
-      minSize: previewOpen ? [120, 280, 220] : [120, 320],
+      sizes: saved && saved.length === panes.length ? saved : defaults,
+      minSize: minSizes,
       gutterSize: 6,
       onDragEnd: (sizes) => {
-        localStorage.setItem(SPLIT_KEY + (previewOpen ? "3" : "2"), JSON.stringify(sizes));
+        localStorage.setItem(key, JSON.stringify(sizes));
         ad.view.requestMeasure(); // CM6 re-measures after a container resize
         if (pdfDoc && lastPdfUrl) renderPdf(lastPdfUrl);
         else if (pdfDoc && cfg.pdfUrl) renderPdf(cfg.pdfUrl);
       },
     });
+    decorateGutters(sidebarOpen, previewOpen);
     ad.view.requestMeasure();
+  }
+  function setSidebar(open) {
+    sidebar.classList.toggle("hidden", !open);
+    localStorage.setItem("atlas-editor-sidebar", open ? "1" : "0");
+    makeSplit();
   }
   function setPreview(open) {
     previewPane.classList.toggle("hidden", !open);
@@ -756,6 +827,7 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     if (open && cfg.pdfUrl && !pdfDoc) renderPdf(cfg.pdfUrl);
   }
   toggleBtn.addEventListener("click", () => setPreview(previewPane.classList.contains("hidden")));
+  if (localStorage.getItem("atlas-editor-sidebar") === "0") sidebar.classList.add("hidden");
   // the PDF pane hosts Recompile, so it's shown by default unless explicitly collapsed
   if (localStorage.getItem("atlas-editor-preview") !== "0") setPreview(true);
   else makeSplit();
@@ -825,6 +897,10 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
       event.preventDefault();
       clearTimeout(timers.get(activeId));
       saveFile(activeId);
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      triggerCompile(); // Overleaf's recompile binding (#139)
     }
   });
 })();
