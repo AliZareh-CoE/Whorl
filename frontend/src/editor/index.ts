@@ -148,8 +148,13 @@ function citeCompletionSource(cfg: EditorCfg) {
 
 // B2: unknown \cite keys → live amber cite-check diagnostics (merged with compile diags).
 const CITE_TOKEN = /\\\w*cite\w*\*?(?:\[[^\]]*\])*\{([^}]+)\}/g;
+const citeCheckListeners: Array<(keys: string[]) => void> = [];
 function citeCheckDiagnostics(state: EditorState): Diagnostic[] {
-  if (!citeKnown.size) return [];
+  if (!citeKnown.size) {
+    citeCheckListeners.forEach((fn) => fn([]));
+    return [];
+  }
+  const missing = new Set<string>();
   const out: Diagnostic[] = [];
   for (let i = 1; i <= state.doc.lines; i++) {
     const line = state.doc.line(i);
@@ -163,6 +168,7 @@ function citeCheckDiagnostics(state: EditorState): Diagnostic[] {
         const at = line.text.indexOf(key, offset);
         offset = at + key.length;
         if (key && !citeKnown.has(key)) {
+          missing.add(key);
           out.push({
             from: line.from + at,
             to: line.from + at + key.length,
@@ -173,6 +179,7 @@ function citeCheckDiagnostics(state: EditorState): Diagnostic[] {
       }
     }
   }
+  citeCheckListeners.forEach((fn) => fn([...missing]));
   return out;
 }
 
@@ -202,6 +209,8 @@ export type EditorAdapter = {
   onGutterClick: (fn: (line: number) => void) => void;
   // --- compile diagnostics (Slice B) ---
   setDiagnostics: (diags: { line: number; level: string; message: string }[]) => void;
+  // --- cite-check (Slice C): fires with the unknown \cite keys after each lint ---
+  onCiteCheck: (fn: (missingKeys: string[]) => void) => void;
 };
 
 const keymapCompartment = new Compartment();
@@ -322,6 +331,8 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
     setCommentLines: (lines: number[]) =>
       view.dispatch({ effects: setCommentLinesEffect.of(lines) }),
     onGutterClick: (fn) => gutterClickListeners.push(fn),
+
+    onCiteCheck: (fn) => citeCheckListeners.push(fn),
 
     setDiagnostics: (diags) => {
       const cm: Diagnostic[] = diags
