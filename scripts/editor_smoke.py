@@ -192,7 +192,7 @@ def run_checks(page, errors: list[str], bad_responses: list[str]) -> None:
         posted = f"smoke {stamp}" in page.inner_text("#comment-thread")
         page.click("#comment-modal-close")
         page.wait_for_timeout(300)
-        dot = page.locator(".cm-comment-gutter >> text=💬").count() >= 1
+        dot = page.locator(".cm-comment-gutter .comment-dot").count() >= 1
         check("line comment + gutter dot", posted and dot)
     except Exception:
         check("line comment + gutter dot", False)

@@ -82,12 +82,18 @@ function autoLink(cfg: EditorCfg, referenceId: number) {
   if (row) row.linked = true;
 }
 
-// --- comment gutter (Slice B): a 💬 marker on lines that carry comments -------------
+// --- comment gutter (Slice B): a chat-bubble marker on lines that carry comments ----
+// inline stroke SVG, not an emoji (#146 — the rail's icon language, Owner #27 lesson)
 class CommentMarker extends GutterMarker {
   toDOM() {
     const span = document.createElement("span");
-    span.textContent = "💬";
+    span.className = "comment-dot";
+    span.innerHTML =
+      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.9 8.9 0 0 1-3.8-.8L3 21l2-5.2a8 8 0 0 1-1-3.8A8.4 8.4 0 0 1 12.5 3.2 8.4 8.4 0 0 1 21 11.5Z"/></svg>';
     span.style.cursor = "pointer";
+    span.style.color = "#4f46e5";
     return span;
   }
 }
