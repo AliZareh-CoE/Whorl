@@ -2,9 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 
+type Attention = {
+  empty: boolean;
+  overdue: { title: string; due_date: string; project: string; url: string }[];
+  deadlines: { title: string; deadline: string; days_to_deadline: number; project: string; url: string }[];
+  inbox: { id: number; text: string }[];
+};
+
 type Dash = {
   stats: Record<string, number>;
   inbox_count: number;
+  attention: Attention;
   active: {
     name: string; slug: string; url: string; color: string;
     phase: string | null; done: number; total: number; percent: number;
@@ -24,9 +32,46 @@ export default function Dashboard() {
   if (isLoading) return <p className="text-sm text-stone-400">Loading your day…</p>;
   if (error || !data) return <p className="text-sm text-red-600">Couldn't load the dashboard.</p>;
 
+  const attention = data.attention;
   return (
     <div>
       <h1 className="mb-4 text-2xl font-semibold tracking-tight">Today, everywhere</h1>
+
+      {/* the answer first ([REV] cycle 145 → SPA #156): what needs me today */}
+      {attention.empty ? (
+        <div className="mb-3 rounded border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-500">
+          All clear — nothing overdue, no deadlines inside two weeks, inbox triaged.
+        </div>
+      ) : (
+        <section className="mb-3 rounded border border-l-2 border-stone-200 border-l-red-400 bg-white p-4">
+          <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">Needs attention</h2>
+          <ul className="space-y-1 text-sm">
+            {attention.overdue.map((m) => (
+              <li key={`o${m.url}${m.title}`} className="flex items-baseline gap-2">
+                <span className="shrink-0 text-xs font-medium text-red-600">overdue</span>
+                <a href={m.url} className="min-w-0 flex-1 truncate hover:underline">{m.title}</a>
+                <span className="shrink-0 text-xs text-stone-400">{m.project} · due {m.due_date}</span>
+              </li>
+            ))}
+            {attention.deadlines.map((d) => (
+              <li key={`d${d.url}${d.title}`} className="flex items-baseline gap-2">
+                <span className={`shrink-0 text-xs font-medium ${d.days_to_deadline < 7 ? "text-red-600" : "text-amber-600"}`}>deadline</span>
+                <a href={d.url} className="min-w-0 flex-1 truncate hover:underline">{d.title}</a>
+                <span className="shrink-0 text-xs text-stone-400">
+                  {d.project} · {d.days_to_deadline < 0 ? "passed" : `${d.days_to_deadline} day${d.days_to_deadline === 1 ? "" : "s"}`} ({d.deadline})
+                </span>
+              </li>
+            ))}
+            {attention.inbox.map((q) => (
+              <li key={`q${q.id}`} className="flex items-baseline gap-2">
+                <span className="shrink-0 text-xs font-medium text-indigo-600">inbox</span>
+                <span className="min-w-0 flex-1 truncate text-stone-600">{q.text}</span>
+                <Link to="/inbox" className="shrink-0 text-xs text-indigo-600 hover:underline">triage →</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className={card}>

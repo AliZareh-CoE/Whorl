@@ -302,10 +302,33 @@ class TestDashboardAPI:
             due_date=timezone.localdate() + datetime.timedelta(days=3),
         )
         data = client_logged_in.get("/api/v1/dashboard/").json()
-        assert {"stats", "inbox_count", "active", "milestones", "deadlines"} <= set(data)
+        assert {"stats", "inbox_count", "attention", "active", "milestones", "deadlines"} <= set(
+            data
+        )
         assert data["active"][0]["slug"] == phase.project.slug
         assert data["active"][0]["total"] == 1
         assert any("API dash milestone" == m["title"] for m in data["milestones"])
+
+    def test_dashboard_attention_block(self, client_logged_in):
+        import datetime
+
+        from django.utils import timezone
+
+        from notes.models import QuickCapture
+        from plans.tests.factories import MilestoneFactory, PhaseFactory
+
+        phase = PhaseFactory(project__status="active")
+        MilestoneFactory(
+            phase=phase,
+            title="Overdue thing",
+            due_date=timezone.localdate() - datetime.timedelta(days=2),
+        )
+        QuickCapture.objects.create(text="triage me")
+        attention = client_logged_in.get("/api/v1/dashboard/").json()["attention"]
+        assert attention["empty"] is False
+        assert attention["overdue"][0]["title"] == "Overdue thing"
+        assert attention["overdue"][0]["url"].endswith("/plan/")
+        assert attention["inbox"][0]["text"] == "triage me"
 
 
 class TestOverviewSpaExtras:

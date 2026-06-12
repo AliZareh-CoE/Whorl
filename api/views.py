@@ -709,8 +709,9 @@ class DashboardAPIView(APIView):
     """Everything the dashboard shows, as JSON — the SPA's first data source."""
 
     @extend_schema(
-        description="Dashboard data: stats, active projects with progress, "
-        "upcoming milestones and deadlines, inbox count.",
+        description="Dashboard data: the needs-attention lead (overdue milestones, "
+        "manuscript deadlines inside 14 days, untriaged inbox items), stats, active "
+        "projects with progress, upcoming milestones and deadlines, inbox count.",
         responses={200: None},
     )
     def get(self, request):
@@ -719,10 +720,34 @@ class DashboardAPIView(APIView):
         from core.dashboard import dashboard_context
 
         data = dashboard_context()
+        attention = data["attention"]
         return Response(
             {
                 "stats": data["stats"],
                 "inbox_count": data["inbox_count"],
+                "attention": {
+                    "empty": attention["empty"],
+                    "overdue": [
+                        {
+                            "title": m.title,
+                            "due_date": m.due_date.isoformat(),
+                            "project": m.phase.project.name,
+                            "url": reverse("plans:plan", args=[m.phase.project.slug]),
+                        }
+                        for m in attention["overdue"]
+                    ],
+                    "deadlines": [
+                        {
+                            "title": ms.title,
+                            "deadline": ms.deadline.isoformat(),
+                            "days_to_deadline": ms.days_to_deadline,
+                            "project": ms.project.name,
+                            "url": ms.get_absolute_url(),
+                        }
+                        for ms in attention["deadlines"]
+                    ],
+                    "inbox": [{"id": q.id, "text": q.text} for q in attention["inbox"]],
+                },
                 "active": [
                     {
                         "name": row["project"].name,
