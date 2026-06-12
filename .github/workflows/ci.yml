@@ -110,3 +110,19 @@ jobs:
 
       - name: Probe sweep (make audit)
         run: make audit
+
+      - name: Smoke login user
+        run: |
+          DJANGO_SUPERUSER_PASSWORD=ci-smoke-pass uv run python manage.py createsuperuser \
+            --noinput --username owner --email owner@example.com
+
+      - name: Playwright browser
+        run: |
+          uv pip install playwright
+          uv run playwright install --with-deps chromium
+
+      - name: Editor smoke (headless Playwright battery)
+        env:
+          SMOKE_PASS: ci-smoke-pass
+          ATLAS_API_KEY: ci-audit-key
+        run: uv run python scripts/editor_smoke.py
