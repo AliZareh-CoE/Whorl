@@ -124,6 +124,8 @@ def inbox(request):
 
 @require_POST
 def triage(request, pk):
+    from django.utils.http import url_has_allowed_host_and_scheme
+
     capture = get_object_or_404(QuickCapture, pk=pk)
     action = request.POST.get("action")
     if action == "assign":
@@ -135,6 +137,10 @@ def triage(request, pk):
         capture.processed = True
         capture.save(update_fields=["processed", "updated_at"])
         messages.success(request, "Dismissed.")
+    # the dashboard's attention lead triages inline (#157) — bounce back to it
+    next_url = request.POST.get("next", "")
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts=None):
+        return redirect(next_url)
     return redirect("notes:inbox")
 
 

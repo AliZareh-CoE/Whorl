@@ -114,6 +114,31 @@ class TestInboxBulk:
         c.refresh_from_db()
         assert c.processed and c.project == project
 
+    def test_triage_honors_safe_next_redirect(self, client_logged_in):
+        from notes.models import QuickCapture
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        capture = QuickCapture.objects.create(text="from the dashboard")
+        response = client_logged_in.post(
+            reverse("notes:triage", args=[capture.pk]),
+            {"action": "assign", "project": project.slug, "next": "/classic/"},
+        )
+        capture.refresh_from_db()
+        assert capture.processed and capture.project == project
+        assert response.status_code == 302 and response.url == "/classic/"
+
+    def test_triage_rejects_offsite_next(self, client_logged_in):
+        from notes.models import QuickCapture
+
+        capture = QuickCapture.objects.create(text="x")
+        response = client_logged_in.post(
+            reverse("notes:triage", args=[capture.pk]),
+            {"action": "dismiss", "next": "https://evil.example/phish"},
+        )
+        assert response.status_code == 302
+        assert response.url == reverse("notes:inbox")
+
     def test_inbox_renders_bulk_bar(self, client_logged_in):
         from notes.models import QuickCapture
 

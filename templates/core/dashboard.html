@@ -45,7 +45,16 @@
         <li class="flex items-baseline gap-2">
           <span class="shrink-0 text-xs font-medium text-indigo-600">inbox</span>
           <span class="min-w-0 flex-1 truncate text-stone-600">{{ q.text|truncatechars:90 }}</span>
-          <a href="{% url 'notes:inbox' %}" class="shrink-0 text-xs text-indigo-600 hover:underline">triage →</a>
+          {# inline triage (#157): file or dismiss without leaving the dashboard #}
+          <form method="post" action="{% url 'notes:triage' q.pk %}" class="flex shrink-0 items-center gap-1">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'core:dashboard' %}">
+            <select name="project" class="rounded border border-stone-200 px-1 py-0.5 text-xs text-stone-600">
+              {% for row in active %}<option value="{{ row.project.slug }}">{{ row.project.name|truncatechars:22 }}</option>{% endfor %}
+            </select>
+            <button type="submit" name="action" value="assign" class="rounded px-1.5 py-0.5 text-xs text-indigo-600 hover:bg-indigo-50">file</button>
+            <button type="submit" name="action" value="dismiss" title="Dismiss" class="rounded px-1.5 py-0.5 text-xs text-stone-400 hover:bg-stone-100 hover:text-stone-600">✕</button>
+          </form>
         </li>
       {% endfor %}
     </ul>

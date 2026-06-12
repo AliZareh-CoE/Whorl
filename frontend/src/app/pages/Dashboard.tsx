@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 
@@ -22,6 +23,51 @@ type Dash = {
 };
 
 const card = "rounded border border-stone-200 bg-white px-4 py-3";
+
+/** Inline triage on an attention inbox row (#157): file to a project or dismiss. */
+function TriageControls({ id, projects }: { id: number; projects: { slug: string; name: string }[] }) {
+  const queryClient = useQueryClient();
+  const [slug, setSlug] = useState(projects[0]?.slug ?? "");
+  const triage = useMutation({
+    mutationFn: (body: { processed: boolean; project?: string }) =>
+      api(`/quick-capture/${id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+  });
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <select
+        value={slug}
+        onChange={(e) => setSlug(e.target.value)}
+        className="rounded border border-stone-200 px-1 py-0.5 text-xs text-stone-600"
+      >
+        {projects.map((p) => (
+          <option key={p.slug} value={p.slug}>{p.name.slice(0, 22)}</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={triage.isPending || !slug}
+        onClick={() => triage.mutate({ processed: true, project: slug })}
+        className="rounded px-1.5 py-0.5 text-xs text-indigo-600 hover:bg-indigo-50 disabled:opacity-50"
+      >
+        file
+      </button>
+      <button
+        type="button"
+        title="Dismiss"
+        disabled={triage.isPending}
+        onClick={() => triage.mutate({ processed: true })}
+        className="rounded px-1.5 py-0.5 text-xs text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-50"
+      >
+        ✕
+      </button>
+    </span>
+  );
+}
 
 export default function Dashboard() {
   const { data, isLoading, error } = useQuery({
@@ -66,7 +112,8 @@ export default function Dashboard() {
               <li key={`q${q.id}`} className="flex items-baseline gap-2">
                 <span className="shrink-0 text-xs font-medium text-indigo-600">inbox</span>
                 <span className="min-w-0 flex-1 truncate text-stone-600">{q.text}</span>
-                <Link to="/inbox" className="shrink-0 text-xs text-indigo-600 hover:underline">triage →</Link>
+                <TriageControls id={q.id} projects={data.active} />
+                <Link to="/inbox" className="shrink-0 text-xs text-stone-400 hover:underline" title="Open the full inbox">all →</Link>
               </li>
             ))}
           </ul>

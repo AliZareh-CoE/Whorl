@@ -453,6 +453,26 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     never on load; the button shows … while speaking. Verified live on both surfaces
     (200 audio/wav, no autoplay, no console errors).~~
 
+30. **File management / IDE epic — projects open like a workspace (owner, 2026-06-12, during
+    cycle 147).** "One thing it's really lacking is file management! it should be able to open
+    any file and contain any file exactly like a file manager efficiently it should be able to
+    act like an IDE as well! so when I open a project I expect to see all the files and folders
+    that I have and the thing is that to make everything easy we need to have strong project
+    templates that have organised folders and file prebuilt and expandable. This app should be
+    a monster and honestly Im kinda thinking of turning it into an App similar to how Vs code
+    is an app but I'm not sure yet."
+    Reading: (a) a real per-project FILE WORKSPACE — the existing Folder/Document tree grown
+    into a first-class explorer (tree pane, open/preview ANY file type in-app: text/code with
+    the CM6 editor we already bundle, PDF with the reader we already have, images, CSV/data,
+    markdown), upload/move/rename/delete inline, drag-drop, keyboard nav; (b) PROJECT
+    TEMPLATES — instantiating a project scaffolds an organized, expandable folder/file
+    structure (e.g. literature/, data/, analysis/, manuscript/, protocols/, notes/) the way
+    the manuscript template gallery already works, template definitions versioned and
+    user-extensible (#128 pairs); (c) the DESKTOP APP question — owner unsure; web-first
+    stays, but architect so a Tauri shell (local app, file-system access, OS file associations)
+    can wrap the same Django+SPA later; do NOT block the epic on it. Plan of record to
+    docs/plans/ via a parallel planner, then execute in slices like the LaTeX epic (#24).
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
@@ -759,7 +779,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 147. ~~Audit-sweep output as a CI artifact (done 2026-06-12, cycle 139, shipped with #144): make audit tees to /tmp/audit-output.txt under set -o pipefail (exit code preserved, verified locally) and the file joins the failure() artifact upload — completes #112.~~
 143. ~~Smoke artifacts on CI failure (done 2026-06-12, cycle 136, tech improvement, shipped with #145): any failed check — or a crash before the checks even run (try/except around the whole battery) — writes editor-smoke.png (full page), the browser console log, and the failure list to SMOKE_ARTIFACT_DIR; ci.yml uploads them via actions/upload-artifact on failure() together with /tmp/server.log. Verified both paths live: green run leaves nothing, a forced bad-password run exits 1 with all three artifacts written.~~
 141. ~~Editor-page Playwright smoke in CI (done 2026-06-12, cycle 132, tech improvement): scripts/editor_smoke.py — a 6-check headless battery (mount w/ zero CDN editor assets, autosave, multi-file switch preserving buffers, line comment + gutter dot, cite autocomplete, compile wiring incl. graceful no-tectonic failure) distilled from the cycle-126 cutover battery; self-seeding via X-API-Key on an empty DB; wired into the CI audit job (createsuperuser --noinput, playwright chromium, no Redis needed — dev huey is immediate). ALL PASS locally.~~
-157. Inline triage from the attention lead — the inbox rows link to /inbox; a one-click "assign to project / dismiss" right in the dashboard row (HTMX/SPA mutation) would close the loop without leaving the page (idea added by cycle 146)
+158. Undo for inline triage — a filed/dismissed attention row vanishes immediately; a 5-second "undo" toast (PATCH processed:false) would make the inline action worry-free (idea added by cycle 147)
+157. ~~Inline triage from the attention lead (done 2026-06-12, cycle 147): SPA rows get a project select + file/dismiss buttons (react-query PATCH to /quick-capture/{id}/, dashboard query invalidated); classic rows get the same via a compact form POSTing to notes:triage, which now honors a safe `next` redirect (url_has_allowed_host_and_scheme, offsite rejected + tested) so it bounces back to /classic/. 9-check live battery across both shells ALL PASS; the 2 real inbox items untouched.~~
 156. ~~Needs-attention in the SPA dashboard (done 2026-06-12, cycle 146): /api/v1/dashboard/ gained an `attention` block (overdue w/ plan URLs, deadlines w/ days_to_deadline, inbox texts — serialized in the existing endpoint, no second fetch) and Dashboard.tsx renders the same answer-first lead as the classic shell, "All clear" line included. Live-verified (overdue row + 2 triage links), API test added. Both shells now lead with the answer.~~
 155. card-title adoption sweep — the lint covers the card box; section headings still hand-roll `text-xs font-medium uppercase tracking-wide text-stone-400` in ~15 templates; extend the token + lint the same way (idea added by cycle 144)
 154. ~~Density lint (done 2026-06-12, cycle 144): core/tests/test_density_tokens.py fails the build on any template hand-rolling `rounded border border-stone-200 bg-white p-4/p-5` instead of class="card" (p-2/p-3/p-6 outliers stay legal) — and the sweep it forced converted all 33 offenders across 15 templates (dashboard, literature detail/report/read/import, notes, decisions, research ledger/experiments, pet, manuscript detail, editor research panel, comments, documents). All 8 affected pages browser-verified 200/no-errors/no-4xx.~~
