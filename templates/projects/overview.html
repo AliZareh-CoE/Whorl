@@ -2,6 +2,8 @@
 {% load markdown_extras %}
 
 {% block title %}{{ project.name }}{% endblock %}
+{# Owner #25 density: stop centering in max-w-5xl — use the room (Overleaf/Linear) #}
+{% block main_class %}mx-auto max-w-6xl{% endblock %}
 
 {% block breadcrumbs %}
 <a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> / {{ project.name }}
@@ -10,17 +12,17 @@
 {% block content %}
 {% include "projects/_subnav.html" %}
 
-<div class="mb-6 flex items-center gap-3">
+<div class="mb-2 flex items-center gap-3">
   <h1 class="text-2xl font-semibold tracking-tight">{{ project.name }}</h1>
   <span class="rounded bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{{ project.get_status_display }}</span>
 </div>
 
 {% if project.description %}
-  <div class="prose prose-stone mb-8 max-w-none text-sm">{{ project.description|markdownify }}</div>
+  <div class="prose prose-stone mb-4 max-w-none text-sm">{{ project.description|markdownify }}</div>
 {% endif %}
 
 {% load project_tree %}
-<div class="mb-4 flex items-center gap-5 rounded border border-stone-200 bg-white px-5 py-4">
+<div class="mb-3 flex items-center gap-5 rounded border border-stone-200 bg-white px-5 py-3">
   <div class="shrink-0" title="{{ done }}/{{ total }} milestones — the tree grows as the project completes">
     {% project_tree percent project.color 96 project.pk %}
   </div>
@@ -55,11 +57,11 @@
   </div>
 </div>
 
-<div class="grid grid-cols-2 gap-4">
-  <section class="rounded border border-stone-200 bg-white p-5">
-    <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Next milestones</h2>
+<div class="grid grid-cols-2 gap-3">
+  <section class="rounded border border-stone-200 bg-white p-4">
+    <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">Next milestones</h2>
     {% if upcoming_milestones %}
-      <ul class="space-y-2 text-sm">
+      <ul class="space-y-1 text-sm">
         {% for m in upcoming_milestones %}
           <li class="flex items-baseline gap-2">
             <span>{{ m.title }}</span>
@@ -75,10 +77,10 @@
         <a href="{% url 'plans:plan' project.slug %}" class="text-indigo-600 hover:underline">Open the plan</a>.</p>
     {% endif %}
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5">
-    <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Recent documents</h2>
+  <section class="rounded border border-stone-200 bg-white p-4">
+    <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">Recent documents</h2>
     {% if recent_documents %}
-      <ul class="space-y-2 text-sm">
+      <ul class="space-y-1 text-sm">
         {% for doc in recent_documents %}
           <li class="flex items-baseline gap-2">
             <a href="{% url 'documents:download' project.slug doc.pk %}" class="font-medium hover:underline">{{ doc.title }}</a>
@@ -92,8 +94,8 @@
         <a href="{% url 'documents:upload' project.slug %}" class="text-indigo-600 hover:underline">Upload one</a>.</p>
     {% endif %}
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5">
-    <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">At a glance</h2>
+  <section class="rounded border border-stone-200 bg-white p-4">
+    <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">At a glance</h2>
     <dl class="grid grid-cols-2 gap-2 text-sm">
       <div><dt class="text-xs text-stone-400">Phases</dt><dd class="font-medium">{{ phase_count }}</dd></div>
       <div><dt class="text-xs text-stone-400">Milestones</dt><dd class="font-medium">{{ done }}/{{ total }}</dd></div>
@@ -101,10 +103,10 @@
       <div><dt class="text-xs text-stone-400">Questions</dt><dd class="font-medium">{{ question_count }}</dd></div>
     </dl>
   </section>
-  <section class="rounded border border-stone-200 bg-white p-5">
-    <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Recent decisions</h2>
+  <section class="rounded border border-stone-200 bg-white p-4">
+    <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">Recent decisions</h2>
     {% if recent_decisions %}
-      <ul class="space-y-2 text-sm">
+      <ul class="space-y-1 text-sm">
         {% for d in recent_decisions %}
           <li>
             <a href="{% url 'projects:decision_edit' project.slug d.pk %}" class="font-medium hover:underline">{{ d.title }}</a>

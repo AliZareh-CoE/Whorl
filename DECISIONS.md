@@ -383,9 +383,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     surfaces (editor, tables, boards, graph, dashboards) should use the full width and
     tighter vertical rhythm. First slice (cycle 105): base.html main width became an
     overridable {% block main_class %}; the LaTeX editor opted into max-w-none (full-width
-    3-pane workbench, taller editor+preview). Remaining (queued UI/UX cycles): dashboard,
-    project overview, plan, documents/literature tables, library, writing board — audit
-    each for the centered-narrow-column antipattern and density.
+    3-pane workbench, taller editor+preview). Cycle 142: the project OVERVIEW page — the
+    product's heart — widened to max-w-6xl and tightened (header mb-6→2, description mb-8→4,
+    phase card py-4→3, cards p-5→4, gaps 4→3, list rhythm space-y-2→1, headers text-sm→xs);
+    cards now reach ~1390px vs ~1300px and the fold shows more without scrolling.
+    Remaining (queued UI/UX cycles): dashboard, plan, documents/literature tables, library,
+    writing board — audit each for the centered-narrow-column antipattern and density.
 
 26. **Overleaf UI — study it properly, match and exceed (owner, 2026-06-11, during cycle 118).**
     "go do more research on UI of overleaf and see what they really do and make sure you make it
@@ -744,6 +747,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 147. ~~Audit-sweep output as a CI artifact (done 2026-06-12, cycle 139, shipped with #144): make audit tees to /tmp/audit-output.txt under set -o pipefail (exit code preserved, verified locally) and the file joins the failure() artifact upload — completes #112.~~
 143. ~~Smoke artifacts on CI failure (done 2026-06-12, cycle 136, tech improvement, shipped with #145): any failed check — or a crash before the checks even run (try/except around the whole battery) — writes editor-smoke.png (full page), the browser console log, and the failure list to SMOKE_ARTIFACT_DIR; ci.yml uploads them via actions/upload-artifact on failure() together with /tmp/server.log. Verified both paths live: green run leaves nothing, a forced bad-password run exits 1 with all three artifacts written.~~
 141. ~~Editor-page Playwright smoke in CI (done 2026-06-12, cycle 132, tech improvement): scripts/editor_smoke.py — a 6-check headless battery (mount w/ zero CDN editor assets, autosave, multi-file switch preserving buffers, line comment + gutter dot, cite autocomplete, compile wiring incl. graceful no-tectonic failure) distilled from the cycle-126 cutover battery; self-seeding via X-API-Key on an empty DB; wired into the CI audit job (createsuperuser --noinput, playwright chromium, no Redis needed — dev huey is immediate). ALL PASS locally.~~
+153. Shared density tokens — the overview pass hand-picked p-4/gap-3/space-y-1/text-xs values; codifying them as a couple of reusable card/section component classes (an @apply layer or a Django include) would make the remaining #25 pages consistent instead of each re-deciding the rhythm (idea added by cycle 142)
 152. Extend the escape guard to the React islands' dangerouslySetInnerHTML (if any) and the classic templates' |safe filters — one grep-based "no unescaped sink" test covering every hand-built-HTML path, not just the editor glue (idea added by cycle 141)
 151. ~~Central escape discipline for the glue (done 2026-06-12, cycle 141, tech improvement, from AUDIT #14): esc() hoisted to the top of latex-editor.js and applied to EVERY ${} inside an innerHTML template (the audit fixed the research panel; this swept the diagnostics list, hypotheses, and comment-date sites too — all now esc()'d even where the data is internal). A pytest guard (writing/tests/test_glue_escapes.py) greps the file and fails the build on any unescaped innerHTML interpolation — verified it catches a deliberately reverted escape. Immune by construction now, not by review.~~
 150. Editor state doctor — the editor now keeps 6+ localStorage keys (split sizes ×3, sidebar, preview, drawer, layout); a "Reset layout" entry in the View menu that clears them all would be the escape hatch when panels get into a weird state (idea added by cycle 139)
