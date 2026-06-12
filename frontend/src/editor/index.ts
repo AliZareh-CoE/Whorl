@@ -36,7 +36,6 @@ import {
   keymap,
   lineNumbers,
 } from "@codemirror/view";
-import { vim } from "@replit/codemirror-vim";
 // Resizable panels (Owner idea #28: Split.js, MIT ~2KB, instead of hand-rolled drag math)
 export { default as Split } from "split.js";
 
@@ -296,8 +295,17 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: s } }),
     onChange: (fn) => changeListeners.push(fn),
     focus: () => view.focus(),
-    setKeymap: (k: string) =>
-      view.dispatch({ effects: keymapCompartment.reconfigure(k === "vim" ? [vim()] : []) }),
+    setKeymap: (k: string) => {
+      // vim is ~half the editor bundle but a minority preference — load it on demand
+      // (#137); the chunk is local (islands/), so this still works fully offline
+      if (k === "vim") {
+        import("@replit/codemirror-vim").then(({ vim }) => {
+          view.dispatch({ effects: keymapCompartment.reconfigure([vim()]) });
+        });
+      } else {
+        view.dispatch({ effects: keymapCompartment.reconfigure([]) });
+      }
+    },
     setFontSize: (px: string) => {
       view.dom.style.fontSize = `${px}px`;
     },

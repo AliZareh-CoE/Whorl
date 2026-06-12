@@ -9,6 +9,10 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "../static/js"),
     emptyOutDir: false, // static/js also holds the hand-written islands-loader.js
+    // assets live under /static/js/, not the site base, so Vite's preload helper
+    // builds wrong URLs (a 404 per dynamic import); native import() resolves
+    // module-relative and needs no preloading here
+    modulePreload: false,
     rollupOptions: {
       // keep each entry's default export — the loader calls mod.default(el, props)
       preserveEntrySignatures: "exports-only",
@@ -26,7 +30,15 @@ export default defineConfig({
             : chunk.name === "latex-editor"
               ? "latex-editor-cm6.js" // Slice A: build alongside CM5; cut over in B/C
               : "islands/[name].js",
-        chunkFileNames: "islands/[name]-chunk.js",
+        chunkFileNames: (chunk) => {
+          // the editor entry splits once vim became a dynamic import (#137):
+          // name its two halves instead of shipping opaque index-chunk files
+          if (chunk.moduleIds.some((m) => m.includes("codemirror-vim")))
+            return "islands/vim-keymap-chunk.js";
+          if (chunk.moduleIds.some((m) => m.includes("/src/editor/")))
+            return "islands/latex-editor-core-chunk.js";
+          return "islands/[name]-chunk.js";
+        },
         assetFileNames: "islands/[name][extname]",
       },
     },
