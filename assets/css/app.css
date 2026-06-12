@@ -22,6 +22,17 @@
   }
 }
 
+/* Density tokens (#153, Owner #25): the one card rhythm every page shares —
+   stop re-deciding padding/heading scale per template. */
+@layer components {
+  .card {
+    @apply rounded border border-stone-200 bg-white p-4;
+  }
+  .card-title {
+    @apply mb-2 text-xs font-medium uppercase tracking-wide text-stone-400;
+  }
+}
+
 /* HTMX swap feedback: requesting elements gently dim instead of freezing silently */
 .htmx-request {
   opacity: 0.55;

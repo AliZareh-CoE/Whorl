@@ -2,6 +2,9 @@
 
 {% block title %}Plan · {{ project.name }}{% endblock %}
 
+{# Owner #25 density: full-ish width + tighter rhythm #}
+{% block main_class %}mx-auto max-w-6xl{% endblock %}
+
 {% block breadcrumbs %}
 <a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
 <a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Plan
@@ -10,7 +13,7 @@
 {% block content %}
 {% include "projects/_subnav.html" %}
 
-<div class="mb-6 flex items-center justify-between">
+<div class="mb-4 flex items-center justify-between">
   <h1 class="text-2xl font-semibold tracking-tight">Plan</h1>
   <a hx-get="{% url 'plans:phase_create' project.slug %}" hx-target="#modal-slot" hx-swap="innerHTML"
      href="{% url 'plans:phase_create' project.slug %}"
@@ -20,7 +23,7 @@
 {% include "plans/_project_progress.html" %}
 
 {% if phases %}
-  <div class="mt-6 space-y-4">
+  <div class="mt-4 space-y-3">
     {% for phase in phases %}
       {% include "plans/_phase_card.html" %}
     {% endfor %}

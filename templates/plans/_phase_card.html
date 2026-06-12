@@ -1,5 +1,5 @@
 {% load markdown_extras %}
-<section id="phase-{{ phase.pk }}" class="rounded border border-stone-200 bg-white p-5">
+<section id="phase-{{ phase.pk }}" class="card">
   <div class="mb-2 flex items-baseline gap-3">
     <span class="text-xs text-stone-400">{{ phase.order }}</span>
     <h2 class="font-medium">{{ phase.name }}</h2>
@@ -17,7 +17,7 @@
   </div>
 
   {% if phase.objective %}
-    <div class="prose prose-stone mb-3 max-w-none text-sm text-stone-600">{{ phase.objective|markdownify }}</div>
+    <div class="prose prose-stone mb-2 max-w-none text-sm text-stone-600">{{ phase.objective|markdownify }}</div>
   {% endif %}
 
   {% with counts=phase.milestone_counts %}
@@ -25,13 +25,13 @@
       <span>{{ counts.0 }}/{{ counts.1 }} milestones</span>
     </div>
   {% endwith %}
-  <div class="mb-3 h-1.5 w-full rounded-full bg-stone-100">
+  <div class="mb-2 h-1.5 w-full rounded-full bg-stone-100">
     <div class="h-1.5 rounded-full" style="width: {{ phase.progress }}%; background: {{ project.color }}"></div>
   </div>
 
   <ul class="divide-y divide-stone-100">
     {% for milestone in phase.milestones.all %}
-      <li class="py-2">
+      <li class="py-1.5">
         <div class="flex items-center gap-3">
           <button type="button"
                   hx-post="{% url 'plans:milestone_toggle' project.slug milestone.pk %}"
@@ -70,7 +70,7 @@
         {% endif %}
       </li>
     {% empty %}
-      <li class="py-2 text-sm text-stone-400">No milestones yet —
+      <li class="py-1.5 text-sm text-stone-400">No milestones yet —
         <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:milestone_create' project.slug phase.pk %}" href="{% url 'plans:milestone_create' project.slug phase.pk %}" class="text-indigo-600 hover:underline">add one</a>.</li>
     {% endfor %}
   </ul>
