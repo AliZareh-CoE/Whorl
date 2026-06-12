@@ -6,10 +6,41 @@
 
 {% block content %}
 <div class="mx-auto max-w-md text-center">
-  <div class="relative mx-auto mb-3 inline-block rounded-2xl border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 shadow-sm">
-    “{{ pet.speech }}”
+  <div class="relative mx-auto mb-3 inline-block rounded-2xl border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 shadow-sm"
+       x-data="petVoice()">
+    “<span id="pet-speech-text">{{ pet.speech }}</span>”
+    <button type="button" @click="speak()" :disabled="busy" x-text="busy ? '…' : '🔊'"
+            title="Hear {{ pet.name }} say it (local TTS)"
+            class="ml-1 align-middle text-xs opacity-60 hover:opacity-100 disabled:opacity-30"></button>
     <span class="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-stone-200 bg-white"></span>
   </div>
+  <script>
+    function petVoice() {
+      return {
+        busy: false,
+        async speak() {
+          // opt-in only — speaks on click, never on load (the no-nagging principle)
+          this.busy = true;
+          try {
+            const text = document.getElementById("pet-speech-text").textContent;
+            const res = await fetch("{% url 'core:tts' %}", {
+              method: "POST",
+              headers: { "X-CSRFToken": "{{ csrf_token }}" },
+              body: new URLSearchParams({ text }),
+            });
+            if (!res.ok) throw new Error();
+            const blob = await res.blob();
+            const audio = new Audio(URL.createObjectURL(blob));
+            audio.addEventListener("ended", () => (this.busy = false));
+            audio.addEventListener("error", () => (this.busy = false));
+            await audio.play();
+          } catch {
+            this.busy = false;
+          }
+        },
+      };
+    }
+  </script>
   <div class="mb-2 inline-block {% if pet.mood == 'thriving' %}pet-hop{% endif %}">
     {% include "core/_pet_svg.html" with stage=pet.stage mood=pet.mood size=120 name=pet.name %}
   </div>

@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { api } from "./api";
+import { api, csrfToken } from "./api";
 import { toSpaUrl } from "./links";
 import CommandBar from "./CommandBar";
 import { PetSvg } from "./PetSvg";
@@ -76,6 +76,29 @@ export default function Layout() {
   }, [pet]);
   const lines = pet?.speech_lines?.length ? pet.speech_lines : pet ? [pet.speech] : [];
   const bubble = reaction ?? (lines.length ? lines[lineIdx % lines.length] : "");
+  const [speaking, setSpeaking] = useState(false);
+  async function speakBubble(e: React.MouseEvent) {
+    // Owner idea #29: opt-in voice via the local Piper /tts/ — never auto-plays.
+    e.preventDefault();
+    e.stopPropagation();
+    if (speaking || !bubble) return;
+    setSpeaking(true);
+    try {
+      const res = await fetch("/tts/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfToken() },
+        body: new URLSearchParams({ text: bubble }),
+        credentials: "same-origin",
+      });
+      if (!res.ok) throw new Error();
+      const audio = new Audio(URL.createObjectURL(await res.blob()));
+      audio.addEventListener("ended", () => setSpeaking(false));
+      audio.addEventListener("error", () => setSpeaking(false));
+      await audio.play();
+    } catch {
+      setSpeaking(false);
+    }
+  }
 
   return (
     <div className="flex h-full">
@@ -106,6 +129,15 @@ export default function Layout() {
                 }`}
               >
                 {bubble}
+                <button
+                  type="button"
+                  onClick={speakBubble}
+                  title="Hear it (local TTS)"
+                  className="ml-1 align-middle opacity-50 hover:opacity-100 disabled:opacity-30"
+                  disabled={speaking}
+                >
+                  {speaking ? "…" : "🔊"}
+                </button>
               </span>
               <span className="flex items-center gap-2 rounded border border-stone-100 bg-stone-50 px-2 py-1.5 group-hover:border-stone-200">
                 <span className={reaction ? "pet-hop inline-block" : "inline-block"}>

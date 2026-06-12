@@ -440,6 +440,11 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     reaction line in the hop moment (milestone done / paper read / capture) — gated behind a
     remembered mute toggle so it's never noisy (the no-nagging pet principle). Pixel-pet charm,
     not a chatterbox. Next pet UI/UX cycle.
+    ~~Done (2026-06-12, cycle 131): a small 🔊 beside the pet's speech — on the /pet/ page
+    bubble (Alpine) and the SPA sidebar bubble (React) — synthesizes the CURRENT line via the
+    existing local Piper POST /tts/ and plays the WAV. Strictly opt-in: speaks only on click,
+    never on load; the button shows … while speaking. Verified live on both surfaces
+    (200 audio/wav, no autoplay, no console errors).~~
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -719,6 +724,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+142. Pet voice personality — pitch/speed variation per mood (Piper supports length-scale) and a distinct hatchling "peep" vs sage's measured pace, so the voice grows with the pet (idea added by cycle 131)
 141. Editor-page Playwright smoke in CI — the 26-check cutover battery proved its worth; a trimmed 6-check version (mount, autosave, compile, switch file, comment, cite) running headless in the CI audit job would catch editor regressions on PRs (idea added by cycle 130, from AUDIT #13)
 140. Layout presets menu — one-click "Drafting / Reviewing / Submitting" arrangements (research-task-named layouts from the beyond-Overleaf plan) built on the now-complete collapse/restore machinery (idea added by cycle 129)
 139. Keyboard shortcuts in the menus — show the binding next to each menu item (Ctrl-F is there; add Ctrl-S save, Ctrl-Enter compile?) and actually bind compile to Ctrl-Enter like Overleaf (idea added by cycle 128)
