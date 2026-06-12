@@ -13,47 +13,83 @@
 
 {% block content %}
 
-<div class="mb-3 flex items-center gap-3">
-  <h1 class="min-w-0 flex-1 truncate text-xl font-semibold tracking-tight">{{ manuscript.title }}</h1>
-  <button type="button" id="find-btn" title="Find & replace (Ctrl/Cmd-F)"
-          class="shrink-0 rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:border-stone-400">Find</button>
-  <button type="button" id="research-toggle" title="Research panel"
-          class="shrink-0 rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:border-stone-400">Research ⇄</button>
-  <div class="relative shrink-0" x-data="{ open: false }">
-    <button type="button" @click="open = !open" title="Insert a symbol"
-            class="rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:border-stone-400">Ω Symbols</button>
+{# Overleaf-style top toolbar (Owner idea #26): File / Edit / Insert / View menus. #}
+{# Every element ID is preserved so latex-editor.js needs zero changes. #}
+<div class="mb-3 flex items-center gap-1 border-b border-stone-200 pb-2 text-sm">
+  <h1 class="mr-3 min-w-0 max-w-md truncate text-base font-semibold tracking-tight">{{ manuscript.title }}</h1>
+
+  <div class="relative" x-data="{ open: false }">
+    <button type="button" @click="open = !open" :class="open && 'bg-stone-100'"
+            class="rounded px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">File</button>
     <div x-show="open" @click.outside="open = false" x-cloak x-transition.opacity
-         class="absolute right-0 z-20 mt-1 w-72 rounded border border-stone-200 bg-white p-2 text-sm shadow-lg">
+         class="absolute left-0 z-20 mt-1 w-56 rounded border border-stone-200 bg-white py-1 text-xs shadow-lg">
+      <a href="{% url 'writing:export_zip' project.slug manuscript.pk %}"
+         class="block px-3 py-1.5 text-stone-700 hover:bg-stone-50" title="arXiv-ready source + bib zip">⬇ Download submission .zip</a>
+      <a href="{% url 'writing:export_bib' project.slug manuscript.pk %}"
+         class="block px-3 py-1.5 text-stone-700 hover:bg-stone-50">Export bibliography (.bib)</a>
+      <div class="my-1 border-t border-stone-100"></div>
+      <a href="{{ manuscript.get_absolute_url }}" class="block px-3 py-1.5 text-stone-700 hover:bg-stone-50">← Back to manuscript</a>
+    </div>
+  </div>
+
+  <div class="relative" x-data="{ open: false }">
+    <button type="button" @click="open = !open" :class="open && 'bg-stone-100'"
+            class="rounded px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">Edit</button>
+    <div x-show="open" @click.outside="open = false" x-cloak x-transition.opacity
+         class="absolute left-0 z-20 mt-1 w-56 rounded border border-stone-200 bg-white py-1 text-xs shadow-lg">
+      <button type="button" id="find-btn" @click="open = false"
+              class="flex w-full items-center justify-between px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50">
+        Find &amp; replace <span class="text-stone-400">Ctrl-F</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="relative" x-data="{ open: false }">
+    <button type="button" @click="open = !open" :class="open && 'bg-stone-100'"
+            class="rounded px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">Insert</button>
+    <div x-show="open" @click.outside="open = false" x-cloak x-transition.opacity
+         class="absolute left-0 z-20 mt-1 w-72 rounded border border-stone-200 bg-white p-2 text-sm shadow-lg">
+      <p class="mb-1 px-1 text-[10px] font-medium uppercase tracking-wide text-stone-400">Symbols</p>
       <div id="symbol-grid"></div>
     </div>
   </div>
-  <div class="relative shrink-0" x-data="{ open: false }">
-    <button type="button" @click="open = !open"
-            class="rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:border-stone-400">⚙ Editor</button>
+
+  <div class="relative" x-data="{ open: false }">
+    <button type="button" @click="open = !open" :class="open && 'bg-stone-100'"
+            class="rounded px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">View</button>
     <div x-show="open" @click.outside="open = false" x-cloak x-transition.opacity
-         class="absolute right-0 z-20 mt-1 w-56 rounded border border-stone-200 bg-white p-3 text-xs shadow-lg">
-      <label class="mb-2 block">
-        <span class="mb-1 block text-stone-500">Keybindings</span>
-        <select id="setting-keymap" class="w-full rounded border border-stone-300 px-1.5 py-1">
-          <option value="default">Default</option>
-          <option value="vim">Vim</option>
-        </select>
-      </label>
-      <label class="mb-2 block">
-        <span class="mb-1 block text-stone-500">Font size</span>
-        <select id="setting-fontsize" class="w-full rounded border border-stone-300 px-1.5 py-1">
-          <option value="12">12px</option>
-          <option value="13">13px</option>
-          <option value="14">14px</option>
-          <option value="16">16px</option>
-        </select>
-      </label>
-      <label class="flex items-center gap-2">
-        <input type="checkbox" id="setting-spellcheck" class="size-3.5 rounded border-stone-300 accent-indigo-600">
-        <span class="text-stone-600">Spell check</span>
-      </label>
+         class="absolute left-0 z-20 mt-1 w-56 rounded border border-stone-200 bg-white py-1 text-xs shadow-lg">
+      <button type="button" id="toggle-preview"
+              class="block w-full px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50">PDF preview ⇄</button>
+      <button type="button" id="research-toggle"
+              class="block w-full px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50">Research panel ⇄</button>
+      <div class="my-1 border-t border-stone-100"></div>
+      <div class="px-3 py-1.5">
+        <label class="mb-2 block">
+          <span class="mb-1 block text-stone-500">Keybindings</span>
+          <select id="setting-keymap" class="w-full rounded border border-stone-300 px-1.5 py-1">
+            <option value="default">Default</option>
+            <option value="vim">Vim</option>
+          </select>
+        </label>
+        <label class="mb-2 block">
+          <span class="mb-1 block text-stone-500">Font size</span>
+          <select id="setting-fontsize" class="w-full rounded border border-stone-300 px-1.5 py-1">
+            <option value="12">12px</option>
+            <option value="13">13px</option>
+            <option value="14">14px</option>
+            <option value="16">16px</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="setting-spellcheck" class="size-3.5 rounded border-stone-300 accent-indigo-600">
+          <span class="text-stone-600">Spell check</span>
+        </label>
+      </div>
     </div>
   </div>
+
+  <span id="save-status" class="ml-auto truncate text-xs text-stone-400">Autosaves as you type</span>
 </div>
 
 <div class="flex gap-3">
@@ -127,13 +163,6 @@
 <div id="editor-column" class="min-w-0">
   <textarea name="latex_source" id="latex-source" class="hidden">{{ manuscript.latex_source }}</textarea>
   <div class="overflow-hidden rounded border border-stone-200 bg-white text-sm" id="editor-host"></div>
-  <div class="mt-2 flex flex-wrap items-center gap-3 text-xs">
-    <span id="save-status" class="text-stone-400">Autosaves as you type</span>
-    <button type="button" id="toggle-preview" class="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400">Preview ⇄</button>
-    <a href="{% url 'writing:export_zip' project.slug manuscript.pk %}"
-       class="ml-auto text-indigo-600 hover:underline" title="arXiv-ready source + bib zip">⬇ Submission .zip</a>
-    <a href="{{ manuscript.get_absolute_url }}" class="ml-3 text-stone-500 hover:underline">Back to manuscript</a>
-  </div>
 </div>
 
 <div id="preview-pane" class="shrink-0">
