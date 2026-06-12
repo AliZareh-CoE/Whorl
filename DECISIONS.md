@@ -533,6 +533,22 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-06-12 — File-workspace epic slice 1a: paths module + ProjectFile fields (Owner #30)
+
+First sub-step of the unified-tree slice 1, deliberately sized small + green-pushable after
+the 2nd container rollback. `documents/paths.py` is now the canonical home for
+`validate_manuscript_path` + the strict path constants (writing/models.py re-imports them, so
+`writing.models.validate_manuscript_path` still resolves for the historical 0006 migration —
+a hard move would have broken that migration's recorded reference). Added
+`kind_for_node_path` (tex/bib/asset/other) for the general tree. `Document` grew four inert
+fields — `content`, `rel_path`, `role` (GENERAL/MANUSCRIPT_SOURCE), `kind` — plus `file`
+becomes blank=True; one additive migration (0003), NO unique constraint yet (the rel_path
+uniqueness + backfill lands with the data migration in slice 1c, so 1a can't violate existing
+data). Next: 1b = Manuscript.root_folder/main_file FKs; 1c = ManuscriptFile→ProjectFile data
+migration + contract bridge + tests.
+
+
+
 ### 2026-06-12 — Left icon rail: drawers on the left, research stays right ([REV] cycle 135)
 
 Parity-plan cycle 5 shipped: a ~40px vertical icon rail (Files / Outline / History / Research,

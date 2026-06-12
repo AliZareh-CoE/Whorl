@@ -68,16 +68,28 @@ def project_document_path(instance, filename):
 
 
 class Document(TimeStampedModel):
+    # File-workspace epic (Owner #30), slice 1a: Document grows into the unified
+    # tree node. These fields are additive and inert until later slices wire them
+    # (the rel_path uniqueness constraint + backfill land with the data migration).
+    class Role(models.TextChoices):
+        GENERAL = "general", "General"
+        MANUSCRIPT_SOURCE = "manuscript_source", "Manuscript source"
+
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="documents")
     folder = models.ForeignKey(
         Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="documents"
     )  # null = project root
-    file = models.FileField(upload_to=project_document_path)
+    file = models.FileField(upload_to=project_document_path, blank=True)
     title = models.CharField(max_length=300)
     description = models.TextField(blank=True)
     tags = models.ManyToManyField(Tag, blank=True, related_name="documents")
     file_size = models.PositiveBigIntegerField(editable=False, default=0)
     content_type = models.CharField(max_length=100, editable=False, blank=True)
+    # unified-tree node fields (inert until later slices)
+    content = models.TextField(blank=True)  # inline text for editable nodes
+    rel_path = models.CharField(max_length=300, blank=True)  # path from project root
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.GENERAL)
+    kind = models.CharField(max_length=10, blank=True)  # tex/bib/asset/other (kind_for_node_path)
 
     class Meta:
         ordering = ["-created_at"]

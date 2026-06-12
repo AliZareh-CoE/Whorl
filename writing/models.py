@@ -1,42 +1,18 @@
-import re
-
-from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
 from core.models import TimeStampedModel
+from documents.paths import (  # canonical home (file-workspace epic slice 1a);
+    MAX_PATH_SEGMENTS,  # re-exported so writing.models.validate_manuscript_path
+    PATH_SEGMENT_RE,  # keeps resolving for the historical 0006 migration.
+    validate_manuscript_path,
+)
 from literature.models import Reference
 from projects.models import Project
 
-PATH_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-]{0,79}$")
-MAX_PATH_SEGMENTS = 8
-
-
-def validate_manuscript_path(path: str) -> str:
-    """Workbench file paths are deliberately strict (Owner idea #24 slice 6).
-
-    ASCII-only kills unicode tricks; segments can't start with a dot, which
-    rejects "..", ".", and dotfiles in one rule; no absolute/drive/backslash
-    forms. Compile has a resolve()-based guard as the second line of defense.
-    """
-    if not path or len(path) > 200:
-        raise ValidationError("Path must be 1-200 characters.")
-    if not path.isascii():
-        raise ValidationError("Path must be ASCII.")
-    if "\\" in path:
-        raise ValidationError("Use forward slashes.")
-    if path.startswith("/") or re.match(r"^[A-Za-z]:", path):
-        raise ValidationError("Path must be relative.")
-    segments = path.split("/")
-    if len(segments) > MAX_PATH_SEGMENTS:
-        raise ValidationError(f"At most {MAX_PATH_SEGMENTS} path segments.")
-    for segment in segments:
-        if not PATH_SEGMENT_RE.match(segment):
-            raise ValidationError(f"Invalid path segment: {segment!r}")
-    return path
-
+__all__ = ["validate_manuscript_path", "PATH_SEGMENT_RE", "MAX_PATH_SEGMENTS"]
 
 TEXT_EXTENSIONS = {".tex", ".sty", ".cls", ".bst"}
 
