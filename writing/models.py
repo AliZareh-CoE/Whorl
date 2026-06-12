@@ -63,6 +63,14 @@ class Manuscript(TimeStampedModel):
     compile_generation = models.PositiveIntegerField(default=0)  # bumped per queue; stale drops
     compiled_at = models.DateTimeField(null=True, blank=True)
     references = models.ManyToManyField(Reference, through="ManuscriptReference", blank=True)
+    # File-workspace epic (Owner #30) slice 1b: a manuscript becomes a VIEW over the
+    # unified tree — its sources are the Documents under root_folder's subtree. root_folder
+    # is inert until the slice 1c data migration links each manuscript to its nodes. The
+    # main_file → Document FK is deferred to 1c, where the existing main_file PROPERTY (which
+    # returns the main ManuscriptFile) is reworked over it — adding the FK here would collide.
+    root_folder = models.ForeignKey(
+        "documents.Folder", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
 
     class Meta:
         ordering = ["-updated_at"]
