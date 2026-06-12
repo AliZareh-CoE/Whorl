@@ -490,6 +490,19 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-06-12 — Left icon rail: drawers on the left, research stays right ([REV] cycle 135)
+
+Parity-plan cycle 5 shipped: a ~40px vertical icon rail (Files / Outline / History / Research,
+monochrome inline-SVG stroke icons) replaces the stacked always-on sidebar sections; one drawer
+at a time, the active icon collapses its drawer, the choice persists (atlas-editor-drawer).
+Two deliberate deviations from Overleaf: (1) the Research icon toggles the existing RIGHT-side
+research panel rather than moving it into the left drawer — it is a reading surface that wants
+width next to the PDF, and its loader is already wired to #research-toggle (the rail just
+delegates and repaints); (2) the sidebar restore strip is gone (the rail IS the restore
+affordance) but the gutter chevrons stay as a secondary collapse path. Element IDs all
+preserved; word count remains as an always-visible drawer footer. Rejected: a Settings rail
+icon (settings live in the View menu; duplicating them buys nothing).
+
 ### 2026-06-11 — Research timeline: "zoom" is period grouping; paper-read date is a proxy ([REV] cycle 95)
 - **Decision:** The timeline's zoom is day/week/month *grouping* of one flat event payload
   (client-side), not a canvas zoom — research consulted (timeline UI pattern guides) favors
@@ -725,6 +738,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
 142. Pet voice personality — pitch/speed variation per mood (Piper supports length-scale) and a distinct hatchling "peep" vs sage's measured pace, so the voice grows with the pet (idea added by cycle 131)
+146. Inline-SVG icon sweep for the editor chrome (parity plan cycle 6) — the rail set the pattern; replace the remaining glyph buttons (Ω Symbols, ⚙, ⇄, ↻, 💬 gutter dot) with matching monochrome stroke icons for one coherent visual language (idea added by cycle 135)
 143. Smoke artifacts on CI failure — have the editor-smoke step capture a screenshot + console log on any failed check and upload them as workflow artifacts (pairs with #112), so a red smoke is debuggable from the run page (idea added by cycle 132)
 141. ~~Editor-page Playwright smoke in CI (done 2026-06-12, cycle 132, tech improvement): scripts/editor_smoke.py — a 6-check headless battery (mount w/ zero CDN editor assets, autosave, multi-file switch preserving buffers, line comment + gutter dot, cite autocomplete, compile wiring incl. graceful no-tectonic failure) distilled from the cycle-126 cutover battery; self-seeding via X-API-Key on an empty DB; wired into the CI audit job (createsuperuser --noinput, playwright chromium, no Redis needed — dev huey is immediate). ALL PASS locally.~~
 144. Remember the last-picked layout name — show a check beside the active preset in the View menu and clear it when a manual toggle diverges from it, so the menu reflects reality (idea added by cycle 133)

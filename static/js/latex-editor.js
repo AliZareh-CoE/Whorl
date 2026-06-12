@@ -743,9 +743,8 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     btn.addEventListener("click", onClick);
     return btn;
   }
-  const sidebarRestore = makeStrip("»", "Show the file sidebar", () => setSidebar(true));
+  // (the sidebar restore strip is gone — the icon rail is the collapse/restore affordance now)
   const previewRestore = makeStrip("«", "Show the PDF preview", () => setPreview(true));
-  sidebar.parentElement.insertBefore(sidebarRestore, sidebar);
   previewPane.parentElement.insertBefore(previewRestore, previewPane.nextSibling);
 
   function addChevron(g, label, title, onClick) {
@@ -780,8 +779,8 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     if (split) { split.destroy(); split = null; }
     const previewOpen = !previewPane.classList.contains("hidden");
     const sidebarOpen = !sidebar.classList.contains("hidden");
-    sidebarRestore.classList.toggle("hidden", sidebarOpen);
     previewRestore.classList.toggle("hidden", previewOpen);
+    paintRail();
     const panes = [];
     if (sidebarOpen) panes.push("#file-sidebar");
     panes.push("#editor-column");
@@ -831,6 +830,51 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
     makeSplit();
     if (open && cfg.pdfUrl && !pdfDoc) renderPdf(cfg.pdfUrl);
   }
+  // --- Left icon rail ([REV], Overleaf parity plan cycle 5): one drawer at a time ---
+  const DRAWER_KEY = "atlas-editor-drawer";
+  const railBtns = [...document.querySelectorAll("#editor-rail [data-rail]")];
+  const drawerPanels = [...document.querySelectorAll("[data-drawer-panel]")];
+  function activeDrawer() {
+    return localStorage.getItem(DRAWER_KEY) || "files";
+  }
+  function showDrawer(name) {
+    for (const p of drawerPanels) p.classList.toggle("hidden", p.dataset.drawerPanel !== name);
+    localStorage.setItem(DRAWER_KEY, name);
+  }
+  function paintRail() {
+    const open = !sidebar.classList.contains("hidden");
+    const act = activeDrawer();
+    const researchOpen = !document.getElementById("research-panel").classList.contains("hidden");
+    for (const b of railBtns) {
+      const on = b.dataset.rail === "research" ? researchOpen : open && b.dataset.rail === act;
+      b.classList.toggle("text-indigo-700", on);
+      b.classList.toggle("bg-indigo-50", on);
+      b.classList.toggle("text-stone-400", !on);
+    }
+  }
+  for (const b of railBtns) {
+    b.addEventListener("click", () => {
+      const name = b.dataset.rail;
+      if (name === "research") {
+        // the research panel lives on the right and has its own loader — delegate
+        document.getElementById("research-toggle").click();
+        setTimeout(paintRail, 50);
+        return;
+      }
+      const open = !sidebar.classList.contains("hidden");
+      if (open && activeDrawer() === name) {
+        setSidebar(false); // clicking the active icon collapses the drawer
+      } else {
+        showDrawer(name);
+        if (!open) setSidebar(true);
+        else paintRail(); // setSidebar repaints via makeSplit; this path must too
+      }
+    });
+  }
+  showDrawer(activeDrawer());
+  // keep the research icon honest when the panel is toggled from the View menu too
+  document.getElementById("research-toggle").addEventListener("click", () => setTimeout(paintRail, 50));
+
   toggleBtn.addEventListener("click", () => setPreview(previewPane.classList.contains("hidden")));
   if (localStorage.getItem("atlas-editor-sidebar") === "0") sidebar.classList.add("hidden");
   // the PDF pane hosts Recompile, so it's shown by default unless explicitly collapsed
