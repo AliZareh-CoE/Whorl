@@ -10,14 +10,26 @@ pytestmark = pytest.mark.django_db
 
 class TestReadAloudEndpoint:
     def test_returns_wav_when_available(self, client_logged_in, monkeypatch):
-        monkeypatch.setattr("core.tts.synthesize_wav", lambda text: b"RIFFfakewav")
+        monkeypatch.setattr("core.tts.synthesize_wav", lambda text, stage=None: b"RIFFfakewav")
         response = client_logged_in.post(reverse("core:tts"), {"text": "Hello researcher"})
         assert response.status_code == 200
         assert response["Content-Type"] == "audio/wav"
         assert response.content == b"RIFFfakewav"
 
+    def test_view_passes_current_pet_stage(self, client_logged_in, monkeypatch):
+        captured = {}
+
+        def fake(text, stage=None):
+            captured["stage"] = stage
+            return b"RIFFfakewav"
+
+        monkeypatch.setattr("core.tts.synthesize_wav", fake)
+        monkeypatch.setattr("core.pet.pet_state", lambda: {"stage": "hatchling"})
+        client_logged_in.post(reverse("core:tts"), {"text": "peep"})
+        assert captured["stage"] == "hatchling"
+
     def test_missing_voice_gives_clear_503(self, client_logged_in, monkeypatch):
-        def boom(text):
+        def boom(text, stage=None):
             raise tts.TTSUnavailable("Voice model not downloaded")
 
         monkeypatch.setattr("core.tts.synthesize_wav", boom)
@@ -37,23 +49,47 @@ class TestReadAloudEndpoint:
         assert client_logged_in.get(reverse("core:tts")).status_code == 405
 
 
+class FakeVoice:
+    def __init__(self, captured):
+        self.captured = captured
+
+    def synthesize_wav(self, text, wav_file, syn_config=None):
+        self.captured["text"] = text
+        self.captured["syn_config"] = syn_config
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(22050)
+        wav_file.writeframes(b"\x00\x00")
+
+
 class TestSynthesis:
     def test_text_is_trimmed_and_capped(self, monkeypatch):
         captured = {}
-
-        class FakeVoice:
-            def synthesize_wav(self, text, wav_file):
-                captured["text"] = text
-                wav_file.setnchannels(1)
-                wav_file.setsampwidth(2)
-                wav_file.setframerate(22050)
-                wav_file.writeframes(b"\x00\x00")
-
-        monkeypatch.setattr(tts, "_load_voice", lambda: FakeVoice())
+        monkeypatch.setattr(tts, "_load_voice", lambda: FakeVoice(captured))
         audio = tts.synthesize_wav("  hello\n\nworld  " + "x" * (tts.MAX_TTS_CHARS + 100))
         assert captured["text"].startswith("hello world")
         assert len(captured["text"]) <= tts.MAX_TTS_CHARS
         assert audio[:4] == b"RIFF"
+
+    def test_stage_voices_cover_every_pet_stage(self):
+        from core.pet import STAGES
+
+        assert set(tts.STAGE_VOICES) == {name for _, name, _, _ in STAGES}
+
+    def test_stage_shapes_delivery(self, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(tts, "_load_voice", lambda: FakeVoice(captured))
+        tts.synthesize_wav("measured words", stage="sage")
+        assert captured["syn_config"] is not None
+        assert captured["syn_config"].length_scale == tts.STAGE_VOICES["sage"]["length_scale"]
+
+    def test_scholar_and_unknown_stage_use_default_voice(self, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(tts, "_load_voice", lambda: FakeVoice(captured))
+        tts.synthesize_wav("plain", stage="scholar")
+        assert captured["syn_config"] is None
+        tts.synthesize_wav("plain", stage="not-a-stage")
+        assert captured["syn_config"] is None
 
     def test_unavailable_without_model(self, monkeypatch):
         monkeypatch.setattr(tts, "voice_available", lambda: False)

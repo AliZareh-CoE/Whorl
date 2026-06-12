@@ -36,13 +36,30 @@ def _load_voice():
     return PiperVoice.load(str(VOICE_PATH))
 
 
-def synthesize_wav(text: str) -> bytes:
-    """Render text to WAV bytes with the local Piper voice."""
+# Stage-shaped delivery (#142, Owner idea #29 follow-on): the voice grows with the
+# pet. length_scale stretches duration (>1 = slower), noise_scale adds breathiness,
+# noise_w_scale varies phoneme timing. Keys must match core.pet.STAGES names.
+STAGE_VOICES: dict[str, dict] = {
+    "egg": {"length_scale": 1.25, "noise_scale": 0.45},  # drowsy murmur from inside the shell
+    "hatchling": {"length_scale": 0.8, "noise_w_scale": 1.1},  # quick, peppy peeping pace
+    "scholar": {},  # the voice as trained
+    "sage": {"length_scale": 1.18, "noise_scale": 0.55},  # slow and measured
+}
+
+
+def synthesize_wav(text: str, stage: str | None = None) -> bytes:
+    """Render text to WAV bytes with the local Piper voice, shaped by pet stage."""
     text = " ".join(text.split())[:MAX_TTS_CHARS]
     if not text:
         raise ValueError("Nothing to read.")
     voice = _load_voice()
+    syn_config = None
+    params = STAGE_VOICES.get(stage or "")
+    if params:
+        from piper import SynthesisConfig
+
+        syn_config = SynthesisConfig(**params)
     buffer = io.BytesIO()
     with wave.open(buffer, "wb") as wav_file:
-        voice.synthesize_wav(text, wav_file)
+        voice.synthesize_wav(text, wav_file, syn_config=syn_config)
     return buffer.getvalue()

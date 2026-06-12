@@ -18,8 +18,11 @@ def read_aloud(request):
     text = request.POST.get("text", "").strip()
     if not text:
         return JsonResponse({"error": "Nothing to read."}, status=400)
+    # delivery follows the pet's growth stage (#142) — derived server-side
+    from .pet import pet_state
+
     try:
-        audio = tts.synthesize_wav(text)
+        audio = tts.synthesize_wav(text, stage=pet_state()["stage"])
     except tts.TTSUnavailable as exc:
         return JsonResponse({"error": str(exc)}, status=503)
     response = HttpResponse(audio, content_type="audio/wav")
