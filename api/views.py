@@ -124,6 +124,18 @@ class ProjectViewSet(AtlasViewSet):
         return Response(project_graph(self.get_object()))
 
     @extend_schema(
+        responses={200: OpenApiResponse(description="The project's whole file tree")},
+        description="Unified file workspace tree (file-workspace epic): every folder and "
+        "every file node — general documents and manuscript sources — as flat "
+        "{folders, files} lists for a client-side explorer.",
+    )
+    @action(detail=True, methods=["get"])
+    def tree(self, request, slug=None):
+        from documents.selectors import workspace_tree
+
+        return Response(workspace_tree(self.get_object()))
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Situational summary of the project")},
         description="One-glance overview: current phase, progress, next milestones, counts.",
     )
