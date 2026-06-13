@@ -113,3 +113,30 @@ class TestWriteFileEndpoint:
             ).status_code
             == 409
         )
+
+
+class TestUploadEndpoint:
+    def test_upload_into_root_sets_rel_path_and_kind(self, client):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        p = ProjectFactory()
+        resp = client.post(
+            f"/api/v1/projects/{p.slug}/upload-file/",
+            data={"files": SimpleUploadedFile("paper.pdf", b"%PDF-1.4 fake")},
+            **HEADERS,
+        )
+        assert resp.status_code == 201
+        d = Document.objects.get(project=p, rel_path="paper.pdf")
+        assert d.kind == "asset" and d.role == "general" and d.file
+
+    def test_upload_into_folder_prefixes_rel_path(self, client):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        p = ProjectFactory()
+        folder = Folder.objects.create(project=p, name="data")
+        client.post(
+            f"/api/v1/projects/{p.slug}/upload-file/",
+            data={"files": SimpleUploadedFile("set.csv", b"a,b\n1,2"), "folder": folder.id},
+            **HEADERS,
+        )
+        assert Document.objects.filter(project=p, rel_path="data/set.csv").exists()

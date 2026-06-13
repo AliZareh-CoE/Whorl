@@ -218,6 +218,15 @@ export default function Files() {
       }),
     onSuccess: () => window.alert("Saved — pick it under Scaffold when creating a project."),
   });
+  const [dragging, setDragging] = useState(false);
+  const upload = useMutation({
+    mutationFn: (files: FileList) => {
+      const fd = new FormData();
+      for (const f of Array.from(files)) fd.append("files", f);
+      return api(`/projects/${slug}/upload-file/`, { method: "POST", body: fd });
+    },
+    onSuccess: refreshTree,
+  });
 
   const { childFolders, folderFiles, rootFolders, rootFiles } = useMemo(() => {
     const cf: Record<number, FolderNode[]> = {};
@@ -326,7 +335,17 @@ export default function Files() {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="card col-span-1 max-h-[75vh] overflow-y-auto">
+        <div
+          className={`card col-span-1 max-h-[75vh] overflow-y-auto ${dragging ? "ring-2 ring-indigo-400" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            if (e.dataTransfer.files.length) upload.mutate(e.dataTransfer.files);
+          }}
+        >
+          {dragging && <p className="mb-1 text-center text-xs text-indigo-600">Drop to upload</p>}
           {rootFolders.map((f) => folderRow(f, 0))}
           {rootFiles.map((f) => fileRow(f, 0))}
           {total === 0 && !rootFolders.length && (

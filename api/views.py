@@ -106,6 +106,51 @@ class ProjectViewSet(AtlasViewSet):
     queryset = Project.objects.all()
     serializer_class = serializers.ProjectSerializer
     lookup_field = "slug"
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    @extend_schema(
+        request=None,
+        responses={201: OpenApiResponse(description="Uploaded files into the workspace")},
+        description="Upload one or more files into the workspace (optionally a folder), "
+        "as general tree nodes. Multipart: files[], optional folder id.",
+    )
+    @action(detail=True, methods=["post"], url_path="upload-file")
+    def upload_file(self, request, slug=None):
+        from django.core.exceptions import ValidationError as DjangoVE
+
+        from core.security import validate_upload_size
+        from documents.models import Document
+        from documents.paths import kind_for_node_path
+
+        project = self.get_object()
+        folder = None
+        prefix = ""
+        if request.data.get("folder"):
+            folder = get_object_or_404(project.folders, pk=request.data["folder"])
+            parts, node = [], folder
+            while node is not None:
+                parts.append(node.name)
+                node = node.parent
+            prefix = "/".join(reversed(parts)) + "/"
+        created, errors = [], []
+        for f in request.FILES.getlist("files"):
+            try:
+                validate_upload_size(f)
+            except DjangoVE as exc:
+                errors.append(f"{f.name}: {exc.messages[0]}")
+                continue
+            rel_path = f"{prefix}{f.name}"
+            doc = Document.objects.create(
+                project=project,
+                folder=folder,
+                file=f,
+                title=f.name,
+                rel_path=rel_path,
+                role=Document.Role.GENERAL,
+                kind=kind_for_node_path(f.name),
+            )
+            created.append(doc.rel_path)
+        return Response({"created": created, "errors": errors}, status=201 if created else 400)
 
     def perform_create(self, serializer):
         project = serializer.save()
