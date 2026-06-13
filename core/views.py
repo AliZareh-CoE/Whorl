@@ -22,7 +22,8 @@ def read_aloud(request):
     from .pet import pet_state
 
     try:
-        audio = tts.synthesize_wav(text, stage=pet_state()["stage"])
+        state = pet_state()
+        audio = tts.synthesize_wav(text, stage=state["stage"], mood=state["mood"])
     except tts.TTSUnavailable as exc:
         return JsonResponse({"error": str(exc)}, status=503)
     response = HttpResponse(audio, content_type="audio/wav")

@@ -46,15 +46,25 @@ STAGE_VOICES: dict[str, dict] = {
     "sage": {"length_scale": 1.18, "noise_scale": 0.55},  # slow and measured
 }
 
+# Mood layer on top of the stage (#149): the pet's weekly mood sets loudness/liveliness.
+# Volume-only (a field STAGE_VOICES never touches) so mood and stage compose cleanly —
+# stage shapes pace/timbre, mood shapes energy. Keys must match core.pet.MOODS names.
+MOOD_VOICES: dict[str, dict] = {
+    "sleeping": {"volume": 0.6},  # hushed
+    "content": {"volume": 0.85},
+    "happy": {"volume": 1.0},
+    "thriving": {"volume": 1.0, "noise_w_scale": 1.1},  # extra liveliness
+}
 
-def synthesize_wav(text: str, stage: str | None = None) -> bytes:
-    """Render text to WAV bytes with the local Piper voice, shaped by pet stage."""
+
+def synthesize_wav(text: str, stage: str | None = None, mood: str | None = None) -> bytes:
+    """Render text to WAV bytes with the local Piper voice, shaped by pet stage + mood."""
     text = " ".join(text.split())[:MAX_TTS_CHARS]
     if not text:
         raise ValueError("Nothing to read.")
     voice = _load_voice()
     syn_config = None
-    params = STAGE_VOICES.get(stage or "")
+    params = {**STAGE_VOICES.get(stage or "", {}), **MOOD_VOICES.get(mood or "", {})}
     if params:
         from piper import SynthesisConfig
 

@@ -10,7 +10,9 @@ pytestmark = pytest.mark.django_db
 
 class TestReadAloudEndpoint:
     def test_returns_wav_when_available(self, client_logged_in, monkeypatch):
-        monkeypatch.setattr("core.tts.synthesize_wav", lambda text, stage=None: b"RIFFfakewav")
+        monkeypatch.setattr(
+            "core.tts.synthesize_wav", lambda text, stage=None, mood=None: b"RIFFfakewav"
+        )
         response = client_logged_in.post(reverse("core:tts"), {"text": "Hello researcher"})
         assert response.status_code == 200
         assert response["Content-Type"] == "audio/wav"
@@ -19,17 +21,17 @@ class TestReadAloudEndpoint:
     def test_view_passes_current_pet_stage(self, client_logged_in, monkeypatch):
         captured = {}
 
-        def fake(text, stage=None):
+        def fake(text, stage=None, mood=None):
             captured["stage"] = stage
             return b"RIFFfakewav"
 
         monkeypatch.setattr("core.tts.synthesize_wav", fake)
-        monkeypatch.setattr("core.pet.pet_state", lambda: {"stage": "hatchling"})
+        monkeypatch.setattr("core.pet.pet_state", lambda: {"stage": "hatchling", "mood": "content"})
         client_logged_in.post(reverse("core:tts"), {"text": "peep"})
         assert captured["stage"] == "hatchling"
 
     def test_missing_voice_gives_clear_503(self, client_logged_in, monkeypatch):
-        def boom(text, stage=None):
+        def boom(text, stage=None, mood=None):
             raise tts.TTSUnavailable("Voice model not downloaded")
 
         monkeypatch.setattr("core.tts.synthesize_wav", boom)
@@ -103,3 +105,38 @@ class TestSynthesis:
         audio = tts.synthesize_wav("Atlas reads this aloud.")
         assert audio[:4] == b"RIFF"
         assert len(audio) > 10000
+
+
+class TestMoodVoice:
+    def test_mood_voices_cover_every_pet_mood(self):
+        from core.pet import MOODS
+
+        assert set(tts.MOOD_VOICES) == {name for _, name, _ in MOODS}
+
+    def test_mood_sets_volume(self, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(tts, "_load_voice", lambda: FakeVoice(captured))
+        tts.synthesize_wav("quiet", mood="sleeping")
+        assert captured["syn_config"].volume == tts.MOOD_VOICES["sleeping"]["volume"]
+
+    def test_mood_and_stage_compose(self, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(tts, "_load_voice", lambda: FakeVoice(captured))
+        tts.synthesize_wav("measured + hushed", stage="sage", mood="sleeping")
+        cfg = captured["syn_config"]
+        assert cfg.length_scale == tts.STAGE_VOICES["sage"]["length_scale"]  # stage kept
+        assert cfg.volume == tts.MOOD_VOICES["sleeping"]["volume"]  # mood applied
+
+    def test_view_passes_stage_and_mood(self, client_logged_in, monkeypatch):
+        captured = {}
+
+        def fake(text, stage=None, mood=None):
+            captured["stage"], captured["mood"] = stage, mood
+            return b"RIFFx"
+
+        monkeypatch.setattr("core.tts.synthesize_wav", fake)
+        monkeypatch.setattr("core.pet.pet_state", lambda: {"stage": "sage", "mood": "thriving"})
+        from django.urls import reverse
+
+        client_logged_in.post(reverse("core:tts"), {"text": "hi"})
+        assert captured == {"stage": "sage", "mood": "thriving"}
