@@ -8,6 +8,8 @@
 <a href="{% url 'literature:project' project.slug %}" class="hover:underline">Literature</a> / Queue
 {% endblock %}
 
+{% block main_class %}mx-auto max-w-6xl{% endblock %}
+
 {% block content %}
 {% include "projects/_subnav.html" %}
 
@@ -15,7 +17,7 @@
 <p class="mb-4 text-sm text-stone-500">Unread and skimmed references{% if order == "gaps" %}, papers that fill review-matrix gaps first{% else %}, highest priority first{% endif %}. Change the status as you go.</p>
 
 {% if theme_count %}
-  <div class="mb-6 flex items-center gap-1 text-xs">
+  <div class="mb-4 flex items-center gap-1 text-xs">
     <span class="mr-1 uppercase tracking-wide text-stone-400">Order</span>
     <a href="?{% if keyword %}kw={{ keyword|urlencode }}{% endif %}"
        class="rounded-full border px-2.5 py-1 {% if order != 'gaps' %}border-indigo-600 bg-indigo-50 text-indigo-700{% else %}border-stone-200 text-stone-500 hover:border-stone-400{% endif %}">Priority</a>

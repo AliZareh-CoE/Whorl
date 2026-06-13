@@ -8,6 +8,8 @@
 <a href="{% url 'literature:project' project.slug %}" class="hover:underline">Literature</a> / Matrix
 {% endblock %}
 
+{% block main_class %}mx-auto max-w-6xl{% endblock %}
+
 {% block content %}
 {% include "projects/_subnav.html" %}
 
@@ -26,7 +28,7 @@
        class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add theme</a>
   </div>
 </div>
-<p class="mb-6 text-sm text-stone-500">Which paper covers which theme. Click a cell to toggle; hover a marked cell to add a note.</p>
+<p class="mb-4 text-sm text-stone-500">Which paper covers which theme. Click a cell to toggle; hover a marked cell to add a note.</p>
 
 {% if not themes %}
   <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
@@ -42,9 +44,9 @@
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-stone-200 text-left">
-          <th class="sticky left-0 bg-white py-2 pl-4 pr-4 text-xs font-medium uppercase tracking-wide text-stone-400">Paper</th>
+          <th class="sticky left-0 bg-white py-1.5 pl-4 pr-4 text-xs font-medium uppercase tracking-wide text-stone-400">Paper</th>
           {% for theme in themes %}
-            <th class="px-2 py-2 text-center text-xs font-medium text-stone-500">
+            <th class="px-2 py-1.5 text-center text-xs font-medium text-stone-500">
               <a href="{% url 'literature:theme_edit' project.slug theme.pk %}" class="hover:underline">{{ theme.name }}</a>
             </th>
           {% endfor %}
@@ -53,7 +55,7 @@
       <tbody>
         {% for row in rows %}
           <tr class="border-b border-stone-100 transition-colors hover:bg-stone-50">
-            <td class="sticky left-0 max-w-xs bg-white py-2 pl-4 pr-4">
+            <td class="sticky left-0 max-w-xs bg-white py-1.5 pl-4 pr-4">
               <a href="{{ row.link.reference.get_absolute_url }}" class="font-medium hover:underline">{{ row.link.reference.title|truncatechars:60 }}</a>
               <p class="font-mono text-xs text-stone-400">{{ row.link.reference.bibtex_key }}</p>
             </td>
