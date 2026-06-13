@@ -911,6 +911,14 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
   // keep the research icon honest when the panel is toggled from the View menu too
   document.getElementById("research-toggle").addEventListener("click", () => setTimeout(paintRail, 50));
 
+  // Reset layout (#150): clear all atlas-editor-* layout state and reload to the default panes
+  document.getElementById("reset-layout")?.addEventListener("click", () => {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith("atlas-editor-")) localStorage.removeItem(k);
+    }
+    location.reload();
+  });
+
   toggleBtn.addEventListener("click", () => setPreview(previewPane.classList.contains("hidden")));
   if (localStorage.getItem("atlas-editor-sidebar") === "0") sidebar.classList.add("hidden");
   // the PDF pane hosts Recompile, so it's shown by default unless explicitly collapsed
