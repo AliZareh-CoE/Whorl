@@ -529,3 +529,7 @@ the Files SPA shell 3 ms. 637 tests green; make audit (pip + prod npm) clean.
 **Verdict:** healthy. The epic's riskiest surfaces (terminal, raw file serving, desktop
 disk reach) are correctly contained — desktop-only ACE, allowlisted/nosniff'd previews,
 manuscript guards, validated paths — with two low-risk defense-in-depth items backlogged.
+
+
+### Audit #15 follow-up (2026-06-13)
+- Finding 2 (desktop webview navigation) **#160 resolved**: the shell now restricts navigation to the Atlas host via WebviewWindowBuilder.on_navigation; off-origin navigation is rejected. cargo check passes; structural test guards it.

@@ -699,7 +699,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 ## Backlog
 161. Lucide icons in the editor chrome + classic sidebar too — extend the lucide set (done in Files.tsx) to the rest of the app for one icon language everywhere (idea added during #146)
 159. Upgrade Vite to 8 (closes the dev-only esbuild advisory GHSA-gv7w-rqvm-qjhr) — breaking major, do it as a dedicated cycle with a full frontend build+tsc+islands verification, not mid-epic (idea added by AUDIT #15)
-160. Harden the Tauri webview navigation allowlist — restrict the shell to the localhost origin (Tauri capabilities / navigation rules) so a compromised page can't steer the app window off-origin; pairs with revisiting csp:null (idea added by AUDIT #15)
+160. ~~Harden the Tauri webview navigation allowlist (done 2026-06-13, from AUDIT #15): the desktop shell's WebviewWindowBuilder.on_navigation only permits the Atlas host (localhost), so a compromised loaded page can't steer the app window off-origin; cargo check passes, structural test asserts the guard.~~
 
 (populated by phase gates; work top to bottom only after the Phase 6 gate passes)
 

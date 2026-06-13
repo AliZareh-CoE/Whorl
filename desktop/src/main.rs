@@ -27,11 +27,18 @@ fn main() {
         ])
         .setup(|app| {
             let url = atlas_url();
-            let parsed = url.parse().expect("ATLAS_URL is not a valid URL");
+            let parsed: tauri::Url = url.parse().expect("ATLAS_URL is not a valid URL");
+            // security hardening (AUDIT #15, #160): the shell only ever navigates within the
+            // local Atlas origin, so a compromised loaded page can't steer the app window to
+            // an arbitrary external site.
+            let allowed_host = parsed.host_str().unwrap_or("localhost").to_string();
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed))
                 .title("Atlas")
                 .inner_size(1400.0, 900.0)
                 .min_inner_size(900.0, 600.0)
+                .on_navigation(move |target| {
+                    matches!(target.host_str(), Some(h) if h == allowed_host)
+                })
                 .build()?;
             // bring the window to the front on launch
             if let Some(w) = app.get_webview_window("main") {

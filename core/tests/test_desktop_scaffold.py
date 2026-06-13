@@ -41,6 +41,12 @@ def test_main_wraps_the_local_atlas_server():
     assert "ATLAS_URL" in main  # env override
 
 
+def test_webview_navigation_is_origin_locked():
+    # security hardening (#160): the shell restricts navigation to the Atlas host
+    main = (DESKTOP / "src" / "main.rs").read_text()
+    assert "on_navigation" in main and "allowed_host" in main
+
+
 def test_cargo_depends_on_tauri_2():
     cargo = (DESKTOP / "Cargo.toml").read_text()
     assert "tauri" in cargo and "tauri-build" in cargo
