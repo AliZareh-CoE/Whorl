@@ -1,7 +1,7 @@
 <div class="flex gap-4 overflow-x-auto pb-2">
   {% for column in columns %}
     <div class="w-64 shrink-0">
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">
+      <h2 class="card-title mb-2">
         {{ column.label }} <span class="text-stone-300">{{ column.items|length }}</span>
       </h2>
       <div class="space-y-2">
