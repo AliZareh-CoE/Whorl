@@ -436,10 +436,37 @@ class DecisionRecordViewSet(AtlasViewSet):
     q_fields = ("title", "decision")  # Backlog #100: search opt-in
 
 
+def _manuscript_root_ids(project):
+    return set(
+        project.manuscripts.exclude(root_folder__isnull=True).values_list(
+            "root_folder_id", flat=True
+        )
+    )
+
+
 class FolderViewSet(AtlasViewSet):
     queryset = Folder.objects.all()
     serializer_class = serializers.FolderSerializer
     project_filter = "project__slug"
+
+    def _guard(self, folder):
+        # manuscript folders (root + subtree) are owned by the LaTeX editor / the mirror
+        from rest_framework.exceptions import PermissionDenied
+
+        roots = _manuscript_root_ids(folder.project)
+        node = folder
+        while node is not None:
+            if node.pk in roots:
+                raise PermissionDenied("Manuscript folders are managed in the LaTeX editor.")
+            node = node.parent
+
+    def perform_update(self, serializer):
+        self._guard(serializer.instance)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._guard(instance)
+        instance.delete()
 
 
 class TagViewSet(AtlasViewSet):
@@ -467,6 +494,20 @@ class DocumentViewSet(AtlasViewSet):
     serializer_class = serializers.DocumentSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     project_filter = "project__slug"
+
+    def _guard(self, doc):
+        from rest_framework.exceptions import PermissionDenied
+
+        if doc.role == "manuscript_source":
+            raise PermissionDenied("Manuscript files are managed in the LaTeX editor.")
+
+    def perform_update(self, serializer):
+        self._guard(serializer.instance)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._guard(instance)
+        instance.delete()
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Text content of a file node")},

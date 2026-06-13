@@ -181,6 +181,34 @@ export default function Files() {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selected, setSelected] = useState<FileNode | null>(null);
   const [showTerminal, setShowTerminal] = useState(false);
+  const queryClient = useQueryClient();
+  const refreshTree = () => queryClient.invalidateQueries({ queryKey: ["tree", slug] });
+
+  const newFolder = useMutation({
+    mutationFn: (name: string) =>
+      api("/folders/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: slug, parent: null, name }),
+      }),
+    onSuccess: refreshTree,
+  });
+  const deleteDoc = useMutation({
+    mutationFn: (id: number) => api(`/documents/${id}/`, { method: "DELETE" }),
+    onSuccess: () => {
+      setSelected(null);
+      refreshTree();
+    },
+  });
+  const renameDoc = useMutation({
+    mutationFn: (v: { id: number; title: string }) =>
+      api(`/documents/${v.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: v.title }),
+      }),
+    onSuccess: refreshTree,
+  });
 
   const { childFolders, folderFiles, rootFolders, rootFiles } = useMemo(() => {
     const cf: Record<number, FolderNode[]> = {};
@@ -258,6 +286,15 @@ export default function Files() {
         <h1 className="text-2xl font-semibold tracking-tight">Files</h1>
         <div className="flex items-baseline gap-3">
           <button
+            onClick={() => {
+              const name = window.prompt("New folder name");
+              if (name) newFolder.mutate(name.trim());
+            }}
+            className="text-xs text-stone-400 hover:text-indigo-700"
+          >
+            + Folder
+          </button>
+          <button
             onClick={() => setShowTerminal((v) => !v)}
             className={`flex items-center gap-1 text-xs hover:text-indigo-700 ${showTerminal ? "text-indigo-700" : "text-stone-400"}`}
             title="Toggle the terminal (Atlas desktop app)"
@@ -293,6 +330,27 @@ export default function Files() {
                 {selected.role === "manuscript_source" && <span>· manuscript source</span>}
                 {!!humanSize(selected.size) && <span>· {humanSize(selected.size)}</span>}
               </dl>
+              {selected.role !== "manuscript_source" && (
+                <div className="mb-2 flex gap-3 text-xs">
+                  <button
+                    onClick={() => {
+                      const title = window.prompt("Rename file to", selected.name);
+                      if (title) renameDoc.mutate({ id: selected.id, title: title.trim() });
+                    }}
+                    className="text-indigo-600 hover:underline"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Delete ${selected.name}?`)) deleteDoc.mutate(selected.id);
+                    }}
+                    className="text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
               <FilePreview key={selected.id} file={selected} />
             </div>
           ) : (
