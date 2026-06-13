@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import Papa from "papaparse";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
@@ -52,6 +53,67 @@ function Icon({ kind, open }: { kind: string; open?: boolean }) {
   if (kind === "pdf") return base(null, "text-red-400");
   if (kind === "asset") return base(<circle cx="9" cy="13" r="1.5" />, "text-amber-400");
   return base(null);
+}
+
+const isPdf = (f: FileNode) => /\.pdf$/i.test(f.rel_path);
+const isImage = (f: FileNode) => /\.(png|jpe?g|gif|webp)$/i.test(f.rel_path);
+const isCsv = (f: FileNode) => /\.(csv|tsv)$/i.test(f.rel_path);
+
+// Open-anything preview (#30 slice 2c): route by file type, reusing the local raw/content
+// endpoints. PDFs use the browser's native viewer over the vendored, nosniff'd raw bytes.
+function FilePreview({ file }: { file: FileNode }) {
+  const rawUrl = `/api/v1/documents/${file.id}/raw/`;
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["file-content", file.id],
+    enabled: file.is_text,
+    queryFn: () => api<{ content: string; truncated: boolean }>(`/documents/${file.id}/content/`),
+  });
+
+  if (isImage(file))
+    return <img src={rawUrl} alt={file.name} className="max-h-[62vh] max-w-full rounded border border-stone-200" />;
+  if (isPdf(file))
+    return <iframe src={rawUrl} title={file.name} className="h-[62vh] w-full rounded border border-stone-200" />;
+
+  if (!file.is_text)
+    return (
+      <div className="rounded border border-dashed border-stone-200 p-6 text-center text-sm text-stone-500">
+        <p className="mb-2">No in-app preview for this file type.</p>
+        <a href={`/api/v1/documents/${file.id}/raw/`} className="text-indigo-600 hover:underline" download>
+          Download {file.name}
+        </a>
+      </div>
+    );
+
+  if (isLoading) return <p className="text-sm text-stone-400">Loading…</p>;
+  if (error || !data) return <p className="text-sm text-red-600">Couldn't load this file.</p>;
+
+  if (isCsv(file)) {
+    const parsed = Papa.parse<string[]>(data.content.trim(), { skipEmptyLines: true });
+    const rows = (parsed.data as string[][]).slice(0, 200);
+    return (
+      <div className="max-h-[62vh] overflow-auto">
+        <table className="w-full border-collapse text-xs">
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i} className={i === 0 ? "bg-stone-50 font-medium" : ""}>
+                {row.map((cell, j) => (
+                  <td key={j} className="border border-stone-100 px-2 py-1">{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data.truncated && <p className="mt-1 text-xs text-stone-400">Showing the first part of a large file.</p>}
+      </div>
+    );
+  }
+
+  return (
+    <pre className="max-h-[62vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700">
+      {data.content}
+      {data.truncated && "\n\n… (truncated)"}
+    </pre>
+  );
 }
 
 export default function Files() {
@@ -158,13 +220,13 @@ export default function Files() {
                 <Icon kind={selected.kind || "other"} />
                 <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{selected.name}</h2>
               </div>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-stone-500">
-                <div><dt className="text-stone-400">Path</dt><dd className="truncate font-mono">{selected.rel_path}</dd></div>
-                <div><dt className="text-stone-400">Kind</dt><dd>{selected.kind || "—"}</dd></div>
-                <div><dt className="text-stone-400">Type</dt><dd>{selected.role === "manuscript_source" ? "manuscript source" : "document"}</dd></div>
-                <div><dt className="text-stone-400">Size</dt><dd>{humanSize(selected.size) || "—"}</dd></div>
+              <dl className="mb-3 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-stone-400">
+                <span className="font-mono text-stone-500">{selected.rel_path}</span>
+                <span>· {selected.kind || "file"}</span>
+                {selected.role === "manuscript_source" && <span>· manuscript source</span>}
+                {!!humanSize(selected.size) && <span>· {humanSize(selected.size)}</span>}
               </dl>
-              <p className="mt-3 text-xs text-stone-400">In-app preview & editing land in the next slice.</p>
+              <FilePreview key={selected.id} file={selected} />
             </div>
           ) : (
             <p className="text-sm text-stone-400">Select a file to see its details.</p>
