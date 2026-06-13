@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Papa from "papaparse";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+
+const TerminalPanel = lazy(() => import("./TerminalPanel"));
 
 type FileNode = {
   id: number;
@@ -178,6 +180,7 @@ export default function Files() {
   });
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selected, setSelected] = useState<FileNode | null>(null);
+  const [showTerminal, setShowTerminal] = useState(false);
 
   const { childFolders, folderFiles, rootFolders, rootFiles } = useMemo(() => {
     const cf: Record<number, FolderNode[]> = {};
@@ -253,7 +256,17 @@ export default function Files() {
       </nav>
       <div className="mb-3 flex items-baseline justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Files</h1>
-        <span className="text-xs text-stone-400">{total} file{total === 1 ? "" : "s"} · everything in one tree</span>
+        <div className="flex items-baseline gap-3">
+          <button
+            onClick={() => setShowTerminal((v) => !v)}
+            className={`flex items-center gap-1 text-xs hover:text-indigo-700 ${showTerminal ? "text-indigo-700" : "text-stone-400"}`}
+            title="Toggle the terminal (Atlas desktop app)"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
+            Terminal
+          </button>
+          <span className="text-xs text-stone-400">{total} file{total === 1 ? "" : "s"} · everything in one tree</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -287,6 +300,14 @@ export default function Files() {
           )}
         </div>
       </div>
+
+      {showTerminal && (
+        <div className="mt-3 h-64 overflow-hidden rounded border border-stone-800 bg-stone-900 p-1">
+          <Suspense fallback={<p className="p-3 text-sm text-stone-400">Loading terminal…</p>}>
+            <TerminalPanel cwd={undefined} />
+          </Suspense>
+        </div>
+      )}
     </div>
   );
 }
