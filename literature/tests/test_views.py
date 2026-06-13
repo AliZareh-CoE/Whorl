@@ -18,6 +18,37 @@ class TestLibrary:
         assert b"Quantum Frogs" in response.content
         assert b"Classical Toads" not in response.content
 
+    def test_index_sorts_by_year_descending(self, client_logged_in):
+        ReferenceFactory(title="Old Paper", year=1990)
+        ReferenceFactory(title="New Paper", year=2025)
+        response = client_logged_in.get(
+            reverse("literature:index"), {"sort": "year", "dir": "desc"}
+        )
+        assert response.status_code == 200
+        body = response.content.decode()
+        assert body.index("New Paper") < body.index("Old Paper")
+
+    def test_index_sorts_by_year_ascending(self, client_logged_in):
+        ReferenceFactory(title="Old Paper", year=1990)
+        ReferenceFactory(title="New Paper", year=2025)
+        response = client_logged_in.get(reverse("literature:index"), {"sort": "year"})
+        body = response.content.decode()
+        assert body.index("Old Paper") < body.index("New Paper")
+
+    def test_index_rejects_unknown_sort_field(self, client_logged_in):
+        # a hostile ?sort= must fall back to the title default, never reach the ORM raw
+        ReferenceFactory(title="Anything")
+        response = client_logged_in.get(
+            reverse("literature:index"), {"sort": "password; DROP TABLE"}
+        )
+        assert response.status_code == 200
+        assert b"Anything" in response.content
+
+    def test_sort_links_preserve_search_query(self, client_logged_in):
+        ReferenceFactory(title="Quantum Frogs")
+        response = client_logged_in.get(reverse("literature:index"), {"q": "Quantum"})
+        assert b"q=Quantum" in response.content
+
     def test_add_by_identifier_uses_service(self, client_logged_in, monkeypatch):
         ref = ReferenceFactory()
         monkeypatch.setattr(

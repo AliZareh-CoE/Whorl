@@ -25,10 +25,10 @@
   <div class="overflow-x-auto"><table class="w-full min-w-[640px] border-collapse text-sm">
     <thead>
       <tr class="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-400">
-        <th class="py-1.5 pr-4 font-medium">Reference</th>
-        <th class="py-1.5 pr-4 font-medium">Year</th>
-        <th class="py-1.5 pr-4 font-medium">Venue</th>
-        <th class="py-1.5 pr-4 font-medium">Cited</th>
+        {% include "literature/_sort_th.html" with key="title" label="Reference" %}
+        {% include "literature/_sort_th.html" with key="year" label="Year" %}
+        {% include "literature/_sort_th.html" with key="venue" label="Venue" %}
+        {% include "literature/_sort_th.html" with key="cited" label="Cited" %}
         <th class="py-1.5 font-medium">Projects</th>
       </tr>
     </thead>

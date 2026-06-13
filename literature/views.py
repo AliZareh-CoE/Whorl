@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import F, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -13,6 +13,15 @@ from . import services
 from .forms import AddByIdentifierForm, BibtexImportForm, LinkReferenceForm, ReferenceForm
 from .models import ProjectReference, Reference, ReviewMark, ReviewTheme
 
+# Backlog #170: whitelist the sortable columns so the ?sort= param can't reach
+# arbitrary ORM fields. Each key maps to the model field ordered on.
+LIBRARY_SORTS = {
+    "title": "title",
+    "year": "year",
+    "venue": "venue",
+    "cited": "citation_count",
+}
+
 
 def library_index(request):
     references = Reference.objects.prefetch_related("project_links__project")
@@ -25,6 +34,15 @@ def library_index(request):
             | Q(doi__icontains=query)
             | Q(authors__icontains=query)
         )
+    sort = request.GET.get("sort", "title")
+    if sort not in LIBRARY_SORTS:
+        sort = "title"
+    descending = request.GET.get("dir") == "desc"
+    field = F(LIBRARY_SORTS[sort])
+    # nulls_last in both directions so blank years/venues never crowd the top;
+    # title is the stable tiebreaker so paging/slicing is deterministic
+    order = field.desc(nulls_last=True) if descending else field.asc(nulls_last=True)
+    references = references.order_by(order, "title")
     return render(
         request,
         "literature/index.html",
@@ -33,6 +51,8 @@ def library_index(request):
             "query": query,
             "total": Reference.objects.count(),
             "add_form": AddByIdentifierForm(),
+            "sort": sort,
+            "sort_dir": "desc" if descending else "asc",
         },
     )
 
