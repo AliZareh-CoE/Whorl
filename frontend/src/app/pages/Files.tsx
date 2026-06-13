@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Papa from "papaparse";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 
@@ -108,11 +108,65 @@ function FilePreview({ file }: { file: FileNode }) {
     );
   }
 
+  return <TextView file={file} content={data.content} truncated={data.truncated} />;
+}
+
+const slugFromPath = () => location.pathname.split("/")[2];
+
+// In-place text editing (#30 slice 2d): general nodes are editable + saved back to the
+// content endpoint; manuscript sources are read-only here (they sync from the LaTeX editor).
+function TextView({ file, content, truncated }: { file: FileNode; content: string; truncated: boolean }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(content);
+  useEffect(() => {
+    setDraft(content);
+    setEditing(false);
+  }, [content, file.id]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      api(`/documents/${file.id}/content/`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: draft }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["file-content", file.id] });
+      queryClient.invalidateQueries({ queryKey: ["tree", slugFromPath()] });
+      setEditing(false);
+    },
+  });
+
+  const manuscript = file.role === "manuscript_source";
   return (
-    <pre className="max-h-[62vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700">
-      {data.content}
-      {data.truncated && "\n\n… (truncated)"}
-    </pre>
+    <div>
+      <div className="mb-1 flex items-center justify-end gap-2 text-xs">
+        {manuscript ? (
+          <span className="text-stone-400">read-only — edit in the LaTeX editor</span>
+        ) : editing ? (
+          <>
+            <button onClick={() => save.mutate()} disabled={save.isPending} className="rounded bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-50">Save</button>
+            <button onClick={() => { setDraft(content); setEditing(false); }} className="text-stone-500 hover:underline">Cancel</button>
+          </>
+        ) : (
+          <button onClick={() => setEditing(true)} className="text-indigo-600 hover:underline" disabled={truncated} title={truncated ? "File too large to edit in-app" : ""}>Edit</button>
+        )}
+      </div>
+      {editing ? (
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          spellCheck={false}
+          className="h-[58vh] w-full rounded border border-indigo-300 bg-white p-3 font-mono text-xs leading-relaxed text-stone-800 focus:outline-none"
+        />
+      ) : (
+        <pre className="max-h-[58vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700">
+          {content}
+          {truncated && "\n\n… (truncated)"}
+        </pre>
+      )}
+    </div>
   );
 }
 

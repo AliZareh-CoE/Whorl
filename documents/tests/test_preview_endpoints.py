@@ -84,3 +84,66 @@ class TestRawEndpoint:
             project=p, title="a.tex", rel_path="a.tex", kind="tex", content="x"
         )
         assert client.get(f"/api/v1/documents/{d.id}/raw/", **HEADERS).status_code == 404
+
+
+class TestContentSave:
+    def test_save_general_text(self, client):
+        from documents.models import Document
+
+        p = ProjectFactory()
+        d = Document.objects.create(
+            project=p, title="n.md", rel_path="n.md", kind="other", content="old"
+        )
+        resp = client.put(
+            f"/api/v1/documents/{d.id}/content/",
+            data={"content": "new body"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert resp.status_code == 200
+        d.refresh_from_db()
+        assert d.content == "new body"
+
+    def test_save_rejects_manuscript_source(self, client):
+        from documents.models import Document
+
+        p = ProjectFactory()
+        d = Document.objects.create(
+            project=p,
+            title="main.tex",
+            rel_path="manuscript-1/main.tex",
+            kind="tex",
+            role="manuscript_source",
+            content="x",
+        )
+        resp = client.put(
+            f"/api/v1/documents/{d.id}/content/",
+            data={"content": "hacked"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert resp.status_code == 409
+        d.refresh_from_db()
+        assert d.content == "x"
+
+    def test_save_updates_uploaded_file_bytes(self, client):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from documents.models import Document
+
+        p = ProjectFactory()
+        d = Document.objects.create(
+            project=p,
+            title="s.tex",
+            rel_path="s.tex",
+            kind="tex",
+            file=SimpleUploadedFile("s.tex", b"before"),
+        )
+        client.put(
+            f"/api/v1/documents/{d.id}/content/",
+            data={"content": "after"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        d.refresh_from_db()
+        assert d.file.read().decode() == "after"

@@ -496,6 +496,33 @@ class DocumentViewSet(AtlasViewSet):
         )
 
     @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Saved"),
+            409: OpenApiResponse(description="Manuscript sources are edited in the LaTeX editor"),
+        },
+        description="Save edited text for a general file node (workspace in-place editing). "
+        "Manuscript-source nodes are read-only here — they sync from the LaTeX editor.",
+    )
+    @content.mapping.put
+    def save_content(self, request, pk=None):
+        doc = self.get_object()
+        if doc.role == "manuscript_source":
+            return Response(
+                {"detail": "Manuscript files are edited in the LaTeX editor."}, status=409
+            )
+        text = request.data.get("content", "")
+        if len(text) > TEXT_PREVIEW_CAP:
+            return Response({"detail": "File too large to edit in-app."}, status=413)
+        from django.core.files.base import ContentFile
+
+        if doc.file:
+            doc.file.save(doc.file.name.rsplit("/", 1)[-1], ContentFile(text.encode()), save=False)
+        doc.content = text
+        doc.save()
+        return Response({"id": doc.id, "saved": True})
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Raw file bytes, inline")},
         description="Raw bytes of an image/PDF file node, inline, for the workspace preview. "
         "Allowlisted content types only (no SVG); nosniff.",
