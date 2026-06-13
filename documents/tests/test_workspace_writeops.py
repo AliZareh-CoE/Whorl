@@ -140,3 +140,33 @@ class TestUploadEndpoint:
             **HEADERS,
         )
         assert Document.objects.filter(project=p, rel_path="data/set.csv").exists()
+
+
+class TestMove:
+    def test_move_updates_folder_and_rel_path(self, client):
+        p = ProjectFactory()
+        dest = Folder.objects.create(project=p, name="archive")
+        d = Document.objects.create(project=p, title="m.md", rel_path="m.md", kind="other")
+        client.patch(
+            f"/api/v1/documents/{d.id}/",
+            data={"folder": dest.id},
+            content_type="application/json",
+            **HEADERS,
+        )
+        d.refresh_from_db()
+        assert d.folder_id == dest.id and d.rel_path == "archive/m.md"
+
+    def test_move_back_to_root(self, client):
+        p = ProjectFactory()
+        f = Folder.objects.create(project=p, name="x")
+        d = Document.objects.create(
+            project=p, folder=f, title="n.md", rel_path="x/n.md", kind="other"
+        )
+        client.patch(
+            f"/api/v1/documents/{d.id}/",
+            data={"folder": None},
+            content_type="application/json",
+            **HEADERS,
+        )
+        d.refresh_from_db()
+        assert d.folder_id is None and d.rel_path == "n.md"

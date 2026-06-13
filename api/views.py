@@ -654,7 +654,18 @@ class DocumentViewSet(AtlasViewSet):
 
     def perform_update(self, serializer):
         self._guard(serializer.instance)
-        serializer.save()
+        doc = serializer.save()
+        # workspace move: keep rel_path in sync when a general file changes folder
+        if doc.role == Document.Role.GENERAL:
+            filename = doc.rel_path.rsplit("/", 1)[-1] if doc.rel_path else (doc.title or "file")
+            parts, node = [], doc.folder
+            while node is not None:
+                parts.append(node.name)
+                node = node.parent
+            new_rel = "/".join([*reversed(parts), filename]) if parts else filename
+            if new_rel != doc.rel_path:
+                doc.rel_path = new_rel
+                doc.save(update_fields=["rel_path", "updated_at"])
 
     def perform_destroy(self, instance):
         self._guard(instance)

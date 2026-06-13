@@ -209,6 +209,18 @@ export default function Files() {
       }),
     onSuccess: refreshTree,
   });
+  const moveDoc = useMutation({
+    mutationFn: (v: { id: number; folder: number | null }) =>
+      api(`/documents/${v.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: v.folder }),
+      }),
+    onSuccess: () => {
+      setSelected(null);
+      refreshTree();
+    },
+  });
   const saveTemplate = useMutation({
     mutationFn: (name: string) =>
       api(`/projects/${slug}/save-template/`, {
@@ -369,7 +381,20 @@ export default function Files() {
                 {!!humanSize(selected.size) && <span>· {humanSize(selected.size)}</span>}
               </dl>
               {selected.role !== "manuscript_source" && (
-                <div className="mb-2 flex gap-3 text-xs">
+                <div className="mb-2 flex items-center gap-3 text-xs">
+                  <select
+                    value={selected.folder_id ?? ""}
+                    onChange={(e) =>
+                      moveDoc.mutate({ id: selected.id, folder: e.target.value ? Number(e.target.value) : null })
+                    }
+                    title="Move to folder"
+                    className="rounded border border-stone-200 px-1 py-0.5 text-stone-600"
+                  >
+                    <option value="">(project root)</option>
+                    {(data.folders ?? [])
+                      .filter((f) => !f.name.startsWith("manuscript-"))
+                      .map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
                   <button
                     onClick={() => {
                       const title = window.prompt("Rename file to", selected.name);
