@@ -1,6 +1,5 @@
 """Project services (file-workspace epic #30, slice 7): scaffold from a template."""
 
-
 from documents.models import Document, Folder
 from documents.paths import kind_for_node_path, validate_workspace_name
 
