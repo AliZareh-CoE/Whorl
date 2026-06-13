@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { File, FileCode, FileImage, FileText, Folder, FolderOpen, Table } from "lucide-react";
 import Papa from "papaparse";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -31,30 +32,26 @@ function humanSize(n: number): string {
   return `${v.toFixed(v < 10 && i ? 1 : 0)} ${u[i]}`;
 }
 
-// stroke-SVG icons in the editor's visual language (#30 slice 2b; lucide swap is a later slice)
-function Icon({ kind, open }: { kind: string; open?: boolean }) {
-  const p = { width: 15, height: 15, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+// lucide file-kind icons (#146) — one consistent open-source set
+function Icon({ kind, open, name }: { kind: string; open?: boolean; name?: string }) {
+  const cls = "shrink-0";
   if (kind === "folder")
-    return (
-      <svg {...p} className="shrink-0 text-stone-400">
-        {open ? (
-          <path d="M3 7a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.7.9l.8 1.1H19a2 2 0 0 1 2 2v1H6l-3 8Z" />
-        ) : (
-          <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.2 3.9A2 2 0 0 0 7.5 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-        )}
-      </svg>
-    );
-  const base = (children: React.ReactNode, cls = "text-stone-400") => (
-    <svg {...p} className={`shrink-0 ${cls}`}>
-      <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
-      <polyline points="14 3 14 9 20 9" />
-      {children}
-    </svg>
-  );
-  if (kind === "tex" || kind === "bib") return base(<text x="7.5" y="18" fontSize="6" fill="currentColor" stroke="none">{kind === "tex" ? "T" : "B"}</text>, "text-indigo-400");
-  if (kind === "pdf") return base(null, "text-red-400");
-  if (kind === "asset") return base(<circle cx="9" cy="13" r="1.5" />, "text-amber-400");
-  return base(null);
+    return open
+      ? <FolderOpen size={15} className={`${cls} text-stone-400`} />
+      : <Folder size={15} className={`${cls} text-stone-400`} />;
+  const ext = (name ?? "").toLowerCase();
+  if (kind === "tex" || kind === "bib")
+    return <FileText size={15} className={`${cls} text-indigo-400`} />;
+  if (kind === "pdf" || /\.pdf$/.test(ext))
+    return <FileText size={15} className={`${cls} text-red-400`} />;
+  if (/\.(png|jpe?g|gif|webp|svg)$/.test(ext))
+    return <FileImage size={15} className={`${cls} text-amber-400`} />;
+  if (/\.(csv|tsv)$/.test(ext))
+    return <Table size={15} className={`${cls} text-emerald-500`} />;
+  if (/\.(py|js|ts|json|yaml|yml|sh|r|toml|css|html|xml)$/.test(ext))
+    return <FileCode size={15} className={`${cls} text-sky-500`} />;
+  if (kind === "asset") return <File size={15} className={`${cls} text-stone-400`} />;
+  return <FileText size={15} className={`${cls} text-stone-400`} />;
 }
 
 // subsequence fuzzy match: every char of the query appears in order in the text
@@ -341,7 +338,7 @@ export default function Files() {
       style={{ paddingLeft: depth * 16 + 8 }}
       className={`flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-sm hover:bg-stone-50 ${selected?.id === f.id ? "bg-indigo-50 text-indigo-700" : "text-stone-700"}`}
     >
-      <Icon kind={f.kind || "other"} />
+      <Icon kind={f.kind || "other"} name={f.name} />
       <span className="min-w-0 flex-1 truncate">{f.name}</span>
       {f.role === "manuscript_source" && (
         <span className="shrink-0 rounded bg-stone-100 px-1 text-[10px] text-stone-400">ms</span>
@@ -461,7 +458,7 @@ export default function Files() {
           ) : selected ? (
             <div>
               <div className="mb-2 flex items-center gap-2">
-                <Icon kind={selected.kind || "other"} />
+                <Icon kind={selected.kind || "other"} name={selected.name} />
                 <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{selected.name}</h2>
               </div>
               <dl className="mb-3 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-stone-400">
