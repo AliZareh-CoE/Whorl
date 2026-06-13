@@ -328,15 +328,63 @@ export default function Files() {
     return { childFolders: cf, folderFiles: ff, rootFolders, rootFiles };
   }, [data]);
 
+  // [REV] keyboard navigation: flatten the *visible* tree in render order so arrow keys
+  // can walk it like a real IDE explorer.
+  type FlatRow =
+    | { kind: "folder"; id: number; depth: number; hasChildren: boolean; folder: FolderNode }
+    | { kind: "file"; id: number; depth: number; file: FileNode };
+  const flat = useMemo<FlatRow[]>(() => {
+    const out: FlatRow[] = [];
+    const walk = (f: FolderNode, depth: number) => {
+      const kids = childFolders[f.id] ?? [];
+      const files = folderFiles[f.id] ?? [];
+      out.push({ kind: "folder", id: f.id, depth, hasChildren: !!(kids.length || files.length), folder: f });
+      if (expanded[f.id]) {
+        kids.forEach((k) => walk(k, depth + 1));
+        files.forEach((fl) => out.push({ kind: "file", id: fl.id, depth: depth + 1, file: fl }));
+      }
+    };
+    rootFolders.forEach((f) => walk(f, 0));
+    rootFiles.forEach((fl) => out.push({ kind: "file", id: fl.id, depth: 0, file: fl }));
+    return out;
+  }, [childFolders, folderFiles, rootFolders, rootFiles, expanded]);
+
+  const [focusIdx, setFocusIdx] = useState(0);
+  useEffect(() => {
+    if (focusIdx > flat.length - 1) setFocusIdx(Math.max(0, flat.length - 1));
+  }, [flat.length, focusIdx]);
+  useEffect(() => {
+    document.querySelector('[data-tree-focus="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [focusIdx]);
+  const focusKey = flat[focusIdx] ? `${flat[focusIdx].kind}${flat[focusIdx].id}` : "";
+
+  const onTreeKey = (e: { key: string; preventDefault: () => void }) => {
+    const r = flat[focusIdx];
+    if (e.key === "ArrowDown") { e.preventDefault(); setFocusIdx((i) => Math.min(flat.length - 1, i + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setFocusIdx((i) => Math.max(0, i - 1)); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      if (r?.kind === "file") setSelected(r.file);
+      else if (r?.kind === "folder") setExpanded((x) => ({ ...x, [r.id]: !x[r.id] }));
+    } else if (e.key === "ArrowRight" && r?.kind === "folder") {
+      if (r.hasChildren && !expanded[r.id]) { e.preventDefault(); setExpanded((x) => ({ ...x, [r.id]: true })); }
+      else { e.preventDefault(); setFocusIdx((i) => Math.min(flat.length - 1, i + 1)); }
+    } else if (e.key === "ArrowLeft" && r?.kind === "folder" && expanded[r.id]) {
+      e.preventDefault();
+      setExpanded((x) => ({ ...x, [r.id]: false }));
+    }
+  };
+
   if (isLoading) return <p className="text-sm text-stone-400">Loading files…</p>;
   if (error || !data) return <p className="text-sm text-red-600">Couldn't load the file tree.</p>;
 
   const fileRow = (f: FileNode, depth: number) => (
     <button
       key={`f${f.id}`}
-      onClick={() => setSelected(f)}
+      data-tree-focus={focusKey === `file${f.id}`}
+      onClick={() => { setSelected(f); setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); }}
       style={{ paddingLeft: depth * 16 + 8 }}
-      className={`flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-sm hover:bg-stone-50 ${selected?.id === f.id ? "bg-indigo-50 text-indigo-700" : "text-stone-700"}`}
+      className={`flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-sm hover:bg-stone-50 ${focusKey === `file${f.id}` ? "ring-1 ring-indigo-300" : ""} ${selected?.id === f.id ? "bg-indigo-50 text-indigo-700" : "text-stone-700"}`}
     >
       <Icon kind={f.kind || "other"} name={f.name} />
       <span className="min-w-0 flex-1 truncate">{f.name}</span>
@@ -354,9 +402,10 @@ export default function Files() {
     return (
       <div key={`d${folder.id}`}>
         <button
-          onClick={() => setExpanded((e) => ({ ...e, [folder.id]: !e[folder.id] }))}
+          data-tree-focus={focusKey === `folder${folder.id}`}
+          onClick={() => { setExpanded((e) => ({ ...e, [folder.id]: !e[folder.id] })); setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); }}
           style={{ paddingLeft: depth * 16 + 8 }}
-          className="flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-sm text-stone-700 hover:bg-stone-50"
+          className={`flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-sm text-stone-700 hover:bg-stone-50 ${focusKey === `folder${folder.id}` ? "ring-1 ring-indigo-300" : ""}`}
         >
           <span className="w-3 shrink-0 text-xs text-stone-400">{kids.length || files.length ? (open ? "▾" : "▸") : ""}</span>
           <Icon kind="folder" open={open} />
@@ -426,7 +475,11 @@ export default function Files() {
 
       <div className="grid grid-cols-3 gap-3">
         <div
-          className={`card col-span-1 max-h-[75vh] overflow-y-auto ${dragging ? "ring-2 ring-indigo-400" : ""}`}
+          tabIndex={0}
+          onKeyDown={onTreeKey}
+          role="tree"
+          aria-label="Project files"
+          className={`card col-span-1 max-h-[75vh] overflow-y-auto focus:outline-none focus:ring-1 focus:ring-indigo-200 ${dragging ? "ring-2 ring-indigo-400" : ""}`}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={(e) => {

@@ -533,6 +533,18 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-06-13 — [REV] Files explorer keyboard navigation
+
+[REV] cycle (cadence: 1 per 10): made the workspace tree keyboard-drivable like a real
+IDE explorer, building on Ctrl-P quick-open. The visible tree is flattened in render order
+(folders + their expanded children/files), an arrow layer walks it: ↑/↓ move the focus
+ring, → expands a collapsed folder (or steps in), ← collapses, Enter opens a file or
+toggles a folder. The tree pane is role="tree", focusable, with a focus ring + scroll-into-
+view; clicking a row also syncs the keyboard focus. Pure client-side, no new endpoint.
+Verified live (focus → navigate to manuscript-8 → ArrowRight expands → Enter opens main.tex).
+
+
+
 ### 2026-06-13 — Unified tree via live mirror, not a source-of-truth rewrite (Owner #30, slice 1c-ii-B2)
 
 The plan's slice 1c imagined flipping the manuscript editor/compile/API to read Documents
@@ -697,6 +709,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+167. Type-to-select in the Files tree — pressing a letter jumps focus to the next sibling starting with it (Finder/VS Code behavior), complementing the arrow nav + Ctrl-P (idea added during the [REV])
 166. Extend .card-title to the editor-rail/research-panel labels with a tight variant (.card-title-tight, no mb) so the editor panels share the token too without spacing drift (idea added during #155)
 165. Density pass on the library/literature index + documents tables — the remaining #25 surfaces after the writing board; widen + .card tokens + tighter rhythm (idea added during the writing-board density pass)
 164. Audit-cadence note in PROGRESS — track 'milestones since last audit' explicitly so AUDIT #17 timing is unambiguous after the rollback-scrambled milestone numbering (idea added by AUDIT #16)
