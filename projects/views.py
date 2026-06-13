@@ -71,8 +71,8 @@ def project_overview(request, slug):
             "decision_count": project.decisions.count(),
             "question_count": project.questions.count(),
             "phase_count": project.phases.count(),
-            "recent_documents": project.documents.all()[:5],
-            "document_count": project.documents.count(),
+            "recent_documents": project.documents.general()[:5],
+            "document_count": project.documents.general().count(),
             "next_deadline_manuscript": project.manuscripts.filter(deadline__isnull=False)
             .exclude(status__in=["published", "shelved"])
             .order_by("deadline")

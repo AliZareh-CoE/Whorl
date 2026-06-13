@@ -32,7 +32,7 @@ class EvidenceForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["reference"].queryset = Reference.objects.filter(project_links__project=project)
         self.fields["note"].queryset = project.notes.all()
-        self.fields["document"].queryset = project.documents.all()
+        self.fields["document"].queryset = project.documents.general()
         for name in ("reference", "note", "document"):
             self.fields[name].required = False
 

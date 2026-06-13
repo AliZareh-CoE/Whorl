@@ -4,8 +4,17 @@ from .models import Folder
 
 
 def folder_tree(project: Project) -> list[dict]:
-    """Nested folder structure: [{"folder": f, "children": [...]}, ...] sorted by name."""
-    folders = list(project.folders.all())
+    """Nested folder structure: [{"folder": f, "children": [...]}, ...] sorted by name.
+
+    Manuscript root folders (and their subtrees) are hidden from the general Documents
+    tree — they belong to the manuscript workbench / the slice-2 explorer (epic #30).
+    """
+    manuscript_roots = set(
+        project.manuscripts.exclude(root_folder__isnull=True).values_list(
+            "root_folder_id", flat=True
+        )
+    )
+    folders = [f for f in project.folders.all() if f.pk not in manuscript_roots]
     by_parent: dict[int | None, list[Folder]] = {}
     for folder in folders:
         by_parent.setdefault(folder.parent_id, []).append(folder)

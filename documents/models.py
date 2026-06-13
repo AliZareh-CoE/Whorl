@@ -67,6 +67,13 @@ def project_document_path(instance, filename):
     return f"projects/{instance.project.slug}/documents/{filename}"
 
 
+class DocumentQuerySet(models.QuerySet):
+    def general(self):
+        """Exclude unified-tree nodes that belong to a manuscript's source set, so the
+        general Documents UI / counts don't surface them (file-workspace epic #30)."""
+        return self.filter(role="general")
+
+
 class Document(TimeStampedModel):
     # File-workspace epic (Owner #30), slice 1a: Document grows into the unified
     # tree node. These fields are additive and inert until later slices wire them
@@ -90,6 +97,8 @@ class Document(TimeStampedModel):
     rel_path = models.CharField(max_length=300, blank=True)  # path from project root
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.GENERAL)
     kind = models.CharField(max_length=10, blank=True)  # tex/bib/asset/other (kind_for_node_path)
+
+    objects = DocumentQuerySet.as_manager()
 
     class Meta:
         ordering = ["-created_at"]

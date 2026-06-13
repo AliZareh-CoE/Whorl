@@ -61,7 +61,7 @@ def documents_index(request, slug):
     if request.GET.get("folder"):
         current_folder = get_object_or_404(project.folders, pk=request.GET["folder"])
 
-    documents = project.documents.select_related("folder").prefetch_related("tags")
+    documents = project.documents.general().select_related("folder").prefetch_related("tags")
     if current_folder:
         documents = documents.filter(folder=current_folder)
     elif "all" not in request.GET:

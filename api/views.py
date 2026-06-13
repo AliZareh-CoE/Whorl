@@ -150,7 +150,7 @@ class ProjectViewSet(AtlasViewSet):
                     for m in plan_selectors.upcoming_milestones(project)
                 ],
                 "counts": {
-                    "documents": project.documents.count(),
+                    "documents": project.documents.general().count(),
                     "decisions": project.decisions.count(),
                     "questions": project.questions.count(),
                     "references": project.project_references.count(),
@@ -166,7 +166,7 @@ class ProjectViewSet(AtlasViewSet):
                         "added": d.created_at.strftime("%Y-%m-%d"),
                         "url": reverse("documents:download", args=[project.slug, d.pk]),
                     }
-                    for d in project.documents.order_by("-created_at")[:5]
+                    for d in project.documents.general().order_by("-created_at")[:5]
                 ],
                 "recent_decisions": [
                     {
@@ -254,7 +254,7 @@ class ProjectViewSet(AtlasViewSet):
         from documents.views import documents_table_props
 
         project = self.get_object()
-        documents = project.documents.select_related("folder").prefetch_related("tags")
+        documents = project.documents.general().select_related("folder").prefetch_related("tags")
         if request.query_params.get("folder"):
             documents = documents.filter(folder_id=request.query_params["folder"])
         return Response(documents_table_props(project, documents))

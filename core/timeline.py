@@ -99,7 +99,7 @@ def project_timeline(project) -> list[dict]:
             }
         )
 
-    for document in project.documents.all():
+    for document in project.documents.general():
         events.append(
             {
                 "date": document.created_at.date().isoformat(),
