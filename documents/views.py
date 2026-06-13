@@ -86,6 +86,9 @@ def documents_index(request, slug):
             "show_all": "all" in request.GET,
             "tags": tags,
             "island_props": island_props,
+            # one shared folder list for every row's move-<select> (avoids an N+1
+            # that re-queried project.folders per document row — AUDIT #17 / #180)
+            "folders": list(project.folders.all()),
         },
     )
 

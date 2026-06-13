@@ -12,7 +12,9 @@
             name="folder" title="Move to folder"
             class="max-w-36 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs text-stone-500 hover:border-stone-300">
       <option value="" {% if not doc.folder %}selected{% endif %}>— root</option>
-      {% for folder in project.folders.all %}
+      {# `folders` comes from the index view as one cached list (#180); HTMX single-row
+         swaps render this partial without it and fall back to a single query. #}
+      {% for folder in folders|default:project.folders.all %}
         <option value="{{ folder.pk }}" {% if doc.folder_id == folder.pk %}selected{% endif %}>{{ folder.name }}</option>
       {% endfor %}
     </select>

@@ -39,6 +39,21 @@ class TestQueryBudgets:
             response = client_logged_in.get(reverse("literature:index"))
         assert response.status_code == 200
 
+    def test_documents_index_constant_queries(
+        self, client_logged_in, django_assert_max_num_queries
+    ):
+        # the per-row move-<select> used to re-query project.folders per document (#180);
+        # with several folders and many documents the page must stay within a flat budget.
+        from documents.tests.factories import DocumentFactory, FolderFactory
+
+        project = ProjectFactory()
+        FolderFactory.create_batch(5, project=project)
+        DocumentFactory.create_batch(15, project=project)
+        url = reverse("documents:index", args=[project.slug]) + "?all=1"
+        with django_assert_max_num_queries(18):
+            response = client_logged_in.get(url)
+        assert response.status_code == 200
+
     def test_project_overview_budget(self, client_logged_in, django_assert_max_num_queries):
         project = build_busy_project()
         with django_assert_max_num_queries(18):
