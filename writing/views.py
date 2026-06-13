@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -144,6 +145,7 @@ def latex_editor(request, slug, pk):
                 "statusUrl": reverse("writing:compile_status", args=[slug, manuscript.pk]),
                 "hasPdf": bool(manuscript.compiled_pdf),
                 "pdfUrl": manuscript.compiled_pdf.url if manuscript.compiled_pdf else "",
+                "pdfjsBase": staticfiles_storage.url("vendor/pdfjs/"),  # vendored, no CDN
                 "compileRunning": manuscript.compile_status == "running",
                 # workbench (slice 6)
                 "filesUrl": reverse("writing:files", args=[slug, manuscript.pk]),

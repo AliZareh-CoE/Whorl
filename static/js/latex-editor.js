@@ -675,7 +675,7 @@ import { mountEditor, Split } from "./latex-editor-cm6.js";
   const pageIndicator = document.getElementById("page-indicator");
   const zoomLabel = document.getElementById("zoom-label");
 
-  const PDFJS = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/";
+  const PDFJS = (cfg && cfg.pdfjsBase) || "/static/vendor/pdfjs/"; // vendored, no CDN
   let pdfjsLib = null;
   let pdfDoc = null;
   let fitWidth = localStorage.getItem("atlas-editor-zoom") !== "manual";
