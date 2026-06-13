@@ -110,7 +110,8 @@ claude mcp add atlas \
 Tools: `list_projects`, `get_project_overview`, `get_plan`, `complete_milestone`,
 `list_documents`, `search`, `add_reference_by_doi`, `get_reading_queue`,
 `set_reading_status`, `add_note`, `quick_capture`, `run_bib_check`, `list_prompts`,
-`get_prompt`, `get_review_matrix`, `get_weekly_review`, `get_synthesis_scaffold`.
+`get_prompt`, `get_review_matrix`, `get_weekly_review`, `get_synthesis_scaffold`,
+`list_project_templates`, `create_project`, `list_project_files`, `read_project_file`, `write_project_file`.
 
 Smoke-test conversation script (after `seed_demo`):
 
@@ -119,6 +120,36 @@ Smoke-test conversation script (after `seed_demo`):
 3. *"Check off the 'Pilot data collected' milestone"* → get_plan for the id, then complete_milestone; progress moves 3/9 → 4/9.
 4. *"Add 10.1038/nature12373 to that project"* → add_reference_by_doi; appears in the reading queue.
 5. *"Capture: email co-author about revisions"* → quick_capture; visible in the Inbox.
+
+## File workspace, desktop app & terminal
+
+Every project has a **Files** page (in the SPA subnav): one unified tree holding your
+documents *and* your manuscript/LaTeX sources together, kept live. Click any file to open
+it in-app — text/code/Markdown in a viewer, PDFs via the (locally vendored) pdf.js, CSVs
+as a table, images inline. You can edit text in place, create folders, rename, delete,
+drag-drop to upload, move files between folders, and jump to any file with **Ctrl/Cmd-P**.
+It is machine-friendly too: `list_project_files`, `read_project_file`, `write_project_file`,
+`create_project`, and `list_project_templates` are MCP tools.
+
+**Project templates** scaffold an organized layout on creation — pick *Empirical study*,
+*Theory / review paper*, *Software / dataset project*, or *Minimal* (literature/, data/,
+analysis/, manuscript/, notes/ ...), or **save any project's structure as your own template**.
+
+### Desktop app (Tauri)
+
+Atlas can run as a native desktop app that wraps the local server — and there it gains a
+**built-in terminal** (a real PTY) and **Open from disk** (a native file picker). The web app
+stays the single source of truth. Build it on your machine:
+
+```bash
+cd desktop
+cargo install tauri-cli --version "^2"   # one-time
+make desktop          # dev run (Atlas must be running)
+make desktop-build    # packaged binary -> desktop/target/release/bundle/
+```
+
+See `desktop/README.md` for per-OS prerequisites (Rust + a system webview). The terminal and
+disk access are desktop-only and are never exposed through the web API or MCP.
 
 ## How Atlas compares
 
