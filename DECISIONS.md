@@ -533,6 +533,27 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-06-13 — Unified tree via live mirror, not a source-of-truth rewrite (Owner #30, slice 1c-ii-B2)
+
+The plan's slice 1c imagined flipping the manuscript editor/compile/API to read Documents
+and demoting ManuscriptFile to a shadow. Doing that means rewriting the compile tree-writer,
+the revisions snapshot, and — riskiest — the manuscript-files DRF serializer (a ModelSerializer
+over ManuscriptFile) into a Document-backed serializer with byte-identical JSON, all under the
+six-MCP-tool contract. High risk, and the owner's actual ask ("see all my files in one tree,
+open any file") doesn't require it.
+
+DECISION: keep ManuscriptFile as the canonical store for the editor/compile/API/MCP (contract
+untouched, all tests trivially green) and MIRROR every ManuscriptFile write into the unified
+Document tree via post_save/post_delete signals (writing/signals.py -> resync_manuscript_tree).
+Same dual-store pattern as the long-stable latex_source<->main-file alias. B1's general() scoping
+keeps the mirrored nodes out of the general Documents UI, so the slice-2 explorer can show the
+WHOLE tree (general + manuscript-source, live) while nothing else changes. Rejected the pure flip
+as gold-plating for a single-user app; if a true single source of truth is ever wanted it can come
+later. The frozen contract tests (1c-i) stayed byte-identical through this — proof the editor/MCP
+see no difference.
+
+
+
 ### 2026-06-12 — File-workspace epic slice 1a: paths module + ProjectFile fields (Owner #30)
 
 First sub-step of the unified-tree slice 1, deliberately sized small + green-pushable after

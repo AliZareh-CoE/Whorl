@@ -1,15 +1,16 @@
-"""Materialize a manuscript's ManuscriptFile rows into the unified Document tree.
+"""Keep a manuscript's unified-tree mirror in sync with its ManuscriptFile rows.
 
-File-workspace epic (Owner #30), slice 1c-ii-A. Called by the data migration (with
-historical model classes) and by tests (with the real classes). The nodes it writes
-are INERT until slice 1c-ii-B flips the readers — nothing reads them yet, so this
-copy is purely additive and reversible.
+File-workspace epic (Owner #30), slice 1c-ii. A manuscript's source files live
+canonically as ManuscriptFile rows (the compile pipeline, the workbench API, and the
+six MCP tools all read/write them). This module mirrors them into the unified Document
+tree so the file workspace / explorer (slice 2) shows them live alongside general
+documents — the same dual-store pattern as the latex_source<->main-file alias.
 
-Each manuscript gets a root folder ``manuscript-<pk>`` at the project root; every
-ManuscriptFile becomes a Document node under it (creating intermediate folders for
-nested paths), with ``rel_path`` = ``manuscript-<pk>/<file path>``, ``role`` =
-``manuscript_source``, ``kind`` copied from the source, text in ``content`` and
-binary bytes copied into ``file``.
+``resync_manuscript_tree`` is the one entry point: it ensures the ``manuscript-<pk>``
+root folder, upserts a Document node per ManuscriptFile (content for text, bytes for
+assets, intermediate folders for nested paths), prunes nodes whose source file is gone
+(renames/deletes), and links ``Manuscript.main_file_node``. It is model-class-injected
+so the data migration uses historical models and signals/tests use the real ones.
 """
 
 MANUSCRIPT_SOURCE = "manuscript_source"
@@ -19,17 +20,13 @@ def root_folder_name(manuscript_pk: int) -> str:
     return f"manuscript-{manuscript_pk}"
 
 
-def materialize_manuscript_tree(manuscript, *, Folder, Document):
-    """Create (idempotently) the Document tree mirroring ``manuscript.files``.
-
-    Returns ``(root_folder, main_node)``. Safe to re-run: nodes are keyed by
-    ``(project, rel_path)`` via get_or_create.
-    """
+def resync_manuscript_tree(manuscript, *, Folder, Document):
+    """Make the Document tree mirror ``manuscript.files`` exactly. Returns (root, main)."""
     project = manuscript.project
     root_name = root_folder_name(manuscript.pk)
     root, _ = Folder.objects.get_or_create(project=project, parent=None, name=root_name)
 
-    main_node = None
+    desired: dict[str, tuple] = {}
     for mf in manuscript.files.all():
         *dirs, filename = mf.path.split("/")
         folder = root
@@ -38,9 +35,16 @@ def materialize_manuscript_tree(manuscript, *, Folder, Document):
             folder, _ = Folder.objects.get_or_create(project=project, parent=folder, name=segment)
             rel_parts.append(segment)
         rel_parts.append(filename)
-        rel_path = "/".join(rel_parts)
+        desired["/".join(rel_parts)] = (mf, folder, filename)
 
-        node, _ = Document.objects.get_or_create(
+    # prune nodes whose source file no longer exists (renames, deletes)
+    Document.objects.filter(
+        project=project, role=MANUSCRIPT_SOURCE, rel_path__startswith=root_name + "/"
+    ).exclude(rel_path__in=desired).delete()
+
+    main_node = None
+    for rel_path, (mf, folder, filename) in desired.items():
+        node, created = Document.objects.get_or_create(
             project=project,
             rel_path=rel_path,
             defaults={
@@ -51,7 +55,21 @@ def materialize_manuscript_tree(manuscript, *, Folder, Document):
                 "content": mf.content or "",
             },
         )
-        # copy binary bytes for asset nodes (text lives in content)
+        if not created:
+            updates = {}
+            if node.content != (mf.content or ""):
+                updates["content"] = mf.content or ""
+            if node.kind != (mf.kind or ""):
+                updates["kind"] = mf.kind or ""
+            if node.folder_id != folder.pk:
+                updates["folder"] = folder
+            if node.role != MANUSCRIPT_SOURCE:
+                updates["role"] = MANUSCRIPT_SOURCE
+            if updates:
+                for field, value in updates.items():
+                    setattr(node, field, value)
+                node.save(update_fields=[*updates, "updated_at"])
+
         asset = getattr(mf, "asset", None)
         if asset and not node.file:
             node.file.save(filename, asset.file, save=False)
@@ -62,6 +80,10 @@ def materialize_manuscript_tree(manuscript, *, Folder, Document):
     return root, main_node
 
 
+# back-compat name for the slice 1c-ii-A migration (create + link; resync is a superset).
+materialize_manuscript_tree = resync_manuscript_tree
+
+
 def dematerialize_manuscript_tree(manuscript, *, Folder, Document):
     """Reverse: drop the manuscript's source nodes + its root folder subtree."""
     root_name = root_folder_name(manuscript.pk)
@@ -69,5 +91,4 @@ def dematerialize_manuscript_tree(manuscript, *, Folder, Document):
     if root is None:
         return
     Document.objects.filter(rel_path__startswith=root_name + "/").delete()
-    # delete the folder subtree (children first via cascade on Folder.parent)
     root.delete()
