@@ -123,9 +123,39 @@ class ProjectViewSet(AtlasViewSet):
     )
     @action(detail=False, methods=["get"], url_path="templates")
     def templates(self, request):
+        from projects.models import ProjectTemplate
         from projects.project_templates import template_list
 
-        return Response(template_list())
+        items = template_list()  # built-in (code) scaffolds
+        for t in ProjectTemplate.objects.all():  # user-saved
+            items.append(
+                {
+                    "key": t.name,
+                    "name": t.name,
+                    "description": t.description,
+                    "folders": t.structure.get("folders", []),
+                    "saved": True,
+                }
+            )
+        return Response(items)
+
+    @extend_schema(
+        request=None,
+        responses={201: OpenApiResponse(description="Saved a reusable template")},
+        description="Snapshot this project's general folder/file structure as a reusable "
+        "user template (file-workspace epic): POST {name, description}.",
+    )
+    @action(detail=True, methods=["post"], url_path="save-template")
+    def save_template(self, request, slug=None):
+        from projects.services import save_project_as_template
+
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            return Response({"detail": "A template name is required."}, status=400)
+        template = save_project_as_template(
+            self.get_object(), name, request.data.get("description", "")
+        )
+        return Response({"name": template.name, "structure": template.structure}, status=201)
 
     @extend_schema(
         responses={

@@ -66,3 +66,22 @@ class DecisionRecord(TimeStampedModel):
 
     def __str__(self):
         return self.title
+
+
+class ProjectTemplate(TimeStampedModel):
+    """A user-saved project scaffold (file-workspace epic #30, slice 8).
+
+    Snapshot of a project's general folder/file structure, reusable when creating new
+    projects. Built-in templates live in code (project_templates.py); these are the
+    user-extensible ones. `structure` = {"folders": [...], "files": {path: content}}.
+    """
+
+    name = models.CharField(max_length=120, unique=True)
+    description = models.TextField(blank=True)
+    structure = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name

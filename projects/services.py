@@ -1,4 +1,4 @@
-"""Project services (file-workspace epic #30, slice 7): scaffold from a template."""
+"""Project services (file-workspace epic #30, slice 7-8): scaffold + snapshot templates."""
 
 from documents.models import Document, Folder
 from documents.paths import kind_for_node_path, validate_workspace_name
@@ -15,39 +15,100 @@ def _ensure_folder_path(project, segments):
     return parent
 
 
-def instantiate_template(project, key: str) -> dict:
-    """Lay down a template's folders + starter files in `project`. Idempotent.
-
-    Returns a small summary {folders, files}. Unknown/blank key is a no-op.
-    """
-    template = TEMPLATES.get(key)
-    if not template:
-        return {"folders": 0, "files": 0}
-
+def instantiate_structure(project, structure: dict) -> dict:
+    """Lay down a {folders, files} structure in `project`. Idempotent. Returns a summary."""
     made_folders = 0
-    for path in template["folders"]:
+    for path in structure.get("folders", []):
         before = Folder.objects.filter(project=project).count()
         _ensure_folder_path(project, path.split("/"))
         made_folders += Folder.objects.filter(project=project).count() - before
 
     made_files = 0
-    for path, body in template["files"].items():
+    for path, body in structure.get("files", {}).items():
         *dirs, filename = path.split("/")
         validate_workspace_name(filename)
         folder = _ensure_folder_path(project, dirs) if dirs else None
-        rel_path = path
-        content = body.format(name=project.name)
+        body = body or ""
+        content = body.format(name=project.name) if "{name}" in body else body
         _, created = Document.objects.get_or_create(
             project=project,
-            rel_path=rel_path,
+            rel_path=path,
             defaults={
                 "folder": folder,
                 "title": filename,
                 "role": Document.Role.GENERAL,
-                "kind": kind_for_node_path(rel_path),
+                "kind": kind_for_node_path(path),
                 "content": content,
             },
         )
         made_files += int(created)
 
     return {"folders": made_folders, "files": made_files}
+
+
+def instantiate_template(project, key: str) -> dict:
+    """Scaffold from a built-in (code) template by key, OR a user ProjectTemplate by name."""
+    template = TEMPLATES.get(key)
+    if template:
+        return instantiate_structure(project, template)
+
+    from .models import ProjectTemplate
+
+    saved = ProjectTemplate.objects.filter(name=key).first()
+    if saved:
+        return instantiate_structure(project, saved.structure)
+    return {"folders": 0, "files": 0}
+
+
+# Cap a saved file's content so snapshots stay light (larger files become empty placeholders).
+SNAPSHOT_FILE_CAP = 64 * 1024
+
+
+def snapshot_project_structure(project) -> dict:
+    """Capture a project's GENERAL folders + text files as a reusable structure dict.
+
+    Manuscript folders/sources are excluded — they're owned by the editor/mirror, not
+    part of a reusable scaffold.
+    """
+    manuscript_roots = set(
+        project.manuscripts.exclude(root_folder__isnull=True).values_list(
+            "root_folder_id", flat=True
+        )
+    )
+
+    def _under_manuscript(folder):
+        node = folder
+        while node is not None:
+            if node.pk in manuscript_roots:
+                return True
+            node = node.parent
+        return False
+
+    folders = []
+    for folder in project.folders.all():
+        if _under_manuscript(folder):
+            continue
+        parts, node = [], folder
+        while node is not None:
+            parts.append(node.name)
+            node = node.parent
+        folders.append("/".join(reversed(parts)))
+
+    files = {}
+    for doc in project.documents.general():
+        if not doc.rel_path:
+            continue
+        content = doc.content or ""
+        files[doc.rel_path] = content if len(content) <= SNAPSHOT_FILE_CAP else ""
+    return {"folders": sorted(folders), "files": files}
+
+
+def save_project_as_template(project, name: str, description: str = ""):
+    """Snapshot `project` into a (new or updated) user ProjectTemplate."""
+    from .models import ProjectTemplate
+
+    template, _ = ProjectTemplate.objects.update_or_create(
+        name=name,
+        defaults={"description": description, "structure": snapshot_project_structure(project)},
+    )
+    return template

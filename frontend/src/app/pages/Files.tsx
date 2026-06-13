@@ -209,6 +209,15 @@ export default function Files() {
       }),
     onSuccess: refreshTree,
   });
+  const saveTemplate = useMutation({
+    mutationFn: (name: string) =>
+      api(`/projects/${slug}/save-template/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => window.alert("Saved — pick it under Scaffold when creating a project."),
+  });
 
   const { childFolders, folderFiles, rootFolders, rootFiles } = useMemo(() => {
     const cf: Record<number, FolderNode[]> = {};
@@ -293,6 +302,16 @@ export default function Files() {
             className="text-xs text-stone-400 hover:text-indigo-700"
           >
             + Folder
+          </button>
+          <button
+            onClick={() => {
+              const name = window.prompt("Save this project's structure as a template named");
+              if (name) saveTemplate.mutate(name.trim());
+            }}
+            className="text-xs text-stone-400 hover:text-indigo-700"
+            title="Reuse this folder layout when creating new projects"
+          >
+            Save as template
           </button>
           <button
             onClick={() => setShowTerminal((v) => !v)}

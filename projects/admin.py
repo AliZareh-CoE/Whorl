@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import DecisionRecord, Project
+from .models import DecisionRecord, Project, ProjectTemplate
 
 
 @admin.register(Project)
@@ -16,3 +16,9 @@ class DecisionRecordAdmin(admin.ModelAdmin):
     list_display = ["title", "project", "decided_on", "created_at"]
     list_filter = ["project"]
     search_fields = ["title", "decision"]
+
+
+@admin.register(ProjectTemplate)
+class ProjectTemplateAdmin(admin.ModelAdmin):
+    list_display = ["name", "created_at"]
+    search_fields = ["name", "description"]
