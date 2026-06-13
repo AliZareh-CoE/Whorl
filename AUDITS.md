@@ -533,3 +533,28 @@ manuscript guards, validated paths — with two low-risk defense-in-depth items 
 
 ### Audit #15 follow-up (2026-06-13)
 - Finding 2 (desktop webview navigation) **#160 resolved**: the shell now restricts navigation to the Atlas host via WebviewWindowBuilder.on_navigation; off-origin navigation is rejected. cargo check passes; structural test guards it.
+
+## Audit #16 — 2026-06-13 (polish since #15: webview-nav, mood voice, reset-layout, lucide)
+
+Focused sweep of the work since AUDIT #15 (commits 07a9b42..4e74592). **Clean — no findings.**
+
+- **Desktop webview navigation (#160):** the shell's `on_navigation` origin-lock is in place
+  (only the Atlas host); cargo check passes. This was the audit-#15 hardening item — verified
+  shipped.
+- **Pet mood voice (#149):** `read_aloud` still 401/403 anonymous; MOOD_VOICES is volume-only
+  data composed with the stage params, no new input surface (mood derived server-side from
+  pet_state); Piper is a library call on capped text — no injection.
+- **Reset-layout (#150):** pure client-side — only removes `atlas-editor-*` localStorage keys
+  and reloads; no server endpoint, no user-data interpolation, no XSS surface.
+- **Dependencies:** lucide-react 0.469.0 (ISC) is the only addition since #15; all frontend
+  PRODUCTION deps remain MIT/ISC/Apache, pinned and bundled (no CDN). `npm audit --omit=dev`
+  = 0 vulnerabilities; `pip-audit` clean; `make audit` sweep clean (anon-401/302, key auth,
+  #77 catch-all, open-redirect all green).
+- **Performance:** in-process best-of-5 — classic dashboard 36 ms / 17 q, project overview
+  20 ms / 13 q, the file-tree endpoint 6 ms / 5 q, the editor page 11 ms / 7 q — all under
+  the 50 ms bar.
+- **Gates:** 654 tests, ruff check/format, tsc — all green.
+
+**Verdict:** healthy. The polish slices since #15 added no new attack surface and the desktop
+hardening from #15 is confirmed in place. Vite-8 (#159, dev-only esbuild advisory) remains the
+single open dependency item, deliberately deferred to its own careful cycle.

@@ -697,6 +697,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+164. Audit-cadence note in PROGRESS — track 'milestones since last audit' explicitly so AUDIT #17 timing is unambiguous after the rollback-scrambled milestone numbering (idea added by AUDIT #16)
 163. Reset-layout confirmation — Reset layout reloads immediately; a tiny inline confirm (or undo toast) would prevent an accidental wipe of a carefully-tuned arrangement (idea added during #150)
 162. Pet speaks its mood+stage blurb on hover/click — the voice now varies by mood; let the pet optionally read its mood_blurb so you hear the personality, not just a fixed line (idea added during #149)
 161. Lucide icons in the editor chrome + classic sidebar too — extend the lucide set (done in Files.tsx) to the rest of the app for one icon language everywhere (idea added during #146)
