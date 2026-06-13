@@ -448,11 +448,72 @@ class TagViewSet(AtlasViewSet):
     project_filter = "project__slug"
 
 
+# Inline-previewable binary types (file-workspace epic #30, slice 2c). Allowlist, not
+# blocklist — SVG is deliberately absent (inline SVG can execute script on our origin).
+INLINE_CONTENT_TYPES = {
+    "pdf": "application/pdf",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+}
+TEXT_PREVIEW_KINDS = {"tex", "bib", "other"}
+TEXT_PREVIEW_CAP = 1_000_000  # 1 MB of text
+
+
 class DocumentViewSet(AtlasViewSet):
     queryset = Document.objects.all()
     serializer_class = serializers.DocumentSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     project_filter = "project__slug"
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Text content of a file node")},
+        description="UTF-8 text of a previewable file node (text kinds) for the workspace "
+        "viewer — inline content for tree nodes, decoded file bytes for uploaded text.",
+    )
+    @action(detail=True, methods=["get"])
+    def content(self, request, pk=None):
+        doc = self.get_object()
+        if doc.content:
+            text = doc.content
+        elif doc.kind in TEXT_PREVIEW_KINDS and doc.file:
+            try:
+                text = doc.file.read().decode("utf-8")
+            except (UnicodeDecodeError, OSError):
+                return Response({"detail": "Not a UTF-8 text file."}, status=415)
+        else:
+            return Response({"detail": "No text preview for this file."}, status=415)
+        return Response(
+            {
+                "id": doc.id,
+                "rel_path": doc.rel_path,
+                "kind": doc.kind,
+                "content": text[:TEXT_PREVIEW_CAP],
+                "truncated": len(text) > TEXT_PREVIEW_CAP,
+            }
+        )
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Raw file bytes, inline")},
+        description="Raw bytes of an image/PDF file node, inline, for the workspace preview. "
+        "Allowlisted content types only (no SVG); nosniff.",
+    )
+    @action(detail=True, methods=["get"])
+    def raw(self, request, pk=None):
+        from django.http import FileResponse, Http404
+
+        doc = self.get_object()
+        ext = (doc.rel_path or doc.file.name if doc.file else "").rsplit(".", 1)
+        suffix = ext[-1].lower() if len(ext) == 2 else ""
+        content_type = INLINE_CONTENT_TYPES.get(suffix)
+        if not doc.file or content_type is None:
+            raise Http404("Not inline-previewable.")
+        response = FileResponse(doc.file.open("rb"), content_type=content_type)
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Disposition"] = "inline"
+        return response
 
 
 class ReferenceViewSet(AtlasViewSet):
