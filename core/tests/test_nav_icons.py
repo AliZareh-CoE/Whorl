@@ -15,9 +15,24 @@ from django.urls import reverse
 
 TEMPLATES = Path(settings.BASE_DIR) / "templates"
 BASE = TEMPLATES / "base.html"
+SUBNAV = TEMPLATES / "projects" / "_subnav.html"
 PARTIAL = TEMPLATES / "core" / "_nav_icon.html"
 
 NAV_ICONS = ("dashboard", "projects", "library", "writing", "prompts", "inbox", "assistant", "menu")
+# project context subnav (#173): Literature reuses the library glyph
+SUBNAV_ICONS = (
+    "overview",
+    "plan",
+    "documents",
+    "library",
+    "questions",
+    "writing",
+    "notes",
+    "research",
+    "graph",
+    "decisions",
+    "edit",
+)
 
 
 def test_base_includes_a_nav_icon_for_every_primary_item():
@@ -28,8 +43,14 @@ def test_base_includes_a_nav_icon_for_every_primary_item():
 
 def test_partial_defines_each_named_glyph():
     text = PARTIAL.read_text()
-    for name in NAV_ICONS:
+    for name in {*NAV_ICONS, *SUBNAV_ICONS}:
         assert f'name == "{name}"' in text, f"_nav_icon.html has no glyph for {name}"
+
+
+def test_subnav_includes_an_icon_for_every_tab():
+    text = SUBNAV.read_text()
+    for name in SUBNAV_ICONS:
+        assert f'_nav_icon.html" with name="{name}"' in text, f"_subnav.html lost the {name} icon"
 
 
 def test_no_bare_emoji_nav_glyphs_remain():
