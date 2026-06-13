@@ -30,6 +30,15 @@ class ProjectCreateView(CreateView):
     model = Project
     form_class = ProjectForm
 
+    def form_valid(self, response):
+        result = super().form_valid(response)
+        starter = self.request.POST.get("starter")
+        if starter:
+            from .services import instantiate_template
+
+            instantiate_template(self.object, starter)
+        return result
+
 
 class ProjectUpdateView(UpdateView):
     model = Project

@@ -107,6 +107,26 @@ class ProjectViewSet(AtlasViewSet):
     serializer_class = serializers.ProjectSerializer
     lookup_field = "slug"
 
+    def perform_create(self, serializer):
+        project = serializer.save()
+        # optional scaffold (file-workspace epic #30, slice 7)
+        template = self.request.data.get("template")
+        if template:
+            from projects.services import instantiate_template
+
+            instantiate_template(project, template)
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Available project scaffolds")},
+        description="Project templates that scaffold an organized folder structure on "
+        "creation (POST /projects/ with an optional `template` key).",
+    )
+    @action(detail=False, methods=["get"], url_path="templates")
+    def templates(self, request):
+        from projects.project_templates import template_list
+
+        return Response(template_list())
+
     @extend_schema(
         responses={
             200: OpenApiResponse(description="Knowledge graph: {nodes: [...], links: [...]}")

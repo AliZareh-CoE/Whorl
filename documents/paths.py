@@ -44,6 +44,17 @@ def validate_manuscript_path(path: str) -> str:
     return path
 
 
+def validate_workspace_name(name: str) -> str:
+    """A single folder/file name in the workspace tree — the strict per-segment rule.
+
+    Same charset as manuscript paths (ASCII, no dot-leading, no slashes) applied to one
+    name, used by folder create/rename and template instantiation.
+    """
+    if not name or not PATH_SEGMENT_RE.match(name):
+        raise ValidationError(f"Invalid name: {name!r}")
+    return name
+
+
 TEX_EXTENSIONS = {".tex", ".sty", ".cls", ".bst"}
 
 # Text-ish extensions that the unified tree can open in the editor (GENERAL nodes).

@@ -9,6 +9,18 @@ INPUT = (
 
 
 class ProjectForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .project_templates import template_choices
+
+        self.fields["starter"] = forms.ChoiceField(
+            choices=template_choices(),
+            required=False,
+            label="Scaffold",
+            widget=forms.Select(attrs={"class": INPUT}),
+            help_text="Optionally lay down an organized folder structure.",
+        )
+
     class Meta:
         model = Project
         fields = ["name", "description", "status", "color", "position"]
