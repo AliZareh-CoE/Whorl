@@ -27,7 +27,7 @@
   </article>
   <aside class="w-64 shrink-0 space-y-4">
     <section class="card">
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">Backlinks</h2>
+      <h2 class="card-title">Backlinks</h2>
       {% if backlinks %}
         <ul class="space-y-1 text-sm">
           {% for source in backlinks %}
@@ -40,7 +40,7 @@
     </section>
     {% if outgoing %}
       <section class="card">
-        <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">Links to</h2>
+        <h2 class="card-title">Links to</h2>
         <ul class="space-y-1 text-sm">
           {% for target in outgoing %}
             <li><a href="{{ target.get_absolute_url }}" class="hover:underline">{{ target.title }}</a></li>
@@ -50,7 +50,7 @@
     {% endif %}
     {% if note.references.all %}
       <section class="card">
-        <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">References</h2>
+        <h2 class="card-title">References</h2>
         <ul class="space-y-1 text-sm">
           {% for ref in note.references.all %}
             <li><a href="{{ ref.get_absolute_url }}" class="font-mono text-xs hover:underline">{{ ref.bibtex_key }}</a></li>
@@ -60,7 +60,7 @@
     {% endif %}
     {% if keywords %}
       <section class="card">
-        <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-stone-400">Keywords</h2>
+        <h2 class="card-title">Keywords</h2>
         <div class="flex flex-wrap gap-1.5">
           {% for keyword in keywords %}
             <a href="{% url 'core:search' %}?q={{ keyword|urlencode }}"
