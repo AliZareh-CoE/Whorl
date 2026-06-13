@@ -709,7 +709,9 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
-167. Type-to-select in the Files tree — pressing a letter jumps focus to the next sibling starting with it (Finder/VS Code behavior), complementing the arrow nav + Ctrl-P (idea added during the [REV])
+169. Cancel typeahead on focus leave / Escape — clearing the buffer when the tree loses focus or Escape is pressed avoids a surprise jump if you return to the tree after a pause shorter than the 800ms window (idea added during #167)
+168. Show the active typeahead buffer as a tiny inline hint near the tree (e.g. a faint "ana…" pill) so you can see what you've typed when several names share a prefix (idea added during #167)
+167. ~~Type-to-select in the Files tree (done 2026-06-13): pressing a letter jumps focus to the next visible row whose name starts with the typed buffer (Finder/VS Code behavior); 800ms reset window, modifier-aware so Ctrl-P is untouched; complements the arrow nav + Ctrl-P. Live-verified: typing 'a' jumped to analysis-notes.md.~~
 166. Extend .card-title to the editor-rail/research-panel labels with a tight variant (.card-title-tight, no mb) so the editor panels share the token too without spacing drift (idea added during #155)
 165. Density pass on the library/literature index + documents tables — the remaining #25 surfaces after the writing board; widen + .card tokens + tighter rhythm (idea added during the writing-board density pass)
 164. Audit-cadence note in PROGRESS — track 'milestones since last audit' explicitly so AUDIT #17 timing is unambiguous after the rollback-scrambled milestone numbering (idea added by AUDIT #16)

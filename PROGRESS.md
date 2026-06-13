@@ -3,7 +3,8 @@
 ## Current Status
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running
-- **Slice in progress:** — (NEXT: cosmetic polish then resume the general auto-backlog top-down: lucide icons #146, docs, [REV] cycles, #159 vite8, #160 webview-nav, #149 mood voice, #25 density remaining)
+- **Slice in progress:** — (NEXT: #161 lucide in the classic sidebar/nav, #25 density on the library/literature index, #168/#169 typeahead polish, #159 vite8 as a dedicated cycle)
+- **Last completed slice (#167, [REV], file epic):** TYPE-TO-SELECT in the Files tree — typing letters jumps focus to the next visible row whose name starts with the buffer (Finder/VS Code behavior); 800ms reset window, modifier-aware so Ctrl-P quick-open is untouched, repeated first-letter cycles matches. Built on the [REV] arrow-nav flat-row model. Live-verified with Playwright: typing 'a' on attention-and-memory/files jumped to analysis-notes.md, no JS errors. 655 tests green, ruff+tsc clean.
 - **✅ OWNER #30 — FILE-WORKSPACE / IDE / DESKTOP EPIC: FEATURE-COMPLETE (2026-06-13).** Plan: docs/plans/2026-06-12-file-workspace-ide-epic.md. Shipped, all green/pushed:
   - **Unified file tree** — manuscript files + documents in ONE per-project tree; manuscript side stays live via a signal mirror (ManuscriptFile→Document), contract byte-identical (frozen contract tests + 6 MCP tools unaffected). Slices 1a-1c-ii.
   - **Files page / explorer** — nested tree, open-anything preview (CM6 text, vendored pdf.js for PDF, papaparse CSV, images, download fallback), in-place text editing, folder create / file rename / delete / **drag-drop upload** / **move**, **Ctrl-P quick-open**. Manuscript nodes scoped out of the general UI + write-protected (403). Slices 2a-2d-iv, 9.

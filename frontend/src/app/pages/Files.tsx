@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { File, FileCode, FileImage, FileText, Folder, FolderOpen, Table } from "lucide-react";
 import Papa from "papaparse";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 
@@ -358,8 +358,38 @@ export default function Files() {
   }, [focusIdx]);
   const focusKey = flat[focusIdx] ? `${flat[focusIdx].kind}${flat[focusIdx].id}` : "";
 
-  const onTreeKey = (e: { key: string; preventDefault: () => void }) => {
+  // [REV] type-to-select: like a real file explorer, typing letters jumps to the next
+  // visible row whose name starts with what you've typed. The buffer resets after a pause.
+  const typeahead = useRef<{ buffer: string; at: number }>({ buffer: "", at: 0 });
+  const rowName = (r: FlatRow) => (r.kind === "folder" ? r.folder.name : r.file.name);
+  const jumpToTyped = (ch: string) => {
+    const now = Date.now();
+    const ta = typeahead.current;
+    ta.buffer = now - ta.at > 800 ? ch : ta.buffer + ch;
+    ta.at = now;
+    const q = ta.buffer.toLowerCase();
+    // start the search just after the current row so repeated letters cycle matches
+    const start = ta.buffer.length === 1 ? focusIdx + 1 : focusIdx;
+    for (let n = 0; n < flat.length; n++) {
+      const idx = (start + n) % flat.length;
+      if (rowName(flat[idx]).toLowerCase().startsWith(q)) { setFocusIdx(idx); return; }
+    }
+  };
+
+  const onTreeKey = (e: {
+    key: string;
+    ctrlKey?: boolean;
+    metaKey?: boolean;
+    altKey?: boolean;
+    preventDefault: () => void;
+  }) => {
     const r = flat[focusIdx];
+    if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // printable single char with no modifier → typeahead (leave Ctrl-P etc. alone)
+      e.preventDefault();
+      jumpToTyped(e.key);
+      return;
+    }
     if (e.key === "ArrowDown") { e.preventDefault(); setFocusIdx((i) => Math.min(flat.length - 1, i + 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setFocusIdx((i) => Math.max(0, i - 1)); }
     else if (e.key === "Enter") {
