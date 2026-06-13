@@ -49,3 +49,10 @@ assets-check: css js  ## rebuild assets and fail if committed outputs are stale
 
 audit:  ## run the security probe sweep (every-10-cycles audit helper)
 	@bash scripts/audit.sh
+
+# Atlas desktop shell (Owner #30 slice 3) — requires Rust + tauri-cli (see desktop/README.md)
+desktop:
+	cd desktop && cargo tauri dev
+
+desktop-build:
+	cd desktop && cargo tauri build

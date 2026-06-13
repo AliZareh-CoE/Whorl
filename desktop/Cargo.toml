@@ -1,0 +1,17 @@
+[package]
+name = "atlas-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "Atlas — desktop shell over the local Atlas server"
+authors = ["Atlas"]
+license = "AGPL-3.0"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[features]
+# keeps the webview using the custom protocol in release builds
+custom-protocol = ["tauri/custom-protocol"]

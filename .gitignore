@@ -10,3 +10,7 @@ db.sqlite3
 bin/tailwindcss
 tts_voices/
 bin/tectonic
+
+# Tauri build output
+desktop/target/
+desktop/gen/
