@@ -57,6 +57,52 @@ function Icon({ kind, open }: { kind: string; open?: boolean }) {
   return base(null);
 }
 
+// subsequence fuzzy match: every char of the query appears in order in the text
+function fuzzy(query: string, text: string): boolean {
+  const q = query.toLowerCase();
+  const t = text.toLowerCase();
+  let qi = 0;
+  for (let i = 0; i < t.length && qi < q.length; i++) if (t[i] === q[qi]) qi++;
+  return qi === q.length;
+}
+
+// Ctrl/Cmd-P quick-open (#30 slice 9): fuzzy-jump to any file in the tree.
+function QuickOpen({ files, onPick, onClose }: { files: FileNode[]; onPick: (f: FileNode) => void; onClose: () => void }) {
+  const [q, setQ] = useState("");
+  const matches = (q ? files.filter((f) => fuzzy(q, f.rel_path)) : files).slice(0, 40);
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-stone-900/30 pt-24" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-lg border border-stone-200 bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <input
+          autoFocus
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") onClose();
+            if (e.key === "Enter" && matches[0]) { onPick(matches[0]); onClose(); }
+          }}
+          placeholder="Go to file…"
+          className="w-full rounded-t-lg border-b border-stone-100 px-4 py-3 text-sm focus:outline-none"
+        />
+        <ul className="max-h-80 overflow-y-auto py-1 text-sm">
+          {matches.map((f) => (
+            <li key={f.id}>
+              <button
+                onClick={() => { onPick(f); onClose(); }}
+                className="flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-stone-50"
+              >
+                <span className="truncate">{f.name}</span>
+                <span className="ml-auto truncate font-mono text-xs text-stone-400">{f.rel_path}</span>
+              </button>
+            </li>
+          ))}
+          {matches.length === 0 && <li className="px-4 py-2 text-stone-400">No match.</li>}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 const isPdf = (f: FileNode) => /\.pdf$/i.test(f.rel_path);
 const isImage = (f: FileNode) => /\.(png|jpe?g|gif|webp)$/i.test(f.rel_path);
 const isCsv = (f: FileNode) => /\.(csv|tsv)$/i.test(f.rel_path);
@@ -230,6 +276,17 @@ export default function Files() {
       }),
     onSuccess: () => window.alert("Saved — pick it under Scaffold when creating a project."),
   });
+  const [quickOpen, setQuickOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setQuickOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [dragging, setDragging] = useState(false);
   const upload = useMutation({
     mutationFn: (files: FileList) => {
@@ -342,9 +399,17 @@ export default function Files() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
             Terminal
           </button>
+          <button onClick={() => setQuickOpen(true)} className="text-xs text-stone-400 hover:text-indigo-700" title="Quick open (Ctrl/Cmd-P)">⌘P</button>
           <span className="text-xs text-stone-400">{total} file{total === 1 ? "" : "s"} · everything in one tree</span>
         </div>
       </div>
+      {quickOpen && (
+        <QuickOpen
+          files={data.files}
+          onPick={(f) => setSelected(f)}
+          onClose={() => setQuickOpen(false)}
+        />
+      )}
 
       <div className="grid grid-cols-3 gap-3">
         <div
