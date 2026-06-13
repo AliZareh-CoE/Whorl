@@ -6,6 +6,7 @@
 // The ATLAS_URL env var overrides the default localhost address.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod localfs;
 mod terminal;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
@@ -16,11 +17,13 @@ fn atlas_url() -> String {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(terminal::TerminalState::default())
         .invoke_handler(tauri::generate_handler![
             terminal::terminal_spawn,
             terminal::terminal_write,
-            terminal::terminal_resize
+            terminal::terminal_resize,
+            localfs::open_local_file
         ])
         .setup(|app| {
             let url = atlas_url();

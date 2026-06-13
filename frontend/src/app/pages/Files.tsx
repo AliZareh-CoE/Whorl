@@ -276,6 +276,19 @@ export default function Files() {
       }),
     onSuccess: () => window.alert("Saved — pick it under Scaffold when creating a project."),
   });
+  const isDesktop = typeof window !== "undefined" && "__TAURI__" in window;
+  const [localFile, setLocalFile] = useState<{ name: string; path: string; content: string } | null>(null);
+  const openFromDisk = async () => {
+    const tauri = (await import("@tauri-apps/api")) as unknown as {
+      core: { invoke: (c: string) => Promise<{ name: string; path: string; content: string } | null> };
+    };
+    try {
+      const f = await tauri.core.invoke("open_local_file");
+      if (f) { setLocalFile(f); setSelected(null); }
+    } catch (e) {
+      window.alert(String(e));
+    }
+  };
   const [quickOpen, setQuickOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -399,6 +412,9 @@ export default function Files() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
             Terminal
           </button>
+          {isDesktop && (
+            <button onClick={openFromDisk} className="text-xs text-stone-400 hover:text-indigo-700" title="Open any file from your computer (desktop app)">Open from disk…</button>
+          )}
           <button onClick={() => setQuickOpen(true)} className="text-xs text-stone-400 hover:text-indigo-700" title="Quick open (Ctrl/Cmd-P)">⌘P</button>
           <span className="text-xs text-stone-400">{total} file{total === 1 ? "" : "s"} · everything in one tree</span>
         </div>
@@ -433,7 +449,16 @@ export default function Files() {
           )}
         </div>
         <div className="card col-span-2">
-          {selected ? (
+          {localFile ? (
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{localFile.name}</h2>
+                <button onClick={() => setLocalFile(null)} className="text-xs text-stone-400 hover:text-stone-600">✕ close</button>
+              </div>
+              <p className="mb-2 truncate font-mono text-xs text-stone-400">{localFile.path} · from disk</p>
+              <pre className="max-h-[58vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700">{localFile.content}</pre>
+            </div>
+          ) : selected ? (
             <div>
               <div className="mb-2 flex items-center gap-2">
                 <Icon kind={selected.kind || "other"} />

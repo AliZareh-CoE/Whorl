@@ -28,5 +28,6 @@ Point the shell at a different server with `ATLAS_URL=http://host:port/`.
 
 ## What it is / isn't (v1)
 - IS: a native window loading the running Atlas, native window controls + size.
-- NOT YET: bundling the Django server into the binary (you run Atlas separately),
-  real local-disk file access, or the terminal — those are later slices.
+- Local-disk: 'Open from disk…' on the Files page reads a file you explicitly pick
+  (text-only, 5MB cap, no directory traversal — only the chosen file).
+- NOT YET: bundling the Django server into the binary (you run Atlas separately).
