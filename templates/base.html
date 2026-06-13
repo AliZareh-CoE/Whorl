@@ -19,7 +19,7 @@
        @touchend.window="if (edgeX !== null && $event.changedTouches[0].clientX - edgeX > 60) sidebarOpen = true; edgeX = null">
     <button type="button" @click="sidebarOpen = true" aria-label="Open navigation"
             class="fixed left-3 top-3 z-40 rounded border border-stone-200 bg-white px-2.5 py-1.5 text-sm shadow-sm lg:hidden">
-      ☰
+      {% include "core/_nav_icon.html" with name="menu" %}
     </button>
     <div x-show="sidebarOpen" x-transition.opacity @click="sidebarOpen = false"
          class="fixed inset-0 z-40 bg-stone-900/30 lg:hidden" aria-hidden="true" style="display: none"></div>
@@ -39,32 +39,32 @@
       </form>
       <nav class="space-y-1 text-sm">
         <a href="{% url 'core:dashboard' %}"
-           class="block rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'core:dashboard' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
-          Dashboard
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'core:dashboard' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+          {% include "core/_nav_icon.html" with name="dashboard" %}<span>Dashboard</span>
         </a>
         <a href="{% url 'projects:list' %}"
-           class="block rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'projects' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
-          Projects
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'projects' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+          {% include "core/_nav_icon.html" with name="projects" %}<span>Projects</span>
         </a>
         <a href="{% url 'literature:index' %}"
-           class="block rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'literature' and 'project' not in request.resolver_match.view_name %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
-          Library
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'literature' and 'project' not in request.resolver_match.view_name %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+          {% include "core/_nav_icon.html" with name="library" %}<span>Library</span>
         </a>
         <a href="{% url 'writing:home' %}"
-           class="block rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'writing:home' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
-          Writing
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'writing:home' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+          {% include "core/_nav_icon.html" with name="writing" %}<span>Writing</span>
         </a>
         <a href="{% url 'prompts:gallery' %}"
-           class="block rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'prompts' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
-          Prompts
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'prompts' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+          {% include "core/_nav_icon.html" with name="prompts" %}<span>Prompts</span>
         </a>
         <a href="{% url 'notes:inbox' %}"
-           class="block rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'notes' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
-          Inbox
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'notes' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+          {% include "core/_nav_icon.html" with name="inbox" %}<span>Inbox</span>
         </a>
         <button type="button" id="assistant-summon"
-                class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-stone-600 hover:bg-stone-50">
-          <span>✨ Assistant</span><span class="text-[10px] text-stone-400">⌘K</span>
+                class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-stone-600 hover:bg-stone-50">
+          {% include "core/_nav_icon.html" with name="assistant" %}<span class="flex-1">Assistant</span><span class="text-[10px] text-stone-400">⌘K</span>
         </button>
         {% block sidebar_nav %}{% endblock %}
       </nav>
