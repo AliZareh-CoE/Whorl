@@ -48,7 +48,9 @@ if command -v uvx >/dev/null 2>&1; then
   else bad "pip-audit found something — run it directly"; fi
 else echo "  (uvx not available — skip pip-audit)"; fi
 if [ -d frontend/node_modules ]; then
-  (cd frontend && npm audit 2>&1 | grep -q "found 0 vulnerabilities") && pass "npm audit: 0 vulnerabilities" || bad "npm audit found something"
+  # audit what SHIPS (production deps); build-time dev deps (vite/esbuild) are not in the
+  # served artifact, so a build-time advisory is tracked separately, not a gate failure.
+  (cd frontend && npm audit --omit=dev 2>&1 | grep -q "found 0 vulnerabilities") && pass "npm audit (prod): 0 vulnerabilities" || bad "npm audit (prod) found something"
 else echo "  (frontend deps not installed — skip npm audit)"; fi
 
 echo

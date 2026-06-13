@@ -697,6 +697,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+159. Upgrade Vite to 8 (closes the dev-only esbuild advisory GHSA-gv7w-rqvm-qjhr) — breaking major, do it as a dedicated cycle with a full frontend build+tsc+islands verification, not mid-epic (idea added by AUDIT #15)
+160. Harden the Tauri webview navigation allowlist — restrict the shell to the localhost origin (Tauri capabilities / navigation rules) so a compromised page can't steer the app window off-origin; pairs with revisiting csp:null (idea added by AUDIT #15)
 
 (populated by phase gates; work top to bottom only after the Phase 6 gate passes)
 

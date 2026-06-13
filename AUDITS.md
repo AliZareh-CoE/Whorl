@@ -481,3 +481,51 @@ check green.
 **Verdict:** healthy, one real find fixed and proven inert. The stretch's CI work (smoke,
 artifacts, 4xx/5xx probe) has already paid for itself twice — it caught the modulePreload
 404 class and forced this audit's escaping fix to be verifiable end-to-end.
+
+## Audit #15 — 2026-06-13 (the file-workspace / IDE / desktop epic, Owner #30)
+
+First security + responsiveness review of the whole Owner #30 epic: unified file tree,
+the explorer + open-anything preview + in-place editing, workspace write-ops, the Tauri
+desktop shell, the built-in terminal, and project templates.
+
+**Terminal (highest-risk surface): clean.** A PTY is arbitrary local code execution by
+design — accepted in the single-user desktop trust model (same as VS Code). It lives ONLY
+in the desktop binary (desktop/src/terminal.rs); a build-failing grep guard
+(test_terminal_isolation.py) proves no portable-pty/terminal_spawn/openpty surface appears
+in api/, mcp_server/, config/, etc., and the xterm panel imports @tauri-apps/api dynamically
+so the browser bundle never even pulls it (and renders a hint instead of a PTY).
+
+**Preview/content endpoints: clean.** /documents/{id}/content/ and /raw/ are 401 anon;
+raw serves an ALLOWLIST of content types (pdf/png/jpg/jpeg/gif/webp) inline with
+X-Content-Type-Options: nosniff, and **SVG is excluded** (inline SVG can script on our
+origin) — covered by tests. Text preview is UTF-8, 1 MB-capped, 415 for binaries. Saving
+text refuses manuscript-source nodes (409). Workspace write-ops refuse update/destroy of
+manuscript-source documents and manuscript root folders (403, FolderViewSet + DocumentViewSet
+guards + tests) — those are owned by the editor/mirror.
+
+**Paths + uploads: validated.** validate_workspace_name / validate_manuscript_path gate all
+create/rename/template paths (ASCII, no traversal, no dot-leading, ≤8 segments);
+validate_upload_size caps uploads in the serializers and views.
+
+**Dependencies: MIT/Apache/BSD, pinned, local.** xterm 5.5.0 (MIT), addon-fit (MIT),
+papaparse 5.4.1 (MIT), pdfjs-dist 4.10.38 (Apache-2.0, vendored off the CDN this epic),
+@tauri-apps/api (Apache/MIT), portable-pty 0.8 + tauri 2 (Rust, Cargo.lock pinned). The
+last CDN editor asset (pdf.js) is now local — no CDN anywhere.
+
+**Performance: well under bar.** /projects/{slug}/tree/ best-of-5 = 6 ms / 5 queries;
+the Files SPA shell 3 ms. 637 tests green; make audit (pip + prod npm) clean.
+
+**FINDINGS**
+1. (handled) `npm audit` flagged a HIGH advisory in **esbuild** (GHSA-gv7w-rqvm-qjhr,
+   registry-redirect RCE) via Vite — but both are **devDependencies**; `npm audit --omit=dev`
+   (the shipped artifact) is 0 vulnerabilities. Scoped the audit gate to production deps
+   (auditing what ships is the correct posture) and backlogged the breaking Vite 8 upgrade
+   rather than risk the build mid-epic. Not exploitable in our trusted CI registry.
+2. (noted, low) the Tauri shell sets `csp: null` and loads the Atlas server as an external
+   URL. Acceptable for v1 — the loaded content is our own localhost app, which sets its own
+   headers — but harden later by restricting webview navigation to the localhost origin so a
+   compromised page can't navigate the app window off-origin. Backlogged.
+
+**Verdict:** healthy. The epic's riskiest surfaces (terminal, raw file serving, desktop
+disk reach) are correctly contained — desktop-only ACE, allowlisted/nosniff'd previews,
+manuscript guards, validated paths — with two low-risk defense-in-depth items backlogged.
