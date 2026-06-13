@@ -11,6 +11,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+portable-pty = "0.8"
 
 [features]
 # keeps the webview using the custom protocol in release builds
