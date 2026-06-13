@@ -186,6 +186,62 @@ class ProjectViewSet(AtlasViewSet):
         return Response(workspace_tree(self.get_object()))
 
     @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Updated a general file"),
+            201: OpenApiResponse(description="Created a general file"),
+            409: OpenApiResponse(description="Manuscript files are edited in the LaTeX editor"),
+        },
+        description="Create-or-update a general text file at a tree path (workspace / MCP "
+        "write): POST {path, content}. Manuscript-source paths are refused.",
+    )
+    @action(detail=True, methods=["post"], url_path="write-file")
+    def write_file(self, request, slug=None):
+        from django.core.exceptions import ValidationError as DjangoVE
+
+        from documents.models import Document, Folder
+        from documents.paths import kind_for_node_path, validate_workspace_name
+
+        project = self.get_object()
+        path = (request.data.get("path") or "").strip().strip("/")
+        content = request.data.get("content", "")
+        if not path:
+            return Response({"detail": "A file path is required."}, status=400)
+        segments = path.split("/")
+        try:
+            for seg in segments:
+                validate_workspace_name(seg)
+        except DjangoVE as exc:
+            return Response({"detail": str(exc.messages[0])}, status=400)
+        if segments[0].startswith("manuscript-"):
+            return Response({"detail": "Manuscript files are edited in the LaTeX editor."}, 409)
+
+        *dirs, filename = segments
+        parent = None
+        for name in dirs:
+            parent, _ = Folder.objects.get_or_create(project=project, parent=parent, name=name)
+        doc, created = Document.objects.get_or_create(
+            project=project,
+            rel_path=path,
+            defaults={
+                "folder": parent,
+                "title": filename,
+                "role": Document.Role.GENERAL,
+                "kind": kind_for_node_path(path),
+                "content": content,
+            },
+        )
+        if not created:
+            if doc.role == "manuscript_source":
+                return Response({"detail": "Manuscript files are edited in the editor."}, 409)
+            doc.content = content
+            doc.save(update_fields=["content", "updated_at"])
+        return Response(
+            {"id": doc.id, "rel_path": doc.rel_path, "created": created},
+            status=201 if created else 200,
+        )
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Situational summary of the project")},
         description="One-glance overview: current phase, progress, next milestones, counts.",
     )

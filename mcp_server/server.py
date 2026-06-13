@@ -205,3 +205,33 @@ def latex_word_count(manuscript_id: int) -> dict:
 
 if __name__ == "__main__":
     mcp.run()
+
+
+@mcp.tool()
+def list_project_templates() -> list:
+    """Available project scaffolds — built-in and user-saved — for create_project."""
+    return client.list_project_templates()
+
+
+@mcp.tool()
+def create_project(name: str, slug: str = "", template: str = "") -> dict:
+    """Create a project. Pass a template key/name to scaffold organized folders + files."""
+    return client.create_project(name, slug, template)
+
+
+@mcp.tool()
+def list_project_files(project: str) -> dict:
+    """The project's whole file tree: folders + files (general docs and manuscript sources)."""
+    return client.list_project_files(project)
+
+
+@mcp.tool()
+def read_project_file(document_id: int) -> dict:
+    """Read a file node's text content by its id (from list_project_files)."""
+    return client.read_project_file(document_id)
+
+
+@mcp.tool()
+def write_project_file(project: str, path: str, content: str) -> dict:
+    """Create or overwrite a general text file at `path` in the project's file tree."""
+    return client.write_project_file(project, path, content)

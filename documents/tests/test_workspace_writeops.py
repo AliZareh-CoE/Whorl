@@ -71,3 +71,45 @@ class TestManuscriptNodesProtected:
         p, m = self._manuscript()
         m.refresh_from_db()
         assert client.delete(f"/api/v1/folders/{m.root_folder_id}/", **HEADERS).status_code == 403
+
+
+class TestWriteFileEndpoint:
+    def test_create_and_update_general_file(self, client):
+        p = ProjectFactory()
+        r1 = client.post(
+            f"/api/v1/projects/{p.slug}/write-file/",
+            data={"path": "notes/idea.md", "content": "v1"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert r1.status_code == 201 and r1.json()["created"] is True
+        assert Document.objects.get(project=p, rel_path="notes/idea.md").content == "v1"
+        r2 = client.post(
+            f"/api/v1/projects/{p.slug}/write-file/",
+            data={"path": "notes/idea.md", "content": "v2"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert r2.status_code == 200
+        assert Document.objects.get(project=p, rel_path="notes/idea.md").content == "v2"
+
+    def test_rejects_traversal_and_manuscript_path(self, client):
+        p = ProjectFactory()
+        assert (
+            client.post(
+                f"/api/v1/projects/{p.slug}/write-file/",
+                data={"path": "../escape.md", "content": "x"},
+                content_type="application/json",
+                **HEADERS,
+            ).status_code
+            == 400
+        )
+        assert (
+            client.post(
+                f"/api/v1/projects/{p.slug}/write-file/",
+                data={"path": "manuscript-1/main.tex", "content": "x"},
+                content_type="application/json",
+                **HEADERS,
+            ).status_code
+            == 409
+        )

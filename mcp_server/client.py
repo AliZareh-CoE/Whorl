@@ -217,3 +217,38 @@ def compile_and_wait(manuscript_id: int, timeout_seconds: int = 120):
     while status.get("status") == "running" and datetime.now(UTC).timestamp() < deadline:
         status = get_compile_status(manuscript_id)
     return status
+
+
+# --- file workspace (Owner #30) ---
+
+
+def list_project_templates():
+    """Available project scaffolds (built-in + user-saved)."""
+    return _request("GET", "/projects/templates/")
+
+
+def create_project(name: str, slug: str = "", template: str = ""):
+    """Create a project, optionally scaffolded from a template key/name."""
+    body = {"name": name, "status": "active"}
+    if slug:
+        body["slug"] = slug
+    if template:
+        body["template"] = template
+    return _request("POST", "/projects/", json=body)
+
+
+def list_project_files(project: str):
+    """The project's whole file tree: {folders, files} (general + manuscript sources)."""
+    return _request("GET", f"/projects/{project}/tree/")
+
+
+def read_project_file(document_id: int):
+    """Text content of a file node by id."""
+    return _request("GET", f"/documents/{document_id}/content/")
+
+
+def write_project_file(project: str, path: str, content: str):
+    """Create or overwrite a general text file at `path` in the project's tree."""
+    return _request(
+        "POST", f"/projects/{project}/write-file/", json={"path": path, "content": content}
+    )
