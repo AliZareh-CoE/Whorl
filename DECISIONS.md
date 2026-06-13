@@ -709,6 +709,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+180. Documents move-`<select>` N+1 (found by AUDIT #17) — `_doc_row.html` iterates `project.folders.all` per row, re-querying the folders table once per document (10 q across ~5 rows, O(rows)). Hoist the folder list to a single cached lookup (pass `folders` via context / `{% with %}`, with a per-row fallback for the HTMX single-row swap) and lock it with a query-budget test (idea added by AUDIT #17)
 169. Cancel typeahead on focus leave / Escape — clearing the buffer when the tree loses focus or Escape is pressed avoids a surprise jump if you return to the tree after a pause shorter than the 800ms window (idea added during #167)
 168. Show the active typeahead buffer as a tiny inline hint near the tree (e.g. a faint "ana…" pill) so you can see what you've typed when several names share a prefix (idea added during #167)
 167. ~~Type-to-select in the Files tree (done 2026-06-13): pressing a letter jumps focus to the next visible row whose name starts with the typed buffer (Finder/VS Code behavior); 800ms reset window, modifier-aware so Ctrl-P is untouched; complements the arrow nav + Ctrl-P. Live-verified: typing 'a' jumped to analysis-notes.md.~~

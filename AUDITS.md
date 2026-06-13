@@ -558,3 +558,40 @@ Focused sweep of the work since AUDIT #15 (commits 07a9b42..4e74592). **Clean �
 **Verdict:** healthy. The polish slices since #15 added no new attack surface and the desktop
 hardening from #15 is confirmed in place. Vite-8 (#159, dev-only esbuild advisory) remains the
 single open dependency item, deliberately deferred to its own careful cycle.
+
+## Audit #17 — 2026-06-13 (since #16: typeahead, density passes, nav icons, sortable library)
+
+Sweep of the work since AUDIT #16 (commits 4e74592..08ba0e9): #167 Files typeahead, #165/#171
+density passes, #161/#173 Lucide nav icons, #170 sortable library columns. **One minor,
+pre-existing performance finding — backlogged; security clean.**
+
+- **New input surface — the library `?sort=`/`?dir=` querystring (#170):** the only new
+  server-side user-input surface this run. Verified hardened:
+  - **Auth-gated:** `/library/?sort=year&dir=desc` and `/library/?sort=DROP TABLE` both 302 to
+    login when anonymous.
+  - **No ORM injection:** `sort` is resolved through the `LIBRARY_SORTS` whitelist before
+    reaching `order_by`; a hostile value (`'; DROP TABLE;--`) falls back to `title` → 200, no
+    error, no extra query.
+  - **No reflected XSS:** the hostile sort string is **not** echoed into the page (verified
+    `"DROP TABLE" not in body`); the sort-header links interpolate only the hardcoded column
+    keys and the constrained `asc`/`desc` literals, and `q` is `urlencode`d / auto-escaped.
+- **Icon partials (#161/#173):** `core/_nav_icon.html` and `literature/_sort_th.html` render
+  static inline SVG / literals only — no user data interpolated, no script, no new endpoint.
+- **Density passes (#165/#171) + typeahead (#167):** template padding + a client-only key
+  handler; zero new server surface.
+- **Dependencies:** no new packages this run (icons are inline SVG, not a JS dep). `npm audit
+  --omit=dev` = **0 vulnerabilities**; no Python deps added.
+- **Performance (in-process, warm, best-of-2, queries counted):** library default 16 ms / 6 q,
+  library sorted 16 ms / 6 q (**sorting adds no query cost**), hostile-sort fallback 15 ms / 6 q,
+  documents page 26 ms / 15 q — all under the 50 ms bar.
+- **FINDING (minor, pre-existing — backlogged #180):** the documents table's per-row move
+  `<select>` iterates `project.folders.all` inside `_doc_row.html`, so the folders table is
+  re-queried once per document row (10 folder queries across ~5 rows; grows O(rows)). Not a
+  regression from the #171 padding pass — it predates this run — but worth hoisting the folder
+  list to a single cached lookup. Logged as Backlog #180.
+
+**Gates:** 664 tests, ruff check/format, tsc — all green.
+
+**Verdict:** healthy. The sortable-library input surface is correctly whitelisted, non-reflective,
+and auth-gated; no new dependencies or attack surface from the icon/density work. One pre-existing
+documents-page N+1 found and backlogged (#180) for a focused fix.
