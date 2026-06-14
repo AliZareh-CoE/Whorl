@@ -68,6 +68,33 @@ class TestQueryBudgets:
             response = client_logged_in.get(reverse("plans:plan", args=[project.slug]))
         assert response.status_code == 200
 
+    def test_reading_queue_constant_queries(self, client_logged_in, django_assert_max_num_queries):
+        # #226: the reading queue grows with the project's references — adding more must not
+        # add queries (select_related/prefetch + a single review-mark count).
+        project = ProjectFactory()
+        ProjectReferenceFactory.create_batch(3, project=project)
+        url = reverse("literature:queue", args=[project.slug])
+        client_logged_in.get(url)  # warm
+        with django_assert_max_num_queries(25) as ctx:
+            client_logged_in.get(url)
+        baseline = len(ctx.captured_queries)
+        ProjectReferenceFactory.create_batch(5, project=project)
+        with django_assert_max_num_queries(baseline):
+            client_logged_in.get(url)  # 8 papers cost no more queries than 3
+
+    def test_review_matrix_constant_queries(self, client_logged_in, django_assert_max_num_queries):
+        # #226: the papers × themes matrix is the other per-reference grid — keep it flat.
+        project = ProjectFactory()
+        ProjectReferenceFactory.create_batch(3, project=project)
+        url = reverse("literature:matrix", args=[project.slug])
+        client_logged_in.get(url)  # warm
+        with django_assert_max_num_queries(25) as ctx:
+            client_logged_in.get(url)
+        baseline = len(ctx.captured_queries)
+        ProjectReferenceFactory.create_batch(5, project=project)
+        with django_assert_max_num_queries(baseline):
+            client_logged_in.get(url)
+
     def test_dashboard_budget_and_heatmap_cache(
         self, client_logged_in, django_assert_max_num_queries, settings
     ):
