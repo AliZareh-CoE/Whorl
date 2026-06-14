@@ -36,6 +36,16 @@ def test_doctor_warns_on_default_api_key(settings, tmp_path):
     assert code == 0  # warnings don't fail the check
 
 
+def test_doctor_warns_when_updater_pubkey_is_placeholder(settings, tmp_path):
+    # #203: surface the one-time desktop signing step without failing the check.
+    settings.MEDIA_ROOT = tmp_path
+    settings.ATLAS_API_KEY = "a-real-key"
+    output, code = run_doctor()
+    # the shipped tauri.conf has the REPLACE_ME placeholder until the owner does D3
+    assert "Desktop auto-update not configured" in output
+    assert code == 0  # it's a warning, not a failure
+
+
 def test_doctor_fails_on_unwritable_media(settings):
     settings.MEDIA_ROOT = "/proc/definitely-not-writable"
     settings.ATLAS_API_KEY = "k"

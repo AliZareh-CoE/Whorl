@@ -107,6 +107,31 @@ class Command(BaseCommand):
         else:
             self.ok("ATLAS_API_KEY configured")
 
+        # desktop auto-update readiness (#203): the in-app updater stays inert until the
+        # one-time signing setup (D3) is done. Surface it so a release isn't tagged
+        # expecting auto-update to work when it was never configured.
+        tauri_conf = base / "desktop" / "tauri.conf.json"
+        if tauri_conf.exists():
+            import json
+
+            try:
+                pubkey = (
+                    json.loads(tauri_conf.read_text())
+                    .get("plugins", {})
+                    .get("updater", {})
+                    .get("pubkey", "")
+                )
+            except Exception:
+                pubkey = ""
+            if not pubkey or "REPLACE_ME" in pubkey:
+                self.warn(
+                    "Desktop auto-update not configured — updater pubkey is the placeholder; "
+                    "see desktop/README (generate keypair, set pubkey, flip "
+                    "createUpdaterArtifacts, add the signing secret)"
+                )
+            else:
+                self.ok("Desktop auto-update signing configured")
+
         self.stdout.write("")
         summary = f"{self.failures} problem(s), {self.warnings} warning(s)"
         if self.failures:
