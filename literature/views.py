@@ -288,7 +288,12 @@ def project_literature(request, slug):
     # Order control (#189): the per-project list is a row list, not a column table, so it gets
     # a small set of order pills instead of sortable headers. `desc` marks fields that read best
     # newest/highest-first; the reference title is always the stable tiebreaker.
-    sort = request.GET.get("sort", "added")
+    # The choice persists across visits via the session (#190), like the library sort (#176).
+    sort = request.GET.get("sort")
+    if sort is None:
+        sort = request.session.get("literature_order", "added")
+    else:
+        request.session["literature_order"] = sort
     if sort not in LITERATURE_SORTS:
         sort = "added"
     field_name, desc = LITERATURE_SORTS[sort]

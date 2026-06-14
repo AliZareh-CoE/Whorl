@@ -136,6 +136,16 @@ class TestProjectLiterature:
         body = client_logged_in.get(url, {"sort": "year"}).content.decode()
         assert body.index("New One") < body.index("Old One")  # year desc, newest first
 
+    def test_project_page_remembers_order(self, client_logged_in):
+        # #190: choosing an order sticks; a later visit with no sort param restores it.
+        project = ProjectFactory()
+        ProjectReferenceFactory(project=project, reference__title="Old One", reference__year=1990)
+        ProjectReferenceFactory(project=project, reference__title="New One", reference__year=2025)
+        url = reverse("literature:project", args=[project.slug])
+        client_logged_in.get(url, {"sort": "year"})
+        body = client_logged_in.get(url).content.decode()
+        assert body.index("New One") < body.index("Old One")
+
     def test_project_page_rejects_unknown_sort(self, client_logged_in):
         project = ProjectFactory()
         ProjectReferenceFactory(project=project, reference__title="Anything Here")
