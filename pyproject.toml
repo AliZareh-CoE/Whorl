@@ -18,6 +18,7 @@ dependencies = [
     "mcp>=1.10",
     "piper-tts>=1.4",
     "gunicorn>=23",
+    "waitress>=3.0",
     "whitenoise>=6.8",
 ]
 

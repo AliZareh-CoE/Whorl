@@ -1,0 +1,51 @@
+"""Self-contained desktop entrypoint (#210c).
+
+The one command the bundled Tauri app launches: prepare the per-user SQLite database +
+static files + a login, then serve Atlas locally with waitress (pure-Python, cross-platform,
+PyInstaller-friendly — gunicorn is Unix-only so it can't ship to Windows). Run under the
+desktop settings: `manage.py run_desktop --settings=config.settings.desktop`.
+"""
+
+import os
+
+from django.core.management import call_command
+from django.core.management.base import BaseCommand
+
+
+class Command(BaseCommand):
+    help = "Prepare and serve the bundled single-user Atlas (SQLite, no Redis/Docker)."
+
+    def add_arguments(self, parser):
+        parser.add_argument("--host", default=os.environ.get("ATLAS_HOST", "127.0.0.1"))
+        parser.add_argument("--port", type=int, default=int(os.environ.get("ATLAS_PORT", "8000")))
+        parser.add_argument(
+            "--setup-only",
+            action="store_true",
+            help="prepare the db/static/login but don't start the server (used by tests)",
+        )
+
+    def handle(self, *args, **options):
+        from django.contrib.auth import get_user_model
+
+        # first-run (and every-run, idempotent) preparation
+        call_command("migrate", "--no-input", verbosity=0)
+        call_command("collectstatic", "--no-input", verbosity=0)
+
+        User = get_user_model()
+        username = os.environ.get("ATLAS_ADMIN_USER", "atlas")
+        password = os.environ.get("ATLAS_ADMIN_PASSWORD", "atlas")
+        if not User.objects.filter(username=username).exists():
+            User.objects.create_superuser(username, "", password)
+            self.stdout.write(f"Created the Atlas login '{username}'.")
+
+        if options["setup_only"]:
+            self.stdout.write("Setup complete.")
+            return
+
+        from waitress import serve
+
+        from config.wsgi import application
+
+        host, port = options["host"], options["port"]
+        self.stdout.write(self.style.SUCCESS(f"Atlas is running → http://{host}:{port}"))
+        serve(application, host=host, port=port, threads=4)

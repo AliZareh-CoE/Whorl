@@ -43,3 +43,12 @@ def test_desktop_migrates_onto_sqlite(tmp_path):
     assert result.returncode == 0, result.stderr or result.stdout
     assert (tmp_path / "atlas.sqlite3").exists()
     assert (tmp_path / "secret_key").exists()  # persisted so sessions survive restarts
+
+
+def test_run_desktop_setup_prepares_db_static_and_login(tmp_path):
+    # #210c: the bundled entrypoint migrates, collects static, and creates the single login.
+    result = _run(["run_desktop", "--setup-only"], tmp_path)
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert (tmp_path / "atlas.sqlite3").exists()
+    assert (tmp_path / "staticfiles" / "staticfiles.json").exists()  # WhiteNoise manifest
+    assert "Created the Atlas login" in result.stdout
