@@ -703,3 +703,44 @@ generated password would tighten it. Low priority.
 
 **Verdict:** healthy. The self-contained stack is a sound local-trust design — loopback-bound,
 no user-controlled SQL/shell, integrity protected by single-instance. No fixes needed.
+
+## Audit #21 — 2026-06-14 (since #20: filter persistence, schema-quality, review fix, breadcrumb)
+
+Sweep of the work since the desktop epic: session-remembered filters (#187 literature
+status/priority, #212 documents tag, #214 the Clear-link fix), #216 cross-project review note
+links (`project_slug`), the OpenAPI schema cleanup (#218 auth extension + 2 recovered endpoints,
+#219 enum names, #220 the 0-warnings guard), and #222 the clickable folder breadcrumb. Desktop
+D2b (real app restart on update) reviewed too. **Clean — no findings.**
+
+**Security (verified live + via RequestFactory on real data):**
+- Anonymous gating intact: `/projects/<slug>/documents/`, `/literature/`, `/review` → 302;
+  `/api/schema/`, `/api/v1/weekly-review/` → 401.
+- **Persisted filters can't reach the ORM raw (#192 holds for the new surfaces):** a hostile
+  `?status='; DROP TABLE--` / `?priority=<x>` → 200 (allow-list → "All"); a non-int
+  `?tag=1 OR 1=1` → 200 (validated against the project's live tag pks → "All"). The slug-
+  namespaced doc-tag session key (#212) keeps a remembered tag from leaking across projects.
+- **Breadcrumb (#222) is project-scoped:** `get_object_or_404(project.folders, pk=…)` means a
+  nonexistent or foreign folder pk → 404 (not a 500 or a cross-project read); folder names
+  render through Django autoescaping (no XSS). `Folder.ancestors` only walks its own chain.
+- **Schema auth (#218):** the generated schema declares `ApiKeyAuth` (apiKey/header/X-API-Key)
+  and every path requires it — but the schema does **not** contain the key's value, only the
+  header name. No secret exposure.
+- `#216` only adds project slugs (already visible to the single authenticated owner) to the
+  review payload — no new read surface.
+
+**Dependencies:** `npm audit --omit=dev` = **0 vulnerabilities**.
+
+**Performance (warm; DEBUG-instrumented query counts):**
+- **Breadcrumb adds zero queries:** documents page is **13 queries at the root and 13 in a
+  nested folder** — `Folder.ancestors` reuses the same parent walk `.path` already did (and
+  Django caches `.parent`), so the clickable crumb is free. ~16–31 ms.
+- `weekly_review` (cross-project, now with `project_slug` on every item): **5 queries**, 16 ms
+  — identical to the AUDIT #9 baseline, confirming the select_related already had the projects.
+- Per-project literature (filtered): **6 queries / ~20 ms warm**. (A first cold call measured
+  32 q / 241 ms — one-time template-compile + contenttype/pg_trgm warmup, not per-request;
+  calls 2–3 settle to 6/≈20.)
+- Schema generation is build-time only (guarded warning-free by #220), off the request path.
+
+**Verdict:** healthy. The session-persistence and breadcrumb work stayed within the existing
+allow-list/project-scoping discipline and added no query cost; the schema work tightened the
+machine-facing contract without exposing anything. No fixes needed. 708 tests green, ruff clean.
