@@ -92,7 +92,7 @@
           <span class="mx-1 text-indigo-200">|</span>
           <select name="folder" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs">
             <option value="">— root</option>
-            {% for folder in project.folders.all %}<option value="{{ folder.pk }}">{{ folder.name }}</option>{% endfor %}
+            {% for folder in folders %}<option value="{{ folder.pk }}">{{ folder.name }}</option>{% endfor %}
           </select>
           <button type="submit" name="action" value="move"
                   class="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400">Move</button>

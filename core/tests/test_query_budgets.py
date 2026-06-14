@@ -43,14 +43,16 @@ class TestQueryBudgets:
         self, client_logged_in, django_assert_max_num_queries
     ):
         # the per-row move-<select> used to re-query project.folders per document (#180);
-        # with several folders and many documents the page must stay within a flat budget.
+        # the bulk-move <select> reused the same redundant query until #181 pointed it at the
+        # cached folder list. With several folders and many documents the page must stay within
+        # a flat budget that no longer leaves room for those duplicate folder reads.
         from documents.tests.factories import DocumentFactory, FolderFactory
 
         project = ProjectFactory()
         FolderFactory.create_batch(5, project=project)
         DocumentFactory.create_batch(15, project=project)
         url = reverse("documents:index", args=[project.slug]) + "?all=1"
-        with django_assert_max_num_queries(18):
+        with django_assert_max_num_queries(16):
             response = client_logged_in.get(url)
         assert response.status_code == 200
 
