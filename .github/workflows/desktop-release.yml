@@ -1,0 +1,77 @@
+name: Desktop release
+
+# Builds the Atlas desktop app (Tauri) into ready-to-install binaries for Linux and
+# Windows and attaches them to a GitHub Release. Triggered by pushing a version tag
+# (e.g. `git tag v0.1.0 && git push origin v0.1.0`) or manually from the Actions tab.
+#
+# Owner-requested (2026-06-14): "ready-to-install stuff for Linux and Windows".
+# The actual binaries are produced here in CI — they can't be built in the headless
+# dev container, so this workflow IS the delivery mechanism.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish under (e.g. v0.1.0)"
+        required: true
+        default: "v0.0.0-dev"
+
+permissions:
+  contents: write # create the release + upload installers
+
+jobs:
+  build:
+    name: Build installers (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ubuntu-22.04 keeps the glibc/webkit baseline broad for the .deb/.AppImage/.rpm
+          - platform: ubuntu-22.04
+            target-args: ""
+          - platform: windows-latest
+            target-args: ""
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            build-essential \
+            libssl-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop
+
+      # The desktop shell loads the running local Atlas server (frontendDist is only a
+      # Tauri formality here), so there is no Node/Vite build step needed for the bundle.
+      - name: Build and release the desktop app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # D2 (auto-update) will add TAURI_SIGNING_PRIVATE_KEY here once the owner
+          # generates the updater keypair; unsigned bundles still install fine.
+        with:
+          projectPath: desktop
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: "Atlas ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseBody: "Ready-to-install Atlas desktop builds. Pick the file for your OS below."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.target-args }}
