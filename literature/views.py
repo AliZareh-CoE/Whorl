@@ -34,10 +34,20 @@ def library_index(request):
             | Q(doi__icontains=query)
             | Q(authors__icontains=query)
         )
-    sort = request.GET.get("sort", "title")
+    # Persist the chosen sort across visits (#176): an explicit ?sort= is remembered in
+    # the session; arriving with no sort param restores the last-used order instead of
+    # snapping back to title-asc.
+    sort = request.GET.get("sort")
+    direction = request.GET.get("dir")
+    if sort is None:
+        sort = request.session.get("library_sort", "title")
+        direction = request.session.get("library_dir")
+    else:
+        request.session["library_sort"] = sort
+        request.session["library_dir"] = direction
     if sort not in LIBRARY_SORTS:
         sort = "title"
-    descending = request.GET.get("dir") == "desc"
+    descending = direction == "desc"
     field = F(LIBRARY_SORTS[sort])
     # nulls_last in both directions so blank years/venues never crowd the top;
     # title is the stable tiebreaker so paging/slicing is deterministic

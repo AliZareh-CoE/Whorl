@@ -28,6 +28,14 @@ class TestLibrary:
         body = response.content.decode()
         assert body.index("New Paper") < body.index("Old Paper")
 
+    def test_index_remembers_sort_across_visits(self, client_logged_in):
+        # #176: choosing a sort sticks; a later visit with no sort param restores it.
+        ReferenceFactory(title="Old Paper", year=1990)
+        ReferenceFactory(title="New Paper", year=2025)
+        client_logged_in.get(reverse("literature:index"), {"sort": "year", "dir": "desc"})
+        body = client_logged_in.get(reverse("literature:index")).content.decode()
+        assert body.index("New Paper") < body.index("Old Paper")
+
     def test_index_sorts_by_year_ascending(self, client_logged_in):
         ReferenceFactory(title="Old Paper", year=1990)
         ReferenceFactory(title="New Paper", year=2025)
