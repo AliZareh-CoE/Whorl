@@ -37,6 +37,20 @@ def test_dense_pages_extend_base_wide():
     )
 
 
+def test_dense_pages_do_not_redeclare_main_class():
+    # the whole point of base_wide is to OWN the width (#183); a page re-declaring
+    # main_class is either redundant or silently fighting the shared column (#196).
+    offenders = []
+    for page in WIDE_PAGES:
+        text = (TEMPLATES / page).read_text()
+        if "{% block main_class %}" in text:
+            offenders.append(page)
+    assert not offenders, (
+        "These pages extend base_wide.html but re-declare main_class — let the base own it:\n"
+        + "\n".join(offenders)
+    )
+
+
 def test_base_wide_sets_the_wide_column():
     text = (TEMPLATES / "base_wide.html").read_text()
     assert '{% extends "base.html" %}' in text
