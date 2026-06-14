@@ -25,7 +25,15 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        from django.conf import settings
         from django.contrib.auth import get_user_model
+
+        # start the bundled Postgres (initdb on first run) before Django connects (#210g)
+        from core.desktop_runtime import ensure_postgres
+
+        data_dir = settings.DATA_DIR
+        ensure_postgres(data_dir, settings.PG_PORT)
+        self.stdout.write("Postgres is up.")
 
         # first-run (and every-run, idempotent) preparation
         call_command("migrate", "--no-input", verbosity=0)

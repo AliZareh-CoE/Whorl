@@ -28,10 +28,18 @@ if not _secret_file.exists():
     _secret_file.write_text(secrets.token_urlsafe(64))
 SECRET_KEY = _secret_file.read_text().strip()
 
+# Full Postgres, bundled + auto-started by the app (owner choice, #210g): exact parity
+# with the server (incl. full-text search). The desktop runtime runs initdb into the data
+# dir and starts a local postgres before Django connects; trust auth on 127.0.0.1 only.
+PG_PORT = int(os.environ.get("ATLAS_PG_PORT", "5433"))
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": str(DATA_DIR / "atlas.sqlite3"),
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "atlas",
+        "USER": "atlas",
+        "PASSWORD": "",
+        "HOST": "127.0.0.1",
+        "PORT": str(PG_PORT),
     }
 }
 
