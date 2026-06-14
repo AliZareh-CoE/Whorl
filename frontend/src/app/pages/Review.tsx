@@ -121,7 +121,7 @@ export default function Review() {
               <div className="flex items-baseline gap-2">
                 <span aria-hidden="true">✓</span>
                 <span className="min-w-0 flex-1 truncate">{m.title}</span>
-                {!slug && <span className="shrink-0 text-xs text-stone-400">{m.project}</span>}
+                {!slug && <Link to={`/projects/${m.project_slug}`} className="shrink-0 text-xs text-stone-400 hover:text-indigo-700">{m.project}</Link>}
               </div>
             )} />
           <Section title="Notes written" items={data.notes_written} empty="No new notes."
@@ -135,7 +135,7 @@ export default function Review() {
             render={(d) => (
               <div className="flex items-baseline gap-2">
                 <span className="min-w-0 flex-1 truncate">{d.title}</span>
-                {!slug && <span className="shrink-0 text-xs text-stone-400">{d.project}</span>}
+                {!slug && <Link to={`/projects/${d.project_slug}`} className="shrink-0 text-xs text-stone-400 hover:text-indigo-700">{d.project}</Link>}
               </div>
             )} />
           {data.experiments.length > 0 && (
@@ -143,7 +143,10 @@ export default function Review() {
               render={(e) => (
                 <div className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 truncate">{e.title}</span>
-                  <span className="shrink-0 text-xs text-stone-400">{e.date}{!slug ? ` · ${e.project}` : ""}</span>
+                  <span className="shrink-0 text-xs text-stone-400">
+                    {e.date}
+                    {!slug && <> · <Link to={`/projects/${e.project_slug}`} className="hover:text-indigo-700">{e.project}</Link></>}
+                  </span>
                 </div>
               )} />
           )}
