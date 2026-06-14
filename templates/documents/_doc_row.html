@@ -30,6 +30,7 @@
     <button type="button" hx-get="{% url 'documents:rename' project.slug doc.pk %}"
             hx-target="#doc-{{ doc.pk }}" hx-swap="outerHTML"
             class="text-xs text-stone-500 hover:underline">Rename</button>
+    {% if doc.is_previewable %}<a href="{% url 'documents:preview' project.slug doc.pk %}" target="_blank" class="ml-2 text-xs text-indigo-600 hover:underline">Preview</a>{% endif %}
     <a href="{% url 'documents:download' project.slug doc.pk %}" class="ml-2 text-xs text-indigo-600 hover:underline">Download</a>
     <a href="{% url 'documents:document_edit' project.slug doc.pk %}" class="ml-2 text-xs text-stone-500 hover:underline">Edit</a>
   </td>

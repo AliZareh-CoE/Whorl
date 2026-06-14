@@ -197,6 +197,49 @@ class TestDocumentViews:
         assert response.status_code == 200
         assert response["Content-Disposition"].startswith("attachment")
 
+    def test_is_previewable_property(self):
+        # #14: raster images + any text are previewable; SVG/HTML-as-image and binaries are not.
+        from documents.models import Document
+
+        assert Document(content_type="image/png").is_previewable
+        assert Document(content_type="text/csv").is_previewable
+        assert Document(content_type="text/html").is_previewable  # (served as plain text)
+        assert not Document(content_type="image/svg+xml").is_previewable  # script-bearing
+        assert not Document(content_type="application/pdf").is_previewable
+
+    def test_preview_image_served_inline_with_nosniff(self, client_logged_in):
+        from documents.models import Document
+
+        doc = DocumentFactory()
+        Document.objects.filter(pk=doc.pk).update(content_type="image/png")
+        r = client_logged_in.get(reverse("documents:preview", args=[doc.project.slug, doc.pk]))
+        assert r.status_code == 200
+        assert r["Content-Disposition"].startswith("inline")
+        assert r["X-Content-Type-Options"] == "nosniff"
+        assert r["Content-Type"].startswith("image/png")
+
+    def test_preview_text_forced_to_plain(self, client_logged_in):
+        # an uploaded text/html file must be served as text/plain (+nosniff) so it can't run
+        # as active HTML in Atlas's own origin.
+        from documents.models import Document
+
+        doc = DocumentFactory()
+        Document.objects.filter(pk=doc.pk).update(content_type="text/html")
+        r = client_logged_in.get(reverse("documents:preview", args=[doc.project.slug, doc.pk]))
+        assert r.status_code == 200
+        assert r["Content-Type"].startswith("text/plain")
+        assert r["X-Content-Type-Options"] == "nosniff"
+
+    def test_preview_non_previewable_redirects_to_download(self, client_logged_in):
+        from documents.models import Document
+
+        for ct in ("application/pdf", "image/svg+xml"):  # svg excluded: can carry script
+            doc = DocumentFactory()
+            Document.objects.filter(pk=doc.pk).update(content_type=ct)
+            r = client_logged_in.get(reverse("documents:preview", args=[doc.project.slug, doc.pk]))
+            assert r.status_code == 302, ct
+            assert "/download/" in r.url
+
     def test_tag_crud(self, client_logged_in):
         project = ProjectFactory()
         response = client_logged_in.post(

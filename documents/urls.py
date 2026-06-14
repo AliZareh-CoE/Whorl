@@ -21,6 +21,7 @@ urlpatterns = [
         name="document_delete",
     ),
     path("<slug:slug>/documents/<int:pk>/download/", views.document_download, name="download"),
+    path("<slug:slug>/documents/<int:pk>/preview/", views.document_preview, name="preview"),
     path(
         "<slug:slug>/documents/<int:pk>/suggest-tag/",
         views.add_suggested_tag,

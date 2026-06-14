@@ -97,12 +97,19 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 14. **World-class file & folder handling.** ~~First slice (2026-06-11, cycle 18):
     drag-and-drop anywhere on the documents page (overlay + per-file size validation +
     titles from filenames) and multi-file Quick upload button; inline rename (HTMX) and
-    quick-move folder dropdown on every row, project-scoped.~~ ~~Breadcrumbed folder
+    quick-move folder dropdown on every row, project-scoped.~~ ~~Cheap previews (done
+    2026-06-14, #227): a "Preview" link on previewable rows (React DocumentsTable + classic
+    fallback) opens documents:preview, which serves raster images inline and any text as
+    text/plain, with X-Content-Type-Options:nosniff — SVG/HTML/PDF/binaries deliberately fall
+    back to download (SVG/HTML can carry script that would run in Atlas's origin). New
+    Document.is_previewable property + PREVIEWABLE_IMAGE_TYPES whitelist; previewUrl in the
+    island props (null when not previewable). 5 tests incl. the security cases; verified the
+    built chunk + props live.~~ ~~Breadcrumbed folder
     navigation (done 2026-06-14, #222): the nested-folder header on the documents page is now
     a clickable breadcrumb (root "Documents" → each ancestor → current), backed by a new
     Folder.ancestors property (walks the parent chain like .path, same query cost). Jump
     straight to any ancestor instead of going back to the tree. Live-verified on real data
-    (Data / Pilot); 2 tests.~~ Remaining: cheap previews (text/image), drag rows between folders.
+    (Data / Pilot); 2 tests.~~ Remaining: drag rows between folders.
 15. **Lightning-fast search with NLP.** ~~First slice (2026-06-11, cycle 19): pg_trgm
     extension + trigram typo-tolerance fallback; websearch query parsing ("quoted phrases",
     OR, -negation); as-you-type suggestion dropdown on the sidebar box (HTMX, 250 ms
@@ -752,6 +759,7 @@ DESKTOP-ICONS. ~~Full multi-resolution icon set (done 2026-06-14, while answerin
 202. ~~CI npm-audit guard (resolved 2026-06-14, already covered): ci.yml's `audit` job runs `make audit` → scripts/audit.sh which already does `npm audit --omit=dev` and fails on any shipped-dep vuln (and pip-audit). The 0-vuln state from #159 is already CI-guarded. Closed as already-done.~~
 D3. (Owner one-time) Activate live auto-update — generate the Tauri updater keypair, put the pubkey in tauri.conf, flip createUpdaterArtifacts to true, add TAURI_SIGNING_PRIVATE_KEY as a repo secret (steps in desktop/README). After that, tagged releases publish a signed latest.json and the in-app button does real updates. Not a code slice — owner action; could add a tiny doctor check that warns if the pubkey is still the placeholder (idea added during D2)
 220. ~~"0 spectacular warnings" guard (done 2026-06-14): test_schema_generates_without_warnings runs `manage.py spectacular --fail-on-warn --validate` in a subprocess and asserts exit 0, so any future undocumented endpoint, unresolved type hint, or enum collision fails the suite instead of silently degrading the contract the MCP server reads. Locks in #218/#219. Mechanism proven (the same flag exits non-zero against the pre-#218 139 warnings).~~
+227. Cheap previews (#227) open in a new browser tab via the `documents:preview` inline endpoint — calm and zero-JS, but an in-app lightbox/side-panel (image thumbnail or text snippet without leaving the page) would be a nicer SPA experience now that previewUrl is in the props and the safe-serve endpoint exists. Also: a tiny inline thumbnail in the row for images. Both are pure DocumentsTable React work (idea added during #227)
 226. The constant-N query guard pattern (#223, weekly_review) now covers documents + literature; the other list-heavy surfaces (reading queue, review matrix, the cross-project dashboard, project overview's recent-items) could get the same cheap guard so the whole app is N+1-fenced, not just the two pages the audit happened to time (idea added during #223)
 221. The 0-warnings schema guard (#220) shells out to manage.py each run (~1-2s); if test time ever matters it could call the generator in-process via drf_spectacular's SchemaGenerator + drainage GENERATOR_STATS instead of a subprocess — lower priority, the subprocess is simpler and matches the desktop tests' pattern (idea added during #220)
 223. ~~Query-budget guards for documents + literature (done 2026-06-14): both views now have an N+1 guard test that measures the warm query count with 3 rows, then asserts 8 rows cost no more — data-count-independent, so it catches a future per-row query added to _doc_row, the island props, or a filter, not just a fixed budget. Confirms AUDIT #21's "constant query" finding and locks it in (like the weekly_review(8) guard).~~

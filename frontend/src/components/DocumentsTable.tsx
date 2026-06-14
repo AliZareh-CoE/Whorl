@@ -21,6 +21,7 @@ type Doc = {
   added: string;
   comments: number;
   downloadUrl: string;
+  previewUrl: string | null;
   editUrl: string;
 };
 type Comment = { id: number; body: string; created_at: string };
@@ -295,6 +296,16 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                   >
                     💬 {(doc.comments ?? 0) + (extraCounts[doc.id] ?? 0) || ""}
                   </button>
+                  {doc.previewUrl && (
+                    <a
+                      href={doc.previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-xs text-indigo-600 hover:underline"
+                    >
+                      Preview
+                    </a>
+                  )}
                   <a href={doc.downloadUrl} className="ml-2 text-xs text-indigo-600 hover:underline">
                     Download
                   </a>

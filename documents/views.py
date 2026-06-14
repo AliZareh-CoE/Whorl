@@ -11,7 +11,7 @@ from projects.views import ProjectScopedMixin
 
 from . import selectors
 from .forms import DocumentForm, FolderForm, TagForm
-from .models import Document, Folder, Tag
+from .models import PREVIEWABLE_IMAGE_TYPES, Document, Folder, Tag
 
 
 def documents_table_props(project, documents, next_url=""):
@@ -44,6 +44,11 @@ def documents_table_props(project, documents, next_url=""):
                 "added": doc.created_at.strftime("%Y-%m-%d"),
                 "comments": comment_counts.get(doc.pk, 0),
                 "downloadUrl": reverse("documents:download", args=[project.slug, doc.pk]),
+                "previewUrl": (
+                    reverse("documents:preview", args=[project.slug, doc.pk])
+                    if doc.is_previewable
+                    else None
+                ),
                 "editUrl": reverse("documents:document_edit", args=[project.slug, doc.pk]),
             }
             for doc in documents
@@ -107,6 +112,24 @@ def document_download(request, slug, pk):
     document = get_object_or_404(Document, pk=pk, project__slug=slug)
     response = FileResponse(document.file.open("rb"), as_attachment=True)
     # files are immutable once uploaded (edits create new files) — let browsers cache
+    response["Cache-Control"] = "private, max-age=86400"
+    return response
+
+
+def document_preview(request, slug, pk):
+    """Serve a previewable document inline (#14 cheap previews) — raster image or plain text.
+
+    Anything not on the safe whitelist (PDF, SVG, HTML, office files…) redirects to the normal
+    download. Text is always served as `text/plain` and every response carries `nosniff`, so a
+    browser can never be tricked into rendering an uploaded file as active HTML in our origin.
+    """
+    document = get_object_or_404(Document, pk=pk, project__slug=slug)
+    if not document.is_previewable:
+        return redirect("documents:download", slug=slug, pk=pk)
+    ct = (document.content_type or "").lower().split(";")[0].strip()
+    serve_type = ct if ct in PREVIEWABLE_IMAGE_TYPES else "text/plain; charset=utf-8"
+    response = FileResponse(document.file.open("rb"), as_attachment=False, content_type=serve_type)
+    response["X-Content-Type-Options"] = "nosniff"
     response["Cache-Control"] = "private, max-age=86400"
     return response
 

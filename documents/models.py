@@ -4,6 +4,12 @@ from django.db import models
 from core.models import TimeStampedModel
 from projects.models import Project
 
+# Raster image types that are safe to serve inline (they can't execute script). SVG is
+# deliberately excluded — it can carry JavaScript — as are HTML/PDF; those fall back to download.
+PREVIEWABLE_IMAGE_TYPES = frozenset(
+    {"image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp"}
+)
+
 
 class Folder(TimeStampedModel):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="folders")
@@ -118,6 +124,14 @@ class Document(TimeStampedModel):
 
     def __str__(self):
         return self.title
+
+    @property
+    def is_previewable(self):
+        """Whether this file is safe to show inline (#14 cheap previews). Raster images and
+        plain text only — deliberately NOT SVG or HTML, which can carry script that would run
+        in Atlas's own origin. Everything else falls back to download."""
+        ct = (self.content_type or "").lower().split(";")[0].strip()
+        return ct in PREVIEWABLE_IMAGE_TYPES or ct.startswith("text/")
 
     def save(self, *args, **kwargs):
         if self.file:
