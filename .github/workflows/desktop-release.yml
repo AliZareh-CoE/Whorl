@@ -9,7 +9,15 @@ name: Desktop release
 # dev container, so this workflow IS the delivery mechanism.
 
 on:
+  # One-click-free path (owner asked for "one click install"): auto-build the installers
+  # whenever the desktop app or this workflow changes, publishing to a rolling
+  # "desktop-preview" draft release. Also still runs on a version tag or a manual dispatch.
   push:
+    branches:
+      - "claude/atlas-build-loop-qnf8a8"
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop-release.yml"
     tags:
       - "v*"
   workflow_dispatch:
@@ -69,8 +77,11 @@ jobs:
           # generates the updater keypair; unsigned bundles still install fine.
         with:
           projectPath: desktop
-          tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: "Atlas ${{ github.event.inputs.tag || github.ref_name }}"
+          # A manual dispatch or version tag publishes under that name; an automatic
+          # build-on-push rolls a single "desktop-preview" release so there's always one
+          # stable place to download the latest installers.
+          tagName: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'desktop-preview' }}
+          releaseName: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'Atlas desktop preview' }}
           releaseBody: "Ready-to-install Atlas desktop builds. Pick the file for your OS below."
           releaseDraft: true
           prerelease: false
