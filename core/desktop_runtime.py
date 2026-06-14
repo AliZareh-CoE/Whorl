@@ -21,6 +21,13 @@ DB_NAME = "atlas"
 DB_USER = "atlas"
 
 
+def _plain(path: str) -> str:
+    """Drop Windows' extended-length `\\\\?\\` prefix. Tauri's resource_dir() hands us paths
+    like `\\\\?\\C:\\...`, and Postgres' initdb mis-resolves its sibling `share/` dir from such
+    a path (failing with exit 1), so we always invoke the binaries by their plain path."""
+    return path[4:] if path.startswith("\\\\?\\") else path
+
+
 def _pg_bin(name: str) -> str:
     """Resolve a postgres binary (initdb/postgres/pg_ctl/createdb/createuser/pg_isready)."""
     # on Windows the binaries carry a .exe suffix; harmlessly check both names everywhere.
@@ -29,15 +36,16 @@ def _pg_bin(name: str) -> str:
     search_dirs = []
     bindir = os.environ.get("ATLAS_PG_BIN")
     if bindir:
+        bindir = _plain(bindir)
         search_dirs += [Path(bindir), Path(bindir) / "bin"]
     for directory in search_dirs:
         for candidate_name in names:
             candidate = directory / candidate_name
             if candidate.exists():
-                return str(candidate)
+                return _plain(str(candidate))
     found = shutil.which(name)
     if found:
-        return found
+        return _plain(found)
     for base in sorted(Path("/usr/lib/postgresql").glob("*/bin"), reverse=True):
         candidate = base / name
         if candidate.exists():
@@ -46,7 +54,17 @@ def _pg_bin(name: str) -> str:
 
 
 def _run(args, **kw):
-    return subprocess.run(args, check=True, capture_output=True, text=True, **kw)
+    """Run a Postgres helper, raising with its stderr on failure. The desktop window has no
+    console, so a bare non-zero exit is invisible — we surface stdout+stderr so the captured
+    server log says *why* (e.g. initdb's actual complaint), not just an exit code."""
+    proc = subprocess.run(args, capture_output=True, text=True, **kw)
+    if proc.returncode != 0:
+        name = os.path.basename(str(args[0])) if isinstance(args, (list, tuple)) else str(args)
+        raise RuntimeError(
+            f"{name} failed (exit {proc.returncode}).\n"
+            f"stdout: {(proc.stdout or '').strip()}\nstderr: {(proc.stderr or '').strip()}"
+        )
+    return proc
 
 
 def ensure_postgres(data_dir: Path, port: int):
@@ -61,6 +79,12 @@ def ensure_postgres(data_dir: Path, port: int):
     socket_dir.mkdir(parents=True, exist_ok=True)
 
     if not (pgdata / "PG_VERSION").exists():
+        # A previous failed launch can leave a partial, non-empty pgdata with no PG_VERSION.
+        # initdb refuses a non-empty target ("directory exists but is not empty"), which would
+        # make every retry fail — so clear the half-built cluster first. Safe: without
+        # PG_VERSION there is no real database here yet.
+        if pgdata.exists():
+            shutil.rmtree(pgdata, ignore_errors=True)
         _run(
             [
                 _pg_bin("initdb"),
@@ -108,14 +132,11 @@ def ensure_postgres(data_dir: Path, port: int):
                 " ".join(pg_opts),
             ]
         )
-    except subprocess.CalledProcessError as exc:
+    except RuntimeError as exc:
         # surface *why* it failed (the server log is the only window the owner has) instead of
         # a bare non-zero exit that just bubbles up as a blank connection-refused page.
         tail = logfile.read_text(errors="ignore")[-2000:] if logfile.exists() else ""
-        raise RuntimeError(
-            f"Postgres failed to start (port {port}).\n{exc.stderr or ''}\n"
-            f"--- postgres.log (tail) ---\n{tail}"
-        ) from exc
+        raise RuntimeError(f"{exc}\n--- postgres.log (tail) ---\n{tail}") from exc
 
     def stop():
         try:

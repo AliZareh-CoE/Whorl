@@ -92,6 +92,33 @@ def test_postgres_skips_unix_socket_on_windows():
     assert "postgres.log" in runtime and "RuntimeError" in runtime
 
 
+def test_run_surfaces_stderr_on_failure():
+    # the windowed build has no console, so a failing Postgres helper must raise WITH its
+    # stderr (e.g. initdb's real complaint), not a bare exit code (#224 follow-up).
+    import pytest
+
+    from core.desktop_runtime import _run
+
+    with pytest.raises(RuntimeError) as exc:
+        _run(["sh", "-c", "echo boom-message 1>&2; exit 1"])
+    assert "boom-message" in str(exc.value)
+
+
+def test_plain_strips_extended_length_prefix():
+    # Tauri hands us \\?\C:\... ; initdb mis-resolves its share/ dir from that, so we strip it.
+    from core.desktop_runtime import _plain
+
+    assert _plain("\\\\?\\C:\\pg\\bin\\initdb.exe") == "C:\\pg\\bin\\initdb.exe"
+    assert _plain("/usr/lib/postgresql/16/bin/initdb") == "/usr/lib/postgresql/16/bin/initdb"
+
+
+def test_initdb_clears_partial_pgdata():
+    # a half-built pgdata from a prior failed launch (no PG_VERSION) is wiped so initdb's
+    # "directory not empty" can't make every retry fail.
+    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
+    assert "rmtree" in runtime and "PG_VERSION" in runtime
+
+
 def test_frozen_server_logs_to_data_dir():
     # so a startup crash isn't invisible behind the windowed (no-console) build.
     entry = (BASE_DIR / "desktop" / "server" / "atlas_server.py").read_text()
