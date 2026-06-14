@@ -74,21 +74,22 @@ def documents_index(request, slug):
 
     tags = project.tags.all()
     island_props = documents_table_props(project, documents, request.get_full_path())
+    # Load the project's folders ONCE and reuse the list for the nested tree, the bulk-move
+    # <select>, and every row's move-<select> (#180/#181/#197) — one query, not several.
+    folders = list(project.folders.all())
     return render(
         request,
         "documents/index.html",
         {
             "project": project,
-            "tree": selectors.folder_tree(project),
+            "tree": selectors.folder_tree(project, prefetched=folders),
             "documents": documents,
             "current_folder": current_folder,
             "current_tag": current_tag,
             "show_all": "all" in request.GET,
             "tags": tags,
             "island_props": island_props,
-            # one shared folder list for every row's move-<select> (avoids an N+1
-            # that re-queried project.folders per document row — AUDIT #17 / #180)
-            "folders": list(project.folders.all()),
+            "folders": folders,
         },
     )
 

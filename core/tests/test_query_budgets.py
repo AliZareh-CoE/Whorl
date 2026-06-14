@@ -52,7 +52,7 @@ class TestQueryBudgets:
         FolderFactory.create_batch(5, project=project)
         DocumentFactory.create_batch(15, project=project)
         url = reverse("documents:index", args=[project.slug]) + "?all=1"
-        with django_assert_max_num_queries(16):
+        with django_assert_max_num_queries(15):
             response = client_logged_in.get(url)
         assert response.status_code == 200
 

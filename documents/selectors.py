@@ -3,18 +3,22 @@ from projects.models import Project
 from .models import Folder
 
 
-def folder_tree(project: Project) -> list[dict]:
+def folder_tree(project: Project, prefetched=None) -> list[dict]:
     """Nested folder structure: [{"folder": f, "children": [...]}, ...] sorted by name.
 
     Manuscript root folders (and their subtrees) are hidden from the general Documents
     tree — they belong to the manuscript workbench / the slice-2 explorer (epic #30).
+
+    Pass ``prefetched`` (a list of all the project's Folders) to reuse a folder list the
+    caller already loaded, avoiding a duplicate ``project.folders.all()`` query (#197).
     """
     manuscript_roots = set(
         project.manuscripts.exclude(root_folder__isnull=True).values_list(
             "root_folder_id", flat=True
         )
     )
-    folders = [f for f in project.folders.all() if f.pk not in manuscript_roots]
+    all_folders = project.folders.all() if prefetched is None else prefetched
+    folders = [f for f in all_folders if f.pk not in manuscript_roots]
     by_parent: dict[int | None, list[Folder]] = {}
     for folder in folders:
         by_parent.setdefault(folder.parent_id, []).append(folder)
