@@ -22,6 +22,20 @@ LIBRARY_SORTS = {
     "cited": "citation_count",
 }
 
+# Backlog #189: order pills for the per-project literature list. Each maps to (field, desc).
+LITERATURE_SORTS = {
+    "added": ("created_at", True),
+    "title": ("reference__title", False),
+    "year": ("reference__year", True),
+    "cited": ("reference__citation_count", True),
+}
+LITERATURE_SORT_LABELS = [
+    ("added", "Recently added"),
+    ("title", "Title"),
+    ("year", "Year"),
+    ("cited", "Most cited"),
+]
+
 
 def library_index(request):
     references = Reference.objects.prefetch_related("project_links__project")
@@ -253,6 +267,7 @@ def save_highlight(request, pk):
 
 
 def project_literature(request, slug):
+    from django.db.models import F
     from django.db.models import Q as DQ
 
     from .selectors import project_keyword_cloud
@@ -270,6 +285,18 @@ def project_literature(request, slug):
         links = links.filter(
             DQ(reference__title__icontains=keyword) | DQ(reference__abstract__icontains=keyword)
         )
+    # Order control (#189): the per-project list is a row list, not a column table, so it gets
+    # a small set of order pills instead of sortable headers. `desc` marks fields that read best
+    # newest/highest-first; the reference title is always the stable tiebreaker.
+    sort = request.GET.get("sort", "added")
+    if sort not in LITERATURE_SORTS:
+        sort = "added"
+    field_name, desc = LITERATURE_SORTS[sort]
+    field = F(field_name)
+    primary = field.desc(nulls_last=True) if desc else field.asc(nulls_last=True)
+    links = links.order_by(primary, "reference__title")
+    base_params = request.GET.copy()
+    base_params.pop("sort", None)
     return render(
         request,
         "literature/project_literature.html",
@@ -282,6 +309,9 @@ def project_literature(request, slug):
             "cloud": project_keyword_cloud(project),
             "statuses": ProjectReference.ReadingStatus.choices,
             "priorities": ProjectReference.Priority.choices,
+            "sort": sort,
+            "sort_options": LITERATURE_SORT_LABELS,
+            "base_params": base_params.urlencode(),
         },
     )
 

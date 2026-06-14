@@ -127,6 +127,23 @@ class TestProjectLiterature:
         assert read.reference.title.encode() in response.content
         assert b"Unread Paper Abc" not in response.content
 
+    def test_project_page_orders_by_year(self, client_logged_in):
+        # #189: the order pills sort the per-project literature list server-side.
+        project = ProjectFactory()
+        ProjectReferenceFactory(project=project, reference__title="Old One", reference__year=1990)
+        ProjectReferenceFactory(project=project, reference__title="New One", reference__year=2025)
+        url = reverse("literature:project", args=[project.slug])
+        body = client_logged_in.get(url, {"sort": "year"}).content.decode()
+        assert body.index("New One") < body.index("Old One")  # year desc, newest first
+
+    def test_project_page_rejects_unknown_sort(self, client_logged_in):
+        project = ProjectFactory()
+        ProjectReferenceFactory(project=project, reference__title="Anything Here")
+        url = reverse("literature:project", args=[project.slug])
+        response = client_logged_in.get(url, {"sort": "'; DROP TABLE"})
+        assert response.status_code == 200
+        assert b"Anything Here" in response.content
+
     def test_queue_sorted_by_priority(self, client_logged_in):
         project = ProjectFactory()
         ProjectReferenceFactory(project=project, priority="low", reference__title="LowPaper")
