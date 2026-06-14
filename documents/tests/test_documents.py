@@ -134,6 +134,16 @@ class TestDocumentViews:
         body = client_logged_in.get(f"{url}?all&tag=").content  # All clears it
         assert b"Tagged Doc" in body and b"Plain Doc" in body
 
+    def test_clear_tag_link_sends_empty_tag(self, client_logged_in):
+        # #212 regression guard: the Clear link must send an explicit empty tag= to clear the
+        # session-remembered tag — a scope-only URL would restore it instead.
+        project = ProjectFactory()
+        tag = TagFactory(project=project)
+        DocumentFactory(project=project).tags.add(tag)
+        url = reverse("documents:index", args=[project.slug])
+        body = client_logged_in.get(f"{url}?all&tag={tag.pk}").content.decode()
+        assert '?all&tag="' in body  # the Clear link clears the tag while keeping scope
+
     def test_index_ignores_foreign_tag(self, client_logged_in):
         # #192: a tag pk from another project must never filter this list — falls back to All.
         project = ProjectFactory()

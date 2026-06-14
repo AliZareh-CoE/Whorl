@@ -37,7 +37,8 @@
   </select>
   <button type="submit" class="rounded border border-stone-300 bg-white px-3 py-1.5 hover:border-stone-400">Filter</button>
   {% if status or priority %}
-    <a href="{% url 'literature:project' project.slug %}" class="text-stone-500 hover:underline">Clear</a>
+    {# explicit empty values actively clear the session-remembered filter (#187); a bare URL would just restore it #}
+    <a href="{% url 'literature:project' project.slug %}?status=&priority=" class="text-stone-500 hover:underline">Clear</a>
   {% endif %}
 </form>
 

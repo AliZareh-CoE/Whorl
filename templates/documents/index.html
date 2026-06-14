@@ -75,7 +75,8 @@
     {% endif %}
     {% if current_tag %}
       <p class="mb-3 text-sm text-stone-500">Filtered by tag “{{ current_tag.name }}”.
-        <a href="{% url 'documents:index' project.slug %}{% if current_folder %}?folder={{ current_folder.pk }}{% elif show_all %}?all{% endif %}" class="text-indigo-600 hover:underline">Clear</a></p>
+        {# explicit empty tag= actively clears the session-remembered filter (#212), keeping the folder/all scope; a scope-only URL would just restore the tag #}
+        <a href="{% url 'documents:index' project.slug %}?{% if current_folder %}folder={{ current_folder.pk }}&{% elif show_all %}all&{% endif %}tag=" class="text-indigo-600 hover:underline">Clear</a></p>
     {% endif %}
 
     {% if documents %}

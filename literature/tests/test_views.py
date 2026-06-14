@@ -160,6 +160,15 @@ class TestProjectLiterature:
         again = client_logged_in.get(url).content.decode()
         assert "Unread Paper Abc" in again
 
+    def test_clear_link_sends_explicit_empty_filters(self, client_logged_in):
+        # #187 regression guard: now that filters persist in the session, the Clear link must
+        # send explicit empty params (a bare URL would just restore the remembered filter).
+        project = ProjectFactory()
+        ProjectReferenceFactory(project=project, reading_status="read")
+        url = reverse("literature:project", args=[project.slug])
+        body = client_logged_in.get(url, {"status": "read"}).content.decode()
+        assert "?status=&priority=" in body
+
     def test_project_page_rejects_unknown_status(self, client_logged_in):
         # #192: a tampered ?status= must never reach the ORM — falls back to "All".
         project = ProjectFactory()
