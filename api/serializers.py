@@ -261,7 +261,7 @@ class NoteSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {"references": {"required": False}}
 
-    def get_backlinks(self, note):
+    def get_backlinks(self, note) -> list[dict]:
         return [
             {"id": link.source_id, "title": link.source.title}
             for link in note.incoming_links.select_related("source")
@@ -278,10 +278,10 @@ class HypothesisSerializer(serializers.ModelSerializer):
         model = Hypothesis
         fields = ["id", "statement", "status", "supports", "contradicts", "created_at"]
 
-    def get_supports(self, obj):
+    def get_supports(self, obj) -> int:
         return sum(1 for e in obj.evidence.all() if e.direction == "supports")
 
-    def get_contradicts(self, obj):
+    def get_contradicts(self, obj) -> int:
         return sum(1 for e in obj.evidence.all() if e.direction == "contradicts")
 
 

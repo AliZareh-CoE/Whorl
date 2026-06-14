@@ -3,7 +3,13 @@ from django.contrib.auth.decorators import login_not_required
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.decorators import method_decorator
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import serializers as rf_serializers
 from rest_framework import status, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
@@ -1131,7 +1137,14 @@ class BotsAPIView(APIView):
 class BotActionAPIView(APIView):
     """Toggle or run a bot from the SPA."""
 
-    @extend_schema(description="action: 'toggle' or 'run'.", responses={200: None})
+    @extend_schema(
+        description="action: 'toggle' or 'run'.",
+        request=inline_serializer(
+            "BotActionRequest",
+            {"action": rf_serializers.ChoiceField(choices=["toggle", "run"])},
+        ),
+        responses={200: None},
+    )
     def post(self, request, slug):
         from bots.models import Bot
         from bots.registry import BOTS, run_bot
@@ -1161,7 +1174,9 @@ class CommentsAPIView(APIView):
         return model.objects.filter(pk=object_id).first()
 
     @extend_schema(
-        description="Comments on a note/reference/manuscript/document.", responses={200: None}
+        description="Comments on a note/reference/manuscript/document.",
+        request=None,
+        responses={200: None},
     )
     def get(self, request, kind, object_id):
         from core.comments import comments_for
@@ -1184,7 +1199,15 @@ class CommentsAPIView(APIView):
         )
 
     @extend_schema(
-        description="Add a comment (optionally anchored to a line).", responses={201: None}
+        description="Add a comment (optionally anchored to a line).",
+        request=inline_serializer(
+            "CommentCreateRequest",
+            {
+                "body": rf_serializers.CharField(),
+                "line": rf_serializers.IntegerField(required=False, allow_null=True),
+            },
+        ),
+        responses={201: None},
     )
     def post(self, request, kind, object_id):
         from core.models import Comment

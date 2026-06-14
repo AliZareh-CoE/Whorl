@@ -52,6 +52,19 @@ class TestAuth:
         assert anon.get("/api/schema/", **HEADERS).status_code == 200  # API key ok
         assert client_logged_in.get("/api/schema/").status_code == 200  # session ok
 
+    def test_schema_documents_api_key_auth(self, client_logged_in, owner):
+        # §6: the X-API-Key scheme must appear in the OpenAPI schema (the MCP server and other
+        # clients read it). Without the registered auth extension every view dropped its auth.
+        schema = client_logged_in.get("/api/schema/?format=json").json()
+        assert schema["components"]["securitySchemes"]["ApiKeyAuth"] == {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-API-Key",
+        }
+        # the two SPA APIViews drf-spectacular used to drop (no guessable serializer) are present
+        assert "/api/v1/bots/{slug}/action/" in schema["paths"]
+        assert any(p.startswith("/api/v1/comments/") for p in schema["paths"])
+
     def test_docs_page_requires_login(self, client_logged_in, owner):
         from django.test import Client
 
