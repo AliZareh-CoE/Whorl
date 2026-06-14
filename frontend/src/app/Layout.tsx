@@ -5,6 +5,7 @@ import { api, csrfToken } from "./api";
 import { toSpaUrl } from "./links";
 import CommandBar from "./CommandBar";
 import { PetSvg } from "./PetSvg";
+import { UpdaterButton } from "./UpdaterButton";
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
   `block rounded px-2 py-1.5 ${isActive ? "bg-stone-100 font-medium" : "text-stone-600 hover:bg-stone-50"}`;
@@ -153,6 +154,7 @@ export default function Layout() {
             </a>
           )}
           <NavLink to="/automations" className="mb-2 block hover:text-stone-600">Automations</NavLink>
+          <UpdaterButton />
           <a href="/classic/" className="hover:text-stone-600">← Classic Atlas</a>
         </div>
       </aside>

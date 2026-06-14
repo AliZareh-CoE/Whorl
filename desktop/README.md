@@ -42,6 +42,24 @@ and Windows and attaches them to a GitHub Release:
 > Note: these installers ship the native shell. Atlas itself (the Django server) still
 > runs separately for now — see "NOT YET" below.
 
+## Auto-update ("Check for updates" button)
+The desktop app has a built-in updater (Tauri's own, OSS — no paid service). In the SPA
+sidebar a desktop-only **Check for updates** control asks the GitHub Releases feed for a
+newer signed build and installs it, then offers a restart. It's wired but **dormant until
+you do a one-time signing setup** (updater bundles must be signed):
+
+1. Generate the keypair once: `cargo tauri signer generate -w ~/.atlas-updater.key`
+   (keep the private key secret — never commit it).
+2. Put the printed **public** key into `desktop/tauri.conf.json` → `plugins.updater.pubkey`
+   (replacing the `REPLACE_ME_…` placeholder).
+3. Flip `bundle.createUpdaterArtifacts` to `true` in the same file.
+4. Add the **private** key as a repo secret `TAURI_SIGNING_PRIVATE_KEY` (and
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if you set one) — the desktop-release workflow
+   already passes them through to the signed build.
+
+Until then, the installers from the release workflow still build fine; only the in-app
+update check stays inert (it reports an error gracefully if pressed).
+
 ## What it is / isn't (v1)
 - IS: a native window loading the running Atlas, native window controls + size.
 - Local-disk: 'Open from disk…' on the Files page reads a file you explicitly pick

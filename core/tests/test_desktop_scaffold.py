@@ -74,3 +74,17 @@ def test_desktop_release_workflow_exists():
     text = wf.read_text()
     assert "tauri-apps/tauri-action" in text  # builds + uploads the installers
     assert "windows-latest" in text and "ubuntu-22.04" in text  # both OSes
+
+
+def test_updater_is_wired():
+    # Owner-requested D2: in-app "Check for updates" button (auto-update).
+    cargo = (DESKTOP / "Cargo.toml").read_text()
+    assert "tauri-plugin-updater" in cargo
+    main = (DESKTOP / "src" / "main.rs").read_text()
+    assert "tauri_plugin_updater" in main  # plugin registered
+    assert "check_for_updates" in main  # command exposed to the UI
+    cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
+    updater = cfg["plugins"]["updater"]
+    assert updater["endpoints"] and "pubkey" in updater
+    caps = json.loads((DESKTOP / "capabilities" / "default.json").read_text())
+    assert "updater:default" in caps["permissions"]

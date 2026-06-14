@@ -10,7 +10,8 @@
     "windows": [],
     "security": {
       "csp": null
-    }
+    },
+    "withGlobalTauri": true
   },
   "bundle": {
     "active": true,
@@ -20,6 +21,15 @@
     "category": "Productivity",
     "shortDescription": "Atlas — research project management",
     "longDescription": "Atlas is a calm, self-hosted research project-management app. This desktop build wraps the local Atlas server in a native window with an integrated terminal.",
-    "homepage": "https://github.com/alizareh-coe/project-manager"
+    "homepage": "https://github.com/alizareh-coe/project-manager",
+    "createUpdaterArtifacts": false
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/alizareh-coe/project-manager/releases/latest/download/latest.json"
+      ],
+      "pubkey": "REPLACE_ME_WITH_TAURI_UPDATER_PUBLIC_KEY"
+    }
   }
 }

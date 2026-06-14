@@ -8,6 +8,7 @@
 
 mod localfs;
 mod terminal;
+mod updater;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
@@ -18,12 +19,14 @@ fn atlas_url() -> String {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(terminal::TerminalState::default())
         .invoke_handler(tauri::generate_handler![
             terminal::terminal_spawn,
             terminal::terminal_write,
             terminal::terminal_resize,
-            localfs::open_local_file
+            localfs::open_local_file,
+            updater::check_for_updates
         ])
         .setup(|app| {
             let url = atlas_url();
