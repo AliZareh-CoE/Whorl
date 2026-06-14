@@ -97,8 +97,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 14. **World-class file & folder handling.** ~~First slice (2026-06-11, cycle 18):
     drag-and-drop anywhere on the documents page (overlay + per-file size validation +
     titles from filenames) and multi-file Quick upload button; inline rename (HTMX) and
-    quick-move folder dropdown on every row, project-scoped.~~ Remaining: breadcrumbed
-    folder navigation, cheap previews (text/image), drag rows between folders.
+    quick-move folder dropdown on every row, project-scoped.~~ ~~Breadcrumbed folder
+    navigation (done 2026-06-14, #222): the nested-folder header on the documents page is now
+    a clickable breadcrumb (root "Documents" → each ancestor → current), backed by a new
+    Folder.ancestors property (walks the parent chain like .path, same query cost). Jump
+    straight to any ancestor instead of going back to the tree. Live-verified on real data
+    (Data / Pilot); 2 tests.~~ Remaining: cheap previews (text/image), drag rows between folders.
 15. **Lightning-fast search with NLP.** ~~First slice (2026-06-11, cycle 19): pg_trgm
     extension + trigram typo-tolerance fallback; websearch query parsing ("quoted phrases",
     OR, -negation); as-you-type suggestion dropdown on the sidebar box (HTMX, 250 ms

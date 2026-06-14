@@ -31,6 +31,16 @@ class Folder(TimeStampedModel):
             node = node.parent
         return " / ".join(reversed(parts))
 
+    @property
+    def ancestors(self):
+        """Folders from the project root down to (and including) this one — for clickable
+        breadcrumbs. Walks the parent chain exactly like ``path`` does (same query cost)."""
+        chain, node = [], self
+        while node is not None:
+            chain.append(node)
+            node = node.parent
+        return list(reversed(chain))
+
     def descendant_ids(self):
         """IDs of this folder and everything below it (for filtering and cycle checks)."""
         ids, frontier = {self.pk}, [self.pk]

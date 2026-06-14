@@ -98,6 +98,26 @@ class TestDocumentViews:
         assert b"Tagged Doc" in response.content
         assert b"Plain Doc" not in response.content
 
+    def test_nested_folder_shows_clickable_breadcrumb(self, client_logged_in):
+        # owner #14: viewing a nested folder shows a breadcrumb that links to each ancestor.
+        project = ProjectFactory()
+        parent = FolderFactory(project=project, name="Parent")
+        child = FolderFactory(project=project, parent=parent, name="Child")
+        url = reverse("documents:index", args=[project.slug])
+        body = client_logged_in.get(f"{url}?folder={child.pk}").content.decode()
+        assert f"?folder={parent.pk}" in body  # ancestor is a clickable jump
+        assert ">Parent<" in body and ">Child<" in body  # both segments rendered
+        # the current folder is the leaf and not itself a link target
+        assert f"?folder={child.pk}" not in body.split(">Child<")[0][-60:]
+
+    def test_folder_ancestors_property(self):
+        # the breadcrumb data: root → … → self, in order.
+        project = ProjectFactory()
+        a = FolderFactory(project=project, name="A")
+        b = FolderFactory(project=project, parent=a, name="B")
+        c = FolderFactory(project=project, parent=b, name="C")
+        assert [f.name for f in c.ancestors] == ["A", "B", "C"]
+
     def test_index_remembers_tag_filter(self, client_logged_in):
         # #212: a chosen tag sticks; a later visit with no tag param restores it.
         project = ProjectFactory()

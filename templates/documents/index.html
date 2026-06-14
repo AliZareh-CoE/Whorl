@@ -67,7 +67,18 @@
   <div class="min-w-0 flex-1">
     {% if current_folder %}
       <div class="mb-3 flex items-center gap-2 text-sm text-stone-500">
-        <span>{{ current_folder.path }}</span>
+        {# clickable folder breadcrumb (owner #14): jump straight to any ancestor folder #}
+        <nav class="flex flex-wrap items-center gap-1">
+          <a href="{% url 'documents:index' project.slug %}" class="hover:underline">Documents</a>
+          {% for f in current_folder.ancestors %}
+            <span class="text-stone-300">/</span>
+            {% if f.pk == current_folder.pk %}
+              <span class="text-stone-700">{{ f.name }}</span>
+            {% else %}
+              <a href="?folder={{ f.pk }}" class="hover:underline">{{ f.name }}</a>
+            {% endif %}
+          {% endfor %}
+        </nav>
         <span class="ml-auto"></span>
         <a hx-get="{% url 'documents:folder_edit' project.slug current_folder.pk %}" hx-target="#modal-slot" hx-swap="innerHTML" href="{% url 'documents:folder_edit' project.slug current_folder.pk %}" class="text-xs hover:underline">Rename / move</a>
         <a href="{% url 'documents:folder_delete' project.slug current_folder.pk %}" class="text-xs text-red-600 hover:underline">Delete</a>
