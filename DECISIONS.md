@@ -709,6 +709,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+211. (AUDIT #20) Tighten the bundled-Postgres auth — trust-auth on 127.0.0.1 lets any local process reach the desktop DB without a password (fine for single-user, matches file ownership). A unix-socket-only listener or a generated password would harden it; low priority (idea added by AUDIT #20)
 
 ### ★ #210 post-ship fixes (owner ran the Windows installer, 2026-06-14)
 - **210-fix1 ✅ Windows "initdb not found" crash:** the installer launched + the frozen server ran, but `_pg_bin` looked for `initdb` while Windows ships `initdb.exe`. Fixed: `_pg_bin` now checks both `<name>` and `<name>.exe` and searches both ATLAS_PG_BIN and ATLAS_PG_BIN/bin; main.rs passes the pg ROOT (resource_dir/pg) so the bin/ fallback covers any layout. 2 new tests (.exe + bin-subdir). The frozen server + Tauri launch worked — this was the last runtime gap.

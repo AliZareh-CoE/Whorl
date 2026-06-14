@@ -671,3 +671,35 @@ no findings.**
 **Verdict:** healthy. The new desktop auto-update path is signature-locked and feed-pinned (can't
 install arbitrary code); the release workflow leaks no secrets; the web sort/persist/count work
 stays whitelisted, non-reflective, and N+1-free. No fixes needed.
+
+## Audit #20 — 2026-06-14 (since #19: the self-contained desktop epic #210 + fixes)
+
+Sweep of the bundled desktop app: SQLite→Postgres settings, the auto-Postgres lifecycle
+(core/desktop_runtime), run_desktop/waitress, the PyInstaller freeze, the search fallback,
+the resource-bundling CI, and the post-ship fixes (initdb.exe, single-instance). **Clean —
+no findings; one hardening note backlogged.**
+
+- **Local trust model (the big new surface):** the desktop build runs a Postgres it
+  initdb's itself, with `--auth=trust` — but bound to **127.0.0.1 only**
+  (`listen_addresses=127.0.0.1`) plus a unix socket inside the per-user data dir, and
+  `ALLOWED_HOSTS=[127.0.0.1, localhost]`. On a single-user desktop this is the same trust
+  boundary as the user's own files (SQLite has no auth either); nothing remote can reach it.
+- **No injection in desktop_runtime:** every psql/createdb/initdb arg is a hardcoded
+  constant (`DB_NAME`/`DB_USER` = "atlas") or an int port — no user input reaches the SQL or
+  the shell (subprocess lists, never shell=True). The binary paths come from ATLAS_PG_BIN,
+  set by the trusted Tauri shell to a bundled resource.
+- **Single-instance (#210 fix):** prevents multiple instances racing one Postgres data dir
+  (corruption) — a robustness + integrity win, not just UX.
+- **Web surfaces unchanged + still gated:** /library/ etc. 302 anonymously; the desktop work
+  didn't touch the web auth/injection posture.
+- **CI/deps:** the release workflow uses only `secrets.GITHUB_TOKEN` (no leaked secrets); it
+  downloads Postgres from Maven Central over https. `npm audit --omit=dev` = 0 vulns; the new
+  Python deps (waitress, pyinstaller[build-only]) are mainstream/pinned.
+
+**OBSERVATION (backlogged #211):** trust-auth means any local process on the user's machine
+can reach the desktop DB on 127.0.0.1:<port> without a password. Acceptable for a single-user
+desktop (matches the file-ownership boundary), but a unix-socket-only listener or a random
+generated password would tighten it. Low priority.
+
+**Verdict:** healthy. The self-contained stack is a sound local-trust design — loopback-bound,
+no user-controlled SQL/shell, integrity protected by single-instance. No fixes needed.
