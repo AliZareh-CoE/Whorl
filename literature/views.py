@@ -48,19 +48,12 @@ def library_index(request):
             | Q(doi__icontains=query)
             | Q(authors__icontains=query)
         )
-    # Persist the chosen sort across visits (#176): an explicit ?sort= is remembered in
-    # the session; arriving with no sort param restores the last-used order instead of
-    # snapping back to title-asc.
-    sort = request.GET.get("sort")
-    direction = request.GET.get("dir")
-    if sort is None:
-        sort = request.session.get("library_sort", "title")
-        direction = request.session.get("library_dir")
-    else:
-        request.session["library_sort"] = sort
-        request.session["library_dir"] = direction
-    if sort not in LIBRARY_SORTS:
-        sort = "title"
+    # Persist the chosen sort across visits (#176) via the shared, validate-before-store
+    # helper (#191/#192): an explicit ?sort=/?dir= is remembered, a bare visit restores it.
+    from core.session import remembered_choice
+
+    sort = remembered_choice(request, "sort", "library_sort", LIBRARY_SORTS, "title")
+    direction = remembered_choice(request, "dir", "library_dir", {"asc", "desc"}, "asc")
     descending = direction == "desc"
     field = F(LIBRARY_SORTS[sort])
     # nulls_last in both directions so blank years/venues never crowd the top;
@@ -287,15 +280,11 @@ def project_literature(request, slug):
         )
     # Order control (#189): the per-project list is a row list, not a column table, so it gets
     # a small set of order pills instead of sortable headers. `desc` marks fields that read best
-    # newest/highest-first; the reference title is always the stable tiebreaker.
-    # The choice persists across visits via the session (#190), like the library sort (#176).
-    sort = request.GET.get("sort")
-    if sort is None:
-        sort = request.session.get("literature_order", "added")
-    else:
-        request.session["literature_order"] = sort
-    if sort not in LITERATURE_SORTS:
-        sort = "added"
+    # newest/highest-first; the reference title is always the stable tiebreaker. The choice
+    # persists across visits (#190) via the shared validate-before-store helper (#191/#192).
+    from core.session import remembered_choice
+
+    sort = remembered_choice(request, "sort", "literature_order", LITERATURE_SORTS, "added")
     field_name, desc = LITERATURE_SORTS[sort]
     field = F(field_name)
     primary = field.desc(nulls_last=True) if desc else field.asc(nulls_last=True)
