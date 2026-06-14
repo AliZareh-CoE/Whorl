@@ -124,7 +124,23 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
   const allShownSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const arrow = (key: SortKey) => (sortKey === key ? (asc ? " ↑" : " ↓") : "");
   const th =
-    "py-2 pr-4 font-medium cursor-pointer select-none hover:text-stone-600";
+    "py-2 pr-4 font-medium cursor-pointer select-none hover:text-stone-600 focus:outline-none focus:text-indigo-700";
+  // a11y (#177): announce the sort state to screen readers and make the header
+  // keyboard-operable, matching the server-rendered library table's aria-sort.
+  const ariaSort = (key: SortKey): "ascending" | "descending" | "none" =>
+    sortKey === key ? (asc ? "ascending" : "descending") : "none";
+  const sortProps = (key: SortKey) => ({
+    scope: "col" as const,
+    "aria-sort": ariaSort(key),
+    tabIndex: 0,
+    onClick: () => toggleSort(key),
+    onKeyDown: (e: { key: string; preventDefault: () => void }) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleSort(key);
+      }
+    },
+  });
 
   return (
     <div>
@@ -213,17 +229,19 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                   className="size-4 rounded border-stone-300 accent-indigo-600"
                 />
               </th>
-              <th className={th} onClick={() => toggleSort("title")}>
+              <th className={th} {...sortProps("title")}>
                 Title{arrow("title")}
               </th>
-              <th className={th} onClick={() => toggleSort("folder")}>
+              <th className={th} {...sortProps("folder")}>
                 Folder{arrow("folder")}
               </th>
-              <th className="py-2 pr-4 font-medium">Tags</th>
-              <th className={th} onClick={() => toggleSort("size")}>
+              <th className="py-2 pr-4 font-medium" scope="col">
+                Tags
+              </th>
+              <th className={th} {...sortProps("size")}>
                 Size{arrow("size")}
               </th>
-              <th className={th} onClick={() => toggleSort("added")}>
+              <th className={th} {...sortProps("added")}>
                 Added{arrow("added")}
               </th>
               <th className="py-2"></th>
