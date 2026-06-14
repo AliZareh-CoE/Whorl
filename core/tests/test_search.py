@@ -21,6 +21,20 @@ class TestSearch:
     def test_empty_query_returns_nothing(self):
         assert search_all("") == []
 
+    def test_icontains_fallback_finds_across_types(self):
+        # #210b: the SQLite desktop build uses the non-Postgres LIKE fallback. The logic
+        # works on any backend, so exercise it directly here.
+        from core.search import _icontains_search
+
+        ReferenceFactory(title="Octopus camouflage review")
+        NoteFactory(title="Octopus ideas", body="chromatophores")
+        DecisionRecordFactory(title="Study octopus", decision="Tractable model.")
+        results = _icontains_search("octopus")
+        types = {r["type"] for r in results}
+        assert {"reference", "note", "decision"} <= types
+        # every row keeps the same shape the FTS path returns
+        assert all({"type", "object", "project"} <= r.keys() for r in results)
+
     def test_search_page_renders_grouped(self, client_logged_in):
         project = ProjectFactory(name="Coral Reef Mapping")
         NoteFactory(project=project, title="Coral bleaching notes")

@@ -64,10 +64,75 @@ def _trigram_fallback(text: str) -> list[dict]:
     return results
 
 
+# The fields each type matches on, shared by the FTS vectors above and the icontains
+# fallback below. (kind, queryset-factory, fields, project-accessor).
+_SEARCH_SPECS = [
+    ("project", lambda: Project.objects.all(), ["name", "description"], lambda o: o),
+    (
+        "reference",
+        lambda: Reference.objects.all(),
+        ["title", "abstract", "venue", "bibtex_key"],
+        lambda o: None,
+    ),
+    (
+        "note",
+        lambda: Note.objects.select_related("project"),
+        ["title", "body"],
+        lambda o: o.project,
+    ),
+    (
+        "document",
+        lambda: Document.objects.select_related("project"),
+        ["title", "description"],
+        lambda o: o.project,
+    ),
+    (
+        "decision",
+        lambda: DecisionRecord.objects.select_related("project"),
+        ["title", "decision", "context", "alternatives"],
+        lambda o: o.project,
+    ),
+    (
+        "phase",
+        lambda: Phase.objects.select_related("project"),
+        ["name", "objective"],
+        lambda o: o.project,
+    ),
+    (
+        "milestone",
+        lambda: Milestone.objects.select_related("phase__project"),
+        ["title", "notes"],
+        lambda o: o.phase.project,
+    ),
+]
+
+
+def _icontains_search(text: str) -> list[dict]:
+    """Plain LIKE search for non-Postgres backends (the SQLite desktop build, #210b).
+
+    No ranking or typo-tolerance — just case-insensitive substring matches over the same
+    fields the FTS path uses — so global search still works without Postgres.
+    """
+    from django.db.models import Q
+
+    results = []
+    for kind, qs_factory, fields, project_of in _SEARCH_SPECS:
+        condition = Q()
+        for field in fields:
+            condition |= Q(**{f"{field}__icontains": text})
+        for obj in qs_factory().filter(condition)[:LIMIT_PER_TYPE]:
+            results.append({"type": kind, "object": obj, "project": project_of(obj)})
+    return results
+
+
 def search_all(text: str) -> list[dict]:
     """Returns [{"type": ..., "object": ..., "project": ...}, ...] ranked within type."""
     if not text.strip():
         return []
+    from django.db import connection
+
+    if connection.vendor != "postgresql":
+        return _icontains_search(text.strip())
     query = SearchQuery(text, search_type="websearch")
     results = []
 
