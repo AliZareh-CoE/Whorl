@@ -69,6 +69,34 @@ class TestAuth:
         assert "ManuscriptFileKindEnum" in schemas
         assert "SubmissionEventKindEnum" in schemas
 
+    def test_schema_generates_without_warnings(self):
+        # #220: lock in the clean schema (#218/#219). A new undocumented endpoint, an
+        # unresolved type hint, or an enum collision all make drf-spectacular warn, which
+        # --fail-on-warn turns into a non-zero exit; --validate also checks OpenAPI validity.
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        from django.conf import settings as dj_settings
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "manage.py",
+                "spectacular",
+                "--fail-on-warn",
+                "--validate",
+                "--file",
+                os.devnull,
+            ],
+            cwd=Path(dj_settings.BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, result.stderr or result.stdout
+
     def test_docs_page_requires_login(self, client_logged_in, owner):
         from django.test import Client
 
