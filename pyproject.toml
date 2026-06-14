@@ -29,6 +29,10 @@ dev = [
     "factory-boy>=3.3",
     "ruff>=0.11",
 ]
+# Build-only: freezing the desktop server into a standalone binary (#210d).
+build = [
+    "pyinstaller>=6.0",
+]
 
 [tool.uv]
 package = false

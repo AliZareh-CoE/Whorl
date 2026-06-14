@@ -1,0 +1,84 @@
+# PyInstaller spec for the bundled Atlas server (#210d).
+#
+# Freezes `atlas_server.py` (which runs `manage.py run_desktop` under the SQLite desktop
+# settings) into a standalone, one-folder executable named `atlas-server`. Django discovers
+# apps / migrations / templates dynamically, so we collect every local app's submodules +
+# data and bundle the project-level templates/ and static/ at the root (where BASE_DIR
+# resolves to inside the frozen bundle).
+#
+#   pyinstaller desktop/server/atlas_server.spec --noconfirm
+import os
+import sys
+
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
+ROOT = os.path.abspath(os.path.join(SPECPATH, "..", ".."))  # noqa: F821  (spec lives in desktop/server)
+# collect_submodules below imports the local packages to walk them, so the project root
+# must be importable while the spec runs (pathex only applies to the later Analysis).
+sys.path.insert(0, ROOT)
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.desktop")
+os.environ.setdefault("DEBUG", "False")
+os.environ.setdefault("ATLAS_API_KEY", "")
+
+LOCAL_APPS = [
+    "config",
+    "core",
+    "projects",
+    "documents",
+    "plans",
+    "literature",
+    "writing",
+    "notes",
+    "research",
+    "api",
+    "prompts",
+    "bots",
+]
+THIRD_PARTY = [
+    "django",
+    "rest_framework",
+    "drf_spectacular",
+    "waitress",
+    "whitenoise",
+    "huey",
+    "environ",
+    "markdown",
+    "nh3",
+    "corsheaders",
+]
+
+hiddenimports = []
+datas = [
+    (os.path.join(ROOT, "templates"), "templates"),
+    (os.path.join(ROOT, "static"), "static"),
+]
+for pkg in LOCAL_APPS + THIRD_PARTY:
+    hiddenimports += collect_submodules(pkg)
+    datas += collect_data_files(pkg, include_py_files=True)
+
+a = Analysis(  # noqa: F821
+    [os.path.join(SPECPATH, "atlas_server.py")],  # noqa: F821
+    pathex=[ROOT],
+    binaries=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    runtime_hooks=[],
+    excludes=["tkinter", "pytest", "factory"],
+    noarchive=False,
+)
+pyz = PYZ(a.pure)  # noqa: F821
+exe = EXE(  # noqa: F821
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="atlas-server",
+    console=True,
+)
+coll = COLLECT(  # noqa: F821
+    exe,
+    a.binaries,
+    a.datas,
+    name="atlas-server",
+)

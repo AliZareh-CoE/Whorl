@@ -52,3 +52,14 @@ def test_run_desktop_setup_prepares_db_static_and_login(tmp_path):
     assert (tmp_path / "atlas.sqlite3").exists()
     assert (tmp_path / "staticfiles" / "staticfiles.json").exists()  # WhiteNoise manifest
     assert "Created the Atlas login" in result.stdout
+
+
+def test_pyinstaller_freeze_scaffold_present():
+    # #210d: the frozen-server entrypoint + spec exist and target the desktop settings.
+    server = BASE_DIR / "desktop" / "server"
+    entry = (server / "atlas_server.py").read_text()
+    spec = (server / "atlas_server.spec").read_text()
+    assert "config.settings.desktop" in entry
+    assert "run_desktop" in entry
+    assert "templates" in spec and "static" in spec  # bundled at the frozen root
+    assert "atlas-server" in spec  # the executable name the Tauri sidecar spawns

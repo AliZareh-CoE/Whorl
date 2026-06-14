@@ -14,3 +14,7 @@ bin/tectonic
 # Tauri build output
 desktop/target/
 desktop/gen/
+
+# PyInstaller desktop-server build artifacts (#210d)
+desktop/server/build/
+desktop/server/dist/
