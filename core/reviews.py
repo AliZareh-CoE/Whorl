@@ -66,22 +66,47 @@ def weekly_review(project=None, weeks_back: int = 0) -> dict:
         "end": (end - datetime.timedelta(days=1)).isoformat(),
         "weeks_back": weeks_back,
         "project": project.slug if project else None,
+        # each item carries both the project name (for display) and its slug, so any consumer
+        # — the cross-project review page, the API, MCP clients — can deep-link without a
+        # second lookup (the select_related above already loaded the projects, so no new query).
         "papers_read": [
             {
                 "key": p.reference.bibtex_key,
                 "title": p.reference.title,
                 "project": p.project.name,
+                "project_slug": p.project.slug,
                 "reference_id": p.reference_id,
             }
             for p in papers
         ],
-        "notes_written": [{"id": n.pk, "title": n.title, "project": n.project.name} for n in notes],
-        "milestones_done": [
-            {"title": m.title, "project": m.phase.project.name} for m in milestones
+        "notes_written": [
+            {
+                "id": n.pk,
+                "title": n.title,
+                "project": n.project.name,
+                "project_slug": n.project.slug,
+            }
+            for n in notes
         ],
-        "decisions": [{"title": d.title, "project": d.project.name} for d in decisions],
+        "milestones_done": [
+            {
+                "title": m.title,
+                "project": m.phase.project.name,
+                "project_slug": m.phase.project.slug,
+            }
+            for m in milestones
+        ],
+        "decisions": [
+            {"title": d.title, "project": d.project.name, "project_slug": d.project.slug}
+            for d in decisions
+        ],
         "experiments": [
-            {"title": e.title, "date": e.date.isoformat(), "project": e.project.name}
+            {
+                "title": e.title,
+                "date": e.date.isoformat(),
+                "project": e.project.name,
+                "project_slug": e.project.slug,
+            }
             for e in experiments
         ],
     }

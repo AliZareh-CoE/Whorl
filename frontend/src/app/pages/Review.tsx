@@ -13,11 +13,11 @@ type Review = {
   end: string;
   weeks_back: number;
   project: string | null;
-  papers_read: { key: string; title: string; project: string; reference_id: number }[];
-  notes_written: { id: number; title: string; project: string }[];
-  milestones_done: { title: string; project: string }[];
-  decisions: { title: string; project: string }[];
-  experiments: { title: string; date: string; project: string }[];
+  papers_read: { key: string; title: string; project: string; project_slug: string; reference_id: number }[];
+  notes_written: { id: number; title: string; project: string; project_slug: string }[];
+  milestones_done: { title: string; project: string; project_slug: string }[];
+  decisions: { title: string; project: string; project_slug: string }[];
+  experiments: { title: string; date: string; project: string; project_slug: string }[];
 };
 
 function Section<T>({ title, items, render, empty }: {
@@ -126,7 +126,7 @@ export default function Review() {
             )} />
           <Section title="Notes written" items={data.notes_written} empty="No new notes."
             render={(n) => (
-              <Link to={`/projects/${slug ?? ""}/notes/${n.id}`} className="flex items-baseline gap-2 hover:text-indigo-700">
+              <Link to={`/projects/${n.project_slug}/notes/${n.id}`} className="flex items-baseline gap-2 hover:text-indigo-700">
                 <span className="min-w-0 flex-1 truncate">{n.title}</span>
                 {!slug && <span className="shrink-0 text-xs text-stone-400">{n.project}</span>}
               </Link>
