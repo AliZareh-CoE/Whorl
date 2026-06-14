@@ -14,6 +14,15 @@ pub struct UpdateOutcome {
     pub installed_version: Option<String>,
 }
 
+/// Relaunch the whole app after an update was installed. A webview reload is not enough: the
+/// freshly-installed binary (and the bundled server it spawns) only take effect on a real
+/// process restart, so the "Update ready — restart" button calls this. `restart()` diverges
+/// (it exits and re-execs the new binary), so this never returns.
+#[tauri::command]
+pub fn restart_app(app: AppHandle) {
+    app.restart();
+}
+
 #[tauri::command]
 pub async fn check_for_updates(app: AppHandle) -> Result<UpdateOutcome, String> {
     let updater = app.updater().map_err(|e| e.to_string())?;

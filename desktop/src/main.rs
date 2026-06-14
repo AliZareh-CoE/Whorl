@@ -64,7 +64,8 @@ fn main() {
             terminal::terminal_write,
             terminal::terminal_resize,
             localfs::open_local_file,
-            updater::check_for_updates
+            updater::check_for_updates,
+            updater::restart_app
         ])
         .setup(|app| {
             let port: u16 = std::env::var("ATLAS_PORT")

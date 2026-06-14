@@ -97,6 +97,13 @@ def test_updater_is_wired():
     main = (DESKTOP / "src" / "main.rs").read_text()
     assert "tauri_plugin_updater" in main  # plugin registered
     assert "check_for_updates" in main  # command exposed to the UI
+    # an installed update only takes effect on a real process restart, not a webview reload,
+    # so the restart command must be exposed and the button must call it (not location.reload).
+    assert "restart_app" in main
+    updater_rs = (DESKTOP / "src" / "updater.rs").read_text()
+    assert "restart_app" in updater_rs and "app.restart()" in updater_rs
+    button = (DESKTOP.parent / "frontend" / "src" / "app" / "UpdaterButton.tsx").read_text()
+    assert "restart_app" in button
     cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
     updater = cfg["plugins"]["updater"]
     assert updater["endpoints"] and "pubkey" in updater

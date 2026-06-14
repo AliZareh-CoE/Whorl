@@ -39,10 +39,21 @@ export function UpdaterButton() {
     }
   };
 
+  const restart = async () => {
+    try {
+      const tauri = (await import("@tauri-apps/api")) as unknown as TauriApi;
+      // relaunches the whole app so the new binary + bundled server take effect; a bare
+      // webview reload would keep running the old process.
+      await tauri.core.invoke("restart_app");
+    } catch (e) {
+      setState({ kind: "error", message: String(e) });
+    }
+  };
+
   if (state.kind === "updated") {
     return (
       <button
-        onClick={() => window.location.reload()}
+        onClick={restart}
         className="mb-2 block text-left text-indigo-600 hover:text-indigo-700"
         title={`Installed ${state.version} — restart to finish`}
       >
