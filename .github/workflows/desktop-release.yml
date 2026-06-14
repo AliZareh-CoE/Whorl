@@ -18,6 +18,12 @@ on:
     paths:
       - "desktop/**"
       - ".github/workflows/desktop-release.yml"
+      # the frozen server bundles these Django sources, so a fix here (e.g. the bundled-
+      # Postgres lifecycle) must rebuild the installer too — they're not under desktop/.
+      - "core/desktop_runtime.py"
+      - "core/management/commands/run_desktop.py"
+      - "config/settings/desktop.py"
+      - "pyproject.toml"
     tags:
       - "v*"
   workflow_dispatch:

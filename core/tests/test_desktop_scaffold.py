@@ -90,6 +90,14 @@ def test_release_workflow_assembles_the_bundled_server():
     assert "resources/pg" in resources  # the Postgres binaries ship as a resource
 
 
+def test_release_workflow_rebuilds_on_frozen_server_sources():
+    # #228: the frozen server bundles these Django files, so a change to them must trigger the
+    # installer rebuild — they live outside desktop/, so they have to be in the push paths.
+    wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
+    assert "core/desktop_runtime.py" in wf
+    assert "config/settings/desktop.py" in wf
+
+
 def test_updater_is_wired():
     # Owner-requested D2: in-app "Check for updates" button (auto-update).
     cargo = (DESKTOP / "Cargo.toml").read_text()
