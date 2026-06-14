@@ -636,3 +636,38 @@ order pills, #190 persisted literature order, #177 documents-table a11y. **Clean
 **Verdict:** healthy. Every new sort/order surface is whitelisted, non-reflective, auth-gated, and
 N+1-free; persisted-sort sessions are validated on read so tampering is inert. No fixes needed;
 one tidy-up (validate-before-store) backlogged as #192.
+
+## Audit #19 — 2026-06-14 (since #18: helper refactor, base_wide, perf trims, Vite 8, desktop dist)
+
+Sweep since AUDIT #18 (commits ~21d870f..aed8ca6): #191/#192 session helper, #193 queue
+persistence, #183/#195/#196 base_wide, #181/#197 folder-query trims, #199 count lines, #159
+Vite 8, and the owner desktop-distribution epic (D1 release CI + D2 in-app updater). **Clean —
+no findings.**
+
+- **Web surfaces (#189/#193 order/persist, #199 counts):** auth-gated (302 anon on
+  `/projects/<slug>/literature/?sort=` and `…/queue/?order=`); the project-literature `?sort=`
+  whitelist holds and an injected `ZZ'><script>…` is **not** reflected; counts are server-side
+  `|length`, no interpolation. Timings 17–21 ms / 6–7 q, under the 50 ms bar.
+- **Desktop auto-update (D2) — the one genuinely new privileged surface:** reviewed and safe by
+  design. `check_for_updates` has **no hardcoded/caller-supplied URL** — the endpoint comes from
+  tauri.conf (the project's own GitHub Releases feed) and `download_and_install` only applies a
+  build whose signature verifies against the configured pubkey. So even though the command is
+  reachable over the IPC, it cannot be steered to install arbitrary code. It's also inert right
+  now (placeholder pubkey + createUpdaterArtifacts=false) until the owner's keypair step (D3).
+- **Release workflow (D1):** uses the standard scoped `GITHUB_TOKEN`; `TAURI_SIGNING_PRIVATE_KEY`
+  is referenced only as a future secret (commented), so nothing is leaked. Releases are drafted,
+  not auto-published.
+- **withGlobalTauri (OBSERVATION, not a finding):** D2 set `withGlobalTauri: true`, exposing the
+  IPC (terminal/localfs/updater) to the loaded page. That page is origin-locked to the local
+  Atlas server (the on_navigation guard from #160) and this is a single-user local app, so the
+  trust model is unchanged — the same model under which the terminal already shipped. The app's
+  broad XSS hardening (esc() everywhere, non-reflective inputs) keeps a hostile script from
+  reaching the IPC. The terminal-isolation guard still passes (PTY stays out of web/MCP).
+- **Dependencies:** `npm audit --omit=dev` = **0 vulnerabilities** (Vite 8 holds the #159 win);
+  the only new crates are tauri-plugin-updater + serde_json (official Tauri / serde, pinned).
+
+**Gates:** 681 tests, ruff check/format, tsc, cargo check — all green.
+
+**Verdict:** healthy. The new desktop auto-update path is signature-locked and feed-pinned (can't
+install arbitrary code); the release workflow leaks no secrets; the web sort/persist/count work
+stays whitelisted, non-reflective, and N+1-free. No fixes needed.
