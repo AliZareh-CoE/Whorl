@@ -24,7 +24,10 @@
     </div>
   {% empty %}
     <div class="w-full rounded border border-dashed border-stone-300 bg-white p-10 text-center">
-      <p class="text-stone-600">{{ empty_message }}</p>
+      <p class="mb-2 text-stone-600">{{ empty_message }}</p>
+      {% if empty_action_url %}
+        <a href="{{ empty_action_url }}" class="text-sm font-medium text-indigo-600 hover:underline">{{ empty_action_label }}</a>
+      {% endif %}
     </div>
   {% endfor %}
 </div>

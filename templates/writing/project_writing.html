@@ -15,5 +15,6 @@
   <a href="{% url 'writing:create' project.slug %}"
      class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">New manuscript</a>
 </div>
-{% include "writing/_board.html" with empty_message="A manuscript tracks one paper from idea to published — bibliography, deadlines, and submission history in one place." %}
+{% url 'writing:create' project.slug as create_url %}
+{% include "writing/_board.html" with empty_message="A manuscript tracks one paper from idea to published — bibliography, deadlines, and submission history in one place." empty_action_url=create_url empty_action_label="Start a manuscript" %}
 {% endblock %}

@@ -80,6 +80,16 @@ class TestManuscriptViews:
         assert "Drafting" in content and "Submitted" in content
         assert content.index("Draft One") < content.index("Sub One")
 
+    def test_empty_board_offers_a_primary_action(self, client_logged_in):
+        # product value: every empty state offers its primary action (#199 follow-on)
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()  # no manuscripts
+        response = client_logged_in.get(reverse("writing:project", args=[project.slug]))
+        content = response.content.decode()
+        assert "Start a manuscript" in content
+        assert reverse("writing:create", args=[project.slug]) in content
+
     def test_full_lifecycle_idea_to_published(self, client_logged_in):
         project = ManuscriptFactory(status=Manuscript.Status.IDEA).project
         manuscript = project.manuscripts.get()

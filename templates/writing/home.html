@@ -8,5 +8,6 @@
 {% block content %}
 <h1 class="mb-2 text-2xl font-semibold tracking-tight">Writing</h1>
 <p class="mb-6 text-sm text-stone-500">Every manuscript across all projects, by pipeline stage.</p>
-{% include "writing/_board.html" with show_project=True empty_message="No manuscripts anywhere yet. Start one from a project's Writing tab." %}
+{% url 'projects:list' as projects_url %}
+{% include "writing/_board.html" with show_project=True empty_message="No manuscripts anywhere yet. Start one from a project's Writing tab." empty_action_url=projects_url empty_action_label="Go to a project" %}
 {% endblock %}
