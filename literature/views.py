@@ -330,7 +330,10 @@ def reading_queue(request, slug):
         queue = queue.filter(
             DQ(reference__title__icontains=keyword) | DQ(reference__abstract__icontains=keyword)
         )
-    order = request.GET.get("order", "")
+    # Remember the queue order across visits (#193) via the shared helper.
+    from core.session import remembered_choice
+
+    order = remembered_choice(request, "order", "queue_order", {"priority", "gaps"}, "priority")
     links = list(
         queue.select_related("reference")
         .prefetch_related("review_marks")

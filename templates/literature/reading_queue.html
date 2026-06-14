@@ -19,7 +19,7 @@
 {% if theme_count %}
   <div class="mb-4 flex items-center gap-1 text-xs">
     <span class="mr-1 uppercase tracking-wide text-stone-400">Order</span>
-    <a href="?{% if keyword %}kw={{ keyword|urlencode }}{% endif %}"
+    <a href="?order=priority{% if keyword %}&kw={{ keyword|urlencode }}{% endif %}"
        class="rounded-full border px-2.5 py-1 {% if order != 'gaps' %}border-indigo-600 bg-indigo-50 text-indigo-700{% else %}border-stone-200 text-stone-500 hover:border-stone-400{% endif %}">Priority</a>
     <a href="?order=gaps{% if keyword %}&kw={{ keyword|urlencode }}{% endif %}"
        class="rounded-full border px-2.5 py-1 {% if order == 'gaps' %}border-indigo-600 bg-indigo-50 text-indigo-700{% else %}border-stone-200 text-stone-500 hover:border-stone-400{% endif %}">Fill matrix gaps</a>

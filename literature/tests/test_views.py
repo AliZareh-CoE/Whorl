@@ -166,6 +166,14 @@ class TestProjectLiterature:
         assert "DonePaper" not in content
         assert content.index("HighPaper") < content.index("LowPaper")
 
+    def test_queue_order_persists_in_session(self, client_logged_in):
+        # #193: choosing the queue order remembers it across visits.
+        project = ProjectFactory()
+        ProjectReferenceFactory(project=project, reference__title="QueuePaper")
+        url = reverse("literature:queue", args=[project.slug])
+        client_logged_in.get(url, {"order": "gaps"})
+        assert client_logged_in.session["queue_order"] == "gaps"
+
     def test_set_status_htmx(self, client_logged_in):
         link = ProjectReferenceFactory()
         response = client_logged_in.post(
