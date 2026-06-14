@@ -359,14 +359,25 @@ export default function Files() {
   const focusKey = flat[focusIdx] ? `${flat[focusIdx].kind}${flat[focusIdx].id}` : "";
 
   // [REV] type-to-select: like a real file explorer, typing letters jumps to the next
-  // visible row whose name starts with what you've typed. The buffer resets after a pause.
+  // visible row whose name starts with what you've typed. The buffer resets after a pause,
+  // on Escape, or when the tree loses focus (#168/#169); the current buffer shows as a hint.
   const typeahead = useRef<{ buffer: string; at: number }>({ buffer: "", at: 0 });
+  const hintTimer = useRef<ReturnType<typeof setTimeout>>();
+  const [typedHint, setTypedHint] = useState("");
   const rowName = (r: FlatRow) => (r.kind === "folder" ? r.folder.name : r.file.name);
+  const clearTypeahead = () => {
+    typeahead.current.buffer = "";
+    setTypedHint("");
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+  };
   const jumpToTyped = (ch: string) => {
     const now = Date.now();
     const ta = typeahead.current;
     ta.buffer = now - ta.at > 800 ? ch : ta.buffer + ch;
     ta.at = now;
+    setTypedHint(ta.buffer);
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(clearTypeahead, 1000);
     const q = ta.buffer.toLowerCase();
     // start the search just after the current row so repeated letters cycle matches
     const start = ta.buffer.length === 1 ? focusIdx + 1 : focusIdx;
@@ -384,6 +395,12 @@ export default function Files() {
     preventDefault: () => void;
   }) => {
     const r = flat[focusIdx];
+    if (e.key === "Escape" && typeahead.current.buffer) {
+      // a pending typeahead buffer swallows Escape to clear itself first (#169)
+      e.preventDefault();
+      clearTypeahead();
+      return;
+    }
     if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
       // printable single char with no modifier → typeahead (leave Ctrl-P etc. alone)
       e.preventDefault();
@@ -507,9 +524,10 @@ export default function Files() {
         <div
           tabIndex={0}
           onKeyDown={onTreeKey}
+          onBlur={clearTypeahead}
           role="tree"
           aria-label="Project files"
-          className={`card col-span-1 max-h-[75vh] overflow-y-auto focus:outline-none focus:ring-1 focus:ring-indigo-200 ${dragging ? "ring-2 ring-indigo-400" : ""}`}
+          className={`card relative col-span-1 max-h-[75vh] overflow-y-auto focus:outline-none focus:ring-1 focus:ring-indigo-200 ${dragging ? "ring-2 ring-indigo-400" : ""}`}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={(e) => {
@@ -518,6 +536,11 @@ export default function Files() {
             if (e.dataTransfer.files.length) upload.mutate(e.dataTransfer.files);
           }}
         >
+          {typedHint && (
+            <span className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-stone-700/90 px-1.5 py-0.5 font-mono text-xs text-white">
+              {typedHint}
+            </span>
+          )}
           {dragging && <p className="mb-1 text-center text-xs text-indigo-600">Drop to upload</p>}
           {rootFolders.map((f) => folderRow(f, 0))}
           {rootFiles.map((f) => fileRow(f, 0))}
