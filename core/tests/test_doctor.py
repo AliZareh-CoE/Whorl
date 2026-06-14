@@ -46,6 +46,29 @@ def test_doctor_warns_when_updater_pubkey_is_placeholder(settings, tmp_path):
     assert code == 0  # it's a warning, not a failure
 
 
+def test_doctor_fails_on_updater_misconfig(settings, tmp_path):
+    # #206: createUpdaterArtifacts on + placeholder pubkey breaks the release build → fail.
+    import json
+
+    settings.MEDIA_ROOT = tmp_path / "media"
+    settings.ATLAS_API_KEY = "a-real-key"
+    settings.BASE_DIR = tmp_path
+    (tmp_path / "static" / "css").mkdir(parents=True)
+    (tmp_path / "static" / "css" / "app.css").write_text("/* built */")
+    (tmp_path / "desktop").mkdir()
+    (tmp_path / "desktop" / "tauri.conf.json").write_text(
+        json.dumps(
+            {
+                "bundle": {"createUpdaterArtifacts": True},
+                "plugins": {"updater": {"pubkey": "REPLACE_ME_PLACEHOLDER"}},
+            }
+        )
+    )
+    output, code = run_doctor()
+    assert "misconfigured" in output.lower()
+    assert code == 1
+
+
 def test_doctor_fails_on_unwritable_media(settings):
     settings.MEDIA_ROOT = "/proc/definitely-not-writable"
     settings.ATLAS_API_KEY = "k"

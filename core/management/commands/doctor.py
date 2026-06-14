@@ -115,15 +115,21 @@ class Command(BaseCommand):
             import json
 
             try:
-                pubkey = (
-                    json.loads(tauri_conf.read_text())
-                    .get("plugins", {})
-                    .get("updater", {})
-                    .get("pubkey", "")
-                )
+                conf = json.loads(tauri_conf.read_text())
+                pubkey = conf.get("plugins", {}).get("updater", {}).get("pubkey", "")
+                makes_artifacts = conf.get("bundle", {}).get("createUpdaterArtifacts", False)
             except Exception:
-                pubkey = ""
-            if not pubkey or "REPLACE_ME" in pubkey:
+                pubkey, makes_artifacts = "", False
+            placeholder = not pubkey or "REPLACE_ME" in pubkey
+            if placeholder and makes_artifacts:
+                # #206: this combination BREAKS the release build — Tauri can't sign the
+                # updater artifacts without a real key. Flag it harder than "not set up".
+                self.fail(
+                    "Desktop updater misconfigured — createUpdaterArtifacts is on but the "
+                    "pubkey is still the placeholder; the release build will fail. Set the "
+                    "real pubkey (desktop/README) or turn createUpdaterArtifacts off"
+                )
+            elif placeholder:
                 self.warn(
                     "Desktop auto-update not configured — updater pubkey is the placeholder; "
                     "see desktop/README (generate keypair, set pubkey, flip "
