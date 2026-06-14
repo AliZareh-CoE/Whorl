@@ -60,6 +60,12 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Everything in the Atlas UI, scriptable. Authenticate with the X-API-Key header.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Two models expose a `kind` choices field with different value sets (ManuscriptFile vs
+    # SubmissionEvent); give each enum a distinct schema component name so they don't collide.
+    "ENUM_NAME_OVERRIDES": {
+        "ManuscriptFileKindEnum": "writing.models.ManuscriptFile.Kind",
+        "SubmissionEventKindEnum": "writing.models.SubmissionEvent.Kind",
+    },
 }
 
 MIDDLEWARE = [

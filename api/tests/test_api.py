@@ -64,6 +64,10 @@ class TestAuth:
         # the two SPA APIViews drf-spectacular used to drop (no guessable serializer) are present
         assert "/api/v1/bots/{slug}/action/" in schema["paths"]
         assert any(p.startswith("/api/v1/comments/") for p in schema["paths"])
+        # the two `kind` enums get distinct component names (no collision into "Kind0fbEnum")
+        schemas = schema["components"]["schemas"]
+        assert "ManuscriptFileKindEnum" in schemas
+        assert "SubmissionEventKindEnum" in schemas
 
     def test_docs_page_requires_login(self, client_logged_in, owner):
         from django.test import Client
