@@ -98,6 +98,14 @@ def test_release_workflow_rebuilds_on_frozen_server_sources():
     assert "config/settings/desktop.py" in wf
 
 
+def test_release_workflow_stamps_a_unique_version():
+    # #230: every build bumps the version (0.1.<run_number>) so the .msi actually upgrades and
+    # the installer filename is unique — a fixed version left the owner running old code.
+    wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
+    assert "github.run_number" in wf
+    assert ".version = $v" in wf  # the jq edit to tauri.conf.json
+
+
 def test_updater_is_wired():
     # Owner-requested D2: in-app "Check for updates" button (auto-update).
     cargo = (DESKTOP / "Cargo.toml").read_text()

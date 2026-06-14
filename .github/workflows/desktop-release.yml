@@ -53,6 +53,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Stamp a unique build version
+        shell: bash
+        run: |
+          # Bump the app version every build (0.1.<run-number>). A FIXED version is why the
+          # owner kept running old code: the .msi sees "same version already installed" and
+          # skips replacing files, and same-named installers get served from cache. A unique
+          # version forces a real upgrade and a uniquely-named installer.
+          VER="0.1.${{ github.run_number }}"
+          tmp=$(mktemp)
+          jq --arg v "$VER" '.version = $v' desktop/tauri.conf.json > "$tmp" && mv "$tmp" desktop/tauri.conf.json
+          echo "Atlas desktop version = $VER"
+          grep '"version"' desktop/tauri.conf.json | head -1
+
       - name: Install Linux build dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
