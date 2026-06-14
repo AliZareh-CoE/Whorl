@@ -127,6 +127,48 @@ class TestProjectLiterature:
         assert read.reference.title.encode() in response.content
         assert b"Unread Paper Abc" not in response.content
 
+    def test_project_page_remembers_status_filter(self, client_logged_in):
+        # #187: choosing a status filter sticks; a later visit with no param restores it.
+        project = ProjectFactory()
+        ProjectReferenceFactory(
+            project=project, reading_status="read", reference__title="Read Paper Xyz"
+        )
+        ProjectReferenceFactory(
+            project=project, reading_status="to_read", reference__title="Unread Paper Abc"
+        )
+        url = reverse("literature:project", args=[project.slug])
+        client_logged_in.get(url, {"status": "read"})
+        body = client_logged_in.get(url).content.decode()  # no param — restored from session
+        assert "Read Paper Xyz" in body
+        assert "Unread Paper Abc" not in body
+
+    def test_project_page_status_all_clears_remembered_filter(self, client_logged_in):
+        # #187: re-selecting "All" (empty status) is a real choice that clears the memory.
+        project = ProjectFactory()
+        ProjectReferenceFactory(
+            project=project, reading_status="read", reference__title="Read Paper Xyz"
+        )
+        ProjectReferenceFactory(
+            project=project, reading_status="to_read", reference__title="Unread Paper Abc"
+        )
+        url = reverse("literature:project", args=[project.slug])
+        client_logged_in.get(url, {"status": "read"})  # remember "read"
+        body = client_logged_in.get(url, {"status": ""}).content.decode()  # All clears it
+        assert "Read Paper Xyz" in body
+        assert "Unread Paper Abc" in body
+        # and the cleared state persists on the next bare visit
+        again = client_logged_in.get(url).content.decode()
+        assert "Unread Paper Abc" in again
+
+    def test_project_page_rejects_unknown_status(self, client_logged_in):
+        # #192: a tampered ?status= must never reach the ORM — falls back to "All".
+        project = ProjectFactory()
+        ProjectReferenceFactory(project=project, reference__title="Anything Here")
+        url = reverse("literature:project", args=[project.slug])
+        response = client_logged_in.get(url, {"status": "'; DROP TABLE"})
+        assert response.status_code == 200
+        assert b"Anything Here" in response.content
+
     def test_project_page_orders_by_year(self, client_logged_in):
         # #189: the order pills sort the per-project literature list server-side.
         project = ProjectFactory()

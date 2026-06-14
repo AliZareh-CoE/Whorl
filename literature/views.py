@@ -263,12 +263,20 @@ def project_literature(request, slug):
     from django.db.models import F
     from django.db.models import Q as DQ
 
+    from core.session import remembered_choice
+
     from .selectors import project_keyword_cloud
 
     project = get_object_or_404(Project, slug=slug)
     links = project.project_references.select_related("reference")
-    status = request.GET.get("status", "")
-    priority = request.GET.get("priority", "")
+    # Remember the status/priority filters across visits (#187), like the sort order already is
+    # (#190) — the list keeps the shape you last gave it. "" ("All") is a real, persistable
+    # choice so re-selecting All clears a remembered filter; every value is validated against an
+    # allow-list before it can touch the ORM (defense-in-depth, #192).
+    status_allowed = {""} | {c[0] for c in ProjectReference.ReadingStatus.choices}
+    priority_allowed = {""} | {c[0] for c in ProjectReference.Priority.choices}
+    status = remembered_choice(request, "status", "lit_status", status_allowed, "")
+    priority = remembered_choice(request, "priority", "lit_priority", priority_allowed, "")
     keyword = request.GET.get("kw", "").strip()[:80]
     if status:
         links = links.filter(reading_status=status)
@@ -282,8 +290,6 @@ def project_literature(request, slug):
     # a small set of order pills instead of sortable headers. `desc` marks fields that read best
     # newest/highest-first; the reference title is always the stable tiebreaker. The choice
     # persists across visits (#190) via the shared validate-before-store helper (#191/#192).
-    from core.session import remembered_choice
-
     sort = remembered_choice(request, "sort", "literature_order", LITERATURE_SORTS, "added")
     field_name, desc = LITERATURE_SORTS[sort]
     field = F(field_name)
