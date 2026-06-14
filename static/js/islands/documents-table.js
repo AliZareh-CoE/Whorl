@@ -1,1 +1,1 @@
-import{c as r,j as e}from"./client-chunk.js";import{D as n}from"./DocumentsTable-chunk.js";function m(t,o){t.innerHTML="",r.createRoot(t).render(e.jsx(n,{...o}))}export{m as default};
+import{n as e,t}from"./jsx-runtime-chunk.js";import{t as n}from"./DocumentsTable-chunk.js";var r=e(),i=t();function a(e,t){e.innerHTML=``,(0,r.createRoot)(e).render((0,i.jsx)(n,{...t}))}export{a as default};

@@ -304,6 +304,7 @@ class TestDocumentsIsland:
         islands = Path("static/js/islands")
         assert (islands / "documents-table.js").exists()
         assert (islands / "assistant.js").exists()
-        # React itself lives in the shared chunk both islands import
-        chunk = islands / "client-chunk.js"
+        # React itself lives in the shared chunk both islands import (Vite 8 names it
+        # jsx-runtime-chunk.js; it was client-chunk.js under Vite 6 — see #159)
+        chunk = islands / "jsx-runtime-chunk.js"
         assert chunk.exists() and chunk.stat().st_size > 100_000

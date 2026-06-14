@@ -31,13 +31,18 @@ export default defineConfig({
               ? "latex-editor-cm6.js" // Slice A: build alongside CM5; cut over in B/C
               : "islands/[name].js",
         chunkFileNames: (chunk) => {
-          // the editor entry splits once vim became a dynamic import (#137):
-          // name its two halves instead of shipping opaque index-chunk files
-          if (chunk.moduleIds.some((m) => m.includes("codemirror-vim")))
-            return "islands/vim-keymap-chunk.js";
-          if (chunk.moduleIds.some((m) => m.includes("/src/editor/")))
+          // the editor entry splits once vim became a dynamic import (#137): name its
+          // halves instead of shipping opaque names. Under Vite 8 (#159) the editor-core
+          // chunk is the shared CodeMirror bundle, so detect codemirror too — vim is
+          // checked first so it keeps its own name.
+          const ids = chunk.moduleIds;
+          if (ids.some((m) => m.includes("codemirror-vim"))) return "islands/vim-keymap-chunk.js";
+          if (ids.some((m) => m.includes("/src/editor/") || m.includes("codemirror")))
             return "islands/latex-editor-core-chunk.js";
-          return "islands/[name]-chunk.js";
+          // Vite 8 falls back to opaque names like "chunk"/"dist"/"index" for shared
+          // shims it can't attribute to one module — give those a tidy stable name.
+          const generic = ["chunk", "dist", "index"].includes(chunk.name);
+          return generic ? "islands/shared-chunk.js" : "islands/[name]-chunk.js";
         },
         assetFileNames: "islands/[name][extname]",
       },
