@@ -17,4 +17,9 @@ desktop/gen/
 
 # PyInstaller desktop-server build artifacts (#210d)
 desktop/server/build/
-desktop/server/dist/
+
+# Bundled Postgres binaries (fetched per-OS in CI, #210i)
+desktop/server/dist/atlas-server/*
+!desktop/server/dist/atlas-server/.gitkeep
+desktop/resources/pg/*
+!desktop/resources/pg/.gitkeep

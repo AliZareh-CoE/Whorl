@@ -76,6 +76,18 @@ def test_desktop_release_workflow_exists():
     assert "windows-latest" in text and "ubuntu-22.04" in text  # both OSes
 
 
+def test_release_workflow_assembles_the_bundled_server():
+    # #210f/#210i: the release CI freezes the server and bundles Postgres before tauri build.
+    wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
+    assert "pyinstaller desktop/server/atlas_server.spec" in wf
+    assert "embedded-postgres-binaries" in wf  # the portable Postgres source
+    assert "desktop/resources/pg" in wf
+    cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
+    resources = cfg["bundle"]["resources"]
+    assert "server/dist/atlas-server" in resources  # the frozen server ships as a resource
+    assert "resources/pg" in resources  # the Postgres binaries ship as a resource
+
+
 def test_updater_is_wired():
     # Owner-requested D2: in-app "Check for updates" button (auto-update).
     cargo = (DESKTOP / "Cargo.toml").read_text()
