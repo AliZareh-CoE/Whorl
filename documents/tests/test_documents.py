@@ -110,6 +110,21 @@ class TestDocumentViews:
         # the current folder is the leaf and not itself a link target
         assert f"?folder={child.pk}" not in body.split(">Child<")[0][-60:]
 
+    def test_documents_index_no_n_plus_one(self, client_logged_in, django_assert_max_num_queries):
+        # #223 (AUDIT #21 follow-up): adding documents must not add queries — the listing
+        # relies on select_related/prefetch and a single batched comment-count query.
+        project = ProjectFactory()
+        folder = FolderFactory(project=project)
+        DocumentFactory.create_batch(3, project=project, folder=folder)
+        url = f"{reverse('documents:index', args=[project.slug])}?all"
+        client_logged_in.get(url)  # warm one-time caches (contenttypes, etc.)
+        with django_assert_max_num_queries(30) as ctx:
+            client_logged_in.get(url)
+        baseline = len(ctx.captured_queries)
+        DocumentFactory.create_batch(5, project=project, folder=folder)
+        with django_assert_max_num_queries(baseline):
+            client_logged_in.get(url)  # 8 documents cost no more queries than 3 did
+
     def test_folder_ancestors_property(self):
         # the breadcrumb data: root → … → self, in order.
         project = ProjectFactory()

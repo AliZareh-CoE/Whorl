@@ -160,6 +160,21 @@ class TestProjectLiterature:
         again = client_logged_in.get(url).content.decode()
         assert "Unread Paper Abc" in again
 
+    def test_project_literature_no_n_plus_one(
+        self, client_logged_in, django_assert_max_num_queries
+    ):
+        # #223 (AUDIT #21 follow-up): the per-project list stays constant-query as it grows.
+        project = ProjectFactory()
+        ProjectReferenceFactory.create_batch(3, project=project)
+        url = reverse("literature:project", args=[project.slug])
+        client_logged_in.get(url)  # warm
+        with django_assert_max_num_queries(30) as ctx:
+            client_logged_in.get(url)
+        baseline = len(ctx.captured_queries)
+        ProjectReferenceFactory.create_batch(5, project=project)
+        with django_assert_max_num_queries(baseline):
+            client_logged_in.get(url)  # 8 references cost no more queries than 3 did
+
     def test_clear_link_sends_explicit_empty_filters(self, client_logged_in):
         # #187 regression guard: now that filters persist in the session, the Clear link must
         # send explicit empty params (a bare URL would just restore the remembered filter).
