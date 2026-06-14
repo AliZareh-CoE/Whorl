@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{# Wide content base (Backlog #183): dense list/table/dashboard pages extend this instead
+   of re-declaring the main_class block, so the #25 density column width lives in one place.
+   Child pages still define their own title / breadcrumbs / content blocks as usual. #}
+{% block main_class %}mx-auto max-w-6xl{% endblock %}
