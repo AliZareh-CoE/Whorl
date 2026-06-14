@@ -595,3 +595,44 @@ pre-existing performance finding — backlogged; security clean.**
 **Verdict:** healthy. The sortable-library input surface is correctly whitelisted, non-reflective,
 and auth-gated; no new dependencies or attack surface from the icon/density work. One pre-existing
 documents-page N+1 found and backlogged (#180) for a focused fix.
+
+## Audit #18 — 2026-06-14 (since #17: N+1 fix, density, typeahead, persisted/extended sort, a11y)
+
+Sweep of the work since AUDIT #17 (commits ~9fa70d3..b4d999b): #180 N+1 fix, #179/#182
+density, #168/#169 typeahead polish, #176 persisted library sort, #189 per-project literature
+order pills, #190 persisted literature order, #177 documents-table a11y. **Clean — no findings.**
+
+- **New/extended ?sort= surfaces (#189 project-literature, plus #176/#190 session-persisted
+  sort):** verified hardened:
+  - **Auth-gated:** `/library/?sort=…` and `/projects/<slug>/literature/?sort=cited` both 302
+    when anonymous.
+  - **No ORM injection:** every sort key is resolved through a whitelist (`LIBRARY_SORTS`,
+    `LITERATURE_SORTS`, `DOCUMENT_SORTS`) before reaching `order_by`; a hostile value (`'; DROP
+    TABLE;--`) falls back to the default → 200, no error.
+  - **No reflected XSS:** an injected `ZZmarker'><script>alert(1)</script>` in `?sort=` (and a
+    payload in `?dir=`) does **not** appear in the response at all — the value is replaced by the
+    whitelisted default and never echoed. (An earlier naive "is `<script>` in body" probe
+    false-positived on the page's own legitimate script tags; the exact-payload re-check is
+    clean.)
+  - **Poisoned session is safe:** writing a hostile string directly into
+    `session["literature_order"]` and revisiting still 200s, falls back to the default order, and
+    does not reflect the value — the whitelist is re-applied on read, so a tampered session can't
+    inject or break rendering.
+- **Typeahead polish (#168/#169) + a11y headers (#177):** client-only (key handler / aria-sort
+  attributes); no server surface, no user data interpolated into script.
+- **Dependencies:** no new packages this run. `npm audit --omit=dev` = **0 vulnerabilities**;
+  Python deps unchanged since #17 (pinned/frozen).
+- **Performance (in-process, warm, queries counted):** library sorted 19 ms / 9 q, per-project
+  literature ordered 20 ms / 7 q, hostile-sort fallback 20 ms / 7 q — all under the 50 ms bar.
+  Sorting/order pills add **no** per-row queries (no N+1); the #180 fix holds. Note: the library
+  page is 6→9 q vs #17 because the persisted sort (#176) reads+writes the DB-backed session — a
+  constant, expected cost, not row-scaling.
+- **OBSERVATION (not a finding, backlogged #192):** #176/#190 store the *raw* unvalidated
+  `?sort=` into the session before the whitelist check. It's harmless (re-validated on read) but
+  storing arbitrary strings is untidy; validate-before-store would be cleaner defense-in-depth.
+
+**Gates:** 669 tests, ruff check/format, tsc — all green.
+
+**Verdict:** healthy. Every new sort/order surface is whitelisted, non-reflective, auth-gated, and
+N+1-free; persisted-sort sessions are validated on read so tampering is inert. No fixes needed;
+one tidy-up (validate-before-store) backlogged as #192.
