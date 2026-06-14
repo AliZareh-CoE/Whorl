@@ -22,6 +22,9 @@ WIDE_PAGES = (
     "plans/plan.html",
     "projects/overview.html",
     "writing/home.html",
+    "research/ledger.html",
+    "research/datasets.html",
+    "research/experiments.html",
 )
 
 

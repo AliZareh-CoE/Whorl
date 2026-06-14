@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_wide.html" %}
 {% load markdown_extras %}
 
 {% block title %}Experiments · {{ project.name }}{% endblock %}
@@ -12,7 +12,7 @@
 {% include "projects/_subnav.html" %}
 {% include "research/_tabs.html" %}
 
-<div class="mb-6 flex items-center justify-between">
+<div class="mb-4 flex items-center justify-between">
   <h1 class="text-2xl font-semibold tracking-tight">Experiment log</h1>
   <a href="{% url 'research:experiment_create' project.slug %}"
      class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">New entry</a>

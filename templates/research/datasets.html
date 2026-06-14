@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_wide.html" %}
 
 {% block title %}Datasets · {{ project.name }}{% endblock %}
 
@@ -11,7 +11,7 @@
 {% include "projects/_subnav.html" %}
 {% include "research/_tabs.html" %}
 
-<div class="mb-6 flex items-center justify-between">
+<div class="mb-4 flex items-center justify-between">
   <h1 class="text-2xl font-semibold tracking-tight">Dataset registry</h1>
   <a href="{% url 'research:dataset_create' project.slug %}"
      class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Register dataset</a>
@@ -21,23 +21,23 @@
   <div class="overflow-x-auto"><table class="w-full min-w-[640px] border-collapse text-sm">
     <thead>
       <tr class="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-400">
-        <th class="py-2 pr-4 font-medium">Name</th>
-        <th class="py-2 pr-4 font-medium">Location</th>
-        <th class="py-2 pr-4 font-medium">Version</th>
-        <th class="py-2 pr-4 font-medium">Checksum</th>
-        <th class="py-2"></th>
+        <th class="py-1.5 pr-4 font-medium">Name</th>
+        <th class="py-1.5 pr-4 font-medium">Location</th>
+        <th class="py-1.5 pr-4 font-medium">Version</th>
+        <th class="py-1.5 pr-4 font-medium">Checksum</th>
+        <th class="py-1.5"></th>
       </tr>
     </thead>
     <tbody>
       {% for dataset in datasets %}
         <tr class="border-b border-stone-100 transition-colors hover:bg-stone-50">
-          <td class="py-2 pr-4 font-medium">{{ dataset.name }}
+          <td class="py-1.5 pr-4 font-medium">{{ dataset.name }}
             {% if dataset.description %}<p class="text-xs font-normal text-stone-400">{{ dataset.description|truncatechars:80 }}</p>{% endif %}
           </td>
-          <td class="py-2 pr-4 font-mono text-xs text-stone-500">{{ dataset.location|truncatechars:50 }}</td>
-          <td class="py-2 pr-4 text-stone-500">{{ dataset.version|default:"—" }}</td>
-          <td class="py-2 pr-4 font-mono text-xs text-stone-400">{{ dataset.checksum|truncatechars:16|default:"—" }}</td>
-          <td class="py-2 text-right">
+          <td class="py-1.5 pr-4 font-mono text-xs text-stone-500">{{ dataset.location|truncatechars:50 }}</td>
+          <td class="py-1.5 pr-4 text-stone-500">{{ dataset.version|default:"—" }}</td>
+          <td class="py-1.5 pr-4 font-mono text-xs text-stone-400">{{ dataset.checksum|truncatechars:16|default:"—" }}</td>
+          <td class="py-1.5 text-right">
             <a href="{% url 'research:dataset_edit' project.slug dataset.pk %}" class="text-xs text-stone-500 hover:underline">Edit</a>
           </td>
         </tr>
