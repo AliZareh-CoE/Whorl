@@ -64,7 +64,9 @@ def test_bundle_targets_cover_linux_and_windows_installers():
     cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
     targets = cfg["bundle"]["targets"]
     assert isinstance(targets, list)
-    for fmt in ("deb", "appimage", "rpm", "nsis", "msi"):
+    # AppImage is dropped (#210f): linuxdeploy can't bundle our native Postgres .so's;
+    # .deb/.rpm cover Linux, .nsis/.msi cover Windows.
+    for fmt in ("deb", "rpm", "nsis", "msi"):
         assert fmt in targets, f"bundle target {fmt} missing"
 
 
