@@ -82,6 +82,22 @@ def test_run_desktop_starts_postgres_first():
     assert "initdb" in runtime and "pg_ctl" in runtime and "atexit" in runtime
 
 
+def test_postgres_skips_unix_socket_on_windows():
+    # the Windows "127.0.0.1 refused to connect" fix: the unix-socket `-k` token must only be
+    # passed on POSIX (it breaks pg_ctl start on Windows / paths with spaces); TCP loopback
+    # is used everywhere. A start failure must also surface postgres.log, not exit blank.
+    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
+    assert 'os.name != "nt"' in runtime
+    assert "listen_addresses=127.0.0.1" in runtime
+    assert "postgres.log" in runtime and "RuntimeError" in runtime
+
+
+def test_frozen_server_logs_to_data_dir():
+    # so a startup crash isn't invisible behind the windowed (no-console) build.
+    entry = (BASE_DIR / "desktop" / "server" / "atlas_server.py").read_text()
+    assert "atlas-server.log" in entry and "ATLAS_DATA_DIR" in entry
+
+
 def test_pyinstaller_freeze_scaffold_present():
     # #210d: the frozen-server entrypoint + spec exist and target the desktop settings.
     server = BASE_DIR / "desktop" / "server"

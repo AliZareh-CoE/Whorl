@@ -86,19 +86,36 @@ def ensure_postgres(data_dir: Path, port: int):
         pass
 
     logfile = data_dir / "postgres.log"
-    _run(
-        [
-            _pg_bin("pg_ctl"),
-            "-D",
-            str(pgdata),
-            "-l",
-            str(logfile),
-            "-w",
-            "start",
-            "-o",
-            f"-p {port} -k {socket_dir} -c listen_addresses=127.0.0.1",
-        ]
-    )
+    # Postgres options. The app always connects over TCP loopback (127.0.0.1:port), so the
+    # unix socket is incidental — and on Windows there is none: passing a `-k <windows path>`
+    # (which is also space-split inside this `-o` string, breaking on usernames with spaces)
+    # makes `pg_ctl start` fail, which is exactly the "127.0.0.1 refused to connect" the owner
+    # saw. Only add the private socket dir on POSIX, where it works and adds a little privacy.
+    pg_opts = [f"-p {port}", "-c listen_addresses=127.0.0.1"]
+    if os.name != "nt":
+        pg_opts.insert(1, f"-k {socket_dir}")
+    try:
+        _run(
+            [
+                _pg_bin("pg_ctl"),
+                "-D",
+                str(pgdata),
+                "-l",
+                str(logfile),
+                "-w",
+                "start",
+                "-o",
+                " ".join(pg_opts),
+            ]
+        )
+    except subprocess.CalledProcessError as exc:
+        # surface *why* it failed (the server log is the only window the owner has) instead of
+        # a bare non-zero exit that just bubbles up as a blank connection-refused page.
+        tail = logfile.read_text(errors="ignore")[-2000:] if logfile.exists() else ""
+        raise RuntimeError(
+            f"Postgres failed to start (port {port}).\n{exc.stderr or ''}\n"
+            f"--- postgres.log (tail) ---\n{tail}"
+        ) from exc
 
     def stop():
         try:
