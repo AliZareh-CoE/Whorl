@@ -20,12 +20,18 @@ class TestGallery:
         assert "Reviewer 2 pass" in content
         assert 'data-copy-target="prompt-body-' in content
 
+    def test_gallery_shows_count(self, client_logged_in):
+        make_prompts()  # creates 2 prompts
+        content = client_logged_in.get(reverse("prompts:gallery")).content.decode()
+        assert "2 prompts saved." in content
+
     def test_search_filters(self, client_logged_in):
         make_prompts()
         response = client_logged_in.get(reverse("prompts:gallery"), {"q": "reviewer"})
         content = response.content.decode()
         assert "Reviewer 2 pass" in content
         assert "Summarize paper" not in content
+        assert "matching the filter" in content  # the count reflects the filter (#199 family)
 
     def test_tag_filter_chips(self, client_logged_in):
         make_prompts()
