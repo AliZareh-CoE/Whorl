@@ -67,12 +67,21 @@ def documents_index(request, slug):
     elif "all" not in request.GET:
         documents = documents.filter(folder__isnull=True)
 
-    current_tag = None
-    if request.GET.get("tag"):
-        current_tag = get_object_or_404(project.tags, pk=request.GET["tag"])
+    # Remember the tag filter per project (#212), like the literature filters (#187). A tag pk
+    # is project-scoped, so the session key is namespaced by slug (#194) and the choice is
+    # validated against this project's live tag pks — a "" ("All") or a since-deleted tag both
+    # fall back to no filter, and a foreign pk can never reach the ORM (#192).
+    from core.session import remembered_choice
+
+    tags = list(project.tags.all())
+    tags_by_id = {str(t.pk): t for t in tags}
+    tag_choice = remembered_choice(
+        request, "tag", f"doc_tag:{project.slug}", {""} | tags_by_id.keys(), ""
+    )
+    current_tag = tags_by_id.get(tag_choice)
+    if current_tag:
         documents = documents.filter(tags=current_tag)
 
-    tags = project.tags.all()
     island_props = documents_table_props(project, documents, request.get_full_path())
     # Load the project's folders ONCE and reuse the list for the nested tree, the bulk-move
     # <select>, and every row's move-<select> (#180/#181/#197) — one query, not several.

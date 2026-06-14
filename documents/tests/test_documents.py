@@ -98,6 +98,52 @@ class TestDocumentViews:
         assert b"Tagged Doc" in response.content
         assert b"Plain Doc" not in response.content
 
+    def test_index_remembers_tag_filter(self, client_logged_in):
+        # #212: a chosen tag sticks; a later visit with no tag param restores it.
+        project = ProjectFactory()
+        tag = TagFactory(project=project)
+        tagged = DocumentFactory(project=project, title="Tagged Doc")
+        tagged.tags.add(tag)
+        DocumentFactory(project=project, title="Plain Doc")
+        url = reverse("documents:index", args=[project.slug])
+        client_logged_in.get(f"{url}?all&tag={tag.pk}")  # remember it
+        body = client_logged_in.get(f"{url}?all").content  # restored from session
+        assert b"Tagged Doc" in body
+        assert b"Plain Doc" not in body
+
+    def test_index_tag_memory_is_per_project(self, client_logged_in):
+        # #212/#194: the tag pk is project-scoped, so the memory must not leak across projects.
+        a = ProjectFactory()
+        tag = TagFactory(project=a)
+        DocumentFactory(project=a).tags.add(tag)
+        b = ProjectFactory()
+        DocumentFactory(project=b, title="Bravo Doc")
+        client_logged_in.get(f"{reverse('documents:index', args=[a.slug])}?all&tag={tag.pk}")
+        # project B has no remembered tag — its own list is unfiltered
+        body = client_logged_in.get(f"{reverse('documents:index', args=[b.slug])}?all").content
+        assert b"Bravo Doc" in body
+
+    def test_index_clears_remembered_tag(self, client_logged_in):
+        # #212: selecting "All" (empty tag) clears a remembered filter.
+        project = ProjectFactory()
+        tag = TagFactory(project=project)
+        DocumentFactory(project=project, title="Tagged Doc").tags.add(tag)
+        DocumentFactory(project=project, title="Plain Doc")
+        url = reverse("documents:index", args=[project.slug])
+        client_logged_in.get(f"{url}?all&tag={tag.pk}")  # remember
+        body = client_logged_in.get(f"{url}?all&tag=").content  # All clears it
+        assert b"Tagged Doc" in body and b"Plain Doc" in body
+
+    def test_index_ignores_foreign_tag(self, client_logged_in):
+        # #192: a tag pk from another project must never filter this list — falls back to All.
+        project = ProjectFactory()
+        DocumentFactory(project=project, title="Mine Doc")
+        foreign_tag = TagFactory(project=ProjectFactory())
+        url = reverse("documents:index", args=[project.slug])
+        response = client_logged_in.get(f"{url}?all&tag={foreign_tag.pk}")
+        assert response.status_code == 200
+        assert b"Mine Doc" in response.content
+
     def test_download(self, client_logged_in):
         doc = DocumentFactory()
         response = client_logged_in.get(
