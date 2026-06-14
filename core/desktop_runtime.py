@@ -67,6 +67,17 @@ def ensure_postgres(data_dir: Path, port: int):
             ]
         )
 
+    # self-healing: if a previous run was hard-killed (postgres is detached by pg_ctl, so
+    # an unclean app exit can orphan it), stop that instance before starting a fresh one.
+    try:
+        subprocess.run(
+            [_pg_bin("pg_ctl"), "-D", str(pgdata), "-m", "immediate", "stop"],
+            check=False,
+            capture_output=True,
+        )
+    except Exception:
+        pass
+
     logfile = data_dir / "postgres.log"
     _run(
         [

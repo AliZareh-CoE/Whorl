@@ -1,26 +1,54 @@
-// Atlas desktop shell (Owner idea #30, slice 3): a thin Tauri 2 window over the local
-// Atlas server. The web app stays the single source of truth — this just wraps it in a
-// native window so Atlas feels like an app (and is the foundation the terminal sits on).
+// Atlas desktop shell (Owner idea #30 + epic #210): a native Tauri 2 window over Atlas.
 //
-// Usage: start Atlas (docker compose up -d && manage.py runserver), then launch this.
-// The ATLAS_URL env var overrides the default localhost address.
+// When a bundled `atlas-server` binary is present (#210e), the shell launches it on startup —
+// it auto-starts its own Postgres and serves Atlas locally — waits for it to answer, then
+// opens the window at it, and stops it when the app quits. With no bundled server (dev), it
+// falls back to ATLAS_URL / a server you run yourself.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod localfs;
+mod server;
 mod terminal;
 mod updater;
 
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use std::path::PathBuf;
+use std::process::Child;
+use std::sync::Mutex;
+use std::time::Duration;
+
+use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+
+/// Holds the spawned server process so it can be stopped on exit.
+struct ServerProc(Mutex<Option<Child>>);
 
 fn atlas_url() -> String {
     std::env::var("ATLAS_URL").unwrap_or_else(|_| "http://localhost:8000/".to_string())
 }
 
+/// Find the frozen server binary + the bundled Postgres bin dir: an env override (dev/CI),
+/// else the bundled resources. Returns None when there's nothing to launch (dev with an
+/// externally-run server).
+fn resolve_server(app: &tauri::App) -> Option<(PathBuf, Option<PathBuf>)> {
+    if let Ok(bin) = std::env::var("ATLAS_SERVER_BIN") {
+        let pg = std::env::var("ATLAS_PG_BIN").ok().map(PathBuf::from);
+        return Some((PathBuf::from(bin), pg));
+    }
+    let res = app.path().resource_dir().ok()?;
+    let exe = if cfg!(windows) { "atlas-server.exe" } else { "atlas-server" };
+    let bin = res.join("atlas-server").join(exe);
+    if !bin.exists() {
+        return None;
+    }
+    let pg = res.join("pg").join("bin");
+    Some((bin, pg.exists().then_some(pg)))
+}
+
 fn main() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(terminal::TerminalState::default())
+        .manage(ServerProc(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             terminal::terminal_spawn,
             terminal::terminal_write,
@@ -29,11 +57,36 @@ fn main() {
             updater::check_for_updates
         ])
         .setup(|app| {
-            let url = atlas_url();
-            let parsed: tauri::Url = url.parse().expect("ATLAS_URL is not a valid URL");
-            // security hardening (AUDIT #15, #160): the shell only ever navigates within the
-            // local Atlas origin, so a compromised loaded page can't steer the app window to
-            // an arbitrary external site.
+            let port: u16 = std::env::var("ATLAS_PORT")
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(8000);
+
+            // launch the bundled server unless an external one was specified via ATLAS_URL
+            let url = if std::env::var("ATLAS_URL").is_ok() {
+                atlas_url()
+            } else if let Some((bin, pg)) = resolve_server(app) {
+                let data_dir = app
+                    .path()
+                    .app_data_dir()
+                    .unwrap_or_else(|_| std::env::temp_dir());
+                let _ = std::fs::create_dir_all(&data_dir);
+                match server::spawn(&bin, &data_dir, pg.as_deref(), port) {
+                    Ok(child) => {
+                        app.state::<ServerProc>().0.lock().unwrap().replace(child);
+                        // first launch runs initdb + migrate, so allow generous time
+                        server::wait_for_port(port, Duration::from_secs(180));
+                        format!("http://127.0.0.1:{port}/")
+                    }
+                    Err(_) => atlas_url(),
+                }
+            } else {
+                atlas_url()
+            };
+
+            let parsed: tauri::Url = url.parse().expect("server URL is not valid");
+            // security hardening (AUDIT #15, #160): the shell only navigates within the local
+            // Atlas origin, so a compromised page can't steer the window off-origin.
             let allowed_host = parsed.host_str().unwrap_or("localhost").to_string();
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed))
                 .title("Atlas")
@@ -43,12 +96,20 @@ fn main() {
                     matches!(target.host_str(), Some(h) if h == allowed_host)
                 })
                 .build()?;
-            // bring the window to the front on launch
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.set_focus();
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("failed to launch the Atlas desktop shell");
+
+    app.run(|handle, event| {
+        if let RunEvent::Exit = event {
+            // stop the bundled server (its atexit/self-heal handles Postgres) on quit
+            if let Some(mut child) = handle.state::<ServerProc>().0.lock().unwrap().take() {
+                let _ = child.kill();
+            }
+        }
+    });
 }
