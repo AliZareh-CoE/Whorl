@@ -166,6 +166,14 @@ class TestProjectLiterature:
         assert "DonePaper" not in content
         assert content.index("HighPaper") < content.index("LowPaper")
 
+    def test_project_page_shows_reference_count(self, client_logged_in):
+        # #199: a calm count line gives situational awareness on the list.
+        project = ProjectFactory()
+        ProjectReferenceFactory.create_batch(3, project=project)
+        url = reverse("literature:project", args=[project.slug])
+        body = client_logged_in.get(url).content.decode()
+        assert "3 references linked to this project." in body
+
     def test_queue_order_persists_in_session(self, client_logged_in):
         # #193: choosing the queue order remembers it across visits.
         project = ProjectFactory()
