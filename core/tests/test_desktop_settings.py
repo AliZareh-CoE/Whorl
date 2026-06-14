@@ -54,6 +54,27 @@ def test_pg_bin_resolves_from_env(tmp_path, monkeypatch):
     assert _pg_bin("initdb") == str(fake)
 
 
+def test_pg_bin_resolves_when_env_points_at_pg_root(tmp_path, monkeypatch):
+    # ATLAS_PG_BIN may be the pg root (zonky layout), with binaries under bin/ (#210 fix).
+    from core.desktop_runtime import _pg_bin
+
+    (tmp_path / "bin").mkdir()
+    fake = tmp_path / "bin" / "initdb"
+    fake.write_text("#!/bin/sh\n")
+    monkeypatch.setenv("ATLAS_PG_BIN", str(tmp_path))
+    assert _pg_bin("initdb") == str(fake)
+
+
+def test_pg_bin_handles_exe_suffix(tmp_path, monkeypatch):
+    # the Windows crash: binaries are initdb.exe; the lookup must find them (#210 fix).
+    from core.desktop_runtime import _pg_bin
+
+    fake = tmp_path / "initdb.exe"
+    fake.write_text("")
+    monkeypatch.setenv("ATLAS_PG_BIN", str(tmp_path))
+    assert _pg_bin("initdb") == str(fake)
+
+
 def test_run_desktop_starts_postgres_first():
     text = (BASE_DIR / "core" / "management" / "commands" / "run_desktop.py").read_text()
     assert "ensure_postgres" in text

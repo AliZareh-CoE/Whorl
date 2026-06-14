@@ -23,11 +23,18 @@ DB_USER = "atlas"
 
 def _pg_bin(name: str) -> str:
     """Resolve a postgres binary (initdb/postgres/pg_ctl/createdb/createuser/pg_isready)."""
+    # on Windows the binaries carry a .exe suffix; harmlessly check both names everywhere.
+    names = [name, name + ".exe"]
+    # ATLAS_PG_BIN may point at the bin dir or its parent (the pg root) — try both.
+    search_dirs = []
     bindir = os.environ.get("ATLAS_PG_BIN")
     if bindir:
-        candidate = Path(bindir) / name
-        if candidate.exists():
-            return str(candidate)
+        search_dirs += [Path(bindir), Path(bindir) / "bin"]
+    for directory in search_dirs:
+        for candidate_name in names:
+            candidate = directory / candidate_name
+            if candidate.exists():
+                return str(candidate)
     found = shutil.which(name)
     if found:
         return found

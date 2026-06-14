@@ -710,6 +710,10 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 
 ## Backlog
 
+### ★ #210 post-ship fixes (owner ran the Windows installer, 2026-06-14)
+- **210-fix1 ✅ Windows "initdb not found" crash:** the installer launched + the frozen server ran, but `_pg_bin` looked for `initdb` while Windows ships `initdb.exe`. Fixed: `_pg_bin` now checks both `<name>` and `<name>.exe` and searches both ATLAS_PG_BIN and ATLAS_PG_BIN/bin; main.rs passes the pg ROOT (resource_dir/pg) so the bin/ fallback covers any layout. 2 new tests (.exe + bin-subdir). The frozen server + Tauri launch worked — this was the last runtime gap.
+- **210-fix2 ✅ Single instance (owner: "don't open 10 windows"):** added tauri-plugin-single-instance as the FIRST plugin — a second launch focuses/unminimizes the existing window and exits. Critical here: each instance would start its own Postgres on the same data dir and corrupt it. cargo check passes.
+
 ### ★ OWNER-REQUESTED EPIC (2026-06-14) — Desktop distribution & auto-update (HIGH PRIORITY, do next)
 Owner: "I want button for updating the app as well once I installed it; moreover I want ready-to-install stuff for Linux and Windows!" Two paired pieces (the updater needs a release feed the CI produces):
 - **D1. ✅ Ready-to-install installers (Linux + Windows) — DONE 2026-06-14.** tauri.conf.json bundle targets set explicitly to [deb, appimage, rpm, nsis, msi] + publisher/category/descriptions; new .github/workflows/desktop-release.yml (tag v* or manual dispatch; ubuntu-22.04 + windows-latest matrix; installs webkit/gtk deps; tauri-apps/tauri-action builds + bundles + uploads to a DRAFT GitHub Release); desktop/README.md "Download / install" section. cargo check passes (restored webkit2gtk dev deps the rollback wiped); workflow + conf validated (yaml/json); 2 new scaffold guard tests (targets + workflow). The real binaries are produced by CI on a version tag — can't build a GUI/installer in this headless container.

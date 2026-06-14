@@ -39,12 +39,22 @@ fn resolve_server(app: &tauri::App) -> Option<(PathBuf, Option<PathBuf>)> {
     if !bin.exists() {
         return None;
     }
-    let pg = res.join("pg").join("bin");
+    // pass the pg root; the server's _pg_bin resolves either <pg> or <pg>/bin, with .exe
+    let pg = res.join("pg");
     Some((bin, pg.exists().then_some(pg)))
 }
 
 fn main() {
     let app = tauri::Builder::default()
+        // Single instance (must be the FIRST plugin): a second launch focuses the existing
+        // window and exits — critical here, since each instance would start its own Postgres
+        // on the same data dir and corrupt it.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(terminal::TerminalState::default())
