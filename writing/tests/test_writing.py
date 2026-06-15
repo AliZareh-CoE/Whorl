@@ -27,6 +27,15 @@ class TestCiteParser:
     def test_ignores_non_cite_commands(self):
         assert services.parse_cite_keys(r"\ref{fig:one} \label{sec:two}") == set()
 
+    def test_nocite_counts_as_referenced(self):
+        # #247: \nocite{key} includes a reference in the bib without an in-text citation — a
+        # real command. Its keys must count as cited so they aren't flagged "uncited in bib".
+        # \nocite{*} ("include everything") is a wildcard, not a key, so it's skipped.
+        assert services.parse_cite_keys(r"\nocite{smith2020,jones2019} \nocite{*}") == {
+            "smith2020",
+            "jones2019",
+        }
+
 
 class TestCiteChecker:
     def make_manuscript_with_bib(self):

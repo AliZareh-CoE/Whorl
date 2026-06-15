@@ -5,7 +5,7 @@ import re
 from literature.services import render_bibtex, run_bib_report
 
 CITE_RE = re.compile(
-    r"\\(?:cite|citep|citet|citealp|citealt|citeauthor|citeyear|parencite|textcite|autocite|footcite|fullcite)"
+    r"\\(?:cite|citep|citet|citealp|citealt|citeauthor|citeyear|parencite|textcite|autocite|footcite|fullcite|nocite)"
     r"\*?\s*(?:\[[^\]]*\]\s*){0,2}\{([^}]+)\}"
 )
 
