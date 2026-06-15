@@ -27,6 +27,22 @@ class TestSearch:
         manuscripts = [r for r in results if r["type"] == "manuscript"]
         assert manuscripts and manuscripts[0]["object"].title == "Zebrafish swimming under load"
 
+    def test_finds_research_thinking_types(self):
+        # #240: hypotheses, research questions, and experiments are searchable too.
+        from plans.models import ResearchQuestion
+        from research.models import ExperimentEntry, Hypothesis
+
+        project = ProjectFactory()
+        Hypothesis.objects.create(
+            project=project, statement="Octopus camouflage is attention-gated"
+        )
+        ResearchQuestion.objects.create(
+            project=project, question="How does octopus skin sense light?"
+        )
+        ExperimentEntry.objects.create(project=project, title="Octopus dazzle trial")
+        types = {r["type"] for r in search_all("octopus")}
+        assert {"hypothesis", "question", "experiment"} <= types
+
     def test_empty_query_returns_nothing(self):
         assert search_all("") == []
 

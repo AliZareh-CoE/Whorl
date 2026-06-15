@@ -17,7 +17,7 @@
     <div class="space-y-6">
       {% for type, items in grouped.items %}
         <section>
-          <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">{{ type }}s</h2>
+          <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">{% if type == 'hypothesis' %}hypotheses{% else %}{{ type }}s{% endif %}</h2>
           <div class="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
             {% for item in items %}
               <div class="flex items-baseline gap-3 px-4 py-2.5 text-sm">
@@ -38,6 +38,12 @@
                   <a href="{% url 'plans:plan' item.project.slug %}" class="font-medium hover:underline">{{ item.object.title }}</a>
                 {% elif item.type == 'manuscript' %}
                   <a href="{{ item.object.get_absolute_url }}" class="font-medium hover:underline">{{ item.object.title|truncatechars:90 }}</a>
+                {% elif item.type == 'hypothesis' %}
+                  <a href="{% url 'research:ledger' item.project.slug %}" class="font-medium hover:underline">{{ item.object.statement|truncatechars:90 }}</a>
+                {% elif item.type == 'question' %}
+                  <a href="{% url 'plans:questions' item.project.slug %}" class="font-medium hover:underline">{{ item.object.question|truncatechars:90 }}</a>
+                {% elif item.type == 'experiment' %}
+                  <a href="{% url 'research:experiments' item.project.slug %}" class="font-medium hover:underline">{{ item.object.title }}</a>
                 {% endif %}
                 {% if item.project %}
                   <span class="ml-auto shrink-0 text-xs text-stone-400">{{ item.project.name }}</span>

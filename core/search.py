@@ -14,8 +14,9 @@ from django.contrib.postgres.search import (
 from documents.models import Document
 from literature.models import Reference
 from notes.models import Note
-from plans.models import Milestone, Phase
+from plans.models import Milestone, Phase, ResearchQuestion
 from projects.models import DecisionRecord, Project
+from research.models import ExperimentEntry, Hypothesis
 from writing.models import Manuscript
 
 LIMIT_PER_TYPE = 10
@@ -111,6 +112,24 @@ _SEARCH_SPECS = [
         ["title", "abstract"],
         lambda o: o.project,
     ),
+    (
+        "hypothesis",
+        lambda: Hypothesis.objects.select_related("project"),
+        ["statement"],
+        lambda o: o.project,
+    ),
+    (
+        "question",
+        lambda: ResearchQuestion.objects.select_related("project"),
+        ["question"],
+        lambda o: o.project,
+    ),
+    (
+        "experiment",
+        lambda: ExperimentEntry.objects.select_related("project"),
+        ["title", "body"],
+        lambda o: o.project,
+    ),
 ]
 
 
@@ -204,6 +223,27 @@ def search_all(text: str) -> list[dict]:
         query,
     ):
         results.append({"type": "manuscript", "object": manuscript, "project": manuscript.project})
+
+    for hypothesis in _ranked(
+        Hypothesis.objects.select_related("project"),
+        SearchVector("statement", weight="A"),
+        query,
+    ):
+        results.append({"type": "hypothesis", "object": hypothesis, "project": hypothesis.project})
+
+    for question in _ranked(
+        ResearchQuestion.objects.select_related("project"),
+        SearchVector("question", weight="A"),
+        query,
+    ):
+        results.append({"type": "question", "object": question, "project": question.project})
+
+    for experiment in _ranked(
+        ExperimentEntry.objects.select_related("project"),
+        SearchVector("title", weight="A") + SearchVector("body"),
+        query,
+    ):
+        results.append({"type": "experiment", "object": experiment, "project": experiment.project})
 
     if not results:
         results = _trigram_fallback(text.strip())
