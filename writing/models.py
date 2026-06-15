@@ -93,6 +93,27 @@ class Manuscript(TimeStampedModel):
             return None
         return (self.deadline - timezone.localdate()).days
 
+    @property
+    def deadline_label(self):
+        """Humanized, correctly-pluralized countdown for the UI, or None — so every surface
+        (board, detail, overview) words it the same: 'due today' / 'N days left' / 'overdue
+        by N days'."""
+        days = self.days_to_deadline
+        if days is None:
+            return None
+        if days == 0:
+            return "due today"
+        if days > 0:
+            return f"{days} day{'' if days == 1 else 's'} left"
+        overdue = -days
+        return f"overdue by {overdue} day{'' if overdue == 1 else 's'}"
+
+    @property
+    def deadline_is_soon(self):
+        """True when a deadline exists and is within a week (incl. overdue) — the red cue."""
+        days = self.days_to_deadline
+        return days is not None and days < 7
+
     # --- multi-file workbench (Owner idea #24 slice 6) ---
     # latex_source stays a real column for one release; it aliases the main file.
 

@@ -12,10 +12,9 @@
               {% if show_project %}{{ manuscript.project.name }} · {% endif %}
               {% if manuscript.target_venue %}{{ manuscript.target_venue|truncatechars:30 }}{% endif %}
             </p>
-            {% if manuscript.days_to_deadline is not None %}
-              <p class="mt-1 text-xs {% if manuscript.days_to_deadline < 7 %}font-medium text-red-600{% else %}text-stone-500{% endif %}">
-                {% if manuscript.days_to_deadline < 0 %}deadline {{ manuscript.days_to_deadline|stringformat:"d"|slice:"1:" }} days ago
-                {% else %}{{ manuscript.days_to_deadline }} days to deadline{% endif %}
+            {% if manuscript.deadline_label %}
+              <p class="mt-1 text-xs {% if manuscript.deadline_is_soon %}font-medium text-red-600{% else %}text-stone-500{% endif %}">
+                {{ manuscript.deadline_label }}
               </p>
             {% endif %}
           </a>

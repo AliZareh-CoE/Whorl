@@ -71,6 +71,34 @@ class TestCiteChecker:
         assert "@article{customkey," in bib
 
 
+class TestDeadlineLabel:
+    @pytest.mark.parametrize(
+        "delta_days, expected",
+        [
+            (None, None),
+            (0, "due today"),
+            (1, "1 day left"),  # correctly singular (#232-followup: was "1 days")
+            (5, "5 days left"),
+            (-1, "overdue by 1 day"),
+            (-3, "overdue by 3 days"),
+        ],
+    )
+    def test_deadline_label(self, delta_days, expected):
+        deadline = (
+            None
+            if delta_days is None
+            else timezone.localdate() + datetime.timedelta(days=delta_days)
+        )
+        m = ManuscriptFactory.build(deadline=deadline)
+        assert m.deadline_label == expected
+
+    def test_deadline_is_soon(self):
+        soon = ManuscriptFactory.build(deadline=timezone.localdate() + datetime.timedelta(days=3))
+        far = ManuscriptFactory.build(deadline=timezone.localdate() + datetime.timedelta(days=30))
+        none = ManuscriptFactory.build(deadline=None)
+        assert soon.deadline_is_soon and not far.deadline_is_soon and not none.deadline_is_soon
+
+
 class TestManuscriptViews:
     def test_pipeline_board_groups_by_status(self, client_logged_in):
         project = ManuscriptFactory(status=Manuscript.Status.DRAFTING, title="Draft One").project
@@ -155,7 +183,7 @@ class TestManuscriptViews:
             status=Manuscript.Status.DRAFTING,
         )
         response = client_logged_in.get(manuscript.project.get_absolute_url())
-        assert b"12 days to deadline" in response.content
+        assert b"12 days left" in response.content  # shared humanized label (#232-followup)
 
     def test_event_delete(self, client_logged_in):
         manuscript = ManuscriptFactory()

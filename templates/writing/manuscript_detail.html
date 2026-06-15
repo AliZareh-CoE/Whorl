@@ -21,10 +21,8 @@
 </div>
 <p class="mb-6 text-sm text-stone-500">
   {% if manuscript.target_venue %}→ {{ manuscript.target_venue }}{% endif %}
-  {% if manuscript.days_to_deadline is not None %}
-    · <span class="{% if manuscript.days_to_deadline < 7 %}font-medium text-red-600{% endif %}">
-      {% if manuscript.days_to_deadline < 0 %}deadline passed{% else %}{{ manuscript.days_to_deadline }} days to deadline{% endif %}
-    </span>
+  {% if manuscript.deadline_label %}
+    · <span class="{% if manuscript.deadline_is_soon %}font-medium text-red-600{% endif %}">{{ manuscript.deadline_label }}</span>
   {% endif %}
   {% if manuscript.repo_url %} · <a href="{{ manuscript.repo_url }}" class="text-indigo-600 hover:underline">repo</a>{% endif %}
 </p>
