@@ -56,10 +56,15 @@ def _pg_bin(name: str) -> str:
 def _run(args, **kw):
     """Run a Postgres helper, raising with its stderr on failure. The desktop window has no
     console, so a bare non-zero exit is invisible — we surface stdout+stderr so the captured
-    server log says *why* (e.g. initdb's actual complaint), not just an exit code."""
-    proc = subprocess.run(args, capture_output=True, text=True, **kw)
+    server log says *why* (e.g. initdb's actual complaint), not just an exit code. A timeout
+    (default 180s) keeps a wedged initdb/pg_ctl from hanging the whole launch forever (#244)."""
+    name = os.path.basename(str(args[0])) if isinstance(args, (list, tuple)) else str(args)
+    kw.setdefault("timeout", 180)
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, **kw)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"{name} timed out after {exc.timeout}s — giving up.") from exc
     if proc.returncode != 0:
-        name = os.path.basename(str(args[0])) if isinstance(args, (list, tuple)) else str(args)
         raise RuntimeError(
             f"{name} failed (exit {proc.returncode}).\n"
             f"stdout: {(proc.stdout or '').strip()}\nstderr: {(proc.stderr or '').strip()}"
@@ -105,6 +110,7 @@ def ensure_postgres(data_dir: Path, port: int):
             [_pg_bin("pg_ctl"), "-D", str(pgdata), "-m", "immediate", "stop"],
             check=False,
             capture_output=True,
+            timeout=60,
         )
     except Exception:
         pass
@@ -153,8 +159,15 @@ def ensure_postgres(data_dir: Path, port: int):
     import psycopg
 
     def _connect(dbname):
+        # connect_timeout bounds the connection; statement_timeout (15s) bounds any query so a
+        # wedged CREATE DATABASE / SELECT can't hang the launch forever (#244).
         return psycopg.connect(
-            host="127.0.0.1", port=port, user=DB_USER, dbname=dbname, connect_timeout=3
+            host="127.0.0.1",
+            port=port,
+            user=DB_USER,
+            dbname=dbname,
+            connect_timeout=3,
+            options="-c statement_timeout=15000",
         )
 
     last_err = None

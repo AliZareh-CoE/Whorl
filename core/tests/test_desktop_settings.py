@@ -100,6 +100,15 @@ def test_postgres_skips_unix_socket_on_windows():
     assert "postgres.log" in runtime and "RuntimeError" in runtime
 
 
+def test_setup_cannot_hang_forever():
+    # #244: a wedged initdb/pg_ctl or a stuck query must time out (surfacing an error in the
+    # log) instead of leaving the desktop window black forever.
+    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
+    assert 'setdefault("timeout"' in runtime  # bounded subprocess
+    assert "statement_timeout" in runtime  # bounded psycopg queries
+    assert "timed out" in runtime
+
+
 def test_run_surfaces_stderr_on_failure():
     # the windowed build has no console, so a failing Postgres helper must raise WITH its
     # stderr (e.g. initdb's real complaint), not a bare exit code (#224 follow-up).
