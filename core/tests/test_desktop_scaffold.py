@@ -47,6 +47,17 @@ def test_webview_navigation_is_origin_locked():
     assert "on_navigation" in main and "allowed_host" in main
 
 
+def test_installer_kills_running_server_before_install():
+    # #242: a running atlas-server.exe/postgres.exe locks pg\bin\postgres.exe, so an update
+    # over a running app fails with "Error opening file for writing". The NSIS pre-install hook
+    # taskkills them first.
+    cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
+    hook = cfg["bundle"]["windows"]["nsis"]["installerHooks"]
+    nsh = (DESKTOP / hook).read_text()
+    assert "NSIS_HOOK_PREINSTALL" in nsh
+    assert "atlas-server.exe" in nsh and "postgres.exe" in nsh and "taskkill" in nsh
+
+
 def test_window_auto_reloads_when_server_becomes_ready():
     # #225: the bundled server's first launch (initdb+migrate) can be slow; the window must
     # not get stuck on a "can't reach this page". It opens immediately and a background thread

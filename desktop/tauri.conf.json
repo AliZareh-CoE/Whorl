@@ -32,6 +32,11 @@
     "resources": {
       "server/dist/atlas-server": "atlas-server",
       "resources/pg": "pg"
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "installer-hooks.nsh"
+      }
     }
   },
   "plugins": {
