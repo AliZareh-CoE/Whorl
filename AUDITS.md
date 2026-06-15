@@ -744,3 +744,42 @@ D2b (real app restart on update) reviewed too. **Clean — no findings.**
 **Verdict:** healthy. The session-persistence and breadcrumb work stayed within the existing
 allow-list/project-scoping discipline and added no query cost; the schema work tightened the
 machine-facing contract without exposing anything. No fixes needed. 708 tests green, ruff clean.
+
+## Audit #22 — 2026-06-15 (since #21: the Windows desktop saga + UI/perf slices)
+
+Swept the work since AUDIT #21: the whole self-contained-Windows fix chain (#224 POSIX-only
+socket, #228 initdb stderr/pgdata-wipe/`\\?\`-strip, #229 CI trigger paths, #230 per-build
+version, #231 psycopg provisioning), the cheap-previews + in-app lightbox (#227/#227-fu), and
+the UI/perf slices (#226 N+1 guards, #205 empty state, #228 review chip links, #232/#234 count
+lines + pluralization, #233 deadline label). **Clean — no findings.**
+
+**Security (verified live + tests):**
+- **The inline file-preview endpoint (#227) is the one genuinely new surface, and it's sound.**
+  `document_preview` is login-gated (302 anon) and project-scoped (`get_object_or_404(Document,
+  pk=…, project__slug=slug)` → a foreign doc 404s, no cross-project read). It serves ONLY a
+  raster-image whitelist (png/jpeg/gif/webp/bmp) inline as its own type, and ALL text as
+  `text/plain; charset=utf-8`; SVG/HTML/PDF/binaries redirect to download. Every response
+  carries `X-Content-Type-Options: nosniff`, so a browser can't be tricked into executing an
+  uploaded file as HTML in Atlas's origin. 6 tests cover the image/text/SVG/PDF cases. The
+  React image lightbox just points an `<img>` at that same-origin endpoint — no new vector.
+- Anon gating intact on the changed surfaces (preview, download, reading queue → 302).
+- **Desktop #231 (psycopg provisioning):** the readiness wait + DB-exists check use bound
+  params; `CREATE DATABASE "atlas"` interpolates a hardcoded module constant (no user input,
+  identifiers can't be bound). Connects to the local 127.0.0.1 trust cluster — same local-trust
+  model as AUDIT #20, unchanged. The frozen server's atlas-server.log captures tracebacks only
+  (no secrets). The per-build version bump (#230) is benign.
+
+**Dependencies:** `npm audit --omit=dev` = **0 vulnerabilities**.
+
+**Performance (warm):**
+- Reading queue: **9 queries / 17 ms** (cold first call 34 q / 571 ms is one-time template +
+  pg_trgm/contenttype warmup). The new `has_references` (#205) is a single constant `exists()`
+  — the #226 N+1 guard still holds.
+- `Manuscript.deadline_label` + `deadline_is_soon` (#233) are pure properties over
+  already-loaded fields — **0 queries**, so unifying the three templates added no cost.
+- The preview endpoint streams the file with `Cache-Control: private, max-age=86400` + nosniff.
+
+**Verdict:** healthy. The headline new risk — serving uploaded files inline — is mitigated by a
+strict raster/text-as-plain whitelist + nosniff + project scoping. The Windows saga was all in
+the desktop launcher (no web-auth impact), and the UI/perf slices added no query cost. 738 tests
+green, ruff clean. No fixes needed.
