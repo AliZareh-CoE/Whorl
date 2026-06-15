@@ -85,7 +85,13 @@ class NoteFormMixin(ProjectScopedMixin):
 
 
 class NoteCreateView(NoteFormMixin, CreateView):
-    pass
+    def get_initial(self):
+        # support ?title= so an unresolved [[wiki-link]] opens this form pre-filled.
+        initial = super().get_initial()
+        title = self.request.GET.get("title", "").strip()[:300]
+        if title:
+            initial["title"] = title
+        return initial
 
 
 class NoteUpdateView(NoteFormMixin, UpdateView):

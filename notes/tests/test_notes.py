@@ -49,7 +49,15 @@ class TestWikiLinks:
         note = NoteFactory(project=project, title="Source", body="go to [[Alpha]] or [[Nowhere]]")
         rendered = services.body_with_resolved_links(note)
         assert f"[Alpha]({alpha.get_absolute_url()})" in rendered
-        assert "*[[Nowhere]]*" in rendered
+        # an unresolved link now offers a one-click "create this note" (pre-filled)
+        create = reverse("notes:create", kwargs={"slug": project.slug})
+        assert f"[+ Nowhere]({create}?title=Nowhere)" in rendered
+
+    def test_create_form_prefills_title_from_query(self, client_logged_in):
+        project = ProjectFactory()
+        url = reverse("notes:create", kwargs={"slug": project.slug}) + "?title=Fresh%20Idea"
+        body = client_logged_in.get(url).content
+        assert b'value="Fresh Idea"' in body
 
 
 class TestNoteViews:

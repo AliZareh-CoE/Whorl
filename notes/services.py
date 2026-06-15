@@ -1,4 +1,7 @@
 import re
+from urllib.parse import quote
+
+from django.urls import reverse
 
 from .models import Note, NoteLink
 
@@ -35,12 +38,16 @@ def body_with_resolved_links(note: Note) -> str:
     """Replace [[Title]] with markdown links for notes that exist in the project."""
     by_title = {n.title.lower(): n for n in note.project.notes.all()}
 
+    create_url = reverse("notes:create", kwargs={"slug": note.project.slug})
+
     def replace(match):
         title = match.group(1).strip()
         target = by_title.get(title.lower())
         if target and target != note:
             return f"[{title}]({target.get_absolute_url()})"
-        return f"*[[{title}]]*"
+        # unresolved → a "+ Title" link that opens the create form pre-filled (Obsidian-style),
+        # so a [[link]] to a not-yet-written note is one click from existing.
+        return f"[+ {title}]({create_url}?title={quote(title)})"
 
     return WIKI_LINK_RE.sub(replace, note.body or "")
 
