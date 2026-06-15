@@ -63,8 +63,12 @@ jobs:
           VER="0.1.${{ github.run_number }}"
           tmp=$(mktemp)
           jq --arg v "$VER" '.version = $v' desktop/tauri.conf.json > "$tmp" && mv "$tmp" desktop/tauri.conf.json
+          # keep Cargo.toml's package version in lockstep so the server can read it
+          # (env!("CARGO_PKG_VERSION")) to skip re-collecting static on repeat launches (#241).
+          sed -i.bak "s/^version = \".*\"/version = \"$VER\"/" desktop/Cargo.toml && rm -f desktop/Cargo.toml.bak
           echo "Atlas desktop version = $VER"
           grep '"version"' desktop/tauri.conf.json | head -1
+          grep '^version' desktop/Cargo.toml | head -1
 
       - name: Install Linux build dependencies
         if: matrix.platform == 'ubuntu-22.04'

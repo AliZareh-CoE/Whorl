@@ -82,6 +82,14 @@ def test_run_desktop_starts_postgres_first():
     assert "initdb" in runtime and "pg_ctl" in runtime and "atexit" in runtime
 
 
+def test_run_desktop_logs_progress_and_skips_static_recollect():
+    # #241: setup runs at verbosity=1 (no silent black box) and skips the slow static
+    # re-collect on repeat launches of the same build, keyed on ATLAS_VERSION.
+    text = (BASE_DIR / "core" / "management" / "commands" / "run_desktop.py").read_text()
+    assert "verbosity=1" in text
+    assert "ATLAS_VERSION" in text and ".collected_version" in text
+
+
 def test_postgres_skips_unix_socket_on_windows():
     # the Windows "127.0.0.1 refused to connect" fix: the unix-socket `-k` token must only be
     # passed on POSIX (it breaks pg_ctl start on Windows / paths with spaces); TCP loopback

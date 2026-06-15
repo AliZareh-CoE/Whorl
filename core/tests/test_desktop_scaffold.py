@@ -113,6 +113,9 @@ def test_release_workflow_stamps_a_unique_version():
     wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
     assert "github.run_number" in wf
     assert ".version = $v" in wf  # the jq edit to tauri.conf.json
+    assert "desktop/Cargo.toml" in wf  # #241: Cargo.toml stamped too, so the server reads it
+    main = (DESKTOP / "src" / "server.rs").read_text()
+    assert "ATLAS_VERSION" in main and "CARGO_PKG_VERSION" in main
 
 
 def test_updater_is_wired():

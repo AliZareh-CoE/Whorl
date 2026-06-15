@@ -12,6 +12,9 @@ pub fn spawn(server_bin: &Path, data_dir: &Path, pg_bin: Option<&Path>, port: u1
     let mut cmd = Command::new(server_bin);
     cmd.env("ATLAS_DATA_DIR", data_dir)
         .env("ATLAS_PORT", port.to_string())
+        // the app version (CI stamps Cargo.toml) lets the server skip re-collecting static on
+        // repeat launches of the same build, but re-collect after an update (#241).
+        .env("ATLAS_VERSION", env!("CARGO_PKG_VERSION"))
         .env("DJANGO_SETTINGS_MODULE", "config.settings.desktop");
     if let Some(bin) = pg_bin {
         cmd.env("ATLAS_PG_BIN", bin);

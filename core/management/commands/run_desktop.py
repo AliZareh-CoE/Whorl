@@ -35,9 +35,22 @@ class Command(BaseCommand):
         ensure_postgres(data_dir, settings.PG_PORT)
         self.stdout.write("Postgres is up.")
 
-        # first-run (and every-run, idempotent) preparation
-        call_command("migrate", "--no-input", verbosity=0)
-        call_command("collectstatic", "--no-input", verbosity=0)
+        # First-run prep. Use verbosity=1 so the log shows progress instead of looking like a
+        # silent black box (#241), and skip the slow static re-collect on later launches of the
+        # SAME build — keyed on ATLAS_VERSION (set by the Tauri shell from the app version), so an
+        # app update still re-collects.
+        self.stdout.write("Preparing the database…")
+        call_command("migrate", "--no-input", verbosity=1)
+
+        version = os.environ.get("ATLAS_VERSION", "dev")
+        marker = settings.STATIC_ROOT / ".collected_version"
+        if marker.exists() and marker.read_text(errors="ignore").strip() == version:
+            self.stdout.write("Static assets already collected for this version.")
+        else:
+            self.stdout.write("Collecting static assets (first run for this version)…")
+            call_command("collectstatic", "--no-input", verbosity=1)
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(version)
 
         User = get_user_model()
         username = os.environ.get("ATLAS_ADMIN_USER", "atlas")
