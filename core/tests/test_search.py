@@ -18,6 +18,15 @@ class TestSearch:
         types = {r["type"] for r in results}
         assert {"reference", "note", "decision"} <= types
 
+    def test_finds_manuscripts(self):
+        # #239: global search now covers manuscripts (added after search was first built).
+        from writing.tests.factories import ManuscriptFactory
+
+        ManuscriptFactory(title="Zebrafish swimming under load")
+        results = search_all("zebrafish")
+        manuscripts = [r for r in results if r["type"] == "manuscript"]
+        assert manuscripts and manuscripts[0]["object"].title == "Zebrafish swimming under load"
+
     def test_empty_query_returns_nothing(self):
         assert search_all("") == []
 

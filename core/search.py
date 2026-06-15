@@ -16,6 +16,7 @@ from literature.models import Reference
 from notes.models import Note
 from plans.models import Milestone, Phase
 from projects.models import DecisionRecord, Project
+from writing.models import Manuscript
 
 LIMIT_PER_TYPE = 10
 
@@ -104,6 +105,12 @@ _SEARCH_SPECS = [
         ["title", "notes"],
         lambda o: o.phase.project,
     ),
+    (
+        "manuscript",
+        lambda: Manuscript.objects.select_related("project"),
+        ["title", "abstract"],
+        lambda o: o.project,
+    ),
 ]
 
 
@@ -190,6 +197,13 @@ def search_all(text: str) -> list[dict]:
         results.append(
             {"type": "milestone", "object": milestone, "project": milestone.phase.project}
         )
+
+    for manuscript in _ranked(
+        Manuscript.objects.select_related("project"),
+        SearchVector("title", weight="A") + SearchVector("abstract"),
+        query,
+    ):
+        results.append({"type": "manuscript", "object": manuscript, "project": manuscript.project})
 
     if not results:
         results = _trigram_fallback(text.strip())

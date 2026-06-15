@@ -36,6 +36,8 @@
                   <a href="{% url 'plans:plan' item.project.slug %}" class="font-medium hover:underline">{{ item.object.name }}</a>
                 {% elif item.type == 'milestone' %}
                   <a href="{% url 'plans:plan' item.project.slug %}" class="font-medium hover:underline">{{ item.object.title }}</a>
+                {% elif item.type == 'manuscript' %}
+                  <a href="{{ item.object.get_absolute_url }}" class="font-medium hover:underline">{{ item.object.title|truncatechars:90 }}</a>
                 {% endif %}
                 {% if item.project %}
                   <span class="ml-auto shrink-0 text-xs text-stone-400">{{ item.project.name }}</span>
