@@ -47,6 +47,15 @@ def test_webview_navigation_is_origin_locked():
     assert "on_navigation" in main and "allowed_host" in main
 
 
+def test_window_auto_reloads_when_server_becomes_ready():
+    # #225: the bundled server's first launch (initdb+migrate) can be slow; the window must
+    # not get stuck on a "can't reach this page". It opens immediately and a background thread
+    # reloads it (navigate) once wait_for_port answers — no manual refresh.
+    main = (DESKTOP / "src" / "main.rs").read_text()
+    assert "thread::spawn" in main
+    assert "wait_for_port" in main and ".navigate(" in main
+
+
 def test_cargo_depends_on_tauri_2():
     cargo = (DESKTOP / "Cargo.toml").read_text()
     assert "tauri" in cargo and "tauri-build" in cargo

@@ -74,6 +74,7 @@ fn main() {
                 .unwrap_or(8000);
 
             // launch the bundled server unless an external one was specified via ATLAS_URL
+            let mut launched_bundled = false;
             let url = if std::env::var("ATLAS_URL").is_ok() {
                 atlas_url()
             } else if let Some((bin, pg)) = resolve_server(app) {
@@ -85,8 +86,7 @@ fn main() {
                 match server::spawn(&bin, &data_dir, pg.as_deref(), port) {
                     Ok(child) => {
                         app.state::<ServerProc>().0.lock().unwrap().replace(child);
-                        // first launch runs initdb + migrate, so allow generous time
-                        server::wait_for_port(port, Duration::from_secs(180));
+                        launched_bundled = true;
                         format!("http://127.0.0.1:{port}/")
                     }
                     Err(_) => atlas_url(),
@@ -99,16 +99,30 @@ fn main() {
             // security hardening (AUDIT #15, #160): the shell only navigates within the local
             // Atlas origin, so a compromised page can't steer the window off-origin.
             let allowed_host = parsed.host_str().unwrap_or("localhost").to_string();
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed))
-                .title("Atlas")
-                .inner_size(1400.0, 900.0)
-                .min_inner_size(900.0, 600.0)
-                .on_navigation(move |target| {
-                    matches!(target.host_str(), Some(h) if h == allowed_host)
-                })
-                .build()?;
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.set_focus();
+            let window =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed.clone()))
+                    .title("Atlas")
+                    .inner_size(1400.0, 900.0)
+                    .min_inner_size(900.0, 600.0)
+                    .on_navigation(move |target| {
+                        matches!(target.host_str(), Some(h) if h == allowed_host)
+                    })
+                    .build()?;
+            let _ = window.set_focus();
+
+            // The bundled server's FIRST launch runs initdb + migrate + collectstatic and can
+            // take a while on a slow machine, so the window may open before the server answers
+            // and show a "can't reach this page". Poll in the background and reload the window
+            // the moment the server is up — the user never has to refresh by hand.
+            if launched_bundled {
+                let win = window.clone();
+                std::thread::spawn(move || {
+                    if server::wait_for_port(port, Duration::from_secs(600)) {
+                        // a beat for waitress to begin serving HTTP after the port opens
+                        std::thread::sleep(Duration::from_millis(750));
+                        let _ = win.navigate(parsed);
+                    }
+                });
             }
             Ok(())
         })
