@@ -240,8 +240,14 @@ class TestWeeklyDigestBot:
         from bots import registry
         from notes.models import QuickCapture
 
-        # a milestone completed LAST week (Mon-Sun before this one)
-        last_week = timezone.now() - datetime.timedelta(days=8)
+        # a milestone completed LAST week (the Mon–Sun before this one). Anchor to the midpoint
+        # of last week, not `now - 8 days` — the latter lands two weeks back when run on a Monday.
+        this_monday = timezone.localdate() - datetime.timedelta(days=timezone.localdate().weekday())
+        last_week = timezone.make_aware(
+            datetime.datetime.combine(
+                this_monday - datetime.timedelta(days=4), datetime.time(12, 0)
+            )
+        )
         from plans.tests.factories import MilestoneFactory
 
         MilestoneFactory(title="Done last week", completed_at=last_week)
