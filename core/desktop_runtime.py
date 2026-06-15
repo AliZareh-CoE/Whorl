@@ -20,6 +20,11 @@ from pathlib import Path
 DB_NAME = "atlas"
 DB_USER = "atlas"
 
+# On Windows, start the Postgres helpers in their OWN process group with no console window, so
+# a console control event (Ctrl+C / close) can't propagate to Postgres and Ctrl+C its background
+# workers — which crash-looped it with 0xC000013A (#245). 0 elsewhere (POSIX ignores it).
+_CREATIONFLAGS = (0x00000200 | 0x08000000) if os.name == "nt" else 0  # NEW_PROCESS_GROUP|NO_WINDOW
+
 
 def _plain(path: str) -> str:
     """Drop Windows' extended-length `\\\\?\\` prefix. Tauri's resource_dir() hands us paths
@@ -60,6 +65,7 @@ def _run(args, **kw):
     (default 180s) keeps a wedged initdb/pg_ctl from hanging the whole launch forever (#244)."""
     name = os.path.basename(str(args[0])) if isinstance(args, (list, tuple)) else str(args)
     kw.setdefault("timeout", 180)
+    kw.setdefault("creationflags", _CREATIONFLAGS)
     try:
         proc = subprocess.run(args, capture_output=True, text=True, **kw)
     except subprocess.TimeoutExpired as exc:
@@ -111,6 +117,7 @@ def ensure_postgres(data_dir: Path, port: int):
             check=False,
             capture_output=True,
             timeout=60,
+            creationflags=_CREATIONFLAGS,
         )
     except Exception:
         pass

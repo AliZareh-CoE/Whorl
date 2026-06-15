@@ -74,7 +74,11 @@ exe = EXE(  # noqa: F821
     [],
     exclude_binaries=True,
     name="atlas-server",
-    console=True,
+    # windowed (no console): a console window shares a control group with the Postgres it
+    # starts, so console events (Ctrl+C / close) killed Postgres's background workers in a
+    # crash loop (0xC000013A, #245). No console also removes the black box; output already
+    # goes to atlas-server.log.
+    console=False,
 )
 coll = COLLECT(  # noqa: F821
     exe,
