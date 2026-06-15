@@ -46,9 +46,13 @@ DATABASES = {
 MEDIA_ROOT = DATA_DIR / "media"
 STATIC_ROOT = DATA_DIR / "staticfiles"
 # WhiteNoise (already in MIDDLEWARE) serves the collected static files directly from the app.
+# Use the PLAIN storage (not CompressedManifest): on a localhost desktop, per-file gzip+brotli
+# compression and hashing are pointless work that made the first-launch collectstatic take
+# minutes on Windows (the window timed out waiting). Plain storage just copies the files — fast
+# — and WhiteNoise still serves them. (#246)
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
 # No Redis in a single-user desktop build: run background jobs in-process, immediately.

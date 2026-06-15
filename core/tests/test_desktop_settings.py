@@ -45,6 +45,14 @@ def test_desktop_settings_use_bundled_postgres():
     assert "MemoryHuey" in text  # no Redis — jobs run in-process
 
 
+def test_desktop_static_storage_is_plain_for_fast_first_run():
+    # #246: CompressedManifest gzip+brotli+hashes every file → minutes-long first-run
+    # collectstatic on Windows (the window timed out). Localhost doesn't need any of that.
+    text = (BASE_DIR / "config" / "settings" / "desktop.py").read_text()
+    assert "django.contrib.staticfiles.storage.StaticFilesStorage" in text
+    assert "CompressedManifestStaticFilesStorage" not in text
+
+
 def test_pg_bin_resolves_from_env(tmp_path, monkeypatch):
     from core.desktop_runtime import _pg_bin
 
