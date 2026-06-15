@@ -111,11 +111,14 @@ def test_postgres_skips_unix_socket_on_windows():
 def test_postgres_isolated_from_console_signals():
     # #245: the 0xC000013A crash loop — a console event Ctrl+C'd Postgres's workers because the
     # server ran in a console that Postgres shared. The frozen server is now windowed, and the
-    # pg helpers start in their own process group with no console window.
+    # pg helpers start in their own process group with no console window. #248: the windowed
+    # build has no valid stdin, so the helpers are given an explicit DEVNULL stdin or they can
+    # fail to spawn on Windows.
     spec = (BASE_DIR / "desktop" / "server" / "atlas_server.spec").read_text()
     assert "console=False" in spec
     runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
     assert "_CREATIONFLAGS" in runtime and 'os.name == "nt"' in runtime
+    assert "stdin" in runtime and "DEVNULL" in runtime
 
 
 def test_setup_cannot_hang_forever():

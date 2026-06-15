@@ -66,6 +66,9 @@ def _run(args, **kw):
     name = os.path.basename(str(args[0])) if isinstance(args, (list, tuple)) else str(args)
     kw.setdefault("timeout", 180)
     kw.setdefault("creationflags", _CREATIONFLAGS)
+    # the windowed (no-console) build has no valid stdin handle; a child that inherits it can
+    # fail to spawn on Windows, so always give the helpers a real (empty) stdin (#248).
+    kw.setdefault("stdin", subprocess.DEVNULL)
     try:
         proc = subprocess.run(args, capture_output=True, text=True, **kw)
     except subprocess.TimeoutExpired as exc:
@@ -118,6 +121,7 @@ def ensure_postgres(data_dir: Path, port: int):
             capture_output=True,
             timeout=60,
             creationflags=_CREATIONFLAGS,
+            stdin=subprocess.DEVNULL,
         )
     except Exception:
         pass
