@@ -192,3 +192,11 @@ class TestInboxBulk:
         content = client_logged_in.get(reverse("notes:inbox")).content.decode()
         assert 'id="inbox-bulk-form"' in content
         assert "Dismiss all" in content
+
+    def test_inbox_shows_triage_count(self, client_logged_in):
+        from notes.models import QuickCapture
+
+        QuickCapture.objects.create(text="one")
+        QuickCapture.objects.create(text="two")
+        content = client_logged_in.get(reverse("notes:inbox")).content.decode()
+        assert "2 items to triage." in content
