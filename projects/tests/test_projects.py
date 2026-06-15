@@ -77,6 +77,13 @@ class TestDecisionViews:
         assert response.status_code == 200
         assert b"Use Postgres" in response.content
 
+    def test_decision_list_shows_count(self, client_logged_in):
+        # #199-style situational-awareness count line.
+        project = ProjectFactory()
+        DecisionRecordFactory.create_batch(2, project=project)
+        response = client_logged_in.get(reverse("projects:decisions", args=[project.slug]))
+        assert b"2 decisions recorded." in response.content
+
     def test_create_decision(self, client_logged_in):
         project = ProjectFactory()
         response = client_logged_in.post(

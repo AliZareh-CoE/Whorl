@@ -139,6 +139,12 @@ class TestResearchQuestions:
         assert response.status_code == 200
         assert question.question.encode() in response.content
 
+    def test_question_list_shows_count(self, client_logged_in):
+        project = ProjectFactory()
+        ResearchQuestionFactory.create_batch(3, project=project)
+        response = client_logged_in.get(reverse("plans:questions", args=[project.slug]))
+        assert b"3 research questions." in response.content
+
     def test_create_question_linked_to_phase(self, client_logged_in):
         phase = PhaseFactory()
         project = phase.project
