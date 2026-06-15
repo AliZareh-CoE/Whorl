@@ -43,6 +43,22 @@ class TestSearch:
         types = {r["type"] for r in search_all("octopus")}
         assert {"hypothesis", "question", "experiment"} <= types
 
+    def test_api_search_gives_research_types_a_url(self, client_logged_in):
+        # #243: the API/MCP search returned url=None for hypotheses/questions/experiments
+        # (no get_absolute_url). Now each has one (its list page + a deep-link anchor).
+        from plans.models import ResearchQuestion
+        from research.models import ExperimentEntry, Hypothesis
+
+        project = ProjectFactory()
+        Hypothesis.objects.create(project=project, statement="Penguins navigate by polarized light")
+        ResearchQuestion.objects.create(project=project, question="Do penguins see UV?")
+        ExperimentEntry.objects.create(project=project, title="Penguin maze run")
+        data = client_logged_in.get("/api/v1/search/?q=penguin").json()
+        urls = {r["type"]: r["url"] for r in data["results"]}
+        for kind in ("hypothesis", "question", "experiment"):
+            assert urls.get(kind), f"{kind} result must carry a url"
+            assert f"#{kind}-" in urls[kind]  # deep-link anchor
+
     def test_empty_query_returns_nothing(self):
         assert search_all("") == []
 

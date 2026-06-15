@@ -29,6 +29,11 @@ class Hypothesis(TimeStampedModel):
     def __str__(self):
         return self.statement[:80]
 
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return f"{reverse('research:ledger', args=[self.project.slug])}#hypothesis-{self.pk}"
+
     @property
     def evidence_balance(self):
         counts = {"supports": 0, "contradicts": 0, "mixed": 0}
@@ -94,6 +99,11 @@ class ExperimentEntry(TimeStampedModel):
 
     def __str__(self):
         return f"{self.date}: {self.title}"
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return f"{reverse('research:experiments', args=[self.project.slug])}#experiment-{self.pk}"
 
 
 class Dataset(TimeStampedModel):

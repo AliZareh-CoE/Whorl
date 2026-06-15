@@ -3,7 +3,7 @@
        class="mt-1 max-h-80 overflow-y-auto rounded border border-stone-200 bg-white py-1 shadow-lg">
     {% for result in results %}
       {% with obj=result.object %}
-        <a href="{% if result.type == 'document' %}{% url 'documents:download' result.project.slug obj.pk %}{% elif result.type == 'decision' %}{% url 'projects:decisions' result.project.slug %}{% elif result.type == 'phase' or result.type == 'milestone' %}{% url 'plans:plan' result.project.slug %}{% elif result.type == 'hypothesis' %}{% url 'research:ledger' result.project.slug %}{% elif result.type == 'question' %}{% url 'plans:questions' result.project.slug %}{% elif result.type == 'experiment' %}{% url 'research:experiments' result.project.slug %}{% else %}{{ obj.get_absolute_url }}{% endif %}"
+        <a href="{% if result.type == 'document' %}{% url 'documents:download' result.project.slug obj.pk %}{% elif result.type == 'decision' %}{% url 'projects:decisions' result.project.slug %}{% elif result.type == 'phase' or result.type == 'milestone' %}{% url 'plans:plan' result.project.slug %}{% else %}{{ obj.get_absolute_url }}{% endif %}"
            id="suggest-opt-{{ forloop.counter }}" role="option" aria-selected="false"
            class="suggest-item block px-3 py-1.5 text-sm hover:bg-stone-50">
           <span class="mr-1 rounded bg-stone-100 px-1 py-0.5 text-[10px] uppercase tracking-wide text-stone-400">{{ result.type }}</span>

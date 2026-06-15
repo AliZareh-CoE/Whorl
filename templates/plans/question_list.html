@@ -19,7 +19,7 @@
 {% if questions %}
   <div class="space-y-3">
     {% for q in questions %}
-      <article class="rounded border border-stone-200 bg-white px-5 py-4">
+      <article id="question-{{ q.pk }}" class="rounded border border-stone-200 bg-white px-5 py-4">
         <div class="flex items-start gap-3">
           <p class="text-sm">{{ q.question }}</p>
           <span class="ml-auto shrink-0 rounded px-2 py-0.5 text-xs

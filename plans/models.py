@@ -96,3 +96,8 @@ class ResearchQuestion(TimeStampedModel):
 
     def __str__(self):
         return self.question[:80]
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return f"{reverse('plans:questions', args=[self.project.slug])}#question-{self.pk}"
