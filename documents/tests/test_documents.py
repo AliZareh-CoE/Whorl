@@ -207,6 +207,28 @@ class TestDocumentViews:
         assert not Document(content_type="image/svg+xml").is_previewable  # script-bearing
         assert not Document(content_type="application/pdf").is_previewable
 
+    def test_preview_kind_classifies_for_the_spa(self):
+        # #227-followup: the SPA lightboxes images and opens text in a tab; everything else has
+        # no preview. The props must carry that classification.
+        from documents.models import Document
+
+        assert Document(content_type="image/png").preview_kind == "image"
+        assert Document(content_type="text/csv").preview_kind == "text"
+        assert Document(content_type="text/html").preview_kind == "text"
+        assert Document(content_type="application/pdf").preview_kind is None
+        assert Document(content_type="image/svg+xml").preview_kind is None
+
+    def test_table_props_include_preview_kind(self):
+        from documents.views import documents_table_props
+
+        project = ProjectFactory()
+        doc = DocumentFactory(project=project)
+        from documents.models import Document
+
+        Document.objects.filter(pk=doc.pk).update(content_type="image/png")
+        props = documents_table_props(project, list(project.documents.all()))
+        assert props["documents"][0]["previewKind"] == "image"
+
     def test_preview_image_served_inline_with_nosniff(self, client_logged_in):
         from documents.models import Document
 

@@ -22,6 +22,7 @@ type Doc = {
   comments: number;
   downloadUrl: string;
   previewUrl: string | null;
+  previewKind: "image" | "text" | null;
   editUrl: string;
 };
 type Comment = { id: number; body: string; created_at: string };
@@ -52,6 +53,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
   const [tagChoice, setTagChoice] = useState(tags[0] ? String(tags[0].id) : "");
   const [busy, setBusy] = useState(false);
   const [commentsDoc, setCommentsDoc] = useState<Doc | null>(null);
+  const [previewImage, setPreviewImage] = useState<Doc | null>(null);
   const [extraCounts, setExtraCounts] = useState<Record<number, number>>({});
 
   const rows = useMemo(() => {
@@ -296,16 +298,26 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                   >
                     💬 {(doc.comments ?? 0) + (extraCounts[doc.id] ?? 0) || ""}
                   </button>
-                  {doc.previewUrl && (
-                    <a
-                      href={doc.previewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-2 text-xs text-indigo-600 hover:underline"
-                    >
-                      Preview
-                    </a>
-                  )}
+                  {doc.previewUrl &&
+                    (doc.previewKind === "image" ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewImage(doc)}
+                        aria-haspopup="dialog"
+                        className="ml-2 text-xs text-indigo-600 hover:underline"
+                      >
+                        Preview
+                      </button>
+                    ) : (
+                      <a
+                        href={doc.previewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-xs text-indigo-600 hover:underline"
+                      >
+                        Preview
+                      </a>
+                    ))}
                   <a href={doc.downloadUrl} className="ml-2 text-xs text-indigo-600 hover:underline">
                     Download
                   </a>
@@ -332,6 +344,10 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
           onClose={() => setCommentsDoc(null)}
           onAdded={(id) => setExtraCounts((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }))}
         />
+      )}
+
+      {previewImage && (
+        <ImageLightbox doc={previewImage} onClose={() => setPreviewImage(null)} />
       )}
 
       {confirmOpen && (
@@ -484,6 +500,45 @@ function CommentsModal({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ImageLightbox({ doc, onClose }: { doc: Doc; onClose: () => void }) {
+  // #227-followup: show an image preview in-app (backdrop click or Esc to dismiss) instead of
+  // leaving the page for a new tab. The src is the safe inline-serve endpoint (#227).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Preview of ${doc.title}`}
+    >
+      <div className="absolute inset-0 bg-stone-900/70" onClick={onClose} aria-hidden="true" />
+      <figure className="relative flex max-h-full max-w-5xl flex-col items-center gap-2">
+        <img
+          src={doc.previewUrl ?? ""}
+          alt={doc.title}
+          className="max-h-[85vh] max-w-full rounded shadow-xl"
+        />
+        <figcaption className="flex items-center gap-3 text-xs text-stone-300">
+          <span className="max-w-md truncate">{doc.title}</span>
+          <a href={doc.downloadUrl} className="underline hover:text-white">
+            Download
+          </a>
+          <button onClick={onClose} className="underline hover:text-white">
+            Close
+          </button>
+        </figcaption>
+      </figure>
     </div>
   );
 }

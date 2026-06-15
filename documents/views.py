@@ -49,6 +49,7 @@ def documents_table_props(project, documents, next_url=""):
                     if doc.is_previewable
                     else None
                 ),
+                "previewKind": doc.preview_kind,  # "image" → lightbox, "text" → new tab
                 "editUrl": reverse("documents:document_edit", args=[project.slug, doc.pk]),
             }
             for doc in documents

@@ -126,12 +126,20 @@ class Document(TimeStampedModel):
         return self.title
 
     @property
-    def is_previewable(self):
-        """Whether this file is safe to show inline (#14 cheap previews). Raster images and
-        plain text only — deliberately NOT SVG or HTML, which can carry script that would run
-        in Atlas's own origin. Everything else falls back to download."""
+    def preview_kind(self):
+        """ "image", "text", or None (#14 cheap previews). Raster images and plain text only —
+        deliberately NOT SVG or HTML, which can carry script that would run in Atlas's own
+        origin. The SPA shows images in an in-app lightbox and opens text in a new tab."""
         ct = (self.content_type or "").lower().split(";")[0].strip()
-        return ct in PREVIEWABLE_IMAGE_TYPES or ct.startswith("text/")
+        if ct in PREVIEWABLE_IMAGE_TYPES:
+            return "image"
+        if ct.startswith("text/"):
+            return "text"
+        return None
+
+    @property
+    def is_previewable(self):
+        return self.preview_kind is not None
 
     def save(self, *args, **kwargs):
         if self.file:
