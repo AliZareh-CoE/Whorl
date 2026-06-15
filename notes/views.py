@@ -13,15 +13,24 @@ from .models import Note, QuickCapture
 
 
 def note_list(request, slug):
+    from django.db.models import Count
+
     project = get_object_or_404(Project, slug=slug)
-    notes = project.notes.all()
+    # annotate the backlink count so the list doesn't run a .count() per row (N+1)
+    notes = project.notes.annotate(backlink_count=Count("incoming_links"))
     query = request.GET.get("q", "").strip()
     if query:
         notes = notes.filter(title__icontains=query)
     return render(
         request,
         "notes/note_list.html",
-        {"project": project, "notes": notes, "query": query},
+        {
+            "project": project,
+            "notes": notes,
+            "query": query,
+            # [[links]] to notes that don't exist yet — surfaced as one-click stubs (#236-fu)
+            "unwritten": services.unwritten_note_titles(project),
+        },
     )
 
 

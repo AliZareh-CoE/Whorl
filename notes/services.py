@@ -19,6 +19,21 @@ def parse_wiki_titles(body: str) -> list[str]:
     return titles
 
 
+def unwritten_note_titles(project) -> list[str]:
+    """Titles referenced via [[wiki-links]] anywhere in the project's notes that don't yet
+    exist as a note — the "stubs to write" list (Obsidian-style). One query; case-insensitive,
+    keeping the first-seen casing. Sorted for a stable display."""
+    notes = list(project.notes.all())
+    existing = {n.title.lower() for n in notes}
+    found: dict[str, str] = {}
+    for note in notes:
+        for title in parse_wiki_titles(note.body):
+            key = title.lower()
+            if key not in existing:
+                found.setdefault(key, title)
+    return sorted(found.values(), key=str.lower)
+
+
 def sync_note_links(note: Note) -> list[str]:
     """Rebuild NoteLinks from [[wiki-links]] in the body. Returns unresolved titles."""
     titles = parse_wiki_titles(note.body)

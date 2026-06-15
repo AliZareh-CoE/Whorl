@@ -60,7 +60,45 @@ class TestWikiLinks:
         assert b'value="Fresh Idea"' in body
 
 
+class TestUnwrittenTitles:
+    def test_collects_referenced_but_missing_titles(self):
+        project = ProjectFactory()
+        NoteFactory(project=project, title="Alpha", body="see [[Beta]] and [[Gamma]]")
+        NoteFactory(project=project, title="Beta", body="back to [[Alpha]] and [[Gamma]]")
+        # Beta + Alpha exist; Gamma is referenced twice but unwritten → once, deduped.
+        assert services.unwritten_note_titles(project) == ["Gamma"]
+
+    def test_scoped_to_project(self):
+        project = ProjectFactory()
+        NoteFactory(project=project, title="Home", body="[[Local Stub]]")
+        NoteFactory(title="Elsewhere", body="[[Foreign Stub]]")  # different project
+        assert services.unwritten_note_titles(project) == ["Local Stub"]
+
+
 class TestNoteViews:
+    def test_note_list_shows_unwritten_stubs(self, client_logged_in):
+        project = ProjectFactory()
+        NoteFactory(project=project, title="Real", body="points at [[Missing Idea]]")
+        body = client_logged_in.get(reverse("notes:list", args=[project.slug])).content
+        assert b"Mentioned but not yet written" in body
+        assert b"+ Missing Idea" in body
+        assert b"?title=Missing%20Idea" in body
+
+    def test_note_list_backlink_count_no_n_plus_one(
+        self, client_logged_in, django_assert_max_num_queries
+    ):
+        # the per-row backlink count is annotated, not a .count() per note (#236-fu).
+        project = ProjectFactory()
+        NoteFactory.create_batch(3, project=project)
+        url = reverse("notes:list", args=[project.slug])
+        client_logged_in.get(url)  # warm
+        with django_assert_max_num_queries(15) as ctx:
+            client_logged_in.get(url)
+        baseline = len(ctx.captured_queries)
+        NoteFactory.create_batch(5, project=project)
+        with django_assert_max_num_queries(baseline):
+            client_logged_in.get(url)  # 8 notes cost no more queries than 3
+
     def test_create_note_syncs_links(self, client_logged_in):
         project = ProjectFactory()
         NoteFactory(project=project, title="Target")
