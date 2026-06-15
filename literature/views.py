@@ -369,6 +369,8 @@ def reading_queue(request, slug):
             "order": order,
             "statuses": ProjectReference.ReadingStatus.choices,
             "theme_count": project.review_themes.count(),
+            # distinguish "no references linked yet" (offer the action) from "all read" (#205)
+            "has_references": project.project_references.exists(),
         },
     )
 

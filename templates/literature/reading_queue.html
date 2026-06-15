@@ -65,7 +65,12 @@
   </div>
 {% else %}
   <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
-    <p class="text-stone-600">Queue is clear — everything linked to this project has been read.</p>
+    {% if has_references %}
+      <p class="text-stone-600">Queue is clear — everything linked to this project has been read.</p>
+    {% else %}
+      <p class="mb-2 text-stone-600">No references are linked to this project yet.</p>
+      <a href="{% url 'literature:project_link' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Link a reference</a>
+    {% endif %}
   </div>
 {% endif %}
 {% endblock %}

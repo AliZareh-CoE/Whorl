@@ -220,6 +220,23 @@ class TestProjectLiterature:
         assert response.status_code == 200
         assert b"Anything Here" in response.content
 
+    def test_queue_empty_no_references_offers_action(self, client_logged_in):
+        # #205: a fresh project (no references) must offer "Link a reference", not the
+        # misleading "everything has been read".
+        project = ProjectFactory()
+        body = client_logged_in.get(reverse("literature:queue", args=[project.slug])).content
+        assert b"No references are linked" in body
+        assert reverse("literature:project_link", args=[project.slug]).encode() in body
+
+    def test_queue_empty_all_read_is_terminal(self, client_logged_in):
+        # when references exist but are all read, the queue-clear state is legitimately
+        # action-free (a positive "all done").
+        project = ProjectFactory()
+        ProjectReferenceFactory(project=project, reading_status="read")
+        body = client_logged_in.get(reverse("literature:queue", args=[project.slug])).content
+        assert b"Queue is clear" in body
+        assert b"No references are linked" not in body
+
     def test_queue_sorted_by_priority(self, client_logged_in):
         project = ProjectFactory()
         ProjectReferenceFactory(project=project, priority="low", reference__title="LowPaper")
