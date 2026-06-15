@@ -119,6 +119,19 @@ def test_initdb_clears_partial_pgdata():
     assert "rmtree" in runtime and "PG_VERSION" in runtime
 
 
+def test_postgres_provisioning_uses_psycopg_not_client_tools():
+    # #231: the Windows Postgres bundle ships ONLY initdb/pg_ctl/postgres — not the
+    # pg_isready/psql/createdb client tools — so the readiness wait and database creation must
+    # go through psycopg (already in the frozen server), never shell out to those binaries.
+    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
+    assert "import psycopg" in runtime
+    assert "CREATE DATABASE" in runtime
+    for missing in ("pg_isready", "psql", "createdb"):
+        assert f'_pg_bin("{missing}")' not in runtime, (
+            f"must not invoke {missing} (absent on Windows)"
+        )
+
+
 def test_frozen_server_logs_to_data_dir():
     # so a startup crash isn't invisible behind the windowed (no-console) build.
     entry = (BASE_DIR / "desktop" / "server" / "atlas_server.py").read_text()

@@ -146,28 +146,33 @@ def ensure_postgres(data_dir: Path, port: int):
 
     atexit.register(stop)
 
-    # wait until it answers, then ensure the database exists
-    for _ in range(30):
-        try:
-            _run([_pg_bin("pg_isready"), "-h", "127.0.0.1", "-p", str(port), "-U", DB_USER])
-            break
-        except subprocess.CalledProcessError:
-            time.sleep(0.5)
+    # Wait until the server accepts connections, then ensure the database exists — all through
+    # psycopg, the driver the frozen server already ships. The Windows Postgres bundle contains
+    # ONLY initdb/pg_ctl/postgres, not the pg_isready/psql/createdb CLIENT tools (#231), so we
+    # must never shell out to those. (Cross-platform: psycopg talks TCP loopback everywhere.)
+    import psycopg
 
-    exists = _run(
-        [
-            _pg_bin("psql"),
-            "-h",
-            "127.0.0.1",
-            "-p",
-            str(port),
-            "-U",
-            DB_USER,
-            "-tAc",
-            f"SELECT 1 FROM pg_database WHERE datname='{DB_NAME}'",
-            "postgres",
-        ]
-    )
-    if exists.stdout.strip() != "1":
-        _run([_pg_bin("createdb"), "-h", "127.0.0.1", "-p", str(port), "-U", DB_USER, DB_NAME])
+    def _connect(dbname):
+        return psycopg.connect(
+            host="127.0.0.1", port=port, user=DB_USER, dbname=dbname, connect_timeout=3
+        )
+
+    last_err = None
+    for _ in range(60):
+        try:
+            _connect("postgres").close()
+            last_err = None
+            break
+        except psycopg.OperationalError as exc:
+            last_err = exc
+            time.sleep(0.5)
+    if last_err is not None:
+        raise RuntimeError(f"Postgres did not accept connections on 127.0.0.1:{port}: {last_err}")
+
+    with _connect("postgres") as conn:
+        conn.autocommit = True  # CREATE DATABASE cannot run inside a transaction
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB_NAME,))
+            if cur.fetchone() is None:
+                cur.execute(f'CREATE DATABASE "{DB_NAME}"')  # DB_NAME is a hardcoded constant
     return stop
