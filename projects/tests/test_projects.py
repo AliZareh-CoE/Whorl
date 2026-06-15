@@ -56,6 +56,17 @@ class TestProjectViews:
         assert response.status_code == 200
         assert b"<strong>bold</strong>" in response.content
 
+    def test_overview_count_links_are_pluralized(self, client_logged_in):
+        # #233-followup: "All 1 document/decision →", not "1 documents/decisions".
+        from documents.tests.factories import DocumentFactory
+
+        project = ProjectFactory()
+        DocumentFactory(project=project)
+        DecisionRecordFactory(project=project)
+        body = client_logged_in.get(project.get_absolute_url()).content
+        assert b"All 1 document " in body and b"All 1 documents" not in body
+        assert b"All 1 decision " in body and b"All 1 decisions" not in body
+
     def test_archive_action(self, client_logged_in):
         project = ProjectFactory()
         response = client_logged_in.post(reverse("projects:archive", args=[project.slug]))

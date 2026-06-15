@@ -86,7 +86,7 @@
           </li>
         {% endfor %}
       </ul>
-      <a href="{% url 'documents:index' project.slug %}?all" class="mt-3 inline-block text-xs text-indigo-600 hover:underline">All {{ document_count }} documents →</a>
+      <a href="{% url 'documents:index' project.slug %}?all" class="mt-3 inline-block text-xs text-indigo-600 hover:underline">All {{ document_count }} document{{ document_count|pluralize }} →</a>
     {% else %}
       <p class="text-sm text-stone-500">No documents yet.
         <a href="{% url 'documents:upload' project.slug %}" class="text-indigo-600 hover:underline">Upload one</a>.</p>
@@ -112,7 +112,7 @@
           </li>
         {% endfor %}
       </ul>
-      <a href="{% url 'projects:decisions' project.slug %}" class="mt-3 inline-block text-xs text-indigo-600 hover:underline">All {{ decision_count }} decisions →</a>
+      <a href="{% url 'projects:decisions' project.slug %}" class="mt-3 inline-block text-xs text-indigo-600 hover:underline">All {{ decision_count }} decision{{ decision_count|pluralize }} →</a>
     {% else %}
       <p class="text-sm text-stone-500">No decisions recorded yet.
         <a href="{% url 'projects:decision_create' project.slug %}" class="text-indigo-600 hover:underline">Record one</a>.</p>
