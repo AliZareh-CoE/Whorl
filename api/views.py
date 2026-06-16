@@ -330,6 +330,7 @@ class ProjectViewSet(AtlasViewSet):
     )
     @action(detail=True, methods=["get"])
     def overview(self, request, slug=None):
+        from documents.models import PREVIEWABLE_IMAGE_TYPES
         from plans import selectors as plan_selectors
 
         project = self.get_object()
@@ -352,6 +353,9 @@ class ProjectViewSet(AtlasViewSet):
                 ],
                 "counts": {
                     "documents": project.documents.general().count(),
+                    "figures": project.documents.filter(
+                        content_type__in=PREVIEWABLE_IMAGE_TYPES
+                    ).count(),
                     "decisions": project.decisions.count(),
                     "questions": project.questions.count(),
                     "references": project.project_references.count(),

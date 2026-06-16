@@ -63,7 +63,7 @@ export default function ProjectOverview() {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-4 gap-4 lg:grid-cols-7">
+      <div className="mb-4 grid grid-cols-4 gap-4 lg:grid-cols-8">
         {Object.entries(data.counts).map(([key, value]) => (
           <div key={key} className="rounded border border-stone-200 bg-white px-3 py-2 text-center">
             <p className="text-lg font-semibold">{value}</p>

@@ -266,15 +266,29 @@ class TestGraphAPI:
 
 class TestMCPSupportEndpoints:
     def test_overview_endpoint(self, client, owner):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from documents.models import Document
         from plans.tests.factories import MilestoneFactory, PhaseFactory
 
         phase = PhaseFactory(status="in_progress", name="Pilot")
+        project = phase.project
         MilestoneFactory(phase=phase, title="Collect")
-        data = client.get(f"/api/v1/projects/{phase.project.slug}/overview/", **HEADERS).json()
+        # an image doc (counts as a figure) + a non-image doc (#258)
+        png = Document.objects.create(
+            project=project, title="plot", file=SimpleUploadedFile("p.png", b"x")
+        )
+        Document.objects.filter(pk=png.pk).update(content_type="image/png")
+        txt = Document.objects.create(
+            project=project, title="notes", file=SimpleUploadedFile("n.txt", b"x")
+        )
+        Document.objects.filter(pk=txt.pk).update(content_type="text/plain")
+        data = client.get(f"/api/v1/projects/{project.slug}/overview/", **HEADERS).json()
         assert data["current_phase"]["name"] == "Pilot"
         assert data["progress"]["total"] == 1
         assert data["next_milestones"][0]["title"] == "Collect"
-        assert data["counts"]["documents"] == 0
+        assert data["counts"]["documents"] == 2
+        assert data["counts"]["figures"] == 1  # only the image
 
     def test_plan_endpoint_nests_milestones_and_tasks(self, client, owner):
         from plans.tests.factories import TaskFactory
