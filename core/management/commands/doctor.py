@@ -20,6 +20,41 @@ class Command(BaseCommand):
         self.stdout.write(self.style.ERROR(f"  ✕ {msg}"))
         self.failures += 1
 
+    def _check_desktop(self, base):
+        """Desktop-build config checks (#208 — kept out of handle() so it stays readable).
+
+        Auto-update readiness (#203/#206): the in-app updater stays inert until the one-time
+        signing setup (D3) is done. Surface it so a release isn't tagged expecting auto-update
+        to work when it was never configured — and fail hard on the combination that breaks the
+        release build (createUpdaterArtifacts on + a placeholder pubkey).
+        """
+        tauri_conf = base / "desktop" / "tauri.conf.json"
+        if not tauri_conf.exists():
+            return
+        import json
+
+        try:
+            conf = json.loads(tauri_conf.read_text())
+            pubkey = conf.get("plugins", {}).get("updater", {}).get("pubkey", "")
+            makes_artifacts = conf.get("bundle", {}).get("createUpdaterArtifacts", False)
+        except Exception:
+            pubkey, makes_artifacts = "", False
+        placeholder = not pubkey or "REPLACE_ME" in pubkey
+        if placeholder and makes_artifacts:
+            self.fail(
+                "Desktop updater misconfigured — createUpdaterArtifacts is on but the "
+                "pubkey is still the placeholder; the release build will fail. Set the "
+                "real pubkey (desktop/README) or turn createUpdaterArtifacts off"
+            )
+        elif placeholder:
+            self.warn(
+                "Desktop auto-update not configured — updater pubkey is the placeholder; "
+                "see desktop/README (generate keypair, set pubkey, flip "
+                "createUpdaterArtifacts, add the signing secret)"
+            )
+        else:
+            self.ok("Desktop auto-update signing configured")
+
     def handle(self, *args, **options):
         self.failures = self.warnings = 0
         base = Path(settings.BASE_DIR)
@@ -107,36 +142,7 @@ class Command(BaseCommand):
         else:
             self.ok("ATLAS_API_KEY configured")
 
-        # desktop auto-update readiness (#203): the in-app updater stays inert until the
-        # one-time signing setup (D3) is done. Surface it so a release isn't tagged
-        # expecting auto-update to work when it was never configured.
-        tauri_conf = base / "desktop" / "tauri.conf.json"
-        if tauri_conf.exists():
-            import json
-
-            try:
-                conf = json.loads(tauri_conf.read_text())
-                pubkey = conf.get("plugins", {}).get("updater", {}).get("pubkey", "")
-                makes_artifacts = conf.get("bundle", {}).get("createUpdaterArtifacts", False)
-            except Exception:
-                pubkey, makes_artifacts = "", False
-            placeholder = not pubkey or "REPLACE_ME" in pubkey
-            if placeholder and makes_artifacts:
-                # #206: this combination BREAKS the release build — Tauri can't sign the
-                # updater artifacts without a real key. Flag it harder than "not set up".
-                self.fail(
-                    "Desktop updater misconfigured — createUpdaterArtifacts is on but the "
-                    "pubkey is still the placeholder; the release build will fail. Set the "
-                    "real pubkey (desktop/README) or turn createUpdaterArtifacts off"
-                )
-            elif placeholder:
-                self.warn(
-                    "Desktop auto-update not configured — updater pubkey is the placeholder; "
-                    "see desktop/README (generate keypair, set pubkey, flip "
-                    "createUpdaterArtifacts, add the signing secret)"
-                )
-            else:
-                self.ok("Desktop auto-update signing configured")
+        self._check_desktop(base)
 
         self.stdout.write("")
         summary = f"{self.failures} problem(s), {self.warnings} warning(s)"
