@@ -59,13 +59,26 @@ class TestRawEndpoint:
             title="f.png",
             rel_path="f.png",
             kind="asset",
-            file=SimpleUploadedFile("f.png", b"\x89PNG\r\nfake"),
+            file=SimpleUploadedFile("f.png", b"\x89PNG\r\n\x1a\nfake"),
         )
         resp = client.get(f"/api/v1/documents/{d.id}/raw/", **HEADERS)
         assert resp.status_code == 200
         assert resp["Content-Type"] == "image/png"
         assert resp["X-Content-Type-Options"] == "nosniff"
         assert resp["Content-Disposition"] == "inline"
+
+    def test_mislabeled_image_extension_not_inline(self, client):
+        # #250: a non-image file named .png (extension claims image/png, bytes say otherwise)
+        # must NOT be served inline — the magic bytes are checked, so it 404s.
+        p = ProjectFactory()
+        d = Document.objects.create(
+            project=p,
+            title="x.png",
+            rel_path="x.png",
+            kind="asset",
+            file=SimpleUploadedFile("x.png", b"<html><script>alert(1)</script>"),
+        )
+        assert client.get(f"/api/v1/documents/{d.id}/raw/", **HEADERS).status_code == 404
 
     def test_svg_is_never_inline(self, client):
         p = ProjectFactory()

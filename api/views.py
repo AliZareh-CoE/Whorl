@@ -740,13 +740,28 @@ class DocumentViewSet(AtlasViewSet):
     def raw(self, request, pk=None):
         from django.http import FileResponse, Http404
 
+        from documents.models import sniff_image_type
+
         doc = self.get_object()
         ext = (doc.rel_path or doc.file.name if doc.file else "").rsplit(".", 1)
         suffix = ext[-1].lower() if len(ext) == 2 else ""
         content_type = INLINE_CONTENT_TYPES.get(suffix)
         if not doc.file or content_type is None:
             raise Http404("Not inline-previewable.")
-        response = FileResponse(doc.file.open("rb"), content_type=content_type)
+        # #250: the extension only *claims* the type; confirm with the real magic bytes before
+        # serving inline, so a mislabeled file (e.g. HTML named .png) can't reach the inline path.
+        handle = doc.file.open("rb")
+        head = handle.read(32)
+        handle.seek(0)
+        confirmed = (
+            head.startswith(b"%PDF-")
+            if content_type == "application/pdf"
+            else (sniff_image_type(head) == content_type)
+        )
+        if not confirmed:
+            handle.close()
+            raise Http404("Not inline-previewable.")
+        response = FileResponse(handle, content_type=content_type)
         response["X-Content-Type-Options"] = "nosniff"
         response["Content-Disposition"] = "inline"
         return response
