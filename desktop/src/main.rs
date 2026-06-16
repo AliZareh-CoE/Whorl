@@ -25,6 +25,60 @@ fn atlas_url() -> String {
     std::env::var("ATLAS_URL").unwrap_or_else(|_| "http://localhost:8000/".to_string())
 }
 
+/// Write an HTML page into the data dir and return a `file://` URL the window can load.
+/// We render the splash + the failure diagnostic as local files so the user always sees an
+/// Atlas-owned page, never WebView2's blank "can't reach this page" (#263).
+fn local_page_url(data_dir: &std::path::Path, name: &str, html: &str) -> Option<tauri::Url> {
+    let path = data_dir.join(name);
+    std::fs::write(&path, html).ok()?;
+    tauri::Url::from_file_path(&path).ok()
+}
+
+/// The "starting up" splash shown while the bundled server boots (first launch runs initdb +
+/// migrate, which can take a minute). Pure HTML/CSS — no script/network — so it always renders.
+fn splash_html() -> String {
+    r#"<!doctype html><html><head><meta charset="utf-8"><title>Atlas</title>
+<style>body{font-family:system-ui,sans-serif;background:#fafaf9;color:#1c1917;display:flex;
+align-items:center;justify-content:center;height:100vh;margin:0}.box{text-align:center;max-width:30rem}
+.dot{width:12px;height:12px;border-radius:50%;background:#4f46e5;display:inline-block;animation:p 1s infinite}
+@keyframes p{0%,100%{opacity:.3}50%{opacity:1}}h1{font-weight:600;font-size:1.3rem}p{color:#78716c}</style>
+</head><body><div class="box"><div class="dot"></div><h1>Starting Atlas…</h1>
+<p>The first launch sets up its local database — this can take up to a minute. The window will
+open automatically when it's ready.</p></div></body></html>"#
+        .to_string()
+}
+
+/// The failure page: the actual server + Postgres logs, the data-dir path, and the most common
+/// fix. Shown in-window when the server crashes or never binds, so a failure self-reports
+/// instead of leaving us debugging blind.
+fn diagnostic_html(data_dir: &std::path::Path, reason: &str) -> String {
+    let server_log =
+        server::escape_html(&server::tail_file(&data_dir.join("atlas-server.log"), 8000));
+    let pg_log = server::escape_html(&server::tail_file(&data_dir.join("postgres.log"), 4000));
+    let dir = server::escape_html(&data_dir.display().to_string());
+    format!(
+        r#"<!doctype html><html><head><meta charset="utf-8"><title>Atlas — startup problem</title>
+<style>body{{font-family:system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0;padding:2rem;
+line-height:1.5}}h1{{font-size:1.4rem}}h2{{font-size:.95rem;text-transform:uppercase;letter-spacing:.04em;
+color:#78716c;margin-top:1.5rem}}pre{{background:#1c1917;color:#e7e5e4;padding:1rem;border-radius:.4rem;
+overflow:auto;font-size:.8rem;white-space:pre-wrap;word-break:break-word}}.fix{{background:#eef2ff;
+border:1px solid #c7d2fe;border-radius:.4rem;padding:1rem;margin:1rem 0}}code{{background:#f5f5f4;
+padding:.1rem .3rem;border-radius:.2rem}}a{{color:#4f46e5}}</style></head><body>
+<h1>Atlas couldn't start</h1>
+<p>{reason}. The details below say where it stopped — please send this whole page (or the two log
+files in the folder named below) so we can fix it.</p>
+<div class="fix"><strong>Most common cause on Windows:</strong> the bundled PostgreSQL needs the
+<b>Microsoft Visual C++ 2013 Redistributable</b> (it provides <code>MSVCR120.dll</code>). If the
+Postgres log below is empty or mentions a missing DLL, install it from
+<a href="https://aka.ms/highdpimfc2013x64enu">aka.ms/highdpimfc2013x64enu</a> (the x64 version),
+then relaunch Atlas. This is a one-time, ~2&nbsp;minute install.</div>
+<h2>Data folder</h2><pre>{dir}</pre>
+<h2>atlas-server.log</h2><pre>{server_log}</pre>
+<h2>postgres.log</h2><pre>{pg_log}</pre>
+</body></html>"#
+    )
+}
+
 /// Find the frozen server binary + the bundled Postgres bin dir: an env override (dev/CI),
 /// else the bundled resources. Returns None when there's nothing to launch (dev with an
 /// externally-run server).
@@ -34,7 +88,11 @@ fn resolve_server(app: &tauri::App) -> Option<(PathBuf, Option<PathBuf>)> {
         return Some((PathBuf::from(bin), pg));
     }
     let res = app.path().resource_dir().ok()?;
-    let exe = if cfg!(windows) { "atlas-server.exe" } else { "atlas-server" };
+    let exe = if cfg!(windows) {
+        "atlas-server.exe"
+    } else {
+        "atlas-server"
+    };
     let bin = res.join("atlas-server").join(exe);
     if !bin.exists() {
         return None;
@@ -73,16 +131,18 @@ fn main() {
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8000);
 
+            // per-user data dir holds pgdata + the logs the diagnostic page surfaces (#263).
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .unwrap_or_else(|_| std::env::temp_dir());
+            let _ = std::fs::create_dir_all(&data_dir);
+
             // launch the bundled server unless an external one was specified via ATLAS_URL
             let mut launched_bundled = false;
             let url = if std::env::var("ATLAS_URL").is_ok() {
                 atlas_url()
             } else if let Some((bin, pg)) = resolve_server(app) {
-                let data_dir = app
-                    .path()
-                    .app_data_dir()
-                    .unwrap_or_else(|_| std::env::temp_dir());
-                let _ = std::fs::create_dir_all(&data_dir);
                 match server::spawn(&bin, &data_dir, pg.as_deref(), port) {
                     Ok(child) => {
                         app.state::<ServerProc>().0.lock().unwrap().replace(child);
@@ -97,30 +157,73 @@ fn main() {
 
             let parsed: tauri::Url = url.parse().expect("server URL is not valid");
             // security hardening (AUDIT #15, #160): the shell only navigates within the local
-            // Atlas origin, so a compromised page can't steer the window off-origin.
+            // Atlas origin (or our own file:// splash/diagnostic pages), so a compromised page
+            // can't steer the window off-origin.
             let allowed_host = parsed.host_str().unwrap_or("localhost").to_string();
-            let window =
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed.clone()))
-                    .title("Atlas")
-                    .inner_size(1400.0, 900.0)
-                    .min_inner_size(900.0, 600.0)
-                    .on_navigation(move |target| {
-                        matches!(target.host_str(), Some(h) if h == allowed_host)
-                    })
-                    .build()?;
+
+            // Open on a local splash page while the bundled server boots, so the window never
+            // shows WebView2's blank "can't reach this page" (#263). External/dev mode opens
+            // straight at the server.
+            let initial_url = if launched_bundled {
+                local_page_url(&data_dir, "starting.html", &splash_html())
+                    .unwrap_or_else(|| parsed.clone())
+            } else {
+                parsed.clone()
+            };
+            let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(initial_url))
+                .title("Atlas")
+                .inner_size(1400.0, 900.0)
+                .min_inner_size(900.0, 600.0)
+                .on_navigation(move |target| {
+                    target.scheme() == "file"
+                        || matches!(target.host_str(), Some(h) if h == allowed_host)
+                })
+                .build()?;
             let _ = window.set_focus();
 
             // The bundled server's FIRST launch runs initdb + migrate + collectstatic and can
-            // take a while on a slow machine, so the window may open before the server answers
-            // and show a "can't reach this page". Poll in the background and reload the window
-            // the moment the server is up — the user never has to refresh by hand.
+            // take a while, so we poll in the background: navigate to the app the moment the
+            // server answers, OR — if the server process exits or never binds — navigate to a
+            // diagnostic page showing the real logs, instead of leaving the user stuck (#263).
             if launched_bundled {
                 let win = window.clone();
+                let server_url = parsed.clone();
+                let dd = data_dir.clone();
+                let handle = app.handle().clone();
                 std::thread::spawn(move || {
-                    if server::wait_for_port(port, Duration::from_secs(600)) {
-                        // a beat for waitress to begin serving HTTP after the port opens
-                        std::thread::sleep(Duration::from_millis(750));
-                        let _ = win.navigate(parsed);
+                    let deadline = std::time::Instant::now() + Duration::from_secs(600);
+                    loop {
+                        if server::wait_for_port(port, Duration::from_millis(800)) {
+                            // a beat for waitress to begin serving HTTP after the port opens
+                            std::thread::sleep(Duration::from_millis(750));
+                            let _ = win.navigate(server_url);
+                            return;
+                        }
+                        let exited = {
+                            let state = handle.state::<ServerProc>();
+                            let mut guard = state.0.lock().unwrap();
+                            match guard.as_mut() {
+                                Some(child) => matches!(child.try_wait(), Ok(Some(_))),
+                                None => false,
+                            }
+                        };
+                        let reason = if exited {
+                            Some("the Atlas server process exited during startup")
+                        } else if std::time::Instant::now() >= deadline {
+                            Some("the Atlas server did not start within 10 minutes")
+                        } else {
+                            None
+                        };
+                        if let Some(reason) = reason {
+                            if let Some(u) = local_page_url(
+                                &dd,
+                                "diagnostic.html",
+                                &diagnostic_html(&dd, reason),
+                            ) {
+                                let _ = win.navigate(u);
+                            }
+                            return;
+                        }
                     }
                 });
             }

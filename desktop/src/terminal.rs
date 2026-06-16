@@ -6,7 +6,7 @@
 use std::io::{Read, Write};
 use std::sync::Mutex;
 
-use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
+use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use tauri::{Emitter, State};
 
 #[derive(Default)]
@@ -36,7 +36,12 @@ pub fn terminal_spawn(
     cols: u16,
 ) -> Result<(), String> {
     let pair = native_pty_system()
-        .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+        .openpty(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
         .map_err(|e| e.to_string())?;
 
     let mut cmd = CommandBuilder::new(default_shell());
@@ -66,14 +71,19 @@ pub fn terminal_spawn(
         let _ = emit_app.emit("terminal-exit", ());
     });
 
-    *state.inner.lock().unwrap() = Some(Pty { master: pair.master, writer });
+    *state.inner.lock().unwrap() = Some(Pty {
+        master: pair.master,
+        writer,
+    });
     Ok(())
 }
 
 #[tauri::command]
 pub fn terminal_write(state: State<'_, TerminalState>, data: String) -> Result<(), String> {
     if let Some(pty) = state.inner.lock().unwrap().as_mut() {
-        pty.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+        pty.writer
+            .write_all(data.as_bytes())
+            .map_err(|e| e.to_string())?;
         pty.writer.flush().map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -87,7 +97,12 @@ pub fn terminal_resize(
 ) -> Result<(), String> {
     if let Some(pty) = state.inner.lock().unwrap().as_ref() {
         pty.master
-            .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+            .resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
             .map_err(|e| e.to_string())?;
     }
     Ok(())

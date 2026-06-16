@@ -8,7 +8,12 @@ use std::time::{Duration, Instant};
 
 /// Spawn the frozen atlas-server with the per-user data dir, the bundled Postgres bin dir,
 /// and the port it should listen on. `pg_bin` is the directory holding initdb/postgres/etc.
-pub fn spawn(server_bin: &Path, data_dir: &Path, pg_bin: Option<&Path>, port: u16) -> std::io::Result<Child> {
+pub fn spawn(
+    server_bin: &Path,
+    data_dir: &Path,
+    pg_bin: Option<&Path>,
+    port: u16,
+) -> std::io::Result<Child> {
     let mut cmd = Command::new(server_bin);
     cmd.env("ATLAS_DATA_DIR", data_dir)
         .env("ATLAS_PORT", port.to_string())
@@ -32,6 +37,27 @@ pub fn wait_for_port(port: u16, timeout: Duration) -> bool {
         std::thread::sleep(Duration::from_millis(300));
     }
     false
+}
+
+/// Last `max_bytes` of a UTF-8 text file, or a short note when it's missing/empty. Used to
+/// surface the server + Postgres logs in the in-app diagnostic page when startup fails, so a
+/// failure reports *why* instead of leaving a blank "can't reach this page" (#263).
+pub fn tail_file(path: &Path, max_bytes: usize) -> String {
+    match std::fs::read(path) {
+        Ok(bytes) if !bytes.is_empty() => {
+            let start = bytes.len().saturating_sub(max_bytes);
+            String::from_utf8_lossy(&bytes[start..]).into_owned()
+        }
+        Ok(_) => "(empty)".to_string(),
+        Err(_) => "(not created — the step that writes it never ran)".to_string(),
+    }
+}
+
+/// Minimal HTML escaping so log text can be dropped into the diagnostic page safely.
+pub fn escape_html(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 #[cfg(test)]

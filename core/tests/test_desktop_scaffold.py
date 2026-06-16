@@ -148,3 +148,19 @@ def test_updater_is_wired():
     assert updater["endpoints"] and "pubkey" in updater
     caps = json.loads((DESKTOP / "capabilities" / "default.json").read_text())
     assert "updater:default" in caps["permissions"]
+
+
+def test_startup_failure_shows_an_in_app_diagnostic():
+    # #263: when the bundled server crashes or never binds, the window must show a diagnostic
+    # page with the real logs (not WebView2's blank "can't reach this page"), so a failure
+    # self-reports instead of leaving us debugging blind.
+    main = (DESKTOP / "src" / "main.rs").read_text()
+    server = (DESKTOP / "src" / "server.rs").read_text()
+    # the failure path renders the captured logs and the most common Windows fix
+    assert "diagnostic_html" in main and "splash_html" in main
+    assert "atlas-server.log" in main and "postgres.log" in main
+    assert "MSVCR120" in main or "Visual C++ 2013" in main  # the vcredist hint
+    # it detects an early crash (try_wait) instead of only waiting out the timeout
+    assert "try_wait" in main
+    # server.rs provides the log-tail + escaping helpers the diagnostic uses
+    assert "tail_file" in server and "escape_html" in server

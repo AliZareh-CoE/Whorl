@@ -17,7 +17,9 @@ pub struct LocalFile {
 #[tauri::command]
 pub fn open_local_file(app: tauri::AppHandle) -> Result<Option<LocalFile>, String> {
     let picked = app.dialog().file().blocking_pick_file();
-    let Some(file_path) = picked else { return Ok(None) };
+    let Some(file_path) = picked else {
+        return Ok(None);
+    };
     let path = file_path.into_path().map_err(|e| e.to_string())?;
     let meta = std::fs::metadata(&path).map_err(|e| e.to_string())?;
     if meta.len() > MAX_PREVIEW_BYTES {
@@ -29,5 +31,9 @@ pub fn open_local_file(app: tauri::AppHandle) -> Result<Option<LocalFile>, Strin
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
-    Ok(Some(LocalFile { path: path.display().to_string(), name, content }))
+    Ok(Some(LocalFile {
+        path: path.display().to_string(),
+        name,
+        content,
+    }))
 }
