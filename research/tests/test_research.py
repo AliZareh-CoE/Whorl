@@ -70,6 +70,39 @@ class TestResearchViews:
         assert b"Run 1" in response.content
         assert b"<strong>bold</strong>" in response.content
 
+    def test_commit_label_parses_known_hosts(self):
+        from research.models import ExperimentEntry
+
+        gh = ExperimentEntry(commit_url="https://github.com/owner/repo/commit/abc1234def5678")
+        assert gh.commit_label == "owner/repo@abc1234"
+        gl = ExperimentEntry(commit_url="https://gitlab.com/grp/proj/-/commit/0123456789ab")
+        assert gl.commit_label == "grp/proj@0123456"
+        bare = ExperimentEntry(commit_url="https://example.com/some/path")
+        assert bare.commit_label == "example.com"
+        assert ExperimentEntry(commit_url="").commit_label == ""
+
+    def test_experiment_commit_link_rendered(self, client_logged_in):
+        from research.models import ExperimentEntry
+
+        project = ProjectFactory()
+        url = "https://github.com/owner/repo/commit/abc1234def"
+        ExperimentEntry.objects.create(project=project, title="Run 2", commit_url=url)
+        body = client_logged_in.get(reverse("research:experiments", args=[project.slug])).content
+        assert url.encode() in body
+        assert b"owner/repo@abc1234" in body
+
+    def test_experiment_form_accepts_commit_url(self, client_logged_in):
+        from research.models import ExperimentEntry
+
+        project = ProjectFactory()
+        url = "https://github.com/owner/repo/commit/deadbeef123"
+        response = client_logged_in.post(
+            reverse("research:experiment_create", args=[project.slug]),
+            {"date": "2026-06-16", "title": "With commit", "body": "", "commit_url": url},
+        )
+        assert response.status_code == 302
+        assert ExperimentEntry.objects.get(title="With commit").commit_url == url
+
     def test_dataset_crud(self, client_logged_in):
         project = ProjectFactory()
         response = client_logged_in.post(

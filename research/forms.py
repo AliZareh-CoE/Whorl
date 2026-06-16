@@ -40,12 +40,15 @@ class EvidenceForm(forms.ModelForm):
 class ExperimentEntryForm(forms.ModelForm):
     class Meta:
         model = ExperimentEntry
-        fields = ["date", "title", "body", "hypotheses"]
+        fields = ["date", "title", "body", "hypotheses", "commit_url"]
         widgets = {
             "date": forms.DateInput(attrs={"class": INPUT, "type": "date"}),
             "title": forms.TextInput(attrs={"class": INPUT}),
             "body": forms.Textarea(attrs={"class": INPUT + " font-mono", "rows": 10}),
             "hypotheses": forms.CheckboxSelectMultiple,
+            "commit_url": forms.URLInput(
+                attrs={"class": INPUT, "placeholder": "https://github.com/owner/repo/commit/…"}
+            ),
         }
 
     def __init__(self, *args, project=None, **kwargs):

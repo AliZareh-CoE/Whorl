@@ -23,7 +23,7 @@ class EvidenceAdmin(admin.ModelAdmin):
 
 @admin.register(ExperimentEntry)
 class ExperimentEntryAdmin(admin.ModelAdmin):
-    list_display = ["title", "project", "date"]
+    list_display = ["title", "project", "date", "commit_label"]
     list_filter = ["project"]
 
 

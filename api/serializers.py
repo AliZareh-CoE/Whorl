@@ -286,11 +286,13 @@ class HypothesisSerializer(serializers.ModelSerializer):
 
 
 class ExperimentEntrySerializer(serializers.ModelSerializer):
+    commit_label = serializers.CharField(read_only=True)
+
     class Meta:
         from research.models import ExperimentEntry
 
         model = ExperimentEntry
-        fields = ["id", "date", "title", "body", "created_at"]
+        fields = ["id", "date", "title", "body", "commit_url", "commit_label", "created_at"]
 
 
 class DatasetSerializer(serializers.ModelSerializer):

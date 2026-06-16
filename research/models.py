@@ -92,6 +92,9 @@ class ExperimentEntry(TimeStampedModel):
     title = models.CharField(max_length=300)
     body = models.TextField(blank=True)  # markdown: setup, what happened, outcome
     hypotheses = models.ManyToManyField(Hypothesis, blank=True, related_name="experiments")
+    # link a lab-notebook entry to the exact code that produced it (#4). Just a pasted URL —
+    # no GitHub API call — so it works for any host and offline; commit_label prettifies it.
+    commit_url = models.URLField(blank=True)
 
     class Meta:
         ordering = ["-date", "-created_at"]
@@ -99,6 +102,26 @@ class ExperimentEntry(TimeStampedModel):
 
     def __str__(self):
         return f"{self.date}: {self.title}"
+
+    @property
+    def commit_label(self):
+        """A compact label for commit_url — ``owner/repo@shortsha`` for a GitHub/GitLab
+        commit link, else the host. Empty when no commit is linked."""
+        if not self.commit_url:
+            return ""
+        from urllib.parse import urlparse
+
+        parsed = urlparse(self.commit_url)
+        segs = [s for s in parsed.path.split("/") if s]
+        if "commit" in segs:
+            i = segs.index("commit")
+            sha = segs[i + 1][:7] if i + 1 < len(segs) else ""
+            repo = "/".join(segs[:2]) if i >= 2 else ""
+            if repo and sha:
+                return f"{repo}@{sha}"
+            if sha:
+                return sha
+        return parsed.netloc or self.commit_url
 
     def get_absolute_url(self):
         from django.urls import reverse

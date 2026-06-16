@@ -26,6 +26,10 @@
           <span class="font-mono text-xs text-stone-400">{{ entry.date }}</span>
           <h2 class="font-medium">{{ entry.title }}</h2>
           <span class="ml-auto"></span>
+          {% if entry.commit_url %}
+            <a href="{{ entry.commit_url }}" target="_blank" rel="noopener"
+               class="font-mono text-xs text-indigo-600 hover:underline" title="{{ entry.commit_url }}">⎇ {{ entry.commit_label }}</a>
+          {% endif %}
           <a href="{% url 'research:experiment_edit' project.slug entry.pk %}" class="text-xs text-stone-500 hover:underline">Edit</a>
         </div>
         {% if entry.body %}<div class="prose prose-stone max-w-none text-sm">{{ entry.body|markdownify }}</div>{% endif %}

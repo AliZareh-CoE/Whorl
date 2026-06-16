@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 
 type Hypothesis = { id: number; statement: string; status: string; supports: number; contradicts: number };
-type Experiment = { id: number; date: string; title: string; body: string };
+type Experiment = { id: number; date: string; title: string; body: string; commit_url: string; commit_label: string };
 type Dataset = { id: number; name: string; location: string; version: string; description: string };
 type Page<T> = { count: number; results: T[] };
 
@@ -71,6 +71,12 @@ export default function Research() {
               <li key={e.id} className="text-sm">
                 <span className="font-medium">{e.title}</span>
                 <span className="ml-2 text-xs text-stone-400">{e.date}</span>
+                {e.commit_url && (
+                  <a href={e.commit_url} target="_blank" rel="noopener"
+                     className="ml-2 font-mono text-xs text-indigo-600 hover:underline" title={e.commit_url}>
+                    ⎇ {e.commit_label}
+                  </a>
+                )}
                 {e.body && <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{e.body}</p>}
               </li>
             ))}
