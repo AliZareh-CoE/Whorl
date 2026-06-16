@@ -30,6 +30,7 @@ const Inbox = lazy(() => import("./pages/Inbox"));
 const Prompts = lazy(() => import("./pages/Prompts"));
 const Search = lazy(() => import("./pages/Search"));
 const Automations = lazy(() => import("./pages/Automations"));
+const Figures = lazy(() => import("./pages/Figures"));
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
@@ -47,6 +48,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/plan" element={<Plan />} />
           <Route path="projects/:slug/timeline" element={<Timeline />} />
           <Route path="projects/:slug/documents" element={<Documents />} />
+          <Route path="projects/:slug/figures" element={<Figures />} />
           <Route path="projects/:slug/files" element={<Files />} />
           <Route path="projects/:slug/literature" element={<Literature />} />
           <Route path="projects/:slug/queue" element={<Literature queue />} />

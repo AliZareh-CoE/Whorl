@@ -52,6 +52,7 @@ export default function ProjectOverview() {
           <Link to={`/projects/${project.slug}/plan`} className="hover:text-indigo-700">Open plan</Link>
           <Link to={`/projects/${project.slug}/literature`} className="hover:text-indigo-700">Literature</Link>
           <Link to={`/projects/${project.slug}/documents`} className="hover:text-indigo-700">Documents</Link>
+          <Link to={`/projects/${project.slug}/figures`} className="hover:text-indigo-700">Figures</Link>
           <Link to={`/projects/${project.slug}/files`} className="hover:text-indigo-700">Files</Link>
           <Link to={`/projects/${project.slug}/notes`} className="hover:text-indigo-700">Notes</Link>
           <Link to={`/projects/${project.slug}/research`} className="hover:text-indigo-700">Research</Link>
