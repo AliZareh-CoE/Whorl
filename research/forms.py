@@ -3,7 +3,7 @@ from django import forms
 from literature.models import Reference
 from projects.forms import INPUT
 
-from .models import Dataset, Evidence, ExperimentEntry, Hypothesis
+from .models import Dataset, Evidence, ExperimentEntry, Hypothesis, Protocol
 
 
 class HypothesisForm(forms.ModelForm):
@@ -66,4 +66,14 @@ class DatasetForm(forms.ModelForm):
             "version": forms.TextInput(attrs={"class": INPUT}),
             "checksum": forms.TextInput(attrs={"class": INPUT}),
             "description": forms.Textarea(attrs={"class": INPUT, "rows": 3}),
+        }
+
+
+class ProtocolForm(forms.ModelForm):
+    class Meta:
+        model = Protocol
+        fields = ["title", "body"]
+        widgets = {
+            "title": forms.TextInput(attrs={"class": INPUT}),
+            "body": forms.Textarea(attrs={"class": INPUT + " font-mono", "rows": 14}),
         }

@@ -63,4 +63,15 @@ urlpatterns = [
         views.DatasetDeleteView.as_view(),
         name="dataset_delete",
     ),
+    path("<slug:slug>/research/protocols/", views.protocol_list, name="protocols"),
+    path(
+        "<slug:slug>/research/protocols/new/",
+        views.ProtocolCreateView.as_view(),
+        name="protocol_create",
+    ),
+    path(
+        "<slug:slug>/research/protocols/<int:pk>/new-version/",
+        views.protocol_new_version,
+        name="protocol_new_version",
+    ),
 ]

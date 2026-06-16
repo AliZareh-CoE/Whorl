@@ -1,0 +1,55 @@
+{% extends "base_wide.html" %}
+{% load markdown_extras %}
+
+{% block title %}Protocols · {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{% url 'projects:list' %}" class="hover:underline">Projects</a> /
+<a href="{{ project.get_absolute_url }}" class="hover:underline">{{ project.name }}</a> / Research / Protocols
+{% endblock %}
+
+{% block content %}
+{% include "projects/_subnav.html" %}
+{% include "research/_tabs.html" %}
+
+<div class="mb-4 flex items-center justify-between">
+  <h1 class="text-2xl font-semibold tracking-tight">Protocols</h1>
+  <a href="{% url 'research:protocol_create' project.slug %}"
+     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">New protocol</a>
+</div>
+
+{% if protocols %}
+  <div class="space-y-4">
+    {% for protocol in protocols %}
+      <article id="protocol-{{ protocol.pk }}" class="card">
+        <div class="mb-1 flex items-baseline gap-3">
+          <h2 class="font-medium">{{ protocol.title }}</h2>
+          <span class="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-500">v{{ protocol.version }}</span>
+          <span class="ml-auto"></span>
+          <a href="{% url 'research:protocol_new_version' project.slug protocol.pk %}"
+             class="text-xs font-medium text-indigo-600 hover:underline">New version</a>
+        </div>
+        {% if protocol.body %}<div class="prose prose-stone max-w-none text-sm">{{ protocol.body|markdownify }}</div>{% endif %}
+        {% if protocol.parent %}
+          <details class="mt-2 text-xs text-stone-400">
+            <summary class="cursor-pointer hover:text-stone-600">History</summary>
+            <ol class="mt-1 list-inside list-decimal space-y-0.5">
+              {% with node=protocol.parent %}
+                {# walk the parent chain; templates can't loop unbounded, so render the immediate lineage #}
+                {% for ancestor in protocol.lineage %}
+                  <li>v{{ ancestor.version }} · {{ ancestor.created_at|date:"Y-m-d" }}</li>
+                {% endfor %}
+              {% endwith %}
+            </ol>
+          </details>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+    <p class="mb-2 text-stone-600">A versioned home for your methods: write a protocol once, and every edit becomes a new version so past experiments always point at the exact steps they used.</p>
+    <a href="{% url 'research:protocol_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Write the first protocol</a>
+  </div>
+{% endif %}
+{% endblock %}

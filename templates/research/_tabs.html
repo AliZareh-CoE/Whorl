@@ -6,5 +6,7 @@
      class="rounded px-2 py-1 {% if vn == 'research:experiments' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Experiment log</a>
   <a href="{% url 'research:datasets' project.slug %}"
      class="rounded px-2 py-1 {% if vn == 'research:datasets' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Datasets</a>
+  <a href="{% url 'research:protocols' project.slug %}"
+     class="rounded px-2 py-1 {% if vn == 'research:protocols' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Protocols</a>
 </div>
 {% endwith %}

@@ -98,3 +98,62 @@ class TestProtocolAPI:
         )
         assert resp.status_code == 201
         assert resp.json()["version"] == 1
+
+
+class TestLineage:
+    def test_lineage_walks_parents_newest_first(self):
+        project = ProjectFactory()
+        v1 = Protocol.objects.create(project=project, title="P")
+        v2 = v1.new_version()
+        v3 = v2.new_version()
+        assert [p.version for p in v3.lineage] == [2, 1]
+        assert v1.lineage == []
+
+
+class TestProtocolClassicViews:
+    def test_list_shows_only_current_with_new_version_link(self, client_logged_in):
+        from django.urls import reverse
+
+        project = ProjectFactory()
+        v1 = Protocol.objects.create(project=project, title="Cell prep", body="step one")
+        v2 = v1.new_version(body="step one\nstep two")  # supersedes v1
+        body = client_logged_in.get(
+            reverse("research:protocols", args=[project.slug])
+        ).content.decode()
+        assert "Cell prep" in body
+        assert "v2" in body  # the current head
+        assert "step two" in body  # current body rendered
+        # the new-version link points at the current head (v2), not the superseded v1
+        assert reverse("research:protocol_new_version", args=[project.slug, v2.pk]) in body
+        assert reverse("research:protocol_new_version", args=[project.slug, v1.pk]) not in body
+
+    def test_create_makes_version_one(self, client_logged_in):
+        from django.urls import reverse
+
+        project = ProjectFactory()
+        resp = client_logged_in.post(
+            reverse("research:protocol_create", args=[project.slug]),
+            {"title": "Staining", "body": "fix, wash, image"},
+        )
+        assert resp.status_code == 302
+        p = Protocol.objects.get(title="Staining")
+        assert p.version == 1 and p.parent is None
+
+    def test_new_version_view_creates_next_version(self, client_logged_in):
+        from django.urls import reverse
+
+        project = ProjectFactory()
+        v1 = Protocol.objects.create(project=project, title="PCR", body="35 cycles")
+        # GET prefills with the current version
+        get = client_logged_in.get(
+            reverse("research:protocol_new_version", args=[project.slug, v1.pk])
+        )
+        assert b"35 cycles" in get.content
+        # POST creates v2
+        resp = client_logged_in.post(
+            reverse("research:protocol_new_version", args=[project.slug, v1.pk]),
+            {"title": "PCR", "body": "40 cycles"},
+        )
+        assert resp.status_code == 302
+        v2 = Protocol.objects.get(project=project, version=2)
+        assert v2.parent == v1 and v2.body == "40 cycles"

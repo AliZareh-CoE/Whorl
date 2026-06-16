@@ -172,6 +172,15 @@ class Protocol(TimeStampedModel):
         """True when no later version derives from this one (it's the head of its chain)."""
         return not self.revisions.exists()
 
+    @property
+    def lineage(self):
+        """Earlier versions, newest-first (immediate parent → … → v1) — for the history view."""
+        chain, node = [], self.parent
+        while node is not None:
+            chain.append(node)
+            node = node.parent
+        return chain
+
     def new_version(self, **changes):
         """Create and return the next version, carrying fields over unless overridden."""
         return Protocol.objects.create(

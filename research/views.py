@@ -6,8 +6,14 @@ from django.views.generic import CreateView, DeleteView, UpdateView
 from projects.models import Project
 from projects.views import ProjectScopedMixin
 
-from .forms import DatasetForm, EvidenceForm, ExperimentEntryForm, HypothesisForm
-from .models import Dataset, Evidence, ExperimentEntry, Hypothesis
+from .forms import (
+    DatasetForm,
+    EvidenceForm,
+    ExperimentEntryForm,
+    HypothesisForm,
+    ProtocolForm,
+)
+from .models import Dataset, Evidence, ExperimentEntry, Hypothesis, Protocol
 
 
 def hypothesis_ledger(request, slug):
@@ -174,3 +180,48 @@ class DatasetDeleteView(ProjectScopedMixin, DeleteView):
 
     def get_success_url(self):
         return reverse("research:datasets", kwargs={"slug": self.project.slug})
+
+
+def _protocols_url(project):
+    return reverse("research:protocols", kwargs={"slug": project.slug})
+
+
+def protocol_list(request, slug):
+    """Current protocols (the head of each version chain) with their version history."""
+    project = get_object_or_404(Project, slug=slug)
+    # current = not referenced as anyone's parent; prefetch the revision chain for history
+    current = [p for p in project.protocols.all() if p.is_current]
+    return render(request, "research/protocols.html", {"project": project, "protocols": current})
+
+
+class ProtocolCreateView(ProjectScopedMixin, CreateView):
+    model = Protocol
+    form_class = ProtocolForm
+    template_name = "research/form.html"
+    extra_context = {"heading": "Protocol"}
+
+    def form_valid(self, form):
+        form.instance.project = self.project
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return _protocols_url(self.project)
+
+
+def protocol_new_version(request, slug, pk):
+    """Revise a protocol: GET shows a form prefilled with the current version, POST creates
+    the next version (append-only history)."""
+    project = get_object_or_404(Project, slug=slug)
+    current = get_object_or_404(project.protocols, pk=pk)
+    if request.method == "POST":
+        form = ProtocolForm(request.POST)
+        if form.is_valid():
+            current.new_version(title=form.cleaned_data["title"], body=form.cleaned_data["body"])
+            return redirect(_protocols_url(project))
+    else:
+        form = ProtocolForm(initial={"title": current.title, "body": current.body})
+    return render(
+        request,
+        "research/form.html",
+        {"project": project, "form": form, "heading": f"New version of: {current.title}"},
+    )
