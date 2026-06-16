@@ -781,6 +781,10 @@ class DocumentViewSet(AtlasViewSet):
         response = FileResponse(handle, content_type=content_type)
         response["X-Content-Type-Options"] = "nosniff"
         response["Content-Disposition"] = "inline"
+        # #254: uploaded files are immutable (edits create new files), so let the workspace
+        # PDF/image preview revalidate cheaply instead of re-downloading on every view — matching
+        # document_download / document_preview.
+        response["Cache-Control"] = "private, max-age=86400"
         return response
 
 

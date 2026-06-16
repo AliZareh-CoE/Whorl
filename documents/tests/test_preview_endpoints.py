@@ -66,6 +66,8 @@ class TestRawEndpoint:
         assert resp["Content-Type"] == "image/png"
         assert resp["X-Content-Type-Options"] == "nosniff"
         assert resp["Content-Disposition"] == "inline"
+        # #254: immutable uploads are cacheable so the workspace preview revalidates cheaply
+        assert resp["Cache-Control"] == "private, max-age=86400"
 
     def test_mislabeled_image_extension_not_inline(self, client):
         # #250: a non-image file named .png (extension claims image/png, bytes say otherwise)
