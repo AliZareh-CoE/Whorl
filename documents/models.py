@@ -11,6 +11,26 @@ PREVIEWABLE_IMAGE_TYPES = frozenset(
 )
 
 
+def sniff_image_type(head: bytes) -> str | None:
+    """Return the raster image MIME for `head`'s magic bytes, or None (#235 hardening).
+
+    The stored content_type is whatever the browser reported at upload, so it can disagree
+    with the bytes (a mislabeled or hostile file). Before the preview endpoint serves anything
+    `inline`, it sniffs the real signature here and only trusts what the bytes actually are.
+    """
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if head.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    if head.startswith(b"BM"):
+        return "image/bmp"
+    return None
+
+
 class Folder(TimeStampedModel):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="folders")
     parent = models.ForeignKey(

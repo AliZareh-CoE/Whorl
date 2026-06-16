@@ -197,6 +197,19 @@ class TestDocumentViews:
         assert response.status_code == 200
         assert response["Content-Disposition"].startswith("attachment")
 
+    def test_sniff_image_type_matches_real_signatures(self):
+        from documents.models import sniff_image_type
+
+        assert sniff_image_type(b"\x89PNG\r\n\x1a\nxxxx") == "image/png"
+        assert sniff_image_type(b"\xff\xd8\xff\xe0junk") == "image/jpeg"
+        assert sniff_image_type(b"GIF89a....") == "image/gif"
+        assert sniff_image_type(b"RIFF\x00\x00\x00\x00WEBPVP8 ") == "image/webp"
+        assert sniff_image_type(b"BM\x00\x00") == "image/bmp"
+        # not a raster image → None (so the view falls back to text/plain)
+        assert sniff_image_type(b"<svg onload=alert(1)>") is None
+        assert sniff_image_type(b"<html><script>") is None
+        assert sniff_image_type(b"") is None
+
     def test_is_previewable_property(self):
         # #14: raster images + any text are previewable; SVG/HTML-as-image and binaries are not.
         from documents.models import Document
@@ -230,15 +243,32 @@ class TestDocumentViews:
         assert props["documents"][0]["previewKind"] == "image"
 
     def test_preview_image_served_inline_with_nosniff(self, client_logged_in):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
         from documents.models import Document
 
-        doc = DocumentFactory()
+        doc = DocumentFactory(file=SimpleUploadedFile("f.png", b"\x89PNG\r\n\x1a\nrest"))
         Document.objects.filter(pk=doc.pk).update(content_type="image/png")
         r = client_logged_in.get(reverse("documents:preview", args=[doc.project.slug, doc.pk]))
         assert r.status_code == 200
         assert r["Content-Disposition"].startswith("inline")
         assert r["X-Content-Type-Options"] == "nosniff"
         assert r["Content-Type"].startswith("image/png")
+
+    def test_preview_spoofed_image_downgraded_to_plain(self, client_logged_in):
+        # #235: a non-image file mislabeled with an image content_type (browser-reported at
+        # upload, so spoofable) must NOT be served inline as an image — the magic bytes win, so
+        # it falls back to harmless text/plain even though content_type says image/png.
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from documents.models import Document
+
+        doc = DocumentFactory(file=SimpleUploadedFile("x.png", b"<html><script>alert(1)</script>"))
+        Document.objects.filter(pk=doc.pk).update(content_type="image/png")
+        r = client_logged_in.get(reverse("documents:preview", args=[doc.project.slug, doc.pk]))
+        assert r.status_code == 200
+        assert r["Content-Type"].startswith("text/plain")
+        assert r["X-Content-Type-Options"] == "nosniff"
 
     def test_preview_text_forced_to_plain(self, client_logged_in):
         # an uploaded text/html file must be served as text/plain (+nosniff) so it can't run

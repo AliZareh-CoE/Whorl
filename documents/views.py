@@ -11,7 +11,7 @@ from projects.views import ProjectScopedMixin
 
 from . import selectors
 from .forms import DocumentForm, FolderForm, TagForm
-from .models import PREVIEWABLE_IMAGE_TYPES, Document, Folder, Tag
+from .models import PREVIEWABLE_IMAGE_TYPES, Document, Folder, Tag, sniff_image_type
 
 
 def documents_table_props(project, documents, next_url=""):
@@ -128,8 +128,17 @@ def document_preview(request, slug, pk):
     if not document.is_previewable:
         return redirect("documents:download", slug=slug, pk=pk)
     ct = (document.content_type or "").lower().split(";")[0].strip()
-    serve_type = ct if ct in PREVIEWABLE_IMAGE_TYPES else "text/plain; charset=utf-8"
-    response = FileResponse(document.file.open("rb"), as_attachment=False, content_type=serve_type)
+    handle = document.file.open("rb")
+    # #235: trust the bytes, not the (browser-reported) content_type. Serve `inline` as an image
+    # only when the magic bytes confirm a real raster type; anything else — including a non-image
+    # file mislabeled with an image content_type — falls back to harmless text/plain.
+    serve_type = "text/plain; charset=utf-8"
+    if ct in PREVIEWABLE_IMAGE_TYPES:
+        sniffed = sniff_image_type(handle.read(32))
+        handle.seek(0)
+        if sniffed is not None:
+            serve_type = sniffed
+    response = FileResponse(handle, as_attachment=False, content_type=serve_type)
     response["X-Content-Type-Options"] = "nosniff"
     response["Cache-Control"] = "private, max-age=86400"
     return response
