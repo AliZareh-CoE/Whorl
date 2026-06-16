@@ -48,8 +48,18 @@ class TestAssistantEndpoint:
             "url": project.get_absolute_url(),
         }
         labels = [action["label"] for action in data["actions"]]
-        for label in ["Open plan", "Literature", "Reading queue", "Bib report", "New note"]:
+        for label in [
+            "Open plan",
+            "Literature",
+            "Reading queue",
+            "Bib report",
+            "Figures",
+            "New note",
+        ]:
             assert label in labels
+        # Figures is an SPA-only route; the action points at the in-app gallery path (#256-fu)
+        figures = next(a for a in data["actions"] if a["label"] == "Figures")
+        assert figures["url"] == f"/projects/{project.slug}/figures/"
         assert project.slug in data["claude_prompt"]
         assert len(data["claude_prompt"]) <= 600
 

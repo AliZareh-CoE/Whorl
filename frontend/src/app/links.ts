@@ -6,7 +6,7 @@ export function toSpaUrl(url: string): { to: string; spa: boolean } {
     [/^\/projects\/new\/?$/, () => "/projects/new"],
     [/^\/projects\/$/, () => "/projects"],
     [/^\/projects\/([^/]+)\/$/, (m) => `/projects/${m[1]}`],
-    [/^\/projects\/([^/]+)\/(plan|documents|literature|research|decisions|graph)\/$/, (m) => `/projects/${m[1]}/${m[2]}`],
+    [/^\/projects\/([^/]+)\/(plan|documents|figures|literature|research|decisions|graph)\/$/, (m) => `/projects/${m[1]}/${m[2]}`],
     [/^\/projects\/([^/]+)\/literature\/queue\/$/, (m) => `/projects/${m[1]}/queue`],
     [/^\/projects\/([^/]+)\/notes\/$/, (m) => `/projects/${m[1]}/notes`],
     [/^\/projects\/([^/]+)\/notes\/(\d+)\/$/, (m) => `/projects/${m[1]}/notes/${m[2]}`],

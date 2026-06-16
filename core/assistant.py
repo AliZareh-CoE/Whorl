@@ -74,6 +74,9 @@ def _actions(project: Project | None) -> list[dict]:
             action("Literature", reverse("literature:project", kwargs=slug)),
             action("Reading queue", reverse("literature:queue", kwargs=slug)),
             action("Bib report", reverse("literature:report", kwargs=slug)),
+            # Figures is an SPA-only route (no classic Django URL) — the link interceptor maps
+            # this path to the in-app gallery (links.ts toSpaUrl).
+            action("Figures", f"/projects/{project.slug}/figures/"),
             action("New note", reverse("notes:create", kwargs=slug)),
         ]
     return actions

@@ -6,8 +6,7 @@ calendar app or automation. Pure function (no request/ORM-write side effects) so
 cleanly and the API action stays thin.
 """
 
-from datetime import date
-from datetime import timezone as dt_timezone
+from datetime import UTC, date
 
 PRODID = "-//Atlas//Research PM//EN"
 
@@ -62,7 +61,7 @@ def build_project_ics(project, now=None) -> str:
     from writing.models import Manuscript
 
     now = now or timezone.now()
-    dtstamp = now.astimezone(dt_timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dtstamp = now.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
 
     lines = [
         "BEGIN:VCALENDAR",

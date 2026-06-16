@@ -24,10 +24,16 @@ export default function Documents() {
       </nav>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Documents</h1>
-        <a href={`/projects/${slug}/documents/`}
-           className="text-xs text-stone-400 underline hover:text-indigo-700">
-          folders & upload on the classic page ↗
-        </a>
+        <div className="flex items-center gap-4 text-xs">
+          <Link to={`/projects/${slug}/figures`}
+                className="font-medium text-indigo-600 hover:underline">
+            View as gallery →
+          </Link>
+          <a href={`/projects/${slug}/documents/`}
+             className="text-stone-400 underline hover:text-indigo-700">
+            folders & upload on the classic page ↗
+          </a>
+        </div>
       </div>
       <DocumentsTable
         {...data}
