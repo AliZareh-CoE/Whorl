@@ -33,6 +33,12 @@
           <a href="{% url 'research:experiment_edit' project.slug entry.pk %}" class="text-xs text-stone-500 hover:underline">Edit</a>
         </div>
         {% if entry.body %}<div class="prose prose-stone max-w-none text-sm">{{ entry.body|markdownify }}</div>{% endif %}
+        {% if entry.protocol_id %}
+          <p class="mt-2 text-xs text-stone-400">
+            Protocol: <a href="{% url 'research:protocols' project.slug %}#protocol-{{ entry.protocol_id }}"
+              class="text-indigo-600 hover:underline">{{ entry.protocol }}</a>
+          </p>
+        {% endif %}
         {% if entry.hypotheses.all %}
           <p class="mt-2 text-xs text-stone-400">
             Tests: {% for h in entry.hypotheses.all %}“{{ h.statement|truncatechars:60 }}”{% if not forloop.last %}, {% endif %}{% endfor %}

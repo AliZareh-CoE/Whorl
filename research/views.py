@@ -35,7 +35,12 @@ def experiment_log(request, slug):
     return render(
         request,
         "research/experiments.html",
-        {"project": project, "entries": project.experiment_entries.prefetch_related("hypotheses")},
+        {
+            "project": project,
+            "entries": project.experiment_entries.select_related("protocol").prefetch_related(
+                "hypotheses"
+            ),
+        },
     )
 
 

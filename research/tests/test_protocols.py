@@ -175,3 +175,60 @@ class TestProtocolClassicViews:
         assert resp.status_code == 302
         v2 = Protocol.objects.get(project=project, version=2)
         assert v2.parent == v1 and v2.body == "40 cycles"
+
+
+class TestExperimentProvenance:
+    def test_experiment_links_to_a_protocol_version(self):
+        from research.models import ExperimentEntry
+
+        project = ProjectFactory()
+        v1 = Protocol.objects.create(project=project, title="Stain", body="a")
+        v2 = v1.new_version(body="b")
+        entry = ExperimentEntry.objects.create(project=project, title="Run A", protocol=v2)
+        assert entry.protocol == v2
+        assert list(v2.experiments.all()) == [entry]
+
+    def test_deleting_a_protocol_keeps_the_experiment(self):
+        from research.models import ExperimentEntry
+
+        project = ProjectFactory()
+        p = Protocol.objects.create(project=project, title="Wash")
+        entry = ExperimentEntry.objects.create(project=project, title="Run", protocol=p)
+        p.delete()
+        entry.refresh_from_db()
+        assert entry.protocol is None  # SET_NULL: the entry survives
+
+    def test_form_scopes_protocol_to_project(self):
+        from research.forms import ExperimentEntryForm
+
+        project = ProjectFactory()
+        other = ProjectFactory()
+        mine = Protocol.objects.create(project=project, title="Mine")
+        Protocol.objects.create(project=other, title="Theirs")
+        form = ExperimentEntryForm(project=project)
+        assert list(form.fields["protocol"].queryset) == [mine]
+
+    def test_experiment_log_shows_protocol_link(self, client_logged_in):
+        from django.urls import reverse
+
+        from research.models import ExperimentEntry
+
+        project = ProjectFactory()
+        p = Protocol.objects.create(project=project, title="Lysis", body="x")
+        ExperimentEntry.objects.create(project=project, title="Did it", protocol=p)
+        body = client_logged_in.get(
+            reverse("research:experiments", args=[project.slug])
+        ).content.decode()
+        assert "Lysis v1" in body
+        assert f"#protocol-{p.pk}" in body
+
+    def test_api_exposes_protocol_and_label(self, client):
+        from research.models import ExperimentEntry
+
+        project = ProjectFactory()
+        p = Protocol.objects.create(project=project, title="PCR", body="x")
+        ExperimentEntry.objects.create(project=project, title="Ran PCR", protocol=p)
+        data = client.get(f"/api/v1/experiments/?project={project.slug}", **HEADERS).json()
+        row = data["results"][0]
+        assert row["protocol"] == p.pk
+        assert row["protocol_label"] == "PCR v1"

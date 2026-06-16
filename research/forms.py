@@ -40,12 +40,13 @@ class EvidenceForm(forms.ModelForm):
 class ExperimentEntryForm(forms.ModelForm):
     class Meta:
         model = ExperimentEntry
-        fields = ["date", "title", "body", "hypotheses", "commit_url"]
+        fields = ["date", "title", "body", "hypotheses", "protocol", "commit_url"]
         widgets = {
             "date": forms.DateInput(attrs={"class": INPUT, "type": "date"}),
             "title": forms.TextInput(attrs={"class": INPUT}),
             "body": forms.Textarea(attrs={"class": INPUT + " font-mono", "rows": 10}),
             "hypotheses": forms.CheckboxSelectMultiple,
+            "protocol": forms.Select(attrs={"class": INPUT}),
             "commit_url": forms.URLInput(
                 attrs={"class": INPUT, "placeholder": "https://github.com/owner/repo/commit/…"}
             ),
@@ -54,6 +55,9 @@ class ExperimentEntryForm(forms.ModelForm):
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["hypotheses"].queryset = project.hypotheses.all()
+        # scope the protocol dropdown to this project; the label is "Title vN" (Protocol.__str__)
+        self.fields["protocol"].queryset = project.protocols.all()
+        self.fields["protocol"].empty_label = "— none —"
 
 
 class DatasetForm(forms.ModelForm):

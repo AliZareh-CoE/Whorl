@@ -287,12 +287,26 @@ class HypothesisSerializer(serializers.ModelSerializer):
 
 class ExperimentEntrySerializer(serializers.ModelSerializer):
     commit_label = serializers.CharField(read_only=True)
+    protocol_label = serializers.SerializerMethodField()
 
     class Meta:
         from research.models import ExperimentEntry
 
         model = ExperimentEntry
-        fields = ["id", "date", "title", "body", "commit_url", "commit_label", "created_at"]
+        fields = [
+            "id",
+            "date",
+            "title",
+            "body",
+            "commit_url",
+            "commit_label",
+            "protocol",
+            "protocol_label",
+            "created_at",
+        ]
+
+    def get_protocol_label(self, obj) -> str:
+        return str(obj.protocol) if obj.protocol_id else ""
 
 
 class DatasetSerializer(serializers.ModelSerializer):

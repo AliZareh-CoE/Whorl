@@ -95,6 +95,15 @@ class ExperimentEntry(TimeStampedModel):
     # link a lab-notebook entry to the exact code that produced it (#4). Just a pasted URL —
     # no GitHub API call — so it works for any host and offline; commit_label prettifies it.
     commit_url = models.URLField(blank=True)
+    # provenance: the exact protocol *version* this entry followed (#262). SET_NULL keeps the
+    # entry if a protocol is deleted; the FK points at one version, so the history stays exact.
+    protocol = models.ForeignKey(
+        "Protocol",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="experiments",
+    )
 
     class Meta:
         ordering = ["-date", "-created_at"]
