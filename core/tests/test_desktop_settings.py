@@ -185,3 +185,16 @@ def test_pyinstaller_freeze_scaffold_present():
     assert "run_desktop" in entry
     assert "templates" in spec and "static" in spec  # bundled at the frozen root
     assert "atlas-server" in spec  # the executable name the Tauri sidecar spawns
+
+
+def test_ensure_postgres_logs_each_step_and_bounds_the_wait():
+    # #265: ensure_postgres was silent, so a hang after Postgres started left atlas-server.log
+    # empty and us debugging blind. It now flushes a progress line at every step and waits for
+    # the DB with a reliably-bounded raw TCP socket + a thread-timeout around psycopg, so a
+    # wedged connect surfaces an error instead of hanging the launch with no output.
+    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
+    assert "_log(" in runtime and "flush=True" in runtime
+    assert "_wait_for_tcp" in runtime and "settimeout" in runtime
+    assert "ThreadPoolExecutor" in runtime and "FuturesTimeout" in runtime
+    # the bounded connect must not block on a hung thread when it gives up
+    assert "shutdown(wait=False)" in runtime

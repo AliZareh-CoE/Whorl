@@ -13,12 +13,42 @@ Postgres binaries are located via ATLAS_PG_BIN (set by the Tauri shell to the bu
 import atexit
 import os
 import shutil
+import socket
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeout
 from pathlib import Path
 
 DB_NAME = "atlas"
 DB_USER = "atlas"
+
+
+def _log(msg: str) -> None:
+    """Flush a setup-progress line to the captured server log (atlas_server.py points stdout at
+    atlas-server.log). ensure_postgres used to be silent, so a hang here left the log empty and
+    us debugging blind (#265) — now every step announces itself, flushed immediately."""
+    try:
+        print(f"[setup] {msg}", flush=True)
+    except Exception:
+        pass
+
+
+def _wait_for_tcp(port: int, timeout: float = 60.0) -> bool:
+    """Bounded wait until something accepts a TCP connection on 127.0.0.1:port. A raw socket
+    with settimeout() is reliably bounded on Windows — unlike libpq's connect_timeout, which we
+    suspect was being ignored, letting the psycopg wait loop block forever with no log (#265)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(2.0)
+            try:
+                sock.connect(("127.0.0.1", port))
+                return True
+            except OSError:
+                time.sleep(0.5)
+    return False
+
 
 # On Windows, start the Postgres helpers in their OWN process group with no console window, so
 # a console control event (Ctrl+C / close) can't propagate to Postgres and Ctrl+C its background
@@ -91,8 +121,10 @@ def ensure_postgres(data_dir: Path, port: int):
     pgdata = data_dir / "pgdata"
     socket_dir = data_dir / "pgsock"
     socket_dir.mkdir(parents=True, exist_ok=True)
+    _log(f"ensure_postgres: data_dir={data_dir} port={port}")
 
     if not (pgdata / "PG_VERSION").exists():
+        _log("no cluster yet — running initdb")
         # A previous failed launch can leave a partial, non-empty pgdata with no PG_VERSION.
         # initdb refuses a non-empty target ("directory exists but is not empty"), which would
         # make every retry fail — so clear the half-built cluster first. Safe: without
@@ -114,6 +146,7 @@ def ensure_postgres(data_dir: Path, port: int):
 
     # self-healing: if a previous run was hard-killed (postgres is detached by pg_ctl, so
     # an unclean app exit can orphan it), stop that instance before starting a fresh one.
+    _log("self-heal: stopping any orphaned cluster")
     try:
         subprocess.run(
             [_pg_bin("pg_ctl"), "-D", str(pgdata), "-m", "immediate", "stop"],
@@ -135,6 +168,7 @@ def ensure_postgres(data_dir: Path, port: int):
     pg_opts = [f"-p {port}", "-c listen_addresses=127.0.0.1"]
     if os.name != "nt":
         pg_opts.insert(1, f"-k {socket_dir}")
+    _log(f"starting postgres on 127.0.0.1:{port}")
     try:
         _run(
             [
@@ -181,22 +215,48 @@ def ensure_postgres(data_dir: Path, port: int):
             options="-c statement_timeout=15000",
         )
 
+    # First wait for the TCP port with a raw, reliably-bounded socket (#265 — pg_ctl -w already
+    # reported ready, but this confirms it and never blocks). THEN open psycopg under a hard
+    # thread timeout, so even if libpq ignores connect_timeout on Windows the launch can't hang
+    # silently — it surfaces an error instead.
+    _log("waiting for postgres to accept TCP connections")
+    if not _wait_for_tcp(port, timeout=120):
+        tail = logfile.read_text(errors="ignore")[-2000:] if logfile.exists() else ""
+        raise RuntimeError(
+            f"Postgres never opened 127.0.0.1:{port}.\n--- postgres.log (tail) ---\n{tail}"
+        )
+    _log("port open — opening a psycopg connection")
+
+    def _create_db():
+        with _connect("postgres") as conn:
+            conn.autocommit = True  # CREATE DATABASE cannot run inside a transaction
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB_NAME,))
+                if cur.fetchone() is None:
+                    _log(f"creating the {DB_NAME} database")
+                    cur.execute(f'CREATE DATABASE "{DB_NAME}"')  # DB_NAME is a hardcoded constant
+
     last_err = None
-    for _ in range(60):
+    for attempt in range(1, 21):
+        executor = ThreadPoolExecutor(max_workers=1)
         try:
-            _connect("postgres").close()
+            executor.submit(_create_db).result(timeout=20)
             last_err = None
             break
-        except psycopg.OperationalError as exc:
-            last_err = exc
-            time.sleep(0.5)
+        except FuturesTimeout:
+            last_err = "psycopg connect/CREATE DATABASE exceeded 20s"
+            _log(f"attempt {attempt}: {last_err} — retrying")
+        except Exception as exc:  # OperationalError + anything libpq raises
+            last_err = f"{type(exc).__name__}: {exc}"
+            _log(f"attempt {attempt}: {last_err} — retrying")
+            time.sleep(1.0)
+        finally:
+            executor.shutdown(wait=False)  # don't block on a hung connect thread
     if last_err is not None:
-        raise RuntimeError(f"Postgres did not accept connections on 127.0.0.1:{port}: {last_err}")
-
-    with _connect("postgres") as conn:
-        conn.autocommit = True  # CREATE DATABASE cannot run inside a transaction
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB_NAME,))
-            if cur.fetchone() is None:
-                cur.execute(f'CREATE DATABASE "{DB_NAME}"')  # DB_NAME is a hardcoded constant
+        tail = logfile.read_text(errors="ignore")[-2000:] if logfile.exists() else ""
+        raise RuntimeError(
+            f"Postgres accepted TCP but provisioning failed on 127.0.0.1:{port}: {last_err}\n"
+            f"--- postgres.log (tail) ---\n{tail}"
+        )
+    _log("postgres ready")
     return stop
