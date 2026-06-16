@@ -31,7 +31,7 @@ milestones, add papers, fetch your saved prompts.
 - **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
 - **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
 - **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 16 tools over the REST API; your AI assistant operates the same contract you do
+- **Claude/MCP integration** — 37 tools over the REST API; your AI assistant operates the same contract you do
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
 ## Quick start (one command)
@@ -107,12 +107,16 @@ claude mcp add atlas \
   -- /path/to/atlas/.venv/bin/python -m mcp_server.server
 ```
 
-Tools: `list_projects`, `get_project_overview`, `get_plan`, `complete_milestone`,
-`list_documents`, `search`, `add_reference_by_doi`, `get_reading_queue`,
-`set_reading_status`, `add_note`, `quick_capture`, `run_bib_check`, `list_prompts`,
-`get_prompt`, `get_review_matrix`, `get_weekly_review`, `get_synthesis_scaffold`,
-`list_project_templates`, `create_project`, `list_project_files`, `read_project_file`,
-`write_project_file`, `list_protocols`, `add_protocol`, `new_protocol_version`.
+Tools — projects & plans: `list_projects`, `get_project_overview`, `get_plan`,
+`complete_milestone`, `get_timeline`, `create_project`, `list_project_templates`.
+Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
+`write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,
+`set_reading_status`, `run_bib_check`, `get_review_matrix`, `get_synthesis_scaffold`.
+Notes, search & review: `add_note`, `quick_capture`, `search`, `get_weekly_review`,
+`list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,
+`list_manuscript_files`, `read_manuscript_file`, `write_manuscript_file`, `set_main_file`,
+`compile_manuscript`, `get_compile_status`, `get_compile_diagnostics`, `compile_and_wait`,
+`latex_word_count`. Protocols: `list_protocols`, `add_protocol`, `new_protocol_version`.
 
 Smoke-test conversation script (after `seed_demo`):
 
