@@ -111,7 +111,8 @@ Tools: `list_projects`, `get_project_overview`, `get_plan`, `complete_milestone`
 `list_documents`, `search`, `add_reference_by_doi`, `get_reading_queue`,
 `set_reading_status`, `add_note`, `quick_capture`, `run_bib_check`, `list_prompts`,
 `get_prompt`, `get_review_matrix`, `get_weekly_review`, `get_synthesis_scaffold`,
-`list_project_templates`, `create_project`, `list_project_files`, `read_project_file`, `write_project_file`.
+`list_project_templates`, `create_project`, `list_project_files`, `read_project_file`,
+`write_project_file`, `list_protocols`, `add_protocol`, `new_protocol_version`.
 
 Smoke-test conversation script (after `seed_demo`):
 

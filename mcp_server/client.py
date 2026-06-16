@@ -252,3 +252,25 @@ def write_project_file(project: str, path: str, content: str):
     return _request(
         "POST", f"/projects/{project}/write-file/", json={"path": path, "content": content}
     )
+
+
+# --- versioned protocol library (Backlog #7) ---
+
+
+def list_protocols(project: str | None = None):
+    params = {"project": project} if project else None
+    return _request("GET", "/protocols/", params=params)
+
+
+def add_protocol(project: str, title: str, body: str = ""):
+    return _request("POST", "/protocols/", json={"project": project, "title": title, "body": body})
+
+
+def new_protocol_version(protocol_id: int, body: str | None = None, title: str | None = None):
+    """Create the next version of a protocol; omitted fields carry over from the current one."""
+    payload = {}
+    if body is not None:
+        payload["body"] = body
+    if title is not None:
+        payload["title"] = title
+    return _request("POST", f"/protocols/{protocol_id}/new-version/", json=payload)

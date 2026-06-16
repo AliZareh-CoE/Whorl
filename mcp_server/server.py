@@ -235,3 +235,23 @@ def read_project_file(document_id: int) -> dict:
 def write_project_file(project: str, path: str, content: str) -> dict:
     """Create or overwrite a general text file at `path` in the project's file tree."""
     return client.write_project_file(project, path, content)
+
+
+@mcp.tool()
+def list_protocols(project: str = "") -> dict:
+    """List versioned lab/analysis protocols, optionally scoped to one project slug. Each
+    carries its title, version, and is_current flag (the head of its revision chain)."""
+    return client.list_protocols(project or None)
+
+
+@mcp.tool()
+def add_protocol(project: str, title: str, body: str = "") -> dict:
+    """Create a new protocol (version 1) in a project. `body` is markdown — the steps."""
+    return client.add_protocol(project, title, body)
+
+
+@mcp.tool()
+def new_protocol_version(protocol_id: int, body: str = "", title: str = "") -> dict:
+    """Revise a protocol by creating its next version (immutable history): pass the updated
+    body and/or title; anything omitted carries over from the current version."""
+    return client.new_protocol_version(protocol_id, body or None, title or None)

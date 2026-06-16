@@ -260,3 +260,24 @@ def test_compile_and_wait_respects_timeout(monkeypatch, env):
     monkeypatch.setattr(client, "_client", fake_client)
     result = client.compile_and_wait(42, timeout_seconds=0)  # immediate deadline
     assert result["status"] == "running"  # returns, doesn't loop forever
+
+
+def test_list_protocols_scopes_to_project(capture):
+    client.list_protocols("my-project")
+    assert capture["method"] == "GET"
+    assert capture["url"].endswith("/protocols/?project=my-project")
+
+
+def test_add_protocol_posts_fields(capture):
+    client.add_protocol("my-project", "Cell prep", "step 1")
+    assert capture["method"] == "POST"
+    assert capture["url"].endswith("/protocols/")
+    assert "my-project" in capture["body"] and "Cell prep" in capture["body"]
+
+
+def test_new_protocol_version_omits_unset_fields(capture):
+    client.new_protocol_version(5, body="step 2")
+    assert capture["method"] == "POST"
+    assert capture["url"].endswith("/protocols/5/new-version/")
+    assert "step 2" in capture["body"]
+    assert "title" not in capture["body"]  # carried over, not sent
