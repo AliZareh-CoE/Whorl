@@ -60,3 +60,34 @@ def move_targets(folder: Folder):
     """Folders this folder may become a child of (no cycles: not itself or a descendant)."""
     excluded = folder.descendant_ids()
     return folder.project.folders.exclude(pk__in=excluded)
+
+
+def project_figures(project: Project) -> list[dict]:
+    """Every inline-previewable raster image in the project, newest first — the figure
+    gallery's data layer (#8). An image is a Document whose ``preview_kind`` is "image"
+    (png/jpeg/gif/webp/bmp); SVG is excluded (it can carry script), matching the preview
+    whitelist. select_related(folder) + prefetch(tags) keep it to a couple of queries.
+    """
+    docs = (
+        project.documents.filter(content_type__startswith="image/")
+        .select_related("folder")
+        .prefetch_related("tags")
+        .order_by("-created_at")
+    )
+    figures = []
+    for d in docs:
+        if d.preview_kind != "image":  # exact whitelist (excludes image/svg+xml)
+            continue
+        figures.append(
+            {
+                "id": d.id,
+                "title": d.title,
+                "folder": d.folder.name if d.folder else None,
+                "folder_id": d.folder_id,
+                "tags": sorted(t.name for t in d.tags.all()),
+                "size": d.file_size,
+                "content_type": d.content_type,
+                "created_at": d.created_at,
+            }
+        )
+    return figures

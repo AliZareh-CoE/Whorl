@@ -242,6 +242,21 @@ class ProjectViewSet(AtlasViewSet):
         return response
 
     @extend_schema(
+        responses={200: OpenApiResponse(description="The project's images for a figure gallery")},
+        description="Every inline-previewable raster image in the project (newest first) for a "
+        "figure gallery — id, title, folder, tags, size, plus a `raw_url` that serves the image "
+        "inline. SVG is excluded (script-bearing).",
+    )
+    @action(detail=True, methods=["get"])
+    def figures(self, request, slug=None):
+        from documents.selectors import project_figures
+
+        items = project_figures(self.get_object())
+        for fig in items:
+            fig["raw_url"] = request.build_absolute_uri(f"/api/v1/documents/{fig['id']}/raw/")
+        return Response(items)
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="The project's whole file tree")},
         description="Unified file workspace tree (file-workspace epic): every folder and "
         "every file node — general documents and manuscript sources — as flat "
