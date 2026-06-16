@@ -25,7 +25,7 @@ from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 from prompts.models import Prompt
-from research.models import Dataset, ExperimentEntry, Hypothesis
+from research.models import Dataset, ExperimentEntry, Hypothesis, Protocol
 from writing.models import Manuscript
 
 from . import serializers
@@ -910,6 +910,28 @@ class DatasetViewSet(AtlasViewSet):
     project_filter = "project__slug"
     q_fields = ("name", "description")  # Backlog #100: search opt-in
     http_method_names = ["get", "head", "options"]
+
+
+class ProtocolViewSet(AtlasViewSet):
+    # Writable (unlike the other research viewsets): protocols are a machine-friendly,
+    # MCP-managed feature, so Claude can author and revise them through the API (#7).
+    queryset = Protocol.objects.all()
+    serializer_class = serializers.ProtocolSerializer
+    project_filter = "project__slug"
+    q_fields = ("title", "body")
+
+    @extend_schema(
+        request=inline_serializer("NewVersion", {"title": str, "body": str}),
+        responses={201: serializers.ProtocolSerializer},
+        description="Create the next version of a protocol (immutable history): clones this "
+        "protocol with version+1 and parent set, applying any title/body overrides in the body.",
+    )
+    @action(detail=True, methods=["post"], url_path="new-version")
+    def new_version(self, request, pk=None):
+        changes = {k: request.data[k] for k in ("title", "body") if k in request.data}
+        revision = self.get_object().new_version(**changes)
+        serializer = self.get_serializer(revision)
+        return Response(serializer.data, status=201)
 
 
 class ManuscriptFileViewSet(AtlasViewSet):

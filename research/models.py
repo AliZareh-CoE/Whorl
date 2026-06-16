@@ -142,3 +142,42 @@ class Dataset(TimeStampedModel):
 
     def __str__(self):
         return self.name
+
+
+class Protocol(TimeStampedModel):
+    """A versioned lab/analysis protocol (Backlog #7).
+
+    Protocols are append-only: editing a protocol means creating a new version (via
+    ``new_version``) that points back to its ``parent``, so the exact steps a past
+    experiment followed are never overwritten. The newest version in a chain — the one no
+    other version names as its parent — is the *current* one.
+    """
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="protocols")
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True)  # markdown: the steps
+    version = models.PositiveIntegerField(default=1)
+    parent = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="revisions"
+    )
+
+    class Meta:
+        ordering = ["title", "-version"]
+
+    def __str__(self):
+        return f"{self.title} v{self.version}"
+
+    @property
+    def is_current(self):
+        """True when no later version derives from this one (it's the head of its chain)."""
+        return not self.revisions.exists()
+
+    def new_version(self, **changes):
+        """Create and return the next version, carrying fields over unless overridden."""
+        return Protocol.objects.create(
+            project=self.project,
+            title=changes.get("title", self.title),
+            body=changes.get("body", self.body),
+            version=self.version + 1,
+            parent=self,
+        )

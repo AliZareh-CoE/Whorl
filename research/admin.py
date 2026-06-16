@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Dataset, Evidence, ExperimentEntry, Hypothesis
+from .models import Dataset, Evidence, ExperimentEntry, Hypothesis, Protocol
 
 
 class EvidenceInline(admin.TabularInline):
@@ -30,4 +30,10 @@ class ExperimentEntryAdmin(admin.ModelAdmin):
 @admin.register(Dataset)
 class DatasetAdmin(admin.ModelAdmin):
     list_display = ["name", "project", "version", "location"]
+    list_filter = ["project"]
+
+
+@admin.register(Protocol)
+class ProtocolAdmin(admin.ModelAdmin):
+    list_display = ["title", "project", "version", "is_current"]
     list_filter = ["project"]

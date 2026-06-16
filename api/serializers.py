@@ -303,6 +303,30 @@ class DatasetSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "location", "version", "checksum", "description"]
 
 
+class ProtocolSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+    is_current = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        from research.models import Protocol
+
+        model = Protocol
+        fields = [
+            "id",
+            "project",
+            "title",
+            "body",
+            "version",
+            "parent",
+            "is_current",
+            "created_at",
+            "updated_at",
+        ]
+        # version + parent form the immutable history chain; they're set by the model /
+        # the new-version action, never edited directly through the API.
+        read_only_fields = ["version", "parent"]
+
+
 class SubmissionEventSerializer(serializers.ModelSerializer):
     class Meta:
         from writing.models import SubmissionEvent

@@ -37,6 +37,7 @@ router.register("notes", views.NoteViewSet)
 router.register("hypotheses", views.HypothesisViewSet)
 router.register("experiments", views.ExperimentEntryViewSet)
 router.register("datasets", views.DatasetViewSet)
+router.register("protocols", views.ProtocolViewSet)
 router.register("manuscripts", views.ManuscriptViewSet)
 router.register("prompts", views.PromptViewSet)
 
