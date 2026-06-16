@@ -783,3 +783,48 @@ lines + pluralization, #233 deadline label). **Clean — no findings.**
 strict raster/text-as-plain whitelist + nosniff + project scoping. The Windows saga was all in
 the desktop launcher (no web-auth impact), and the UI/perf slices added no query cost. 738 tests
 green, ruff clean. No fixes needed.
+
+## Audit #23 — 2026-06-16 (since #22: desktop startup fixes + inline-preview hardening + .ics feed)
+
+Swept the work since AUDIT #22: the desktop startup chain (#244 timeouts, #245 console crash-loop
+fix, #246 plain static, #248 windowed stdin), the two inline-preview byte-sniffing slices
+(#249 document preview, #250 API raw), the doctor refactor (#208), and the new iCalendar feed
+(#9-calendar). **One dependency finding, fixed; the new code surface is clean.**
+
+**Dependency finding (FIXED): starlette 1.2.1 → 1.3.1.** `pip-audit` flagged CVE-2026-54282 and
+CVE-2026-54283 in starlette 1.2.1 (a transitive dep via `mcp` + `sse-starlette`, used by the MCP
+server's HTTP transport). Bumped to 1.3.1 with `uv lock --upgrade-package starlette` (resolved
+cleanly inside mcp's range, no other pins moved); `uv sync` applied it. Re-audit: **0 known
+vulnerabilities**. The MCP server still imports and its 19 tests pass. This is the project's
+stated bar (clean `pip-audit`/`npm audit`); npm side was already 0.
+
+**Security (verified live + tests):**
+- **The new `.ics` feed (#9-calendar) is sound.** `GET /projects/{slug}/calendar.ics/` is
+  API-key gated (401 anon, verified live), project-scoped via the viewset's `get_object()`
+  (unknown slug → 404, no leak), and read-only. **ICS injection is neutralized:** a milestone
+  title containing `\nBEGIN:VEVENT\n…` is escaped per RFC 5545 (newline → `\n`, plus `,` `;` `\`)
+  so it stays one SUMMARY line — verified by counting standalone `BEGIN:VEVENT` lines before/after
+  a crafted title (8, not 9). Query cost is **2 queries** (milestones `select_related(phase)` +
+  manuscripts), no N+1, bounded by the project's own rows.
+- **Inline-preview byte-sniffing (#249/#250) closed a real gap.** Both inline paths now confirm
+  the actual magic bytes before serving `inline`: `document_preview` (login-gated, project-scoped)
+  serves an image only when the bytes are a real PNG/JPEG/GIF/WebP/BMP, else `text/plain`; the API
+  `raw` action (API-key gated) 404s when the bytes don't match the extension-claimed type
+  (`%PDF-` for PDFs). Both keep `nosniff`. A spoofed `image/png` that is really HTML is now
+  downgraded/blocked — strictly tighter than AUDIT #22's whitelist-only posture. Anon still 401
+  (raw) / would 302 (preview).
+- **Desktop startup chain** is launcher-only (frozen server + bundled Postgres on 127.0.0.1
+  trust — same single-user local-trust model as AUDIT #20); no web-auth surface. The audit sweep
+  (`scripts/audit.sh`) re-confirmed anon→401 on all API probes, pages→302, the #77 catch-all
+  (404 + on-origin /app redirect), and static MIME.
+
+**Performance (warm):**
+- `calendar.ics`: **~19 ms** for the 7-event demo project (well under the 50 ms bar), 2 queries.
+- Inline preview reads a 32-byte head then streams with `Cache-Control: private, max-age=86400`
+  (preview) — the API `raw` action sets nosniff but no Cache-Control (parked as a minor #11
+  follow-on; immutable files, so a cheap win, not a risk).
+
+**Verdict:** healthy after one dependency bump. The headline new surface — an unauthenticated-by-
+calendar-apps `.ics` feed — is currently header-authed (no URL credential yet; the subscribable
+token feed #253 was deliberately deferred until its token scoping can be designed), escapes its
+output, and is project-scoped. starlette is patched. 767→(full-suite re-run) green, ruff clean.
