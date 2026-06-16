@@ -187,10 +187,24 @@ def _protocols_url(project):
 
 
 def protocol_list(request, slug):
-    """Current protocols (the head of each version chain) with their version history."""
+    """Current protocols (the head of each version chain) with their version history.
+
+    All of a project's protocols load in one query; the "current" heads (no later version
+    names them as parent) and each head's version history are derived in memory — no per-row
+    is_current exists() or parent-walk queries (AUDIT #24).
+    """
     project = get_object_or_404(Project, slug=slug)
-    # current = not referenced as anyone's parent; prefetch the revision chain for history
-    current = [p for p in project.protocols.all() if p.is_current]
+    all_protocols = list(project.protocols.all())
+    by_pk = {p.pk: p for p in all_protocols}
+    superseded = {p.parent_id for p in all_protocols if p.parent_id}
+    current = [p for p in all_protocols if p.pk not in superseded]
+    for protocol in current:
+        chain, node_id = [], protocol.parent_id
+        while node_id is not None and node_id in by_pk:
+            node = by_pk[node_id]
+            chain.append(node)
+            node_id = node.parent_id
+        protocol.lineage_cached = chain  # template uses this — zero extra queries
     return render(request, "research/protocols.html", {"project": project, "protocols": current})
 
 

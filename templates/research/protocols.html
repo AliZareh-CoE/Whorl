@@ -30,16 +30,13 @@
              class="text-xs font-medium text-indigo-600 hover:underline">New version</a>
         </div>
         {% if protocol.body %}<div class="prose prose-stone max-w-none text-sm">{{ protocol.body|markdownify }}</div>{% endif %}
-        {% if protocol.parent %}
+        {% if protocol.lineage_cached %}
           <details class="mt-2 text-xs text-stone-400">
             <summary class="cursor-pointer hover:text-stone-600">History</summary>
             <ol class="mt-1 list-inside list-decimal space-y-0.5">
-              {% with node=protocol.parent %}
-                {# walk the parent chain; templates can't loop unbounded, so render the immediate lineage #}
-                {% for ancestor in protocol.lineage %}
-                  <li>v{{ ancestor.version }} · {{ ancestor.created_at|date:"Y-m-d" }}</li>
-                {% endfor %}
-              {% endwith %}
+              {% for ancestor in protocol.lineage_cached %}
+                <li>v{{ ancestor.version }} · {{ ancestor.created_at|date:"Y-m-d" }}</li>
+              {% endfor %}
             </ol>
           </details>
         {% endif %}

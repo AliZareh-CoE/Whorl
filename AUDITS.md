@@ -828,3 +828,47 @@ stated bar (clean `pip-audit`/`npm audit`); npm side was already 0.
 calendar-apps `.ics` feed — is currently header-authed (no URL credential yet; the subscribable
 token feed #253 was deliberately deferred until its token scoping can be designed), escapes its
 output, and is project-scoped. starlette is patched. 767→(full-suite re-run) green, ruff clean.
+
+## Audit #24 — 2026-06-16 (since #23: writable Protocol API, figures/calendar feeds, experiment commit links, MCP tools, desktop diagnostic)
+
+Swept the work since #23: the new WRITABLE Protocol API (#7) + its MCP tools (#7-mcp) + web UI
+(#260), the figure-gallery feed/UI (#8/#256/#257), the experiment↔commit field (#4), and the
+desktop in-window diagnostic (#263). **One responsiveness finding, fixed; everything else clean.**
+
+**Security (verified live + tests):**
+- **The Protocol API is the one genuinely new *writable* surface, and it's sound.** Live probes:
+  anon list/create → **401**, create with no/invalid `project` → **400**, `new-version` on a
+  missing id → **404**. It's API-key gated like the rest, project-scoped via `ProjectSlugField`,
+  and `version`/`parent` are `read_only` so the immutable history chain can't be forged through
+  create (a `version: 99` in the body is ignored → v1). The `new-version` action only copies
+  title/body and derives version+parent server-side. 13 tests.
+- **No injection via protocol bodies:** they render through the same `markdownify` (markdown +
+  nh3 sanitize) used everywhere else — no new raw-HTML path.
+- The figures feed, `.ics` feed, and `commit_url` were audited at #23/their own slices and are
+  unchanged here (figures: project-scoped, SVG-excluded; calendar: RFC-5545-escaped; commit_url:
+  a stored URL, rendered as a plain link).
+- `scripts/audit.sh` re-confirmed anon→401 across the API, pages→302, the #77 catch-all, the
+  `/app/*` open-redirect guard, and static MIME.
+
+**Dependencies:** `npm audit --omit=dev` = **0**. `pip-audit` momentarily reported starlette
+1.2.1 again — but that was a **stale local venv after a container rollback**, not a regression:
+`uv.lock` already pins 1.3.1 (from #23), and `uv sync` restored it → **0 known vulnerabilities**.
+(Lesson: after a rollback, `uv sync` before trusting a local pip-audit.)
+
+**Performance (warm):**
+- **FINDING → FIXED: `protocol_list` was O(n) queries.** It filtered current heads with
+  `is_current` (an `exists()` per row) *and* the template walked `protocol.parent` / `.lineage`
+  per row — ~2 queries per protocol (11 queries for 10 protocols, growing with the list). Fix:
+  load `project.protocols.all()` once, compute the superseded parent-id set and each head's
+  `lineage_cached` in memory, and gate the History disclosure on `lineage_cached` (not
+  `protocol.parent`, which lazy-loads). Now **O(1) queries** regardless of protocol count; an
+  N+1 guard test locks it (8 protocols cost no more queries than 3).
+- Protocol/figures/calendar API reads are ~20 ms warm.
+
+**Desktop (#263):** launcher-only, no web surface. The new diagnostic page is a static local
+`file://` page written to the per-user data dir; `on_navigation` now allows `file://` in addition
+to the Atlas origin — a minor, local-only relaxation (it can't enable off-origin remote
+navigation), acceptable for a single-user desktop showing its own logs.
+
+**Verdict:** healthy after one N+1 fix. The headline new risk — a *writable* API — is properly
+auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.

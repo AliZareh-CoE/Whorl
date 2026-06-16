@@ -127,6 +127,24 @@ class TestProtocolClassicViews:
         assert reverse("research:protocol_new_version", args=[project.slug, v2.pk]) in body
         assert reverse("research:protocol_new_version", args=[project.slug, v1.pk]) not in body
 
+    def test_list_has_no_n_plus_one(self, client_logged_in, django_assert_max_num_queries):
+        # AUDIT #24: neither the current-head filter (is_current exists()) nor the history
+        # disclosure (parent walk) may run a query per row — both are derived in memory.
+        from django.urls import reverse
+
+        project = ProjectFactory()
+        for i in range(3):
+            Protocol.objects.create(project=project, title=f"P{i}").new_version()
+        url = reverse("research:protocols", args=[project.slug])
+        client_logged_in.get(url)  # warm caches
+        with django_assert_max_num_queries(12) as ctx:
+            client_logged_in.get(url)
+        baseline = len(ctx.captured_queries)
+        for i in range(3, 9):
+            Protocol.objects.create(project=project, title=f"P{i}").new_version()
+        with django_assert_max_num_queries(baseline):
+            client_logged_in.get(url)  # 9 protocols cost no more queries than 3 did
+
     def test_create_makes_version_one(self, client_logged_in):
         from django.urls import reverse
 
