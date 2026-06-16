@@ -225,6 +225,23 @@ class ProjectViewSet(AtlasViewSet):
         return Response(project_graph(self.get_object()))
 
     @extend_schema(
+        responses={200: OpenApiResponse(description="iCalendar feed (text/calendar)")},
+        description="An iCalendar (.ics) feed of the project's deadlines — every milestone "
+        "due date and manuscript deadline as an all-day event — to subscribe to in any "
+        "calendar app or automation.",
+    )
+    @action(detail=True, methods=["get"], url_path="calendar.ics")
+    def calendar_ics(self, request, slug=None):
+        from django.http import HttpResponse
+
+        from core.calendar import build_project_ics
+
+        project = self.get_object()
+        response = HttpResponse(build_project_ics(project), content_type="text/calendar")
+        response["Content-Disposition"] = f'inline; filename="{project.slug}.ics"'
+        return response
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="The project's whole file tree")},
         description="Unified file workspace tree (file-workspace epic): every folder and "
         "every file node — general documents and manuscript sources — as flat "
