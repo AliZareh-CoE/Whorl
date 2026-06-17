@@ -168,27 +168,36 @@ export default function CommandBar() {
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh]">
-      <div className="absolute inset-0 bg-stone-900/30" onClick={() => setOpen(false)} aria-hidden="true" />
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh]">
+      <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} aria-hidden="true" />
       <div role="dialog" aria-modal="true" aria-label="Command bar"
-           className="relative w-full max-w-xl rounded-lg border border-stone-200 bg-white shadow-2xl">
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, rows.length - 1)); }
-            else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-            else if (e.key === "Enter" && rows[active]) runRow(rows[active]);
-          }}
-          placeholder="Jump anywhere — or  capture: idea   done: milestone"
-          aria-label="Command"
-          className="w-full rounded-t-lg border-b border-stone-100 px-4 py-3 text-sm focus:outline-none"
-        />
-        {flash && <p className="border-b border-stone-100 bg-green-50 px-4 py-2 text-xs text-green-700">{flash}</p>}
+           className="relative w-full max-w-xl overflow-hidden rounded-lg border border-stone-200 bg-white shadow-xl ring-1 ring-black/5">
+        <div className="flex items-center gap-3 border-b border-stone-100 px-4">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"
+               className="h-4 w-4 shrink-0 text-stone-400">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+            <path d="m20 20-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, rows.length - 1)); }
+              else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
+              else if (e.key === "Enter" && rows[active]) runRow(rows[active]);
+            }}
+            placeholder="Jump anywhere — or  capture: idea   done: milestone"
+            aria-label="Command"
+            className="w-full bg-transparent py-3.5 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none"
+          />
+        </div>
+        {flash && (
+          <p className="border-b border-stone-100 bg-green-50 px-4 py-2 text-xs text-green-700">{flash}</p>
+        )}
 
         {rows.length > 0 && (
-          <ul role="listbox" className="max-h-72 overflow-y-auto py-1">
+          <ul role="listbox" className="max-h-72 overflow-y-auto p-1.5">
             {rows.map((row, i) => (
               <li key={`${row.kind}-${row.label}-${i}`}>
                 <button
@@ -197,12 +206,13 @@ export default function CommandBar() {
                   aria-selected={i === active}
                   onClick={() => runRow(row)}
                   onMouseEnter={() => setActive(i)}
-                  className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm ${i === active ? "bg-indigo-50" : ""}`}
+                  className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors ${i === active ? "bg-indigo-50" : ""}`}
                 >
-                  <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-stone-400">
+                  <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${i === active ? "bg-indigo-500" : "bg-transparent"}`} />
+                  <span className={`min-w-0 flex-1 truncate ${i === active ? "text-stone-900" : "text-stone-700"}`}>{row.label}</span>
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${i === active ? "bg-white text-indigo-500" : "bg-stone-100 text-stone-400"}`}>
                     {row.tag}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-stone-700">{row.label}</span>
                 </button>
               </li>
             ))}
@@ -210,48 +220,68 @@ export default function CommandBar() {
         )}
 
         {!query && (
-          <div className="px-4 py-3">
+          <div className="px-4 py-4">
             {assistant && assistant.actions.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-1.5">
-                {assistant.actions.map((a) => {
-                  const { to, spa } = toSpaUrl(a.url);
-                  return (
-                    <button key={a.url + a.label} type="button"
-                            onClick={() => { setOpen(false); spa ? navigate(to) : window.location.assign(a.url); }}
-                            className="rounded-full border border-stone-200 px-2.5 py-1 text-xs text-stone-600 hover:border-indigo-400 hover:text-indigo-700">
-                      {a.label}
-                    </button>
-                  );
-                })}
+              <div className="mb-4">
+                <p className="mb-2 text-xs uppercase tracking-wide text-stone-400">Actions</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {assistant.actions.map((a) => {
+                    const { to, spa } = toSpaUrl(a.url);
+                    return (
+                      <button key={a.url + a.label} type="button"
+                              onClick={() => { setOpen(false); spa ? navigate(to) : window.location.assign(a.url); }}
+                              className="rounded-full border border-stone-200 px-2.5 py-1 text-xs text-stone-600 transition-colors hover:border-indigo-400 hover:text-indigo-700">
+                        {a.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
             <button type="button" onClick={copyClaudePrompt}
-                    className="mb-3 w-full rounded border border-stone-200 bg-stone-50 px-3 py-2 text-left text-xs text-stone-600 hover:border-indigo-300">
-              ✨ Ask Claude about this — copy a context-rich MCP prompt
+                    className="mb-4 flex w-full items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs text-stone-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40">
+              <span aria-hidden="true">✨</span>
+              <span>Ask Claude about this — copy a context-rich MCP prompt</span>
             </button>
             {assistant && assistant.recent.length > 0 && (
-              <ul className="space-y-1">
-                {assistant.recent.slice(0, 5).map((r) => {
-                  const { to, spa } = toSpaUrl(r.url);
-                  return (
-                    <li key={r.url + r.title}>
-                      <button type="button"
-                              onClick={() => { setOpen(false); spa ? navigate(to) : window.location.assign(r.url); }}
-                              className="flex w-full items-baseline gap-2 text-left text-sm hover:text-indigo-700">
-                        <span className="rounded bg-stone-100 px-1 py-0.5 text-[10px] uppercase tracking-wide text-stone-400">{r.type}</span>
-                        <span className="min-w-0 flex-1 truncate text-stone-600">{r.title}</span>
-                        <span className="shrink-0 text-xs text-stone-400">{r.when}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div>
+                <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-400">Recent</p>
+                <ul className="-mx-1.5">
+                  {assistant.recent.slice(0, 5).map((r) => {
+                    const { to, spa } = toSpaUrl(r.url);
+                    return (
+                      <li key={r.url + r.title}>
+                        <button type="button"
+                                onClick={() => { setOpen(false); spa ? navigate(to) : window.location.assign(r.url); }}
+                                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left text-sm transition-colors hover:bg-stone-50">
+                          <span className="min-w-0 flex-1 truncate text-stone-600">{r.title}</span>
+                          <span className="shrink-0 text-xs text-stone-400">{r.when}</span>
+                          <span className="shrink-0 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-stone-400">{r.type}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
           </div>
         )}
-        <p className="rounded-b-lg border-t border-stone-100 px-4 py-1.5 text-[10px] text-stone-400">
-          ↑↓ navigate · Enter run · Esc close ·  capture: <i>text</i>  ·  done: <i>milestone</i>
-        </p>
+        <div className="flex items-center gap-3 border-t border-stone-100 bg-stone-50/60 px-4 py-2 text-[10px] text-stone-400">
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-stone-200 bg-white px-1 font-sans text-stone-500">↑</kbd>
+            <kbd className="rounded border border-stone-200 bg-white px-1 font-sans text-stone-500">↓</kbd>
+            navigate
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-stone-200 bg-white px-1 font-sans text-stone-500">↵</kbd>
+            open
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-stone-200 bg-white px-1 font-sans text-stone-500">esc</kbd>
+            close
+          </span>
+          <span className="ml-auto">capture: <i>text</i> · done: <i>milestone</i></span>
+        </div>
       </div>
     </div>
   );

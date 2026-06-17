@@ -127,7 +127,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
   const allShownSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const arrow = (key: SortKey) => (sortKey === key ? (asc ? " ↑" : " ↓") : "");
   const th =
-    "py-2 pr-4 font-medium cursor-pointer select-none hover:text-stone-600 focus:outline-none focus:text-indigo-700";
+    "py-2 pr-4 font-medium cursor-pointer select-none transition-colors hover:text-stone-600 focus:outline-none focus-visible:rounded-sm focus-visible:text-indigo-700 focus-visible:ring-1 focus-visible:ring-indigo-500";
   // a11y (#177): announce the sort state to screen readers and make the header
   // keyboard-operable, matching the server-rendered library table's aria-sort.
   const ariaSort = (key: SortKey): "ascending" | "descending" | "none" =>
@@ -153,10 +153,10 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder={`Filter ${documents.length} documents…`}
-          className="w-64 rounded border border-stone-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-600 focus:outline-none"
+          className="w-64 rounded border border-stone-300 bg-white px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
         />
         {filter && (
-          <span className="text-xs text-stone-400">
+          <span className="text-xs uppercase tracking-wide text-stone-400">
             {rows.length} match{rows.length === 1 ? "" : "es"}
           </span>
         )}
@@ -220,7 +220,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-400">
+            <tr className="border-b border-stone-200 text-left text-[11px] uppercase tracking-wide text-stone-400">
               <th className="w-6 py-2 pr-2">
                 <input
                   type="checkbox"
@@ -229,7 +229,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                   onChange={() =>
                     setSelected(allShownSelected ? new Set() : new Set(rows.map((r) => r.id)))
                   }
-                  className="size-4 rounded border-stone-300 accent-indigo-600"
+                  className="size-4 rounded border-stone-300 accent-indigo-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-500"
                 />
               </th>
               <th className={th} {...sortProps("title")}>
@@ -241,96 +241,122 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
               <th className="py-2 pr-4 font-medium" scope="col">
                 Tags
               </th>
-              <th className={th} {...sortProps("size")}>
+              <th className={`${th} text-right`} {...sortProps("size")}>
                 Size{arrow("size")}
               </th>
-              <th className={th} {...sortProps("added")}>
+              <th className={`${th} text-right`} {...sortProps("added")}>
                 Added{arrow("added")}
               </th>
-              <th className="py-2"></th>
+              <th className="py-2 text-right font-medium" scope="col">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {rows.map((doc, index) => (
               <tr
                 key={doc.id}
-                className={`border-b border-stone-100 transition-colors hover:bg-stone-50 ${
+                className={`group border-b border-stone-100 transition-colors hover:bg-stone-50 ${
                   selected.has(doc.id) ? "bg-indigo-50/60" : ""
                 }`}
               >
-                <td className="w-6 py-2 pr-2">
+                <td className="w-6 py-2 pr-2 align-top">
                   <input
                     type="checkbox"
                     aria-label={`Select ${doc.title}`}
                     checked={selected.has(doc.id)}
                     onClick={(e) => toggleRow(doc.id, index, e.shiftKey)}
                     onChange={() => {}}
-                    className="size-4 rounded border-stone-300 accent-indigo-600"
+                    className="mt-0.5 size-4 rounded border-stone-300 accent-indigo-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-500"
                   />
                 </td>
-                <td className="py-2 pr-4">
-                  <a href={doc.downloadUrl} className="font-medium hover:underline">
+                <td className="py-2 pr-4 align-top">
+                  <a
+                    href={doc.downloadUrl}
+                    className="font-medium text-stone-900 hover:text-indigo-700 focus:outline-none focus-visible:text-indigo-700 focus-visible:underline"
+                  >
                     {doc.title}
                   </a>
                   {doc.description && (
-                    <p className="text-xs text-stone-400">{doc.description}</p>
+                    <p className="mt-0.5 truncate text-xs text-stone-400">{doc.description}</p>
                   )}
                 </td>
-                <td className="py-2 pr-4 text-stone-500">{doc.folder || "— root"}</td>
-                <td className="py-2 pr-4">
-                  {doc.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="mr-1 rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-500"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </td>
-                <td className="py-2 pr-4 text-stone-500">{doc.sizeDisplay}</td>
-                <td className="py-2 pr-4 text-stone-500">{doc.added}</td>
-                <td className="whitespace-nowrap py-2 text-right">
-                  <button
-                    onClick={() => setCommentsDoc(doc)}
-                    aria-haspopup="dialog"
-                    aria-label={`Comments on ${doc.title}`}
-                    className="text-xs text-stone-500 hover:text-indigo-700"
-                  >
-                    💬 {(doc.comments ?? 0) + (extraCounts[doc.id] ?? 0) || ""}
-                  </button>
-                  {doc.previewUrl &&
-                    (doc.previewKind === "image" ? (
-                      <button
-                        type="button"
-                        onClick={() => setPreviewImage(doc)}
-                        aria-haspopup="dialog"
-                        className="ml-2 text-xs text-indigo-600 hover:underline"
+                <td className="py-2 pr-4 align-top text-stone-500">{doc.folder || "— root"}</td>
+                <td className="py-2 pr-4 align-top">
+                  <div className="flex flex-wrap gap-1">
+                    {doc.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-500"
                       >
-                        Preview
-                      </button>
-                    ) : (
-                      <a
-                        href={doc.previewUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-2 text-xs text-indigo-600 hover:underline"
-                      >
-                        Preview
-                      </a>
+                        {t}
+                      </span>
                     ))}
-                  <a href={doc.downloadUrl} className="ml-2 text-xs text-indigo-600 hover:underline">
-                    Download
-                  </a>
-                  <a href={doc.editUrl} className="ml-2 text-xs text-stone-500 hover:underline">
-                    Edit
-                  </a>
+                  </div>
+                </td>
+                <td className="whitespace-nowrap py-2 pr-4 text-right align-top tabular-nums text-stone-400">
+                  {doc.sizeDisplay}
+                </td>
+                <td className="whitespace-nowrap py-2 pr-4 text-right align-top tabular-nums text-stone-400">
+                  {doc.added}
+                </td>
+                <td className="whitespace-nowrap py-2 text-right align-top">
+                  <div className="flex items-center justify-end gap-2 text-xs opacity-70 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <button
+                      onClick={() => setCommentsDoc(doc)}
+                      aria-haspopup="dialog"
+                      aria-label={`Comments on ${doc.title}`}
+                      className="text-stone-400 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                    >
+                      💬 {(doc.comments ?? 0) + (extraCounts[doc.id] ?? 0) || ""}
+                    </button>
+                    {doc.previewUrl &&
+                      (doc.previewKind === "image" ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImage(doc)}
+                          aria-haspopup="dialog"
+                          className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                        >
+                          Preview
+                        </button>
+                      ) : (
+                        <a
+                          href={doc.previewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                        >
+                          Preview
+                        </a>
+                      ))}
+                    <a
+                      href={doc.downloadUrl}
+                      className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                    >
+                      Download
+                    </a>
+                    <a
+                      href={doc.editUrl}
+                      className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                    >
+                      Edit
+                    </a>
+                  </div>
                 </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-sm text-stone-400">
-                  No documents match “{filter}”.
+                <td colSpan={7} className="px-4 py-12 text-center">
+                  <p className="text-sm font-medium text-stone-500">
+                    {filter.trim() ? "No matches" : "No documents yet"}
+                  </p>
+                  <p className="mx-auto mt-1 max-w-sm text-xs text-stone-400">
+                    {filter.trim()
+                      ? `Nothing matches “${filter.trim()}”. Try a different title, folder, or tag.`
+                      : "Upload a file into any folder to start filling this project's library."}
+                  </p>
                 </td>
               </tr>
             )}

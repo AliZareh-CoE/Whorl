@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ UI WAVE 4 SHIPPED (2026-06-17, frontend): 6 more surfaces incl. the Cmd+K palette + documents table.** Research (4 consistent section cards), Figures gallery (4:3 thumbnail cards + elegant lightbox), Prompts gallery (quiet copy buttons), Automations (bot status chips + history chart), DocumentsTable component (Library-style table, tabular-nums, quiet row actions, aria-sort kept), CommandBar (floating palette card, magnifier input, indigo-50 active row, group headers, kbd footer). 24 surfaces across waves 1-4. Central tsc 0. full suite running.
+
 - **★ UI WAVE 3 SHIPPED (2026-06-17, frontend): 6 more surfaces — incl. the app sidebar.** Layout/sidebar (clear indigo 'you are here' active state, calmer nav rhythm — seen on every page), Files workspace (crisp explorer tree + framed preview + responsive split), Timeline (softer rail/markers), Graph (segmented 2D/3D toggle + tidy legend + node panel + empty state), ReadingFlow (focused reading card + quiet status chips + queue progress), NewProject (welcoming single-column form + template cards + swatch color picker). 18 pages across waves 1-3. Central tsc 0 errors. full suite running.
 
 - **★ UI WAVE 2 SHIPPED (2026-06-17, frontend): 6 more SPA pages polished in parallel.** Projects index (card grid with per-project accent-color bars), Notes (roomier writerly editor + backlinks), Decisions (logbook timeline + labeled form), Reference detail (clean paper card, comfortable abstract width), Inbox (prominent capture box, quiet triage controls), Search (per-type result chips + focus ring). Same parallel flow: 6 worktree agents, source-only, tsc clean, integrated once + one bundle rebuild + one gate. 12 pages done across waves 1-2. full suite running.
