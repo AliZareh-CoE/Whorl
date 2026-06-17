@@ -164,3 +164,13 @@ def test_startup_failure_shows_an_in_app_diagnostic():
     assert "try_wait" in main
     # server.rs provides the log-tail + escaping helpers the diagnostic uses
     assert "tail_file" in server and "escape_html" in server
+
+
+def test_release_builds_css_before_freezing():
+    # static/css/app.css is a gitignored build artifact, so CI must compile Tailwind before the
+    # freeze bundles static/ — otherwise the desktop app serves an unstyled page (#269).
+    wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
+    assert "Build Tailwind CSS" in wf
+    assert "static/css/app.css" in wf and "tailwindcss" in wf
+    # it must come before the freeze step that bundles static/
+    assert wf.index("Build Tailwind CSS") < wf.index("Freeze the Atlas server")

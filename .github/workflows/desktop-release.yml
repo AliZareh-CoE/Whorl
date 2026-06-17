@@ -100,6 +100,22 @@ jobs:
       - name: Install build deps (PyInstaller)
         run: uv sync --group build
 
+      # Build the Tailwind stylesheet (static/css/app.css is a gitignored build artifact, so a
+      # fresh checkout has no CSS — without this the frozen app served an unstyled page). Must
+      # run BEFORE the freeze, which bundles static/ into the executable.
+      - name: Build Tailwind CSS
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            curl -sL --fail -o tw.exe https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-windows-x64.exe
+            ./tw.exe -i assets/css/app.css -o static/css/app.css --minify
+          else
+            curl -sL --fail -o tw https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64
+            chmod +x tw
+            ./tw -i assets/css/app.css -o static/css/app.css --minify
+          fi
+          test -s static/css/app.css
+
       - name: Freeze the Atlas server
         run: uv run pyinstaller desktop/server/atlas_server.spec --noconfirm --distpath desktop/server/dist --workpath ${{ runner.temp }}/pyi
 

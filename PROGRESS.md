@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ OWNER DESKTOP #269 SHIPPED (2026-06-17): the SQLite app LAUNCHED — fixed its missing CSS.** Owner's screenshot showed the SQLite desktop app running (login page!) but UNSTYLED. Cause: static/css/app.css is a gitignored Tailwind build artifact and desktop-release CI never built it → frozen bundle had no stylesheet. Fix: a 'Build Tailwind CSS' CI step (downloads the Tailwind standalone CLI per runner OS, compiles assets/css/app.css→static/css/app.css) BEFORE the freeze bundles static/. Verified locally (v4.3.0, 47KB); guard test. Also told owner the auto-created login is atlas/atlas. Pushing rebuilds the installer WITH styling. full suite running.
+
 - **★ SLICE #267 SHIPPED (2026-06-17, desktop): auto-clean the old Postgres data dir + refresh the GitHub build.** Owner asked to update the installable build. run_desktop now drops the stale pgdata/ + pgsock/ + postgres.log from the data dir on startup, so upgrading a machine from the bundled-Postgres build to SQLite is clean automatically (no manual %APPDATA% wipe) and reclaims space; no-op on a fresh install. Verified SQLite setup completes with a stale pgdata present; guard test (20 desktop tests). Pushing re-triggers the desktop-release build so desktop-preview gets a fresh SQLite installer. Parked #268 (strip the dead pg *bundling* to shrink it). full suite running.
 
 - **Phase:** Backlog (all 6 phases gated ✅); self-improving loop is running — RESUMED after the desktop saga (owner: "go back to the loops"). Desktop is solved: 0.1.17 (all installers .deb/.rpm/.exe/.msi; AppImage intentionally not built — bundling the DB into it fails) green on desktop-preview; "only deb" was the owner catching the release mid-build (Linux job finishes ~5min before Windows).
