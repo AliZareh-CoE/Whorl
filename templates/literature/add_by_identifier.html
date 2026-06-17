@@ -7,14 +7,14 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="mb-2 text-2xl font-semibold tracking-tight">Add by DOI or arXiv ID</h1>
+<h1 class="mb-2 text-2xl font-semibold tracking-tight text-stone-900">Add by DOI or arXiv ID</h1>
 <p class="mb-6 text-sm text-stone-500">Metadata is fetched from Crossref, with OpenAlex as fallback.</p>
-<form method="post" class="max-w-xl space-y-4">
+<form method="post" class="max-w-xl space-y-4 rounded-lg border border-stone-200 bg-white p-6 shadow-sm">
   {% csrf_token %}
   {% include "_fields.html" %}
-  <div class="flex items-center gap-3 pt-2">
-    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Fetch & add</button>
-    <a href="{% url 'literature:index' %}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+  <div class="flex items-center gap-3 border-t border-stone-100 pt-4">
+    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">Fetch & add</button>
+    <a href="{% url 'literature:index' %}" class="text-sm text-stone-500 transition-colors hover:text-stone-700 hover:underline">Cancel</a>
   </div>
 </form>
 {% endblock %}

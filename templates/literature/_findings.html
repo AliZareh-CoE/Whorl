@@ -1,14 +1,14 @@
 {% if findings %}
-  <ul class="space-y-1 text-sm">
+  <ul class="space-y-1.5 text-sm">
     {% for finding in findings %}
-      <li class="flex items-start gap-2">
-        <span class="mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide
+      <li class="flex items-start gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-50">
+        <span class="mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide
           {% if finding.level == 'error' %}bg-red-50 text-red-700
           {% elif finding.level == 'warning' %}bg-amber-50 text-amber-700
           {% else %}bg-stone-100 text-stone-500{% endif %}">{{ finding.level }}</span>
-        <span>{{ finding.message }}
+        <span class="text-stone-600">{{ finding.message }}
           {% for ref in finding.references %}
-            <a href="{{ ref.get_absolute_url }}" class="text-indigo-600 hover:underline">↗</a>
+            <a href="{{ ref.get_absolute_url }}" class="text-indigo-600 hover:text-indigo-700">↗</a>
           {% endfor %}
         </span>
       </li>

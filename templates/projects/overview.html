@@ -12,8 +12,8 @@
 {% include "projects/_subnav.html" %}
 
 <div class="mb-2 flex items-center gap-3">
-  <h1 class="text-2xl font-semibold tracking-tight">{{ project.name }}</h1>
-  <span class="rounded bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{{ project.get_status_display }}</span>
+  <h1 class="text-2xl font-semibold tracking-tight text-stone-900">{{ project.name }}</h1>
+  <span class="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">{{ project.get_status_display }}</span>
 </div>
 
 {% if project.description %}
@@ -21,20 +21,20 @@
 {% endif %}
 
 {% load project_tree %}
-<div class="mb-3 flex items-center gap-5 rounded border border-stone-200 bg-white px-5 py-3">
+<div class="mb-4 flex items-center gap-5 rounded-lg border border-stone-200 bg-white px-5 py-4 shadow-sm">
   <div class="shrink-0" title="{{ done }}/{{ total }} milestones — the tree grows as the project completes">
     {% project_tree percent project.color 96 project.pk %}
   </div>
   <div class="min-w-0 flex-1">
-  <div class="mb-1 flex items-baseline justify-between text-sm">
-    <span class="font-medium">
+  <div class="mb-1.5 flex items-baseline justify-between text-sm">
+    <span class="font-medium text-stone-900">
       {% if current_phase %}Current phase: {{ current_phase.name }}
         <span class="ml-1 text-xs font-normal text-stone-400">{{ current_phase.get_status_display }}</span>
       {% else %}No plan yet{% endif %}
     </span>
     <span class="text-stone-500">{{ done }}/{{ total }} milestones</span>
   </div>
-  <div class="h-1.5 w-full rounded-full bg-stone-100">
+  <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
     <div class="h-1.5 rounded-full" style="width: {{ percent }}%; background: {{ project.color }}"></div>
   </div>
   {% if next_deadline_manuscript %}
@@ -55,67 +55,67 @@
   </div>
 </div>
 
-<div class="grid grid-cols-2 gap-3">
+<div class="grid grid-cols-2 gap-4">
   <section class="card">
     <h2 class="card-title">Next milestones</h2>
     {% if upcoming_milestones %}
-      <ul class="space-y-1 text-sm">
+      <ul class="space-y-1.5 text-sm">
         {% for m in upcoming_milestones %}
           <li class="flex items-baseline gap-2">
-            <span>{{ m.title }}</span>
+            <span class="text-stone-700">{{ m.title }}</span>
             {% if m.due_date %}
               <span class="ml-auto shrink-0 text-xs {% if m.is_overdue %}font-medium text-red-600{% else %}text-stone-400{% endif %}">{{ m.due_date }}</span>
             {% endif %}
           </li>
         {% endfor %}
       </ul>
-      <a href="{% url 'plans:plan' project.slug %}" class="mt-3 inline-block text-xs text-indigo-600 hover:underline">Full plan →</a>
+      <a href="{% url 'plans:plan' project.slug %}" class="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline">Full plan →</a>
     {% else %}
       <p class="text-sm text-stone-500">Nothing upcoming.
-        <a href="{% url 'plans:plan' project.slug %}" class="text-indigo-600 hover:underline">Open the plan</a>.</p>
+        <a href="{% url 'plans:plan' project.slug %}" class="font-medium text-indigo-600 hover:underline">Open the plan</a>.</p>
     {% endif %}
   </section>
   <section class="card">
     <h2 class="card-title">Recent documents</h2>
     {% if recent_documents %}
-      <ul class="space-y-1 text-sm">
+      <ul class="space-y-1.5 text-sm">
         {% for doc in recent_documents %}
           <li class="flex items-baseline gap-2">
-            <a href="{% url 'documents:download' project.slug doc.pk %}" class="font-medium hover:underline">{{ doc.title }}</a>
+            <a href="{% url 'documents:download' project.slug doc.pk %}" class="font-medium text-stone-700 hover:text-indigo-700 hover:underline">{{ doc.title }}</a>
             <span class="ml-auto shrink-0 text-xs text-stone-400">{{ doc.created_at|date:"Y-m-d" }}</span>
           </li>
         {% endfor %}
       </ul>
-      <a href="{% url 'documents:index' project.slug %}?all" class="mt-3 inline-block text-xs text-indigo-600 hover:underline">All {{ document_count }} document{{ document_count|pluralize }} →</a>
+      <a href="{% url 'documents:index' project.slug %}?all" class="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline">All {{ document_count }} document{{ document_count|pluralize }} →</a>
     {% else %}
       <p class="text-sm text-stone-500">No documents yet.
-        <a href="{% url 'documents:upload' project.slug %}" class="text-indigo-600 hover:underline">Upload one</a>.</p>
+        <a href="{% url 'documents:upload' project.slug %}" class="font-medium text-indigo-600 hover:underline">Upload one</a>.</p>
     {% endif %}
   </section>
   <section class="card">
     <h2 class="card-title">At a glance</h2>
-    <dl class="grid grid-cols-2 gap-2 text-sm">
-      <div><dt class="text-xs text-stone-400">Phases</dt><dd class="font-medium">{{ phase_count }}</dd></div>
-      <div><dt class="text-xs text-stone-400">Milestones</dt><dd class="font-medium">{{ done }}/{{ total }}</dd></div>
-      <div><dt class="text-xs text-stone-400">Documents</dt><dd class="font-medium">{{ document_count }}</dd></div>
-      <div><dt class="text-xs text-stone-400">Questions</dt><dd class="font-medium">{{ question_count }}</dd></div>
+    <dl class="grid grid-cols-2 gap-3 text-sm">
+      <div><dt class="text-xs uppercase tracking-wide text-stone-400">Phases</dt><dd class="mt-0.5 text-lg font-semibold text-stone-900">{{ phase_count }}</dd></div>
+      <div><dt class="text-xs uppercase tracking-wide text-stone-400">Milestones</dt><dd class="mt-0.5 text-lg font-semibold text-stone-900">{{ done }}/{{ total }}</dd></div>
+      <div><dt class="text-xs uppercase tracking-wide text-stone-400">Documents</dt><dd class="mt-0.5 text-lg font-semibold text-stone-900">{{ document_count }}</dd></div>
+      <div><dt class="text-xs uppercase tracking-wide text-stone-400">Questions</dt><dd class="mt-0.5 text-lg font-semibold text-stone-900">{{ question_count }}</dd></div>
     </dl>
   </section>
   <section class="card">
     <h2 class="card-title">Recent decisions</h2>
     {% if recent_decisions %}
-      <ul class="space-y-1 text-sm">
+      <ul class="space-y-1.5 text-sm">
         {% for d in recent_decisions %}
           <li>
-            <a href="{% url 'projects:decision_edit' project.slug d.pk %}" class="font-medium hover:underline">{{ d.title }}</a>
+            <a href="{% url 'projects:decision_edit' project.slug d.pk %}" class="font-medium text-stone-700 hover:text-indigo-700 hover:underline">{{ d.title }}</a>
             <span class="text-stone-400">— {{ d.decided_on }}</span>
           </li>
         {% endfor %}
       </ul>
-      <a href="{% url 'projects:decisions' project.slug %}" class="mt-3 inline-block text-xs text-indigo-600 hover:underline">All {{ decision_count }} decision{{ decision_count|pluralize }} →</a>
+      <a href="{% url 'projects:decisions' project.slug %}" class="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline">All {{ decision_count }} decision{{ decision_count|pluralize }} →</a>
     {% else %}
       <p class="text-sm text-stone-500">No decisions recorded yet.
-        <a href="{% url 'projects:decision_create' project.slug %}" class="text-indigo-600 hover:underline">Record one</a>.</p>
+        <a href="{% url 'projects:decision_create' project.slug %}" class="font-medium text-indigo-600 hover:underline">Record one</a>.</p>
     {% endif %}
   </section>
   {% block overview_extra %}{% endblock %}

@@ -7,23 +7,23 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="mb-6 text-2xl font-semibold tracking-tight">Import BibTeX</h1>
-<form method="post" class="max-w-2xl space-y-4">
+<h1 class="mb-6 text-2xl font-semibold tracking-tight text-stone-900">Import BibTeX</h1>
+<form method="post" class="max-w-2xl space-y-4 rounded-lg border border-stone-200 bg-white p-6 shadow-sm">
   {% csrf_token %}
   {% include "_fields.html" %}
-  <div class="flex items-center gap-3 pt-2">
-    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Import</button>
-    <a href="{% url 'literature:index' %}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+  <div class="flex items-center gap-3 border-t border-stone-100 pt-4">
+    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">Import</button>
+    <a href="{% url 'literature:index' %}" class="text-sm text-stone-500 transition-colors hover:text-stone-700 hover:underline">Cancel</a>
   </div>
 </form>
 {% if imported %}
-  <div class="mt-8 max-w-2xl card">
-    <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Imported</h2>
-    <ul class="space-y-1 text-sm">
+  <div class="mt-8 max-w-2xl rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+    <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-400">Imported</h2>
+    <ul class="space-y-1.5 text-sm">
       {% for reference, created in imported %}
-        <li>
-          <a href="{{ reference.get_absolute_url }}" class="font-mono hover:underline">{{ reference.bibtex_key }}</a>
-          {{ reference.title|truncatechars:70 }}
+        <li class="flex flex-wrap items-baseline gap-x-2">
+          <a href="{{ reference.get_absolute_url }}" class="font-mono text-indigo-600 transition-colors hover:underline">{{ reference.bibtex_key }}</a>
+          <span class="text-stone-600">{{ reference.title|truncatechars:70 }}</span>
           {% if not created %}<span class="text-xs text-stone-400">(already existed)</span>{% endif %}
         </li>
       {% endfor %}

@@ -6,53 +6,54 @@
 
 
 {% block content %}
-<div class="mb-4 flex items-center justify-between">
-  <h1 class="text-2xl font-semibold tracking-tight">Library</h1>
+<div class="mb-5 flex items-center justify-between">
+  <h1 class="text-2xl font-semibold tracking-tight text-stone-900">Library</h1>
   <div class="flex items-center gap-2">
-    <a href="{% url 'literature:import' %}" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">Import BibTeX</a>
-    <a href="{% url 'literature:create' %}" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">Manual entry</a>
-    <a href="{% url 'literature:add' %}" class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add by DOI / arXiv</a>
+    <a href="{% url 'literature:import' %}" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900">Import BibTeX</a>
+    <a href="{% url 'literature:create' %}" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900">Manual entry</a>
+    <a href="{% url 'literature:add' %}" class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">Add by DOI / arXiv</a>
   </div>
 </div>
 
-<form method="get" class="mb-4">
+<form method="get" class="mb-5">
   <input type="search" name="q" value="{{ query }}" placeholder="Search title, author, venue, DOI, key…"
-         class="w-full max-w-lg rounded border border-stone-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-600 focus:outline-none">
+         class="w-full max-w-lg rounded border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600">
 </form>
 
 {% if references %}
-  <div class="overflow-x-auto"><table class="w-full min-w-[640px] border-collapse text-sm">
+  <div class="rounded border border-stone-200 bg-white"><div class="overflow-x-auto"><table class="w-full min-w-[640px] border-collapse text-sm">
     <thead>
-      <tr class="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-400">
+      <tr class="border-b border-stone-200 text-left text-xs font-medium uppercase tracking-wide text-stone-400">
         {% include "literature/_sort_th.html" with key="title" label="Reference" %}
         {% include "literature/_sort_th.html" with key="year" label="Year" %}
         {% include "literature/_sort_th.html" with key="venue" label="Venue" %}
         {% include "literature/_sort_th.html" with key="cited" label="Cited" %}
-        <th class="py-1.5 font-medium">Projects</th>
+        <th class="py-1.5 pr-4 font-medium">Projects</th>
       </tr>
     </thead>
     <tbody>
       {% for ref in references %}
-        <tr class="border-b border-stone-100 align-top transition-colors hover:bg-stone-50">
-          <td class="py-1.5 pr-4">
-            <a href="{{ ref.get_absolute_url }}" class="font-medium hover:underline">{{ ref.title|truncatechars:90 }}</a>
-            <p class="text-xs text-stone-400">{{ ref.author_names|truncatechars:80 }} · <span class="font-mono">{{ ref.bibtex_key }}</span></p>
+        <tr class="border-b border-stone-100 align-top transition-colors last:border-0 hover:bg-stone-50">
+          <td class="py-2.5 pr-4">
+            <a href="{{ ref.get_absolute_url }}" class="font-medium text-stone-900 hover:text-indigo-700">{{ ref.title|truncatechars:90 }}</a>
+            <p class="mt-0.5 text-xs text-stone-400">{{ ref.author_names|truncatechars:80 }} · <span class="font-mono">{{ ref.bibtex_key }}</span></p>
           </td>
-          <td class="py-1.5 pr-4 text-stone-500">{{ ref.year|default:"—" }}</td>
-          <td class="py-1.5 pr-4 text-stone-500">{{ ref.venue|truncatechars:40|default:"—" }}</td>
-          <td class="py-1.5 pr-4 text-stone-500">{{ ref.citation_count|default:"—" }}</td>
-          <td class="py-1.5 text-xs text-stone-500">
+          <td class="py-2.5 pr-4 text-stone-500">{{ ref.year|default:"—" }}</td>
+          <td class="py-2.5 pr-4 text-stone-500">{{ ref.venue|truncatechars:40|default:"—" }}</td>
+          <td class="py-2.5 pr-4 text-stone-500">{{ ref.citation_count|default:"—" }}</td>
+          <td class="py-2.5 pr-4 text-xs text-stone-500">
             {% for link in ref.project_links.all %}{{ link.project.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
           </td>
         </tr>
       {% endfor %}
     </tbody>
-  </table></div>
+  </table></div></div>
   <p class="mt-3 text-xs text-stone-400">{{ total }} reference{{ total|pluralize }} in the library.</p>
 {% else %}
-  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
-    <p class="mb-2 text-stone-600">The library is the single shared home for every paper, across all projects.</p>
-    <a href="{% url 'literature:add' %}" class="text-sm font-medium text-indigo-600 hover:underline">Add your first reference by DOI</a>
+  <div class="rounded border border-dashed border-stone-300 bg-white p-12 text-center">
+    <p class="mb-1 text-sm font-medium text-stone-700">Your library is empty</p>
+    <p class="mb-4 text-sm text-stone-500">The library is the single shared home for every paper, across all projects.</p>
+    <a href="{% url 'literature:add' %}" class="inline-block rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">Add your first reference by DOI</a>
   </div>
 {% endif %}
 {% endblock %}

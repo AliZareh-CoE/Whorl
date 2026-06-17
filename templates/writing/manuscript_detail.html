@@ -12,126 +12,126 @@
 {% block content %}
 {% include "projects/_subnav.html" %}
 
-<div class="mb-1 flex items-center gap-3">
-  <h1 class="text-2xl font-semibold tracking-tight">{{ manuscript.title }}</h1>
-  <span class="rounded bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{{ manuscript.get_status_display }}</span>
+<div class="mb-2 flex items-center gap-3">
+  <h1 class="text-2xl font-semibold tracking-tight text-stone-900">{{ manuscript.title }}</h1>
+  <span class="rounded-full border border-stone-200 bg-stone-50 px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide text-stone-600">{{ manuscript.get_status_display }}</span>
   <span class="ml-auto"></span>
-  <a href="{% url 'writing:editor' project.slug manuscript.pk %}" class="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:border-indigo-400">✎ LaTeX editor</a>
-  <a href="{% url 'writing:edit' project.slug manuscript.pk %}" class="text-sm text-stone-500 hover:underline">Edit</a>
+  <a href="{% url 'writing:editor' project.slug manuscript.pk %}" class="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 transition hover:border-indigo-400 hover:bg-indigo-100">✎ LaTeX editor</a>
+  <a href="{% url 'writing:edit' project.slug manuscript.pk %}" class="text-sm text-stone-500 hover:text-stone-700 hover:underline">Edit</a>
 </div>
-<p class="mb-6 text-sm text-stone-500">
+<p class="mb-6 flex flex-wrap items-center gap-x-1 text-sm text-stone-500">
   {% if manuscript.target_venue %}→ {{ manuscript.target_venue }}{% endif %}
   {% if manuscript.deadline_label %}
-    · <span class="{% if manuscript.deadline_is_soon %}font-medium text-red-600{% endif %}">{{ manuscript.deadline_label }}</span>
+    · <span class="{% if manuscript.deadline_is_soon %}rounded bg-red-50 px-1.5 py-0.5 font-medium text-red-600{% endif %}">{{ manuscript.deadline_label }}</span>
   {% endif %}
-  {% if manuscript.repo_url %} · <a href="{{ manuscript.repo_url }}" class="text-indigo-600 hover:underline">repo</a>{% endif %}
+  {% if manuscript.repo_url %} · <a href="{{ manuscript.repo_url }}" class="font-medium text-indigo-600 hover:underline">repo</a>{% endif %}
 </p>
 
 {% if manuscript.abstract %}
-  <div class="prose prose-stone mb-6 max-w-none text-sm">{{ manuscript.abstract|markdownify }}</div>
+  <div class="prose prose-stone mb-8 max-w-none card text-sm shadow-sm">{{ manuscript.abstract|markdownify }}</div>
 {% endif %}
 
-<div class="grid grid-cols-2 gap-4">
-  <section class="card">
-    <div class="mb-3 flex items-center justify-between">
-      <h2 class="text-sm font-medium uppercase tracking-wide text-stone-400">Bibliography</h2>
-      <div class="flex gap-2 text-xs">
-        <a href="{% url 'writing:export_bib' project.slug manuscript.pk %}" class="text-indigo-600 hover:underline">Export .bib</a>
-        <a href="{% url 'writing:export_zip' project.slug manuscript.pk %}" class="ml-3 text-indigo-600 hover:underline" title="arXiv-ready source + bib">Submission .zip</a>
-        <a href="{% url 'writing:add_reference' project.slug manuscript.pk %}" class="text-indigo-600 hover:underline">+ Add</a>
+<div class="grid grid-cols-2 gap-5">
+  <section class="card shadow-sm">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-xs font-medium uppercase tracking-wide text-stone-400">Bibliography</h2>
+      <div class="flex items-center gap-3 text-xs">
+        <a href="{% url 'writing:export_bib' project.slug manuscript.pk %}" class="font-medium text-indigo-600 hover:underline">Export .bib</a>
+        <a href="{% url 'writing:export_zip' project.slug manuscript.pk %}" class="font-medium text-indigo-600 hover:underline" title="arXiv-ready source + bib">Submission .zip</a>
+        <a href="{% url 'writing:add_reference' project.slug manuscript.pk %}" class="font-medium text-indigo-600 hover:underline">+ Add</a>
       </div>
     </div>
     {% if bibliography %}
-      <ul class="space-y-1.5 text-sm">
+      <ul class="divide-y divide-stone-100 text-sm">
         {% for link in bibliography %}
-          <li class="flex items-baseline gap-2">
-            <a href="{{ link.reference.get_absolute_url }}" class="font-mono text-xs hover:underline">{{ link.cite_key }}</a>
+          <li class="flex items-baseline gap-2 py-1.5">
+            <a href="{{ link.reference.get_absolute_url }}" class="rounded bg-stone-50 px-1 font-mono text-xs text-stone-600 hover:bg-stone-100 hover:underline">{{ link.cite_key }}</a>
             <span class="min-w-0 flex-1 truncate text-stone-600">{{ link.reference.title }}</span>
             <form method="post" action="{% url 'writing:remove_reference' project.slug manuscript.pk link.pk %}">
               {% csrf_token %}
-              <button type="submit" class="text-xs text-stone-300 hover:text-red-600">✕</button>
+              <button type="submit" class="text-xs text-stone-300 transition hover:text-red-600">✕</button>
             </form>
           </li>
         {% endfor %}
       </ul>
       {% with dup=bib_report.duplicates miss=bib_report.missing_fields %}
         {% if dup or miss %}
-          <div class="mt-3 border-t border-stone-100 pt-2 text-xs">
+          <div class="mt-3 space-y-0.5 rounded border border-amber-100 bg-amber-50 p-2.5 text-xs">
             {% for finding in dup %}<p class="text-amber-700">⚠ {{ finding.message }}</p>{% endfor %}
             {% for finding in miss %}<p class="text-amber-700">⚠ {{ finding.message }}</p>{% endfor %}
           </div>
         {% endif %}
       {% endwith %}
     {% else %}
-      <p class="text-sm text-stone-500">No references yet — pick them from the library.</p>
+      <p class="rounded border border-dashed border-stone-200 bg-stone-50 px-3 py-4 text-center text-sm text-stone-500">No references yet — pick them from the library.</p>
     {% endif %}
   </section>
 
-  <section class="card">
-    <h2 class="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Submission timeline</h2>
+  <section class="card shadow-sm">
+    <h2 class="mb-4 text-xs font-medium uppercase tracking-wide text-stone-400">Submission timeline</h2>
     {% if events %}
-      <ol class="relative ml-2 space-y-4 border-l border-stone-200 pl-4">
+      <ol class="relative ml-2 space-y-5 border-l border-stone-200 pl-5">
         {% for event in events %}
           <li class="relative">
-            <span class="absolute -left-[1.32rem] top-1.5 h-2 w-2 rounded-full
+            <span class="absolute -left-[1.46rem] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white
               {% if event.kind == 'accepted' or event.kind == 'published' %}bg-green-600
               {% elif event.kind == 'rejected' or event.kind == 'desk_reject' %}bg-red-600
               {% else %}bg-stone-400{% endif %}"></span>
             <div class="flex items-baseline gap-2 text-sm">
-              <span class="font-medium">{{ event.get_kind_display }}</span>
+              <span class="font-medium text-stone-800">{{ event.get_kind_display }}</span>
               <span class="text-xs text-stone-400">{{ event.date }}</span>
               <form method="post" action="{% url 'writing:delete_event' project.slug manuscript.pk event.pk %}" class="ml-auto">
                 {% csrf_token %}
-                <button type="submit" class="text-xs text-stone-300 hover:text-red-600">✕</button>
+                <button type="submit" class="text-xs text-stone-300 transition hover:text-red-600">✕</button>
               </form>
             </div>
-            {% if event.notes %}<p class="text-xs text-stone-500">{{ event.notes }}</p>{% endif %}
+            {% if event.notes %}<p class="mt-0.5 text-xs text-stone-500">{{ event.notes }}</p>{% endif %}
           </li>
         {% endfor %}
       </ol>
     {% else %}
-      <p class="mb-3 text-sm text-stone-500">No events yet. Log the submission story as it unfolds.</p>
+      <p class="mb-3 rounded border border-dashed border-stone-200 bg-stone-50 px-3 py-4 text-center text-sm text-stone-500">No events yet. Log the submission story as it unfolds.</p>
     {% endif %}
-    <form method="post" action="{% url 'writing:add_event' project.slug manuscript.pk %}" class="mt-4 space-y-2 border-t border-stone-100 pt-3">
+    <form method="post" action="{% url 'writing:add_event' project.slug manuscript.pk %}" class="mt-5 space-y-2.5 border-t border-stone-100 pt-4">
       {% csrf_token %}
       <div class="flex gap-2">
         {{ event_form.kind }}
         {{ event_form.date }}
       </div>
       {{ event_form.notes }}
-      <button type="submit" class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Log event</button>
+      <button type="submit" class="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Log event</button>
     </form>
   </section>
 
-  <section class="col-span-2 card">
-    <h2 class="mb-1 text-sm font-medium uppercase tracking-wide text-stone-400">Cite checker</h2>
-    <p class="mb-3 text-xs text-stone-400">Parses \cite commands from your LaTeX and compares against the bibliography above.</p>
-    <form method="post" enctype="multipart/form-data" class="mb-4 max-w-2xl space-y-3">
+  <section class="col-span-2 card shadow-sm">
+    <h2 class="mb-1 text-xs font-medium uppercase tracking-wide text-stone-400">Cite checker</h2>
+    <p class="mb-4 text-xs text-stone-400">Parses \cite commands from your LaTeX and compares against the bibliography above.</p>
+    <form method="post" enctype="multipart/form-data" class="mb-5 max-w-2xl space-y-3">
       {% csrf_token %}
       {{ cite_form.non_field_errors }}
       <div class="flex items-center gap-3 text-sm">
-        <label class="font-medium">{{ cite_form.tex_file.label }}</label>
+        <label class="font-medium text-stone-700">{{ cite_form.tex_file.label }}</label>
         {{ cite_form.tex_file }}
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium">{{ cite_form.tex_text.label }}</label>
+        <label class="mb-1 block text-sm font-medium text-stone-700">{{ cite_form.tex_text.label }}</label>
         {{ cite_form.tex_text }}
       </div>
-      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Check citations</button>
+      <button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Check citations</button>
     </form>
     {% if cite_result %}
       <div class="grid grid-cols-3 gap-4 text-sm">
-        <div>
-          <h3 class="mb-1 text-xs font-medium uppercase tracking-wide text-red-600">Cited, missing from bib ({{ cite_result.missing_from_bib|length }})</h3>
-          {% for key in cite_result.missing_from_bib %}<p class="font-mono text-xs">{{ key }}</p>{% empty %}<p class="text-xs text-green-700">✓ none</p>{% endfor %}
+        <div class="rounded border border-stone-100 bg-stone-50/50 p-3">
+          <h3 class="mb-2 text-xs font-medium uppercase tracking-wide text-red-600">Cited, missing from bib ({{ cite_result.missing_from_bib|length }})</h3>
+          {% for key in cite_result.missing_from_bib %}<p class="font-mono text-xs text-stone-700">{{ key }}</p>{% empty %}<p class="text-xs text-green-700">✓ none</p>{% endfor %}
         </div>
-        <div>
-          <h3 class="mb-1 text-xs font-medium uppercase tracking-wide text-amber-600">In bib, never cited ({{ cite_result.uncited_in_bib|length }})</h3>
-          {% for key in cite_result.uncited_in_bib %}<p class="font-mono text-xs">{{ key }}</p>{% empty %}<p class="text-xs text-green-700">✓ none</p>{% endfor %}
+        <div class="rounded border border-stone-100 bg-stone-50/50 p-3">
+          <h3 class="mb-2 text-xs font-medium uppercase tracking-wide text-amber-600">In bib, never cited ({{ cite_result.uncited_in_bib|length }})</h3>
+          {% for key in cite_result.uncited_in_bib %}<p class="font-mono text-xs text-stone-700">{{ key }}</p>{% empty %}<p class="text-xs text-green-700">✓ none</p>{% endfor %}
         </div>
-        <div>
-          <h3 class="mb-1 text-xs font-medium uppercase tracking-wide text-green-700">Matched ({{ cite_result.matched|length }})</h3>
-          {% for key in cite_result.matched %}<p class="font-mono text-xs">{{ key }}</p>{% empty %}<p class="text-xs text-stone-400">none</p>{% endfor %}
+        <div class="rounded border border-stone-100 bg-stone-50/50 p-3">
+          <h3 class="mb-2 text-xs font-medium uppercase tracking-wide text-green-700">Matched ({{ cite_result.matched|length }})</h3>
+          {% for key in cite_result.matched %}<p class="font-mono text-xs text-stone-700">{{ key }}</p>{% empty %}<p class="text-xs text-stone-400">none</p>{% endfor %}
         </div>
       </div>
     {% endif %}

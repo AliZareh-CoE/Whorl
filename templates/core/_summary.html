@@ -1,8 +1,8 @@
 {% if sentences %}
-  <div class="rounded border border-indigo-100 bg-indigo-50/60 p-3">
-    <p class="mb-1 text-[10px] font-medium uppercase tracking-wide text-indigo-400">tl;dr</p>
-    <ul class="space-y-1 text-sm text-stone-700">
-      {% for sentence in sentences %}<li>• {{ sentence }}</li>{% endfor %}
+  <div class="rounded border border-indigo-100 bg-indigo-50/60 p-4">
+    <p class="mb-2 text-[10px] font-medium uppercase tracking-wide text-indigo-400">tl;dr</p>
+    <ul class="space-y-1.5 text-sm leading-relaxed text-stone-700">
+      {% for sentence in sentences %}<li class="flex gap-2"><span class="select-none text-indigo-300">•</span><span>{{ sentence }}</span></li>{% endfor %}
     </ul>
   </div>
 {% else %}
