@@ -28,12 +28,8 @@ class Command(BaseCommand):
         from django.conf import settings
         from django.contrib.auth import get_user_model
 
-        # start the bundled Postgres (initdb on first run) before Django connects (#210g)
-        from core.desktop_runtime import ensure_postgres
-
-        data_dir = settings.DATA_DIR
-        ensure_postgres(data_dir, settings.PG_PORT)
-        self.stdout.write("Postgres is up.")
+        # SQLite (#266): no server to start — `migrate` just creates the file. This replaced the
+        # bundled Postgres, which never started reliably on Windows.
 
         # First-run prep. Use verbosity=1 so the log shows progress instead of looking like a
         # silent black box (#241), and skip the slow static re-collect on later launches of the

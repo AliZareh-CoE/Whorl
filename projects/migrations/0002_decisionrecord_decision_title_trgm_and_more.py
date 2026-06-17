@@ -3,6 +3,8 @@
 import django.contrib.postgres.indexes
 from django.db import migrations
 
+from core.migration_ops import PostgresAddIndex
+
 
 class Migration(migrations.Migration):
 
@@ -12,13 +14,13 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddIndex(
+        PostgresAddIndex(
             model_name="decisionrecord",
             index=django.contrib.postgres.indexes.GinIndex(
                 fields=["title"], name="decision_title_trgm", opclasses=["gin_trgm_ops"]
             ),
         ),
-        migrations.AddIndex(
+        PostgresAddIndex(
             model_name="project",
             index=django.contrib.postgres.indexes.GinIndex(
                 fields=["name"], name="project_name_trgm", opclasses=["gin_trgm_ops"]

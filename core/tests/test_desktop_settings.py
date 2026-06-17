@@ -38,10 +38,13 @@ def test_desktop_check_passes(tmp_path):
     assert (tmp_path / "secret_key").exists()  # persisted so sessions survive restarts
 
 
-def test_desktop_settings_use_bundled_postgres():
+def test_desktop_settings_use_sqlite():
+    # #266: the desktop app uses SQLite (a file — no server), which retired the whole
+    # bundled-Postgres-on-Windows saga. Postgres stays on the web/server deployment only.
     text = (BASE_DIR / "config" / "settings" / "desktop.py").read_text()
-    assert "django.db.backends.postgresql" in text
-    assert "ATLAS_PG_PORT" in text
+    assert "django.db.backends.sqlite3" in text
+    assert "atlas.sqlite3" in text
+    assert "django.db.backends.postgresql" not in text
     assert "MemoryHuey" in text  # no Redis — jobs run in-process
 
 
@@ -83,11 +86,26 @@ def test_pg_bin_handles_exe_suffix(tmp_path, monkeypatch):
     assert _pg_bin("initdb") == str(fake)
 
 
-def test_run_desktop_starts_postgres_first():
+def test_run_desktop_uses_sqlite_no_postgres_step():
+    # #266: SQLite needs no server — run_desktop goes straight to migrate (which creates the
+    # file). The old ensure_postgres bring-up step is gone (it never started reliably on Windows).
     text = (BASE_DIR / "core" / "management" / "commands" / "run_desktop.py").read_text()
-    assert "ensure_postgres" in text
-    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
-    assert "initdb" in runtime and "pg_ctl" in runtime and "atexit" in runtime
+    assert "ensure_postgres" not in text
+    assert "migrate" in text and "collectstatic" in text and "waitress" in text
+
+
+def test_trigram_indexes_are_postgres_only():
+    # #266: GinIndex (gin_trgm_ops) is Postgres-only; PostgresAddIndex creates it on Postgres
+    # and no-ops on SQLite, so one migration set applies to both backends.
+    ops = (BASE_DIR / "core" / "migration_ops.py").read_text()
+    assert "PostgresAddIndex" in ops and 'vendor != "postgresql"' in ops
+    for mig in (
+        "documents/migrations/0002_document_document_title_trgm.py",
+        "notes/migrations/0003_note_note_title_trgm.py",
+        "literature/migrations/0004_reference_reference_title_trgm.py",
+        "projects/migrations/0002_decisionrecord_decision_title_trgm_and_more.py",
+    ):
+        assert "PostgresAddIndex" in (BASE_DIR / mig).read_text(), mig
 
 
 def test_run_desktop_logs_progress_and_skips_static_recollect():

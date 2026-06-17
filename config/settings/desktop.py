@@ -28,18 +28,20 @@ if not _secret_file.exists():
     _secret_file.write_text(secrets.token_urlsafe(64))
 SECRET_KEY = _secret_file.read_text().strip()
 
-# Full Postgres, bundled + auto-started by the app (owner choice, #210g): exact parity
-# with the server (incl. full-text search). The desktop runtime runs initdb into the data
-# dir and starts a local postgres before Django connects; trust auth on 127.0.0.1 only.
-PG_PORT = int(os.environ.get("ATLAS_PG_PORT", "5433"))
+# SQLite — a single file in the data dir, no server (#266). After a multi-day saga bundling a
+# full PostgreSQL server into the Windows installer (initdb exit-1, missing client tools, a
+# console crash loop, a psycopg connect hang, a pg_ctl pipe-inheritance hang…), the owner and I
+# went with what every other single-user desktop app uses: SQLite. It opens in milliseconds,
+# needs no initdb/process/connection step, and retires the entire Postgres-on-Windows problem
+# class. Postgres-only features degrade gracefully: trigram GinIndexes are skipped on SQLite
+# (PostgresAddIndex) and global search falls back to icontains (core/search.py). The web/server
+# deployment keeps Postgres unchanged — only this desktop settings module changed.
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "atlas",
-        "USER": "atlas",
-        "PASSWORD": "",
-        "HOST": "127.0.0.1",
-        "PORT": str(PG_PORT),
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": str(DATA_DIR / "atlas.sqlite3"),
+        # WAL + a busy timeout keep the single-user app responsive and crash-tolerant.
+        "OPTIONS": {"timeout": 20, "init_command": "PRAGMA journal_mode=WAL;"},
     }
 }
 

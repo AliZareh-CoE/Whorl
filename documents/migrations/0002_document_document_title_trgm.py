@@ -3,6 +3,8 @@
 import django.contrib.postgres.indexes
 from django.db import migrations
 
+from core.migration_ops import PostgresAddIndex
+
 
 class Migration(migrations.Migration):
 
@@ -13,7 +15,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddIndex(
+        PostgresAddIndex(
             model_name="document",
             index=django.contrib.postgres.indexes.GinIndex(
                 fields=["title"], name="document_title_trgm", opclasses=["gin_trgm_ops"]
