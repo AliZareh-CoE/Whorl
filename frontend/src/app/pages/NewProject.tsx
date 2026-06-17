@@ -6,6 +6,13 @@ import { api } from "../api";
 
 type Template = { key: string; name: string; description: string; folders: string[] };
 
+const inputClass =
+  "w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600";
+
+const labelClass = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-stone-400";
+
+const swatches = ["#4f46e5", "#0891b2", "#059669", "#d97706", "#dc2626", "#db2777", "#7c3aed", "#475569"];
+
 export default function NewProject() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -31,48 +38,147 @@ export default function NewProject() {
   });
 
   return (
-    <div className="max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <nav className="mb-6 text-sm text-stone-500">
-        <Link to="/projects" className="hover:underline">Projects</Link> / New
+        <Link to="/projects" className="hover:text-indigo-700 hover:underline">Projects</Link>{" "}
+        / <span className="text-stone-700">New</span>
       </nav>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">New project</h1>
-      <form className="space-y-4"
-            onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate(); }}>
+
+      <h1 className="text-2xl font-semibold tracking-tight text-stone-900">New project</h1>
+      <p className="mb-8 text-sm text-stone-500">
+        Give it a name and an optional starting scaffold. Everything else can be filled in later.
+      </p>
+
+      <form
+        className="space-y-7"
+        onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate(); }}
+      >
         <div>
-          <label htmlFor="np-name" className="mb-1 block text-sm font-medium">Name</label>
-          <input id="np-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus
-                 className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none" />
+          <label htmlFor="np-name" className={labelClass}>Name</label>
+          <input
+            id="np-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+            placeholder="e.g. Protein folding survey"
+            className={inputClass}
+          />
         </div>
+
         <div>
-          <label htmlFor="np-desc" className="mb-1 block text-sm font-medium">Description</label>
-          <textarea id="np-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={4}
-                    placeholder="What is this research about? (markdown ok)"
-                    className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none" />
+          <label htmlFor="np-desc" className={labelClass}>
+            Description <span className="font-normal normal-case text-stone-300">— optional</span>
+          </label>
+          <textarea
+            id="np-desc"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            placeholder="What is this research about? (markdown ok)"
+            className={inputClass}
+          />
         </div>
+
         <div>
-          <label htmlFor="np-color" className="mb-1 block text-sm font-medium">Accent color</label>
-          <input id="np-color" type="color" value={color} onChange={(e) => setColor(e.target.value)}
-                 className="h-9 w-16 rounded border border-stone-300 bg-white" />
+          <label className={labelClass}>Accent color</label>
+          <div className="flex items-center gap-2">
+            {swatches.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                aria-label={`Use accent color ${c}`}
+                aria-pressed={color === c}
+                style={{ backgroundColor: c }}
+                className={
+                  "h-7 w-7 rounded-full transition-transform hover:scale-110 focus:outline-none " +
+                  (color === c
+                    ? "ring-2 ring-stone-900 ring-offset-2 ring-offset-stone-50"
+                    : "ring-1 ring-stone-200")
+                }
+              />
+            ))}
+            <label
+              htmlFor="np-color"
+              className="relative ml-1 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-dashed border-stone-300 text-stone-400 hover:border-stone-400 hover:text-stone-500"
+              title="Custom color"
+            >
+              <span aria-hidden="true" className="text-base leading-none">+</span>
+              <input
+                id="np-color"
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="absolute inset-0 cursor-pointer opacity-0"
+              />
+            </label>
+            <span className="ml-2 font-mono text-xs text-stone-400">{color}</span>
+          </div>
         </div>
+
         <div>
-          <label htmlFor="np-template" className="mb-1 block text-sm font-medium">Scaffold</label>
-          <select id="np-template" value={template} onChange={(e) => setTemplate(e.target.value)}
-                  className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none">
-            <option value="">Empty project</option>
-            {(templates ?? []).map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
-          </select>
-          {template && (
-            <p className="mt-1 text-xs text-stone-400">
-              {templates?.find((t) => t.key === template)?.description} — folders:{" "}
-              {templates?.find((t) => t.key === template)?.folders.join(", ")}
-            </p>
-          )}
+          <label className={labelClass}>
+            Scaffold <span className="font-normal normal-case text-stone-300">— optional</span>
+          </label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setTemplate("")}
+              aria-pressed={template === ""}
+              className={
+                "rounded border p-3 text-left transition-colors " +
+                (template === ""
+                  ? "border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-600"
+                  : "border-stone-300 bg-white hover:border-stone-400")
+              }
+            >
+              <span className="block text-sm font-medium text-stone-800">Empty project</span>
+              <span className="mt-0.5 block text-xs text-stone-400">Start from a blank slate.</span>
+            </button>
+            {(templates ?? []).map((t) => {
+              const selected = template === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTemplate(t.key)}
+                  aria-pressed={selected}
+                  className={
+                    "rounded border p-3 text-left transition-colors " +
+                    (selected
+                      ? "border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-600"
+                      : "border-stone-300 bg-white hover:border-stone-400")
+                  }
+                >
+                  <span className="block text-sm font-medium text-stone-800">{t.name}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-stone-400">{t.description}</span>
+                  {t.folders.length > 0 && (
+                    <span className="mt-2 flex flex-wrap gap-1">
+                      {t.folders.map((f) => (
+                        <span key={f} className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">
+                          {f}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
+
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={create.isPending || !name.trim()}
-                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
-          {create.isPending ? "Creating…" : "Create project"}
-        </button>
+
+        <div className="flex items-center gap-3 border-t border-stone-100 pt-6">
+          <button
+            type="submit"
+            disabled={create.isPending || !name.trim()}
+            className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {create.isPending ? "Creating…" : "Create project"}
+          </button>
+          <Link to="/projects" className="text-sm text-stone-500 hover:text-stone-700">Cancel</Link>
+        </div>
       </form>
     </div>
   );

@@ -98,29 +98,32 @@ export default function Timeline() {
         <Link to="/projects" className="hover:underline">Projects</Link> /{" "}
         <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Timeline
       </nav>
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-baseline justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Timeline</h1>
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex shrink-0 items-center gap-2 text-xs">
           <div className="flex overflow-hidden rounded border border-stone-300" role="group" aria-label="Zoom">
             {ZOOMS.map((z) => (
               <button key={z} onClick={() => setZoom(z)}
-                      className={`px-2.5 py-1 capitalize ${z === zoom ? "bg-stone-800 text-white" : "bg-white text-stone-600 hover:bg-stone-50"}`}>
+                      aria-pressed={z === zoom}
+                      className={`px-2.5 py-1 capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
+                        z === zoom ? "bg-stone-800 text-white" : "bg-white text-stone-600 hover:bg-stone-50"
+                      }`}>
                 {z}
               </button>
             ))}
           </div>
           <button onClick={copyMarkdown}
-                  className="rounded border border-stone-300 bg-white px-2.5 py-1 hover:border-stone-400">
+                  className="rounded border border-stone-300 bg-white px-2.5 py-1 text-stone-600 transition-colors hover:border-stone-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
             {copied ? "✓ Copied" : "⧉ Copy as markdown"}
           </button>
         </div>
       </div>
-      <p className="mb-4 text-sm text-stone-500">
+      <p className="mb-5 text-sm text-stone-500">
         The story of the project, newest first — copy it oldest-first for a methods or history section.
       </p>
 
       {presentKinds.length > 0 && (
-        <div className="mb-6 flex flex-wrap gap-1.5">
+        <div className="mb-8 flex flex-wrap gap-1.5">
           {presentKinds.map((k) => {
             const off = hidden.has(k);
             return (
@@ -131,8 +134,10 @@ export default function Timeline() {
                         setHidden(next);
                       }}
                       aria-pressed={!off}
-                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs ${
-                        off ? "border-stone-200 bg-stone-50 text-stone-400" : "border-stone-300 bg-white text-stone-700"
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 ${
+                        off
+                          ? "border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300"
+                          : "border-stone-300 bg-white text-stone-700 hover:border-stone-400"
                       }`}>
                 <span className={`size-2 rounded-full ${off ? "bg-stone-300" : KINDS[k].dot}`} />
                 {KINDS[k].label}
@@ -142,40 +147,57 @@ export default function Timeline() {
         </div>
       )}
 
-      {groups.length === 0 && (
-        <p className="rounded border border-stone-200 bg-white px-4 py-10 text-center text-sm text-stone-400">
-          {hidden.size > 0
-            ? "Nothing matches the current filters — re-enable an event type above."
-            : "No dated activity yet — completed milestones, papers, notes, and decisions will appear here."}
-        </p>
+      {groups.length === 0 ? (
+        <div className="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+          {hidden.size > 0 ? (
+            <>
+              <p className="mb-1 text-sm font-medium text-stone-600">Nothing matches the current filters</p>
+              <p className="text-sm text-stone-400">Re-enable an event type above to see it in the timeline.</p>
+            </>
+          ) : (
+            <>
+              <p className="mb-1 text-sm font-medium text-stone-600">No dated activity yet</p>
+              <p className="text-sm text-stone-400">
+                Completed milestones, papers, notes, and decisions will gather here as the work unfolds.
+              </p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="relative pl-7">
+          <div className="absolute inset-y-1 left-[3px] w-px bg-stone-200" aria-hidden />
+          {groups.map(([period, items]) => (
+            <section key={period} className="mb-10 last:mb-0">
+              <h2 className="sticky top-0 z-10 -ml-7 mb-4 flex items-baseline gap-2 bg-stone-50/95 py-1.5 pl-7 text-sm font-medium uppercase tracking-wide text-stone-400 backdrop-blur-sm">
+                {periodLabel(period, zoom)}
+                <span className="text-xs font-normal normal-case tracking-normal text-stone-300">
+                  {items.length} {items.length === 1 ? "event" : "events"}
+                </span>
+              </h2>
+              <ul className="space-y-3.5">
+                {items.map((e, i) => (
+                  <li key={`${e.date}-${e.kind}-${i}`} className="group relative text-sm">
+                    <span className={`absolute -left-[26px] top-[7px] size-2.5 rounded-full ring-4 ring-stone-50 ${KINDS[e.kind]?.dot ?? "bg-stone-300"}`} aria-hidden />
+                    <Link
+                      to={e.url}
+                      className="-mx-2 flex flex-col gap-0.5 rounded px-2 py-1 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 sm:flex-row sm:items-baseline sm:gap-2"
+                    >
+                      <span className="font-medium text-stone-800 group-hover:text-indigo-700">
+                        {e.label}
+                      </span>
+                      <span className="text-xs text-stone-400">
+                        {KINDS[e.kind]?.label ?? e.kind}
+                        {e.detail ? ` · ${e.detail}` : ""}
+                        {zoom !== "day" ? ` · ${e.date}` : ""}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
-
-      <div className="relative pl-6">
-        <div className="absolute inset-y-0 left-[5px] w-px bg-stone-200" aria-hidden />
-        {groups.map(([period, items]) => (
-          <section key={period} className="mb-8">
-            <h2 className="sticky top-0 -ml-6 mb-3 bg-stone-50/95 py-1 pl-6 text-xs font-semibold uppercase tracking-wide text-stone-500">
-              {periodLabel(period, zoom)}
-              <span className="ml-2 font-normal normal-case text-stone-400">{items.length} events</span>
-            </h2>
-            <ul className="space-y-2.5">
-              {items.map((e, i) => (
-                <li key={`${e.date}-${e.kind}-${i}`} className="relative text-sm">
-                  <span className={`absolute -left-6 top-1.5 size-2.5 rounded-full ring-2 ring-white ${KINDS[e.kind]?.dot ?? "bg-stone-300"}`} aria-hidden />
-                  <Link to={e.url} className="font-medium text-stone-800 hover:text-indigo-700 hover:underline">
-                    {e.label}
-                  </Link>
-                  <span className="ml-2 text-xs text-stone-400">
-                    {KINDS[e.kind]?.label ?? e.kind}
-                    {e.detail ? ` · ${e.detail}` : ""}
-                    {zoom !== "day" ? ` · ${e.date}` : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
     </div>
   );
 }

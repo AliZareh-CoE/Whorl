@@ -134,13 +134,18 @@ export default function ReadingFlow() {
 
   if (!paper) {
     return (
-      <div className="mx-auto max-w-lg pt-24 text-center">
-        <p className="mb-2 text-4xl">📚</p>
-        <h1 className="mb-2 text-2xl font-semibold tracking-tight">Queue cleared</h1>
-        <p className="mb-6 text-sm text-stone-500">
-          {done.size > 0 ? `You read ${done.size} paper${done.size > 1 ? "s" : ""} this session.` : "Nothing left to read here."}
+      <div className="mx-auto max-w-lg px-4 pt-24 text-center">
+        <p className="mb-3 text-4xl">📚</p>
+        <h1 className="mb-2 text-2xl font-semibold tracking-tight text-stone-900">Your reading queue is empty</h1>
+        <p className="mx-auto mb-8 max-w-sm text-sm leading-relaxed text-stone-500">
+          {done.size > 0
+            ? `You read ${done.size} paper${done.size > 1 ? "s" : ""} this session — nicely done. There's nothing left to work through here.`
+            : "Nothing left to read in this project. Link new references to build the queue back up."}
         </p>
-        <Link to={`/projects/${slug}/literature`} className="text-sm font-medium text-indigo-600 hover:underline">
+        <Link
+          to={`/projects/${slug}/literature`}
+          className="inline-flex items-center gap-1.5 rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
           Back to literature
         </Link>
       </div>
@@ -149,69 +154,89 @@ export default function ReadingFlow() {
 
   const r = paper.reference;
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="mb-4 flex items-center justify-between text-xs text-stone-400">
-        <span>{i + 1} of {papers.length} · reading flow</span>
-        <span className="flex items-center gap-3">
-          {flash && <span className="text-green-600">{flash}</span>}
-          <Link to={`/projects/${slug}/queue`} className="hover:text-stone-600">Esc to exit</Link>
+    <div className="mx-auto max-w-3xl px-4">
+      <div className="mb-3 flex items-center justify-between text-xs">
+        <span className="font-medium tracking-wide text-stone-500">
+          <span className="text-stone-700">{i + 1}</span>
+          <span className="text-stone-400"> of {papers.length}</span>
+          <span className="ml-2 text-stone-400">· Reading flow</span>
+        </span>
+        <span className="flex items-center gap-3 text-stone-400">
+          {flash && <span className="font-medium text-emerald-600">{flash}</span>}
+          <Link to={`/projects/${slug}/queue`} className="transition-colors hover:text-stone-600">Esc to exit</Link>
         </span>
       </div>
-      <div className="mb-3 h-1 w-full rounded-full bg-stone-100">
-        <div className="h-1 rounded-full bg-indigo-500 transition-[width]" style={{ width: `${(i / papers.length) * 100}%` }} />
+      <div className="mb-6 h-1 w-full overflow-hidden rounded-full bg-stone-200">
+        <div className="h-full rounded-full bg-indigo-600 transition-[width] duration-300" style={{ width: `${(i / papers.length) * 100}%` }} />
       </div>
 
-      <article className="rounded-lg border border-stone-200 bg-white p-8">
-        <div className="mb-2 flex items-center gap-2">
-          <span className={`rounded px-2 py-0.5 text-xs ${paper.priority === "high" ? "bg-red-50 text-red-700" : "bg-stone-100 text-stone-500"}`}>{paper.priority}</span>
-          <span className="rounded bg-stone-100 px-2 py-0.5 font-mono text-xs text-stone-500">{r.bibtex_key}</span>
-          <span className="rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{STATUS_LABEL[paper.reading_status]}</span>
+      <article className="rounded border border-stone-200 bg-white p-6 sm:p-8">
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          {paper.priority === "high" && (
+            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">High priority</span>
+          )}
+          <span className="rounded bg-stone-100 px-2 py-0.5 font-mono text-[11px] text-stone-500">{r.bibtex_key}</span>
+          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">{STATUS_LABEL[paper.reading_status]}</span>
         </div>
-        <h1 className="mb-1 text-xl font-semibold tracking-tight">{r.title}</h1>
-        <p className="mb-4 text-sm text-stone-500">{authorLine(r.authors)}{r.year ? ` · ${r.year}` : ""}{r.venue ? ` · ${r.venue}` : ""}</p>
-        <div className="mb-4 flex items-center gap-3 text-xs">
-          <button onClick={listen} className="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400">
+        <h1 className="mb-1.5 text-2xl font-semibold leading-snug tracking-tight text-stone-900">{r.title}</h1>
+        <p className="mb-5 text-sm text-stone-500">{authorLine(r.authors)}{r.year ? ` · ${r.year}` : ""}{r.venue ? ` · ${r.venue}` : ""}</p>
+        <div className="mb-5 flex flex-wrap items-center gap-3 text-xs">
+          <button
+            onClick={listen}
+            className="rounded border border-stone-300 bg-white px-2.5 py-1 font-medium text-stone-600 transition-colors hover:border-stone-400 hover:bg-stone-50"
+          >
             {listening ? "⏸ Stop (l)" : "🔊 Listen (l)"}
           </button>
-          <Link to={`/references/${r.id}`} className="text-indigo-600 hover:underline">Open reader ↗</Link>
-          {r.doi && <a href={`https://doi.org/${r.doi}`} className="text-indigo-600 hover:underline">DOI ↗</a>}
+          <Link to={`/references/${r.id}`} className="font-medium text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">Open reader ↗</Link>
+          {r.doi && <a href={`https://doi.org/${r.doi}`} className="font-medium text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">DOI ↗</a>}
         </div>
         {tldr && (
-          <ul className="mb-3 list-disc space-y-1 rounded bg-stone-50 p-3 pl-7 text-sm text-stone-600">
+          <ul className="mb-4 list-disc space-y-1.5 rounded border border-stone-100 bg-stone-50 p-4 pl-8 text-sm leading-relaxed text-stone-600">
             {tldr.map((s, i) => <li key={i}>{s}</li>)}
           </ul>
         )}
         {r.abstract
-          ? <p className="text-sm leading-relaxed text-stone-700">{r.abstract}</p>
+          ? <p className="max-w-prose text-[15px] leading-7 text-stone-700">{r.abstract}</p>
           : <p className="text-sm italic text-stone-400">No abstract on file — open the reader for the PDF.</p>}
       </article>
 
       {noteOpen ? (
-        <div className="mt-4 rounded-lg border border-indigo-200 bg-white p-4">
+        <div className="mt-4 rounded border border-indigo-200 bg-white p-4 shadow-sm">
           <textarea autoFocus value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={3}
                     placeholder={`Quick note on ${r.bibtex_key}… (Enter to save, Esc to cancel)`}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveNote(); } }}
-                    className="w-full rounded border border-stone-300 bg-white p-2 text-sm focus:border-indigo-600 focus:outline-none" />
-          <div className="mt-2 flex gap-2">
-            <button onClick={saveNote} className="rounded bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700">Save note</button>
-            <button onClick={() => setNoteOpen(false)} className="text-xs text-stone-500 hover:underline">Cancel</button>
+                    className="w-full rounded border border-stone-300 bg-white p-2.5 text-sm leading-relaxed text-stone-700 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600" />
+          <div className="mt-2.5 flex items-center gap-3">
+            <button onClick={saveNote} className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700">Save note</button>
+            <button onClick={() => setNoteOpen(false)} className="text-xs text-stone-500 transition-colors hover:text-stone-700 hover:underline">Cancel</button>
           </div>
         </div>
       ) : (
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-stone-500">
-          <Key k="1" label="To read" /><Key k="2" label="Skimmed" /><Key k="3" label="Read →" /><Key k="4" label="Annotated →" />
-          <span className="mx-1 text-stone-300">|</span>
-          <Key k="n" label="Next" /><Key k="p" label="Prev" /><Key k="j" label="Note" /><Key k="l" label="Listen" /><Key k="s" label="tl;dr" />
+        <div className="mt-5 space-y-3 text-center">
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            <Key k="1" label="To read" /><Key k="2" label="Skimmed" /><Key k="3" label="Read →" accent /><Key k="4" label="Annotated →" accent />
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            <Key k="n" label="Next" /><Key k="p" label="Prev" /><Key k="j" label="Note" /><Key k="l" label="Listen" /><Key k="s" label="tl;dr" />
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function Key({ k, label }: { k: string; label: string }) {
+function Key({ k, label, accent = false }: { k: string; label: string; accent?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1">
-      <kbd className="rounded border border-stone-300 bg-stone-50 px-1.5 py-0.5 font-mono text-[10px] text-stone-600">{k}</kbd>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+        accent
+          ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+          : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"
+      }`}
+    >
+      <kbd className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
+        accent ? "border-indigo-300 bg-white text-indigo-700" : "border-stone-300 bg-stone-50 text-stone-600"
+      }`}>{k}</kbd>
       {label}
     </span>
   );

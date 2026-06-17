@@ -8,7 +8,11 @@ import { PetSvg } from "./PetSvg";
 import { UpdaterButton } from "./UpdaterButton";
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
-  `block rounded px-2 py-1.5 ${isActive ? "bg-stone-100 font-medium" : "text-stone-600 hover:bg-stone-50"}`;
+  `relative block rounded-md px-3 py-1.5 transition-colors ${
+    isActive
+      ? "bg-indigo-50 font-medium text-indigo-700 before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-indigo-600"
+      : "text-stone-500 hover:bg-stone-50 hover:text-stone-900"
+  }`;
 
 /** SPA chrome mirroring the classic sidebar; unmigrated sections link to server pages. */
 export default function Layout() {
@@ -104,10 +108,12 @@ export default function Layout() {
   return (
     <div className="flex h-full">
       <CommandBar />
-      <aside className="fixed inset-y-0 left-0 flex w-56 flex-col border-r border-stone-200 bg-white px-4 py-6">
-        <a href="/" className="mb-1 text-lg font-semibold tracking-tight">Atlas</a>
-        <p className="mb-4 text-[10px] uppercase tracking-wide text-stone-400">⌘K for anything</p>
-        <nav className="space-y-1 text-sm">
+      <aside className="fixed inset-y-0 left-0 flex w-56 flex-col border-r border-stone-200 bg-white px-3 py-6">
+        <div className="px-2">
+          <a href="/" className="block text-lg font-semibold tracking-tight text-stone-900">Atlas</a>
+          <p className="mt-0.5 text-[10px] uppercase tracking-wide text-stone-400">⌘K for anything</p>
+        </div>
+        <nav className="mt-6 space-y-0.5 text-sm">
           <NavLink to="/" end className={navCls}>Dashboard</NavLink>
           <NavLink to="/review" className={navCls}>Review</NavLink>
           <NavLink to="/projects" className={navCls}>Projects</NavLink>
@@ -118,7 +124,7 @@ export default function Layout() {
           <NavLink to="/inbox" className={navCls}>Inbox</NavLink>
           <NavLink to="/search" className={navCls}>Search</NavLink>
         </nav>
-        <div className="mt-auto pt-6 text-xs text-stone-400">
+        <div className="mt-auto border-t border-stone-100 px-2 pt-4 text-xs text-stone-400">
           {pet && (
             <a href="/pet/" title={`${pet.name} is ${pet.mood}`} className="group mb-3 block">
               <span
@@ -153,9 +159,9 @@ export default function Layout() {
               </span>
             </a>
           )}
-          <NavLink to="/automations" className="mb-2 block hover:text-stone-600">Automations</NavLink>
+          <NavLink to="/automations" className="mb-2 block rounded px-1 py-0.5 transition-colors hover:text-stone-700">Automations</NavLink>
           <UpdaterButton />
-          <a href="/classic/" className="hover:text-stone-600">← Classic Atlas</a>
+          <a href="/classic/" className="block rounded px-1 py-0.5 transition-colors hover:text-stone-700">← Classic Atlas</a>
         </div>
       </aside>
       <main className="ml-56 min-w-0 flex-1">
