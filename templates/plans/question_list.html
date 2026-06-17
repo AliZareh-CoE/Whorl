@@ -11,26 +11,26 @@
 {% include "projects/_subnav.html" %}
 
 <div class="mb-6 flex items-center justify-between">
-  <h1 class="text-2xl font-semibold tracking-tight">Research questions</h1>
+  <h1 class="text-2xl font-semibold tracking-tight text-stone-900">Research questions</h1>
   <a href="{% url 'plans:question_create' project.slug %}"
-     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add question</a>
+     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700">Add question</a>
 </div>
 
 {% if questions %}
   <div class="space-y-3">
     {% for q in questions %}
-      <article id="question-{{ q.pk }}" class="rounded border border-stone-200 bg-white px-5 py-4">
+      <article id="question-{{ q.pk }}" class="group rounded border border-stone-200 bg-white px-5 py-4 shadow-sm transition-colors hover:border-stone-300">
         <div class="flex items-start gap-3">
-          <p class="text-sm">{{ q.question }}</p>
-          <span class="ml-auto shrink-0 rounded px-2 py-0.5 text-xs
+          <p class="text-sm leading-relaxed text-stone-800">{{ q.question }}</p>
+          <span class="ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-medium
             {% if q.status == 'answered' %}bg-green-50 text-green-700
             {% elif q.status == 'partially_answered' %}bg-amber-50 text-amber-700
             {% elif q.status == 'abandoned' %}bg-stone-100 text-stone-500
             {% else %}bg-indigo-50 text-indigo-700{% endif %}">{{ q.get_status_display }}</span>
-          <a href="{% url 'plans:question_edit' project.slug q.pk %}" class="shrink-0 text-xs text-stone-500 hover:underline">Edit</a>
+          <a href="{% url 'plans:question_edit' project.slug q.pk %}" class="shrink-0 text-xs text-stone-500 opacity-0 transition-colors hover:text-stone-700 hover:underline group-hover:opacity-100">Edit</a>
         </div>
         {% if q.phases.all %}
-          <p class="mt-1 text-xs text-stone-400">
+          <p class="mt-1.5 text-xs text-stone-400">
             Phases:
             {% for phase in q.phases.all %}{{ phase.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
           </p>
@@ -40,8 +40,8 @@
   </div>
   <p class="mt-3 text-xs text-stone-400">{{ questions|length }} research question{{ questions|length|pluralize }}.</p>
 {% else %}
-  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
-    <p class="mb-2 text-stone-600">Research questions anchor the plan: every phase should serve at least one question.</p>
+  <div class="rounded border border-dashed border-stone-300 bg-white px-6 py-10 text-center">
+    <p class="mx-auto mb-3 max-w-md text-sm leading-relaxed text-stone-600">Research questions anchor the plan: every phase should serve at least one question.</p>
     <a href="{% url 'plans:question_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Add your first question</a>
   </div>
 {% endif %}

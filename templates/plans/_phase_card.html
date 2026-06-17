@@ -1,9 +1,9 @@
 {% load markdown_extras %}
 <section id="phase-{{ phase.pk }}" class="card">
   <div class="mb-2 flex items-baseline gap-3">
-    <span class="text-xs text-stone-400">{{ phase.order }}</span>
-    <h2 class="font-medium">{{ phase.name }}</h2>
-    <span class="rounded px-2 py-0.5 text-xs
+    <span class="text-xs font-medium text-stone-400">{{ phase.order }}</span>
+    <h2 class="font-medium tracking-tight text-stone-900">{{ phase.name }}</h2>
+    <span class="rounded-full px-2 py-0.5 text-xs font-medium
       {% if phase.status == 'done' %}bg-green-50 text-green-700
       {% elif phase.status == 'in_progress' %}bg-indigo-50 text-indigo-700
       {% elif phase.status == 'blocked' %}bg-red-50 text-red-700
@@ -12,8 +12,8 @@
       <span class="text-xs text-stone-400">{{ phase.target_start|default:"…" }} → {{ phase.target_end|default:"…" }}</span>
     {% endif %}
     <span class="ml-auto"></span>
-    <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:milestone_create' project.slug phase.pk %}" href="{% url 'plans:milestone_create' project.slug phase.pk %}" class="text-xs text-indigo-600 hover:underline">+ milestone</a>
-    <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:phase_edit' project.slug phase.pk %}" href="{% url 'plans:phase_edit' project.slug phase.pk %}" class="text-xs text-stone-500 hover:underline">Edit</a>
+    <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:milestone_create' project.slug phase.pk %}" href="{% url 'plans:milestone_create' project.slug phase.pk %}" class="text-xs font-medium text-indigo-600 hover:underline">+ milestone</a>
+    <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:phase_edit' project.slug phase.pk %}" href="{% url 'plans:phase_edit' project.slug phase.pk %}" class="text-xs text-stone-500 transition-colors hover:text-stone-700 hover:underline">Edit</a>
   </div>
 
   {% if phase.objective %}
@@ -25,53 +25,53 @@
       <span>{{ counts.0 }}/{{ counts.1 }} milestones</span>
     </div>
   {% endwith %}
-  <div class="mb-2 h-1.5 w-full rounded-full bg-stone-100">
+  <div class="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
     <div class="h-1.5 rounded-full" style="width: {{ phase.progress }}%; background: {{ project.color }}"></div>
   </div>
 
   <ul class="divide-y divide-stone-100">
     {% for milestone in phase.milestones.all %}
-      <li class="py-1.5">
-        <div class="flex items-center gap-3">
+      <li class="group py-1.5">
+        <div class="flex items-center gap-3 rounded px-2 py-1 transition-colors hover:bg-stone-50">
           <button type="button"
                   hx-post="{% url 'plans:milestone_toggle' project.slug milestone.pk %}"
                   hx-target="#phase-{{ phase.pk }}" hx-swap="outerHTML"
-                  class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs
+                  class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs transition-colors
                          after:absolute after:-inset-2.5 after:content-['']
                          {% if milestone.completed_at %}border-green-600 bg-green-600 text-white{% else %}border-stone-300 bg-white text-transparent hover:border-stone-400{% endif %}"
                   aria-label="Toggle milestone">✓</button>
-          <span class="text-sm {% if milestone.completed_at %}text-stone-400 line-through{% endif %}">{{ milestone.title }}</span>
+          <span class="text-sm {% if milestone.completed_at %}text-stone-400 line-through{% else %}text-stone-800{% endif %}">{{ milestone.title }}</span>
           {% if milestone.due_date %}
             <span class="text-xs {% if milestone.is_overdue %}font-medium text-red-600{% else %}text-stone-400{% endif %}">
               due {{ milestone.due_date }}{% if milestone.is_overdue %} · overdue{% endif %}
             </span>
           {% endif %}
           <span class="ml-auto"></span>
-          <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:task_create' project.slug milestone.pk %}" href="{% url 'plans:task_create' project.slug milestone.pk %}" class="text-xs text-stone-400 hover:text-indigo-600 hover:underline">+ task</a>
-          <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:milestone_edit' project.slug milestone.pk %}" href="{% url 'plans:milestone_edit' project.slug milestone.pk %}" class="text-xs text-stone-400 hover:underline">Edit</a>
+          <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:task_create' project.slug milestone.pk %}" href="{% url 'plans:task_create' project.slug milestone.pk %}" class="text-xs text-stone-400 opacity-0 transition-colors hover:text-indigo-600 hover:underline group-hover:opacity-100">+ task</a>
+          <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:milestone_edit' project.slug milestone.pk %}" href="{% url 'plans:milestone_edit' project.slug milestone.pk %}" class="text-xs text-stone-400 opacity-0 transition-colors hover:text-stone-600 hover:underline group-hover:opacity-100">Edit</a>
         </div>
         {% if milestone.tasks.all %}
-          <ul class="ml-7 mt-1 space-y-1">
+          <ul class="ml-7 mt-1.5 space-y-1">
             {% for task in milestone.tasks.all %}
               <li class="flex items-center gap-2 text-sm">
                 <button type="button"
                         hx-post="{% url 'plans:task_toggle' project.slug task.pk %}"
                         hx-target="#phase-{{ phase.pk }}" hx-swap="outerHTML"
-                        class="relative flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]
+                        class="relative flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] transition-colors
                                after:absolute after:-inset-2.5 after:content-['']
                                {% if task.done %}border-stone-400 bg-stone-400 text-white{% else %}border-stone-300 bg-white text-transparent hover:border-stone-400{% endif %}"
                         aria-label="Toggle task">✓</button>
-                <span class="{% if task.done %}text-stone-400 line-through{% endif %}">{{ task.title }}</span>
+                <span class="{% if task.done %}text-stone-400 line-through{% else %}text-stone-700{% endif %}">{{ task.title }}</span>
                 {% if task.due_date %}<span class="text-xs text-stone-400">due {{ task.due_date }}</span>{% endif %}
-                <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:task_edit' project.slug task.pk %}" href="{% url 'plans:task_edit' project.slug task.pk %}" class="text-xs text-stone-300 hover:text-stone-500 hover:underline">edit</a>
+                <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:task_edit' project.slug task.pk %}" href="{% url 'plans:task_edit' project.slug task.pk %}" class="text-xs text-stone-300 transition-colors hover:text-stone-500 hover:underline">edit</a>
               </li>
             {% endfor %}
           </ul>
         {% endif %}
       </li>
     {% empty %}
-      <li class="py-1.5 text-sm text-stone-400">No milestones yet —
-        <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:milestone_create' project.slug phase.pk %}" href="{% url 'plans:milestone_create' project.slug phase.pk %}" class="text-indigo-600 hover:underline">add one</a>.</li>
+      <li class="py-2 text-sm text-stone-400">No milestones yet —
+        <a hx-target="#modal-slot" hx-swap="innerHTML" hx-get="{% url 'plans:milestone_create' project.slug phase.pk %}" href="{% url 'plans:milestone_create' project.slug phase.pk %}" class="font-medium text-indigo-600 hover:underline">add one</a>.</li>
     {% endfor %}
   </ul>
 </section>

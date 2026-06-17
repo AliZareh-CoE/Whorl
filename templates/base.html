@@ -27,14 +27,14 @@
            @touchstart="touchX = $event.touches[0].clientX"
            @touchend="if (touchX !== null && $event.changedTouches[0].clientX - touchX < -60) sidebarOpen = false; touchX = null"
            class="fixed inset-y-0 left-0 z-50 w-56 -translate-x-full transform border-r border-stone-200 bg-white px-4 py-6 flex flex-col transition-transform duration-200 lg:translate-x-0">
-      <a href="{% url 'core:dashboard' %}" class="text-lg font-semibold tracking-tight mb-4">Atlas</a>
+      <a href="{% url 'core:dashboard' %}" class="mb-5 text-lg font-semibold tracking-tight text-stone-900 hover:text-indigo-600">Atlas</a>
       <form action="{% url 'core:search' %}" method="get" class="relative mb-4">
         <input type="search" name="q" id="global-search" placeholder="Search…  ( / )" value="{{ request.GET.q|default:'' }}"
                aria-label="Search everything" autocomplete="off"
                role="combobox" aria-autocomplete="list" aria-controls="suggest-listbox" aria-expanded="false"
                hx-get="{% url 'core:search_suggest' %}" hx-trigger="keyup changed delay:250ms"
                hx-target="#search-suggest" hx-swap="innerHTML"
-               class="w-full rounded border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm focus:border-indigo-600 focus:bg-white focus:outline-none">
+               class="w-full rounded border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm placeholder:text-stone-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20">
         <div id="search-suggest" class="absolute left-0 right-0 top-full z-50"></div>
       </form>
       <nav class="space-y-1 text-sm">

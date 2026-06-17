@@ -12,35 +12,35 @@
 {% include "projects/_subnav.html" %}
 {% include "research/_tabs.html" %}
 
-<div class="mb-4 flex items-center justify-between">
-  <h1 class="text-2xl font-semibold tracking-tight">Experiment log</h1>
+<div class="mb-6 flex items-center justify-between gap-4">
+  <h1 class="text-2xl font-semibold tracking-tight text-stone-900">Experiment log</h1>
   <a href="{% url 'research:experiment_create' project.slug %}"
-     class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">New entry</a>
+     class="shrink-0 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">New entry</a>
 </div>
 
 {% if entries %}
   <div class="space-y-4">
     {% for entry in entries %}
-      <article id="experiment-{{ entry.pk }}" class="card">
-        <div class="mb-1 flex items-baseline gap-3">
-          <span class="font-mono text-xs text-stone-400">{{ entry.date }}</span>
-          <h2 class="font-medium">{{ entry.title }}</h2>
+      <article id="experiment-{{ entry.pk }}" class="card transition-colors hover:border-stone-300">
+        <div class="mb-2 flex items-baseline gap-3">
+          <span class="font-mono text-xs tabular-nums text-stone-400">{{ entry.date }}</span>
+          <h2 class="font-medium text-stone-900">{{ entry.title }}</h2>
           <span class="ml-auto"></span>
           {% if entry.commit_url %}
             <a href="{{ entry.commit_url }}" target="_blank" rel="noopener"
-               class="font-mono text-xs text-indigo-600 hover:underline" title="{{ entry.commit_url }}">⎇ {{ entry.commit_label }}</a>
+               class="shrink-0 rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-indigo-600 transition-colors hover:bg-stone-200" title="{{ entry.commit_url }}">⎇ {{ entry.commit_label }}</a>
           {% endif %}
-          <a href="{% url 'research:experiment_edit' project.slug entry.pk %}" class="text-xs text-stone-500 hover:underline">Edit</a>
+          <a href="{% url 'research:experiment_edit' project.slug entry.pk %}" class="shrink-0 text-xs text-stone-500 transition-colors hover:text-indigo-600 hover:underline">Edit</a>
         </div>
         {% if entry.body %}<div class="prose prose-stone max-w-none text-sm">{{ entry.body|markdownify }}</div>{% endif %}
         {% if entry.protocol_id %}
-          <p class="mt-2 text-xs text-stone-400">
+          <p class="mt-3 text-xs text-stone-500">
             Protocol: <a href="{% url 'research:protocols' project.slug %}#protocol-{{ entry.protocol_id }}"
               class="text-indigo-600 hover:underline">{{ entry.protocol }}</a>
           </p>
         {% endif %}
         {% if entry.hypotheses.all %}
-          <p class="mt-2 text-xs text-stone-400">
+          <p class="mt-2 text-xs text-stone-500">
             Tests: {% for h in entry.hypotheses.all %}“{{ h.statement|truncatechars:60 }}”{% if not forloop.last %}, {% endif %}{% endfor %}
           </p>
         {% endif %}
@@ -48,8 +48,8 @@
     {% endfor %}
   </div>
 {% else %}
-  <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
-    <p class="mb-2 text-stone-600">A dated lab notebook: setup, what happened, outcome. Link entries to the hypotheses they test.</p>
+  <div class="rounded border border-dashed border-stone-300 bg-white p-12 text-center">
+    <p class="mx-auto mb-3 max-w-md text-sm leading-relaxed text-stone-600">A dated lab notebook: setup, what happened, outcome. Link entries to the hypotheses they test.</p>
     <a href="{% url 'research:experiment_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Write the first entry</a>
   </div>
 {% endif %}

@@ -25,12 +25,12 @@
     <a hx-get="{% url 'documents:folder_create' project.slug %}{% if current_folder %}?parent={{ current_folder.pk }}{% endif %}"
        hx-target="#modal-slot" hx-swap="innerHTML"
        href="{% url 'documents:folder_create' project.slug %}{% if current_folder %}?parent={{ current_folder.pk }}{% endif %}"
-       class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">New folder</a>
+       class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50">New folder</a>
     <button type="button" onclick="document.getElementById('multi-file-input').click()"
-            class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400"
+            class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50"
             title="Or just drag files anywhere onto this page">Quick upload</button>
     <a href="{% url 'documents:upload' project.slug %}{% if current_folder %}?folder={{ current_folder.pk }}{% endif %}"
-       class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Upload</a>
+       class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">Upload</a>
   </div>
 </div>
 
@@ -38,10 +38,11 @@
   <div class="w-64 shrink-0">
     <div class="card text-sm">
       <a href="{% url 'documents:index' project.slug %}"
-         class="block rounded px-2 py-1 {% if not current_folder and not show_all %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Project root</a>
+         class="block rounded px-2 py-1 transition-colors {% if not current_folder and not show_all %}bg-indigo-50 font-medium text-indigo-700{% else %}text-stone-600 hover:bg-stone-50{% endif %}">Project root</a>
       <a href="{% url 'documents:index' project.slug %}?all"
-         class="block rounded px-2 py-1 {% if show_all %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">All documents</a>
-      <div class="mt-2 border-t border-stone-100 pt-2">
+         class="block rounded px-2 py-1 transition-colors {% if show_all %}bg-indigo-50 font-medium text-indigo-700{% else %}text-stone-600 hover:bg-stone-50{% endif %}">All documents</a>
+      <div class="mt-3 border-t border-stone-100 pt-3">
+        <p class="mb-1 px-2 text-xs font-medium uppercase tracking-wide text-stone-400">Folders</p>
         {% if tree %}
           {% include "documents/_folder_nodes.html" with nodes=tree %}
         {% else %}
@@ -49,18 +50,18 @@
         {% endif %}
       </div>
       {% if tags %}
-        <div class="mt-2 border-t border-stone-100 pt-2">
-          <p class="mb-1 px-2 text-xs uppercase tracking-wide text-stone-400">Tags</p>
+        <div class="mt-3 border-t border-stone-100 pt-3">
+          <p class="mb-1.5 px-2 text-xs font-medium uppercase tracking-wide text-stone-400">Tags</p>
           <div class="flex flex-wrap gap-1 px-2">
             {% for tag in tags %}
               <a href="?{% if current_folder %}folder={{ current_folder.pk }}&{% elif show_all %}all&{% endif %}tag={{ tag.pk }}"
-                 class="rounded-full border px-2 py-0.5 text-xs {% if current_tag == tag %}border-indigo-600 text-indigo-700{% else %}border-stone-200 text-stone-500 hover:border-stone-400{% endif %}"
+                 class="rounded-full border px-2 py-0.5 text-xs transition-colors {% if current_tag == tag %}border-indigo-600 bg-indigo-50 text-indigo-700{% else %}border-stone-200 text-stone-500 hover:border-stone-400 hover:bg-stone-50{% endif %}"
                  {% if tag.color %}style="border-color: {{ tag.color }}"{% endif %}>{{ tag.name }}</a>
             {% endfor %}
           </div>
         </div>
       {% endif %}
-      <a href="{% url 'documents:tags' project.slug %}" class="mt-2 block px-2 text-xs text-stone-400 hover:underline">Manage tags</a>
+      <a href="{% url 'documents:tags' project.slug %}" class="mt-3 block px-2 text-xs text-stone-400 transition-colors hover:text-stone-600 hover:underline">Manage tags</a>
     </div>
   </div>
 
@@ -80,8 +81,8 @@
           {% endfor %}
         </nav>
         <span class="ml-auto"></span>
-        <a hx-get="{% url 'documents:folder_edit' project.slug current_folder.pk %}" hx-target="#modal-slot" hx-swap="innerHTML" href="{% url 'documents:folder_edit' project.slug current_folder.pk %}" class="text-xs hover:underline">Rename / move</a>
-        <a href="{% url 'documents:folder_delete' project.slug current_folder.pk %}" class="text-xs text-red-600 hover:underline">Delete</a>
+        <a hx-get="{% url 'documents:folder_edit' project.slug current_folder.pk %}" hx-target="#modal-slot" hx-swap="innerHTML" href="{% url 'documents:folder_edit' project.slug current_folder.pk %}" class="text-xs text-stone-500 transition-colors hover:text-stone-700 hover:underline">Rename / move</a>
+        <a href="{% url 'documents:folder_delete' project.slug current_folder.pk %}" class="text-xs text-red-600 transition-colors hover:text-red-700 hover:underline">Delete</a>
       </div>
     {% endif %}
     {% if current_tag %}
@@ -134,19 +135,19 @@
           </div>
         </div>
       </form>
-      <div class="overflow-x-auto"><table class="w-full min-w-[640px] border-collapse text-sm">
+      <div class="card overflow-x-auto p-0"><table class="w-full min-w-[640px] border-collapse text-sm">
         <thead>
-          <tr class="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-400">
-            <th class="w-6 py-1.5 pr-2">
+          <tr class="border-b border-stone-200 text-left text-xs font-medium uppercase tracking-wide text-stone-400">
+            <th class="w-6 py-2 pr-2 pl-4">
               <input type="checkbox" aria-label="Select all documents" class="size-4 rounded border-stone-300 accent-indigo-600"
                      @click="document.querySelectorAll('input[name=ids]').forEach(c => c.checked = $event.target.checked); n = document.querySelectorAll('input[name=ids]:checked').length">
             </th>
-            <th class="py-1.5 pr-4 font-medium">Title</th>
-            <th class="py-1.5 pr-4 font-medium">Folder</th>
-            <th class="py-1.5 pr-4 font-medium">Tags</th>
-            <th class="py-1.5 pr-4 font-medium">Size</th>
-            <th class="py-1.5 pr-4 font-medium">Added</th>
-            <th class="py-1.5"></th>
+            <th class="py-2 pr-4 font-medium">Title</th>
+            <th class="py-2 pr-4 font-medium">Folder</th>
+            <th class="py-2 pr-4 font-medium">Tags</th>
+            <th class="py-2 pr-4 font-medium">Size</th>
+            <th class="py-2 pr-4 font-medium">Added</th>
+            <th class="py-2 pr-4"></th>
           </tr>
         </thead>
         <tbody>
@@ -158,14 +159,14 @@
       </div>
       </div>
     {% else %}
-      <div class="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
-        <p class="mb-2 text-stone-600">
+      <div class="rounded-lg border border-dashed border-stone-300 bg-white p-12 text-center">
+        <p class="mb-3 text-sm text-stone-500">
           {% if current_tag %}No documents with this tag here.
           {% elif current_folder %}This folder is empty.
           {% else %}Documents live in per-project folders — PDFs, data, slides, anything.{% endif %}
         </p>
         <a href="{% url 'documents:upload' project.slug %}{% if current_folder %}?folder={{ current_folder.pk }}{% endif %}"
-           class="text-sm font-medium text-indigo-600 hover:underline">Upload a document</a>
+           class="inline-block rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">Upload a document</a>
       </div>
     {% endif %}
   </div>

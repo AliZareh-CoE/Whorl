@@ -1,16 +1,16 @@
 <tr id="doc-{{ doc.pk }}" class="border-b border-stone-100 transition-colors hover:bg-stone-50">
-  <td class="w-6 py-1.5 pr-2">
+  <td class="w-6 py-2 pr-2 pl-4 align-top">
     <input type="checkbox" name="ids" value="{{ doc.pk }}" form="bulk-form"
            aria-label="Select {{ doc.title }}" class="size-4 rounded border-stone-300 accent-indigo-600">
   </td>
-  <td class="py-1.5 pr-4">
-    <a href="{% url 'documents:download' project.slug doc.pk %}" class="font-medium hover:underline">{{ doc.title }}</a>
-    {% if doc.description %}<p class="text-xs text-stone-400">{{ doc.description|truncatechars:80 }}</p>{% endif %}
+  <td class="py-2 pr-4">
+    <a href="{% url 'documents:download' project.slug doc.pk %}" class="font-medium text-stone-900 hover:text-indigo-600 hover:underline">{{ doc.title }}</a>
+    {% if doc.description %}<p class="mt-0.5 text-xs text-stone-400">{{ doc.description|truncatechars:80 }}</p>{% endif %}
   </td>
-  <td class="py-1.5 pr-4 text-stone-500">
+  <td class="py-2 pr-4 text-stone-500">
     <select hx-post="{% url 'documents:move' project.slug doc.pk %}" hx-target="#doc-{{ doc.pk }}" hx-swap="outerHTML"
             name="folder" title="Move to folder"
-            class="max-w-36 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs text-stone-500 hover:border-stone-300">
+            class="max-w-36 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:bg-white">
       <option value="" {% if not doc.folder %}selected{% endif %}>— root</option>
       {# `folders` comes from the index view as one cached list (#180); HTMX single-row
          swaps render this partial without it and fall back to a single query. #}
@@ -19,19 +19,21 @@
       {% endfor %}
     </select>
   </td>
-  <td class="py-1.5 pr-4">
+  <td class="py-2 pr-4">
+    <span class="flex flex-wrap gap-1">
     {% for tag in doc.tags.all %}
-      <span class="rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-500">{{ tag.name }}</span>
+      <span class="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-xs text-stone-500">{{ tag.name }}</span>
     {% endfor %}
+    </span>
   </td>
-  <td class="py-1.5 pr-4 text-stone-500">{{ doc.file_size|filesizeformat }}</td>
-  <td class="py-1.5 pr-4 text-stone-500">{{ doc.created_at|date:"Y-m-d" }}</td>
-  <td class="py-1.5 text-right whitespace-nowrap">
+  <td class="py-2 pr-4 text-stone-500 tabular-nums">{{ doc.file_size|filesizeformat }}</td>
+  <td class="py-2 pr-4 text-stone-500 tabular-nums">{{ doc.created_at|date:"Y-m-d" }}</td>
+  <td class="py-2 text-right whitespace-nowrap">
     <button type="button" hx-get="{% url 'documents:rename' project.slug doc.pk %}"
             hx-target="#doc-{{ doc.pk }}" hx-swap="outerHTML"
-            class="text-xs text-stone-500 hover:underline">Rename</button>
-    {% if doc.is_previewable %}<a href="{% url 'documents:preview' project.slug doc.pk %}" target="_blank" class="ml-2 text-xs text-indigo-600 hover:underline">Preview</a>{% endif %}
-    <a href="{% url 'documents:download' project.slug doc.pk %}" class="ml-2 text-xs text-indigo-600 hover:underline">Download</a>
-    <a href="{% url 'documents:document_edit' project.slug doc.pk %}" class="ml-2 text-xs text-stone-500 hover:underline">Edit</a>
+            class="text-xs text-stone-500 transition-colors hover:text-stone-700 hover:underline">Rename</button>
+    {% if doc.is_previewable %}<a href="{% url 'documents:preview' project.slug doc.pk %}" target="_blank" class="ml-2.5 text-xs text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">Preview</a>{% endif %}
+    <a href="{% url 'documents:download' project.slug doc.pk %}" class="ml-2.5 text-xs text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">Download</a>
+    <a href="{% url 'documents:document_edit' project.slug doc.pk %}" class="ml-2.5 text-xs text-stone-500 transition-colors hover:text-stone-700 hover:underline">Edit</a>
   </td>
 </tr>
