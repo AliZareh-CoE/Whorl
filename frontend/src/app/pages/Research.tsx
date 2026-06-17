@@ -6,6 +6,7 @@ import { api } from "../api";
 type Hypothesis = { id: number; statement: string; status: string; supports: number; contradicts: number };
 type Experiment = { id: number; date: string; title: string; body: string; commit_url: string; commit_label: string };
 type Dataset = { id: number; name: string; location: string; version: string; description: string };
+type Protocol = { id: number; title: string; version: number; is_current: boolean };
 type Page<T> = { count: number; results: T[] };
 
 const statusCls: Record<string, string> = {
@@ -31,6 +32,11 @@ export default function Research() {
     queryKey: ["datasets", slug],
     queryFn: () => api<Page<Dataset>>(`/datasets/?project=${slug}`),
   });
+  const { data: protocols } = useQuery({
+    queryKey: ["protocols", slug],
+    queryFn: () => api<Page<Protocol>>(`/protocols/?project=${slug}`),
+  });
+  const currentProtocols = (protocols?.results ?? []).filter((p) => p.is_current);
 
   return (
     <div>
@@ -94,6 +100,22 @@ export default function Research() {
               </li>
             ))}
             {datasets?.results.length === 0 && <li className="text-sm text-stone-400">No datasets registered.</li>}
+          </ul>
+        </section>
+        <section className="rounded border border-stone-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Protocols</h2>
+          <ul className="space-y-2">
+            {currentProtocols.map((p) => (
+              <li key={p.id} className="text-sm">
+                <span className="font-medium">{p.title}</span>
+                <span className="ml-2 rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-500">v{p.version}</span>
+              </li>
+            ))}
+            {currentProtocols.length === 0 && (
+              <li className="text-sm text-stone-400">
+                No protocols yet — <a href={`/projects/${slug}/research/protocols/`} className="text-indigo-600 hover:underline">write one</a>.
+              </li>
+            )}
           </ul>
         </section>
       </div>
