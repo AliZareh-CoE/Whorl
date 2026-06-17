@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api, petReact } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
+import { ErrorState } from "../../components/ErrorState";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
 type Milestone = {
@@ -32,7 +33,7 @@ const statusCls: Record<string, string> = {
 export default function Plan() {
   const { slug } = useParams();
   const queryClient = useQueryClient();
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["plan", slug],
     queryFn: () => api<PlanData>(`/projects/${slug}/plan/`),
   });
@@ -108,7 +109,7 @@ export default function Plan() {
       </div>
     );
   if (error || !data)
-    return <p className="text-sm text-red-600 dark:text-red-300">Couldn't load the plan.</p>;
+    return <ErrorState message="Couldn't load the plan." onRetry={() => refetch()} />;
 
   const totalMilestones = data.phases.reduce((n, p) => n + p.milestones.length, 0);
   const doneMilestones = data.phases.reduce(

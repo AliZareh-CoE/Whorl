@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { toggleCalm, useCalm } from "../calm";
 import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
+import { ErrorState } from "../../components/ErrorState";
 
 type Attention = {
   empty: boolean;
@@ -78,7 +79,7 @@ export default function Dashboard() {
   // page updates live (#278) — no remount, no settings page.
   const calm = useCalm();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api<Dash>("/dashboard/"),
   });
@@ -103,7 +104,7 @@ export default function Dashboard() {
         </div>
       </div>
     );
-  if (error || !data) return <p className="text-sm text-red-600 dark:text-red-300">Couldn't load the dashboard.</p>;
+  if (error || !data) return <ErrorState message="Couldn't load the dashboard." onRetry={() => refetch()} />;
 
   const attention = data.attention;
   return (

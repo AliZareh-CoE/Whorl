@@ -5,6 +5,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
+import { ErrorState } from "../../components/ErrorState";
 
 const TerminalPanel = lazy(() => import("./TerminalPanel"));
 
@@ -109,7 +110,7 @@ const isCsv = (f: FileNode) => /\.(csv|tsv)$/i.test(f.rel_path);
 // endpoints. PDFs use the browser's native viewer over the vendored, nosniff'd raw bytes.
 function FilePreview({ file }: { file: FileNode }) {
   const rawUrl = `/api/v1/documents/${file.id}/raw/`;
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["file-content", file.id],
     enabled: file.is_text,
     queryFn: () => api<{ content: string; truncated: boolean }>(`/documents/${file.id}/content/`),
@@ -136,7 +137,7 @@ function FilePreview({ file }: { file: FileNode }) {
         <SkeletonLines lines={6} />
       </div>
     );
-  if (error || !data) return <p className="text-sm text-red-600">Couldn't load this file.</p>;
+  if (error || !data) return <ErrorState message="Couldn't load this file." onRetry={() => refetch()} />;
 
   if (isCsv(file)) {
     const parsed = Papa.parse<string[]>(data.content.trim(), { skipEmptyLines: true });
@@ -223,7 +224,7 @@ function TextView({ file, content, truncated }: { file: FileNode; content: strin
 
 export default function Files() {
   const { slug } = useParams();
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["tree", slug],
     queryFn: () => api<Tree>(`/projects/${slug}/tree/`),
   });
@@ -454,7 +455,7 @@ export default function Files() {
         </div>
       </div>
     );
-  if (error || !data) return <p className="text-sm text-red-600">Couldn't load the file tree.</p>;
+  if (error || !data) return <ErrorState message="Couldn't load the file tree." onRetry={() => refetch()} />;
 
   const fileRow = (f: FileNode, depth: number) => (
     <button

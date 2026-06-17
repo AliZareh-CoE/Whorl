@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
+import { ErrorState } from "../../components/ErrorState";
 
 type Overview = {
   project: { name: string; slug: string; description: string; status: string; color: string };
@@ -33,7 +34,7 @@ const quickLinks = [
 
 export default function ProjectOverview() {
   const { slug } = useParams();
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["overview", slug],
     queryFn: () => api<Overview>(`/projects/${slug}/overview/`),
   });
@@ -59,7 +60,7 @@ export default function ProjectOverview() {
       </div>
     );
   if (error || !data)
-    return <p className="text-sm text-red-600 dark:text-red-300">Couldn't load this project.</p>;
+    return <ErrorState message="Couldn't load this project." onRetry={() => refetch()} />;
   const { project, progress } = data;
 
   return (

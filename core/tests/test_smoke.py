@@ -132,6 +132,19 @@ class TestSpaShell:
             assert verb in src
             assert verb in bundle
 
+    def test_data_load_failures_use_shared_error_state(self):
+        # #280: every page's data-load failure uses the retryable ErrorState, not a bare
+        # red line. Guard the component is built and no page regresses to the old pattern.
+        import re
+        from pathlib import Path
+
+        assert "Try again" in Path("frontend/src/components/ErrorState.tsx").read_text()
+        built = Path("static/js/islands/ErrorState-chunk.js").read_text()
+        assert "Try again" in built  # it compiled into the served bundle
+        # no page should still bail out with a bare red <p> on load failure
+        for page in Path("frontend/src/app/pages").glob("*.tsx"):
+            assert not re.search(r'text-red-600">Couldn.t load', page.read_text()), page.name
+
     def test_shell_sets_csrf_cookie(self, client_logged_in):
         # the SPA has no server-rendered form; its API writes need the token
         response = client_logged_in.get("/")
