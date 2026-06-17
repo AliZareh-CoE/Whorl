@@ -127,7 +127,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
   const allShownSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const arrow = (key: SortKey) => (sortKey === key ? (asc ? " ↑" : " ↓") : "");
   const th =
-    "py-2 pr-4 font-medium cursor-pointer select-none transition-colors hover:text-stone-600 focus:outline-none focus-visible:rounded-sm focus-visible:text-indigo-700 focus-visible:ring-1 focus-visible:ring-indigo-500";
+    "py-2 pr-4 font-medium cursor-pointer select-none transition-colors hover:text-stone-600 focus:outline-none focus-visible:rounded-sm focus-visible:text-indigo-700 focus-visible:ring-1 focus-visible:ring-indigo-500 dark:hover:text-stone-300";
   // a11y (#177): announce the sort state to screen readers and make the header
   // keyboard-operable, matching the server-rendered library table's aria-sort.
   const ariaSort = (key: SortKey): "ascending" | "descending" | "none" =>
@@ -153,7 +153,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder={`Filter ${documents.length} documents…`}
-          className="w-64 rounded border border-stone-300 bg-white px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+          className="w-64 rounded border border-stone-300 bg-white px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
         />
         {filter && (
           <span className="text-xs uppercase tracking-wide text-stone-400">
@@ -163,13 +163,13 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
       </div>
 
       {selected.size > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm">
-          <span className="font-medium text-indigo-800">{selected.size} selected</span>
-          <span className="mx-1 text-indigo-200">|</span>
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm dark:border-indigo-500/30 dark:bg-indigo-500/10">
+          <span className="font-medium text-indigo-800 dark:text-indigo-300">{selected.size} selected</span>
+          <span className="mx-1 text-indigo-200 dark:text-indigo-500/40">|</span>
           <select
             value={folderChoice}
             onChange={(e) => setFolderChoice(e.target.value)}
-            className="rounded border border-stone-300 bg-white px-2 py-1 text-xs"
+            className="rounded border border-stone-300 bg-white px-2 py-1 text-xs dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
           >
             <option value="">— root</option>
             {folders.map((f) => (
@@ -181,7 +181,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
           <button
             disabled={busy}
             onClick={() => bulk("move", { folder: folderChoice })}
-            className="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400"
+            className="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
           >
             Move
           </button>
@@ -190,7 +190,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
               <select
                 value={tagChoice}
                 onChange={(e) => setTagChoice(e.target.value)}
-                className="ml-2 rounded border border-stone-300 bg-white px-2 py-1 text-xs"
+                className="ml-2 rounded border border-stone-300 bg-white px-2 py-1 text-xs dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
               >
                 {tags.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -201,7 +201,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
               <button
                 disabled={busy}
                 onClick={() => bulk("tag", { tag: tagChoice })}
-                className="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400"
+                className="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
               >
                 Tag
               </button>
@@ -210,7 +210,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
           <span className="ml-auto" />
           <button
             onClick={() => setConfirmOpen(true)}
-            className="rounded border border-red-200 bg-white px-2 py-1 text-xs text-red-600 hover:border-red-400"
+            className="rounded border border-red-200 bg-white px-2 py-1 text-xs text-red-600 hover:border-red-400 dark:border-red-500/30 dark:bg-stone-800 dark:text-red-300"
           >
             Delete…
           </button>
@@ -220,7 +220,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-stone-200 text-left text-[11px] uppercase tracking-wide text-stone-400">
+            <tr className="border-b border-stone-200 text-left text-[11px] uppercase tracking-wide text-stone-400 dark:border-stone-800">
               <th className="w-6 py-2 pr-2">
                 <input
                   type="checkbox"
@@ -256,8 +256,8 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
             {rows.map((doc, index) => (
               <tr
                 key={doc.id}
-                className={`group border-b border-stone-100 transition-colors hover:bg-stone-50 ${
-                  selected.has(doc.id) ? "bg-indigo-50/60" : ""
+                className={`group border-b border-stone-100 transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800 ${
+                  selected.has(doc.id) ? "bg-indigo-50/60 dark:bg-indigo-500/10" : ""
                 }`}
               >
                 <td className="w-6 py-2 pr-2 align-top">
@@ -273,7 +273,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                 <td className="py-2 pr-4 align-top">
                   <a
                     href={doc.downloadUrl}
-                    className="font-medium text-stone-900 hover:text-indigo-700 focus:outline-none focus-visible:text-indigo-700 focus-visible:underline"
+                    className="font-medium text-stone-900 hover:text-indigo-700 focus:outline-none focus-visible:text-indigo-700 focus-visible:underline dark:text-stone-100 dark:hover:text-indigo-300"
                   >
                     {doc.title}
                   </a>
@@ -281,13 +281,13 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                     <p className="mt-0.5 truncate text-xs text-stone-400">{doc.description}</p>
                   )}
                 </td>
-                <td className="py-2 pr-4 align-top text-stone-500">{doc.folder || "— root"}</td>
+                <td className="py-2 pr-4 align-top text-stone-500 dark:text-stone-300">{doc.folder || "— root"}</td>
                 <td className="py-2 pr-4 align-top">
                   <div className="flex flex-wrap gap-1">
                     {doc.tags.map((t) => (
                       <span
                         key={t}
-                        className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-500"
+                        className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-500 dark:bg-stone-800 dark:text-stone-300"
                       >
                         {t}
                       </span>
@@ -306,7 +306,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                       onClick={() => setCommentsDoc(doc)}
                       aria-haspopup="dialog"
                       aria-label={`Comments on ${doc.title}`}
-                      className="text-stone-400 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                      className="text-stone-400 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500 dark:hover:text-indigo-300"
                     >
                       💬 {(doc.comments ?? 0) + (extraCounts[doc.id] ?? 0) || ""}
                     </button>
@@ -316,7 +316,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                           type="button"
                           onClick={() => setPreviewImage(doc)}
                           aria-haspopup="dialog"
-                          className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                          className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500 dark:text-stone-300 dark:hover:text-indigo-300"
                         >
                           Preview
                         </button>
@@ -325,20 +325,20 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                           href={doc.previewUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                          className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500 dark:text-stone-300 dark:hover:text-indigo-300"
                         >
                           Preview
                         </a>
                       ))}
                     <a
                       href={doc.downloadUrl}
-                      className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                      className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500 dark:text-stone-300 dark:hover:text-indigo-300"
                     >
                       Download
                     </a>
                     <a
                       href={doc.editUrl}
-                      className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500"
+                      className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500 dark:text-stone-300 dark:hover:text-indigo-300"
                     >
                       Edit
                     </a>
@@ -349,7 +349,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
             {rows.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center">
-                  <p className="text-sm font-medium text-stone-500">
+                  <p className="text-sm font-medium text-stone-500 dark:text-stone-300">
                     {filter.trim() ? "No matches" : "No documents yet"}
                   </p>
                   <p className="mx-auto mt-1 max-w-sm text-xs text-stone-400">
@@ -390,12 +390,12 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
             role="dialog"
             aria-modal="true"
             aria-label="Confirm bulk delete"
-            className="relative w-full max-w-sm rounded-lg border border-stone-200 bg-white p-6 shadow-xl"
+            className="relative w-full max-w-sm rounded-lg border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-800 dark:bg-stone-900"
           >
             <h2 className="mb-2 text-lg font-semibold tracking-tight">
               Delete selected documents?
             </h2>
-            <p className="mb-4 text-sm text-stone-500">
+            <p className="mb-4 text-sm text-stone-500 dark:text-stone-300">
               {selected.size} document(s) and their files will be removed. This cannot be
               undone.
             </p>
@@ -409,7 +409,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
               </button>
               <button
                 onClick={() => setConfirmOpen(false)}
-                className="text-sm text-stone-500 hover:underline"
+                className="text-sm text-stone-500 hover:underline dark:text-stone-300"
               >
                 Cancel
               </button>
@@ -474,15 +474,15 @@ function CommentsModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Comments on ${doc.title}`}
-        className="relative flex max-h-[80vh] w-full max-w-md flex-col rounded-lg border border-stone-200 bg-white shadow-xl"
+        className="relative flex max-h-[80vh] w-full max-w-md flex-col rounded-lg border border-stone-200 bg-white shadow-xl dark:border-stone-800 dark:bg-stone-900"
       >
-        <div className="flex items-start justify-between border-b border-stone-100 px-5 py-3">
+        <div className="flex items-start justify-between border-b border-stone-100 px-5 py-3 dark:border-stone-800">
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold tracking-tight">{doc.title}</h2>
             <p className="text-xs text-stone-400">Comments</p>
           </div>
           <button onClick={onClose} aria-label="Close"
-                  className="ml-3 rounded px-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600">
+                  className="ml-3 rounded px-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800 dark:hover:text-stone-300">
             ✕
           </button>
         </div>
@@ -494,13 +494,13 @@ function CommentsModal({
             </p>
           )}
           {comments?.map((c) => (
-            <div key={c.id} className="rounded border border-stone-100 bg-stone-50 px-3 py-2">
-              <p className="whitespace-pre-wrap text-sm text-stone-700">{c.body}</p>
+            <div key={c.id} className="rounded border border-stone-100 bg-stone-50 px-3 py-2 dark:border-stone-800 dark:bg-stone-800">
+              <p className="whitespace-pre-wrap text-sm text-stone-700 dark:text-stone-300">{c.body}</p>
               <p className="mt-1 text-xs text-stone-400">{c.created_at.slice(0, 10)}</p>
             </div>
           ))}
         </div>
-        <div className="border-t border-stone-100 px-5 py-3">
+        <div className="border-t border-stone-100 px-5 py-3 dark:border-stone-800">
           <textarea
             autoFocus
             value={body}
@@ -510,7 +510,7 @@ function CommentsModal({
             }}
             rows={2}
             placeholder="Add a comment… (⌘/Ctrl-Enter to post)"
-            className="w-full rounded border border-stone-300 bg-white p-2 text-sm focus:border-indigo-600 focus:outline-none"
+            className="w-full rounded border border-stone-300 bg-white p-2 text-sm focus:border-indigo-600 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
           />
           <div className="mt-2 flex items-center gap-3">
             <button
@@ -520,7 +520,7 @@ function CommentsModal({
             >
               {saving ? "Posting…" : "Post comment"}
             </button>
-            <button onClick={onClose} className="text-xs text-stone-500 hover:underline">
+            <button onClick={onClose} className="text-xs text-stone-500 hover:underline dark:text-stone-300">
               Close
             </button>
           </div>

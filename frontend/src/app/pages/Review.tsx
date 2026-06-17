@@ -24,10 +24,10 @@ function Section<T>({ title, items, render, empty }: {
   title: string; items: T[]; render: (x: T) => React.ReactNode; empty: string;
 }) {
   return (
-    <section className="rounded border border-stone-200 bg-white p-5">
+    <section className="rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
       <h2 className="mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400">
         {title}
-        {items.length > 0 && <span className="text-stone-300">{items.length}</span>}
+        {items.length > 0 && <span className="text-stone-300 dark:text-stone-400">{items.length}</span>}
       </h2>
       {items.length === 0 ? (
         <p className="text-sm text-stone-400">{empty}</p>
@@ -85,33 +85,33 @@ export default function Review() {
         </h1>
         <div className="flex items-center gap-2 text-sm">
           <button onClick={copyWeek}
-                  className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs hover:border-stone-400">
+                  className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
             {copied ? "✓ Copied" : "⧉ Copy week"}
           </button>
           <div className="flex items-center gap-1">
             <button onClick={() => setWeeksBack((w) => w + 1)}
-                    className="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400" aria-label="Previous week">◀</button>
+                    className="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300" aria-label="Previous week">◀</button>
             <button onClick={() => setWeeksBack((w) => Math.max(0, w - 1))} disabled={weeksBack === 0}
-                    className="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400 disabled:opacity-40" aria-label="Next week">▶</button>
+                    className="rounded border border-stone-300 bg-white px-2 py-1 hover:border-stone-400 disabled:opacity-40 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300" aria-label="Next week">▶</button>
           </div>
         </div>
       </div>
-      <p className="mb-6 text-sm text-stone-500">
+      <p className="mb-6 text-sm text-stone-500 dark:text-stone-300">
         {fmt(data.start)} – {fmt(data.end)} · {scope}
-        {total > 0 && <> · <span className="text-stone-700">{total} things happened</span></>}
+        {total > 0 && <> · <span className="text-stone-700 dark:text-stone-300">{total} things happened</span></>}
       </p>
 
       {total === 0 ? (
-        <div className="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+        <div className="rounded border border-dashed border-stone-300 bg-white p-10 text-center dark:border-stone-700 dark:bg-stone-900">
           <p className="mb-1 text-3xl">🌤️</p>
-          <p className="text-sm text-stone-500">A quiet week — nothing logged. That's allowed.</p>
+          <p className="text-sm text-stone-500 dark:text-stone-300">A quiet week — nothing logged. That's allowed.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4">
           <Section title="Papers read" items={data.papers_read} empty="No papers marked read."
             render={(p) => (
-              <Link to={`/references/${p.reference_id}`} className="flex items-baseline gap-2 hover:text-indigo-700">
-                <span className="rounded bg-stone-100 px-1 py-0.5 font-mono text-[10px] text-stone-500">{p.key}</span>
+              <Link to={`/references/${p.reference_id}`} className="flex items-baseline gap-2 hover:text-indigo-700 dark:hover:text-indigo-300">
+                <span className="rounded bg-stone-100 px-1 py-0.5 font-mono text-[10px] text-stone-500 dark:bg-stone-800 dark:text-stone-300">{p.key}</span>
                 <span className="min-w-0 flex-1 truncate">{p.title}</span>
                 {!slug && <span className="shrink-0 text-xs text-stone-400">{p.project}</span>}
               </Link>
@@ -121,12 +121,12 @@ export default function Review() {
               <div className="flex items-baseline gap-2">
                 <span aria-hidden="true">✓</span>
                 <span className="min-w-0 flex-1 truncate">{m.title}</span>
-                {!slug && <Link to={`/projects/${m.project_slug}`} className="shrink-0 text-xs text-stone-400 hover:text-indigo-700">{m.project}</Link>}
+                {!slug && <Link to={`/projects/${m.project_slug}`} className="shrink-0 text-xs text-stone-400 hover:text-indigo-700 dark:hover:text-indigo-300">{m.project}</Link>}
               </div>
             )} />
           <Section title="Notes written" items={data.notes_written} empty="No new notes."
             render={(n) => (
-              <Link to={`/projects/${n.project_slug}/notes/${n.id}`} className="flex items-baseline gap-2 hover:text-indigo-700">
+              <Link to={`/projects/${n.project_slug}/notes/${n.id}`} className="flex items-baseline gap-2 hover:text-indigo-700 dark:hover:text-indigo-300">
                 <span className="min-w-0 flex-1 truncate">{n.title}</span>
                 {!slug && <span className="shrink-0 text-xs text-stone-400">{n.project}</span>}
               </Link>
@@ -135,7 +135,7 @@ export default function Review() {
             render={(d) => (
               <div className="flex items-baseline gap-2">
                 <span className="min-w-0 flex-1 truncate">{d.title}</span>
-                {!slug && <Link to={`/projects/${d.project_slug}`} className="shrink-0 text-xs text-stone-400 hover:text-indigo-700">{d.project}</Link>}
+                {!slug && <Link to={`/projects/${d.project_slug}`} className="shrink-0 text-xs text-stone-400 hover:text-indigo-700 dark:hover:text-indigo-300">{d.project}</Link>}
               </div>
             )} />
           {data.experiments.length > 0 && (
@@ -145,7 +145,7 @@ export default function Review() {
                   <span className="min-w-0 flex-1 truncate">{e.title}</span>
                   <span className="shrink-0 text-xs text-stone-400">
                     {e.date}
-                    {!slug && <> · <Link to={`/projects/${e.project_slug}`} className="hover:text-indigo-700">{e.project}</Link></>}
+                    {!slug && <> · <Link to={`/projects/${e.project_slug}`} className="hover:text-indigo-700 dark:hover:text-indigo-300">{e.project}</Link></>}
                   </span>
                 </div>
               )} />

@@ -25,7 +25,7 @@ export default function Projects() {
     queryFn: () => api<Page<Project>>("/projects/"),
   });
 
-  if (isLoading) return <p className="text-sm text-stone-400">Loading projects…</p>;
+  if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading projects…</p>;
 
   const projects = data?.results ?? [];
 
@@ -33,8 +33,8 @@ export default function Projects() {
     <div>
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-stone-900">Projects</h1>
-          <p className="mt-1 text-sm text-stone-500">
+          <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Projects</h1>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
             {projects.length === 0
               ? "Every object in Atlas lives inside a project."
               : `${projects.length} ${projects.length === 1 ? "project" : "projects"}`}
@@ -49,9 +49,9 @@ export default function Projects() {
       </div>
 
       {projects.length === 0 ? (
-        <div className="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
-          <p className="mb-1 text-sm font-medium text-stone-700">No projects yet</p>
-          <p className="mb-5 text-sm text-stone-500">
+        <div className="rounded border border-dashed border-stone-300 bg-white p-10 text-center dark:border-stone-700 dark:bg-stone-900">
+          <p className="mb-1 text-sm font-medium text-stone-700 dark:text-stone-300">No projects yet</p>
+          <p className="mb-5 text-sm text-stone-500 dark:text-stone-400">
             A project is the home for your plan, literature, notes, and decisions.
           </p>
           <Link
@@ -67,7 +67,7 @@ export default function Projects() {
             <Link
               key={p.slug}
               to={`/projects/${p.slug}`}
-              className="group relative flex flex-col overflow-hidden rounded border border-stone-200 bg-white p-5 pl-6 transition-colors hover:border-stone-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              className="group relative flex flex-col overflow-hidden rounded border border-stone-200 bg-white p-5 pl-6 transition-colors hover:border-stone-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-stone-800 dark:bg-stone-900"
             >
               <span
                 aria-hidden="true"
@@ -75,7 +75,7 @@ export default function Projects() {
                 style={{ background: p.color }}
               />
               <div className="mb-1.5 flex items-start justify-between gap-3">
-                <h2 className="min-w-0 truncate font-medium text-stone-900 group-hover:text-indigo-700">
+                <h2 className="min-w-0 truncate font-medium text-stone-900 group-hover:text-indigo-700 dark:text-stone-100 dark:group-hover:text-indigo-400">
                   {p.name}
                 </h2>
                 <span
@@ -87,11 +87,11 @@ export default function Projects() {
                 </span>
               </div>
               {p.description ? (
-                <p className="line-clamp-2 text-sm leading-relaxed text-stone-500">
+                <p className="line-clamp-2 text-sm leading-relaxed text-stone-500 dark:text-stone-400">
                   {p.description}
                 </p>
               ) : (
-                <p className="text-sm italic text-stone-400">No description</p>
+                <p className="text-sm italic text-stone-400 dark:text-stone-400">No description</p>
               )}
             </Link>
           ))}

@@ -136,8 +136,8 @@ export default function ReadingFlow() {
     return (
       <div className="mx-auto max-w-lg px-4 pt-24 text-center">
         <p className="mb-3 text-4xl">📚</p>
-        <h1 className="mb-2 text-2xl font-semibold tracking-tight text-stone-900">Your reading queue is empty</h1>
-        <p className="mx-auto mb-8 max-w-sm text-sm leading-relaxed text-stone-500">
+        <h1 className="mb-2 text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Your reading queue is empty</h1>
+        <p className="mx-auto mb-8 max-w-sm text-sm leading-relaxed text-stone-500 dark:text-stone-400">
           {done.size > 0
             ? `You read ${done.size} paper${done.size > 1 ? "s" : ""} this session — nicely done. There's nothing left to work through here.`
             : "Nothing left to read in this project. Link new references to build the queue back up."}
@@ -156,59 +156,59 @@ export default function ReadingFlow() {
   return (
     <div className="mx-auto max-w-3xl px-4">
       <div className="mb-3 flex items-center justify-between text-xs">
-        <span className="font-medium tracking-wide text-stone-500">
-          <span className="text-stone-700">{i + 1}</span>
+        <span className="font-medium tracking-wide text-stone-500 dark:text-stone-400">
+          <span className="text-stone-700 dark:text-stone-300">{i + 1}</span>
           <span className="text-stone-400"> of {papers.length}</span>
           <span className="ml-2 text-stone-400">· Reading flow</span>
         </span>
         <span className="flex items-center gap-3 text-stone-400">
           {flash && <span className="font-medium text-emerald-600">{flash}</span>}
-          <Link to={`/projects/${slug}/queue`} className="transition-colors hover:text-stone-600">Esc to exit</Link>
+          <Link to={`/projects/${slug}/queue`} className="transition-colors hover:text-stone-600 dark:hover:text-stone-300">Esc to exit</Link>
         </span>
       </div>
-      <div className="mb-6 h-1 w-full overflow-hidden rounded-full bg-stone-200">
+      <div className="mb-6 h-1 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">
         <div className="h-full rounded-full bg-indigo-600 transition-[width] duration-300" style={{ width: `${(i / papers.length) * 100}%` }} />
       </div>
 
-      <article className="rounded border border-stone-200 bg-white p-6 sm:p-8">
+      <article className="rounded border border-stone-200 bg-white p-6 sm:p-8 dark:border-stone-800 dark:bg-stone-900">
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           {paper.priority === "high" && (
             <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">High priority</span>
           )}
-          <span className="rounded bg-stone-100 px-2 py-0.5 font-mono text-[11px] text-stone-500">{r.bibtex_key}</span>
-          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">{STATUS_LABEL[paper.reading_status]}</span>
+          <span className="rounded bg-stone-100 px-2 py-0.5 font-mono text-[11px] text-stone-500 dark:bg-stone-800 dark:text-stone-400">{r.bibtex_key}</span>
+          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">{STATUS_LABEL[paper.reading_status]}</span>
         </div>
-        <h1 className="mb-1.5 text-2xl font-semibold leading-snug tracking-tight text-stone-900">{r.title}</h1>
-        <p className="mb-5 text-sm text-stone-500">{authorLine(r.authors)}{r.year ? ` · ${r.year}` : ""}{r.venue ? ` · ${r.venue}` : ""}</p>
+        <h1 className="mb-1.5 text-2xl font-semibold leading-snug tracking-tight text-stone-900 dark:text-stone-100">{r.title}</h1>
+        <p className="mb-5 text-sm text-stone-500 dark:text-stone-400">{authorLine(r.authors)}{r.year ? ` · ${r.year}` : ""}{r.venue ? ` · ${r.venue}` : ""}</p>
         <div className="mb-5 flex flex-wrap items-center gap-3 text-xs">
           <button
             onClick={listen}
-            className="rounded border border-stone-300 bg-white px-2.5 py-1 font-medium text-stone-600 transition-colors hover:border-stone-400 hover:bg-stone-50"
+            className="rounded border border-stone-300 bg-white px-2.5 py-1 font-medium text-stone-600 transition-colors hover:border-stone-400 hover:bg-stone-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 dark:hover:border-stone-600 dark:hover:bg-stone-800"
           >
             {listening ? "⏸ Stop (l)" : "🔊 Listen (l)"}
           </button>
-          <Link to={`/references/${r.id}`} className="font-medium text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">Open reader ↗</Link>
-          {r.doi && <a href={`https://doi.org/${r.doi}`} className="font-medium text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">DOI ↗</a>}
+          <Link to={`/references/${r.id}`} className="font-medium text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">Open reader ↗</Link>
+          {r.doi && <a href={`https://doi.org/${r.doi}`} className="font-medium text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">DOI ↗</a>}
         </div>
         {tldr && (
-          <ul className="mb-4 list-disc space-y-1.5 rounded border border-stone-100 bg-stone-50 p-4 pl-8 text-sm leading-relaxed text-stone-600">
+          <ul className="mb-4 list-disc space-y-1.5 rounded border border-stone-100 bg-stone-50 p-4 pl-8 text-sm leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300">
             {tldr.map((s, i) => <li key={i}>{s}</li>)}
           </ul>
         )}
         {r.abstract
-          ? <p className="max-w-prose text-[15px] leading-7 text-stone-700">{r.abstract}</p>
+          ? <p className="max-w-prose text-[15px] leading-7 text-stone-700 dark:text-stone-300">{r.abstract}</p>
           : <p className="text-sm italic text-stone-400">No abstract on file — open the reader for the PDF.</p>}
       </article>
 
       {noteOpen ? (
-        <div className="mt-4 rounded border border-indigo-200 bg-white p-4 shadow-sm">
+        <div className="mt-4 rounded border border-indigo-200 bg-white p-4 shadow-sm dark:border-indigo-500/30 dark:bg-stone-900">
           <textarea autoFocus value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={3}
                     placeholder={`Quick note on ${r.bibtex_key}… (Enter to save, Esc to cancel)`}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveNote(); } }}
-                    className="w-full rounded border border-stone-300 bg-white p-2.5 text-sm leading-relaxed text-stone-700 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600" />
+                    className="w-full rounded border border-stone-300 bg-white p-2.5 text-sm leading-relaxed text-stone-700 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300" />
           <div className="mt-2.5 flex items-center gap-3">
             <button onClick={saveNote} className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700">Save note</button>
-            <button onClick={() => setNoteOpen(false)} className="text-xs text-stone-500 transition-colors hover:text-stone-700 hover:underline">Cancel</button>
+            <button onClick={() => setNoteOpen(false)} className="text-xs text-stone-500 transition-colors hover:text-stone-700 hover:underline dark:text-stone-400 dark:hover:text-stone-300">Cancel</button>
           </div>
         </div>
       ) : (
@@ -230,12 +230,12 @@ function Key({ k, label, accent = false }: { k: string; label: string; accent?: 
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
         accent
-          ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-          : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"
+          ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-300"
+          : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700"
       }`}
     >
       <kbd className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
-        accent ? "border-indigo-300 bg-white text-indigo-700" : "border-stone-300 bg-stone-50 text-stone-600"
+        accent ? "border-indigo-300 bg-white text-indigo-700 dark:border-indigo-500/40 dark:bg-stone-900 dark:text-indigo-300" : "border-stone-300 bg-stone-50 text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
       }`}>{k}</kbd>
       {label}
     </span>

@@ -94,31 +94,31 @@ export default function Timeline() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <nav className="mb-6 text-sm text-stone-500">
+      <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
         <Link to="/projects" className="hover:underline">Projects</Link> /{" "}
         <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Timeline
       </nav>
       <div className="mb-2 flex items-baseline justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Timeline</h1>
+        <h1 className="text-2xl font-semibold tracking-tight dark:text-stone-100">Timeline</h1>
         <div className="flex shrink-0 items-center gap-2 text-xs">
-          <div className="flex overflow-hidden rounded border border-stone-300" role="group" aria-label="Zoom">
+          <div className="flex overflow-hidden rounded border border-stone-300 dark:border-stone-800" role="group" aria-label="Zoom">
             {ZOOMS.map((z) => (
               <button key={z} onClick={() => setZoom(z)}
                       aria-pressed={z === zoom}
                       className={`px-2.5 py-1 capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
-                        z === zoom ? "bg-stone-800 text-white" : "bg-white text-stone-600 hover:bg-stone-50"
+                        z === zoom ? "bg-stone-800 text-white" : "bg-white text-stone-600 hover:bg-stone-50 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
                       }`}>
                 {z}
               </button>
             ))}
           </div>
           <button onClick={copyMarkdown}
-                  className="rounded border border-stone-300 bg-white px-2.5 py-1 text-stone-600 transition-colors hover:border-stone-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                  className="rounded border border-stone-300 bg-white px-2.5 py-1 text-stone-600 transition-colors hover:border-stone-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:border-stone-700">
             {copied ? "✓ Copied" : "⧉ Copy as markdown"}
           </button>
         </div>
       </div>
-      <p className="mb-5 text-sm text-stone-500">
+      <p className="mb-5 text-sm text-stone-500 dark:text-stone-400">
         The story of the project, newest first — copy it oldest-first for a methods or history section.
       </p>
 
@@ -136,8 +136,8 @@ export default function Timeline() {
                       aria-pressed={!off}
                       className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 ${
                         off
-                          ? "border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300"
-                          : "border-stone-300 bg-white text-stone-700 hover:border-stone-400"
+                          ? "border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-400"
+                          : "border-stone-300 bg-white text-stone-700 hover:border-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:border-stone-700"
                       }`}>
                 <span className={`size-2 rounded-full ${off ? "bg-stone-300" : KINDS[k].dot}`} />
                 {KINDS[k].label}
@@ -148,15 +148,15 @@ export default function Timeline() {
       )}
 
       {groups.length === 0 ? (
-        <div className="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+        <div className="rounded border border-dashed border-stone-300 bg-white p-10 text-center dark:border-stone-700 dark:bg-stone-900">
           {hidden.size > 0 ? (
             <>
-              <p className="mb-1 text-sm font-medium text-stone-600">Nothing matches the current filters</p>
+              <p className="mb-1 text-sm font-medium text-stone-600 dark:text-stone-300">Nothing matches the current filters</p>
               <p className="text-sm text-stone-400">Re-enable an event type above to see it in the timeline.</p>
             </>
           ) : (
             <>
-              <p className="mb-1 text-sm font-medium text-stone-600">No dated activity yet</p>
+              <p className="mb-1 text-sm font-medium text-stone-600 dark:text-stone-300">No dated activity yet</p>
               <p className="text-sm text-stone-400">
                 Completed milestones, papers, notes, and decisions will gather here as the work unfolds.
               </p>
@@ -165,10 +165,10 @@ export default function Timeline() {
         </div>
       ) : (
         <div className="relative pl-7">
-          <div className="absolute inset-y-1 left-[3px] w-px bg-stone-200" aria-hidden />
+          <div className="absolute inset-y-1 left-[3px] w-px bg-stone-200 dark:bg-stone-800" aria-hidden />
           {groups.map(([period, items]) => (
             <section key={period} className="mb-10 last:mb-0">
-              <h2 className="sticky top-0 z-10 -ml-7 mb-4 flex items-baseline gap-2 bg-stone-50/95 py-1.5 pl-7 text-sm font-medium uppercase tracking-wide text-stone-400 backdrop-blur-sm">
+              <h2 className="sticky top-0 z-10 -ml-7 mb-4 flex items-baseline gap-2 bg-stone-50/95 py-1.5 pl-7 text-sm font-medium uppercase tracking-wide text-stone-400 backdrop-blur-sm dark:bg-stone-900/95">
                 {periodLabel(period, zoom)}
                 <span className="text-xs font-normal normal-case tracking-normal text-stone-300">
                   {items.length} {items.length === 1 ? "event" : "events"}
@@ -177,12 +177,12 @@ export default function Timeline() {
               <ul className="space-y-3.5">
                 {items.map((e, i) => (
                   <li key={`${e.date}-${e.kind}-${i}`} className="group relative text-sm">
-                    <span className={`absolute -left-[26px] top-[7px] size-2.5 rounded-full ring-4 ring-stone-50 ${KINDS[e.kind]?.dot ?? "bg-stone-300"}`} aria-hidden />
+                    <span className={`absolute -left-[26px] top-[7px] size-2.5 rounded-full ring-4 ring-stone-50 dark:ring-stone-900 ${KINDS[e.kind]?.dot ?? "bg-stone-300"}`} aria-hidden />
                     <Link
                       to={e.url}
-                      className="-mx-2 flex flex-col gap-0.5 rounded px-2 py-1 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 sm:flex-row sm:items-baseline sm:gap-2"
+                      className="-mx-2 flex flex-col gap-0.5 rounded px-2 py-1 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:hover:bg-stone-800 sm:flex-row sm:items-baseline sm:gap-2"
                     >
-                      <span className="font-medium text-stone-800 group-hover:text-indigo-700">
+                      <span className="font-medium text-stone-800 group-hover:text-indigo-700 dark:text-stone-100 dark:group-hover:text-indigo-300">
                         {e.label}
                       </span>
                       <span className="text-xs text-stone-400">

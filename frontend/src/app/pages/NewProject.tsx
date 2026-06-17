@@ -7,7 +7,7 @@ import { api } from "../api";
 type Template = { key: string; name: string; description: string; folders: string[] };
 
 const inputClass =
-  "w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600";
+  "w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100";
 
 const labelClass = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-stone-400";
 
@@ -39,13 +39,13 @@ export default function NewProject() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <nav className="mb-6 text-sm text-stone-500">
-        <Link to="/projects" className="hover:text-indigo-700 hover:underline">Projects</Link>{" "}
-        / <span className="text-stone-700">New</span>
+      <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
+        <Link to="/projects" className="hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">Projects</Link>{" "}
+        / <span className="text-stone-700 dark:text-stone-300">New</span>
       </nav>
 
-      <h1 className="text-2xl font-semibold tracking-tight text-stone-900">New project</h1>
-      <p className="mb-8 text-sm text-stone-500">
+      <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">New project</h1>
+      <p className="mb-8 text-sm text-stone-500 dark:text-stone-400">
         Give it a name and an optional starting scaffold. Everything else can be filled in later.
       </p>
 
@@ -100,7 +100,7 @@ export default function NewProject() {
             ))}
             <label
               htmlFor="np-color"
-              className="relative ml-1 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-dashed border-stone-300 text-stone-400 hover:border-stone-400 hover:text-stone-500"
+              className="relative ml-1 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-dashed border-stone-300 text-stone-400 hover:border-stone-400 hover:text-stone-500 dark:border-stone-700 dark:hover:border-stone-600"
               title="Custom color"
             >
               <span aria-hidden="true" className="text-base leading-none">+</span>
@@ -128,11 +128,11 @@ export default function NewProject() {
               className={
                 "rounded border p-3 text-left transition-colors " +
                 (template === ""
-                  ? "border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-600"
-                  : "border-stone-300 bg-white hover:border-stone-400")
+                  ? "border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-600 dark:border-indigo-500 dark:bg-indigo-500/15 dark:ring-indigo-500"
+                  : "border-stone-300 bg-white hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:hover:border-stone-600")
               }
             >
-              <span className="block text-sm font-medium text-stone-800">Empty project</span>
+              <span className="block text-sm font-medium text-stone-800 dark:text-stone-100">Empty project</span>
               <span className="mt-0.5 block text-xs text-stone-400">Start from a blank slate.</span>
             </button>
             {(templates ?? []).map((t) => {
@@ -146,16 +146,16 @@ export default function NewProject() {
                   className={
                     "rounded border p-3 text-left transition-colors " +
                     (selected
-                      ? "border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-600"
-                      : "border-stone-300 bg-white hover:border-stone-400")
+                      ? "border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-600 dark:border-indigo-500 dark:bg-indigo-500/15 dark:ring-indigo-500"
+                      : "border-stone-300 bg-white hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:hover:border-stone-600")
                   }
                 >
-                  <span className="block text-sm font-medium text-stone-800">{t.name}</span>
+                  <span className="block text-sm font-medium text-stone-800 dark:text-stone-100">{t.name}</span>
                   <span className="mt-0.5 block text-xs leading-relaxed text-stone-400">{t.description}</span>
                   {t.folders.length > 0 && (
                     <span className="mt-2 flex flex-wrap gap-1">
                       {t.folders.map((f) => (
-                        <span key={f} className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">
+                        <span key={f} className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500 dark:bg-stone-700 dark:text-stone-300">
                           {f}
                         </span>
                       ))}
@@ -169,7 +169,7 @@ export default function NewProject() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="flex items-center gap-3 border-t border-stone-100 pt-6">
+        <div className="flex items-center gap-3 border-t border-stone-100 pt-6 dark:border-stone-800">
           <button
             type="submit"
             disabled={create.isPending || !name.trim()}
@@ -177,7 +177,7 @@ export default function NewProject() {
           >
             {create.isPending ? "Creating…" : "Create project"}
           </button>
-          <Link to="/projects" className="text-sm text-stone-500 hover:text-stone-700">Cancel</Link>
+          <Link to="/projects" className="text-sm text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-300">Cancel</Link>
         </div>
       </form>
     </div>

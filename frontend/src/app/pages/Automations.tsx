@@ -27,7 +27,7 @@ function RunChart({ runs }: { runs: Run[] }) {
 function StatusChip({ enabled }: { enabled: boolean }) {
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-      enabled ? "bg-green-50 text-green-700" : "bg-stone-100 text-stone-500"
+      enabled ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-300"
     }`}>
       <span className={`h-1.5 w-1.5 rounded-full ${enabled ? "bg-green-500" : "bg-stone-400"}`} aria-hidden="true" />
       {enabled ? "Enabled" : "Disabled"}
@@ -56,31 +56,31 @@ export default function Automations() {
   return (
     <div>
       <h1 className="mb-2 text-2xl font-semibold tracking-tight">Automations</h1>
-      <p className="mb-6 max-w-2xl text-sm text-stone-500">Bots that handle routine work and report to your Inbox. Enabled bots run daily at 06:00.</p>
+      <p className="mb-6 max-w-2xl text-sm text-stone-500 dark:text-stone-300">Bots that handle routine work and report to your Inbox. Enabled bots run daily at 06:00.</p>
       {bots.length === 0 ? (
-        <div className="max-w-3xl rounded border border-dashed border-stone-300 bg-white p-10 text-center">
-          <p className="mb-1 text-sm font-medium text-stone-600">No automations yet</p>
+        <div className="max-w-3xl rounded border border-dashed border-stone-300 bg-white p-10 text-center dark:border-stone-700 dark:bg-stone-900">
+          <p className="mb-1 text-sm font-medium text-stone-600 dark:text-stone-300">No automations yet</p>
           <p className="text-sm text-stone-400">Bots that tidy your library, surface stale references, and post digests to your Inbox will appear here once configured.</p>
         </div>
       ) : (
         <div className="max-w-3xl space-y-3">
           {bots.map((bot) => (
-            <article key={bot.slug} className="rounded border border-stone-200 bg-white p-5 transition-colors hover:border-stone-300">
+            <article key={bot.slug} className="rounded border border-stone-200 bg-white p-5 transition-colors hover:border-stone-300 dark:border-stone-800 dark:bg-stone-900">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2.5">
-                    <h2 className="truncate font-medium text-stone-900">{bot.name}</h2>
+                    <h2 className="truncate font-medium text-stone-900 dark:text-stone-100">{bot.name}</h2>
                     <StatusChip enabled={bot.enabled} />
                   </div>
-                  <p className="mt-1 text-sm text-stone-500">{bot.description}</p>
+                  <p className="mt-1 text-sm text-stone-500 dark:text-stone-300">{bot.description}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button onClick={() => act.mutate({ slug: bot.slug, action: "run" })} disabled={act.isPending}
-                          className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50">
+                          className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
                     Run now
                   </button>
                   <button onClick={() => act.mutate({ slug: bot.slug, action: "toggle" })}
-                          className={`rounded px-3 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${bot.enabled ? "border border-stone-300 bg-white text-stone-600 hover:border-stone-400" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
+                          className={`rounded px-3 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${bot.enabled ? "border border-stone-300 bg-white text-stone-600 hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
                     {bot.enabled ? "Disable" : "Enable"}
                   </button>
                 </div>

@@ -69,7 +69,7 @@ function QuickOpen({ files, onPick, onClose }: { files: FileNode[]; onPick: (f: 
   const matches = (q ? files.filter((f) => fuzzy(q, f.rel_path)) : files).slice(0, 40);
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-stone-900/30 pt-24" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-lg border border-stone-200 bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg rounded-lg border border-stone-200 bg-white shadow-xl dark:border-stone-800 dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
         <input
           autoFocus
           value={q}
@@ -79,14 +79,14 @@ function QuickOpen({ files, onPick, onClose }: { files: FileNode[]; onPick: (f: 
             if (e.key === "Enter" && matches[0]) { onPick(matches[0]); onClose(); }
           }}
           placeholder="Go to file…"
-          className="w-full rounded-t-lg border-b border-stone-100 px-4 py-3 text-sm focus:outline-none"
+          className="w-full rounded-t-lg border-b border-stone-100 px-4 py-3 text-sm focus:outline-none dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100"
         />
         <ul className="max-h-80 overflow-y-auto py-1 text-sm">
           {matches.map((f) => (
             <li key={f.id}>
               <button
                 onClick={() => { onPick(f); onClose(); }}
-                className="flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-stone-50"
+                className="flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-stone-50 dark:hover:bg-stone-800"
               >
                 <span className="truncate">{f.name}</span>
                 <span className="ml-auto truncate font-mono text-xs text-stone-400">{f.rel_path}</span>
@@ -115,15 +115,15 @@ function FilePreview({ file }: { file: FileNode }) {
   });
 
   if (isImage(file))
-    return <img src={rawUrl} alt={file.name} className="max-h-[62vh] max-w-full rounded border border-stone-200" />;
+    return <img src={rawUrl} alt={file.name} className="max-h-[62vh] max-w-full rounded border border-stone-200 dark:border-stone-800" />;
   if (isPdf(file))
-    return <iframe src={rawUrl} title={file.name} className="h-[62vh] w-full rounded border border-stone-200" />;
+    return <iframe src={rawUrl} title={file.name} className="h-[62vh] w-full rounded border border-stone-200 dark:border-stone-800" />;
 
   if (!file.is_text)
     return (
-      <div className="rounded border border-dashed border-stone-200 p-6 text-center text-sm text-stone-500">
+      <div className="rounded border border-dashed border-stone-200 p-6 text-center text-sm text-stone-500 dark:border-stone-700 dark:text-stone-400">
         <p className="mb-2">No in-app preview for this file type.</p>
-        <a href={`/api/v1/documents/${file.id}/raw/`} className="text-indigo-600 hover:underline" download>
+        <a href={`/api/v1/documents/${file.id}/raw/`} className="text-indigo-600 hover:underline dark:text-indigo-400" download>
           Download {file.name}
         </a>
       </div>
@@ -140,9 +140,9 @@ function FilePreview({ file }: { file: FileNode }) {
         <table className="w-full border-collapse text-xs">
           <tbody>
             {rows.map((row, i) => (
-              <tr key={i} className={i === 0 ? "bg-stone-50 font-medium" : ""}>
+              <tr key={i} className={i === 0 ? "bg-stone-50 font-medium dark:bg-stone-800" : ""}>
                 {row.map((cell, j) => (
-                  <td key={j} className="border border-stone-100 px-2 py-1">{cell}</td>
+                  <td key={j} className="border border-stone-100 px-2 py-1 dark:border-stone-800">{cell}</td>
                 ))}
               </tr>
             ))}
@@ -192,10 +192,10 @@ function TextView({ file, content, truncated }: { file: FileNode; content: strin
         ) : editing ? (
           <>
             <button onClick={() => save.mutate()} disabled={save.isPending} className="rounded bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-50">Save</button>
-            <button onClick={() => { setDraft(content); setEditing(false); }} className="text-stone-500 hover:underline">Cancel</button>
+            <button onClick={() => { setDraft(content); setEditing(false); }} className="text-stone-500 hover:underline dark:text-stone-400">Cancel</button>
           </>
         ) : (
-          <button onClick={() => setEditing(true)} className="text-indigo-600 hover:underline" disabled={truncated} title={truncated ? "File too large to edit in-app" : ""}>Edit</button>
+          <button onClick={() => setEditing(true)} className="text-indigo-600 hover:underline dark:text-indigo-400" disabled={truncated} title={truncated ? "File too large to edit in-app" : ""}>Edit</button>
         )}
       </div>
       {editing ? (
@@ -203,10 +203,10 @@ function TextView({ file, content, truncated }: { file: FileNode; content: strin
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           spellCheck={false}
-          className="h-[58vh] w-full rounded border border-indigo-300 bg-white p-3 font-mono text-xs leading-relaxed text-stone-800 focus:outline-none"
+          className="h-[58vh] w-full rounded border border-indigo-300 bg-white p-3 font-mono text-xs leading-relaxed text-stone-800 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
         />
       ) : (
-        <pre className="max-h-[58vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700">
+        <pre className="max-h-[58vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300">
           {content}
           {truncated && "\n\n… (truncated)"}
         </pre>
@@ -431,12 +431,12 @@ export default function Files() {
       data-tree-focus={focusKey === `file${f.id}`}
       onClick={() => { setSelected(f); setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); }}
       style={{ paddingLeft: depth * 14 + 8 }}
-      className={`flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-sm hover:bg-stone-50 ${focusKey === `file${f.id}` ? "ring-1 ring-indigo-200" : ""} ${selected?.id === f.id ? "bg-indigo-50 font-medium text-indigo-700" : "text-stone-700"}`}
+      className={`flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-sm hover:bg-stone-50 dark:hover:bg-stone-800 ${focusKey === `file${f.id}` ? "ring-1 ring-indigo-200" : ""} ${selected?.id === f.id ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300" : "text-stone-700 dark:text-stone-300"}`}
     >
       <Icon kind={f.kind || "other"} name={f.name} />
       <span className="min-w-0 flex-1 truncate">{f.name}</span>
       {f.role === "manuscript_source" && (
-        <span className="shrink-0 rounded bg-stone-100 px-1 text-[10px] uppercase tracking-wide text-stone-400">ms</span>
+        <span className="shrink-0 rounded bg-stone-100 px-1 text-[10px] uppercase tracking-wide text-stone-400 dark:bg-stone-800">ms</span>
       )}
       <span className="shrink-0 font-mono text-[11px] text-stone-400">{humanSize(f.size)}</span>
     </button>
@@ -452,7 +452,7 @@ export default function Files() {
           data-tree-focus={focusKey === `folder${folder.id}`}
           onClick={() => { setExpanded((e) => ({ ...e, [folder.id]: !e[folder.id] })); setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); }}
           style={{ paddingLeft: depth * 14 + 8 }}
-          className={`flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-sm text-stone-700 hover:bg-stone-50 ${focusKey === `folder${folder.id}` ? "ring-1 ring-indigo-200" : ""}`}
+          className={`flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-sm text-stone-700 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800 ${focusKey === `folder${folder.id}` ? "ring-1 ring-indigo-200" : ""}`}
         >
           <span className="w-3 shrink-0 text-xs text-stone-400">{kids.length || files.length ? (open ? "▾" : "▸") : ""}</span>
           <Icon kind="folder" open={open} />
@@ -471,14 +471,14 @@ export default function Files() {
   const total = data.files.length;
   return (
     <div>
-      <nav className="mb-4 text-sm text-stone-500">
+      <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400">
         <Link to="/projects" className="hover:underline">Projects</Link> /{" "}
         <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Files
       </nav>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Files</h1>
-          <p className="mt-0.5 text-sm text-stone-500">{total} file{total === 1 ? "" : "s"} · everything in one tree</p>
+          <h1 className="text-2xl font-semibold tracking-tight dark:text-stone-100">Files</h1>
+          <p className="mt-0.5 text-sm text-stone-500 dark:text-stone-400">{total} file{total === 1 ? "" : "s"} · everything in one tree</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <button
@@ -486,7 +486,7 @@ export default function Files() {
               const name = window.prompt("New folder name");
               if (name) newFolder.mutate(name.trim());
             }}
-            className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700"
+            className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"
           >
             + Folder
           </button>
@@ -495,23 +495,23 @@ export default function Files() {
               const name = window.prompt("Save this project's structure as a template named");
               if (name) saveTemplate.mutate(name.trim());
             }}
-            className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700"
+            className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"
             title="Reuse this folder layout when creating new projects"
           >
             Save as template
           </button>
           <button
             onClick={() => setShowTerminal((v) => !v)}
-            className={`flex items-center gap-1 rounded border px-2 py-1 text-xs ${showTerminal ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-indigo-700"}`}
+            className={`flex items-center gap-1 rounded border px-2 py-1 text-xs ${showTerminal ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"}`}
             title="Toggle the terminal (Atlas desktop app)"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
             Terminal
           </button>
           {isDesktop && (
-            <button onClick={openFromDisk} className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700" title="Open any file from your computer (desktop app)">Open from disk…</button>
+            <button onClick={openFromDisk} className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300" title="Open any file from your computer (desktop app)">Open from disk…</button>
           )}
-          <button onClick={() => setQuickOpen(true)} className="rounded border border-stone-200 bg-white px-2 py-1 font-mono text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700" title="Quick open (Ctrl/Cmd-P)">⌘P</button>
+          <button onClick={() => setQuickOpen(true)} className="rounded border border-stone-200 bg-white px-2 py-1 font-mono text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300" title="Quick open (Ctrl/Cmd-P)">⌘P</button>
         </div>
       </div>
       {quickOpen && (
@@ -529,7 +529,7 @@ export default function Files() {
           onBlur={clearTypeahead}
           role="tree"
           aria-label="Project files"
-          className={`relative col-span-1 max-h-[75vh] overflow-y-auto rounded border bg-white p-2 focus:outline-none ${dragging ? "border-indigo-400 ring-2 ring-indigo-100" : "border-stone-200"}`}
+          className={`relative col-span-1 max-h-[75vh] overflow-y-auto rounded border bg-white p-2 focus:outline-none dark:bg-stone-900 ${dragging ? "border-indigo-400 ring-2 ring-indigo-100" : "border-stone-200 dark:border-stone-800"}`}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={(e) => {
@@ -538,7 +538,7 @@ export default function Files() {
             if (e.dataTransfer.files.length) upload.mutate(e.dataTransfer.files);
           }}
         >
-          <div className="sticky top-0 z-10 -mx-2 -mt-2 mb-1 border-b border-stone-100 bg-white px-3 py-2 text-sm font-medium uppercase tracking-wide text-stone-400">
+          <div className="sticky top-0 z-10 -mx-2 -mt-2 mb-1 border-b border-stone-100 bg-white px-3 py-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:border-stone-800 dark:bg-stone-900">
             Explorer
           </div>
           {typedHint && (
@@ -546,14 +546,14 @@ export default function Files() {
               {typedHint}
             </span>
           )}
-          {dragging && <p className="mb-1 rounded bg-indigo-50 py-1 text-center text-xs font-medium text-indigo-600">Drop to upload</p>}
+          {dragging && <p className="mb-1 rounded bg-indigo-50 py-1 text-center text-xs font-medium text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">Drop to upload</p>}
           {rootFolders.map((f) => folderRow(f, 0))}
           {rootFiles.map((f) => fileRow(f, 0))}
           {total === 0 && !rootFolders.length && (
             <div className="px-3 py-8 text-center">
-              <p className="text-sm font-medium text-stone-600">This project has no files yet</p>
+              <p className="text-sm font-medium text-stone-600 dark:text-stone-300">This project has no files yet</p>
               <p className="mt-1 text-sm text-stone-400">Drag files here to upload, or add them on the{" "}
-                <a href={`/projects/${slug}/documents/`} className="text-indigo-600 hover:underline">documents page</a>.
+                <a href={`/projects/${slug}/documents/`} className="text-indigo-600 hover:underline dark:text-indigo-400">documents page</a>.
               </p>
             </div>
           )}
@@ -561,21 +561,21 @@ export default function Files() {
         <div className="card col-span-1 lg:col-span-2 lg:min-h-[75vh]">
           {localFile ? (
             <div>
-              <div className="mb-2 flex items-center gap-2 border-b border-stone-100 pb-2">
-                <h2 className="min-w-0 flex-1 truncate text-sm font-medium text-stone-800">{localFile.name}</h2>
-                <button onClick={() => setLocalFile(null)} className="shrink-0 text-xs text-stone-400 hover:text-stone-600">✕ close</button>
+              <div className="mb-2 flex items-center gap-2 border-b border-stone-100 pb-2 dark:border-stone-800">
+                <h2 className="min-w-0 flex-1 truncate text-sm font-medium text-stone-800 dark:text-stone-100">{localFile.name}</h2>
+                <button onClick={() => setLocalFile(null)} className="shrink-0 text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300">✕ close</button>
               </div>
               <p className="mb-3 truncate font-mono text-xs text-stone-400">{localFile.path} · from disk</p>
-              <pre className="max-h-[58vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700">{localFile.content}</pre>
+              <pre className="max-h-[58vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300">{localFile.content}</pre>
             </div>
           ) : selected ? (
             <div>
-              <div className="mb-2 flex items-center gap-2 border-b border-stone-100 pb-2">
+              <div className="mb-2 flex items-center gap-2 border-b border-stone-100 pb-2 dark:border-stone-800">
                 <Icon kind={selected.kind || "other"} name={selected.name} />
-                <h2 className="min-w-0 flex-1 truncate text-sm font-medium text-stone-800">{selected.name}</h2>
+                <h2 className="min-w-0 flex-1 truncate text-sm font-medium text-stone-800 dark:text-stone-100">{selected.name}</h2>
               </div>
               <dl className="mb-3 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-stone-400">
-                <span className="font-mono text-stone-500">{selected.rel_path}</span>
+                <span className="font-mono text-stone-500 dark:text-stone-400">{selected.rel_path}</span>
                 <span>· {selected.kind || "file"}</span>
                 {selected.role === "manuscript_source" && <span>· manuscript source</span>}
                 {!!humanSize(selected.size) && <span>· {humanSize(selected.size)}</span>}
@@ -588,7 +588,7 @@ export default function Files() {
                       moveDoc.mutate({ id: selected.id, folder: e.target.value ? Number(e.target.value) : null })
                     }
                     title="Move to folder"
-                    className="rounded border border-stone-200 bg-white px-1.5 py-1 text-stone-600 hover:border-stone-300"
+                    className="rounded border border-stone-200 bg-white px-1.5 py-1 text-stone-600 hover:border-stone-300 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
                   >
                     <option value="">(project root)</option>
                     {(data.folders ?? [])
@@ -600,7 +600,7 @@ export default function Files() {
                       const title = window.prompt("Rename file to", selected.name);
                       if (title) renameDoc.mutate({ id: selected.id, title: title.trim() });
                     }}
-                    className="text-indigo-600 hover:underline"
+                    className="text-indigo-600 hover:underline dark:text-indigo-400"
                   >
                     Rename
                   </button>
@@ -619,7 +619,7 @@ export default function Files() {
           ) : (
             <div className="flex h-full min-h-[40vh] flex-col items-center justify-center px-6 text-center">
               <File size={28} className="mb-3 text-stone-300" />
-              <p className="text-sm font-medium text-stone-600">No file selected</p>
+              <p className="text-sm font-medium text-stone-600 dark:text-stone-300">No file selected</p>
               <p className="mt-1 max-w-xs text-sm text-stone-400">Pick a file from the tree to preview it here — images, PDFs, tables, and text all open inline.</p>
             </div>
           )}
