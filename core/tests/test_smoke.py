@@ -121,6 +121,15 @@ class TestSpaShell:
         chunk = Path("static/js/islands/Dashboard-chunk.js").read_text()
         assert "atlas-calm" in chunk  # it compiled into the served bundle
 
+    def test_command_palette_theme_verb_is_built(self):
+        # #275-cmd: the ⌘K palette exposes a "Toggle dark mode" verb (surfacing the
+        # #273 theme toggle). Guard that the source and committed bundle agree.
+        from pathlib import Path
+
+        src = Path("frontend/src/app/CommandBar.tsx").read_text()
+        assert "Toggle dark mode" in src
+        assert "Toggle dark mode" in Path("static/js/spa.js").read_text()
+
     def test_shell_sets_csrf_cookie(self, client_logged_in):
         # the SPA has no server-rendered form; its API writes need the token
         response = client_logged_in.get("/")

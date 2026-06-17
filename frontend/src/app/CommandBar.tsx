@@ -110,6 +110,20 @@ export default function CommandBar() {
     return `✓ ${title}`;
   }, [queryClient, slug]);
 
+  const doToggleTheme = useCallback(async () => {
+    (window as unknown as { __toggleTheme?: () => void }).__toggleTheme?.();
+    return document.documentElement.classList.contains("dark") ? "Dark mode on" : "Light mode on";
+  }, []);
+
+  // Static verbs the palette can run directly (not navigation). Discoverable by typing
+  // "dark"/"theme"/"light" etc. — surfacing the #273 theme toggle in ⌘K (#275-cmd).
+  const verbs = useMemo(
+    () => [
+      { label: "Toggle dark mode", keys: "toggle dark light mode theme appearance color scheme", run: doToggleTheme },
+    ],
+    [doToggleTheme],
+  );
+
   const rows: Row[] = useMemo(() => {
     const q = query.trim();
     if (q.toLowerCase().startsWith("capture:") || q.toLowerCase().startsWith("c:")) {
@@ -134,13 +148,19 @@ export default function CommandBar() {
         }));
     }
     if (!q) return [];
-    return (assistant?.commands ?? [])
+    const verbRows: Row[] = verbs
+      .map((v) => ({ v, s: fuzzy(q, v.keys) }))
+      .filter((x): x is { v: (typeof verbs)[number]; s: number } => x.s !== null)
+      .sort((a, b) => b.s - a.s)
+      .map(({ v }) => ({ kind: "verb" as const, label: v.label, tag: "view", run: v.run }));
+    const navRows: Row[] = (assistant?.commands ?? [])
       .map((c) => ({ c, s: fuzzy(q, c.title) }))
       .filter((x): x is { c: Command; s: number } => x.s !== null)
       .sort((a, b) => b.s - a.s)
       .slice(0, 8)
       .map(({ c }) => ({ kind: "nav" as const, label: c.title, tag: c.type, url: c.url }));
-  }, [query, assistant, plan, doCapture]);
+    return [...verbRows, ...navRows];
+  }, [query, assistant, plan, doCapture, verbs]);
 
   useEffect(() => setActive(0), [query]);
 
