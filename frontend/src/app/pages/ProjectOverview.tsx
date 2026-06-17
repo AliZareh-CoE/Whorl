@@ -12,8 +12,9 @@ type Overview = {
   recent_decisions: { id: number; title: string; decided_on: string }[];
 };
 
-const section = "rounded border border-stone-200 bg-white p-5";
-const h2 = "mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400";
+const section = "rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900";
+const h2 =
+  "mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400";
 
 const quickLinks = [
   { to: "plan", label: "Plan" },
@@ -36,16 +37,22 @@ export default function ProjectOverview() {
     queryFn: () => api<Overview>(`/projects/${slug}/overview/`),
   });
 
-  if (isLoading) return <p className="text-sm text-stone-400">Loading project…</p>;
-  if (error || !data) return <p className="text-sm text-red-600">Couldn't load this project.</p>;
+  if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading project…</p>;
+  if (error || !data)
+    return <p className="text-sm text-red-600 dark:text-red-300">Couldn't load this project.</p>;
   const { project, progress } = data;
 
   return (
     <div>
-      <nav className="mb-6 text-sm text-stone-500">
-        <Link to="/projects" className="hover:text-indigo-700 hover:underline">Projects</Link>
-        <span className="px-1.5 text-stone-300">/</span>
-        <span className="text-stone-700">{project.name}</span>
+      <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
+        <Link
+          to="/projects"
+          className="hover:text-indigo-700 hover:underline dark:hover:text-indigo-300"
+        >
+          Projects
+        </Link>
+        <span className="px-1.5 text-stone-300 dark:text-stone-400">/</span>
+        <span className="text-stone-700 dark:text-stone-300">{project.name}</span>
       </nav>
 
       <header className="mb-6">
@@ -55,37 +62,41 @@ export default function ProjectOverview() {
             className="h-3 w-3 shrink-0 rounded-full"
             style={{ background: project.color }}
           />
-          <h1 className="text-2xl font-semibold tracking-tight text-stone-900">{project.name}</h1>
-          <span className="rounded bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-stone-500">
+          <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">
+            {project.name}
+          </h1>
+          <span className="rounded bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-stone-500 dark:bg-stone-800 dark:text-stone-300">
             {project.status}
           </span>
         </div>
         {project.description && (
-          <p className="max-w-2xl text-sm leading-relaxed text-stone-500">{project.description}</p>
+          <p className="max-w-2xl text-sm leading-relaxed text-stone-500 dark:text-stone-400">
+            {project.description}
+          </p>
         )}
       </header>
 
-      <div className="mb-4 rounded border border-stone-200 bg-white p-5">
+      <div className="mb-4 rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
         <div className="mb-2 flex items-baseline justify-between gap-4 text-sm">
-          <span className="font-medium text-stone-900">
+          <span className="font-medium text-stone-900 dark:text-stone-100">
             {data.current_phase ? data.current_phase.name : "No phases yet"}
           </span>
-          <span className="shrink-0 text-xs text-stone-400">
+          <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400">
             {progress.done}/{progress.total} milestones
           </span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">
           <div
             className="h-full rounded-full transition-[width] duration-500"
             style={{ width: `${progress.percent}%`, background: project.color }}
           />
         </div>
-        <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-stone-400">
+        <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-stone-400 dark:text-stone-400">
           {quickLinks.map((l) => (
             <Link
               key={l.to}
               to={`/projects/${project.slug}/${l.to}`}
-              className="transition-colors hover:text-indigo-700"
+              className="transition-colors hover:text-indigo-700 dark:hover:text-indigo-300"
             >
               {l.label}
             </Link>
@@ -97,10 +108,10 @@ export default function ProjectOverview() {
         {Object.entries(data.counts).map(([key, value]) => (
           <div
             key={key}
-            className="rounded border border-stone-200 bg-white px-3 py-2.5 text-center transition-colors hover:border-stone-300"
+            className="rounded border border-stone-200 bg-white px-3 py-2.5 text-center transition-colors hover:border-stone-300 dark:border-stone-800 dark:bg-stone-900 dark:hover:border-stone-700"
           >
-            <p className="text-lg font-semibold leading-none text-stone-900">{value}</p>
-            <p className="mt-1 text-[10px] uppercase tracking-wide text-stone-400">{key}</p>
+            <p className="text-lg font-semibold leading-none text-stone-900 dark:text-stone-100">{value}</p>
+            <p className="mt-1 text-[10px] uppercase tracking-wide text-stone-400 dark:text-stone-400">{key}</p>
           </div>
         ))}
       </div>
@@ -110,13 +121,16 @@ export default function ProjectOverview() {
           <h2 className={h2}>
             Next milestones
             {data.next_milestones.length > 0 && (
-              <span className="text-stone-300">{data.next_milestones.length}</span>
+              <span className="text-stone-300 dark:text-stone-400">{data.next_milestones.length}</span>
             )}
           </h2>
           {data.next_milestones.length === 0 ? (
-            <p className="text-sm text-stone-400">
+            <p className="text-sm text-stone-400 dark:text-stone-400">
               No upcoming milestones.{" "}
-              <Link to={`/projects/${project.slug}/plan`} className="text-indigo-600 hover:underline">
+              <Link
+                to={`/projects/${project.slug}/plan`}
+                className="text-indigo-600 hover:underline dark:text-indigo-400"
+              >
                 Open the plan
               </Link>{" "}
               to add some.
@@ -125,11 +139,11 @@ export default function ProjectOverview() {
             <ul className="space-y-2.5 text-sm">
               {data.next_milestones.map((m) => (
                 <li key={m.id} className="flex items-baseline gap-2.5">
-                  <span aria-hidden="true" className="text-[10px] text-stone-300">◆</span>
-                  <span className="min-w-0 flex-1 truncate text-stone-700">{m.title}</span>
+                  <span aria-hidden="true" className="text-[10px] text-stone-300 dark:text-stone-400">◆</span>
+                  <span className="min-w-0 flex-1 truncate text-stone-700 dark:text-stone-300">{m.title}</span>
                   {m.due_date && (
                     <span
-                      className={`shrink-0 text-xs ${m.overdue ? "font-medium text-red-600" : "text-stone-400"}`}
+                      className={`shrink-0 text-xs ${m.overdue ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400 dark:text-stone-400"}`}
                     >
                       {m.due_date}
                       {m.overdue ? " · overdue" : ""}
@@ -146,13 +160,16 @@ export default function ProjectOverview() {
             <h2 className={h2}>
               Recent documents
               {data.recent_documents.length > 0 && (
-                <span className="text-stone-300">{data.recent_documents.length}</span>
+                <span className="text-stone-300 dark:text-stone-400">{data.recent_documents.length}</span>
               )}
             </h2>
             {data.recent_documents.length === 0 ? (
-              <p className="text-sm text-stone-400">
+              <p className="text-sm text-stone-400 dark:text-stone-400">
                 Nothing uploaded yet.{" "}
-                <Link to={`/projects/${project.slug}/documents`} className="text-indigo-600 hover:underline">
+                <Link
+                  to={`/projects/${project.slug}/documents`}
+                  className="text-indigo-600 hover:underline dark:text-indigo-400"
+                >
                   Add a document
                 </Link>
                 .
@@ -161,10 +178,13 @@ export default function ProjectOverview() {
               <ul className="space-y-2 text-sm">
                 {data.recent_documents.map((d) => (
                   <li key={d.id} className="flex items-baseline gap-2.5">
-                    <a href={d.url} className="min-w-0 flex-1 truncate text-stone-700 hover:text-indigo-700">
+                    <a
+                      href={d.url}
+                      className="min-w-0 flex-1 truncate text-stone-700 hover:text-indigo-700 dark:text-stone-300 dark:hover:text-indigo-300"
+                    >
                       {d.title}
                     </a>
-                    <span className="shrink-0 text-xs text-stone-400">{d.added}</span>
+                    <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400">{d.added}</span>
                   </li>
                 ))}
               </ul>
@@ -174,13 +194,16 @@ export default function ProjectOverview() {
             <h2 className={h2}>
               Recent decisions
               {data.recent_decisions.length > 0 && (
-                <span className="text-stone-300">{data.recent_decisions.length}</span>
+                <span className="text-stone-300 dark:text-stone-400">{data.recent_decisions.length}</span>
               )}
             </h2>
             {data.recent_decisions.length === 0 ? (
-              <p className="text-sm text-stone-400">
+              <p className="text-sm text-stone-400 dark:text-stone-400">
                 No decisions recorded.{" "}
-                <Link to={`/projects/${project.slug}/decisions`} className="text-indigo-600 hover:underline">
+                <Link
+                  to={`/projects/${project.slug}/decisions`}
+                  className="text-indigo-600 hover:underline dark:text-indigo-400"
+                >
                   Record one
                 </Link>
                 .
@@ -189,8 +212,8 @@ export default function ProjectOverview() {
               <ul className="space-y-2 text-sm">
                 {data.recent_decisions.map((d) => (
                   <li key={d.id} className="flex items-baseline gap-2.5">
-                    <span className="min-w-0 flex-1 truncate text-stone-700">{d.title}</span>
-                    <span className="shrink-0 text-xs text-stone-400">{d.decided_on}</span>
+                    <span className="min-w-0 flex-1 truncate text-stone-700 dark:text-stone-300">{d.title}</span>
+                    <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400">{d.decided_on}</span>
                   </li>
                 ))}
               </ul>
