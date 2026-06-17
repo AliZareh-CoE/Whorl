@@ -22,36 +22,56 @@ export function NotesList() {
   });
 
   if (isLoading) return <p className="text-sm text-stone-400">Loading notes…</p>;
+  const notes = data?.results ?? [];
   return (
     <div>
       <nav className="mb-6 text-sm text-stone-500">
-        <Link to="/projects" className="hover:underline">Projects</Link> /{" "}
-        <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Notes
+        <Link to="/projects" className="hover:text-indigo-700 hover:underline">Projects</Link>
+        <span className="px-1.5 text-stone-300">/</span>
+        <Link to={`/projects/${slug}`} className="hover:text-indigo-700 hover:underline">{slug}</Link>
+        <span className="px-1.5 text-stone-300">/</span>
+        <span className="text-stone-700">Notes</span>
       </nav>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Notes</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-stone-900">Notes</h1>
         <Link to={`/projects/${slug}/notes/new`}
-              className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">
+              className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2">
           New note
         </Link>
       </div>
-      <div className="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
-        {data?.results.map((n) => (
-          <Link key={n.id} to={`/projects/${slug}/notes/${n.id}`}
-                className="block px-4 py-3 text-sm hover:bg-stone-50">
-            <span className="font-medium">{n.title}</span>
-            <p className="truncate text-xs text-stone-400">
-              {n.body.slice(0, 120) || "(empty)"}
-              {n.backlinks.length > 0 && ` · ${n.backlinks.length} backlink${n.backlinks.length > 1 ? "s" : ""}`}
-            </p>
-          </Link>
-        ))}
-        {data?.results.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-stone-400">
-            Notes are the project's thinking space — [[wiki-links]] connect them.
+
+      {notes.length === 0 ? (
+        <div className="rounded border border-dashed border-stone-300 bg-white p-12 text-center">
+          <p className="mb-1 text-sm font-medium text-stone-700">No notes yet</p>
+          <p className="mx-auto mb-5 max-w-md text-sm text-stone-400">
+            Notes are the project's thinking space — connect them with{" "}
+            <span className="font-medium text-indigo-600">[[wiki-links]]</span>.
           </p>
-        )}
-      </div>
+          <Link to={`/projects/${slug}/notes/new`}
+                className="inline-block rounded bg-indigo-600 px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2">
+            Write your first note
+          </Link>
+        </div>
+      ) : (
+        <div className="divide-y divide-stone-100 overflow-hidden rounded border border-stone-200 bg-white">
+          {notes.map((n) => (
+            <Link key={n.id} to={`/projects/${slug}/notes/${n.id}`}
+                  className="block px-5 py-4 transition-colors hover:bg-stone-50 focus:outline-none focus-visible:bg-stone-50">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="truncate text-sm font-medium text-stone-900">{n.title}</span>
+                {n.backlinks.length > 0 && (
+                  <span className="shrink-0 text-xs text-stone-400">
+                    {n.backlinks.length} backlink{n.backlinks.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 truncate text-xs text-stone-400">
+                {n.body.slice(0, 140) || "Empty note"}
+              </p>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -124,51 +144,56 @@ export function NoteEditor() {
   });
 
   return (
-    <div>
+    <div className="mx-auto max-w-3xl">
       <nav className="mb-6 text-sm text-stone-500">
-        <Link to={`/projects/${slug}/notes`} className="hover:underline">Notes</Link> /{" "}
-        {isNew ? "New" : title || "…"}
+        <Link to={`/projects/${slug}`} className="hover:text-indigo-700 hover:underline">{slug}</Link>
+        <span className="px-1.5 text-stone-300">/</span>
+        <Link to={`/projects/${slug}/notes`} className="hover:text-indigo-700 hover:underline">Notes</Link>
+        <span className="px-1.5 text-stone-300">/</span>
+        <span className="text-stone-700">{isNew ? "New note" : title || "Untitled"}</span>
       </nav>
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           value={title}
           onChange={(e) => { setTitle(e.target.value); setSaved(false); }}
           placeholder="Note title"
           aria-label="Note title"
-          className="flex-1 rounded border border-stone-300 bg-white px-3 py-2 text-lg font-medium focus:border-indigo-600 focus:outline-none"
+          className="flex-1 rounded border border-stone-300 bg-white px-3 py-2 text-lg font-medium text-stone-900 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
         />
-        <button onClick={togglePreview}
-                className="rounded border border-stone-300 bg-white px-3 py-2 text-sm hover:border-stone-400">
-          {previewHtml !== null ? "Edit" : "Preview"}
-        </button>
-        <button onClick={() => save.mutate()} disabled={save.isPending || !title.trim()}
-                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
-          {save.isPending ? "Saving…" : saved ? "Saved" : "Save"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={togglePreview}
+                  className="rounded border border-stone-300 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:border-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2">
+            {previewHtml !== null ? "Edit" : "Preview"}
+          </button>
+          <button onClick={() => save.mutate()} disabled={save.isPending || !title.trim()}
+                  className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:opacity-50">
+            {save.isPending ? "Saving…" : saved ? "Saved" : "Save"}
+          </button>
+        </div>
       </div>
 
       {previewHtml !== null ? (
         /* server-rendered through markdownify → nh3-sanitized, so this is safe HTML */
-        <div className="prose prose-stone max-w-none rounded border border-stone-200 bg-white p-5"
+        <div className="prose prose-stone max-w-none rounded border border-stone-200 bg-white p-8"
              dangerouslySetInnerHTML={{ __html: previewHtml }} />
       ) : (
         <textarea
           value={body}
           onChange={(e) => { setBody(e.target.value); setSaved(false); }}
-          rows={18}
+          rows={20}
           placeholder="Markdown. [[Note Title]] links to other notes in this project."
           aria-label="Note body"
-          className="w-full rounded border border-stone-300 bg-white p-4 font-mono text-sm focus:border-indigo-600 focus:outline-none"
+          className="w-full resize-y rounded border border-stone-300 bg-white p-6 font-mono text-sm leading-relaxed text-stone-900 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
         />
       )}
 
       {!isNew && (note?.backlinks.length ?? 0) > 0 && (
-        <section className="mt-4 rounded border border-stone-200 bg-white p-4">
-          <h2 className="mb-2 text-[10px] font-medium uppercase tracking-wide text-stone-400">Backlinks</h2>
-          <ul className="space-y-1 text-sm">
+        <section className="mt-6 rounded border border-stone-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">Backlinks</h2>
+          <ul className="space-y-2 text-sm">
             {note!.backlinks.map((b) => (
               <li key={b.id}>
-                <Link to={`/projects/${slug}/notes/${b.id}`} className="text-indigo-600 hover:underline">
+                <Link to={`/projects/${slug}/notes/${b.id}`} className="text-indigo-600 hover:text-indigo-700 hover:underline">
                   {b.title}
                 </Link>
               </li>
@@ -176,7 +201,7 @@ export function NoteEditor() {
           </ul>
         </section>
       )}
-      <p className="mt-2 text-xs text-stone-400">Ctrl/Cmd-S saves.</p>
+      <p className="mt-4 text-xs text-stone-400">Press Ctrl/Cmd-S to save.</p>
     </div>
   );
 }

@@ -99,44 +99,68 @@ export default function Reference() {
   if (isLoading || !ref) return <p className="text-sm text-stone-400">Loading reference…</p>;
 
   return (
-    <div>
+    <div className="max-w-3xl">
       <nav className="mb-6 text-sm text-stone-500">
-        <Link to="/library" className="hover:underline">Library</Link> / {ref.bibtex_key}
+        <Link to="/library" className="hover:text-indigo-700 hover:underline">Library</Link>
+        <span className="px-1.5 text-stone-300">/</span>
+        <span className="font-mono text-xs text-stone-400">{ref.bibtex_key}</span>
       </nav>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight">{ref.title}</h1>
-      <p className="mb-4 text-sm text-stone-500">
-        {authorLine(ref)}{ref.year ? ` · ${ref.year}` : ""}{ref.venue ? ` · ${ref.venue}` : ""}
-        {ref.citation_count != null ? ` · ${ref.citation_count} citations` : ""}
-      </p>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-        <span className="rounded bg-stone-100 px-2 py-0.5 font-mono text-xs text-stone-500">{ref.bibtex_key}</span>
-        {ref.doi && <a href={`https://doi.org/${ref.doi}`} className="text-indigo-600 hover:underline">DOI ↗</a>}
-        {ref.url && <a href={ref.url} className="text-indigo-600 hover:underline">Link ↗</a>}
-        {ref.pdf && <a href={ref.pdf} className="text-indigo-600 hover:underline">PDF ↗</a>}
-        <a href={`/library/${ref.id}/`} className="text-stone-400 underline hover:text-indigo-700">edit / annotate (classic) ↗</a>
-      </div>
+      <section className="mb-4 rounded border border-stone-200 bg-white p-6">
+        <h1 className="text-2xl font-semibold leading-snug tracking-tight text-stone-900">{ref.title}</h1>
+        {authorLine(ref) && (
+          <p className="mt-2 text-sm leading-relaxed text-stone-600">{authorLine(ref)}</p>
+        )}
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-stone-400">
+          {ref.year && <span>{ref.year}</span>}
+          {ref.venue && <><span aria-hidden="true">·</span><span className="italic text-stone-500">{ref.venue}</span></>}
+          {ref.citation_count != null && (
+            <><span aria-hidden="true">·</span><span>{ref.citation_count} citation{ref.citation_count === 1 ? "" : "s"}</span></>
+          )}
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-stone-100 pt-4 text-sm">
+          {ref.doi && (
+            <a href={`https://doi.org/${ref.doi}`}
+               className="text-indigo-600 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline">DOI ↗</a>
+          )}
+          {ref.url && (
+            <a href={ref.url}
+               className="text-indigo-600 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline">Link ↗</a>
+          )}
+          {ref.pdf && (
+            <a href={ref.pdf}
+               className="text-indigo-600 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline">PDF ↗</a>
+          )}
+          <a href={`/library/${ref.id}/`}
+             className="ml-auto text-xs text-stone-400 hover:text-stone-600 hover:underline focus:outline-none focus-visible:underline">
+            edit / annotate (classic) ↗
+          </a>
+        </div>
+      </section>
 
       {ref.abstract && (
-        <section className="mb-4 rounded border border-stone-200 bg-white p-5">
-          <div className="mb-2 flex items-center gap-2">
+        <section className="mb-4 rounded border border-stone-200 bg-white p-6">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-medium uppercase tracking-wide text-stone-400">Abstract</h2>
-            <button onClick={() => listen(`${ref.title}. ${ref.abstract}`)}
-                    className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs hover:border-stone-400">
-              {listening ? "⏸ Stop" : "🔊 Listen"}
-            </button>
-            <button onClick={() => summarize(ref.abstract)} disabled={summarizing}
-                    className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs hover:border-stone-400 disabled:opacity-50">
-              {summarizing ? "…" : tldr ? "Hide tl;dr" : "≡ tl;dr"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => listen(`${ref.title}. ${ref.abstract}`)}
+                      className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs text-stone-600 hover:border-stone-400 hover:text-stone-800 focus:outline-none focus-visible:border-indigo-600">
+                {listening ? "⏸ Stop" : "🔊 Listen"}
+              </button>
+              <button onClick={() => summarize(ref.abstract)} disabled={summarizing}
+                      className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs text-stone-600 hover:border-stone-400 hover:text-stone-800 focus:outline-none focus-visible:border-indigo-600 disabled:opacity-50">
+                {summarizing ? "…" : tldr ? "Hide tl;dr" : "≡ tl;dr"}
+              </button>
+            </div>
             {ttsError && <span className="text-xs text-red-600">{ttsError}</span>}
           </div>
           {tldr && (
-            <ul className="mb-3 list-disc space-y-1 rounded bg-stone-50 p-3 pl-7 text-sm text-stone-600">
+            <ul className="mb-4 list-disc space-y-1 rounded bg-stone-50 p-3 pl-7 text-sm leading-relaxed text-stone-600">
               {tldr.map((s, i) => <li key={i}>{s}</li>)}
             </ul>
           )}
-          <p className="text-sm leading-relaxed text-stone-700">{ref.abstract}</p>
+          <p className="max-w-prose text-[15px] leading-7 text-stone-700">{ref.abstract}</p>
         </section>
       )}
 
@@ -146,8 +170,8 @@ export default function Reference() {
         </section>
       )}
 
-      <section className="rounded border border-stone-200 bg-white p-5">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400">
+      <section className="rounded border border-stone-200 bg-white p-6">
+        <h2 className="mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400">
           Comments {commentData && commentData.comments.length > 0 && <span className="text-stone-300">{commentData.comments.length}</span>}
         </h2>
         {commentData && commentData.comments.length > 0 ? (
@@ -166,7 +190,7 @@ export default function Reference() {
               onSubmit={(e) => { e.preventDefault(); if (commentBody.trim()) addComment.mutate(); }}>
           <textarea value={commentBody} onChange={(e) => setCommentBody(e.target.value)} rows={2}
                     placeholder="Add a comment…" aria-label="Add comment"
-                    className="flex-1 rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none" />
+                    className="flex-1 rounded border border-stone-300 bg-white px-3 py-2 text-sm placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600" />
           <button type="submit" disabled={addComment.isPending || !commentBody.trim()}
                   className="rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
             Comment
