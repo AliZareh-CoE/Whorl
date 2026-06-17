@@ -6,17 +6,23 @@
   <title>{% block title %}Atlas{% endblock %} · Atlas</title>
   {% load static %}
   <script>
-    // Apply the saved theme before paint (no flash); expose the toggle (#270).
+    // Apply the effective theme before paint (no flash): an explicit saved choice wins,
+    // otherwise follow the OS prefers-color-scheme. The toggle records an explicit choice;
+    // with none stored we keep tracking the OS live. Dark mode is complete app-wide now (#273).
     (function () {
-      try {
-        var t = localStorage.getItem("theme");
-        if (t === "dark") // opt-in only until dark mode is complete
-          document.documentElement.classList.add("dark");
-      } catch (e) {}
+      var mql = window.matchMedia("(prefers-color-scheme: dark)");
+      function stored() { try { return localStorage.getItem("theme"); } catch (e) { return null; } }
+      function apply() {
+        var t = stored();
+        var dark = t === "dark" || (t !== "light" && mql.matches);
+        document.documentElement.classList.toggle("dark", dark);
+      }
+      apply();
       window.__toggleTheme = function () {
         var dark = document.documentElement.classList.toggle("dark");
         try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
       };
+      if (mql.addEventListener) mql.addEventListener("change", function () { if (!stored()) apply(); });
     })();
   </script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">

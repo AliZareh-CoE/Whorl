@@ -138,3 +138,22 @@ def test_reduced_motion_is_respected_globally():
     assert "prefers-reduced-motion: reduce" in src
     built = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text()
     assert "prefers-reduced-motion" in built  # it actually compiled into the served CSS
+
+
+def test_theme_follows_os_preference_by_default():
+    # #273: dark mode is complete app-wide, so a fresh visitor with no stored choice should
+    # follow their OS prefers-color-scheme; the toggle still records an explicit override.
+    from pathlib import Path
+
+    from django.conf import settings
+
+    for name in ("base.html", "spa.html"):
+        html = (Path(settings.BASE_DIR) / "templates" / name).read_text()
+        assert "prefers-color-scheme: dark" in html, name  # OS preference is consulted
+        assert 'localStorage.setItem("theme"' in html, name  # toggle still persists a choice
+        # the old opt-in-only comment must be gone (it gated dark on an explicit "dark")
+        assert "opt-in only until dark mode is complete" not in html, name
+
+    # The standalone login page (the desktop app's first screen) must follow the OS too.
+    login = (Path(settings.BASE_DIR) / "templates" / "registration" / "login.html").read_text()
+    assert "prefers-color-scheme: dark" in login

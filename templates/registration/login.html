@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Log in · Atlas</title>
   {% load static %}
+  <script>
+    // Match the app: an explicit saved choice wins, else follow the OS preference, before paint (#273).
+    (function () {
+      var mql = window.matchMedia("(prefers-color-scheme: dark)");
+      var t = null;
+      try { t = localStorage.getItem("theme"); } catch (e) {}
+      if (t === "dark" || (t !== "light" && mql.matches)) document.documentElement.classList.add("dark");
+    })();
+  </script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body class="h-full bg-stone-50 text-stone-900 antialiased flex items-center justify-center px-4 py-12 dark:bg-stone-950 dark:text-stone-100">

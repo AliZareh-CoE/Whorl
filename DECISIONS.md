@@ -544,6 +544,22 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-06-17 — Theme follows the OS by default now that dark mode is complete (#273)
+
+- **Decision:** the theme bootstrap (base.html, spa.html, and the standalone login page) now
+  resolves to: an explicit saved choice wins, otherwise follow the OS `prefers-color-scheme`.
+  Previously dark was strictly opt-in — the script only added `.dark` for an explicit stored
+  "dark" and ignored the OS — because dark coverage was partial and we didn't want to ship
+  half-dark pages to OS-dark users. Dark mode is now complete app-wide (#270), so honoring the
+  OS is the correct, expected default; the toggle still records an explicit override, and with
+  no stored choice we track OS changes live.
+- **Why:** a researcher whose machine is in dark mode expects a dark app on first visit without
+  hunting for a toggle; the login screen (the desktop app's first screen) was previously always
+  light despite having `dark:` variants, because it had no bootstrap script at all.
+- **Alternatives rejected:** a server-side cookie/setting (adds a settings surface, violates §1
+  "no settings screens"; the localStorage script is zero-config and flash-free); keeping opt-in
+  (now that coverage is complete, opt-in is just a worse default).
+
 ### 2026-06-13 — [REV] Files explorer keyboard navigation
 
 [REV] cycle (cadence: 1 per 10): made the workspace tree keyboard-drivable like a real
@@ -720,6 +736,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+274. A reduced-data / "calm mode" toggle for the dashboard — some research days you want only "what's due and what's blocked," not the heatmap + pet + stats. A single switch (persisted like the theme, no settings page) that collapses the dashboard to the essentials. Pairs with #273's localStorage-only, zero-config preference pattern (idea added by cycle that shipped #273, 2026-06-17).
+273. ~~Theme follows the OS by default (done 2026-06-17): now that dark mode is complete app-wide (#270), the bootstrap in base.html/spa.html/login.html resolves to explicit-saved-choice-else-OS-prefers-color-scheme instead of strict opt-in; the toggle still records an explicit override and we track OS changes live when no choice is stored. The standalone login page (the desktop app's first screen) previously had no theme script at all, so it was always light despite its dark: variants — now fixed. Guard test asserts all three templates consult prefers-color-scheme and the old opt-in comment is gone.~~
 269. ~~Desktop app had no CSS (fixed 2026-06-17): the owner's SQLite build launched (saga over!) but rendered an UNSTYLED login page. Cause: static/css/app.css is a gitignored build artifact (Tailwind output) and the desktop-release CI never built it, so the frozen bundle shipped no stylesheet. Fix: a 'Build Tailwind CSS' workflow step (downloads the Tailwind standalone CLI for the runner OS, compiles assets/css/app.css -> static/css/app.css --minify) BEFORE the freeze that bundles static/. Verified the build locally (Tailwind v4.3.0, 47KB); guard test asserts the step exists and precedes the freeze. Pushing rebuilds the installer WITH styling.~~
 267. ~~Auto-clean the old Postgres data dir on the SQLite desktop (done 2026-06-17, owner asked for an updated installable build): run_desktop now rmtree's the stale pgdata/ + pgsock/ and deletes postgres.log from the data dir on startup, so a machine upgrading from the bundled-Postgres build to SQLite is cleaned automatically (no manual %APPDATA% wipe) and reclaims space. No-op on a fresh install. Verified the SQLite setup still completes with a stale pgdata present; guard test. This also re-triggers the desktop-release build so GitHub's desktop-preview has a fresh SQLite installer.~~ NOTE: still parked — strip the now-DEAD Postgres *bundling* (the pg binaries in spec/CI + desktop_runtime.py + ATLAS_PG_BIN in the Rust shell) to shrink the installer (#268).
 266. ~~Desktop → SQLite (done 2026-06-17, owner-authorized: "if you see no fast solution then lets go sqlite!"). After a multi-day bundled-Postgres-on-Windows saga — each #265 diagnostic revealed a NEW Windows-specific Postgres bug (initdb exit 1, missing client tools, \\?\ prefix, console 0xC000013A crash loop, slow collectstatic, windowed stdin, psycopg connect hang, and finally a pg_ctl capture_output pipe-inheritance hang) — we switched the desktop app to SQLite, what every other single-user desktop app (Zotero, Obsidian, VS Code, Signal…) uses. config/settings/desktop.py now uses django.db.backends.sqlite3 (a file in the data dir, WAL mode); run_desktop dropped the ensure_postgres bring-up (migrate just creates the file → instant startup, no server/initdb/connection step). Postgres-only features degrade cleanly: the 4 trigram GinIndex migrations now use core.migration_ops.PostgresAddIndex (creates the index on Postgres, no-ops on SQLite — TrigramExtension already no-ops), and global search already falls back to icontains off Postgres (core/search.py). The web/server deployment keeps Postgres unchanged. Verified: fresh-SQLite migrate + check + run_desktop setup-only (195 static files, superuser, "Setup complete"); Postgres trigram search tests still pass. Parked #267 (strip the now-dead Postgres bundling — desktop_runtime.py + the pg binaries in the spec/CI + ATLAS_PG_BIN in the Rust shell — to shrink the installer).~~
