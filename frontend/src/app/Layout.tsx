@@ -10,8 +10,8 @@ import { UpdaterButton } from "./UpdaterButton";
 const navCls = ({ isActive }: { isActive: boolean }) =>
   `relative block rounded-md px-3 py-1.5 transition-colors ${
     isActive
-      ? "bg-indigo-50 font-medium text-indigo-700 before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-indigo-600"
-      : "text-stone-500 hover:bg-stone-50 hover:text-stone-900"
+      ? "bg-indigo-50 font-medium text-indigo-700 before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300"
+      : "text-stone-500 hover:bg-stone-50 hover:text-stone-900 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
   }`;
 
 /** SPA chrome mirroring the classic sidebar; unmigrated sections link to server pages. */
@@ -108,10 +108,10 @@ export default function Layout() {
   return (
     <div className="flex h-full">
       <CommandBar />
-      <aside className="fixed inset-y-0 left-0 flex w-56 flex-col border-r border-stone-200 bg-white px-3 py-6">
+      <aside className="fixed inset-y-0 left-0 flex w-56 flex-col border-r border-stone-200 bg-white px-3 py-6 dark:border-stone-800 dark:bg-stone-900">
         <div className="px-2">
-          <a href="/" className="block text-lg font-semibold tracking-tight text-stone-900">Atlas</a>
-          <p className="mt-0.5 text-[10px] uppercase tracking-wide text-stone-400">⌘K for anything</p>
+          <a href="/" className="block text-lg font-semibold tracking-tight text-stone-900 dark:text-stone-100">Atlas</a>
+          <p className="mt-0.5 text-[10px] uppercase tracking-wide text-stone-400 dark:text-stone-500">⌘K for anything</p>
         </div>
         <nav className="mt-6 space-y-0.5 text-sm">
           <NavLink to="/" end className={navCls}>Dashboard</NavLink>
@@ -159,9 +159,17 @@ export default function Layout() {
               </span>
             </a>
           )}
-          <NavLink to="/automations" className="mb-2 block rounded px-1 py-0.5 transition-colors hover:text-stone-700">Automations</NavLink>
+          <NavLink to="/automations" className="mb-2 block rounded px-1 py-0.5 transition-colors hover:text-stone-700 dark:hover:text-stone-200">Automations</NavLink>
           <UpdaterButton />
-          <a href="/classic/" className="block rounded px-1 py-0.5 transition-colors hover:text-stone-700">← Classic Atlas</a>
+          <button
+            type="button"
+            onClick={() => (window as unknown as { __toggleTheme?: () => void }).__toggleTheme?.()}
+            className="mb-2 block w-full rounded px-1 py-0.5 text-left transition-colors hover:text-stone-700 dark:hover:text-stone-200"
+          >
+            <span className="dark:hidden">Dark mode 🌙</span>
+            <span className="hidden dark:inline">Light mode ☀</span>
+          </button>
+          <a href="/classic/" className="block rounded px-1 py-0.5 transition-colors hover:text-stone-700 dark:hover:text-stone-200">← Classic Atlas</a>
         </div>
       </aside>
       <main className="ml-56 min-w-0 flex-1">

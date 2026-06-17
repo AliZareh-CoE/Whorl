@@ -5,11 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Atlas{% endblock %} · Atlas</title>
   {% load static %}
+  <script>
+    // Apply the saved theme before paint (no flash); expose the toggle (#270).
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark") // opt-in only until dark mode is complete
+          document.documentElement.classList.add("dark");
+      } catch (e) {}
+      window.__toggleTheme = function () {
+        var dark = document.documentElement.classList.toggle("dark");
+        try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
+      };
+    })();
+  </script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
   <script src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js" defer></script>
 </head>
-<body class="h-full bg-stone-50 text-stone-900 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body class="h-full bg-stone-50 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:text-white">
     Skip to content
   </a>
@@ -26,40 +40,40 @@
     <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
            @touchstart="touchX = $event.touches[0].clientX"
            @touchend="if (touchX !== null && $event.changedTouches[0].clientX - touchX < -60) sidebarOpen = false; touchX = null"
-           class="fixed inset-y-0 left-0 z-50 w-56 -translate-x-full transform border-r border-stone-200 bg-white px-4 py-6 flex flex-col transition-transform duration-200 lg:translate-x-0">
-      <a href="{% url 'core:dashboard' %}" class="mb-5 text-lg font-semibold tracking-tight text-stone-900 hover:text-indigo-600">Atlas</a>
+           class="fixed inset-y-0 left-0 z-50 w-56 -translate-x-full transform border-r border-stone-200 bg-white px-4 py-6 flex flex-col transition-transform duration-200 lg:translate-x-0 dark:border-stone-800 dark:bg-stone-900">
+      <a href="{% url 'core:dashboard' %}" class="mb-5 text-lg font-semibold tracking-tight text-stone-900 hover:text-indigo-600 dark:text-stone-100">Atlas</a>
       <form action="{% url 'core:search' %}" method="get" class="relative mb-4">
         <input type="search" name="q" id="global-search" placeholder="Search…  ( / )" value="{{ request.GET.q|default:'' }}"
                aria-label="Search everything" autocomplete="off"
                role="combobox" aria-autocomplete="list" aria-controls="suggest-listbox" aria-expanded="false"
                hx-get="{% url 'core:search_suggest' %}" hx-trigger="keyup changed delay:250ms"
                hx-target="#search-suggest" hx-swap="innerHTML"
-               class="w-full rounded border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm placeholder:text-stone-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20">
+               class="w-full rounded border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm placeholder:text-stone-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-stone-700 dark:bg-stone-800 dark:focus:bg-stone-800">
         <div id="search-suggest" class="absolute left-0 right-0 top-full z-50"></div>
       </form>
       <nav class="space-y-1 text-sm">
         <a href="{% url 'core:dashboard' %}"
-           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'core:dashboard' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'core:dashboard' %}bg-stone-100 font-medium dark:bg-stone-800{% else %}text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800{% endif %}">
           {% include "core/_nav_icon.html" with name="dashboard" %}<span>Dashboard</span>
         </a>
         <a href="{% url 'projects:list' %}"
-           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'projects' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'projects' %}bg-stone-100 font-medium dark:bg-stone-800{% else %}text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800{% endif %}">
           {% include "core/_nav_icon.html" with name="projects" %}<span>Projects</span>
         </a>
         <a href="{% url 'literature:index' %}"
-           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'literature' and 'project' not in request.resolver_match.view_name %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'literature' and 'project' not in request.resolver_match.view_name %}bg-stone-100 font-medium dark:bg-stone-800{% else %}text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800{% endif %}">
           {% include "core/_nav_icon.html" with name="library" %}<span>Library</span>
         </a>
         <a href="{% url 'writing:home' %}"
-           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'writing:home' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.view_name == 'writing:home' %}bg-stone-100 font-medium dark:bg-stone-800{% else %}text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800{% endif %}">
           {% include "core/_nav_icon.html" with name="writing" %}<span>Writing</span>
         </a>
         <a href="{% url 'prompts:gallery' %}"
-           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'prompts' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'prompts' %}bg-stone-100 font-medium dark:bg-stone-800{% else %}text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800{% endif %}">
           {% include "core/_nav_icon.html" with name="prompts" %}<span>Prompts</span>
         </a>
         <a href="{% url 'notes:inbox' %}"
-           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'notes' %}bg-stone-100 font-medium{% else %}text-stone-600 hover:bg-stone-50{% endif %}">
+           class="flex items-center gap-2 rounded px-2 py-1.5 {% if request.resolver_match.namespace == 'notes' %}bg-stone-100 font-medium dark:bg-stone-800{% else %}text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800{% endif %}">
           {% include "core/_nav_icon.html" with name="inbox" %}<span>Inbox</span>
         </a>
         <button type="button" id="assistant-summon"
@@ -79,9 +93,12 @@
             </span>
           </a>
         {% endif %}
-        <a href="{% url 'bots:automations' %}" class="mb-2 block hover:text-stone-600 {% if request.resolver_match.namespace == 'bots' %}font-medium text-stone-600{% endif %}">Automations</a>
+        <a href="{% url 'bots:automations' %}" class="mb-2 block hover:text-stone-600 dark:hover:text-stone-200 {% if request.resolver_match.namespace == 'bots' %}font-medium text-stone-600{% endif %}">Automations</a>
+        <button type="button" onclick="window.__toggleTheme()" class="mb-2 block hover:text-stone-600 dark:hover:text-stone-200">
+          <span class="dark:hidden">Dark mode 🌙</span><span class="hidden dark:inline">Light mode ☀</span>
+        </button>
         <form action="{% url 'logout' %}" method="post">{% csrf_token %}
-          <button type="submit" class="hover:text-stone-600">Log out</button>
+          <button type="submit" class="hover:text-stone-600 dark:hover:text-stone-200">Log out</button>
         </form>
       </div>
     </aside>

@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **◐ DARK MODE #270 STARTED (2026-06-17): foundation in.** Owner: "go crazy, no mobile, don't ask." Class-based dark mode (`@custom-variant dark` on a .dark<html>), a no-flash theme script + persisted toggle (opt-in only until complete, so default users are unaffected) in base.html + spa.html, a Dark/Light toggle in both the SPA sidebar (Layout.tsx) and classic sidebar, and dark variants baked into the shared .card/.card-title tokens + both sidebars + the classic nav/search. Next: parallel waves add dark: variants to every page's content. CSS 65KB→ (with dark utils). foundation gate running.
+
 - **★ UI WAVE 6 shipped + 2 guard fixes (364cd5c): ~65 surfaces across 6 waves; entire app polished. Desktop rebuild triggered.**
 
 - **★ UI WAVE 6 SHIPPED (2026-06-17, classic templates): 36 more templates — literature, notes, projects, writing, core dashboard/search.** Six parallel agents: literature (main pages + matrix/bib/forms — HTMX reading-status + matrix toggles preserved), notes (writerly editor + backlinks + inbox), projects (cards + classic overview + the high-visibility _subnav tab bar, per-project accent colors kept), writing (status board + manuscript detail + submission timeline; latex_editor.html left alone), core dashboard (stat figures + heatmap kept) + search. All {% %}/hx-*/id=/Alpine x-* attributes verified preserved. CSS rebuilt 62KB→64KB. ~65 surfaces across waves 1-6; the entire app is now uniformly polished. full suite running.
