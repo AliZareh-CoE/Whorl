@@ -8,6 +8,20 @@
    page head), not prefers-color-scheme — so the in-app toggle always wins. (#270) */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Respect the OS "reduce motion" setting everywhere (#272): the loading-skeleton pulse, the
+   transitions/active-press feedback, and any animation collapse to near-instant for users who
+   ask for it — accessibility without per-element opt-outs. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* World-class focus visibility without per-element classes */
 @layer base {
   a:focus-visible,

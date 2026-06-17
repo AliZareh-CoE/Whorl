@@ -126,3 +126,15 @@ class TestEdgeSwipeAndRecentSearches:
         assert "atlas-recent-searches" in content
         assert "Recent searches" in content
         assert "textContent = q" in content  # stored queries rendered inertly
+
+
+def test_reduced_motion_is_respected_globally():
+    # #272: users who set "reduce motion" should not see the skeleton pulse / transitions.
+    from pathlib import Path
+
+    from django.conf import settings
+
+    src = (Path(settings.BASE_DIR) / "assets" / "css" / "app.css").read_text()
+    assert "prefers-reduced-motion: reduce" in src
+    built = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text()
+    assert "prefers-reduced-motion" in built  # it actually compiled into the served CSS
