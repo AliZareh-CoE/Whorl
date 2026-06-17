@@ -13,7 +13,7 @@
           </span>
         </span>
         <button type="button" data-doi="{{ work.doi }}" data-row="disc-{{ forloop.counter }}"
-                class="discover-add shrink-0 rounded border border-stone-300 bg-white px-2 py-0.5 text-xs hover:border-indigo-500 hover:text-indigo-700">
+                class="discover-add shrink-0 rounded border border-stone-300 bg-white px-2 py-0.5 text-xs hover:border-indigo-500 hover:text-indigo-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-indigo-300">
           + Add
         </button>
       </li>
@@ -33,7 +33,7 @@
         });
         const data = await response.json().catch(() => ({}));
         if (response.ok) {
-          btn.outerHTML = `<a href="${data.url}" class="shrink-0 text-xs text-green-700 hover:underline">✓ ${data.bibtex_key}</a>`;
+          btn.outerHTML = `<a href="${data.url}" class="shrink-0 text-xs text-green-700 hover:underline dark:text-green-300">✓ ${data.bibtex_key}</a>`;
         } else {
           btn.textContent = "failed";
           btn.title = data.error || "";

@@ -1,21 +1,21 @@
 {% if results %}
   <div id="suggest-listbox" role="listbox" aria-label="Search suggestions"
-       class="mt-1 max-h-80 overflow-y-auto rounded border border-stone-200 bg-white py-1 shadow-lg">
+       class="mt-1 max-h-80 overflow-y-auto rounded border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-800 dark:bg-stone-900">
     {% for result in results %}
       {% with obj=result.object %}
         <a href="{% if result.type == 'document' %}{% url 'documents:download' result.project.slug obj.pk %}{% elif result.type == 'decision' %}{% url 'projects:decisions' result.project.slug %}{% elif result.type == 'phase' or result.type == 'milestone' %}{% url 'plans:plan' result.project.slug %}{% else %}{{ obj.get_absolute_url }}{% endif %}"
            id="suggest-opt-{{ forloop.counter }}" role="option" aria-selected="false"
-           class="suggest-item block px-3 py-1.5 text-sm hover:bg-stone-50">
-          <span class="mr-1 rounded bg-stone-100 px-1 py-0.5 text-[10px] uppercase tracking-wide text-stone-400">{{ result.type }}</span>
-          <span class="text-stone-700">{{ obj|truncatechars:48 }}</span>
+           class="suggest-item block px-3 py-1.5 text-sm hover:bg-stone-50 dark:hover:bg-stone-800">
+          <span class="mr-1 rounded bg-stone-100 px-1 py-0.5 text-[10px] uppercase tracking-wide text-stone-400 dark:bg-stone-800 dark:text-stone-400">{{ result.type }}</span>
+          <span class="text-stone-700 dark:text-stone-300">{{ obj|truncatechars:48 }}</span>
         </a>
       {% endwith %}
     {% endfor %}
     <a href="{% url 'core:search' %}?q={{ query|urlencode }}" id="suggest-opt-all" role="option" aria-selected="false"
-       class="suggest-item block border-t border-stone-100 px-3 py-1.5 text-xs text-indigo-600 hover:bg-stone-50">
+       class="suggest-item block border-t border-stone-100 px-3 py-1.5 text-xs text-indigo-600 hover:bg-stone-50 dark:border-stone-800 dark:text-indigo-400 dark:hover:bg-stone-800">
       All results for “{{ query }}” →
     </a>
   </div>
 {% elif query %}
-  <div class="mt-1 rounded border border-stone-200 bg-white px-3 py-2 text-xs text-stone-400 shadow-lg">No matches.</div>
+  <div class="mt-1 rounded border border-stone-200 bg-white px-3 py-2 text-xs text-stone-400 shadow-lg dark:border-stone-800 dark:bg-stone-900">No matches.</div>
 {% endif %}

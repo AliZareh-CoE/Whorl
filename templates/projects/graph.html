@@ -11,9 +11,9 @@
 {% include "projects/_subnav.html" %}
 
 <div class="mb-4 flex items-center gap-3" x-data>
-  <h1 class="text-2xl font-semibold tracking-tight">Knowledge graph</h1>
+  <h1 class="text-2xl font-semibold tracking-tight dark:text-stone-100">Knowledge graph</h1>
   <span class="ml-auto"></span>
-  <span class="text-xs text-stone-400">
+  <span class="text-xs text-stone-400 dark:text-stone-400">
     {% if sync_state %}
       {% if sync_state.status == 'syncing' %}Citation sync running…
       {% elif sync_state.status == 'done' %}Last synced {{ sync_state.last_synced_at|date:"Y-m-d H:i" }} — {{ sync_state.message }}
@@ -23,21 +23,21 @@
   </span>
   <form method="post" action="{% url 'projects:graph_sync' project.slug %}">
     {% csrf_token %}
-    <button type="submit" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400"
+    <button type="submit" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
             {% if sync_state.status == 'syncing' %}disabled{% endif %}>Sync citations from OpenAlex</button>
   </form>
-  <button id="toggle-dim" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400">2D / 3D</button>
+  <button id="toggle-dim" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100">2D / 3D</button>
 </div>
 
-<div class="relative overflow-hidden rounded border border-stone-200 bg-white" style="height: 70vh">
+<div class="relative overflow-hidden rounded border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900" style="height: 70vh">
   <div id="graph" class="h-full w-full"></div>
-  <div id="side-panel" class="absolute right-0 top-0 hidden h-full w-72 overflow-y-auto border-l border-stone-200 bg-white/95 p-4">
-    <button id="panel-close" class="mb-2 text-xs text-stone-400 hover:text-stone-600">✕ close</button>
-    <p id="panel-type" class="text-xs uppercase tracking-wide text-stone-400"></p>
-    <h2 id="panel-title" class="mb-2 text-sm font-medium"></h2>
-    <a id="panel-link" href="#" class="text-sm text-indigo-600 hover:underline">Open →</a>
+  <div id="side-panel" class="absolute right-0 top-0 hidden h-full w-72 overflow-y-auto border-l border-stone-200 bg-white/95 p-4 dark:border-stone-800 dark:bg-stone-900/95">
+    <button id="panel-close" class="mb-2 text-xs text-stone-400 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300">✕ close</button>
+    <p id="panel-type" class="text-xs uppercase tracking-wide text-stone-400 dark:text-stone-400"></p>
+    <h2 id="panel-title" class="mb-2 text-sm font-medium dark:text-stone-100"></h2>
+    <a id="panel-link" href="#" class="text-sm text-indigo-600 hover:underline dark:text-indigo-400">Open →</a>
   </div>
-  <div class="absolute bottom-2 left-2 rounded bg-white/90 px-3 py-2 text-xs text-stone-500">
+  <div class="absolute bottom-2 left-2 rounded bg-white/90 px-3 py-2 text-xs text-stone-500 dark:bg-stone-900/90 dark:text-stone-400">
     <span class="mr-3"><span style="color:#dc2626">●</span> to read</span>
     <span class="mr-3"><span style="color:#f59e0b">●</span> skimmed</span>
     <span class="mr-3"><span style="color:#16a34a">●</span> read / annotated</span>

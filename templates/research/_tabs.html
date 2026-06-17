@@ -1,12 +1,12 @@
 {% with vn=request.resolver_match.view_name %}
-<div class="mb-6 flex flex-wrap gap-1 border-b border-stone-200 pb-3 text-sm">
+<div class="mb-6 flex flex-wrap gap-1 border-b border-stone-200 pb-3 text-sm dark:border-stone-800">
   <a href="{% url 'research:ledger' project.slug %}"
-     class="rounded px-3 py-1.5 transition-colors {% if vn == 'research:ledger' %}bg-stone-100 font-medium text-indigo-600{% else %}text-stone-600 hover:bg-stone-50 hover:text-stone-900{% endif %}">Hypotheses</a>
+     class="rounded px-3 py-1.5 transition-colors {% if vn == 'research:ledger' %}bg-stone-100 font-medium text-indigo-600 dark:bg-stone-800 dark:text-indigo-400{% else %}text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100{% endif %}">Hypotheses</a>
   <a href="{% url 'research:experiments' project.slug %}"
-     class="rounded px-3 py-1.5 transition-colors {% if vn == 'research:experiments' %}bg-stone-100 font-medium text-indigo-600{% else %}text-stone-600 hover:bg-stone-50 hover:text-stone-900{% endif %}">Experiment log</a>
+     class="rounded px-3 py-1.5 transition-colors {% if vn == 'research:experiments' %}bg-stone-100 font-medium text-indigo-600 dark:bg-stone-800 dark:text-indigo-400{% else %}text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100{% endif %}">Experiment log</a>
   <a href="{% url 'research:datasets' project.slug %}"
-     class="rounded px-3 py-1.5 transition-colors {% if vn == 'research:datasets' %}bg-stone-100 font-medium text-indigo-600{% else %}text-stone-600 hover:bg-stone-50 hover:text-stone-900{% endif %}">Datasets</a>
+     class="rounded px-3 py-1.5 transition-colors {% if vn == 'research:datasets' %}bg-stone-100 font-medium text-indigo-600 dark:bg-stone-800 dark:text-indigo-400{% else %}text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100{% endif %}">Datasets</a>
   <a href="{% url 'research:protocols' project.slug %}"
-     class="rounded px-3 py-1.5 transition-colors {% if vn == 'research:protocols' %}bg-stone-100 font-medium text-indigo-600{% else %}text-stone-600 hover:bg-stone-50 hover:text-stone-900{% endif %}">Protocols</a>
+     class="rounded px-3 py-1.5 transition-colors {% if vn == 'research:protocols' %}bg-stone-100 font-medium text-indigo-600 dark:bg-stone-800 dark:text-indigo-400{% else %}text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100{% endif %}">Protocols</a>
 </div>
 {% endwith %}

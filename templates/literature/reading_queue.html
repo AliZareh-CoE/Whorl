@@ -12,16 +12,16 @@
 {% block content %}
 {% include "projects/_subnav.html" %}
 
-<h1 class="mb-2 text-2xl font-semibold tracking-tight text-stone-900">Reading queue</h1>
-<p class="mb-5 text-sm text-stone-500">Unread and skimmed references{% if order == "gaps" %}, papers that fill review-matrix gaps first{% else %}, highest priority first{% endif %}. Change the status as you go.</p>
+<h1 class="mb-2 text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Reading queue</h1>
+<p class="mb-5 text-sm text-stone-500 dark:text-stone-400">Unread and skimmed references{% if order == "gaps" %}, papers that fill review-matrix gaps first{% else %}, highest priority first{% endif %}. Change the status as you go.</p>
 
 {% if theme_count %}
   <div class="mb-4 flex items-center gap-1 text-xs">
-    <span class="mr-1 font-medium uppercase tracking-wide text-stone-400">Order</span>
+    <span class="mr-1 font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Order</span>
     <a href="?order=priority{% if keyword %}&kw={{ keyword|urlencode }}{% endif %}"
-       class="rounded-full border px-2.5 py-1 {% if order != 'gaps' %}border-indigo-600 bg-indigo-50 text-indigo-700{% else %}border-stone-200 text-stone-500 hover:border-stone-400{% endif %}">Priority</a>
+       class="rounded-full border px-2.5 py-1 {% if order != 'gaps' %}border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300{% else %}border-stone-200 text-stone-500 hover:border-stone-400 dark:border-stone-800 dark:text-stone-400{% endif %}">Priority</a>
     <a href="?order=gaps{% if keyword %}&kw={{ keyword|urlencode }}{% endif %}"
-       class="rounded-full border px-2.5 py-1 {% if order == 'gaps' %}border-indigo-600 bg-indigo-50 text-indigo-700{% else %}border-stone-200 text-stone-500 hover:border-stone-400{% endif %}">Fill matrix gaps</a>
+       class="rounded-full border px-2.5 py-1 {% if order == 'gaps' %}border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300{% else %}border-stone-200 text-stone-500 hover:border-stone-400 dark:border-stone-800 dark:text-stone-400{% endif %}">Fill matrix gaps</a>
   </div>
 {% endif %}
 
@@ -30,31 +30,31 @@
   <form id="bulk-status-form" method="post" action="{% url 'literature:bulk_status' project.slug %}">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-    <div x-show="n" x-cloak class="mb-3 flex items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm">
-      <span class="font-medium text-indigo-800" x-text="n + ' selected'"></span>
+    <div x-show="n" x-cloak class="mb-3 flex items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm dark:border-indigo-500/30 dark:bg-indigo-500/10">
+      <span class="font-medium text-indigo-800 dark:text-indigo-300" x-text="n + ' selected'"></span>
       <span class="mx-1 text-indigo-200">|</span>
-      <span class="text-stone-500">Mark as</span>
-      <select name="reading_status" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs">
+      <span class="text-stone-500 dark:text-stone-400">Mark as</span>
+      <select name="reading_status" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
         {% for value, label in statuses %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
       </select>
-      <button type="submit" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400">Apply</button>
+      <button type="submit" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300">Apply</button>
     </div>
   </form>
-  <div class="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
+  <div class="divide-y divide-stone-100 rounded border border-stone-200 bg-white dark:divide-stone-800 dark:border-stone-800 dark:bg-stone-900">
     {% for link in links %}
-      <div class="flex items-center transition-colors hover:bg-stone-50">
+      <div class="flex items-center transition-colors hover:bg-stone-50 dark:hover:bg-stone-800">
         <div class="min-w-0 flex-1">{% include "literature/_link_row.html" %}</div>
         {% if order == "gaps" and link.gap_theme %}
           <a href="{% url 'literature:matrix' project.slug %}"
              title="“{{ link.gap_theme }}” has only {{ link.gap_score }} read paper(s) so far"
-             class="mr-4 shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+             class="mr-4 shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
             fills: {{ link.gap_theme }} ({{ link.gap_score }} read)
           </a>
         {% elif theme_count %}
           <a href="{% url 'literature:matrix' project.slug %}"
              title="Covers {{ link.theme_coverage }} of {{ theme_count }} review themes"
              class="mr-4 shrink-0 rounded-full px-2 py-0.5 text-xs
-               {% if link.theme_coverage %}bg-indigo-50 text-indigo-700{% else %}bg-stone-100 text-stone-400{% endif %}">
+               {% if link.theme_coverage %}bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300{% else %}bg-stone-100 text-stone-400 dark:bg-stone-800 dark:text-stone-400{% endif %}">
             {{ link.theme_coverage }}/{{ theme_count }} themes
           </a>
         {% endif %}
@@ -64,13 +64,13 @@
   <p class="mt-3 text-xs text-stone-400">{{ links|length }} paper{{ links|length|pluralize }} still to read.</p>
   </div>
 {% else %}
-  <div class="rounded border border-dashed border-stone-300 bg-white p-12 text-center">
+  <div class="rounded border border-dashed border-stone-300 bg-white p-12 text-center dark:border-stone-700 dark:bg-stone-900">
     {% if has_references %}
-      <p class="mb-1 text-sm font-medium text-stone-700">Queue is clear</p>
-      <p class="text-sm text-stone-500">Everything linked to this project has been read.</p>
+      <p class="mb-1 text-sm font-medium text-stone-700 dark:text-stone-300">Queue is clear</p>
+      <p class="text-sm text-stone-500 dark:text-stone-400">Everything linked to this project has been read.</p>
     {% else %}
-      <p class="mb-1 text-sm font-medium text-stone-700">Nothing to read yet</p>
-      <p class="mb-4 text-sm text-stone-500">No references are linked to this project yet.</p>
+      <p class="mb-1 text-sm font-medium text-stone-700 dark:text-stone-300">Nothing to read yet</p>
+      <p class="mb-4 text-sm text-stone-500 dark:text-stone-400">No references are linked to this project yet.</p>
       <a href="{% url 'literature:project_link' project.slug %}" class="inline-block rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">Link a reference</a>
     {% endif %}
   </div>

@@ -12,15 +12,15 @@
 {% include "research/_tabs.html" %}
 
 <div class="mb-6 flex items-center justify-between gap-4">
-  <h1 class="text-2xl font-semibold tracking-tight text-stone-900">Dataset registry</h1>
+  <h1 class="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Dataset registry</h1>
   <a href="{% url 'research:dataset_create' project.slug %}"
      class="shrink-0 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">Register dataset</a>
 </div>
 
 {% if datasets %}
-  <div class="overflow-x-auto rounded border border-stone-200 bg-white"><table class="w-full min-w-[640px] border-collapse text-sm">
+  <div class="overflow-x-auto rounded border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900"><table class="w-full min-w-[640px] border-collapse text-sm">
     <thead>
-      <tr class="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-400">
+      <tr class="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-400 dark:border-stone-800 dark:text-stone-400">
         <th class="px-4 py-2.5 font-medium">Name</th>
         <th class="px-4 py-2.5 font-medium">Location</th>
         <th class="px-4 py-2.5 font-medium">Version</th>
@@ -30,26 +30,26 @@
     </thead>
     <tbody>
       {% for dataset in datasets %}
-        <tr class="border-b border-stone-100 transition-colors last:border-0 hover:bg-stone-50">
-          <td class="px-4 py-2.5 font-medium text-stone-900">{{ dataset.name }}
-            {% if dataset.description %}<p class="mt-0.5 text-xs font-normal text-stone-400">{{ dataset.description|truncatechars:80 }}</p>{% endif %}
+        <tr class="border-b border-stone-100 transition-colors last:border-0 hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800">
+          <td class="px-4 py-2.5 font-medium text-stone-900 dark:text-stone-100">{{ dataset.name }}
+            {% if dataset.description %}<p class="mt-0.5 text-xs font-normal text-stone-400 dark:text-stone-400">{{ dataset.description|truncatechars:80 }}</p>{% endif %}
           </td>
-          <td class="px-4 py-2.5 font-mono text-xs text-stone-500">{{ dataset.location|truncatechars:50 }}</td>
+          <td class="px-4 py-2.5 font-mono text-xs text-stone-500 dark:text-stone-400">{{ dataset.location|truncatechars:50 }}</td>
           <td class="px-4 py-2.5">
-            {% if dataset.version %}<span class="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-600">{{ dataset.version }}</span>{% else %}<span class="text-stone-400">—</span>{% endif %}
+            {% if dataset.version %}<span class="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-600 dark:bg-stone-800 dark:text-stone-300">{{ dataset.version }}</span>{% else %}<span class="text-stone-400 dark:text-stone-400">—</span>{% endif %}
           </td>
-          <td class="px-4 py-2.5 font-mono text-xs text-stone-400">{{ dataset.checksum|truncatechars:16|default:"—" }}</td>
+          <td class="px-4 py-2.5 font-mono text-xs text-stone-400 dark:text-stone-400">{{ dataset.checksum|truncatechars:16|default:"—" }}</td>
           <td class="px-4 py-2.5 text-right">
-            <a href="{% url 'research:dataset_edit' project.slug dataset.pk %}" class="text-xs text-stone-500 transition-colors hover:text-indigo-600 hover:underline">Edit</a>
+            <a href="{% url 'research:dataset_edit' project.slug dataset.pk %}" class="text-xs text-stone-500 transition-colors hover:text-indigo-600 hover:underline dark:text-stone-400 dark:hover:text-indigo-400">Edit</a>
           </td>
         </tr>
       {% endfor %}
     </tbody>
   </table></div>
 {% else %}
-  <div class="rounded border border-dashed border-stone-300 bg-white p-12 text-center">
-    <p class="mx-auto mb-3 max-w-md text-sm leading-relaxed text-stone-600">Where is the data, which version, and how do you know it's intact?</p>
-    <a href="{% url 'research:dataset_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Register the first dataset</a>
+  <div class="rounded border border-dashed border-stone-300 bg-white p-12 text-center dark:border-stone-700 dark:bg-stone-900">
+    <p class="mx-auto mb-3 max-w-md text-sm leading-relaxed text-stone-600 dark:text-stone-300">Where is the data, which version, and how do you know it's intact?</p>
+    <a href="{% url 'research:dataset_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Register the first dataset</a>
   </div>
 {% endif %}
 {% endblock %}

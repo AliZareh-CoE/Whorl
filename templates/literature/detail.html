@@ -8,9 +8,9 @@
 
 {% block content %}
 <div class="mb-1 flex items-start gap-3">
-  <h1 class="text-2xl font-semibold tracking-tight text-stone-900">{{ reference.title }}</h1>
+  <h1 class="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">{{ reference.title }}</h1>
 </div>
-<p class="mb-6 text-sm text-stone-500">
+<p class="mb-6 text-sm text-stone-500 dark:text-stone-400">
   {{ reference.author_names }}{% if reference.year %} · {{ reference.year }}{% endif %}
   {% if reference.venue %} · {{ reference.venue }}{% endif %}
   {% if reference.citation_count is not None %} · cited {{ reference.citation_count }}×{% endif %}
@@ -21,36 +21,36 @@
     <span class="text-[10px] font-medium uppercase tracking-wide text-stone-400">Keywords</span>
     {% for keyword in keywords %}
       <a href="{% url 'core:search' %}?q={{ keyword|urlencode }}"
-         class="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-xs text-stone-600 hover:border-indigo-400 hover:text-indigo-700">{{ keyword }}</a>
+         class="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-xs text-stone-600 hover:border-indigo-400 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-indigo-300">{{ keyword }}</a>
     {% endfor %}
   </div>
 {% endif %}
 
 <div class="mb-6 flex flex-wrap items-center gap-2 text-sm">
   {% if reference.doi %}
-    <a href="https://doi.org/{{ reference.doi }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900">doi:{{ reference.doi }}</a>
+    <a href="https://doi.org/{{ reference.doi }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-stone-100">doi:{{ reference.doi }}</a>
   {% endif %}
   {% if reference.arxiv_id %}
-    <a href="https://arxiv.org/abs/{{ reference.arxiv_id }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900">arXiv:{{ reference.arxiv_id }}</a>
+    <a href="https://arxiv.org/abs/{{ reference.arxiv_id }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-stone-100">arXiv:{{ reference.arxiv_id }}</a>
   {% endif %}
   {% if reference.url %}
-    <a href="{{ reference.url }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900">URL</a>
+    <a href="{{ reference.url }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-stone-100">URL</a>
   {% endif %}
   {% if reference.pdf %}
-    <a href="{% url 'literature:read' reference.pk %}" class="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 transition-colors hover:border-indigo-400">Read in Atlas</a>
-    <a href="{{ reference.pdf.url }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900">Raw PDF</a>
+    <a href="{% url 'literature:read' reference.pk %}" class="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 transition-colors hover:border-indigo-400 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">Read in Atlas</a>
+    <a href="{{ reference.pdf.url }}" class="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-stone-100">Raw PDF</a>
   {% elif reference.doi or reference.arxiv_id %}
     <form method="post" action="{% url 'literature:fetch_pdf' reference.pk %}" class="inline">
       {% csrf_token %}
-      <button type="submit" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900"
+      <button type="submit" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-stone-100"
               title="{{ reference.extra.oa_pdf|default:'Searches arXiv and Unpaywall for a free PDF' }}">
         ⤓ Fetch open-access PDF
       </button>
     </form>
   {% endif %}
   <span class="ml-auto"></span>
-  <a href="{% url 'literature:edit' reference.pk %}" class="text-xs text-stone-500 hover:text-indigo-700">Edit / attach PDF</a>
-  <a href="{% url 'literature:delete' reference.pk %}" class="text-xs text-red-600 hover:text-red-700">Delete</a>
+  <a href="{% url 'literature:edit' reference.pk %}" class="text-xs text-stone-500 hover:text-indigo-700 dark:text-stone-400 dark:hover:text-indigo-300">Edit / attach PDF</a>
+  <a href="{% url 'literature:delete' reference.pk %}" class="text-xs text-red-600 hover:text-red-700 dark:text-red-400">Delete</a>
 </div>
 
 <div class="grid grid-cols-2 gap-4">
@@ -64,7 +64,7 @@
         </span>
       </div>
       <div id="abstract-summary" class="mb-2"></div>
-      <p id="abstract-text" class="text-sm text-stone-600">{{ reference.abstract }}</p>
+      <p id="abstract-text" class="text-sm text-stone-600 dark:text-stone-300">{{ reference.abstract }}</p>
     </section>
   {% endif %}
   <section class="card">
@@ -73,19 +73,19 @@
       <ul class="mb-3 space-y-1 text-sm">
         {% for link in project_links %}
           <li class="flex items-center gap-2">
-            <a href="{% url 'literature:project' link.project.slug %}" class="text-stone-900 hover:text-indigo-700">{{ link.project.name }}</a>
-            <span class="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{{ link.get_reading_status_display }}</span>
+            <a href="{% url 'literature:project' link.project.slug %}" class="text-stone-900 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300">{{ link.project.name }}</a>
+            <span class="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600 dark:bg-stone-800 dark:text-stone-300">{{ link.get_reading_status_display }}</span>
             <span class="text-xs text-stone-400">{{ link.get_priority_display }} priority</span>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="mb-3 text-sm text-stone-500">Not linked to any project yet.</p>
+      <p class="mb-3 text-sm text-stone-500 dark:text-stone-400">Not linked to any project yet.</p>
     {% endif %}
     {% if available_projects %}
       <form method="post" action="{% url 'literature:link' reference.pk %}" class="flex items-center gap-2">
         {% csrf_token %}
-        <select name="project" class="rounded border border-stone-300 bg-white px-2 py-1 text-sm text-stone-600 hover:border-stone-400 focus:border-indigo-600 focus:outline-none">
+        <select name="project" class="rounded border border-stone-300 bg-white px-2 py-1 text-sm text-stone-600 hover:border-stone-400 focus:border-indigo-600 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
           {% for project in available_projects %}
             <option value="{{ project.slug }}">{{ project.name }}</option>
           {% endfor %}
@@ -100,13 +100,13 @@
       <ul class="space-y-1.5 text-sm">
         {% for ref, score in related %}
           <li class="flex items-baseline gap-2">
-            <a href="{{ ref.get_absolute_url }}" class="min-w-0 flex-1 truncate text-stone-900 hover:text-indigo-700">{{ ref.title }}</a>
+            <a href="{{ ref.get_absolute_url }}" class="min-w-0 flex-1 truncate text-stone-900 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300">{{ ref.title }}</a>
             <span class="shrink-0 font-mono text-[10px] text-stone-300" title="similarity">{{ score|floatformat:2 }}</span>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="text-sm text-stone-500">Nothing similar yet — suggestions appear as the library grows.</p>
+      <p class="text-sm text-stone-500 dark:text-stone-400">Nothing similar yet — suggestions appear as the library grows.</p>
     {% endif %}
   </section>
   <section class="card">
@@ -114,7 +114,7 @@
       <h2 class="text-sm font-medium uppercase tracking-wide text-stone-400">Discover similar on OpenAlex</h2>
       <button type="button" hx-get="{% url 'literature:discover' reference.pk %}"
               hx-target="#discover-results" hx-swap="innerHTML"
-              class="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900">
+              class="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-stone-100">
         ⌕ Discover
       </button>
     </div>
@@ -124,7 +124,7 @@
   </section>
   <section class="card">
     <h2 class="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400">BibTeX</h2>
-    <pre class="overflow-x-auto rounded bg-stone-50 p-3 font-mono text-xs text-stone-700">{{ bibtex }}</pre>
+    <pre class="overflow-x-auto rounded bg-stone-50 p-3 font-mono text-xs text-stone-700 dark:bg-stone-800 dark:text-stone-300">{{ bibtex }}</pre>
   </section>
 </div>
 <div class="mt-4 max-w-3xl">

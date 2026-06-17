@@ -1,9 +1,9 @@
-<div id="project-progress" {% if oob %}hx-swap-oob="true"{% endif %} class="rounded border border-stone-200 bg-white px-5 py-4 shadow-sm">
+<div id="project-progress" {% if oob %}hx-swap-oob="true"{% endif %} class="rounded border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-5 py-4 shadow-sm">
   <div class="mb-1.5 flex items-baseline justify-between text-sm">
-    <span class="text-xs font-medium uppercase tracking-wide text-stone-400">Project progress</span>
-    <span class="text-stone-500">{{ done }}/{{ total }} milestones</span>
+    <span class="text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Project progress</span>
+    <span class="text-stone-500 dark:text-stone-400">{{ done }}/{{ total }} milestones</span>
   </div>
-  <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+  <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">
     <div class="h-1.5 rounded-full" style="width: {{ percent }}%; background: {{ project.color }}"></div>
   </div>
 </div>

@@ -12,64 +12,64 @@
 {% include "projects/_subnav.html" %}
 
 <div class="mb-5 mt-2 flex items-center gap-3">
-  <h1 class="text-2xl font-semibold tracking-tight text-stone-900">{{ note.title }}</h1>
+  <h1 class="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">{{ note.title }}</h1>
   <span class="ml-auto"></span>
   {% include "_summarize_button.html" with target_id="note-body" panel_id="note-summary" %}
   {% include "_read_aloud.html" with target_id="note-body" %}
-  <a href="{% url 'notes:edit' project.slug note.pk %}" class="text-sm text-stone-500 transition-colors hover:text-stone-900 hover:underline">Edit</a>
+  <a href="{% url 'notes:edit' project.slug note.pk %}" class="text-sm text-stone-500 transition-colors hover:text-stone-900 hover:underline dark:text-stone-400 dark:hover:text-stone-100">Edit</a>
   <a href="{% url 'notes:delete' project.slug note.pk %}" class="text-sm text-red-600 transition-colors hover:text-red-700 hover:underline">Delete</a>
 </div>
 
 <div id="note-summary" class="mb-4 max-w-3xl"></div>
 <div class="flex gap-8">
-  <article id="note-body" class="prose prose-stone max-w-prose min-w-0 flex-1 rounded border border-stone-200 bg-white px-8 py-7 text-sm leading-relaxed shadow-sm prose-a:text-indigo-600">
-    {% if rendered_body %}{{ rendered_body }}{% else %}<p class="text-stone-400">(empty note)</p>{% endif %}
+  <article id="note-body" class="prose prose-stone max-w-prose min-w-0 flex-1 rounded border border-stone-200 bg-white px-8 py-7 text-sm leading-relaxed shadow-sm prose-a:text-indigo-600 dark:prose-invert dark:border-stone-800 dark:bg-stone-900">
+    {% if rendered_body %}{{ rendered_body }}{% else %}<p class="text-stone-400 dark:text-stone-400">(empty note)</p>{% endif %}
   </article>
   <aside class="w-64 shrink-0 space-y-5">
     <section class="card">
-      <h2 class="mb-2.5 text-sm font-medium uppercase tracking-wide text-stone-400">Backlinks</h2>
+      <h2 class="mb-2.5 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Backlinks</h2>
       {% if backlinks %}
         <ul class="space-y-1.5 text-sm">
           {% for source in backlinks %}
-            <li><a href="{{ source.get_absolute_url }}" class="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">{{ source.title }}</a></li>
+            <li><a href="{{ source.get_absolute_url }}" class="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">{{ source.title }}</a></li>
           {% endfor %}
         </ul>
       {% else %}
-        <p class="text-xs text-stone-400">No notes link here yet.</p>
+        <p class="text-xs text-stone-400 dark:text-stone-400">No notes link here yet.</p>
       {% endif %}
     </section>
     {% if outgoing %}
       <section class="card">
-        <h2 class="mb-2.5 text-sm font-medium uppercase tracking-wide text-stone-400">Links to</h2>
+        <h2 class="mb-2.5 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Links to</h2>
         <ul class="space-y-1.5 text-sm">
           {% for target in outgoing %}
-            <li><a href="{{ target.get_absolute_url }}" class="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">{{ target.title }}</a></li>
+            <li><a href="{{ target.get_absolute_url }}" class="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">{{ target.title }}</a></li>
           {% endfor %}
         </ul>
       </section>
     {% endif %}
     {% if note.references.all %}
       <section class="card">
-        <h2 class="mb-2.5 text-sm font-medium uppercase tracking-wide text-stone-400">References</h2>
+        <h2 class="mb-2.5 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">References</h2>
         <ul class="space-y-1.5 text-sm">
           {% for ref in note.references.all %}
-            <li><a href="{{ ref.get_absolute_url }}" class="font-mono text-xs text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">{{ ref.bibtex_key }}</a></li>
+            <li><a href="{{ ref.get_absolute_url }}" class="font-mono text-xs text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">{{ ref.bibtex_key }}</a></li>
           {% endfor %}
         </ul>
       </section>
     {% endif %}
     {% if keywords %}
       <section class="card">
-        <h2 class="mb-2.5 text-sm font-medium uppercase tracking-wide text-stone-400">Keywords</h2>
+        <h2 class="mb-2.5 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Keywords</h2>
         <div class="flex flex-wrap gap-1.5">
           {% for keyword in keywords %}
             <a href="{% url 'core:search' %}?q={{ keyword|urlencode }}"
-               class="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-xs text-stone-600 transition-colors hover:border-indigo-400 hover:text-indigo-700">{{ keyword }}</a>
+               class="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-xs text-stone-600 transition-colors hover:border-indigo-400 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{{ keyword }}</a>
           {% endfor %}
         </div>
       </section>
     {% endif %}
-    <p class="px-1 text-xs text-stone-400">Updated {{ note.updated_at|date:"Y-m-d H:i" }}</p>
+    <p class="px-1 text-xs text-stone-400 dark:text-stone-400">Updated {{ note.updated_at|date:"Y-m-d H:i" }}</p>
   </aside>
 </div>
 <div class="mt-6 max-w-3xl">

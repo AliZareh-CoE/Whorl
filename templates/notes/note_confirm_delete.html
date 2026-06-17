@@ -9,11 +9,11 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="mb-4 text-2xl font-semibold tracking-tight">Delete note “{{ object.title }}”?</h1>
-<p class="mb-6 text-sm text-stone-600">Wiki-links pointing at it will become unresolved.</p>
+<h1 class="mb-4 text-2xl font-semibold tracking-tight dark:text-stone-100">Delete note “{{ object.title }}”?</h1>
+<p class="mb-6 text-sm text-stone-600 dark:text-stone-300">Wiki-links pointing at it will become unresolved.</p>
 <form method="post" class="flex items-center gap-3">
   {% csrf_token %}
   <button type="submit" class="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
-  <a href="{{ object.get_absolute_url }}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+  <a href="{{ object.get_absolute_url }}" class="text-sm text-stone-500 hover:underline dark:text-stone-400">Cancel</a>
 </form>
 {% endblock %}

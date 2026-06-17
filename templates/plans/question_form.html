@@ -17,10 +17,10 @@
   {% include "_fields.html" %}
   <div class="flex items-center gap-3 pt-2">
     <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
-    <a href="{% url 'plans:questions' project.slug %}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+    <a href="{% url 'plans:questions' project.slug %}" class="text-sm text-stone-500 dark:text-stone-400 hover:underline">Cancel</a>
     {% if object %}
       <span class="ml-auto"></span>
-      <a href="{% url 'plans:question_delete' project.slug object.pk %}" class="text-sm text-red-600 hover:underline">Delete…</a>
+      <a href="{% url 'plans:question_delete' project.slug object.pk %}" class="text-sm text-red-600 dark:text-red-400 hover:underline">Delete…</a>
     {% endif %}
   </div>
 </form>

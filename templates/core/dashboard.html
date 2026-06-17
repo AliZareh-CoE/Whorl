@@ -6,18 +6,18 @@
 {% block breadcrumbs %}Dashboard{% endblock %}
 
 {% block content %}
-<h1 class="mb-5 text-2xl font-semibold tracking-tight text-stone-900">Today, everywhere</h1>
+<h1 class="mb-5 text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Today, everywhere</h1>
 
 {% if not active %}
-  <div class="rounded border border-dashed border-stone-300 bg-white p-12 text-center">
-    <p class="mx-auto mb-3 max-w-md text-sm text-stone-600">No active projects yet. Everything in Atlas lives inside one — start by creating a project to plan, gather literature, and track progress.</p>
+  <div class="rounded border border-dashed border-stone-300 bg-white p-12 text-center dark:border-stone-700 dark:bg-stone-900">
+    <p class="mx-auto mb-3 max-w-md text-sm text-stone-600 dark:text-stone-300">No active projects yet. Everything in Atlas lives inside one — start by creating a project to plan, gather literature, and track progress.</p>
     <a href="{% url 'projects:create' %}" class="inline-flex items-center rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">Create a project</a>
   </div>
 {% else %}
 
 {# The answer first ([REV]): what needs me today — overdue, deadlines, inbox. #}
 {% if attention.empty %}
-  <div class="mb-4 rounded border border-stone-200 bg-white px-4 py-3 text-sm text-stone-500">
+  <div class="mb-4 rounded border border-stone-200 bg-white px-4 py-3 text-sm text-stone-500 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">
     All clear — nothing overdue, no deadlines inside two weeks, inbox triaged.
   </div>
 {% else %}
@@ -26,15 +26,15 @@
     <ul class="space-y-1.5 text-sm">
       {% for m in attention.overdue %}
         <li class="group flex items-baseline gap-2.5">
-          <span class="inline-flex shrink-0 items-center rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-600">overdue</span>
-          <a href="{% url 'plans:plan' m.phase.project.slug %}" class="min-w-0 flex-1 truncate text-stone-700 group-hover:text-indigo-700">{{ m.title }}</a>
+          <span class="inline-flex shrink-0 items-center rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-600 dark:bg-red-500/10 dark:text-red-300">overdue</span>
+          <a href="{% url 'plans:plan' m.phase.project.slug %}" class="min-w-0 flex-1 truncate text-stone-700 group-hover:text-indigo-700 dark:text-stone-300 dark:group-hover:text-indigo-400">{{ m.title }}</a>
           <span class="shrink-0 text-xs text-stone-400">{{ m.phase.project.name|truncatechars:24 }} · due {{ m.due_date }}</span>
         </li>
       {% endfor %}
       {% for ms in attention.deadlines %}
         <li class="group flex items-baseline gap-2.5">
-          <span class="inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide {% if ms.days_to_deadline < 7 %}bg-red-50 text-red-600{% else %}bg-amber-50 text-amber-600{% endif %}">deadline</span>
-          <a href="{{ ms.get_absolute_url }}" class="min-w-0 flex-1 truncate text-stone-700 group-hover:text-indigo-700">{{ ms.title }}</a>
+          <span class="inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide {% if ms.days_to_deadline < 7 %}bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300{% else %}bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300{% endif %}">deadline</span>
+          <a href="{{ ms.get_absolute_url }}" class="min-w-0 flex-1 truncate text-stone-700 group-hover:text-indigo-700 dark:text-stone-300 dark:group-hover:text-indigo-400">{{ ms.title }}</a>
           <span class="shrink-0 text-xs text-stone-400">{{ ms.project.name|truncatechars:24 }} ·
             {% if ms.days_to_deadline < 0 %}passed{% else %}{{ ms.days_to_deadline }} day{{ ms.days_to_deadline|pluralize }}{% endif %}
             ({{ ms.deadline }})</span>
@@ -42,17 +42,17 @@
       {% endfor %}
       {% for q in attention.inbox %}
         <li class="flex items-baseline gap-2.5">
-          <span class="inline-flex shrink-0 items-center rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-600">inbox</span>
-          <span class="min-w-0 flex-1 truncate text-stone-600">{{ q.text|truncatechars:90 }}</span>
+          <span class="inline-flex shrink-0 items-center rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">inbox</span>
+          <span class="min-w-0 flex-1 truncate text-stone-600 dark:text-stone-300">{{ q.text|truncatechars:90 }}</span>
           {# inline triage (#157): file or dismiss without leaving the dashboard #}
           <form method="post" action="{% url 'notes:triage' q.pk %}" class="flex shrink-0 items-center gap-1">
             {% csrf_token %}
             <input type="hidden" name="next" value="{% url 'core:dashboard' %}">
-            <select name="project" class="rounded border border-stone-200 bg-white px-1.5 py-0.5 text-xs text-stone-600 focus:border-indigo-500 focus:outline-none">
+            <select name="project" class="rounded border border-stone-200 bg-white px-1.5 py-0.5 text-xs text-stone-600 focus:border-indigo-500 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
               {% for row in active %}<option value="{{ row.project.slug }}">{{ row.project.name|truncatechars:22 }}</option>{% endfor %}
             </select>
-            <button type="submit" name="action" value="assign" class="rounded px-1.5 py-0.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50">file</button>
-            <button type="submit" name="action" value="dismiss" title="Dismiss" class="rounded px-1.5 py-0.5 text-xs text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600">✕</button>
+            <button type="submit" name="action" value="assign" class="rounded px-1.5 py-0.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-500/10">file</button>
+            <button type="submit" name="action" value="dismiss" title="Dismiss" class="rounded px-1.5 py-0.5 text-xs text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800 dark:hover:text-stone-300">✕</button>
           </form>
         </li>
       {% endfor %}
@@ -61,21 +61,21 @@
 {% endif %}
 
 <div class="mb-4 grid grid-cols-4 gap-3">
-  <div class="rounded border border-stone-200 bg-white px-4 py-3">
-    <p class="text-2xl font-semibold tracking-tight text-stone-900">{{ stats.papers_read }}</p>
+  <div class="rounded border border-stone-200 bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-900">
+    <p class="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">{{ stats.papers_read }}</p>
     <p class="mt-0.5 text-xs text-stone-400">papers read this month</p>
   </div>
-  <div class="rounded border border-stone-200 bg-white px-4 py-3">
-    <p class="text-2xl font-semibold tracking-tight text-stone-900">{{ stats.notes_written }}</p>
+  <div class="rounded border border-stone-200 bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-900">
+    <p class="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">{{ stats.notes_written }}</p>
     <p class="mt-0.5 text-xs text-stone-400">notes written this month</p>
   </div>
-  <div class="rounded border border-stone-200 bg-white px-4 py-3">
-    <p class="text-2xl font-semibold tracking-tight text-stone-900">{{ stats.milestones_done }}</p>
+  <div class="rounded border border-stone-200 bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-900">
+    <p class="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">{{ stats.milestones_done }}</p>
     <p class="mt-0.5 text-xs text-stone-400">milestones completed</p>
   </div>
-  <div class="rounded border border-stone-200 bg-white px-4 py-3">
-    <p class="text-2xl font-semibold tracking-tight text-stone-900">{{ inbox_count }}</p>
-    <p class="mt-0.5 text-xs text-stone-400"><a href="{% url 'notes:inbox' %}" class="hover:text-indigo-700 hover:underline">inbox items to triage</a></p>
+  <div class="rounded border border-stone-200 bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-900">
+    <p class="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">{{ inbox_count }}</p>
+    <p class="mt-0.5 text-xs text-stone-400"><a href="{% url 'notes:inbox' %}" class="hover:text-indigo-700 hover:underline dark:hover:text-indigo-400">inbox items to triage</a></p>
   </div>
 </div>
 
@@ -89,7 +89,7 @@
         <a href="{{ row.project.get_absolute_url }}" class="group flex flex-col items-center"
            title="{{ row.project.name }} — {{ row.done }}/{{ row.total }} milestones">
           {% project_tree row.percent row.project.color row.tree_size row.project.pk %}
-          <span class="mt-1.5 max-w-[9rem] truncate text-xs text-stone-500 group-hover:text-indigo-700">{{ row.project.name }}</span>
+          <span class="mt-1.5 max-w-[9rem] truncate text-xs text-stone-500 group-hover:text-indigo-700 dark:text-stone-400 dark:group-hover:text-indigo-400">{{ row.project.name }}</span>
         </a>
       {% endfor %}
     </div>
@@ -104,7 +104,7 @@
             <div title="{{ cell.date }}: {{ cell.count }}"
                  class="h-2.5 w-2.5 rounded-[2px]
                    {% if cell.future %}bg-transparent
-                   {% elif cell.level == 0 %}bg-stone-100
+                   {% elif cell.level == 0 %}bg-stone-100 dark:bg-stone-800
                    {% elif cell.level == 1 %}bg-indigo-100
                    {% elif cell.level == 2 %}bg-indigo-300
                    {% elif cell.level == 3 %}bg-indigo-500
@@ -123,12 +123,12 @@
       {% for row in active %}
         <a href="{{ row.project.get_absolute_url }}" class="group block">
           <div class="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
-            <span class="min-w-0 truncate font-medium text-stone-700 group-hover:text-indigo-700">{{ row.project.name }}</span>
+            <span class="min-w-0 truncate font-medium text-stone-700 group-hover:text-indigo-700 dark:text-stone-300 dark:group-hover:text-indigo-400">{{ row.project.name }}</span>
             <span class="shrink-0 text-xs text-stone-400">
               {% if row.phase %}{{ row.phase.name }} · {% endif %}{{ row.done }}/{{ row.total }} milestones
             </span>
           </div>
-          <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+          <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">
             <div class="h-full rounded-full transition-all" style="width: {{ row.percent }}%; background: {{ row.project.color }}"></div>
           </div>
         </a>
@@ -143,8 +143,8 @@
         {% for manuscript in deadlines %}
           <li class="group flex items-baseline gap-2.5">
             <span class="shrink-0 text-xs text-stone-300">✍</span>
-            <a href="{{ manuscript.get_absolute_url }}" class="min-w-0 flex-1 truncate text-stone-700 group-hover:text-indigo-700">{{ manuscript.title }}</a>
-            <span class="shrink-0 text-xs {% if manuscript.days_to_deadline < 7 %}font-medium text-red-600{% else %}text-stone-400{% endif %}">
+            <a href="{{ manuscript.get_absolute_url }}" class="min-w-0 flex-1 truncate text-stone-700 group-hover:text-indigo-700 dark:text-stone-300 dark:group-hover:text-indigo-400">{{ manuscript.title }}</a>
+            <span class="shrink-0 text-xs {% if manuscript.days_to_deadline < 7 %}font-medium text-red-600 dark:text-red-300{% else %}text-stone-400{% endif %}">
               {{ manuscript.deadline }}
             </span>
           </li>
@@ -156,18 +156,18 @@
         {% for milestone in milestones %}
           <li class="flex items-baseline gap-2.5">
             <span class="shrink-0 text-xs text-stone-300">◆</span>
-            <span class="min-w-0 flex-1 truncate text-stone-700">
+            <span class="min-w-0 flex-1 truncate text-stone-700 dark:text-stone-300">
               {{ milestone.title }}
-              <a href="{% url 'plans:plan' milestone.phase.project.slug %}" class="text-xs text-stone-400 hover:text-indigo-700 hover:underline">({{ milestone.phase.project.name }})</a>
+              <a href="{% url 'plans:plan' milestone.phase.project.slug %}" class="text-xs text-stone-400 hover:text-indigo-700 hover:underline dark:hover:text-indigo-400">({{ milestone.phase.project.name }})</a>
             </span>
-            <span class="shrink-0 text-xs {% if milestone.is_overdue %}font-medium text-red-600{% else %}text-stone-400{% endif %}">
+            <span class="shrink-0 text-xs {% if milestone.is_overdue %}font-medium text-red-600 dark:text-red-300{% else %}text-stone-400{% endif %}">
               {{ milestone.due_date }}{% if milestone.is_overdue %} · overdue{% endif %}
             </span>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="text-sm text-stone-500">No dated milestones pending.</p>
+      <p class="text-sm text-stone-500 dark:text-stone-400">No dated milestones pending.</p>
     {% endif %}
   </section>
 </div>

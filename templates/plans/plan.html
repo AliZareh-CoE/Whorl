@@ -13,7 +13,7 @@
 {% include "projects/_subnav.html" %}
 
 <div class="mb-5 flex items-center justify-between">
-  <h1 class="text-2xl font-semibold tracking-tight text-stone-900">Plan</h1>
+  <h1 class="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Plan</h1>
   <a hx-get="{% url 'plans:phase_create' project.slug %}" hx-target="#modal-slot" hx-swap="innerHTML"
      href="{% url 'plans:phase_create' project.slug %}"
      class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700">Add phase</a>
@@ -28,10 +28,10 @@
     {% endfor %}
   </div>
 {% else %}
-  <div class="mt-6 rounded border border-dashed border-stone-300 bg-white px-6 py-10 text-center">
-    <p class="mx-auto mb-3 max-w-md text-sm leading-relaxed text-stone-600">A plan is ordered phases, each with milestones (and optional tasks).
+  <div class="mt-6 rounded border border-dashed border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 px-6 py-10 text-center">
+    <p class="mx-auto mb-3 max-w-md text-sm leading-relaxed text-stone-600 dark:text-stone-300">A plan is ordered phases, each with milestones (and optional tasks).
       Progress rolls up from milestones to phases to the project.</p>
-    <a href="{% url 'plans:phase_create' project.slug %}" class="text-sm font-medium text-indigo-600 hover:underline">Add the first phase</a>
+    <a href="{% url 'plans:phase_create' project.slug %}" class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Add the first phase</a>
   </div>
 {% endif %}
 {% endblock %}

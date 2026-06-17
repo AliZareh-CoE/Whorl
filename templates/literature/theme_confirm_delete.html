@@ -10,10 +10,10 @@
 
 {% block content %}
 <h1 class="mb-4 text-2xl font-semibold tracking-tight">Delete theme “{{ object.name }}”?</h1>
-<p class="mb-6 text-sm text-stone-600">All its matrix marks go with it. Papers and notes are untouched.</p>
+<p class="mb-6 text-sm text-stone-600 dark:text-stone-300">All its matrix marks go with it. Papers and notes are untouched.</p>
 <form method="post" class="flex items-center gap-3">
   {% csrf_token %}
   <button type="submit" class="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
-  <a href="{% url 'literature:matrix' project.slug %}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+  <a href="{% url 'literature:matrix' project.slug %}" class="text-sm text-stone-500 hover:underline dark:text-stone-400">Cancel</a>
 </form>
 {% endblock %}

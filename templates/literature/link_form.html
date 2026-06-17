@@ -11,22 +11,22 @@
 
 {% block content %}
 {% include "projects/_subnav.html" %}
-<h1 class="mb-2 text-2xl font-semibold tracking-tight text-stone-900">
+<h1 class="mb-2 text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">
   {% if object %}Edit “{{ object.reference.bibtex_key }}” in this project{% else %}Link a reference{% endif %}
 </h1>
 {% if not object %}
-  <p class="mb-6 text-sm text-stone-500">Pick from the global library.
-    Not there yet? <a href="{% url 'literature:add' %}" class="font-medium text-indigo-600 transition-colors hover:underline">Add by DOI</a> first.</p>
+  <p class="mb-6 text-sm text-stone-500 dark:text-stone-400">Pick from the global library.
+    Not there yet? <a href="{% url 'literature:add' %}" class="font-medium text-indigo-600 transition-colors hover:underline dark:text-indigo-400">Add by DOI</a> first.</p>
 {% endif %}
-<form method="post" class="max-w-xl space-y-4 rounded-lg border border-stone-200 bg-white p-6 shadow-sm">
+<form method="post" class="max-w-xl space-y-4 rounded-lg border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
   {% csrf_token %}
   {% include "_fields.html" %}
-  <div class="flex items-center gap-3 border-t border-stone-100 pt-4">
+  <div class="flex items-center gap-3 border-t border-stone-100 pt-4 dark:border-stone-800">
     <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">Save</button>
-    <a href="{% url 'literature:project' project.slug %}" class="text-sm text-stone-500 transition-colors hover:text-stone-700 hover:underline">Cancel</a>
+    <a href="{% url 'literature:project' project.slug %}" class="text-sm text-stone-500 transition-colors hover:text-stone-700 hover:underline dark:text-stone-400 dark:hover:text-stone-300">Cancel</a>
     {% if object %}
       <span class="ml-auto"></span>
-      <a href="{% url 'literature:project_ref_delete' project.slug object.pk %}" class="text-sm text-red-600 transition-colors hover:text-red-700 hover:underline">Remove from project…</a>
+      <a href="{% url 'literature:project_ref_delete' project.slug object.pk %}" class="text-sm text-red-600 transition-colors hover:text-red-700 hover:underline dark:text-red-400">Remove from project…</a>
     {% endif %}
   </div>
 </form>
