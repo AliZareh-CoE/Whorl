@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, csrfToken, petReact } from "./api";
+import { toggleCalm } from "./calm";
 import { toSpaUrl } from "./links";
 
 type Command = { title: string; type: string; url: string };
@@ -115,13 +116,18 @@ export default function CommandBar() {
     return document.documentElement.classList.contains("dark") ? "Dark mode on" : "Light mode on";
   }, []);
 
+  const doToggleCalm = useCallback(async () => {
+    return toggleCalm() ? "Calm mode on — stats hidden" : "Calm mode off";
+  }, []);
+
   // Static verbs the palette can run directly (not navigation). Discoverable by typing
-  // "dark"/"theme"/"light" etc. — surfacing the #273 theme toggle in ⌘K (#275-cmd).
+  // "dark"/"theme"/"calm" etc. — surfacing the #273 theme + #274 calm toggles in ⌘K.
   const verbs = useMemo(
     () => [
       { label: "Toggle dark mode", keys: "toggle dark light mode theme appearance color scheme", run: doToggleTheme },
+      { label: "Toggle calm mode", keys: "toggle calm mode focus quiet hide stats dashboard", run: doToggleCalm },
     ],
-    [doToggleTheme],
+    [doToggleTheme, doToggleCalm],
   );
 
   const rows: Row[] = useMemo(() => {

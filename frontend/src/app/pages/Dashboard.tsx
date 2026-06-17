@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { toggleCalm, useCalm } from "../calm";
 import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
 
 type Attention = {
@@ -72,31 +73,10 @@ function TriageControls({ id, projects }: { id: number; projects: { slug: string
   );
 }
 
-/** Calm mode (#274): some research days you want only "what needs me," not the monthly
- * vanity stats. A zero-config, localStorage-persisted toggle (same pattern as the theme,
- * no settings page) that hides the productivity counters. */
-const CALM_KEY = "atlas-calm";
-function readCalm(): boolean {
-  try {
-    return localStorage.getItem(CALM_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 export default function Dashboard() {
-  const [calm, setCalm] = useState(readCalm);
-  function toggleCalm() {
-    setCalm((c) => {
-      const next = !c;
-      try {
-        localStorage.setItem(CALM_KEY, next ? "1" : "0");
-      } catch {
-        /* private mode: stay in-memory for the session */
-      }
-      return next;
-    });
-  }
+  // Calm mode (#274) lives in ../calm so the ⌘K palette verb (#277) can flip it and this
+  // page updates live (#278) — no remount, no settings page.
+  const calm = useCalm();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard"],

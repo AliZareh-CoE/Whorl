@@ -111,15 +111,15 @@ class TestSpaShell:
         assert Path("static/js/spa.js").stat().st_size > 10_000
 
     def test_dashboard_calm_mode_is_built(self):
-        # #274: a localStorage-persisted "calm mode" toggle hides the monthly stats.
-        # Guard that the committed bundle reflects the source (i.e. it was rebuilt).
+        # #274/#278: a localStorage-persisted "calm mode" toggle hides the monthly stats and
+        # is shared (../calm) so the palette can flip it live. Guard that the committed bundle
+        # reflects the source (i.e. it was rebuilt).
         from pathlib import Path
 
-        src = Path("frontend/src/app/pages/Dashboard.tsx").read_text()
-        assert "atlas-calm" in src  # the persisted preference key
-        assert "Calm mode" in src  # the toggle label
+        assert "atlas-calm" in Path("frontend/src/app/calm.ts").read_text()  # the shared key
+        assert "Calm mode" in Path("frontend/src/app/pages/Dashboard.tsx").read_text()  # toggle
         chunk = Path("static/js/islands/Dashboard-chunk.js").read_text()
-        assert "atlas-calm" in chunk  # it compiled into the served bundle
+        assert "Calm mode" in chunk or "Full view" in chunk  # it compiled into the served bundle
 
     def test_command_palette_theme_verb_is_built(self):
         # #275-cmd: the ⌘K palette exposes a "Toggle dark mode" verb (surfacing the
@@ -127,8 +127,10 @@ class TestSpaShell:
         from pathlib import Path
 
         src = Path("frontend/src/app/CommandBar.tsx").read_text()
-        assert "Toggle dark mode" in src
-        assert "Toggle dark mode" in Path("static/js/spa.js").read_text()
+        bundle = Path("static/js/spa.js").read_text()
+        for verb in ("Toggle dark mode", "Toggle calm mode"):  # #276 theme, #277 calm
+            assert verb in src
+            assert verb in bundle
 
     def test_shell_sets_csrf_cookie(self, client_logged_in):
         # the SPA has no server-rendered form; its API writes need the token
