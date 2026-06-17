@@ -110,6 +110,17 @@ class TestSpaShell:
 
         assert Path("static/js/spa.js").stat().st_size > 10_000
 
+    def test_dashboard_calm_mode_is_built(self):
+        # #274: a localStorage-persisted "calm mode" toggle hides the monthly stats.
+        # Guard that the committed bundle reflects the source (i.e. it was rebuilt).
+        from pathlib import Path
+
+        src = Path("frontend/src/app/pages/Dashboard.tsx").read_text()
+        assert "atlas-calm" in src  # the persisted preference key
+        assert "Calm mode" in src  # the toggle label
+        chunk = Path("static/js/islands/Dashboard-chunk.js").read_text()
+        assert "atlas-calm" in chunk  # it compiled into the served bundle
+
     def test_shell_sets_csrf_cookie(self, client_logged_in):
         # the SPA has no server-rendered form; its API writes need the token
         response = client_logged_in.get("/")

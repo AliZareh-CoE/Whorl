@@ -72,7 +72,32 @@ function TriageControls({ id, projects }: { id: number; projects: { slug: string
   );
 }
 
+/** Calm mode (#274): some research days you want only "what needs me," not the monthly
+ * vanity stats. A zero-config, localStorage-persisted toggle (same pattern as the theme,
+ * no settings page) that hides the productivity counters. */
+const CALM_KEY = "atlas-calm";
+function readCalm(): boolean {
+  try {
+    return localStorage.getItem(CALM_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export default function Dashboard() {
+  const [calm, setCalm] = useState(readCalm);
+  function toggleCalm() {
+    setCalm((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(CALM_KEY, next ? "1" : "0");
+      } catch {
+        /* private mode: stay in-memory for the session */
+      }
+      return next;
+    });
+  }
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api<Dash>("/dashboard/"),
@@ -103,8 +128,21 @@ export default function Dashboard() {
   const attention = data.attention;
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight dark:text-stone-100">Today, everywhere</h1>
-      <p className="mb-6 text-sm text-stone-500 dark:text-stone-300">What needs you, across every project.</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight dark:text-stone-100">Today, everywhere</h1>
+          <p className="text-sm text-stone-500 dark:text-stone-300">What needs you, across every project.</p>
+        </div>
+        <button
+          type="button"
+          onClick={toggleCalm}
+          aria-pressed={calm}
+          title={calm ? "Show the monthly stats" : "Hide the monthly stats — show only what needs you"}
+          className="shrink-0 rounded border border-stone-200 px-2.5 py-1 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:text-stone-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+        >
+          {calm ? "Full view" : "Calm mode"}
+        </button>
+      </div>
 
       {/* the answer first ([REV] cycle 145 → SPA #156): what needs me today */}
       {attention.empty ? (
@@ -143,6 +181,7 @@ export default function Dashboard() {
         </section>
       )}
 
+      {!calm && (
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className={card}>
           <p className="text-2xl font-semibold tabular-nums dark:text-stone-100">{data.stats.papers_read}</p>
@@ -161,6 +200,7 @@ export default function Dashboard() {
           <p className="mt-0.5 text-xs text-stone-400 dark:text-stone-400"><a href="/inbox/" className="hover:text-indigo-700 dark:hover:text-indigo-300">inbox items to triage</a></p>
         </div>
       </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className={section}>
