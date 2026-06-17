@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
+import { Skeleton } from "../../components/Skeleton";
 
 type Backlink = { id: number; title: string };
 type Note = {
@@ -21,7 +22,24 @@ export function NotesList() {
     queryFn: () => api<Page<Note>>(`/notes/?project=${slug}`),
   });
 
-  if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading notes…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading">
+        <Skeleton className="mb-6 h-4 w-56" />
+        <div className="mb-6 flex items-center justify-between">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-8 w-24" />
+        </div>
+        <div className="divide-y divide-stone-100 overflow-hidden rounded border border-stone-200 bg-white dark:divide-stone-800 dark:border-stone-800 dark:bg-stone-900">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="px-5 py-4">
+              <Skeleton className="mb-2 h-4 w-2/5" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   const notes = data?.results ?? [];
   return (
     <div>
@@ -193,7 +211,7 @@ export function NoteEditor() {
           <ul className="space-y-2 text-sm">
             {note!.backlinks.map((b) => (
               <li key={b.id}>
-                <Link to={`/projects/${slug}/notes/${b.id}`} className="text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">
+                <Link to={`/projects/${slug}/notes/${b.id}`} className="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">
                   {b.title}
                 </Link>
               </li>

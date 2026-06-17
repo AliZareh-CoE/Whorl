@@ -4,6 +4,7 @@ import Papa from "papaparse";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 
 const TerminalPanel = lazy(() => import("./TerminalPanel"));
 
@@ -129,7 +130,12 @@ function FilePreview({ file }: { file: FileNode }) {
       </div>
     );
 
-  if (isLoading) return <p className="text-sm text-stone-400">Loading…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading">
+        <SkeletonLines lines={6} />
+      </div>
+    );
   if (error || !data) return <p className="text-sm text-red-600">Couldn't load this file.</p>;
 
   if (isCsv(file)) {
@@ -422,7 +428,32 @@ export default function Files() {
     }
   };
 
-  if (isLoading) return <p className="text-sm text-stone-400">Loading files…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading">
+        <Skeleton className="mb-4 h-4 w-44" />
+        <div className="mb-4">
+          <Skeleton className="mb-2 h-7 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="col-span-1 rounded border border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900">
+            <Skeleton className="mb-3 h-3 w-20" />
+            <div className="space-y-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} style={{ paddingLeft: (i % 3) * 14 }}>
+                  <Skeleton className="h-4" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card col-span-1 lg:col-span-2 lg:min-h-[40vh]">
+            <Skeleton className="mb-3 h-4 w-1/3" />
+            <Skeleton className="h-[40vh] w-full" />
+          </div>
+        </div>
+      </div>
+    );
   if (error || !data) return <p className="text-sm text-red-600">Couldn't load the file tree.</p>;
 
   const fileRow = (f: FileNode, depth: number) => (
@@ -472,8 +503,8 @@ export default function Files() {
   return (
     <div>
       <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400">
-        <Link to="/projects" className="hover:underline">Projects</Link> /{" "}
-        <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Files
+        <Link to="/projects" className="transition-colors hover:underline">Projects</Link> /{" "}
+        <Link to={`/projects/${slug}`} className="transition-colors hover:underline">{slug}</Link> / Files
       </nav>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -486,7 +517,7 @@ export default function Files() {
               const name = window.prompt("New folder name");
               if (name) newFolder.mutate(name.trim());
             }}
-            className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"
+            className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"
           >
             + Folder
           </button>
@@ -495,23 +526,23 @@ export default function Files() {
               const name = window.prompt("Save this project's structure as a template named");
               if (name) saveTemplate.mutate(name.trim());
             }}
-            className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"
+            className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"
             title="Reuse this folder layout when creating new projects"
           >
             Save as template
           </button>
           <button
             onClick={() => setShowTerminal((v) => !v)}
-            className={`flex items-center gap-1 rounded border px-2 py-1 text-xs ${showTerminal ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"}`}
+            className={`flex items-center gap-1 rounded border px-2 py-1 text-xs ${showTerminal ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-stone-200 bg-white text-stone-500 transition-colors hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"}`}
             title="Toggle the terminal (Atlas desktop app)"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
             Terminal
           </button>
           {isDesktop && (
-            <button onClick={openFromDisk} className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300" title="Open any file from your computer (desktop app)">Open from disk…</button>
+            <button onClick={openFromDisk} className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300" title="Open any file from your computer (desktop app)">Open from disk…</button>
           )}
-          <button onClick={() => setQuickOpen(true)} className="rounded border border-stone-200 bg-white px-2 py-1 font-mono text-xs text-stone-500 hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300" title="Quick open (Ctrl/Cmd-P)">⌘P</button>
+          <button onClick={() => setQuickOpen(true)} className="rounded border border-stone-200 bg-white px-2 py-1 font-mono text-xs text-stone-500 transition-colors hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300" title="Quick open (Ctrl/Cmd-P)">⌘P</button>
         </div>
       </div>
       {quickOpen && (

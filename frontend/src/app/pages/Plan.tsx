@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api, petReact } from "../api";
+import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
 type Milestone = {
@@ -93,7 +94,19 @@ export default function Plan() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["plan", slug] }),
   });
 
-  if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading plan…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading" className="space-y-4">
+        <Skeleton className="h-4 w-40" />
+        <div className="flex items-baseline justify-between gap-4">
+          <Skeleton className="h-7 w-24" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
+    );
   if (error || !data)
     return <p className="text-sm text-red-600 dark:text-red-300">Couldn't load the plan.</p>;
 
@@ -127,7 +140,7 @@ export default function Plan() {
           </p>
           <a
             href={`/projects/${slug}/plan/`}
-            className="inline-block rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 hover:border-stone-400 hover:text-indigo-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-indigo-300"
+            className="inline-block rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 transition-colors hover:border-stone-400 hover:text-indigo-700 active:scale-[.98] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-indigo-300"
           >
             Build the plan ↗
           </a>
@@ -231,7 +244,7 @@ export default function Plan() {
 
       <p className="mt-4 text-xs text-stone-400 dark:text-stone-400">
         Editing phases and milestones still lives on the{" "}
-        <a href={`/projects/${slug}/plan/`} className="underline hover:text-indigo-700 dark:hover:text-indigo-300">classic plan page ↗</a>
+        <a href={`/projects/${slug}/plan/`} className="underline transition-colors hover:text-indigo-700 dark:hover:text-indigo-300">classic plan page ↗</a>
       </p>
     </div>
   );

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 
 type Decision = { id: number; title: string; context: string; decision: string; decided_on: string };
 type Page<T> = { count: number; results: T[] };
@@ -50,7 +51,27 @@ export default function Decisions() {
     },
   });
 
-  if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading decisions…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading">
+        <Skeleton className="mb-6 h-4 w-56" />
+        <div className="mb-1 flex items-center justify-between">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-8 w-32" />
+        </div>
+        <Skeleton className="mb-6 h-4 w-2/3" />
+        <ol className="relative space-y-4 border-l border-stone-200 pl-6 dark:border-stone-800">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <li key={i}>
+              <div className="rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
+                <Skeleton className="mb-3 h-4 w-1/2" />
+                <SkeletonLines lines={2} />
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
 
   const decisions = data?.results ?? [];
 
@@ -68,7 +89,7 @@ export default function Decisions() {
                 className={
                   formOpen
                     ? "rounded border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-600 transition-colors hover:border-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
-                    : "rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+                    : "rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 active:scale-[.98]"
                 }>
           {formOpen ? "Cancel" : "Record decision"}
         </button>
@@ -106,7 +127,7 @@ export default function Decisions() {
           </div>
           <div className="flex items-center gap-3 border-t border-stone-100 pt-4 dark:border-stone-800">
             <button type="submit" disabled={create.isPending}
-                    className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">
+                    className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 active:scale-[.98] disabled:opacity-50">
               {create.isPending ? "Saving…" : "Save decision"}
             </button>
             <span className="text-xs text-stone-400 dark:text-stone-400">Dated today, {fmtDate(new Date().toISOString().slice(0, 10))}</span>
@@ -121,7 +142,7 @@ export default function Decisions() {
             Keep a running log of the choices that shaped this project — what you decided, why, and what you turned down.
           </p>
           <button onClick={() => setFormOpen(true)}
-                  className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">
+                  className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 active:scale-[.98]">
             Record your first decision
           </button>
         </div>

@@ -64,12 +64,12 @@ export default function Research() {
   return (
     <div>
       <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
-        <Link to="/projects" className="hover:underline">Projects</Link> /{" "}
-        <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Research
+        <Link to="/projects" className="transition-colors hover:underline">Projects</Link> /{" "}
+        <Link to={`/projects/${slug}`} className="transition-colors hover:underline">{slug}</Link> / Research
       </nav>
       <div className="mb-6 flex items-baseline justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Research</h1>
-        <a href={classic} className="shrink-0 text-xs text-stone-400 underline-offset-2 hover:text-indigo-700 hover:underline dark:text-stone-400 dark:hover:text-indigo-300">
+        <a href={classic} className="shrink-0 text-xs text-stone-400 underline-offset-2 transition-colors hover:text-indigo-700 hover:underline dark:text-stone-400 dark:hover:text-indigo-300">
           add &amp; edit on the classic page ↗
         </a>
       </div>

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
 
 type Attention = {
   empty: boolean;
@@ -54,7 +55,7 @@ function TriageControls({ id, projects }: { id: number; projects: { slug: string
         type="button"
         disabled={triage.isPending || !slug}
         onClick={() => triage.mutate({ processed: true, project: slug })}
-        className="rounded px-1.5 py-0.5 text-xs text-indigo-600 hover:bg-indigo-50 disabled:opacity-50 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
+        className="rounded px-1.5 py-0.5 text-xs text-indigo-600 transition-colors hover:bg-indigo-50 active:opacity-80 disabled:opacity-50 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
       >
         file
       </button>
@@ -63,7 +64,7 @@ function TriageControls({ id, projects }: { id: number; projects: { slug: string
         title="Dismiss"
         disabled={triage.isPending}
         onClick={() => triage.mutate({ processed: true })}
-        className="rounded px-1.5 py-0.5 text-xs text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-50 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-300"
+        className="rounded px-1.5 py-0.5 text-xs text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600 active:opacity-80 disabled:opacity-50 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-300"
       >
         ✕
       </button>
@@ -77,7 +78,26 @@ export default function Dashboard() {
     queryFn: () => api<Dash>("/dashboard/"),
   });
 
-  if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading your day…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading" className="space-y-6">
+        <div>
+          <Skeleton className="mb-2 h-7 w-56" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <SkeletonLines lines={3} />
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+    );
   if (error || !data) return <p className="text-sm text-red-600 dark:text-red-300">Couldn't load the dashboard.</p>;
 
   const attention = data.attention;

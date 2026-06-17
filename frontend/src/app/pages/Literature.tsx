@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, csrfToken, petReact } from "../api";
+import { Skeleton } from "../../components/Skeleton";
 
 type Ref = { id: number; bibtex_key: string; title: string; authors: { family?: string; given?: string }[]; year: number | null; venue: string };
 type LinkRow = {
@@ -100,7 +101,33 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
     queryClient.invalidateQueries({ queryKey: ["literature", slug] });
   }
 
-  if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading papers…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading" className="space-y-4">
+        <Skeleton className="h-4 w-48" />
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <Skeleton className="mb-2 h-7 w-40" />
+            <Skeleton className="h-4 w-56" />
+          </div>
+          <Skeleton className="h-7 w-32" />
+        </div>
+        <div className="overflow-hidden rounded border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
+          <div className="divide-y divide-stone-100 dark:divide-stone-800">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3">
+                <Skeleton className="size-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <Skeleton className="mb-1.5 h-4 w-2/3" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+                <Skeleton className="h-7 w-24 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   let rows = data?.results ?? [];
   if (queue) {
     rows = rows
@@ -186,7 +213,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
             {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           <button onClick={applyBulk}
-                  className="rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 py-1 text-xs font-medium text-stone-700 dark:text-stone-300 transition-colors hover:border-stone-400 hover:bg-white dark:hover:bg-stone-800">
+                  className="rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 py-1 text-xs font-medium text-stone-700 dark:text-stone-300 transition-colors hover:border-stone-400 hover:bg-white active:scale-[.98] dark:hover:bg-stone-800">
             Apply
           </button>
           <button onClick={() => setSelected(new Set())}

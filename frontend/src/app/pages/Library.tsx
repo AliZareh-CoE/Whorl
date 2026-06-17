@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { Skeleton } from "../../components/Skeleton";
 
 type Ref = { id: number; bibtex_key: string; title: string; authors: { family?: string }[]; year: number | null; venue: string };
 type Page<T> = { count: number; results: T[] };
@@ -33,7 +34,27 @@ export default function Library() {
     onError: (e) => setAddError(String(e.message ?? e)),
   });
 
-  if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading library…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading" className="space-y-5">
+        <div>
+          <Skeleton className="mb-2 h-7 w-40" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="flex max-w-xl items-center gap-2">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-16" />
+        </div>
+        <div className="divide-y divide-stone-100 overflow-hidden rounded border border-stone-200 bg-white dark:divide-stone-800 dark:border-stone-800 dark:bg-stone-900">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="px-4 py-2.5">
+              <Skeleton className="mb-1.5 h-4 w-2/3" />
+              <Skeleton className="h-3 w-1/3" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   const needle = filter.trim().toLowerCase();
   const rows = (data?.results ?? []).filter(
     (r) =>
@@ -62,7 +83,7 @@ export default function Library() {
           {addError && <p className="mt-1.5 text-xs text-red-600">{addError}</p>}
         </div>
         <button type="submit" disabled={addByDoi.isPending}
-                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 active:scale-[.98] disabled:opacity-50">
           {addByDoi.isPending ? "Fetching…" : "Add"}
         </button>
       </form>
@@ -109,7 +130,7 @@ export default function Library() {
       {(data?.count ?? 0) > (data?.results.length ?? 0) && (
         <p className="mt-2 text-xs text-stone-400 dark:text-stone-400">
           Showing the first {data?.results.length} —{" "}
-          <a className="text-indigo-600 hover:underline dark:text-indigo-400" href="/library/">full search on the classic library ↗</a>
+          <a className="text-indigo-600 transition-colors hover:underline dark:text-indigo-400" href="/library/">full search on the classic library ↗</a>
         </p>
       )}
     </div>

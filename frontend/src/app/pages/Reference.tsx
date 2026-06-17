@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, csrfToken } from "../api";
+import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 
 type Ref = {
   id: number;
@@ -96,12 +97,26 @@ export default function Reference() {
     }
   }
 
-  if (isLoading || !ref) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading reference…</p>;
+  if (isLoading || !ref)
+    return (
+      <div role="status" aria-label="Loading" className="max-w-3xl space-y-4">
+        <Skeleton className="h-4 w-40" />
+        <section className="rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
+          <Skeleton className="mb-3 h-7 w-3/4" />
+          <Skeleton className="mb-2 h-4 w-1/2" />
+          <Skeleton className="h-4 w-1/3" />
+        </section>
+        <section className="rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
+          <Skeleton className="mb-3 h-3 w-24" />
+          <SkeletonLines lines={4} />
+        </section>
+      </div>
+    );
 
   return (
     <div className="max-w-3xl">
       <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
-        <Link to="/library" className="hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">Library</Link>
+        <Link to="/library" className="transition-colors hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">Library</Link>
         <span className="px-1.5 text-stone-300 dark:text-stone-400">/</span>
         <span className="font-mono text-xs text-stone-400 dark:text-stone-400">{ref.bibtex_key}</span>
       </nav>
@@ -122,18 +137,18 @@ export default function Reference() {
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-stone-100 pt-4 text-sm dark:border-stone-800">
           {ref.doi && (
             <a href={`https://doi.org/${ref.doi}`}
-               className="text-indigo-600 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300">DOI ↗</a>
+               className="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300">DOI ↗</a>
           )}
           {ref.url && (
             <a href={ref.url}
-               className="text-indigo-600 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300">Link ↗</a>
+               className="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300">Link ↗</a>
           )}
           {ref.pdf && (
             <a href={ref.pdf}
-               className="text-indigo-600 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300">PDF ↗</a>
+               className="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300">PDF ↗</a>
           )}
           <a href={`/library/${ref.id}/`}
-             className="ml-auto text-xs text-stone-400 hover:text-stone-600 hover:underline focus:outline-none focus-visible:underline dark:text-stone-400 dark:hover:text-stone-300">
+             className="ml-auto text-xs text-stone-400 transition-colors hover:text-stone-600 hover:underline focus:outline-none focus-visible:underline dark:text-stone-400 dark:hover:text-stone-300">
             edit / annotate (classic) ↗
           </a>
         </div>
@@ -145,11 +160,11 @@ export default function Reference() {
             <h2 className="text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Abstract</h2>
             <div className="flex items-center gap-2">
               <button onClick={() => listen(`${ref.title}. ${ref.abstract}`)}
-                      className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs text-stone-600 hover:border-stone-400 hover:text-stone-800 focus:outline-none focus-visible:border-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
+                      className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-800 focus:outline-none focus-visible:border-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
                 {listening ? "⏸ Stop" : "🔊 Listen"}
               </button>
               <button onClick={() => summarize(ref.abstract)} disabled={summarizing}
-                      className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs text-stone-600 hover:border-stone-400 hover:text-stone-800 focus:outline-none focus-visible:border-indigo-600 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
+                      className="rounded border border-stone-300 bg-white px-2 py-0.5 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-800 focus:outline-none focus-visible:border-indigo-600 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
                 {summarizing ? "…" : tldr ? "Hide tl;dr" : "≡ tl;dr"}
               </button>
             </div>
@@ -192,7 +207,7 @@ export default function Reference() {
                     placeholder="Add a comment…" aria-label="Add comment"
                     className="flex-1 rounded border border-stone-300 bg-white px-3 py-2 text-sm placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" />
           <button type="submit" disabled={addComment.isPending || !commentBody.trim()}
-                  className="rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+                  className="rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 active:scale-[.98] disabled:opacity-50">
             Comment
           </button>
         </form>

@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ UI #271: loading skeletons + transitions (2026-06-17).** Added reusable dark-aware Skeleton/SkeletonCard/SkeletonLines/SkeletonPage components; 2 parallel agents replaced the plain "Loading…" text on 12 high-traffic pages with content-shaped skeletons + added transition-colors/active-press feedback on buttons/links. tsc 0. gate running.
+
 - **★ DARK MODE #270 — COMPLETE across the whole app (2026-06-17).** Foundation (toggle, no-flash script, dark .card token, dark sidebars) + the ENTIRE SPA (24 pages + command palette + documents table) + 74 classic templates (literature, notes, projects, writing, research, plan, documents, dashboard/search, and the LOGIN page) all have dark: variants. Done as ~14 parallel worktree agents across several waves; every wave tsc-0 / manage.py-check-clean / 805 pytest. Dark is class-based + opt-in (toggle in both sidebars, persisted, no flash). CSS 62KB→76KB. gate running.
 
 - **◐ DARK MODE #270 STARTED (2026-06-17): foundation in.** Owner: "go crazy, no mobile, don't ask." Class-based dark mode (`@custom-variant dark` on a .dark<html>), a no-flash theme script + persisted toggle (opt-in only until complete, so default users are unaffected) in base.html + spa.html, a Dark/Light toggle in both the SPA sidebar (Layout.tsx) and classic sidebar, and dark variants baked into the shared .card/.card-title tokens + both sidebars + the classic nav/search. Next: parallel waves add dark: variants to every page's content. CSS 65KB→ (with dark utils). foundation gate running.

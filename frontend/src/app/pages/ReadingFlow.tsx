@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, csrfToken, petReact } from "../api";
+import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 
 type Paper = {
   id: number;
@@ -130,7 +131,22 @@ export default function ReadingFlow() {
     return () => document.removeEventListener("keydown", onKey);
   });
 
-  if (isLoading) return <p className="p-8 text-sm text-stone-400">Loading your queue…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading" className="mx-auto max-w-3xl px-4">
+        <div className="mb-3 flex items-center justify-between">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <Skeleton className="mb-6 h-1 w-full rounded-full" />
+        <article className="rounded border border-stone-200 bg-white p-6 sm:p-8 dark:border-stone-800 dark:bg-stone-900">
+          <Skeleton className="mb-3 h-4 w-40" />
+          <Skeleton className="mb-2 h-7 w-3/4" />
+          <Skeleton className="mb-5 h-4 w-1/2" />
+          <SkeletonLines lines={5} />
+        </article>
+      </div>
+    );
 
   if (!paper) {
     return (

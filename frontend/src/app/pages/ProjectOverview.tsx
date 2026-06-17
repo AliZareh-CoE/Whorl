@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 
 type Overview = {
   project: { name: string; slug: string; description: string; status: string; color: string };
@@ -37,7 +38,26 @@ export default function ProjectOverview() {
     queryFn: () => api<Overview>(`/projects/${slug}/overview/`),
   });
 
-  if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading project…</p>;
+  if (isLoading)
+    return (
+      <div role="status" aria-label="Loading" className="space-y-4">
+        <Skeleton className="h-4 w-40" />
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-3 w-3 rounded-full" />
+          <Skeleton className="h-7 w-64" />
+        </div>
+        <SkeletonCard />
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-14" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      </div>
+    );
   if (error || !data)
     return <p className="text-sm text-red-600 dark:text-red-300">Couldn't load this project.</p>;
   const { project, progress } = data;
