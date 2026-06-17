@@ -30,6 +30,27 @@ const COLUMNS: [string, string][] = [
   ["shelved", "Shelved"],
 ];
 
+const h2 = "mb-3 text-sm font-medium uppercase tracking-wide text-stone-400";
+
+/** Whole-day countdown to a deadline; null when none. */
+function daysUntil(deadline: string | null): number | null {
+  if (!deadline) return null;
+  const due = new Date(deadline + "T00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((due.getTime() - today.getTime()) / 86_400_000);
+}
+
+/** Calm deadline phrasing; restrained red only when overdue or within a week. */
+function deadlineLabel(deadline: string | null): { text: string; urgent: boolean } | null {
+  const days = daysUntil(deadline);
+  if (days === null) return null;
+  if (days < 0) return { text: `${-days}d overdue`, urgent: true };
+  if (days === 0) return { text: "due today", urgent: true };
+  if (days <= 7) return { text: `${days}d left`, urgent: true };
+  return { text: `${days}d left`, urgent: false };
+}
+
 export function WritingBoard() {
   const { data, isLoading } = useQuery({
     queryKey: ["manuscripts"],
@@ -42,33 +63,59 @@ export function WritingBoard() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Writing</h1>
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight">Writing</h1>
+      <p className="mb-6 text-sm text-stone-500">Manuscripts move idea → published.</p>
       {rows.length === 0 ? (
-        <p className="rounded border border-dashed border-stone-300 bg-white p-10 text-center text-sm text-stone-400">
-          Manuscripts move idea → published. Create one from a project's classic writing page ↗
-        </p>
+        <div className="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+          <p className="mb-1 text-sm font-medium text-stone-600">No manuscripts yet</p>
+          <p className="text-sm text-stone-400">
+            A manuscript tracks one paper from idea through to publication, with its own
+            bibliography and submission timeline.
+          </p>
+          <p className="mt-3 text-sm text-stone-400">
+            Create one from a project's classic writing page ↗
+          </p>
+        </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {populated.map(([key, label]) => (
-            <section key={key} className="w-64 shrink-0">
-              <h2 className="mb-2 text-[10px] font-medium uppercase tracking-wide text-stone-400">
-                {label}
-              </h2>
-              <div className="space-y-2">
-                {rows.filter((m) => m.status === key).map((m) => (
-                  <Link key={m.id} to={`/manuscripts/${m.id}`}
-                        className="block rounded border border-stone-200 bg-white p-3 text-sm hover:border-stone-300">
-                    <span className="font-medium">{m.title}</span>
-                    <p className="mt-0.5 text-xs text-stone-400">
-                      {m.project_name}
-                      {m.target_venue ? ` · ${m.target_venue}` : ""}
-                      {m.deadline ? ` · due ${m.deadline}` : ""}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
+        <div className="flex gap-5 overflow-x-auto pb-4">
+          {populated.map(([key, label]) => {
+            const items = rows.filter((m) => m.status === key);
+            return (
+              <section key={key} className="w-64 shrink-0">
+                <h2 className="mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400">
+                  {label}
+                  <span className="text-stone-300">{items.length}</span>
+                </h2>
+                <div className="space-y-2.5">
+                  {items.map((m) => {
+                    const dl = deadlineLabel(m.deadline);
+                    return (
+                      <Link
+                        key={m.id}
+                        to={`/manuscripts/${m.id}`}
+                        className="block rounded border border-stone-200 bg-white p-4 text-sm transition-colors hover:border-stone-300 hover:bg-stone-50"
+                      >
+                        <span className="font-medium text-stone-900">{m.title}</span>
+                        <p className="mt-1 text-xs text-stone-400">
+                          {m.project_name}
+                          {m.target_venue ? ` · ${m.target_venue}` : ""}
+                        </p>
+                        {dl && (
+                          <p
+                            className={`mt-2 text-xs ${
+                              dl.urgent ? "font-medium text-red-600" : "text-stone-400"
+                            }`}
+                          >
+                            {dl.text}
+                          </p>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
         </div>
       )}
     </div>
@@ -103,55 +150,80 @@ export function ManuscriptDetail() {
 
   if (isLoading || !m) return <p className="text-sm text-stone-400">Loading manuscript…</p>;
 
+  const dl = deadlineLabel(m.deadline);
+
   return (
     <div>
       <nav className="mb-6 text-sm text-stone-500">
-        <Link to="/writing" className="hover:underline">Writing</Link> / {m.title}
+        <Link to="/writing" className="hover:underline">
+          Writing
+        </Link>{" "}
+        / {m.title}
       </nav>
-      <div className="mb-1 flex items-center gap-3">
+      <div className="mb-2 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{m.title}</h1>
         <select
           value={m.status}
           onChange={(e) => setStatus.mutate(e.target.value)}
           aria-label="Manuscript status"
-          className="rounded border border-stone-300 bg-white px-2 py-1 text-xs"
+          className="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 hover:border-stone-400 focus:border-indigo-600 focus:outline-none"
         >
-          {COLUMNS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          {COLUMNS.map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
         </select>
       </div>
-      <p className="mb-4 text-sm text-stone-500">
-        {m.project_name}
-        {m.target_venue ? ` · ${m.target_venue}` : ""}
-        {m.deadline ? ` · deadline ${m.deadline}` : ""}
+      <p className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-stone-500">
+        <span>{m.project_name}</span>
+        {m.target_venue && <span className="text-stone-300">·</span>}
+        {m.target_venue && <span>{m.target_venue}</span>}
+        {dl && <span className="text-stone-300">·</span>}
+        {dl && (
+          <span className={dl.urgent ? "font-medium text-red-600" : "text-stone-500"}>
+            deadline {m.deadline} ({dl.text})
+          </span>
+        )}
       </p>
       {m.abstract && (
-        <div className="mb-4 max-w-2xl rounded border border-stone-200 bg-white p-4 text-sm text-stone-600">
+        <div className="mb-4 max-w-2xl rounded border border-stone-200 bg-white p-5 text-sm leading-relaxed text-stone-600">
           {m.abstract}
         </div>
       )}
-      <div className="mb-4 flex gap-3 text-xs text-stone-400">
-        <a href={`/projects/${m.project}/writing/${m.id}/editor/`} className="underline hover:text-indigo-700">
+      <div className="mb-6 flex flex-wrap gap-4 text-xs text-stone-400">
+        <a
+          href={`/projects/${m.project}/writing/${m.id}/editor/`}
+          className="underline-offset-2 hover:text-indigo-700 hover:underline"
+        >
           LaTeX editor ↗
         </a>
-        <a href={`/projects/${m.project}/writing/${m.id}/`} className="underline hover:text-indigo-700">
+        <a
+          href={`/projects/${m.project}/writing/${m.id}/`}
+          className="underline-offset-2 hover:text-indigo-700 hover:underline"
+        >
           bibliography & cite check ↗
         </a>
       </div>
 
       <section className="max-w-xl rounded border border-stone-200 bg-white p-5">
-        <h2 className="mb-3 text-[10px] font-medium uppercase tracking-wide text-stone-400">
-          Submission timeline
-        </h2>
+        <h2 className={h2}>Submission timeline</h2>
         {m.events.length === 0 ? (
-          <p className="text-sm text-stone-400">No events yet.</p>
+          <p className="text-sm text-stone-400">
+            No submission events yet — they appear here as the manuscript progresses.
+          </p>
         ) : (
-          <ol className="relative space-y-4 border-l border-stone-200 pl-4">
+          <ol className="relative space-y-5 border-l border-stone-200 pl-5">
             {m.events.map((e) => (
               <li key={e.id} className="text-sm">
-                <span className="absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full border border-white bg-indigo-400" />
-                <span className="font-medium">{e.kind.replace(/_/g, " ")}</span>
-                <span className="ml-2 text-xs text-stone-400">{e.date}</span>
-                {e.notes && <p className="mt-0.5 text-xs text-stone-500">{e.notes}</p>}
+                <span className="absolute -left-[5px] mt-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-indigo-500" />
+                <div className="flex items-baseline gap-2">
+                  <span className="font-medium capitalize text-stone-900">
+                    {e.kind.replace(/_/g, " ")}
+                  </span>
+                  <span className="text-xs text-stone-400">{e.date}</span>
+                </div>
+                {e.notes && <p className="mt-1 text-xs leading-relaxed text-stone-500">{e.notes}</p>}
               </li>
             ))}
           </ol>

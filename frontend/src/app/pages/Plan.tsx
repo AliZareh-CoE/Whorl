@@ -96,93 +96,136 @@ export default function Plan() {
   if (isLoading) return <p className="text-sm text-stone-400">Loading plan…</p>;
   if (error || !data) return <p className="text-sm text-red-600">Couldn't load the plan.</p>;
 
+  const totalMilestones = data.phases.reduce((n, p) => n + p.milestones.length, 0);
+  const doneMilestones = data.phases.reduce(
+    (n, p) => n + p.milestones.filter((m) => m.completed_at).length,
+    0,
+  );
+
   return (
     <div>
       <nav className="mb-6 text-sm text-stone-500">
         <Link to="/projects" className="hover:underline">Projects</Link> /{" "}
         <Link to={`/projects/${slug}`} className="hover:underline">{data.project.name}</Link> / Plan
       </nav>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Plan</h1>
 
-      <div className="space-y-4">
-        {data.phases.map((phase) => {
-          const done = phase.milestones.filter((m) => m.completed_at).length;
-          return (
-            <section key={phase.id} className="rounded border border-stone-200 bg-white p-5">
-              <div className="mb-2 flex items-baseline gap-3">
-                <span className="text-xs text-stone-400">{phase.order}</span>
-                <h2 className="font-medium">{phase.name}</h2>
-                <span className={`rounded px-2 py-0.5 text-xs ${statusCls[phase.status] ?? statusCls.not_started}`}>
-                  {phase.status.replace("_", " ")}
-                </span>
-              </div>
-              <div className="mb-1 text-xs text-stone-500">
-                {done}/{phase.milestones.length} milestones
-              </div>
-              <div className="mb-3 h-1.5 w-full rounded-full bg-stone-100">
-                <div
-                  className="h-1.5 rounded-full transition-[width] duration-300"
-                  style={{ width: `${phase.progress}%`, background: data.project.color }}
-                />
-              </div>
+      <div className="mb-6 flex items-baseline justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Plan</h1>
+        {totalMilestones > 0 && (
+          <span className="shrink-0 text-sm text-stone-400">
+            {doneMilestones}/{totalMilestones} milestones complete
+          </span>
+        )}
+      </div>
 
-              <ul className="divide-y divide-stone-100">
-                {phase.milestones.map((m) => (
-                  <li key={m.id} className="py-2">
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        aria-label="Toggle milestone"
-                        onClick={() => toggleMilestone.mutate(m)}
-                        className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs after:absolute after:-inset-2.5 after:content-[''] ${
-                          m.completed_at
-                            ? "border-green-600 bg-green-600 text-white"
-                            : "border-stone-300 bg-white text-transparent hover:border-stone-400"
-                        }`}
-                      >
-                        ✓
-                      </button>
-                      <span className={`text-sm ${m.completed_at ? "text-stone-400 line-through" : ""}`}>
-                        {m.title}
-                      </span>
-                      {m.due_date && (
-                        <span className={`text-xs ${m.overdue && !m.completed_at ? "font-medium text-red-600" : "text-stone-400"}`}>
-                          due {m.due_date}
-                          {m.overdue && !m.completed_at ? " · overdue" : ""}
-                        </span>
-                      )}
-                    </div>
-                    {m.tasks.length > 0 && (
-                      <ul className="ml-7 mt-1 space-y-1">
-                        {m.tasks.map((t) => (
-                          <li key={t.id} className="flex items-center gap-2 text-sm">
-                            <button
-                              type="button"
-                              aria-label="Toggle task"
-                              onClick={() => toggleTask.mutate(t)}
-                              className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] after:absolute after:-inset-2.5 after:content-[''] ${
-                                t.done
-                                  ? "border-stone-400 bg-stone-400 text-white"
-                                  : "border-stone-300 bg-white text-transparent hover:border-stone-400"
+      {data.phases.length === 0 ? (
+        <div className="rounded border border-dashed border-stone-300 bg-white p-10 text-center">
+          <p className="mb-1 text-sm font-medium text-stone-600">No phases yet</p>
+          <p className="mb-4 text-sm text-stone-400">
+            A plan is built from ordered phases, each with its own milestones.
+          </p>
+          <a
+            href={`/projects/${slug}/plan/`}
+            className="inline-block rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 hover:border-stone-400 hover:text-indigo-700"
+          >
+            Build the plan ↗
+          </a>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {data.phases.map((phase) => {
+            const done = phase.milestones.filter((m) => m.completed_at).length;
+            return (
+              <section key={phase.id} className="rounded border border-stone-200 bg-white p-5">
+                <div className="mb-3 flex items-baseline gap-3">
+                  <span className="font-mono text-xs text-stone-300">{phase.order}</span>
+                  <h2 className="min-w-0 flex-1 font-medium text-stone-900">{phase.name}</h2>
+                  <span className={`shrink-0 rounded px-2 py-0.5 text-xs ${statusCls[phase.status] ?? statusCls.not_started}`}>
+                    {phase.status.replace("_", " ")}
+                  </span>
+                </div>
+
+                <div className="mb-1 text-xs text-stone-400">
+                  {done}/{phase.milestones.length} milestones
+                </div>
+                <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+                  <div
+                    className="h-1.5 rounded-full transition-[width] duration-300"
+                    style={{ width: `${phase.progress}%`, background: data.project.color }}
+                  />
+                </div>
+
+                <ul className="divide-y divide-stone-100">
+                  {phase.milestones.map((m) => {
+                    const isOverdue = m.overdue && !m.completed_at;
+                    return (
+                      <li key={m.id} className="py-2.5">
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            aria-label="Toggle milestone"
+                            onClick={() => toggleMilestone.mutate(m)}
+                            className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs transition-colors after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 ${
+                              m.completed_at
+                                ? "border-indigo-600 bg-indigo-600 text-white"
+                                : "border-stone-300 bg-white text-transparent hover:border-indigo-400"
+                            }`}
+                          >
+                            ✓
+                          </button>
+                          <span className={`min-w-0 flex-1 text-sm ${m.completed_at ? "text-stone-400 line-through" : "text-stone-800"}`}>
+                            {m.title}
+                          </span>
+                          {m.due_date && (
+                            <span
+                              className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${
+                                isOverdue ? "bg-red-50 font-medium text-red-600" : "text-stone-400"
                               }`}
                             >
-                              ✓
-                            </button>
-                            <span className={t.done ? "text-stone-400 line-through" : ""}>{t.title}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                ))}
-                {phase.milestones.length === 0 && (
-                  <li className="py-2 text-sm text-stone-400">No milestones yet.</li>
-                )}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
+                              {isOverdue ? "overdue · " : "due "}
+                              {m.due_date}
+                            </span>
+                          )}
+                        </div>
+                        {m.tasks.length > 0 && (
+                          <ul className="ml-2.5 mt-2 space-y-1.5 border-l border-stone-100 pl-4">
+                            {m.tasks.map((t) => (
+                              <li key={t.id} className="flex items-center gap-2.5 text-sm">
+                                <button
+                                  type="button"
+                                  aria-label="Toggle task"
+                                  onClick={() => toggleTask.mutate(t)}
+                                  className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] transition-colors after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 ${
+                                    t.done
+                                      ? "border-stone-400 bg-stone-400 text-white"
+                                      : "border-stone-300 bg-white text-transparent hover:border-stone-400"
+                                  }`}
+                                >
+                                  ✓
+                                </button>
+                                <span className={`min-w-0 flex-1 ${t.done ? "text-stone-400 line-through" : "text-stone-700"}`}>
+                                  {t.title}
+                                </span>
+                                {t.due_date && (
+                                  <span className="shrink-0 text-xs text-stone-400">due {t.due_date}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  })}
+                  {phase.milestones.length === 0 && (
+                    <li className="py-2.5 text-sm text-stone-400">No milestones in this phase yet.</li>
+                  )}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      )}
+
       <p className="mt-4 text-xs text-stone-400">
         Editing phases and milestones still lives on the{" "}
         <a href={`/projects/${slug}/plan/`} className="underline hover:text-indigo-700">classic plan page ↗</a>

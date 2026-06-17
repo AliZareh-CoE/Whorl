@@ -22,6 +22,13 @@ const STATUSES = [
 ];
 const PRIORITY_ORDER: Record<string, number> = { high: 0, normal: 1, low: 2 };
 
+const STATUS_DOT: Record<string, string> = {
+  to_read: "bg-stone-300",
+  skimmed: "bg-amber-400",
+  read: "bg-emerald-500",
+  annotated: "bg-indigo-500",
+};
+
 function authorLine(ref: Ref): string {
   const names = (ref.authors ?? []).map((a) => a.family ?? a.given ?? "").filter(Boolean);
   const head = names.slice(0, 3).join(", ");
@@ -104,30 +111,39 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
   return (
     <div>
       <nav className="mb-6 text-sm text-stone-500">
-        <Link to="/projects" className="hover:underline">Projects</Link> /{" "}
-        <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> /{" "}
-        {queue ? "Queue" : "Literature"}
+        <Link to="/projects" className="hover:text-stone-700 hover:underline">Projects</Link>
+        <span className="px-1.5 text-stone-300">/</span>
+        <Link to={`/projects/${slug}`} className="hover:text-stone-700 hover:underline">{slug}</Link>
+        <span className="px-1.5 text-stone-300">/</span>
+        <span className="text-stone-700">{queue ? "Queue" : "Literature"}</span>
       </nav>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">{queue ? "Reading queue" : "Literature"}</h1>
-        <div className="flex items-center gap-3 text-xs">
+      <div className="mb-6 flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-stone-900">{queue ? "Reading queue" : "Literature"}</h1>
+          <p className="mt-1 text-sm text-stone-500">
+            {queue
+              ? `${rows.length} ${rows.length === 1 ? "paper" : "papers"} to read, ordered by priority`
+              : `${rows.length} ${rows.length === 1 ? "paper" : "papers"} linked to this project`}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-3 text-xs">
           <Link to={queue ? `/projects/${slug}/literature` : `/projects/${slug}/queue`}
-                className="text-indigo-600 hover:underline">
+                className="text-indigo-600 hover:text-indigo-700 hover:underline">
             {queue ? "All papers" : "Reading queue"}
           </Link>
           {queue && (
             <Link to={`/projects/${slug}/read`}
-                  className="rounded bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700">
+                  className="rounded bg-indigo-600 px-2.5 py-1.5 font-medium text-white transition-colors hover:bg-indigo-700">
               ▶ Read flow
             </Link>
           )}
           {!queue && (
             <button onClick={draftSynthesis} disabled={drafting}
-                    className="rounded border border-stone-300 bg-white px-2.5 py-1 hover:border-stone-400 disabled:opacity-50">
+                    className="rounded border border-stone-300 bg-white px-2.5 py-1.5 font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50 disabled:opacity-50">
               {drafting ? "Drafting…" : "Draft synthesis"}
             </button>
           )}
-          <a href={`/projects/${slug}/literature/`} className="text-stone-400 underline hover:text-indigo-700">
+          <a href={`/projects/${slug}/literature/`} className="text-stone-400 transition-colors hover:text-indigo-600">
             matrix & reports ↗
           </a>
         </div>
@@ -149,87 +165,126 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
       )}
 
       {theme && (
-        <div className="mb-4 flex items-center gap-2 text-sm">
+        <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
             Candidates for “{theme}”
           </span>
           <span className="text-xs text-stone-400">unread papers that look relevant and aren’t marked under it yet</span>
-          <Link to={`/projects/${slug}/queue`} className="text-xs text-stone-500 underline hover:text-indigo-700">
+          <Link to={`/projects/${slug}/queue`} className="text-xs text-stone-500 underline hover:text-indigo-600">
             Clear
           </Link>
         </div>
       )}
 
       {selected.size > 0 && (
-        <div className="mb-3 flex items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm">
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm">
           <span className="font-medium text-indigo-800">{selected.size} selected</span>
-          <span className="mx-1 text-indigo-200">|</span>
+          <span className="text-indigo-200">·</span>
           <span className="text-stone-500">Mark as</span>
           <select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)}
-                  className="rounded border border-stone-300 bg-white px-2 py-1 text-xs">
+                  className="rounded border border-stone-300 bg-white px-2 py-1 text-xs focus:border-indigo-600 focus:outline-none">
             {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           <button onClick={applyBulk}
-                  className="rounded border border-stone-300 bg-white px-2 py-1 text-xs hover:border-stone-400">
+                  className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-white">
             Apply
+          </button>
+          <button onClick={() => setSelected(new Set())}
+                  className="ml-auto text-xs text-stone-500 hover:text-indigo-600">
+            Clear selection
           </button>
         </div>
       )}
 
-      <div className="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
-        {rows.map((row) => (
-          <div key={row.id} className="flex items-center gap-3 px-4 py-3 text-sm">
-            <input
-              type="checkbox"
-              aria-label={`Select ${row.reference_summary.title.slice(0, 40)}`}
-              checked={selected.has(row.id)}
-              onChange={() => {
-                const next = new Set(selected);
-                next.has(row.id) ? next.delete(row.id) : next.add(row.id);
-                setSelected(next);
-              }}
-              className="size-4 shrink-0 rounded border-stone-300 accent-indigo-600"
-            />
-            <div className="min-w-0 flex-1">
-              <Link to={`/references/${row.reference_summary.id}`} className="font-medium hover:underline">
-                {row.reference_summary.title}
-              </Link>
-              <p className="text-xs text-stone-400">
-                {authorLine(row.reference_summary)}
-                {row.reference_summary.year ? ` · ${row.reference_summary.year}` : ""} ·{" "}
-                <span className="font-mono">{row.reference_summary.bibtex_key}</span>
+      <div className="overflow-hidden rounded border border-stone-200 bg-white">
+        {rows.length > 0 && (
+          <div className="flex items-center justify-between border-b border-stone-100 px-4 py-2.5">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-stone-400">
+              {queue ? "Queue" : "Papers"}
+            </h2>
+            <span className="text-xs text-stone-400">{rows.length}</span>
+          </div>
+        )}
+        <div className="divide-y divide-stone-100">
+          {rows.map((row) => (
+            <div key={row.id} className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-stone-50">
+              <input
+                type="checkbox"
+                aria-label={`Select ${row.reference_summary.title.slice(0, 40)}`}
+                checked={selected.has(row.id)}
+                onChange={() => {
+                  const next = new Set(selected);
+                  next.has(row.id) ? next.delete(row.id) : next.add(row.id);
+                  setSelected(next);
+                }}
+                className="size-4 shrink-0 rounded border-stone-300 accent-indigo-600"
+              />
+              <span
+                aria-hidden="true"
+                title={row.reading_status.replace("_", " ")}
+                className={`size-1.5 shrink-0 rounded-full ${STATUS_DOT[row.reading_status] ?? "bg-stone-300"}`}
+              />
+              <div className="min-w-0 flex-1">
+                <Link to={`/references/${row.reference_summary.id}`} className="font-medium text-stone-900 hover:text-indigo-700 hover:underline">
+                  {row.reference_summary.title}
+                </Link>
+                <p className="truncate text-xs text-stone-400">
+                  {authorLine(row.reference_summary)}
+                  {row.reference_summary.year ? ` · ${row.reference_summary.year}` : ""} ·{" "}
+                  <span className="font-mono">{row.reference_summary.bibtex_key}</span>
+                </p>
+              </div>
+              {row.priority !== "normal" && (
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  row.priority === "high"
+                    ? "bg-rose-50 text-rose-700"
+                    : "bg-stone-100 text-stone-500"
+                }`}>{row.priority}</span>
+              )}
+              <select
+                value={row.reading_status}
+                onChange={(e) => setStatus.mutate({ id: row.id, status: e.target.value })}
+                className="shrink-0 rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-700 transition-colors hover:border-stone-400 focus:border-indigo-600 focus:outline-none"
+                aria-label="Reading status"
+              >
+                {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          ))}
+          {rows.length === 0 && (
+            <div className="px-6 py-14 text-center">
+              <p className="text-sm text-stone-500">
+                {theme ? (
+                  <>
+                    No unread candidates for “{theme}.”
+                  </>
+                ) : queue ? (
+                  "Queue is clear — everything has been read."
+                ) : (
+                  "No papers linked to this project yet."
+                )}
+              </p>
+              <p className="mt-1.5 text-xs text-stone-400">
+                {theme ? (
+                  <>
+                    <Link to={`/projects/${slug}/queue`} className="text-indigo-600 hover:underline">
+                      Show the whole queue
+                    </Link>{" "}
+                    or add papers to the library.
+                  </>
+                ) : queue ? (
+                  <>Nice work — nothing left in the reading queue.</>
+                ) : (
+                  <>
+                    Add references from the{" "}
+                    <Link to="/library" className="text-indigo-600 hover:underline">library</Link>{" "}
+                    and link them here.
+                  </>
+                )}
               </p>
             </div>
-            <span className={`shrink-0 rounded px-2 py-0.5 text-xs ${
-              row.priority === "high" ? "bg-red-50 text-red-700" : "bg-stone-100 text-stone-500"
-            }`}>{row.priority}</span>
-            <select
-              value={row.reading_status}
-              onChange={(e) => setStatus.mutate({ id: row.id, status: e.target.value })}
-              className="shrink-0 rounded border border-stone-300 bg-white px-2 py-1 text-xs"
-              aria-label="Reading status"
-            >
-              {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-        ))}
-        {rows.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-stone-400">
-            {theme ? (
-              <>
-                No unread candidates for “{theme}” —{" "}
-                <Link to={`/projects/${slug}/queue`} className="underline hover:text-indigo-700">
-                  show the whole queue
-                </Link>{" "}
-                or add papers to the library.
-              </>
-            ) : queue ? (
-              "Queue is clear — everything has been read."
-            ) : (
-              "No papers linked yet."
-            )}
-          </p>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

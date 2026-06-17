@@ -45,11 +45,11 @@ export default function Library() {
 
   return (
     <div>
-      <h1 className="mb-2 text-2xl font-semibold tracking-tight">Library</h1>
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight">Library</h1>
       <p className="mb-6 text-sm text-stone-500">{data?.count ?? 0} references, shared across projects.</p>
 
       <form
-        className="mb-4 flex max-w-xl items-start gap-2"
+        className="mb-5 flex max-w-xl items-start gap-2"
         onSubmit={(e) => { e.preventDefault(); if (doi.trim()) addByDoi.mutate(); }}
       >
         <div className="flex-1">
@@ -57,39 +57,59 @@ export default function Library() {
             value={doi}
             onChange={(e) => setDoi(e.target.value)}
             placeholder="Add by DOI or arXiv ID…"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none"
+            className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
           />
-          {addError && <p className="mt-1 text-xs text-red-600">{addError}</p>}
+          {addError && <p className="mt-1.5 text-xs text-red-600">{addError}</p>}
         </div>
         <button type="submit" disabled={addByDoi.isPending}
-                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
           {addByDoi.isPending ? "Fetching…" : "Add"}
         </button>
       </form>
 
-      <input
-        type="search"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        placeholder={`Filter ${data?.count ?? 0} references…`}
-        className="mb-4 w-64 rounded border border-stone-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-600 focus:outline-none"
-      />
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <input
+          type="search"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder={`Filter ${data?.count ?? 0} references…`}
+          className="w-72 rounded border border-stone-300 bg-white px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+        />
+        <span className="text-xs uppercase tracking-wide text-stone-400">{rows.length} shown</span>
+      </div>
 
-      <div className="divide-y divide-stone-100 rounded border border-stone-200 bg-white">
+      <div className="divide-y divide-stone-100 overflow-hidden rounded border border-stone-200 bg-white">
         {rows.map((r) => (
-          <Link key={r.id} to={`/references/${r.id}`} className="block px-4 py-3 text-sm hover:bg-stone-50">
-            <span className="font-medium">{r.title}</span>
-            <p className="text-xs text-stone-400">
+          <Link
+            key={r.id}
+            to={`/references/${r.id}`}
+            className="group block px-4 py-2.5 transition-colors hover:bg-stone-50 focus:bg-stone-50 focus:outline-none"
+          >
+            <p className="truncate text-sm font-medium text-stone-900 group-hover:text-indigo-700">{r.title}</p>
+            <p className="mt-0.5 truncate text-xs text-stone-400">
               {(r.authors ?? []).slice(0, 3).map((a) => a.family).filter(Boolean).join(", ")}
-              {r.year ? ` · ${r.year}` : ""} · <span className="font-mono">{r.bibtex_key}</span>
+              {r.year ? ` · ${r.year}` : ""} ·{" "}
+              <span className="rounded bg-stone-100 px-1 py-0.5 font-mono text-[11px] text-stone-500">{r.bibtex_key}</span>
             </p>
           </Link>
         ))}
-        {rows.length === 0 && <p className="px-4 py-8 text-center text-sm text-stone-400">No matches.</p>}
+        {rows.length === 0 && (
+          <div className="px-4 py-12 text-center">
+            <p className="text-sm font-medium text-stone-500">
+              {filter.trim() ? "No matches" : "Your library is empty"}
+            </p>
+            <p className="mx-auto mt-1 max-w-sm text-xs text-stone-400">
+              {filter.trim()
+                ? "Try a different title, author, or venue."
+                : "Add a paper by DOI or arXiv ID above to start building your shared reference library."}
+            </p>
+          </div>
+        )}
       </div>
       {(data?.count ?? 0) > (data?.results.length ?? 0) && (
         <p className="mt-2 text-xs text-stone-400">
-          Showing the first {data?.results.length} — full search on the <a className="underline" href="/library/">classic library ↗</a>
+          Showing the first {data?.results.length} —{" "}
+          <a className="text-indigo-600 hover:underline" href="/library/">full search on the classic library ↗</a>
         </p>
       )}
     </div>
