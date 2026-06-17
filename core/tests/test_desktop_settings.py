@@ -216,3 +216,10 @@ def test_ensure_postgres_logs_each_step_and_bounds_the_wait():
     assert "ThreadPoolExecutor" in runtime and "FuturesTimeout" in runtime
     # the bounded connect must not block on a hung thread when it gives up
     assert "shutdown(wait=False)" in runtime
+
+
+def test_run_desktop_cleans_up_old_postgres_data():
+    # #266 upgrade path: switching a machine from the bundled-Postgres build to SQLite should
+    # drop the now-unused pgdata/ + postgres.log so the data dir is clean (no manual wipe).
+    text = (BASE_DIR / "core" / "management" / "commands" / "run_desktop.py").read_text()
+    assert "pgdata" in text and "rmtree" in text and "postgres.log" in text

@@ -25,11 +25,20 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        import shutil
+
         from django.conf import settings
         from django.contrib.auth import get_user_model
 
         # SQLite (#266): no server to start — `migrate` just creates the file. This replaced the
         # bundled Postgres, which never started reliably on Windows.
+
+        # Upgrading from the old bundled-Postgres build leaves its now-unused cluster + logs in
+        # the data dir; drop them so the switch to SQLite is clean and reclaims space — the owner
+        # doesn't have to wipe the data dir by hand. (No-op on a fresh SQLite install.)
+        for stale in ("pgdata", "pgsock"):
+            shutil.rmtree(settings.DATA_DIR / stale, ignore_errors=True)
+        (settings.DATA_DIR / "postgres.log").unlink(missing_ok=True)
 
         # First-run prep. Use verbosity=1 so the log shows progress instead of looking like a
         # silent black box (#241), and skip the slow static re-collect on later launches of the
