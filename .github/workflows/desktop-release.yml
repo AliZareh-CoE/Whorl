@@ -24,6 +24,10 @@ on:
       - "core/management/commands/run_desktop.py"
       - "config/settings/desktop.py"
       - "pyproject.toml"
+      # the frozen server also bundles the templates and the built static assets (JS + the
+      # Tailwind CSS compiled from these), so a UI change must rebuild the installer too.
+      - "templates/**"
+      - "static/**"
     tags:
       - "v*"
   workflow_dispatch:
