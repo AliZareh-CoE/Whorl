@@ -144,6 +144,23 @@ class TestSpaShell:
         # no page should still bail out with a bare red <p> on load failure
         for page in Path("frontend/src/app/pages").glob("*.tsx"):
             assert not re.search(r'text-red-600">Couldn.t load', page.read_text()), page.name
+        # the primary index/detail pages must keep the shared error state (#280 + #281 rollout)
+        pages_dir = Path("frontend/src/app/pages")
+        wired = (
+            "Dashboard",
+            "Documents",
+            "Files",
+            "ProjectOverview",
+            "Plan",  # #280
+            "Projects",
+            "Library",
+            "Notes",
+            "Writing",
+            "Literature",
+            "Search",  # #281
+        )
+        for name in wired:
+            assert "ErrorState" in (pages_dir / f"{name}.tsx").read_text(), name
 
     def test_shell_sets_csrf_cookie(self, client_logged_in):
         # the SPA has no server-rendered form; its API writes need the token

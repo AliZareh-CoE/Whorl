@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
+import { ErrorState } from "../../components/ErrorState";
 
 type Result = { type: string; id: number; label: string; project: string | null; url: string | null };
 
@@ -28,7 +29,7 @@ function typeChipClass(type: string): string {
 export default function Search() {
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, error, refetch } = useQuery({
     queryKey: ["search", submitted],
     queryFn: () => api<{ results: Result[] }>(`/search/?q=${encodeURIComponent(submitted)}`),
     enabled: submitted.length >= 2,
@@ -66,6 +67,12 @@ export default function Search() {
       </form>
 
       {isFetching && <p className="text-sm text-stone-400">Searching…</p>}
+
+      {error && !isFetching && (
+        <div className="max-w-xl">
+          <ErrorState message="Search failed." onRetry={() => refetch()} />
+        </div>
+      )}
 
       {data && !isFetching && (
         <>

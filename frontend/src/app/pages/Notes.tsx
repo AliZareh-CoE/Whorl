@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Skeleton } from "../../components/Skeleton";
+import { ErrorState } from "../../components/ErrorState";
 
 type Backlink = { id: number; title: string };
 type Note = {
@@ -17,7 +18,7 @@ type Page<T> = { count: number; results: T[] };
 
 export function NotesList() {
   const { slug } = useParams();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["notes", slug],
     queryFn: () => api<Page<Note>>(`/notes/?project=${slug}`),
   });
@@ -40,6 +41,7 @@ export function NotesList() {
         </div>
       </div>
     );
+  if (error || !data) return <ErrorState message="Couldn't load notes." onRetry={() => refetch()} />;
   const notes = data?.results ?? [];
   return (
     <div>

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
+import { ErrorState } from "../../components/ErrorState";
 
 type Event = { id: number; kind: string; date: string; notes: string };
 type Manuscript = {
@@ -53,7 +54,7 @@ function deadlineLabel(deadline: string | null): { text: string; urgent: boolean
 }
 
 export function WritingBoard() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["manuscripts"],
     queryFn: () => api<Page<Manuscript>>("/manuscripts/"),
   });
@@ -80,6 +81,7 @@ export function WritingBoard() {
         </div>
       </div>
     );
+  if (error || !data) return <ErrorState message="Couldn't load manuscripts." onRetry={() => refetch()} />;
   const rows = data?.results ?? [];
   const populated = COLUMNS.filter(([key]) => rows.some((m) => m.status === key));
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { Skeleton } from "../../components/Skeleton";
+import { ErrorState } from "../../components/ErrorState";
 
 type Ref = { id: number; bibtex_key: string; title: string; authors: { family?: string }[]; year: number | null; venue: string };
 type Page<T> = { count: number; results: T[] };
@@ -14,7 +15,7 @@ export default function Library() {
   const [doi, setDoi] = useState("");
   const [addError, setAddError] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["library"],
     queryFn: () => api<Page<Ref>>("/references/"),
   });
@@ -55,6 +56,7 @@ export default function Library() {
         </div>
       </div>
     );
+  if (error || !data) return <ErrorState message="Couldn't load the library." onRetry={() => refetch()} />;
   const needle = filter.trim().toLowerCase();
   const rows = (data?.results ?? []).filter(
     (r) =>

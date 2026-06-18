@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { ErrorState } from "../../components/ErrorState";
 import { api } from "../api";
 
 type Project = {
@@ -20,12 +21,13 @@ const statusTone: Record<string, string> = {
 };
 
 export default function Projects() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["projects"],
     queryFn: () => api<Page<Project>>("/projects/"),
   });
 
   if (isLoading) return <p className="text-sm text-stone-400 dark:text-stone-400">Loading projects…</p>;
+  if (error || !data) return <ErrorState message="Couldn't load projects." onRetry={() => refetch()} />;
 
   const projects = data?.results ?? [];
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, csrfToken, petReact } from "../api";
 import { Skeleton } from "../../components/Skeleton";
+import { ErrorState } from "../../components/ErrorState";
 
 type Ref = { id: number; bibtex_key: string; title: string; authors: { family?: string; given?: string }[]; year: number | null; venue: string };
 type LinkRow = {
@@ -63,7 +64,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
     navigate(`/projects/${slug}/notes/${data.note_id}`);
   }
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: listKey,
     queryFn: () =>
       api<Page<LinkRow>>(
@@ -128,6 +129,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
         </div>
       </div>
     );
+  if (error || !data) return <ErrorState message="Couldn't load this project's literature." onRetry={() => refetch()} />;
   let rows = data?.results ?? [];
   if (queue) {
     rows = rows
