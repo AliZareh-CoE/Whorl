@@ -157,3 +157,23 @@ def test_theme_follows_os_preference_by_default():
     # The standalone login page (the desktop app's first screen) must follow the OS too.
     login = (Path(settings.BASE_DIR) / "templates" / "registration" / "login.html").read_text()
     assert "prefers-color-scheme: dark" in login
+
+
+def test_calm_mode_is_class_based_app_wide():
+    # #275: calm mode is reflected as a `.calm` class on <html> so CSS `calm:` variants
+    # quiet secondary chrome app-wide. Guard the variant compiles + the wiring is present.
+    from pathlib import Path
+
+    from django.conf import settings
+
+    base = Path(settings.BASE_DIR)
+    src = (base / "assets" / "css" / "app.css").read_text()
+    assert "@custom-variant calm" in src
+    built = (base / "static" / "css" / "app.css").read_text()
+    assert ".calm" in built  # the variant compiled into the served CSS
+    # the preference is applied as a class before paint on both shells
+    for name in ("base.html", "spa.html"):
+        html = (base / "templates" / name).read_text()
+        assert 'classList.add("calm")' in html, name
+    # calm.ts keeps the class in sync when toggled live
+    assert 'classList.toggle("calm"' in (base / "frontend" / "src" / "app" / "calm.ts").read_text()

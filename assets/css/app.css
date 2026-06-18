@@ -8,6 +8,10 @@
    page head), not prefers-color-scheme — so the in-app toggle always wins. (#270) */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Calm mode is the same idea (#275): a `.calm` on <html> driven by the atlas-calm preference,
+   letting `calm:hidden` quiet secondary chrome app-wide without per-component state. */
+@custom-variant calm (&:where(.calm, .calm *));
+
 /* Respect the OS "reduce motion" setting everywhere (#272): the loading-skeleton pulse, the
    transitions/active-press feedback, and any animation collapse to near-instant for users who
    ask for it — accessibility without per-element opt-outs. */

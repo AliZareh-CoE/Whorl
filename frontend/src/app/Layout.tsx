@@ -129,7 +129,7 @@ export default function Layout() {
             <a href="/pet/" title={`${pet.name} is ${pet.mood}`} className="group mb-3 block">
               <span
                 key={bubble}
-                className={`pet-bubble relative mb-1.5 block rounded-lg border px-2.5 py-1.5 text-[10px] leading-snug ${
+                className={`pet-bubble relative mb-1.5 block rounded-lg border px-2.5 py-1.5 text-[10px] leading-snug calm:hidden ${
                   reaction
                     ? "border-indigo-200 bg-indigo-50 text-indigo-700"
                     : "border-stone-200 bg-white text-stone-500"

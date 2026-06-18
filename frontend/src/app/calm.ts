@@ -14,6 +14,16 @@ export function readCalm(): boolean {
   }
 }
 
+/** Reflect calm mode as a class on <html> so CSS `calm:` variants (#275) can quiet secondary
+ * chrome app-wide without per-component state — mirrors how `.dark` drives the theme. */
+function applyCalmClass(value: boolean): void {
+  try {
+    document.documentElement.classList.toggle("calm", value);
+  } catch {
+    /* SSR / no document — no-op */
+  }
+}
+
 /** Persist + broadcast so every listener (this tab and others) updates immediately. */
 export function setCalm(value: boolean): void {
   try {
@@ -21,6 +31,7 @@ export function setCalm(value: boolean): void {
   } catch {
     /* private mode: the custom event below still drives same-session listeners */
   }
+  applyCalmClass(value);
   window.dispatchEvent(new CustomEvent(CALM_EVENT, { detail: value }));
 }
 

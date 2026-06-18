@@ -23,6 +23,9 @@
         try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
       };
       if (mql.addEventListener) mql.addEventListener("change", function () { if (!stored()) apply(); });
+      // Calm mode (#275): reflect the saved preference as a class before paint, so calm: CSS
+      // applies without a flash. The in-app toggle keeps it in sync live.
+      try { if (localStorage.getItem("atlas-calm") === "1") document.documentElement.classList.add("calm"); } catch (e) {}
     })();
   </script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
