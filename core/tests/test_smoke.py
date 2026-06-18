@@ -131,6 +131,8 @@ class TestSpaShell:
         for verb in ("Toggle dark mode", "Toggle calm mode"):  # #276 theme, #277 calm
             assert verb in src
             assert verb in bundle
+        # #279: verbs are grouped under a "Commands" header so they read as actions
+        assert '"Commands"' in src and "Commands" in bundle
 
     def test_data_load_failures_use_shared_error_state(self):
         # #280: every page's data-load failure uses the retryable ErrorState, not a bare

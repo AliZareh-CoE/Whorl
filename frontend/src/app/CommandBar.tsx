@@ -44,6 +44,13 @@ type Row =
   | { kind: "milestone"; label: string; tag: string; id: number }
   | { kind: "verb"; label: string; tag: string; run: () => Promise<string> };
 
+// Section headers so verbs read as actions, not destinations (#279).
+const groupLabel: Record<Row["kind"], string> = {
+  verb: "Commands",
+  nav: "Go to",
+  milestone: "Complete",
+};
+
 export default function CommandBar() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -226,6 +233,11 @@ export default function CommandBar() {
           <ul role="listbox" className="max-h-72 overflow-y-auto p-1.5">
             {rows.map((row, i) => (
               <li key={`${row.kind}-${row.label}-${i}`}>
+                {(i === 0 || rows[i - 1].kind !== row.kind) && groupLabel[row.kind] && (
+                  <p role="presentation" className="px-2.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
+                    {groupLabel[row.kind]}
+                  </p>
+                )}
                 <button
                   type="button"
                   role="option"
