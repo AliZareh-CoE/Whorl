@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { ErrorState } from "../../components/ErrorState";
 
 type Event = { date: string; kind: string; label: string; detail: string; url: string };
 
@@ -57,7 +58,7 @@ export default function Timeline() {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["timeline", slug],
     queryFn: () => api<{ events: Event[] }>(`/projects/${slug}/timeline/`),
   });
@@ -91,6 +92,7 @@ export default function Timeline() {
   }
 
   if (isLoading) return <p className="text-sm text-stone-400">Assembling the timeline…</p>;
+  if (error || !data) return <ErrorState message="Couldn't load the timeline." onRetry={() => refetch()} />;
 
   return (
     <div className="mx-auto max-w-3xl">

@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
+import { ErrorState } from "../../components/ErrorState";
 
 type Capture = { id: number; text: string; processed: boolean; project: string | null; created_at: string };
 type Project = { name: string; slug: string };
@@ -11,7 +12,7 @@ export default function Inbox() {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["inbox"],
     queryFn: () => api<Page<Capture>>("/quick-capture/"),
   });
@@ -41,6 +42,7 @@ export default function Inbox() {
   });
 
   if (isLoading) return <p className="text-sm text-stone-400">Loading inbox…</p>;
+  if (error || !data) return <ErrorState message="Couldn't load the inbox." onRetry={() => refetch()} />;
   const open = (data?.results ?? []).filter((c) => !c.processed);
 
   return (

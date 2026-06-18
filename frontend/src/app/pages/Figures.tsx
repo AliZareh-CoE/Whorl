@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { ErrorState } from "../../components/ErrorState";
 
 type Figure = {
   id: number;
@@ -23,7 +24,7 @@ export default function Figures() {
   const [tag, setTag] = useState<string | null>(null);
   const [active, setActive] = useState<Figure | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["figures", slug],
     queryFn: () => api<Figure[]>(`/projects/${slug}/figures/`),
   });
@@ -47,6 +48,7 @@ export default function Figures() {
   }, [figures]);
 
   if (isLoading) return <p className="text-sm text-stone-400">Loading figures…</p>;
+  if (error || !data) return <ErrorState message="Couldn't load figures." onRetry={() => refetch()} />;
 
   return (
     <div>

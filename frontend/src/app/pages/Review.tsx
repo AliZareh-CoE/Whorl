@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { ErrorState } from "../../components/ErrorState";
 
 type Review = {
   start: string;
@@ -43,7 +44,7 @@ export default function Review() {
   const [weeksBack, setWeeksBack] = useState(0);
   const [copied, setCopied] = useState(false);
   const qs = `?weeks_back=${weeksBack}${slug ? `&project=${slug}` : ""}`;
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["review", slug ?? null, weeksBack],
     queryFn: () => api<Review>(`/weekly-review/${qs}`),
   });
@@ -69,6 +70,7 @@ export default function Review() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  if (error) return <ErrorState message="Couldn't assemble your week." onRetry={() => refetch()} />;
   if (isLoading || !data) return <p className="text-sm text-stone-400">Assembling your week…</p>;
 
   const total =

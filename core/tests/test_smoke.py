@@ -158,6 +158,11 @@ class TestSpaShell:
             "Writing",
             "Literature",
             "Search",  # #281
+            "Decisions",
+            "Timeline",
+            "Figures",
+            "Inbox",
+            "Review",  # #282
         )
         for name in wired:
             assert "ErrorState" in (pages_dir / f"{name}.tsx").read_text(), name

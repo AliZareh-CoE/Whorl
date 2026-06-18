@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
+import { ErrorState } from "../../components/ErrorState";
 
 type Decision = { id: number; title: string; context: string; decision: string; decided_on: string };
 type Page<T> = { count: number; results: T[] };
@@ -26,7 +27,7 @@ export default function Decisions() {
   const [context, setContext] = useState("");
   const [alternatives, setAlternatives] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["decisions", slug],
     queryFn: () => api<Page<Decision>>(`/decisions/?project=${slug}`),
   });
@@ -72,6 +73,7 @@ export default function Decisions() {
         </ol>
       </div>
     );
+  if (error || !data) return <ErrorState message="Couldn't load decisions." onRetry={() => refetch()} />;
 
   const decisions = data?.results ?? [];
 
