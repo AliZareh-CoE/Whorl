@@ -449,3 +449,8 @@ def set_phase_dates(phase_id: int, start: str | None = None, end: str | None = N
     if end is not None:
         payload["target_end"] = end
     return _request("PATCH", f"/phases/{phase_id}/", json=payload)
+
+
+def get_week_focus(slug: str):
+    """Overdue, due-this-week and next-up items for one project."""
+    return _request("GET", f"/projects/{slug}/focus/")

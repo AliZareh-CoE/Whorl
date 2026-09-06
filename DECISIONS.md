@@ -544,6 +544,27 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Plan v2 slice 3: this week + the milestone drawer (#315)
+
+**Decision.** `plans/focus.py` computes one project's week: overdue milestones and tasks (oldest
+first, milestones before tasks on the same day), everything due within seven days, then up to three
+undated/later milestones of the current phase so the list never goes empty while work remains.
+`GET /projects/{slug}/focus/`; the overview embeds the same block plus a `health` reading for the
+current phase (from the roadmap service); MCP `get_week_focus` (62 tools). UI: a "This week" strip at
+the top of the Plan (and, compact, on the overview) with in-place completion; a milestone drawer
+(title, due date, notes with autosave, tasks add/toggle/delete, delete) opened from any milestone
+title; the plan API now returns milestone notes. The drawer is opaque (`.drawer-solid`) because the
+Observatory glass panels bleed the page through.
+
+**Why.** The Plan answered "where are we" but not "what now": the researcher still had to scan every
+phase for the nearest date. The strip is the answer in one glance, and completing from it keeps the
+plan honest. The drawer closes the last gap that sent people to the classic page (notes, dates).
+
+**Alternatives considered.** Cross-project "this week everywhere" — that belongs to the Dashboard
+area and will reuse `week_focus`. Natural-language dates in quick-add ("next fri") — parked; the
+outline + date input cover it for now. A modal instead of a drawer — rejected: the plan stays
+visible for context.
+
 ### 2026-09-06 — Plan v2 slice 2: the roadmap (#313)
 
 **Decision.** `plans/roadmap.py` turns the plan into timeline rows: each phase gets a window (its

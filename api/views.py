@@ -334,14 +334,29 @@ class ProjectViewSet(AtlasViewSet):
     def overview(self, request, slug=None):
         from documents.models import PREVIEWABLE_IMAGE_TYPES
         from plans import selectors as plan_selectors
+        from plans.focus import week_focus
+        from plans.roadmap import project_roadmap
 
         project = self.get_object()
         done, total, percent = plan_selectors.project_progress(project)
         phase = plan_selectors.current_phase(project)
+        health = None
+        if phase is not None:
+            row = next((r for r in project_roadmap(project)["phases"] if r["id"] == phase.pk), None)
+            if row:
+                health = {
+                    "state": row["state"],
+                    "label": row["label"],
+                    "forecast_end": row["forecast_end"],
+                    "start": row["start"],
+                    "end": row["end"],
+                }
         return Response(
             {
                 "project": serializers.ProjectSerializer(project).data,
                 "current_phase": serializers.PhaseSerializer(phase).data if phase else None,
+                "health": health,
+                "focus": week_focus(project),
                 "progress": {"done": done, "total": total, "percent": percent},
                 "next_milestones": [
                     {
@@ -469,6 +484,22 @@ class ProjectViewSet(AtlasViewSet):
     @extend_schema(
         responses={
             200: OpenApiResponse(
+                description="overdue, due_this_week and next_up items (milestones and tasks with "
+                "phase/milestone context and days-until-due), plus the current phase"
+            )
+        },
+        description="This week's focus for the project: overdue first, then due within 7 days, "
+        "then the next milestones of the current phase.",
+    )
+    @action(detail=True, methods=["get"])
+    def focus(self, request, slug=None):
+        from plans.focus import week_focus
+
+        return Response(week_focus(self.get_object()))
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
                 description="Phases as dated bars (real or inferred windows) with milestones, "
                 "health (behind / on_track / ahead / blocked / overdue / upcoming / done / empty) "
                 "and a finish forecast from the completion pace"
@@ -554,6 +585,7 @@ class ProjectViewSet(AtlasViewSet):
                             "due_date": m.due_date,
                             "completed_at": m.completed_at,
                             "overdue": m.is_overdue,
+                            "notes": m.notes,
                             "tasks": [
                                 {"id": t.pk, "title": t.title, "done": t.done}
                                 for t in m.tasks.all()

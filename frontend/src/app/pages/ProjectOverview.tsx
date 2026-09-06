@@ -3,8 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
+import Focus, { type FocusData } from "./plan/Focus";
 
 type Overview = {
+  health: { state: string; label: string; forecast_end: string | null; start: string; end: string } | null;
+  focus: FocusData;
   project: { name: string; slug: string; description: string; status: string; color: string };
   current_phase: { name: string; status: string } | null;
   progress: { done: number; total: number; percent: number };
@@ -99,8 +102,11 @@ export default function ProjectOverview() {
 
       <div className="mb-4 rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
         <div className="mb-2 flex items-baseline justify-between gap-4 text-sm">
-          <span className="font-medium text-stone-900 dark:text-stone-100">
-            {data.current_phase ? data.current_phase.name : "No phases yet"}
+          <span className="flex min-w-0 items-center gap-2 font-medium text-stone-900 dark:text-stone-100">
+            <span className="truncate">{data.current_phase ? data.current_phase.name : "No phases yet"}</span>
+            {data.health && data.health.state !== "empty" && (
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-normal ${data.health.state === "behind" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : data.health.state === "overdue" || data.health.state === "blocked" ? "bg-red-500/15 text-red-700 dark:text-red-300" : data.health.state === "ahead" || data.health.state === "done" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200"}`} title={data.health.forecast_end ? `Forecast finish ${data.health.forecast_end}` : `${data.health.start} → ${data.health.end}`} data-testid="phase-health">{data.health.label}</span>
+            )}
           </span>
           <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400">
             {progress.done}/{progress.total} milestones
@@ -124,6 +130,8 @@ export default function ProjectOverview() {
           ))}
         </nav>
       </div>
+
+      <div className="mb-4"><Focus slug={project.slug} initial={data.focus} compact /></div>
 
       <div className="mb-4 grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         {Object.entries(data.counts).map(([key, value]) => (

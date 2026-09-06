@@ -419,3 +419,10 @@ def get_roadmap(slug: str) -> dict:
 def set_phase_dates(phase_id: int, start: str = "", end: str = "") -> dict:
     """Reschedule a phase: ISO dates for its target start and/or end (empty = unchanged)."""
     return client.set_phase_dates(phase_id, start or None, end or None)
+
+
+@mcp.tool()
+def get_week_focus(slug: str) -> dict:
+    """What to do on this project this week: overdue milestones/tasks first (with days late),
+    then everything due within seven days, then the next milestones of the current phase."""
+    return client.get_week_focus(slug)
