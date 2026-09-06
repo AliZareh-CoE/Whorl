@@ -487,3 +487,8 @@ def test_budget_client_calls(capture):
     assert calls_url_has(capture, "/manuscripts/3/budget/")
     client.set_venue_limits(3, {"words": 8000})
     assert capture["method"] == "PATCH" and '"venue_limits":{"words":8000}' in capture["body"]
+
+
+def test_dashboard_client_call(capture):
+    client.get_dashboard()
+    assert calls_url_has(capture, "/dashboard/")

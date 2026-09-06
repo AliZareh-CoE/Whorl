@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Command, Sparkles } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, Command, Sparkles } from "lucide-react";
 import { api } from "../api";
 import { toggleCalm, useCalm } from "../calm";
 import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
@@ -15,13 +15,18 @@ type Attention = {
   inbox: { id: number; text: string }[];
 };
 
+type WeekItem = { kind: "milestone" | "task"; id: number; title: string; due_date: string; days: number; project: string; project_name: string; color: string; phase: string };
 type Dash = {
   stats: Record<string, number>;
   inbox_count: number;
+  todos_open: number;
+  week: { today: string; week_ends: string; overdue: WeekItem[]; due_this_week: WeekItem[] };
+  heatmap: { date: string; count: number; level: number }[][];
   attention: Attention;
   active: {
     name: string; slug: string; url: string; color: string;
     phase: string | null; done: number; total: number; percent: number;
+    health: { state: string; label: string; forecast_end: string | null } | null;
   }[];
   milestones: { title: string; project: string; due_date: string | null; overdue: boolean; url: string }[];
   deadlines: { title: string; deadline: string | null; url: string }[];
@@ -245,12 +250,15 @@ export default function Dashboard() {
         </section>
       )}
 
+      <WeekEverywhere week={data.week} />
+
       {!calm && (
-        <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat value={data.stats.papers_read} label="papers read this month" i={2} />
-          <Stat value={data.stats.notes_written} label="notes written this month" i={3} />
-          <Stat value={data.stats.milestones_done} label="milestones completed" i={4} />
-          <Stat value={data.inbox_count} label="inbox items to triage" i={5} to="/inbox" />
+        <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-5">
+          <Stat value={data.todos_open} label="on today's list" i={2} to="/today" />
+          <Stat value={data.stats.papers_read} label="papers read this month" i={3} />
+          <Stat value={data.stats.notes_written} label="notes written this month" i={4} />
+          <Stat value={data.stats.milestones_done} label="milestones completed" i={5} />
+          <Stat value={data.inbox_count} label="inbox items to triage" i={6} to="/inbox" />
         </div>
       )}
 
@@ -266,6 +274,9 @@ export default function Dashboard() {
                   <span className="block truncate text-xs text-stone-400 dark:text-stone-400">
                     {p.phase ? `${p.phase} · ` : ""}{p.done}/{p.total} milestones
                   </span>
+                  {p.health && p.health.state !== "empty" && (
+                    <span className={`mt-0.5 inline-block truncate rounded-full px-1.5 py-px text-[10px] ${HEALTH[p.health.state] ?? HEALTH.upcoming}`} title={p.health.forecast_end ? `Forecast finish ${p.health.forecast_end}` : undefined} data-testid="project-health">{p.health.label}</span>
+                  )}
                 </span>
                 <span className="font-display shrink-0 text-sm font-semibold tabular-nums text-stone-500 dark:text-stone-300">{p.percent}%</span>
               </Link>
@@ -318,6 +329,81 @@ export default function Dashboard() {
           </ul>
         </section>
       </div>
+
+      {!calm && <Heatmap weeks={data.heatmap} />}
     </div>
   );
 }
+
+const HEALTH: Record<string, string> = { behind: "bg-amber-500/15 text-amber-700 dark:text-amber-300", overdue: "bg-red-500/15 text-red-700 dark:text-red-300", blocked: "bg-red-500/15 text-red-700 dark:text-red-300", ahead: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", done: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", on_track: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200", upcoming: "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-300" };
+
+function when(days: number): string { if (days < 0) return `${-days} d late`; if (days === 0) return "today"; if (days === 1) return "tomorrow"; return `in ${days} d`; }
+
+/** Dashboard v2: this week across every active project, completable in place. */
+function WeekEverywhere({ week }: { week: Dash["week"] }) {
+  const queryClient = useQueryClient();
+  const complete = useMutation({
+    mutationFn: (i: WeekItem) => i.kind === "milestone"
+      ? api(`/milestones/${i.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ completed_at: new Date().toISOString() }) })
+      : api(`/tasks/${i.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: true }) }),
+    onMutate: (i) => { queryClient.setQueryData<Dash>(["dashboard"], (old) => old ? { ...old, week: { ...old.week, overdue: old.week.overdue.filter((x) => !(x.kind === i.kind && x.id === i.id)), due_this_week: old.week.due_this_week.filter((x) => !(x.kind === i.kind && x.id === i.id)) } } : old); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+  });
+  const total = week.overdue.length + week.due_this_week.length;
+  const groups = [
+    { key: "overdue", label: "Overdue", icon: AlertTriangle, items: week.overdue, tone: "text-red-600 dark:text-red-300" },
+    { key: "week", label: `Due by ${new Date(`${week.week_ends}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}`, icon: CalendarClock, items: week.due_this_week, tone: "text-indigo-600 dark:text-indigo-300" },
+  ].filter((g) => g.items.length > 0);
+  return (
+    <section className={`${panel} rise mb-5`} style={{ ["--i" as string]: 1.5 }} data-testid="week-everywhere">
+      <div className="mb-2 flex items-baseline justify-between"><h2 className={`${h2} mb-0`}>This week, everywhere</h2><span className="text-[11px] text-stone-400">{total === 0 ? "nothing due in the next seven days" : `${week.overdue.length ? `${week.overdue.length} overdue · ` : ""}${week.due_this_week.length} due`}</span></div>
+      {total === 0 ? <p className="text-sm text-stone-400">Clear week across every project — plan the next milestones or read.</p> : (
+        <div className={`grid gap-4 ${groups.length > 1 ? "md:grid-cols-2" : ""}`}>
+          {groups.map((g) => (
+            <div key={g.key}>
+              <p className={`mb-1 flex items-center gap-1 text-[11px] font-medium ${g.tone}`}><g.icon className="h-3 w-3" aria-hidden="true" />{g.label}</p>
+              <ul className="space-y-1">
+                {g.items.slice(0, 8).map((i) => (
+                  <li key={`${i.kind}-${i.id}`} className="flex items-center gap-2 text-sm">
+                    <button type="button" onClick={() => complete.mutate(i)} aria-label={`Complete ${i.title}`} className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-transparent transition-colors hover:border-indigo-400 hover:text-indigo-500 ${i.kind === "milestone" ? "rounded-md border-stone-300 dark:border-stone-600" : "border-stone-200 dark:border-stone-700"}`}><Check className="h-2.5 w-2.5" aria-hidden="true" /></button>
+                    <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: i.color }} aria-hidden="true" />
+                    <Link to={`/projects/${i.project}/plan`} className="min-w-0 flex-1 truncate text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300" title={`${i.project_name} · ${i.phase}`}>{i.title}{i.kind === "task" && <span className="ml-1 text-[10px] text-stone-400">task</span>}</Link>
+                    <span className="hidden shrink-0 truncate text-[11px] text-stone-400 sm:inline">{i.project_name}</span>
+                    <span className={`shrink-0 text-[11px] tabular-nums ${i.days < 0 ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{when(i.days)}</span>
+                  </li>
+                ))}
+                {g.items.length > 8 && <li className="text-[11px] text-stone-400">… {g.items.length - 8} more</li>}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** GitHub-style activity heatmap over the last 26 weeks (created/updated rows across models). */
+function Heatmap({ weeks }: { weeks: Dash["heatmap"] }) {
+  const LEVEL = ["bg-stone-100 dark:bg-stone-800", "bg-indigo-500/25", "bg-indigo-500/45", "bg-indigo-500/70", "bg-indigo-400"];
+  const total = weeks.flat().reduce((n, c) => n + c.count, 0);
+  const months: { label: string; col: number }[] = [];
+  weeks.forEach((w, i) => { const d = new Date(`${w[0].date}T00:00:00`); if (d.getDate() <= 7) months.push({ label: d.toLocaleDateString(undefined, { month: "short" }), col: i }); });
+  return (
+    <section className={`${panel} rise mt-5`} style={{ ["--i" as string]: 9 }} data-testid="heatmap">
+      <div className="mb-2 flex items-baseline justify-between"><h2 className={`${h2} mb-0`}>Activity · 26 weeks</h2><span className="text-[11px] text-stone-400">{total} changes across every project</span></div>
+      <div className="overflow-x-auto">
+        <div className="relative" style={{ width: weeks.length * 14, minWidth: "100%" }}>
+          <div className="mb-1 h-3 text-[9px] uppercase tracking-wider text-stone-400">{months.map((m) => <span key={`${m.label}${m.col}`} className="absolute" style={{ left: m.col * 14 }}>{m.label}</span>)}</div>
+          <div className="mt-3 flex gap-[3px]">
+            {weeks.map((w, i) => (
+              <div key={i} className="flex flex-col gap-[3px]">
+                {w.map((c) => <span key={c.date} className={`block h-[11px] w-[11px] rounded-[2px] ${LEVEL[c.level] ?? LEVEL[0]}`} title={`${c.date} · ${c.count} change${c.count === 1 ? "" : "s"}`} />)}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+

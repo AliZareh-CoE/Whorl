@@ -551,3 +551,9 @@ def get_manuscript_budget(manuscript_id: int):
 def set_venue_limits(manuscript_id: int, limits: dict):
     """Store the venue's limits on the manuscript, e.g. {"words": 8000, "figures": 6}."""
     return _request("PATCH", f"/manuscripts/{manuscript_id}/", json={"venue_limits": limits})
+
+
+def get_dashboard():
+    """Everything the dashboard shows: needs-attention, this week everywhere, projects with
+    health, stats, milestones, deadlines, heatmap."""
+    return _request("GET", "/dashboard/")

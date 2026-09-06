@@ -531,3 +531,11 @@ def set_venue_limits(manuscript_id: int, limits: dict) -> dict:
     """Set the target venue's limits, e.g. {"words": 8000, "abstract_words": 250, "figures": 6,
     "tables": 4, "references": 60, "pages": 12}; unknown keys are ignored."""
     return client.set_venue_limits(manuscript_id, limits)
+
+
+@mcp.tool()
+def get_dashboard() -> dict:
+    """What should I work on today, everywhere? Needs-attention (overdue milestones, deadlines
+    inside two weeks, untriaged inbox), this week's items across every active project, projects
+    with progress and phase health, monthly stats, upcoming milestones and deadlines."""
+    return client.get_dashboard()

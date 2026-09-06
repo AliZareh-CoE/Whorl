@@ -2148,14 +2148,26 @@ class DashboardAPIView(APIView):
     def get(self, request):
         from django.urls import reverse
 
-        from core.dashboard import dashboard_context
+        from core.dashboard import dashboard_context, project_health, week_everywhere
+        from core.models import TodoItem
 
         data = dashboard_context()
         attention = data["attention"]
+        health = project_health(data["active"])
         return Response(
             {
                 "stats": data["stats"],
                 "inbox_count": data["inbox_count"],
+                # Dashboard v2 slice 1: this week everywhere, per-project health, heatmap, today
+                "week": week_everywhere(),
+                "todos_open": TodoItem.objects.filter(done=False).count(),
+                "heatmap": [
+                    [
+                        {"date": c["date"].isoformat(), "count": c["count"], "level": c["level"]}
+                        for c in week
+                    ]
+                    for week in data["heatmap"]
+                ],
                 "attention": {
                     "empty": attention["empty"],
                     "overdue": [
@@ -2190,6 +2202,7 @@ class DashboardAPIView(APIView):
                         "total": row["total"],
                         "percent": row["percent"],
                         "tree_size": row["tree_size"],
+                        "health": health.get(row["project"].slug),
                     }
                     for row in data["active"]
                 ],

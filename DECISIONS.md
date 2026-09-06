@@ -544,6 +544,25 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Dashboard v2 slice 1: this week, everywhere (#333)
+
+**Decision.** `core/dashboard.py` gains `week_everywhere` (two cross-project queries: open
+milestones and tasks due within seven days in planning/active projects, overdue first, each carrying
+its project slug/name/colour and phase) and `project_health` (the current phase's roadmap health per
+active project). `GET /dashboard/` now returns `week`, `todos_open`, `heatmap` (the cached 26-week
+grid the classic page already had) and `health` on each active row; MCP `get_dashboard` (78 tools).
+The SPA dashboard adds "This week, everywhere" (tick-to-complete with optimistic removal), health
+pills under each active project, an "on today's list" tile linking to Today, and the heatmap at the
+bottom (hidden in calm mode). **Overview v2 judged done** after slice 1; current area: Dashboard.
+
+**Why.** CLAUDE.md's Phase 5 acceptance is literally "what should I work on today, everywhere?" —
+the needs-attention lead answered the urgent part; the week list answers the rest, and completing
+from the dashboard means the answer updates without leaving it.
+
+**Alternatives considered.** Reusing `plans.focus.week_focus` per project — rejected: N projects ×
+several queries; two flat queries do it. Next-up items on the dashboard — rejected: without a
+project context "next" is noise; the project overview keeps it.
+
 ### 2026-09-06 — Overview v2 slice 1: one glance, in the Observatory (#331)
 
 **Decision.** `projects/overview.py` adds four blocks to the overview API: `week_digest` (the

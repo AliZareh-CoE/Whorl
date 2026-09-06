@@ -31,6 +31,7 @@ milestones, add papers, fetch your saved prompts.
 
 ## What's inside
 
+- **Dashboard** — what should I work on today, everywhere: needs-attention lead, "this week, everywhere" across active projects (completable in place), projects with progress and phase health, monthly stats, today-list tile, upcoming milestones and deadlines, 26-week activity heatmap
 - **Project overview** — one glance: current phase with health and forecast, this week's focus, a "this week in the project" digest, open research questions and the hypotheses tally, manuscripts at a glance with deadlines and venue-budget overruns, counts, next milestones, recent documents and decisions
 - **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm; **write the plan as a document** — the whole plan round-trips through a Markdown outline (`# phase [status] (start → end)`, `> objective`, `- [ ] milestone (due …)`, indented tasks) with a live preview of what a save creates, renames and deletes; Claude edits the same outline through MCP; inline quick-add for milestones and tasks, click-to-cycle phase status; **roadmap view** — phases as bars on a time axis (windows inferred from milestones when undated), milestones as diamonds, a today line, drag to move or resize a phase or slide a milestone's due date, and an honest health reading per phase (behind / on track / ahead / overdue) with a finish forecast from the completion pace; **"This week" strip** on the Plan and the project overview (overdue first, then due within seven days, then the next milestones of the current phase, each completable in place) and a **milestone drawer** (notes, due date, tasks) so the plan is fully editable without leaving the page; each phase carries its **objective** (click to edit), its **target window** and the **research questions** it serves, attachable in place; the roadmap also nudges by keyboard (←/→ a day, Shift a week)
 - **Library workbench** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop a folder of PDFs onto the page (the DOI is read off page one and metadata fetched; scans without one are kept and can "find metadata" later), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click — all deduplicated; facets by project, year histogram, venue, type, PDF; keyboard `j/k/x/o`; bulk file-to-project, reading status, delete; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers; **read and highlight without leaving the workbench** — a pdf.js reader takes over the centre pane, selecting text saves a coloured highlight (structured rows with page + comment, mirrored into the project's highlights note), highlights paint back onto the page, copy them all as Markdown; per-project **reading notes** autosave in the detail pane; **Find PDF** per paper (arXiv → Unpaywall); **search inside your PDFs** — every attached PDF is read into searchable text, so the search box, the global search and Claude find papers by what they say, with the page and a snippet, and the reader jumps to it
@@ -44,7 +45,7 @@ milestones, add papers, fetch your saved prompts.
 - **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
 - **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
 - **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 77 tools over the REST API; your AI assistant operates the same contract you do
+- **Claude/MCP integration** — 78 tools over the REST API; your AI assistant operates the same contract you do
 - **Today list** — a dead-simple personal to-do list for the day (add, tick, clear done); nothing is lost overnight; Claude can add to it
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
@@ -130,7 +131,7 @@ claude mcp add atlas \
   -- /path/to/atlas/.venv/bin/python -m mcp_server.server
 ```
 
-Tools — projects & plans: `list_projects`, `get_project_overview`, `get_plan`,
+Tools — projects & plans: `get_dashboard`, `list_projects`, `get_project_overview`, `get_plan`,
 `complete_milestone`, `get_timeline`, `create_project`, `list_project_templates`, `get_plan_outline`, `set_plan_outline`, `get_roadmap`, `set_phase_dates`, `get_week_focus`.
 Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,

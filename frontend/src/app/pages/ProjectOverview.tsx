@@ -42,6 +42,8 @@ function Ring({ percent, color, size = 56 }: { percent: number; color: string; s
     </svg>
   );
 }
+/** Markdown → plain text for one-line descriptions (bold/italic/code/link markers dropped). */
+function plain(md: string): string { return md.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1").replace(/`(.+?)`/g, "$1").replace(/\[(.+?)\]\([^)]*\)/g, "$1"); }
 function when(days: number | null): string { if (days == null) return "no deadline"; if (days < 0) return `${-days} d overdue`; if (days === 0) return "due today"; return `${days} d left`; }
 
 export default function ProjectOverview() {
@@ -63,7 +65,7 @@ export default function ProjectOverview() {
             <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:bg-stone-800 dark:text-stone-300">{project.status}</span>
             <span className="text-sm text-stone-400"><span className="text-gradient font-display text-base font-bold">{progress.done}/{progress.total}</span> milestones</span>
           </div>
-          {project.description && <p className="mt-1 max-w-2xl text-sm leading-relaxed text-stone-500 dark:text-stone-400">{project.description}</p>}
+          {project.description && <p className="mt-1 max-w-2xl text-sm leading-relaxed text-stone-500 dark:text-stone-400">{plain(project.description)}</p>}
           <nav className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-400">
             {quickLinks.map(([to, label]) => <Link key={to} to={`/projects/${project.slug}/${to}`} className="transition-colors hover:text-indigo-700 dark:hover:text-indigo-300">{label}</Link>)}
           </nav>
