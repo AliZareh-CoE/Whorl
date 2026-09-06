@@ -348,6 +348,17 @@ class SavedViewSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "params", "position", "created_at", "updated_at"]
 
 
+class PlanOutlineSerializer(serializers.Serializer):
+    """Plan v2: the whole plan as a Markdown outline (see plans/outline.py for the grammar)."""
+
+    markdown = serializers.CharField(
+        help_text="'# phase [status] (start → end)', '> objective', '- [ ] milestone (due YYYY-MM-DD)', indented '- [ ] task'; keep the {#id} tokens to rename safely."
+    )
+    dry_run = serializers.BooleanField(
+        default=False, help_text="Preview the changes without writing."
+    )
+
+
 class HighlightSerializer(serializers.ModelSerializer):
     """A passage marked while reading (Library v2 slice 7)."""
 

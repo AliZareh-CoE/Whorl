@@ -17,6 +17,7 @@ milestones, add papers, fetch your saved prompts.
 | | |
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Library workbench](docs/screenshots/library.png) |
+| ![Plan as glass phase cards](docs/screenshots/plan.png) | ![Write the plan as an outline](docs/screenshots/plan-outline.png) |
 | *The Observatory dashboard: a living constellation of your projects and what needs you today* | *The Library workbench: drop PDFs/BibTeX/RIS or pull Zotero, facet by year/venue/project, bulk-file, recover metadata* |
 | ![Discover from any paper](docs/screenshots/library-discover.png) | ![Knowledge graph](docs/screenshots/graph3d.png) |
 | *Discover from any paper: similar / cites / cited-by on OpenAlex, one-click add into a project* | *3D citation + notes graph, synced from OpenAlex* |
@@ -27,7 +28,7 @@ milestones, add papers, fetch your saved prompts.
 
 ## What's inside
 
-- **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm
+- **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm; **write the plan as a document** — the whole plan round-trips through a Markdown outline (`# phase [status] (start → end)`, `> objective`, `- [ ] milestone (due …)`, indented tasks) with a live preview of what a save creates, renames and deletes; Claude edits the same outline through MCP; inline quick-add for milestones and tasks, click-to-cycle phase status
 - **Library workbench** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop a folder of PDFs onto the page (the DOI is read off page one and metadata fetched; scans without one are kept and can "find metadata" later), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click — all deduplicated; facets by project, year histogram, venue, type, PDF; keyboard `j/k/x/o`; bulk file-to-project, reading status, delete; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers; **read and highlight without leaving the workbench** — a pdf.js reader takes over the centre pane, selecting text saves a coloured highlight (structured rows with page + comment, mirrored into the project's highlights note), highlights paint back onto the page, copy them all as Markdown; per-project **reading notes** autosave in the detail pane; **Find PDF** per paper (arXiv → Unpaywall); **search inside your PDFs** — every attached PDF is read into searchable text, so the search box, the global search and Claude find papers by what they say, with the page and a snippet, and the reader jumps to it
 - **Duplicate merge** — the Library spots the same paper imported twice (DOI, arXiv id, near-identical title) and merges them in one click, keeping the most complete record and moving every link, tag, note, and PDF
 - **Tags & smart views** — label papers (bulk or one at a time), filter by tag in the rail, and save any filter combination as a named view that is one click away
@@ -39,7 +40,7 @@ milestones, add papers, fetch your saved prompts.
 - **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
 - **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
 - **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 57 tools over the REST API; your AI assistant operates the same contract you do
+- **Claude/MCP integration** — 59 tools over the REST API; your AI assistant operates the same contract you do
 - **Today list** — a dead-simple personal to-do list for the day (add, tick, clear done); nothing is lost overnight; Claude can add to it
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
@@ -126,7 +127,7 @@ claude mcp add atlas \
 ```
 
 Tools — projects & plans: `list_projects`, `get_project_overview`, `get_plan`,
-`complete_milestone`, `get_timeline`, `create_project`, `list_project_templates`.
+`complete_milestone`, `get_timeline`, `create_project`, `list_project_templates`, `get_plan_outline`, `set_plan_outline`.
 Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,
 `set_reading_status`, `run_bib_check`, `get_review_matrix`, `get_synthesis_scaffold`.

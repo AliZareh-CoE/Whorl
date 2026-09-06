@@ -399,3 +399,10 @@ def test_pdf_text_search_client_calls(capture):
     assert calls_url_has(capture, "/references/text-search/") and "project=deep" in capture["url"]
     client.search_in_pdf(7, "load")
     assert calls_url_has(capture, "/references/7/text-search/") and "q=load" in capture["url"]
+
+
+def test_plan_outline_client_calls(capture):
+    client.get_plan_outline("deep")
+    assert calls_url_has(capture, "/projects/deep/outline/")
+    client.set_plan_outline("deep", "# A", dry_run=True)
+    assert capture["method"] == "POST" and '"dry_run":true' in capture["body"]

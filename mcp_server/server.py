@@ -389,3 +389,19 @@ def search_pdf_text(query: str, project: str = "", limit: int = 30) -> list:
 def search_in_pdf(reference_id: int, query: str) -> list:
     """Pages of one paper's PDF that contain the query, each with a snippet — cite the page."""
     return client.search_in_pdf(reference_id, query)
+
+
+@mcp.tool()
+def get_plan_outline(slug: str) -> dict:
+    """The project's plan as a Markdown outline: '# phase [status] (start → end)', '> objective',
+    '- [ ] milestone (due YYYY-MM-DD)', indented '- [ ] task', each with a {#id} token. Edit and
+    send it back with set_plan_outline; keep the ids to rename without losing history."""
+    return client.get_plan_outline(slug)
+
+
+@mcp.tool()
+def set_plan_outline(slug: str, markdown: str, dry_run: bool = False) -> dict:
+    """Rewrite the plan from an outline (same grammar as get_plan_outline). Lines without {#id}
+    create objects, missing ids delete them, checkboxes set completion. Use dry_run=True first to
+    see what would be created, renamed and deleted; parse errors name the line."""
+    return client.set_plan_outline(slug, markdown, dry_run=dry_run)

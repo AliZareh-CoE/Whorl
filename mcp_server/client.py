@@ -422,3 +422,15 @@ def search_pdf_text(query: str, project: str = "", limit: int = 30):
 def search_in_pdf(reference_id: int, query: str):
     """Pages of one paper's PDF containing the query, with snippets."""
     return _request("GET", f"/references/{reference_id}/text-search/", params={"q": query})
+
+
+def get_plan_outline(slug: str):
+    """The plan as a Markdown outline with {#id} tokens."""
+    return _request("GET", f"/projects/{slug}/outline/")
+
+
+def set_plan_outline(slug: str, markdown: str, dry_run: bool = False):
+    """Make the plan match an outline (dry_run only reports created/renamed/deleted)."""
+    return _request(
+        "POST", f"/projects/{slug}/outline/", json={"markdown": markdown, "dry_run": dry_run}
+    )

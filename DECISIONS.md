@@ -544,6 +544,31 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Plan v2 slice 1: the plan as a document (#311)
+
+**Decision.** The Library is judged best-in-field after eight slices (import from anywhere, faceted
+workbench, discovery lenses, six citation styles, tags + smart views, duplicate merge, in-place reader
+with highlights and reading notes, full-text search inside PDFs; API + MCP parity throughout). Next
+area per the cycle order: the Plan. Slice 1 makes the plan writable as a document: `plans/outline.py`
+exports the plan as a Markdown outline (`# phase [status] (start → end) {#id}`, `> objective`,
+`- [ ] milestone (due …) {#id}`, indented tasks) and applies an edited outline back — `{#id}` tokens
+keep identity across renames (so completion timestamps, notes and links survive), lines without an id
+create, missing ids delete, checkboxes set completion, order = position. `preview()` reports created /
+renamed / deleted before anything is written; parse errors carry line numbers. API `GET/POST
+/projects/{slug}/outline/` (`dry_run`), MCP `get_plan_outline` / `set_plan_outline` (59 tools). The SPA
+Plan page is rewritten in the Observatory identity: orbit-ring progress, gradient count, glass phase
+cards with glowing accent bars, click-to-cycle status, milestone/task check-off, inline quick-add, and
+an "Edit as outline" mode (monospace editor, Tab indents, ⌘S saves, live dry-run panel, syntax card).
+
+**Why.** Every PM tool makes you click through forms to plan; researchers plan in text. An outline
+that round-trips losslessly is faster to write, diffable, pasteable into a proposal, and the same
+contract Claude can use to draft or restructure a plan in one call.
+
+**Alternatives considered.** A drag-and-drop outliner component — rejected: heavy, and a textarea with
+a live preview is honest about what a save does. Matching by title instead of ids — rejected: renames
+would look like delete + create and lose history. Making the outline the storage format — rejected:
+the relational model drives progress roll-ups, the overview and the dashboard.
+
 ### 2026-09-06 — Library v2 slice 8: search inside your PDFs (#309)
 
 **Decision.** Every attached PDF is read once with pypdf into `literature.ReferenceText` (one string

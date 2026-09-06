@@ -467,6 +467,54 @@ class ProjectViewSet(AtlasViewSet):
         return Response(documents_table_props(project, documents))
 
     @extend_schema(
+        request=serializers.PlanOutlineSerializer,
+        responses={
+            200: inline_serializer(
+                "PlanOutlineResult",
+                {
+                    "markdown": rf_serializers.CharField(),
+                    "applied": rf_serializers.BooleanField(),
+                    "phases": rf_serializers.IntegerField(),
+                    "milestones": rf_serializers.IntegerField(),
+                    "tasks": rf_serializers.IntegerField(),
+                    "created": rf_serializers.ListField(child=rf_serializers.CharField()),
+                    "renamed": rf_serializers.ListField(child=rf_serializers.CharField()),
+                    "deleted": rf_serializers.ListField(child=rf_serializers.CharField()),
+                    "errors": rf_serializers.ListField(child=rf_serializers.DictField()),
+                },
+            )
+        },
+        description=(
+            "GET: the plan as a Markdown outline. POST {markdown, dry_run}: make the plan match "
+            "the outline (or, with dry_run, only report what would be created/renamed/deleted). "
+            "Parse problems come back as 400 with per-line errors."
+        ),
+    )
+    @action(detail=True, methods=["get", "post"])
+    def outline(self, request, slug=None):
+        from plans import outline as outline_mod
+
+        project = self.get_object()
+        if request.method == "GET":
+            return Response({"markdown": outline_mod.plan_to_markdown(project)})
+        serializer = serializers.PlanOutlineSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        text, dry_run = serializer.validated_data["markdown"], serializer.validated_data["dry_run"]
+        try:
+            summary = (
+                outline_mod.preview(project, text) if dry_run else outline_mod.apply(project, text)
+            )
+        except outline_mod.OutlineError as exc:
+            return Response({"errors": exc.errors}, status=400)
+        return Response(
+            {
+                **summary,
+                "applied": not dry_run,
+                "markdown": text if dry_run else outline_mod.plan_to_markdown(project),
+            }
+        )
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Phases with nested milestones and tasks")},
         description="The full plan: ordered phases, their milestones, and optional tasks.",
     )
