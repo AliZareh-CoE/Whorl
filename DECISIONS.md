@@ -544,6 +544,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Figures into the manuscript (#359)
+
+**Decision.** In the studio's Files panel every image asset gets an ⊕ that inserts a `figure` environment (`\includegraphics[width=\linewidth]{path}`, caption, `fig:` label) at the cursor, and a **Project figures** list shows the project's image documents: one click copies the file into the manuscript as `figures/<name>` through the existing upload endpoint and inserts the environment. `seed_demo` now includes a small PNG figure so the gallery and the studio have one to show.
+
+**Why.** Figures lived in the Figures page and manuscripts lived in the studio; moving a plot between them meant a download, an upload and typing the environment by hand.
+
 ### 2026-09-06 — Notes editor v2: CodeMirror Markdown (#358)
 
 **Decision.** The note body is a CodeMirror 6 editor (`frontend/src/app/notes/MarkdownEditor.tsx`, `@codemirror/lang-markdown` added): Markdown highlighting (headings, emphasis, links, code, quotes), `[[` note-link and `@` cite completions from `/notes/suggest/` (with the "new note" option preserved), ⌘B / ⌘I / ⌘K formatting, ⌘S save, find, history, line wrapping, and a CSS-variable palette (`.md-editor`) for both looks. The hand-rolled textarea autocomplete (regex on `selectionStart`, own popover, own key handling) is gone; the preview, autosave and link panel are untouched.

@@ -14,7 +14,7 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import {
   AlertTriangle, ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, Download, FileText, FolderOpen, History, ListTree,
-  Loader2, Minus, Package, PanelLeft, PanelRight, Play, Plus, RefreshCw, Search, Settings2, TerminalSquare, Trash2, Upload, X,
+  ImagePlus, Loader2, Minus, Package, PanelLeft, PanelRight, Play, Plus, RefreshCw, Search, Settings2, TerminalSquare, Trash2, Upload, X,
 } from "lucide-react";
 import { mountEditor, Split, type EditorAdapter } from "../../editor";
 import { api, csrfToken } from "../api";
@@ -40,6 +40,12 @@ const PDFJS_WORKER = "/static/vendor/pdfjs/pdf.worker.min.mjs";
 /** A highlighted passage as LaTeX: a quote environment with the citation and page. */
 export function quoteLatex(text: string, key: string, page: number | null): string {
   return `\\begin{quote}\n  ${text.trim().replace(/\s+/g, " ")} \\citep{${key}}${page ? `, p.~${page}` : ""}\n\\end{quote}\n`;
+}
+
+/** A figure environment for an asset path (Studio: insert figures, 2026-09-06). */
+export function figureLatex(path: string): string {
+  const stem = (path.split("/").pop() || "figure").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase();
+  return `\\begin{figure}[t]\n  \\centering\n  \\includegraphics[width=\\linewidth]{${path}}\n  \\caption{}\n  \\label{fig:${stem}}\n\\end{figure}\n`;
 }
 
 function loadSettings(): Settings {
@@ -378,12 +384,14 @@ function StudioInner({ m }: { m: Manuscript }) {
                           <FileText className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" /><span className="min-w-0 flex-1 truncate">{f.path}</span>
                           {f.is_main && <span className="rounded st-badge px-1 text-[9px] uppercase">main</span>}
                           {dirty.includes(f.id) && <span className="text-amber-400">●</span>}
+                          {f.kind === "asset" && /\.(png|jpe?g|pdf|svg|eps)$/i.test(f.path) && <button type="button" onClick={(e) => { e.stopPropagation(); adRef.current?.insertAtCursor(figureLatex(f.path)); adRef.current?.focus(); }} className="hidden text-indigo-300 hover:text-indigo-100 group-hover:inline" title="Insert a figure environment for this file" aria-label={`Insert ${f.path}`}><ImagePlus className="h-3 w-3" aria-hidden="true" /></button>}
                           {!f.is_main && <button type="button" onClick={(e) => { e.stopPropagation(); void deleteFile(f); }} className="hidden st-dim hover:text-red-400 group-hover:inline" aria-label={`Delete ${f.path}`}><Trash2 className="h-3 w-3" aria-hidden="true" /></button>}
                         </div>
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-3 px-1 text-[10px] leading-4 st-dim">Double-click renames. Figures uploaded here are available to \includegraphics.</p>
+                  <p className="mt-3 px-1 text-[10px] leading-4 st-dim">Double-click renames. Hover an image for ⊕ to insert a figure environment.</p>
+                  <ProjectFigures slug={m.project} base={base} known={files.map((f) => f.path)} onAdded={async (path) => { await reloadFiles(); adRef.current?.insertAtCursor(figureLatex(path)); adRef.current?.focus(); setFlash(`Added ${path} and inserted a figure.`); }} onError={setFlash} />
                 </div>
               )}
               {tab === "outline" && (
@@ -444,6 +452,34 @@ function StudioInner({ m }: { m: Manuscript }) {
 }
 
 // ------------------------------------------------------------------ side panels
+type Figure = { id: number; title: string; content_type: string; raw_url: string };
+
+/** The project's figure gallery inside the studio: one click copies an image into the
+ *  manuscript's files (figures/…) and drops a figure environment at the cursor. */
+function ProjectFigures({ slug, base, known, onAdded, onError }: { slug: string; base: string; known: string[]; onAdded: (path: string) => Promise<void>; onError: (m: string) => void }) {
+  const figs = useQuery({ queryKey: ["figures", slug], queryFn: () => api<Figure[]>(`/projects/${slug}/figures/`) });
+  const [busy, setBusy] = useState<number | null>(null);
+  const rows = (figs.data ?? []).filter((f) => /^image\//.test(f.content_type) || f.content_type === "application/pdf");
+  if (rows.length === 0) return null;
+  const add = async (f: Figure) => {
+    setBusy(f.id);
+    try {
+      const blob = await (await fetch(f.raw_url, { credentials: "same-origin" })).blob();
+      const name = (f.raw_url.split("/").pop() || `figure-${f.id}.png`).split("?")[0];
+      const path = `figures/${name.replace(/\s+/g, "_")}`;
+      if (!known.includes(path)) await wb(`${base}files/upload/`, { file: blob, path });
+      await onAdded(path);
+    } catch (e) { onError(e instanceof Error ? e.message : "Could not add the figure."); }
+    finally { setBusy(null); }
+  };
+  return (
+    <div className="mt-4" data-testid="project-figures">
+      <p className="mb-1 px-1 text-[10px] uppercase tracking-wider st-dim">Project figures · {rows.length}</p>
+      <ul>{rows.map((f) => <li key={f.id}><button type="button" onClick={() => void add(f)} disabled={busy === f.id} className={`${sideItem} st-text`} title={`Copy into figures/ and insert \\includegraphics — ${f.title}`}>{busy === f.id ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" /> : <ImagePlus className="h-3.5 w-3.5 shrink-0 text-indigo-300" aria-hidden="true" />}<span className="min-w-0 flex-1 truncate">{f.title}</span></button></li>)}</ul>
+    </div>
+  );
+}
+
 function BibPanel({ m, base, onInsert, onQuote, onLinked }: { m: Manuscript; base: string; onInsert: (key: string) => void; onQuote: (latex: string) => void; onLinked: () => void }) {
   const bib = useQuery({ queryKey: ["manuscript-bib", m.id], queryFn: () => api<BibRow[]>(`/manuscripts/${m.id}/bibliography/`) });
   const [openRef, setOpenRef] = useState<number | null>(null);

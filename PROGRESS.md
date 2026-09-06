@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ FIGURES INTO THE MANUSCRIPT (2026-09-06, #359).** Studio: ⊕ on image assets inserts a figure environment; Project figures list copies a gallery image into `figures/` and inserts it; demo PNG seeded. Playwright: one click added `figures/…` to the file tree and `\includegraphics` to the source (docs/screenshots/studio-figures.png). CI smoke test of the frozen server passed on Windows and Linux (run 83).
+
 - **★ NOTES EDITOR v2 (2026-09-06, #358).** CodeMirror Markdown editor with `[[`/`@` completions, formatting shortcuts, palette for both themes; textarea autocomplete removed. Playwright: `[[Load` offered note titles, `@lav` offered cite keys, both inserted, autosaved, preview linked (docs/screenshots/notes-editor-v2.png).
 
 - **★ FROZEN-SERVER SMOKE TEST IN CI (2026-09-06, #357).** Release workflow boots the frozen server on Windows and Linux, checks login, diagnostics (bundled engine) and the SPA bundle before building the installer; scaffold test pins it. Watching the next run for the Windows result.

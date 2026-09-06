@@ -163,6 +163,17 @@ class Command(BaseCommand):
         reviews = Folder.objects.create(project=project, parent=lit_folder, name="Review papers")
         methods_folder = Folder.objects.create(project=project, name="Methods")
         data_folder = Folder.objects.create(project=project, name="Data")
+        figures_folder = Folder.objects.create(project=project, name="Figures")
+        # a real image so the Figures gallery and the studio's "Project figures" have one
+        fig = Document.objects.create(
+            project=project,
+            folder=figures_folder,
+            title="Pilot d-prime by condition",
+            description="Sensitivity by load × incentive from the 12-participant pilot.",
+            file=ContentFile(_demo_png(), name="pilot-dprime.png"),
+            content_type="image/png",  # ContentFile carries no browser-reported type
+        )
+        fig.tags.set([Tag.objects.get_or_create(project=project, name="figure")[0]])
         Folder.objects.create(project=project, parent=data_folder, name="Pilot")
 
         key_paper = Tag.objects.create(project=project, name="key-paper", color="#dc2626")
@@ -693,4 +704,37 @@ structure was explained before incentive blocks and verified by a comprehension 
         manuscript=manuscript,
         path="sections/method.tex",
         defaults={"content": method_src, "kind": ManuscriptFile.Kind.TEX},
+    )
+
+
+def _demo_png(width: int = 320, height: int = 200) -> bytes:
+    """A small bar-chart-like PNG built from raw scanlines (no image library needed)."""
+    import struct
+    import zlib
+
+    bars = [(40, 150, 0.85), (100, 150, 0.6), (180, 150, 0.83), (240, 150, 0.77)]  # x, w, height
+    rows = []
+    for y in range(height):
+        row = bytearray([0])
+        for x in range(width):
+            colour = (245, 244, 240)
+            for i, (bx, _bw, h) in enumerate(bars):
+                if bx <= x < bx + 50 and y > height - int(h * (height - 20)):
+                    colour = (79, 70, 229) if i % 2 == 0 else (16, 185, 129)
+            if y == height - 12:
+                colour = (120, 113, 108)
+            row += bytes(colour)
+        rows.append(bytes(row))
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+        )
+
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(b"".join(rows)))
+        + chunk(b"IEND", b"")
     )

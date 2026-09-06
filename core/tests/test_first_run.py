@@ -61,3 +61,15 @@ def test_deleting_a_project_with_a_manuscript_leaves_no_orphan_folders():
     project.delete()
     assert not Folder.objects.filter(project_id=pid).exists()
     connection.check_constraints()  # deferred FK checks run now, not at teardown
+
+
+def test_seed_demo_includes_an_image_figure():
+    from django.core.management import call_command
+
+    from documents.models import Document
+
+    call_command("seed_demo", verbosity=0)
+    fig = Document.objects.filter(content_type="image/png").first()
+    assert fig is not None and fig.folder.name == "Figures" and fig.file.size > 200
+    page = fig.file.open("rb").read(8)
+    assert page == b"\x89PNG\r\n\x1a\n"
