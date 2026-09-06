@@ -2524,12 +2524,14 @@ class ConnectAPIView(APIView):
     def get(self, request):
         from core.mcp_connect import connection_info
         from core.skills import list_skills, personal_skills_dir
+        from core.tooling import detect_tools
 
         return Response(
             {
                 **connection_info(request),
                 "skills": list_skills(),
                 "skills_dir": str(personal_skills_dir()),
+                "tools": detect_tools(),
             }
         )
 

@@ -544,6 +544,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Connect page shows what is installed on this machine (#362)
+
+**Decision.** `core/tooling.detect_tools` looks up `claude`, `node`, `git` on PATH (plus the LaTeX engine through the resolver) with a guarded `--version`, and `GET /api/v1/connect/` carries the result; the Connect page shows a chip per tool and, when Claude Code is missing, the install line. The terminal dock's **Claude** tab depends on `claude` being on PATH — now the page says so before the tab prints "command not found".
+
 ### 2026-09-06 — MCP: `get_diagnostics` and `suggest_review_themes` (88 tools, #361)
 
 **Decision.** Claude can read the same diagnostics report as the app (with an optional network probe) and propose matrix columns from the papers. The daily skill points at `get_diagnostics` for "why didn't it work" questions; the literature skill uses `suggest_review_themes` before `add_review_theme`.
