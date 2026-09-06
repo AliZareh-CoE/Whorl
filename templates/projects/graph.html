@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Graph · {{ project.name }}{% endblock %}
 
@@ -45,8 +46,8 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"></script>
-<script src="https://unpkg.com/force-graph@1.43.5/dist/force-graph.min.js"></script>
+<script src="{% static 'vendor/forcegraph/3d-force-graph.min.js' %}"></script>
+<script src="{% static 'vendor/forcegraph/force-graph.min.js' %}"></script>
 <script>
   const COLORS = {
     to_read: "#dc2626", skimmed: "#f59e0b", read: "#16a34a",

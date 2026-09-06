@@ -544,6 +544,31 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Notes v2 slice 2: Graph v2, vendored and navigable (#321)
+
+**Decision.** `3d-force-graph` 1.73.4 and `force-graph` 1.43.5 are vendored under
+`static/vendor/forcegraph/` (MIT, unmodified dist builds) and both the SPA page and the classic
+template load them from there — the desktop app must not depend on unpkg being reachable. A guard
+test fails the build if either page references unpkg again. `core/graph.py` now returns per-node
+facts (year, venue, authors, citations, PDF, highlight count for papers; words and last edit for
+notes; degree for all; `app_url` for SPA navigation) and `stats` (counts, links by kind, orphans, top-5
+hubs). The Graph page is rewritten: search with match count and Enter-to-focus, paper/note and
+link-kind toggles, hide-unconnected, neighbourhood focus mode with depth 1/2 (computed client-side
+over the full graph, which is project-sized), hover dimming of non-neighbours, camera fly-to on
+click in 3D, directional particles on citation edges, dark/light canvas from the theme, a hubs card
+and a node panel with facts, Open, Focus and the clickable neighbour list. React never renders
+children inside the library's mount div (that crashed the page: the library cleared React-owned
+nodes); overlays are siblings.
+
+**Why.** A graph you can't search or focus is decoration. Focus mode + the neighbour list turn it
+into navigation: from a hub paper to the notes that cite it and back. Vendoring is what makes the
+graph exist at all in an offline desktop session.
+
+**Alternatives considered.** Server-side neighbourhood queries (`?focus=`) — rejected for now:
+the whole project graph is a few hundred nodes and one request; revisit when projects have
+thousands of references. Bundling the library through Vite instead of a script tag — rejected:
+three.js in the island bundle would triple its size for one page.
+
 ### 2026-09-06 — Notes v2 slice 1: the notes workbench with @citations (#319)
 
 **Decision.** Notes adopt Pandoc-style citation keys: `@bibtex_key` in a body attaches the paper to

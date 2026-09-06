@@ -259,7 +259,7 @@ class TestGraphAPI:
         response = client.get(f"/api/v1/projects/{link_a.project.slug}/graph/", **HEADERS)
         assert response.status_code == 200
         data = response.json()
-        assert {"nodes", "links"} == set(data)
+        assert {"nodes", "links", "stats"} == set(data)
         assert len(data["nodes"]) == 2
         assert data["links"][0]["kind"] == "citation"
 
