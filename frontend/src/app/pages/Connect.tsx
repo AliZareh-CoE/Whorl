@@ -4,10 +4,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Eye, EyeOff, ExternalLink, Plug, Sparkles, Stethoscope, TerminalSquare } from "lucide-react";
+import { Check, CheckCircle2, Copy, Eye, EyeOff, ExternalLink, Loader2, Plug, Sparkles, Stethoscope, TerminalSquare, XCircle, Zap } from "lucide-react";
 import { api } from "../api";
 import { openTerminal } from "../TerminalDock";
 
+type CheckRow = { key: string; label: string; ok: boolean; detail: string; fix: string };
+type TestResult = { ok: boolean; checks: CheckRow[]; command: string };
 type Skill = { name: string; description: string; folder: string; installed: boolean; up_to_date: boolean };
 type Tool = { key: string; label: string; found: boolean; path: string | null; version: string; install: string };
 type Conn = { tools: Tool[]; desktop: boolean; api_url: string; api_key: string; api_key_configured: boolean; command: string; args: string[]; env: Record<string, string>; claude_command: string; mcp_json: string; data_dir: string | null; skills: Skill[]; skills_dir: string };
@@ -30,6 +32,8 @@ export default function Connect() {
   const q = useQuery({ queryKey: ["connect"], queryFn: () => api<Conn>("/connect/") });
   const install = useMutation({ mutationFn: () => api<{ installed: string[]; dir: string }>("/connect/skills/", { method: "POST" }), onSuccess: () => qc.invalidateQueries({ queryKey: ["connect"] }) });
   const [showKey, setShowKey] = useState(false);
+  // backlog #290: run the four checks server-side — the MCP command Claude Code would launch really runs
+  const test = useMutation({ mutationFn: () => api<TestResult>("/connect/test/", { method: "POST" }) });
   const c = q.data;
   if (q.isLoading) return <p className="text-sm text-stone-400">Loading…</p>;
   if (!c) return <p className="text-sm text-red-500">Could not load the connection details.</p>;
@@ -62,7 +66,19 @@ export default function Connect() {
       </section>
 
       <section className={`${panel} mt-5`} style={{ ["--i" as string]: 3 }}>
-        <p className={`${railH} mb-2`}>2 · Check it</p>
+        <div className="mb-2 flex items-center justify-between gap-3"><p className={railH}>2 · Check it</p><button type="button" onClick={() => test.mutate()} disabled={test.isPending} className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50" data-testid="test-connection">{test.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Zap className="h-3.5 w-3.5" aria-hidden="true" />}{test.isPending ? "Testing…" : "Test the connection"}</button></div>
+        {test.data && (
+          <ul className="mb-3 divide-y divide-stone-100 rounded-xl border border-stone-200 dark:divide-stone-800 dark:border-stone-800" data-testid="connection-checks">
+            {test.data.checks.map((c) => (
+              <li key={c.key} className="flex items-start gap-2 px-3 py-2 text-sm">
+                {c.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" aria-hidden="true" />}
+                <span className="min-w-0 flex-1"><span className="font-medium text-stone-800 dark:text-stone-100">{c.label}</span>{c.detail && <span className="ml-2 break-all text-xs text-stone-500">{c.detail}</span>}{!c.ok && c.fix && <span className="mt-0.5 block text-xs text-amber-700 dark:text-amber-300">{c.fix}</span>}</span>
+              </li>
+            ))}
+            <li className={`px-3 py-2 text-xs ${test.data.ok ? "text-emerald-600 dark:text-emerald-400" : "text-stone-500"}`}>{test.data.ok ? "Everything Claude Code needs is in place." : "Fix the red rows, then test again."}</li>
+          </ul>
+        )}
+        {test.error && <p className="mb-2 text-xs text-red-500">The test itself failed to run — see Diagnostics.</p>}
         <p className="text-sm text-stone-500"><code className="rounded bg-stone-100 px-1 text-xs dark:bg-stone-800">claude mcp list</code> should show <strong>atlas</strong> as connected while Atlas is running. Then, inside Claude Code, try <em>“List my Atlas projects.”</em>{isDesktop() && <> — or press the <strong>Claude</strong> button in the terminal dock (⌃`) to start a session right here.</>}</p>
       </section>
 

@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ CONNECT: TEST THE CONNECTION (2026-09-06, #369).** Four server-side checks with fixes, MCP `--check` self-test, real bug fixed (`-m mcp_server.server` exposed 29/88 tools — entry point moved to the end, AST test). Playwright: all four rows green in dev, 88 tools · 1 project (docs/screenshots/connect-test.png). Tests: core/tests/test_connect_test.py (5), mcp_server/tests/test_check.py (5).
+
 - **Desktop: open with the system app / show in folder (2026-09-06, #368).** `local_path` in the tree (desktop only, tested both modes), `open_path`/`reveal_path` commands (cargo test: only existing regular files pass), Files menu items. Release run 90 (CRUD everywhere + async picker + media) built green on Windows and Linux.
 
 - **Desktop compiles off the request thread (2026-09-06, #367).** `enqueue_compile` runs the compile on a daemon thread in immediate mode; tests `writing/tests/test_enqueue_compile.py`. Also: the desktop swallows the webview's own right-click menu outside text fields.

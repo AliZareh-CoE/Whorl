@@ -78,3 +78,100 @@ def connection_info(request) -> dict:
         "mcp_json": mcp_json,
         "data_dir": str(getattr(settings, "DATA_DIR", "")) or None,
     }
+
+
+def test_connection(request, *, fetch=None, run=None, which=None) -> dict:
+    """Live proof that Claude Code will be able to talk to this install (backlog #290).
+
+    Four checks, each with a fix when it fails: the API key exists; the API answers that key
+    at the URL the command carries; the exact MCP command Claude Code would launch starts and
+    reaches the API (``--check``); the ``claude`` CLI is on PATH. `fetch`, `run` and `which`
+    are injectable for tests.
+    """
+    import shutil
+    import subprocess
+
+    import httpx
+
+    fetch = fetch or httpx.get
+    run = run or subprocess.run
+    which = which or shutil.which
+    info = connection_info(request)
+    checks: list[dict] = []
+
+    def add(key, label, ok, detail="", fix=""):
+        checks.append(
+            {"key": key, "label": label, "ok": bool(ok), "detail": detail, "fix": "" if ok else fix}
+        )
+
+    add(
+        "api_key",
+        "API key configured",
+        info["api_key_configured"],
+        "" if info["api_key_configured"] else "ATLAS_API_KEY is empty",
+        "Set ATLAS_API_KEY (the desktop app mints one on first launch) and restart.",
+    )
+
+    api_ok, api_detail = False, ""
+    if info["api_key_configured"]:
+        url = f"{info['api_url']}/api/v1/projects/?page_size=1"
+        try:
+            response = fetch(url, headers={"X-API-Key": info["api_key"]}, timeout=5.0)
+            api_ok = response.status_code == 200
+            api_detail = f"GET {url} → {response.status_code}"
+        except Exception as exc:  # noqa: BLE001 - reported as a failed check
+            api_detail = f"GET {url} failed: {exc}"
+    add(
+        "api",
+        "API answers with this key",
+        api_ok,
+        api_detail,
+        "The server must be reachable at that URL and accept the key — open Diagnostics for the log.",
+    )
+
+    mcp_ok, mcp_detail = False, ""
+    cmd = [info["command"], *info["args"], "--check"]
+    try:
+        env = {**os.environ, **info["env"]}
+        proc = run(cmd, capture_output=True, text=True, timeout=45, env=env)
+        last = (proc.stdout or "").strip().splitlines()
+        parsed = None
+        if last:
+            try:
+                parsed = json.loads(last[-1])
+            except ValueError:
+                parsed = None
+        if proc.returncode == 0 and parsed and parsed.get("ok"):
+            mcp_ok = True
+            mcp_detail = (
+                f"{parsed.get('tools', '?')} tools · sees {parsed.get('projects', '?')} project(s)"
+            )
+        else:
+            err = (
+                (parsed or {}).get("error")
+                or (proc.stderr or "").strip().splitlines()[-3:]
+                or f"exit {proc.returncode}"
+            )
+            mcp_detail = err if isinstance(err, str) else " / ".join(err)
+    except FileNotFoundError:
+        mcp_detail = f"{info['command']} not found"
+    except Exception as exc:  # noqa: BLE001
+        mcp_detail = str(exc)
+    add(
+        "mcp",
+        "MCP server starts and reaches the API",
+        mcp_ok,
+        mcp_detail,
+        "This is the command in step 1. If the file is missing, reinstall the app; otherwise the error above says what it hit.",
+    )
+
+    claude_path = which("claude")
+    add(
+        "claude",
+        "Claude Code on this machine",
+        bool(claude_path),
+        claude_path or "not on PATH",
+        "npm i -g @anthropic-ai/claude-code, then run the step-1 command.",
+    )
+
+    return {"ok": all(c["ok"] for c in checks), "checks": checks, "command": " ".join(cmd)}

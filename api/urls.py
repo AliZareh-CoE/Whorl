@@ -64,6 +64,7 @@ urlpatterns = [
     path("v1/calendar.ics", views.CalendarFeedView.as_view(), name="calendar_ics"),
     path("v1/backup.zip", views.BackupView.as_view(), name="backup_zip"),
     path("v1/connect/skills/", views.ConnectSkillsAPIView.as_view(), name="connect_skills"),
+    path("v1/connect/test/", views.ConnectTestAPIView.as_view(), name="connect_test"),
     path("v1/bots/", views.BotsAPIView.as_view(), name="bots"),
     path("v1/bots/<slug:slug>/action/", views.BotActionAPIView.as_view(), name="bot_action"),
     path("v1/", include(router.urls)),

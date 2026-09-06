@@ -2561,6 +2561,22 @@ class ConnectAPIView(APIView):
         )
 
 
+class ConnectTestAPIView(APIView):
+    """Live connection test for the Connect page (backlog #290)."""
+
+    @extend_schema(
+        operation_id="v1_connect_test",
+        description="Run the four connection checks: API key, API reachability with the key, "
+        "the MCP command's --check self-test, and the claude CLI on PATH.",
+        request=None,
+        responses={200: None},
+    )
+    def post(self, request):
+        from core.mcp_connect import test_connection
+
+        return Response(test_connection(request))
+
+
 class ConnectSkillsAPIView(APIView):
     """Install / update the Atlas skills into ~/.claude/skills."""
 

@@ -203,10 +203,6 @@ def latex_word_count(manuscript_id: int) -> dict:
     return client.latex_word_count(manuscript_id)
 
 
-if __name__ == "__main__":
-    mcp.run()
-
-
 @mcp.tool()
 def list_project_templates() -> list:
     """Available project scaffolds — built-in and user-saved — for create_project."""
@@ -624,3 +620,44 @@ def get_diagnostics(network: bool = False) -> dict:
     endpoints (probed only when network=true), the last failed compile's log and the tail of
     the desktop server log — plus a plain-text `text` field to paste into a bug report."""
     return client.get_diagnostics(network=network)
+
+
+# Keep this at the very end: `python -m mcp_server.server` runs the module as __main__, and
+# any tool declared below the entry point would never be registered (29 of 88 tools were
+# missing that way until 2026-09-06).
+def self_check() -> dict:
+    """Prove the wiring end to end without an MCP client: reach the API with the configured
+    URL + key and count the tools this server offers. Used by `--check` (the Connect page's
+    "Test the connection" runs the very command Claude Code will launch)."""
+    import asyncio
+    import os
+
+    base = os.environ.get("ATLAS_API_URL", "http://127.0.0.1:8000").rstrip("/")
+    try:
+        projects = client.list_projects()
+    except Exception as exc:  # noqa: BLE001 - every failure must be reported, not raised
+        return {"ok": False, "api_url": base, "error": str(exc)}
+    count = (
+        projects.get("count", len(projects.get("results", [])))
+        if isinstance(projects, dict)
+        else len(projects)
+    )
+    tools = asyncio.run(mcp.list_tools())
+    return {"ok": True, "api_url": base, "projects": count, "tools": len(tools)}
+
+
+def main(argv: list[str] | None = None) -> int:
+    import json
+    import sys
+
+    args = sys.argv[1:] if argv is None else argv
+    if "--check" in args:
+        result = self_check()
+        print(json.dumps(result))
+        return 0 if result["ok"] else 1
+    mcp.run()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

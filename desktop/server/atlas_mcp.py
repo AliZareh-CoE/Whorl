@@ -28,7 +28,12 @@ def main():
         print(f"atlas-mcp: {exc}", file=sys.stderr)
         sys.exit(2)
 
+    from mcp_server.server import main as check_main
     from mcp_server.server import mcp
+
+    if "--check" in sys.argv[1:]:
+        # the Connect page's "Test the connection" runs `atlas-mcp --check`
+        sys.exit(check_main(["--check"]))
 
     try:
         mcp.run()

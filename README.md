@@ -135,6 +135,9 @@ so anything Claude can do, you can also do with curl.
 **The easy way:** open **Connect Claude Code** in the sidebar (`/connect`). It shows
 the exact `claude mcp add` line for *your* install, with a Copy button — paste it in a terminal
 once and you're done. Then `claude mcp list` shows `atlas` as connected.
+**Test the connection** on that page runs four checks server-side — API key, the API answering
+with it, the exact MCP command starting and reaching the API (`atlas-mcp --check` /
+`python -m mcp_server.server --check`), and the `claude` CLI on PATH — each with its fix.
 
 **Skills.** The same page installs four Atlas playbooks into `~/.claude/skills/` so Claude Code
 knows the workflows, not just the tools: `/atlas-daily` (dashboard → today's three things →

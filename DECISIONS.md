@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Connect page: a live connection test that launches the real MCP command (#369)
+
+**Decision.** `POST /api/v1/connect/test/` runs four checks server-side (API key set; API answers that key at the URL in the command; the exact MCP command with `--check` starts and reaches the API; `claude` on PATH), each with a fix line. The MCP server gained `--check`: it lists projects through the API and counts its tools, printing one JSON line. Backlog #290 done.
+
+**Why.** "Is it connected?" had no answer inside the app. Running the very command Claude Code will run is the only test that cannot lie — and it immediately caught a real bug: `python -m mcp_server.server` registered 29 of 88 tools because the `__main__` block sat mid-file (the frozen `atlas-mcp` imported the module and was unaffected). The block now ends the file and a test pins that.
+
+**Alternatives rejected.** A browser-side fetch to the API (proves nothing about the MCP process); spawning an MCP client over stdio (heavy; `--check` covers the same wiring).
+
 ### 2026-09-06 — Desktop hands stored files to the operating system (#368)
 
 **Decision.** In desktop mode the workspace tree carries `local_path` for every stored file; the Files menu offers **Open with the system app** and **Show in folder**, backed by two Tauri commands (`open_path`, `reveal_path`) that accept only an existing regular file. Servers never report local paths.
@@ -1596,7 +1604,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 292. Observatory, second pass: bespoke treatment for the pages a video lingers on — Project Overview (constellation of that project's references + notes as the header), the Plan (phases as an orbital timeline), the Library (cover-style reference cards), and the 3D graph page (Observatory palette for nodes/links, bloom). Also vendor 3d-force-graph so the graph works offline in the desktop app.
 291. ~~Observatory visual identity (done 2026-09-06): dark-by-default tokens re-skinning every page, aurora + star grain, glass panels, vendored Inter/Space Grotesk, constellation canvas on the dashboard hero and login, icon rail with ⌘K spotlight, spotlight command bar, orbit-ring progress, time-aware greeting. Plan API now returns project_name/project_color (the SPA plan page had an empty breadcrumb and an invisible progress bar). See the 2026-09-06 decision.~~
 289. ~~Desktop ↔ Claude Code, zero-config (done 2026-09-06): API key minted+persisted in the desktop data dir; `server.json` with the live URL; `atlas-mcp` (frozen MCP server) shipped in the installer and discovering both by itself; "Connect Claude Code" page with the exact `claude mcp add` line per install; friendly "is the Atlas app running?" tool error. See the 2026-09-06 decision.~~
-290. Connect page: a live "test the connection" button (server-side: spawn the MCP server? no — call the API with the key and report; client-side can't reach the CLI). Low priority; `claude mcp list` covers it.
+290. ~~Connect page: a live "test the connection" button (done 2026-09-06, #369: four server-side checks, MCP `--check`)~~ — original note: (server-side: spawn the MCP server? no — call the API with the key and report; client-side can't reach the CLI). Low priority; `claude mcp list` covers it.
 288. AppImage retry — it was dropped (#210f) because linuxdeploy could not relink the bundled Postgres `.so`s; with Postgres gone (#286) the only native libs are PyInstaller's, so adding `appimage` back to `bundle.targets` may just work. One CI experiment on a branch; keep .deb/.rpm regardless.
 287. macOS desktop build — add `macos-latest` to the desktop-release matrix (Tauri + PyInstaller both support it; the frozen server needs the same Tailwind + freeze steps). Unsigned .dmg will hit Gatekeeper ("damaged"/right-click Open) until notarization is set up, so document that alongside D3.
 286. ~~Strip the dead Postgres bundling from the desktop app (done 2026-09-06, was parked as #268): removed the per-OS embedded-postgres CI steps, the `resources/pg` bundle resource, ATLAS_PG_BIN in the shell, postgres.exe in the NSIS hooks, the Postgres/MSVCR120 advice on the diagnostic page, and `core/desktop_runtime.py` + its 12 tests. Added `choose_port` (8000 else a free port) so a dev `runserver` no longer breaks the launch, with CSRF origins following ATLAS_PORT; a real `run_desktop --setup-only` test on a fresh SQLite data dir; desktop README rewritten (it still said the server was "NOT YET" bundled). Frozen binary verified end to end on :8077 (login 302→200, CSRF POST 302, foreign Origin 403). See the 2026-09-06 decision.~~
