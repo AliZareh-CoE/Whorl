@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — First run on the desktop: login hint, welcome panel, demo loader, doctor (#351)
+
+**Finding.** A fresh install (verified against an empty desktop-settings instance) showed a login form with no hint that the bundled login is `atlas / atlas`, then a dashboard saying "All clear, everywhere" with zero projects. `seed_demo` also could not be re-run: deleting a project with a manuscript re-created the manuscript's mirror folder mid-cascade (the `ManuscriptFile` post-delete signal re-synced while the parents were still inside the collector's transaction), leaving an orphan folder and a foreign-key error at commit.
+
+**Decision.** (1) The login page shows the default credentials only on desktop builds and only while that password still works (`ATLAS_DESKTOP` setting, `default_login_still_active`). (2) With zero projects the dashboard opens a Welcome panel: create a project, **Load the demo project** (`POST /api/v1/demo/`, idempotent), connect Claude Code. (3) The mirror signal ignores cascade deletes (Django's `origin` argument) so projects delete cleanly and the demo reloads. (4) `manage.py doctor` finds Tectonic through the engine resolver and checks the update feed, naming the private-repo 404.
+
+**Alternatives.** Auto-login on the desktop (rejected for now: the login is the only lock on a shared machine; a hint is enough); seeding the demo automatically on first launch (rejected: an empty Atlas is the right start for a real project — the offer is one click away).
+
 ### 2026-09-06 — Inbox keyboard triage and matrix CSV (#350)
 
 **Decision.** The Inbox gets a cursor: `j`/`k` (or arrows) move it, `Enter` converts with the suggested target, `1`–`5` pick paper / today / note / milestone / decision, `f` files under the project, `x` dismisses, `?` shows the legend; keys are ignored while typing in the capture box, and hovering a row moves the cursor so mouse and keyboard agree. The review matrix gains a **CSV** export (key, title, year, one column per theme with the extracted finding or an `x`) built client-side from the table the page already holds.

@@ -74,3 +74,6 @@ HUEY = {"huey_class": "huey.MemoryHuey", "name": "atlas", "immediate": True}
 # follows ATLAS_PORT because the shell steps aside to a free port when 8000 is already taken.
 _port = os.environ.get("ATLAS_PORT", "8000")
 CSRF_TRUSTED_ORIGINS = [f"http://127.0.0.1:{_port}", f"http://localhost:{_port}"]
+
+# Templates and the doctor use this to speak to a desktop user (first-run login hint).
+ATLAS_DESKTOP = True

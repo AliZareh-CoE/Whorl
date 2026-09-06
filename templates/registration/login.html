@@ -49,6 +49,11 @@
               Your username and password didn't match. Please try again.
             </div>
           {% endif %}
+          {% if default_login_hint %}
+            <div class="mb-5 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-100" data-testid="default-login-hint">
+              First time here? This desktop app's login is <strong>atlas</strong> / <strong>atlas</strong>. Change it any time under <code class="rounded bg-white/60 px-1 dark:bg-stone-900">/admin/</code>.
+            </div>
+          {% endif %}
           <form method="post" class="space-y-5">
             {% csrf_token %}
             <div>

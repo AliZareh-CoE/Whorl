@@ -2430,6 +2430,32 @@ class PetAPIView(APIView):
         return Response(pet_state())
 
 
+class DemoAPIView(APIView):
+    """First run (2026-09-06): an empty Atlas offers to load the demo project so every page has
+    something to show. GET counts projects; POST seeds the demo (idempotent, single user)."""
+
+    @extend_schema(
+        operation_id="v1_demo_status", description="How many projects exist.", responses={200: None}
+    )
+    def get(self, request):
+        return Response({"projects": Project.objects.count()})
+
+    @extend_schema(
+        operation_id="v1_demo_load",
+        description="Create the demo research project (safe to repeat).",
+        request=None,
+        responses={200: None},
+    )
+    def post(self, request):
+        from django.core.management import call_command
+
+        call_command("seed_demo", verbosity=0)
+        project = Project.objects.order_by("pk").first()
+        return Response(
+            {"project": project.slug if project else None, "projects": Project.objects.count()}
+        )
+
+
 class ConnectAPIView(APIView):
     """Connect Claude Code (SPA page): the exact `claude mcp add` line for this install, the
     MCP JSON for other clients, and the shipped skills with their install state."""

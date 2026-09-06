@@ -59,6 +59,7 @@ urlpatterns = [
     ),
     path("v1/pet/", views.PetAPIView.as_view(), name="pet"),
     path("v1/connect/", views.ConnectAPIView.as_view(), name="connect"),
+    path("v1/demo/", views.DemoAPIView.as_view(), name="demo"),
     path("v1/connect/skills/", views.ConnectSkillsAPIView.as_view(), name="connect_skills"),
     path("v1/bots/", views.BotsAPIView.as_view(), name="bots"),
     path("v1/bots/<slug:slug>/action/", views.BotActionAPIView.as_view(), name="bot_action"),

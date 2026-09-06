@@ -60,6 +60,36 @@ class Command(BaseCommand):
                 "TAURI_SIGNING_PRIVATE_KEY secret exists"
             )
 
+    def _check_update_feed(self, base):
+        """Auto-update feed reachability (#347): a private repo answers 404 to the app."""
+        tauri_conf = base / "desktop" / "tauri.conf.json"
+        if not tauri_conf.exists():
+            return
+        import json
+
+        try:
+            endpoints = json.loads(tauri_conf.read_text())["plugins"]["updater"]["endpoints"]
+        except Exception:
+            return
+        try:
+            import httpx
+
+            statuses = [
+                httpx.head(url, follow_redirects=True, timeout=4).status_code for url in endpoints
+            ]
+        except Exception as exc:
+            self.warn(f"update feed not checked (network: {exc.__class__.__name__})")
+            return
+        if any(code == 200 for code in statuses):
+            self.ok("update feed reachable — installed apps can find new builds")
+        else:
+            self.warn(
+                "update feed unreachable ("
+                + ", ".join(f"{u.split('/')[3]}: {c}" for u, c in zip(endpoints, statuses, strict=True))
+                + ") — a private repo answers 404; create the public atlas-releases feed or "
+                "make the repo public (README › Auto-update)"
+            )
+
     def handle(self, *args, **options):
         self.failures = self.warnings = 0
         base = Path(settings.BASE_DIR)
@@ -123,10 +153,16 @@ class Command(BaseCommand):
             self.fail("static/css/app.css missing — run `make css`")
 
         # optional components
-        if (base / "bin" / "tectonic").exists():
-            self.ok("Tectonic present (LaTeX compile enabled)")
+        from writing.compile import tectonic_path
+
+        engine = tectonic_path()
+        if engine:
+            self.ok(f"Tectonic present at {engine} (LaTeX compile enabled)")
         else:
-            self.warn("Tectonic missing — `make tectonic` to enable PDF compilation")
+            self.warn(
+                "Tectonic missing — `make tectonic` (desktop builds bundle it) to enable PDF compilation"
+            )
+        self._check_update_feed(base)
         if (base / "tts_voices").glob("*.onnx") and list((base / "tts_voices").glob("*.onnx")):
             self.ok("Piper voice present (Read aloud enabled)")
         else:

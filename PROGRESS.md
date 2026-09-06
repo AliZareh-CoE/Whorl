@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ FIRST RUN ON THE DESKTOP (2026-09-06, #351).** Login hint (desktop + default password), dashboard Welcome panel with "Load the demo project" (`/api/v1/demo/`), cascade-delete mirror bug fixed (seed_demo re-runnable; regression test), doctor: engine resolver + update-feed check. Verified on an empty desktop-settings instance: hint shown, welcome shown, demo loaded and the welcome disappeared (docs/screenshots/first-run-login.png, first-run-dashboard.png). Tests: `core/tests/test_first_run.py` (4). Next: highlight rectangles, matrix suggest-themes, re-judge Today/Dashboard.
+
 - **★ INBOX KEYBOARD TRIAGE + MATRIX CSV (2026-09-06, #350).** Inbox cursor (j/k/arrows, ↵ suggested, 1–5 targets, f file, x dismiss, ? legend, hover syncs), matrix CSV download. Playwright: j moved the cursor, ? showed the legend, ↵ on a "todo:" capture created the Today item and removed the row, x dismissed the other, no console errors (docs/screenshots/inbox-keys.png). Next: highlight rectangles, matrix suggest-themes, then judge the Dashboard/Today again with fresh eyes.
 
 - **★ QUOTES FROM HIGHLIGHTS (2026-09-06, #349).** Studio bibliography ✎ → per-paper highlights with "quote →" (`\begin{quote}… \citep{key}, p.~N`), Library highlight "quote" copy, `?quote=<id>` deep link. Playwright: opened a cited paper's highlights (1 row), inserted the quote (begin{quote} + citep present), deep link inserted and cleared its param, no console errors (docs/screenshots/studio-quotes.png). Next: matrix suggest-themes/CSV, inbox keyboard triage, highlight rectangles.
