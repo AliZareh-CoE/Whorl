@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — One front door: classic pages send browsers to the app (#342)
+
+**Decision.** `core/ui_middleware.ClassicRedirectMiddleware` redirects a plain browser GET (Accept `text/html`, not HTMX, not XHR) for a classic trailing-slash page to its SPA twin, using `core/spa_routes.spa_equivalent` (mirrors `frontend/src/app/links.ts`; a test pins both). Escape hatches: `?classic=1` or entering through `/classic/` sets an `atlas_ui=classic` session cookie so classic stays browsable; every classic page now carries a banner whose "Back to the app" link (`?ui=app`) clears it. The sidebar's "← Classic Atlas" link is gone (it sat right under the theme toggle and was a one-misclick exit); classic is reachable from ⌘K ("Classic Atlas (old UI)") and by URL.
+
+**Why.** The owner reported that the app "suddenly jumps back to the older UI and my todo list disappears". The SPA still exited into classic through the LaTeX editor button, the pet link, and any ⌘K / search row without an SPA mapping (references and manuscripts were unmapped) — and classic had no link back, and no Today page. One front door removes the whole class of bug instead of patching links one by one.
+
+**Alternatives.** Patching every classic link in the SPA (rejected: the next unmapped URL brings the bug back); deleting the classic UI (rejected for now: the editor, pet page and connect page still live there — each becomes an SPA page in the following slices); redirecting the Django test client too (rejected: hundreds of classic view tests are scripts, not people; requiring an explicit `text/html` Accept keeps them meaningful and matches real navigations).
+
 ### 2026-09-06 — Research v2 slice 1: the hypothesis ledger (#341)
 
 **Decision.** The research viewsets (hypotheses, experiments, datasets) become writable, and evidence gets its own `/api/v1/evidence/` resource (`project_filter` walks `hypothesis__project__slug`). `HypothesisSerializer` nests evidence rows (with a `reference_detail` summary, note and document titles), the supports/contradicts/mixed tallies and `suggested_status` from the evidence balance. Evidence writes bump the hypothesis' `updated_at` (`_touch_hypothesis`) so list/detail ETags change — the same stale-304 bug the manuscript studio had (#327), caught again by Playwright. MCP gains `add_hypothesis`, `set_hypothesis_status`, `add_evidence`, `log_experiment` (86 tools). `Research.tsx` is rewritten as a ledger: propose box, hypothesis cards with the evidence balance bar, "evidence says X →" one-click accept, an inline evidence form with paper/note autocomplete (reusing the notes suggest endpoint), experiment log and dataset registry; both destructive buttons confirm.

@@ -190,7 +190,6 @@ export default function Layout() {
             <Moon className="h-3.5 w-3.5 dark:hidden" aria-hidden="true" /><span className="dark:hidden">Observatory (dark)</span>
             <Sun className="hidden h-3.5 w-3.5 dark:inline" aria-hidden="true" /><span className="hidden dark:inline">Paper (light)</span>
           </button>
-          <a href="/classic/" className="block rounded-md px-1.5 py-1 transition-colors hover:text-stone-700 dark:hover:text-stone-200">← Classic Atlas</a>
         </div>
       </aside>
       <main className="ml-60 min-w-0 flex-1">

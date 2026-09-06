@@ -20,6 +20,7 @@ STATIC_PAGES = [
     ("Inbox", "/inbox/"),
     ("Automations", "/automations/"),
     ("Pet", "/pet/"),
+    ("Classic Atlas (old UI)", "/classic/"),
 ]
 
 

@@ -105,6 +105,12 @@
       </div>
     </aside>
     <div class="flex-1 min-w-0 lg:ml-56">
+      {% if request.classic_ui %}
+      <div class="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200" data-testid="classic-banner">
+        <span>You are in <strong>classic Atlas</strong>, the older server-rendered UI. Today, the inbox triage, the pet and the studio live in the app.</span>
+        <a href="{{ request.spa_back_url }}" class="shrink-0 rounded-md bg-amber-600 px-2.5 py-1 font-medium text-white hover:bg-amber-700">Back to the app →</a>
+      </div>
+      {% endif %}
       <main id="main" class="{% block main_class %}mx-auto max-w-5xl{% endblock %} px-4 py-8 pt-14 sm:px-6 lg:px-8 lg:pt-8">
         <nav class="mb-6 text-sm text-stone-500" aria-label="Breadcrumb">
           {% block breadcrumbs %}{% endblock %}
