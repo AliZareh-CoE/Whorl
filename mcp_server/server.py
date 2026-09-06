@@ -311,3 +311,15 @@ def add_todo(text: str, project: str = "") -> dict:
 def complete_todo(todo_id: int, done: bool = True) -> dict:
     """Tick (or untick) an item on the Today list. Find ids with list_todos."""
     return client.complete_todo(todo_id, done)
+
+
+@mcp.tool()
+def list_library_tags() -> dict:
+    """Library tags (global labels on references) with how many papers carry each."""
+    return client.list_library_tags()
+
+
+@mcp.tool()
+def tag_references(reference_ids: list[int], tag: str, remove: bool = False) -> dict:
+    """Put a tag on (or take it off) many references at once; missing tags are created."""
+    return client.tag_references(reference_ids, tag, remove)

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.decorators import method_decorator
@@ -20,7 +21,7 @@ from rest_framework.views import APIView
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
 from literature import services as literature_services
-from literature.models import ProjectReference, Reference
+from literature.models import LibraryTag, ProjectReference, Reference, SavedView
 from notes import services as note_services
 from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
@@ -1161,6 +1162,35 @@ class ProjectReferenceViewSet(AtlasViewSet):
 
             queryset = theme_candidates(queryset, theme)
         return queryset
+
+
+class LibraryTagViewSet(AtlasViewSet):
+    """Library tags (global labels on references), with usage counts."""
+
+    queryset = LibraryTag.objects.annotate(count=Count("references")).order_by("-count", "name")
+    serializer_class = serializers.LibraryTagSerializer
+    q_fields = ("name",)
+
+    def perform_create(self, serializer):
+        name = serializer.validated_data["name"]
+        existing = LibraryTag.objects.filter(name__iexact=name.strip()).first()
+        if existing:  # case-insensitive uniqueness: reuse instead of a near-duplicate
+            serializer.instance = existing
+            return
+        serializer.save(name=" ".join(name.split()).strip())
+
+
+class SavedViewViewSet(AtlasViewSet):
+    """Smart views: named Library filter sets restored with one click from the rail."""
+
+    queryset = SavedView.objects.all()
+    serializer_class = serializers.SavedViewSerializer
+
+    def perform_create(self, serializer):
+        from django.db.models import Max
+
+        top = SavedView.objects.aggregate(m=Max("position"))["m"] or 0
+        serializer.save(position=top + 1)
 
 
 class TodoItemViewSet(AtlasViewSet):

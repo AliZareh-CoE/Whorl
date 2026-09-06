@@ -348,3 +348,17 @@ def add_todo(text: str, project: str | None = None):
 
 def complete_todo(todo_id: int, done: bool = True):
     return _request("PATCH", f"/todos/{todo_id}/", json={"done": done})
+
+
+def list_library_tags():
+    """Library tags with usage counts."""
+    return _request("GET", "/library-tags/")
+
+
+def tag_references(reference_ids: list[int], tag: str, remove: bool = False):
+    """Add (or remove) one tag on many references; the tag is created if missing."""
+    return _request(
+        "POST",
+        "/references/bulk/",
+        json={"ids": reference_ids, "action": "untag" if remove else "tag", "value": tag},
+    )

@@ -12,7 +12,7 @@ from django.db.models import Count, Q, QuerySet
 
 from projects.models import Project
 
-from .models import ProjectReference, Reference
+from .models import LibraryTag, ProjectReference, Reference, SavedView
 from .services import (
     TIMEOUT,
     USER_AGENT,
@@ -78,6 +78,12 @@ def filter_references(qs: QuerySet, params) -> QuerySet:
     status = params.get("reading_status")
     if status and project:
         qs = qs.filter(project_links__project__slug=project, project_links__reading_status=status)
+    tag = params.get("tag")
+    if tag:
+        qs = qs.filter(tags__name__iexact=tag)
+    untagged = params.get("untagged")
+    if untagged in ("true", "1"):
+        qs = qs.filter(tags__isnull=True)
     unfiled = params.get("unfiled")
     if unfiled in ("true", "1"):
         qs = qs.filter(project_links__isnull=True)
@@ -117,6 +123,13 @@ def facets(qs: QuerySet) -> dict:
         .annotate(n=Count("id", distinct=True))
         .order_by("-n")
     ]
+    tags = [
+        {"name": row["tags__name"], "color": row["tags__color"], "count": row["n"]}
+        for row in qs.exclude(tags__isnull=True)
+        .values("tags__name", "tags__color")
+        .annotate(n=Count("id", distinct=True))
+        .order_by("-n", "tags__name")
+    ]
     total = qs.count()
     with_pdf = qs.exclude(pdf="").exclude(pdf__isnull=True).count()
     return {
@@ -125,6 +138,9 @@ def facets(qs: QuerySet) -> dict:
         "without_pdf": total - with_pdf,
         "needs_metadata": qs.filter(extra__needs_metadata=True).count(),
         "unfiled": qs.filter(project_links__isnull=True).count(),
+        "untagged": qs.filter(tags__isnull=True).count(),
+        "tags": tags,
+        "views": list(SavedView.objects.values("id", "name", "params", "position")),
         "years": years,
         "entry_types": types,
         "venues": venues,
@@ -135,7 +151,17 @@ def facets(qs: QuerySet) -> dict:
     }
 
 
-BULK_ACTIONS = ("link", "unlink", "status", "priority", "delete", "find_metadata", "fetch_pdf")
+BULK_ACTIONS = (
+    "link",
+    "unlink",
+    "status",
+    "priority",
+    "delete",
+    "find_metadata",
+    "fetch_pdf",
+    "tag",
+    "untag",
+)
 
 
 def bulk(
@@ -172,6 +198,21 @@ def bulk(
             affected += 1
     elif action == "delete":
         affected, _ = refs.delete()
+    elif action in ("tag", "untag"):
+        if not (value or "").strip():
+            raise ValueError("'tag' / 'untag' need the tag name in value")
+        if action == "tag":
+            tag = LibraryTag.get_or_create_named(value)
+            for ref in refs:
+                if not ref.tags.filter(pk=tag.pk).exists():
+                    ref.tags.add(tag)
+                    affected += 1
+        else:
+            tag = LibraryTag.objects.filter(name__iexact=value.strip()).first()
+            if tag:
+                for ref in refs.filter(tags=tag):
+                    ref.tags.remove(tag)
+                    affected += 1
     elif action == "fetch_pdf":
         from .tasks import fetch_oa_pdf_task
 

@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
-from literature.models import ProjectReference, Reference
+from literature.models import LibraryTag, ProjectReference, Reference, SavedView
 from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
@@ -161,6 +161,28 @@ class ReferenceSerializer(serializers.ModelSerializer):
     # Library v2: which projects hold this paper, with the per-project reading state — one
     # prefetch on the viewset, no per-row queries.
     projects = serializers.SerializerMethodField()
+    # Library v2 slice 5: tags by name (writable: a list of names creates missing tags)
+    tags = serializers.ListField(
+        child=serializers.CharField(max_length=60), required=False, write_only=True
+    )
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["tags"] = [t.name for t in instance.tags.all()]
+        return data
+
+    def _apply_tags(self, instance, names):
+        from literature.models import LibraryTag
+
+        if names is None:
+            return
+        instance.tags.set([LibraryTag.get_or_create_named(n) for n in names if n.strip()])
+
+    def update(self, instance, validated_data):
+        names = validated_data.pop("tags", None)
+        instance = super().update(instance, validated_data)
+        self._apply_tags(instance, names)
+        return instance
 
     @extend_schema_field(
         serializers.ListField(
@@ -218,6 +240,7 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "extra",
             "citation_count",
             "projects",
+            "tags",
             "created_at",
             "updated_at",
         ]
@@ -226,12 +249,15 @@ class ReferenceSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         from literature.services import generate_bibtex_key
 
+        names = validated_data.pop("tags", None)
         validated_data["bibtex_key"] = generate_bibtex_key(
             validated_data.get("authors", []),
             validated_data.get("year"),
             validated_data.get("title", ""),
         )
-        return super().create(validated_data)
+        instance = super().create(validated_data)
+        self._apply_tags(instance, names)
+        return instance
 
 
 class ReferenceSummarySerializer(serializers.ModelSerializer):
@@ -287,12 +313,36 @@ class TodoItemSerializer(serializers.ModelSerializer):
         read_only_fields = ["done_at"]
 
 
+class LibraryTagSerializer(serializers.ModelSerializer):
+    count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = LibraryTag
+        fields = ["id", "name", "color", "count", "created_at"]
+
+
+class SavedViewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SavedView
+        fields = ["id", "name", "params", "position", "created_at", "updated_at"]
+
+
 class BulkReferenceActionSerializer(serializers.Serializer):
     """Library v2 bulk bar: one action over many references."""
 
     ids = serializers.ListField(child=serializers.IntegerField(), min_length=1, max_length=500)
     action = serializers.ChoiceField(
-        choices=["link", "unlink", "status", "priority", "delete", "find_metadata", "fetch_pdf"]
+        choices=[
+            "link",
+            "unlink",
+            "status",
+            "priority",
+            "delete",
+            "find_metadata",
+            "fetch_pdf",
+            "tag",
+            "untag",
+        ]
     )
     project = serializers.SlugField(
         required=False, allow_blank=True, help_text="Needed for link/unlink/status/priority."

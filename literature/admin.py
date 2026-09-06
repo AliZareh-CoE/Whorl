@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import CitationEdge, ProjectReference, Reference, ReviewMark, ReviewTheme
+from .models import (
+    CitationEdge,
+    LibraryTag,
+    ProjectReference,
+    Reference,
+    ReviewMark,
+    ReviewTheme,
+    SavedView,
+)
 
 
 @admin.register(Reference)
@@ -30,3 +38,14 @@ class ReviewThemeAdmin(admin.ModelAdmin):
 @admin.register(ReviewMark)
 class ReviewMarkAdmin(admin.ModelAdmin):
     list_display = ["__str__", "note"]
+
+
+@admin.register(LibraryTag)
+class LibraryTagAdmin(admin.ModelAdmin):
+    list_display = ("name", "color", "created_at")
+    search_fields = ("name",)
+
+
+@admin.register(SavedView)
+class SavedViewAdmin(admin.ModelAdmin):
+    list_display = ("name", "position", "params", "created_at")

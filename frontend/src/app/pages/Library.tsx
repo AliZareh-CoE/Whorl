@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  BookOpen, Check, ChevronDown, Copy, Download, Quote, ExternalLink, FileDown, FileText, FolderPlus, Loader2, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  Bookmark, BookOpen, Check, ChevronDown, Copy, Download, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { Skeleton } from "../../components/Skeleton";
@@ -17,14 +17,17 @@ type Ref = {
   id: number; bibtex_key: string; title: string; authors: Author[]; year: number | null; venue: string;
   abstract: string; doi: string | null; arxiv_id: string; url: string; pdf: string | null;
   entry_type: string; citation_count: number | null; extra: Record<string, unknown>; projects: ProjLink[];
+  tags: string[];
   created_at: string;
 };
+type SavedView = { id: number; name: string; params: Partial<Filters>; position: number };
 type Page<T> = { count: number; next: string | null; results: T[] };
 type Facets = {
   total: number; with_pdf: number; without_pdf: number; needs_metadata: number; unfiled: number;
   years: { year: number; count: number }[]; entry_types: { entry_type: string; count: number }[];
   venues: { venue: string; count: number }[]; projects: { slug: string; name: string; count: number }[];
   all_projects: { slug: string; name: string; color: string }[];
+  untagged: number; tags: { name: string; color: string; count: number }[]; views: SavedView[];
 };
 type DiscoverRow = {
   openalex_id: string; doi: string; title: string; year: number | null; venue: string; authors: string[];
@@ -34,10 +37,10 @@ type ImportResult = { title: string; reference_id: number | null; created: boole
 type ImportSummary = { created: number; existing: number; failed: number; results: ImportResult[] };
 type Filters = {
   q: string; year: string; entry_type: string; venue: string; has_pdf: string; needs_metadata: string;
-  project: string; unfiled: string; reading_status: string; sort: string;
+  project: string; unfiled: string; reading_status: string; tag: string; untagged: string; sort: string;
 };
 
-const EMPTY: Filters = { q: "", year: "", entry_type: "", venue: "", has_pdf: "", needs_metadata: "", project: "", unfiled: "", reading_status: "", sort: "added" };
+const EMPTY: Filters = { q: "", year: "", entry_type: "", venue: "", has_pdf: "", needs_metadata: "", project: "", unfiled: "", reading_status: "", tag: "", untagged: "", sort: "added" };
 const STYLES: [string, string][] = [["apa", "APA 7"], ["mla", "MLA 9"], ["chicago", "Chicago"], ["harvard", "Harvard"], ["vancouver", "Vancouver"], ["ieee", "IEEE"]];
 function readStyle(): string { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } }
 type Citation = { style: string; label: string; text: string; html: string; intext: string };
@@ -93,6 +96,16 @@ export default function Library() {
   const [doiError, setDoiError] = useState("");
   const [bulkProject, setBulkProject] = useState("");
   const [citeStyle, setCiteStyleState] = useState<string>(readStyle);
+  const [viewName, setViewName] = useState<string | null>(null);
+  const [bulkTag, setBulkTag] = useState("");
+  const saveView = useMutation({
+    mutationFn: (name: string) => api<SavedView>("/library-views/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, params: { ...effective, sort: filters.sort } }) }),
+    onSuccess: (v) => { setViewName(null); queryClient.invalidateQueries({ queryKey: ["library-facets"] }); flash(`Saved view “${v.name}”.`); },
+  });
+  const deleteView = useMutation({
+    mutationFn: (id: number) => api(`/library-views/${id}/`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["library-facets"] }),
+  });
   const setCiteStyle = (v: string) => { setCiteStyleState(v); try { localStorage.setItem("atlas-cite-style", v); } catch { /* private mode */ } };
   const [toast, setToast] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -315,6 +328,43 @@ export default function Library() {
           {f && (
             <>
               <div className="mb-3">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <p className={`${railH} mb-0`}>Smart views</p>
+                  {viewName === null && (activeChips.length > 0 || q) && (
+                    <button type="button" onClick={() => setViewName("")} className="text-[10px] text-indigo-500 hover:underline" title="Save the current filters as a view">+ save</button>
+                  )}
+                </div>
+                {viewName !== null && (
+                  <form onSubmit={(e) => { e.preventDefault(); if (viewName.trim()) saveView.mutate(viewName.trim()); }} className="mb-1 flex gap-1">
+                    <input autoFocus value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder="Name this view…" className="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-2 py-1 text-xs dark:border-stone-700 dark:bg-stone-800" onKeyDown={(e) => { if (e.key === "Escape") setViewName(null); }} />
+                    <button type="submit" className="rounded-md bg-indigo-600 px-2 text-xs text-white">Save</button>
+                  </form>
+                )}
+                {f.views.length === 0 && viewName === null && <p className="px-2 text-[11px] text-stone-400">Filter, then “+ save” to keep it here.</p>}
+                {f.views.map((v) => {
+                  const active = JSON.stringify({ ...EMPTY, ...v.params, q: (v.params.q ?? "") }) === JSON.stringify({ ...effective, sort: filters.sort });
+                  return (
+                    <div key={v.id} className="group/view flex items-center">
+                      <button type="button" className={chip(active)} onClick={() => { setFilters({ ...EMPTY, ...v.params }); setQInput(v.params.q ?? ""); }}>
+                        <span className="flex min-w-0 items-center gap-1.5"><Bookmark className="h-3 w-3 shrink-0 text-indigo-400" aria-hidden="true" /><span className="truncate">{v.name}</span></span>
+                      </button>
+                      <button type="button" onClick={() => deleteView.mutate(v.id)} className="ml-0.5 shrink-0 text-stone-300 opacity-0 hover:text-red-500 group-hover/view:opacity-100" aria-label={`Delete view ${v.name}`}><X className="h-3 w-3" aria-hidden="true" /></button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mb-3">
+                <p className={railH}>Tags</p>
+                {f.tags.length === 0 && <p className="px-2 text-[11px] text-stone-400">No tags yet — select papers and use “Tag”.</p>}
+                {f.tags.slice(0, 12).map((t) => (
+                  <button key={t.name} type="button" className={chip(filters.tag === t.name)} onClick={() => set({ tag: filters.tag === t.name ? "" : t.name, untagged: "" })}>
+                    <span className="flex min-w-0 items-center gap-1.5"><TagIcon className="h-3 w-3 shrink-0" style={{ color: t.color || "#8b7cff" }} aria-hidden="true" /><span className="truncate">{t.name}</span></span>
+                    <span className="tabular-nums text-stone-400">{t.count}</span>
+                  </button>
+                ))}
+                {f.untagged > 0 && <button type="button" className={chip(filters.untagged === "true")} onClick={() => set({ untagged: filters.untagged ? "" : "true", tag: "" })}><span>Untagged</span><span className="tabular-nums text-stone-400">{f.untagged}</span></button>}
+              </div>
+              <div className="mb-3">
                 <p className={railH}>Projects</p>
                 <button type="button" className={chip(filters.unfiled === "true")} onClick={() => set({ unfiled: filters.unfiled ? "" : "true", project: "" })}><span>Unfiled</span><span className="tabular-nums text-stone-400">{f.unfiled}</span></button>
                 {f.projects.map((p) => {
@@ -395,6 +445,7 @@ export default function Library() {
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
                     {r.projects.map((p) => <span key={p.slug} title={`${p.name} · ${STATUS_LABEL[p.reading_status] ?? p.reading_status}`} className="h-2 w-2 rounded-full" style={{ background: p.color }} />)}
+                    {r.tags.slice(0, 3).map((t) => <span key={t} className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500 dark:bg-stone-800 dark:text-stone-300">{t}</span>)}
                     {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
                     {r.pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">PDF</span>}
                     {r.citation_count != null && r.citation_count > 0 && <span className="text-[10px] tabular-nums text-stone-400">{r.citation_count} cit.</span>}
@@ -421,6 +472,11 @@ export default function Library() {
               {(bulkProject || filters.project) && (
                 <select defaultValue="" onChange={(e) => { if (e.target.value) { bulk.mutate({ ids: [...selected], action: "status", project: bulkProject || filters.project, value: e.target.value }); e.target.value = ""; } }} className="rounded-md border border-stone-300 bg-white px-1.5 py-1 text-xs dark:border-stone-700 dark:bg-stone-800"><option value="">mark as…</option>{Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
               )}
+              <form onSubmit={(e) => { e.preventDefault(); const t = bulkTag.trim(); if (t) { bulk.mutate({ ids: [...selected], action: "tag", value: t }); setBulkTag(""); } }} className="flex items-center gap-1">
+                <input value={bulkTag} onChange={(e) => setBulkTag(e.target.value)} list="library-tag-names" placeholder="tag…" className="w-24 rounded-md border border-stone-300 bg-white px-1.5 py-1 text-xs dark:border-stone-700 dark:bg-stone-800" />
+                <datalist id="library-tag-names">{f?.tags.map((t) => <option key={t.name} value={t.name} />)}</datalist>
+                <button type="submit" disabled={!bulkTag.trim() || bulk.isPending} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 disabled:opacity-40 dark:border-stone-700 dark:text-stone-300"><TagIcon className="h-3 w-3" aria-hidden="true" />Tag</button>
+              </form>
               <a href={`/api/v1/references/export/?ids=${[...selected].join(",")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Open the selection as a .bib file"><FileDown className="h-3 w-3" aria-hidden="true" />Export .bib</a>
               <button type="button" onClick={async () => { const text = await (await fetch(`/api/v1/references/export/?ids=${[...selected].join(",")}`, { credentials: "same-origin" })).text(); await navigator.clipboard?.writeText(text); flash(`Copied BibTeX for ${selected.size} reference(s).`); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Copy BibTeX to the clipboard"><Copy className="h-3 w-3" aria-hidden="true" />Copy BibTeX</button>
               <button type="button" onClick={async () => { const b = await api<{ text: string }>(`/references/cite/?ids=${[...selected].join(",")}&style=${citeStyle}`); await navigator.clipboard?.writeText(b.text); flash(`Copied ${selected.size} citation(s) in ${STYLES.find(([k]) => k === citeStyle)?.[1] ?? citeStyle}.`); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Copy a formatted bibliography of the selection"><Quote className="h-3 w-3" aria-hidden="true" />Copy citations</button>
@@ -440,7 +496,7 @@ export default function Library() {
               Select a paper to see its abstract, links, and related work.
             </div>
           ) : (
-            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
+            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
           )}
         </aside>
       </div>
@@ -449,8 +505,9 @@ export default function Library() {
   );
 }
 
-function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied }: { r: Ref; onFindMeta: () => void; finding: boolean; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
+function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, onTag }: { r: Ref; allTags: string[]; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
   const [full, setFull] = useState(false);
+  const [newTag, setNewTag] = useState("");
   const citation = useQuery({ queryKey: ["cite", r.id, citeStyle], queryFn: () => api<Citation>(`/references/${r.id}/cite/?style=${citeStyle}`), staleTime: 5 * 60_000 });
   const copy = async (text: string, what: string) => { await navigator.clipboard?.writeText(text); onCopied(`Copied ${what}.`); };
   const [lens, setLens] = useState<"similar" | "references" | "cited_by" | null>(null);
@@ -487,6 +544,18 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
         {r.doi && <a href={`https://doi.org/${r.doi}`} target="_blank" rel="noreferrer" className="rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">DOI</a>}
         {r.url && !r.doi && <a href={r.url} target="_blank" rel="noreferrer" className="rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">Link</a>}
         <button type="button" onClick={() => navigator.clipboard?.writeText(r.bibtex_key)} title="Copy cite key" className="rounded-md border border-stone-300 px-2.5 py-1 font-mono text-stone-500 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">{r.bibtex_key}</button>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-1.5">
+        {r.tags.map((t) => (
+          <span key={t} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-700 dark:text-indigo-200">
+            <TagIcon className="h-3 w-3" aria-hidden="true" />{t}
+            <button type="button" onClick={() => onTag(t, true)} aria-label={`Remove tag ${t}`} className="opacity-60 hover:opacity-100"><X className="h-3 w-3" aria-hidden="true" /></button>
+          </span>
+        ))}
+        <form onSubmit={(e) => { e.preventDefault(); const t = newTag.trim(); if (t) { onTag(t, false); setNewTag(""); } }}>
+          <input value={newTag} onChange={(e) => setNewTag(e.target.value)} list="detail-tag-names" placeholder="+ tag" className="w-20 rounded-full border border-dashed border-stone-300 bg-transparent px-2 py-0.5 text-[11px] placeholder:text-stone-400 focus:w-32 focus:border-indigo-400 focus:outline-none dark:border-stone-700" />
+          <datalist id="detail-tag-names">{allTags.map((t) => <option key={t} value={t} />)}</datalist>
+        </form>
       </div>
       <div className="mt-5">
         <div className="mb-1.5 flex items-center justify-between">

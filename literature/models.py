@@ -10,6 +10,43 @@ def reference_pdf_path(instance, filename):
     return f"library/pdfs/{instance.bibtex_key}/{filename}"
 
 
+class LibraryTag(TimeStampedModel):
+    """A label on library references (Library v2 slice 5): global, case-insensitive-unique,
+    optional colour. Distinct from documents.Tag (per-project document tags)."""
+
+    name = models.CharField(max_length=60, unique=True)
+    color = models.CharField(max_length=7, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def get_or_create_named(cls, name: str) -> "LibraryTag":
+        clean = " ".join((name or "").split()).strip()[:60]
+        if not clean:
+            raise ValueError("A tag needs a name.")
+        existing = cls.objects.filter(name__iexact=clean).first()
+        return existing or cls.objects.create(name=clean)
+
+
+class SavedView(TimeStampedModel):
+    """A named set of Library filters ("smart view"): the rail lists them, one click restores
+    the exact query. `params` holds the same keys the list endpoint accepts."""
+
+    name = models.CharField(max_length=80, unique=True)
+    params = models.JSONField(default=dict)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Reference(TimeStampedModel):
     """One paper/book/etc. in the GLOBAL library, shared across projects."""
 
@@ -29,6 +66,7 @@ class Reference(TimeStampedModel):
     raw_bibtex = models.TextField(blank=True)
     extra = models.JSONField(default=dict)
     citation_count = models.PositiveIntegerField(null=True, blank=True)
+    tags = models.ManyToManyField(LibraryTag, blank=True, related_name="references")
 
     class Meta:
         ordering = ["-created_at"]

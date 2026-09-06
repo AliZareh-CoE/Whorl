@@ -544,6 +544,26 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Library v2 slice 5: tags and smart views (#301)
+
+**Decision.** `literature.LibraryTag` (global, case-insensitive-unique labels with an optional
+colour) on `Reference.tags`, and `literature.SavedView` (a named dict of the list endpoint's
+filter params). The workbench rail gains **Smart views** ("+ save" appears whenever a filter is
+active; one click restores the exact query, including the search text) and **Tags** (counts,
+an Untagged bucket). Tags are applied from the bulk bar ("tag…" with suggestions), from the
+detail pane (chip editor), or by writing `tags: [names]` on a reference through the API;
+missing tags are created. API: `library-tags` (with counts; POST reuses a case-insensitive
+match), `library-views`, list filters `tag=` / `untagged=`, bulk `tag` / `untag`, facets carry
+`tags`, `untagged`, `views`. MCP: `list_library_tags`, `tag_references` (47 tools).
+
+**Why.** Zotero's collections/tags and Paperpile's labels + saved searches are how people keep
+a 1,000-paper library navigable; Atlas had projects only. Saved views are the cheapest possible
+"collections": they compose every filter the rail already has instead of a second hierarchy.
+
+**Alternatives.** (a) Reuse `documents.Tag` — rejected: per-project by design, while the
+library is global. (b) Nested collections — rejected: smart views + project filing cover it
+without a tree to maintain; revisit only if users ask.
+
 ### 2026-09-06 — A plain "Today" list, separate from plan tasks (owner request, #299)
 
 **Decision.** `core.TodoItem` (text, done, done_at, position, optional project) with a
@@ -905,6 +925,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+302. Library, remaining vs. Paperpile/Zotero after slice 5: duplicate merge (keep links/PDF/tags), inline PDF preview pane in the workbench, tag colours in the UI (model has the field), drag-to-reorder smart views, per-reference notes surfaced in the detail pane.
+301. ~~Library v2 slice 5 (done 2026-09-06): LibraryTag + SavedView, rail sections (Smart views with "+ save", Tags with Untagged), bulk/detail tag editing, API + MCP. See the 2026-09-06 decision.~~
 300. Today list, later: drag-to-reorder, a compact widget on the dashboard hero ("3 on your list"), a ⌘K verb "Add to my list", optional due times with a gentle nudge in the sidebar, carry-over count ("2 from yesterday").
 299. ~~Today list (done 2026-09-06, owner request): core.TodoItem + /today page + sidebar entry + /api/v1/todos/ + MCP list/add/complete. See the 2026-09-06 decision.~~
 298. Citations, later: a CSL-engine backend (citeproc-py) behind the same cite()/bibliography() contract for the long tail of styles; a "Cite" button on the Reference page and the PDF reader; citation export as RTF/Word-ready HTML.

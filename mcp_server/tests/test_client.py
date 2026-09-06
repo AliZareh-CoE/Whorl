@@ -348,3 +348,14 @@ def test_todo_client_calls(capture):
         and calls_url_has(capture, "/todos/4/")
         and '"done":true' in capture["body"]
     )
+
+
+def test_tag_client_calls(capture):
+    client.list_library_tags()
+    assert calls_url_has(capture, "/library-tags/")
+    client.tag_references([1, 2], "pilot", remove=True)
+    assert (
+        capture["method"] == "POST"
+        and '"action":"untag"' in capture["body"]
+        and '"value":"pilot"' in capture["body"]
+    )
