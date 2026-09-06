@@ -2496,6 +2496,31 @@ class CalendarFeedView(APIView):
         return response
 
 
+class BackupView(APIView):
+    """Everything as one zip: the database (consistent copy) and the media folder."""
+
+    @extend_schema(
+        operation_id="v1_backup_zip",
+        description="Download a backup zip (database + media). Restore notes are inside.",
+        responses={(200, "application/zip"): OpenApiTypes.BINARY},
+    )
+    def get(self, request):
+        import io
+        from datetime import UTC, datetime
+
+        from django.http import HttpResponse
+
+        from core.backup import build_backup
+
+        buf = io.BytesIO()
+        build_backup(buf)
+        stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
+        response = HttpResponse(buf.getvalue(), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="atlas-backup-{stamp}.zip"'
+        response["Cache-Control"] = "no-store"
+        return response
+
+
 class DiagnosticsAPIView(APIView):
     """Why didn't it work? Version, paths, engine, update feed, last compile failure, log tail."""
 

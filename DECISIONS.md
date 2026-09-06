@@ -544,6 +544,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — One-file backup (#363)
+
+**Decision.** `GET /api/v1/backup.zip` (`core/backup.py`) downloads a zip with a transactionally consistent copy of the SQLite database (both a byte-exact `atlas.sqlite3` for copy-it-back restores and a `database.sql` dump), or a `database.json` `dumpdata` on other databases, plus the whole media folder, a `MANIFEST.json` and a `README.txt` with the restore steps. The Diagnostics page has the **Download a backup** button.
+
+**Why.** A single-user desktop app holding years of reading and writing needs one obvious way to take it all somewhere else; the data folder is knowable (Diagnostics shows it) but a zip is what people actually keep.
+
 ### 2026-09-06 — Connect page shows what is installed on this machine (#362)
 
 **Decision.** `core/tooling.detect_tools` looks up `claude`, `node`, `git` on PATH (plus the LaTeX engine through the resolver) with a guarded `--version`, and `GET /api/v1/connect/` carries the result; the Connect page shows a chip per tool and, when Claude Code is missing, the install line. The terminal dock's **Claude** tab depends on `claude` being on PATH — now the page says so before the tab prints "command not found".

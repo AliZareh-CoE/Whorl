@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ ONE-FILE BACKUP (2026-09-06, #363).** `/api/v1/backup.zip` (consistent SQLite copy + SQL dump or JSON dump, media, manifest, restore notes), Diagnostics button. Tests: zip contents + manifest, sqlite dump consistency.
+
 - **Connect: tools on this machine (2026-09-06, #362).** claude / node / git / engine detection with versions, chips + install hint. Tests: detection with stubs, version never raises, API carries tools.
 
 - **MCP +2 (2026-09-06, #361): `get_diagnostics`, `suggest_review_themes` — 88 tools.** Client tests + README list/count + skills updated.

@@ -244,6 +244,13 @@ pieces, in order:
 secret. Rotating it means users must reinstall once, because the old public key no longer
 matches.
 
+## Backups
+
+Diagnostics (`/diagnostics`) has **Download a backup**: one zip with a consistent copy of the
+database, every uploaded file, a manifest and restore notes (`GET /api/v1/backup.zip`). On the
+desktop, restoring is: quit Atlas, copy `atlas.sqlite3` and `media/` back into the data folder
+(shown on the same page), start Atlas.
+
 ## How Atlas compares
 
 | | Atlas | Zotero | Notion | Overleaf |

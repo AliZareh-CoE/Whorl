@@ -37,15 +37,24 @@ struct Exit {
     id: u32,
 }
 
-fn default_shell() -> String {
-    if cfg!(windows) {
-        // PowerShell reads better than cmd.exe for people who never chose a shell
-        std::env::var("ATLAS_SHELL").unwrap_or_else(|_| "powershell.exe".into())
-    } else {
-        std::env::var("ATLAS_SHELL")
-            .or_else(|_| std::env::var("SHELL"))
-            .unwrap_or_else(|_| "/bin/bash".into())
+/// The shell to run and its startup arguments. Windows prefers PowerShell 7 (`pwsh`) when
+/// installed, else Windows PowerShell, both without the copyright banner so a new tab is a
+/// prompt, not a paragraph. `ATLAS_SHELL` overrides everything.
+fn default_shell() -> (String, Vec<String>) {
+    if let Ok(custom) = std::env::var("ATLAS_SHELL") {
+        return (custom, vec![]);
     }
+    if cfg!(windows) {
+        let pwsh = std::env::var("ProgramFiles")
+            .map(|pf| std::path::PathBuf::from(pf).join("PowerShell").join("7").join("pwsh.exe"))
+            .ok()
+            .filter(|p| p.exists());
+        return match pwsh {
+            Some(p) => (p.to_string_lossy().into_owned(), vec!["-NoLogo".into()]),
+            None => ("powershell.exe".into(), vec!["-NoLogo".into()]),
+        };
+    }
+    (std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".into()), vec![])
 }
 
 /// Spawn a shell in a fresh PTY and return its id.
@@ -66,7 +75,9 @@ pub fn terminal_spawn(
         })
         .map_err(|e| e.to_string())?;
 
-    let mut cmd = CommandBuilder::new(default_shell());
+    let (shell, args) = default_shell();
+    let mut cmd = CommandBuilder::new(shell);
+    cmd.args(args);
     cmd.env("TERM", "xterm-256color");
     cmd.env("ATLAS_DESKTOP", "1");
     if let Some(dir) = cwd.filter(|d| !d.is_empty() && std::path::Path::new(d).is_dir()) {
