@@ -136,6 +136,14 @@ so anything Claude can do, you can also do with curl.
 the exact `claude mcp add` line for *your* install, with a Copy button — paste it in a terminal
 once and you're done. Then `claude mcp list` shows `atlas` as connected.
 
+**Skills.** The same page installs four Atlas playbooks into `~/.claude/skills/` so Claude Code
+knows the workflows, not just the tools: `/atlas-daily` (dashboard → today's three things →
+inbox triage), `/atlas-literature` (DOI in, reading queue, highlights, review matrix, synthesis
+note), `/atlas-writing` (files, bibliography, cite check, compile, reviews → response note,
+submission events) and `/atlas-plan` (outline round-trips with `dry_run`, roadmap health,
+decisions). They live in `mcp_server/skills/` and a test pins every tool they mention to a real
+MCP tool.
+
 - **Desktop app:** the installer ships the MCP server as `atlas-mcp`, and the app mints its own
   API key on first launch. `atlas-mcp` finds the running app's URL and key by itself (from the
   data folder's `server.json` + `api_key`), so the line carries no secrets:
@@ -193,9 +201,10 @@ Atlas also ships as a **self-contained desktop app**: one installer for Linux (`
 or Windows (`.exe`/`.msi`) that bundles the Django server frozen with PyInstaller, running on a
 per-user SQLite file — no Python, Postgres, Redis, or Docker on the machine. Installers are
 built by the **Desktop release** GitHub Actions workflow and attached to the "Atlas desktop
-preview" release (or a `v*` tag). On top of the web app the desktop build adds a **built-in
-terminal** (a real PTY) and **Open from disk** (a native file picker). The web app stays the
-single source of truth.
+preview" release (or a `v*` tag). On top of the web app the desktop build adds a **terminal
+dock** — press ⌃` on any page for a real shell (tabs, resize, maximize), with a **Claude**
+button that opens Claude Code already connected to Atlas — and **Open from disk** (a native
+file picker). The web app stays the single source of truth.
 
 To hack on the shell against a running dev server:
 

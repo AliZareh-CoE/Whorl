@@ -133,6 +133,7 @@ fn main() {
             terminal::terminal_spawn,
             terminal::terminal_write,
             terminal::terminal_resize,
+            terminal::terminal_kill,
             localfs::open_local_file,
             updater::check_for_updates,
             updater::check_update,

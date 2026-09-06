@@ -42,6 +42,27 @@
     Then, inside Claude Code, try: <em>“List my Atlas projects.”</em>
   </p>
 
+  <h2 class="mt-8 text-xs font-semibold uppercase tracking-wide text-stone-500">3 · Give Claude the Atlas playbooks (skills)</h2>
+  <p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+    Skills are short playbooks Claude Code loads on demand. Atlas ships {{ skills|length }}: how to run a research day, a literature
+    review, a manuscript and a plan — tool by tool, with the conventions that keep your data safe. They install into
+    <code class="rounded bg-stone-100 px-1 dark:bg-stone-800">{{ skills_dir }}</code>.
+  </p>
+  <ul class="mt-3 divide-y divide-stone-100 rounded-lg border border-stone-200 bg-white text-sm dark:divide-stone-800 dark:border-stone-700 dark:bg-stone-900" data-testid="skills-list">
+    {% for skill in skills %}
+    <li class="flex items-start gap-3 px-4 py-2.5">
+      <code class="mt-0.5 shrink-0 rounded bg-stone-100 px-1.5 py-0.5 text-xs text-indigo-700 dark:bg-stone-800 dark:text-indigo-300">/{{ skill.name }}</code>
+      <span class="min-w-0 flex-1 text-stone-600 dark:text-stone-400">{{ skill.description }}</span>
+      <span class="shrink-0 text-xs {% if skill.up_to_date %}text-emerald-600 dark:text-emerald-400{% elif skill.installed %}text-amber-600 dark:text-amber-400{% else %}text-stone-400{% endif %}">{% if skill.up_to_date %}installed{% elif skill.installed %}older copy{% else %}not installed{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="{% url 'core:install_claude_skills' %}" class="mt-3 flex items-center gap-3">
+    {% csrf_token %}
+    <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Install / update the skills</button>
+    <span class="text-xs text-stone-500">Then, in Claude Code: <em>“/atlas-daily — what should I work on?”</em></span>
+  </form>
+
   <h2 class="mt-8 text-xs font-semibold uppercase tracking-wide text-stone-500">Connection details</h2>
   <dl class="mt-2 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
     <dt class="text-stone-500">API URL</dt><dd><code class="rounded bg-stone-100 px-1 dark:bg-stone-800">{{ conn.api_url }}/api/v1/</code></dd>

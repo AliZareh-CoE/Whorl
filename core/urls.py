@@ -27,6 +27,7 @@ urlpatterns = spa_routes + [
     path("assistant/context/", views.assistant_context_view, name="assistant_context"),
     path("pet/", views.pet_page, name="pet"),
     path("connect/claude/", views.connect_claude, name="connect_claude"),
+    path("connect/claude/skills/", views.install_claude_skills, name="install_claude_skills"),
     path("summarize/", views.summarize_view, name="summarize"),
     # SPA catch-all (Backlog #77): any slash-less path not under app/static/media serves the
     # shell; the React router resolves it (or renders its own 404). Trailing-slash paths fall

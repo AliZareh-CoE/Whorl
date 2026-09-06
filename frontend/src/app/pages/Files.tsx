@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { File, FileCode, FileImage, FileText, Folder, FolderOpen, Table } from "lucide-react";
 import Papa from "papaparse";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 
-const TerminalPanel = lazy(() => import("./TerminalPanel"));
+import { openTerminal } from "../TerminalDock";
 
 type FileNode = {
   id: number;
@@ -230,7 +230,6 @@ export default function Files() {
   });
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selected, setSelected] = useState<FileNode | null>(null);
-  const [showTerminal, setShowTerminal] = useState(false);
   const queryClient = useQueryClient();
   const refreshTree = () => queryClient.invalidateQueries({ queryKey: ["tree", slug] });
 
@@ -533,9 +532,9 @@ export default function Files() {
             Save as template
           </button>
           <button
-            onClick={() => setShowTerminal((v) => !v)}
-            className={`flex items-center gap-1 rounded border px-2 py-1 text-xs ${showTerminal ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-stone-200 bg-white text-stone-500 transition-colors hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"}`}
-            title="Toggle the terminal (Atlas desktop app)"
+            onClick={() => openTerminal({ toggle: true })}
+            className="flex items-center gap-1 rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:text-indigo-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-indigo-300"
+            title="Toggle the terminal dock (⌃`)"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
             Terminal
@@ -658,13 +657,6 @@ export default function Files() {
         </div>
       </div>
 
-      {showTerminal && (
-        <div className="mt-3 h-64 overflow-hidden rounded border border-stone-800 bg-stone-900 p-1">
-          <Suspense fallback={<p className="p-3 text-sm text-stone-400">Loading terminal…</p>}>
-            <TerminalPanel cwd={undefined} />
-          </Suspense>
-        </div>
-      )}
     </div>
   );
 }
