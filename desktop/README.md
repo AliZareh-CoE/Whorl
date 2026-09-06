@@ -127,6 +127,16 @@ the committed public key (generated with `npx @tauri-apps/cli signer generate`; 
 it). If the key has a password, add `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` too. The next push
 that touches the desktop build publishes `latest.json`, and installed apps start updating.
 
+**Private repository = no feed.** The app fetches `latest.json` without credentials, and
+GitHub answers 404 for a private repo's release assets — signing is fine, but nothing is ever
+found. The release workflow's `mirror` job fixes this by copying each build's installers,
+`.sig` files and a URL-rewritten `latest.json` into a **public** releases repository: create
+`atlas-releases` (public, empty) under the same owner and add the secrets `RELEASES_REPO`
+(`Owner/atlas-releases`) and `RELEASES_TOKEN` (fine-grained PAT, *Contents: read and write*
+on that repo). The app tries the public feed first and this repo's feed second, so making
+this repository public also works. Until one of those is done the sidebar shows
+*Updates unavailable — why?* with the reason.
+
 Losing the private key means generating a new pair, committing the new public key, and
 shipping one more manual install; keep it somewhere safe. `manage.py doctor` reports the
 updater's configuration state.

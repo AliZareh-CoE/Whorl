@@ -206,8 +206,11 @@ def test_in_app_updates_are_live_wired():
     cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
     updater = cfg["plugins"]["updater"]
     assert "REPLACE_ME" not in updater["pubkey"] and len(updater["pubkey"]) > 80
+    # the PUBLIC mirror feed first (this repo is private: an unauthenticated app gets 404 from
+    # its releases), then this repo's own feed for the day it goes public
     assert updater["endpoints"] == [
-        "https://github.com/alizareh-coe/project-manager/releases/download/desktop-preview/latest.json"
+        "https://github.com/alizareh-coe/atlas-releases/releases/download/desktop-preview/latest.json",
+        "https://github.com/alizareh-coe/project-manager/releases/download/desktop-preview/latest.json",
     ]
     assert cfg["bundle"]["createUpdaterArtifacts"] is False  # CI flips it when the secret exists
     wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
@@ -221,3 +224,26 @@ def test_in_app_updates_are_live_wired():
     assert "get it manually" in button  # fallback when the feed is unreachable
     bundle = (DESKTOP.parent / "static" / "js" / "spa.js").read_text(errors="ignore")
     assert "check_update" in bundle and "install_update" in bundle
+
+
+def test_release_workflow_mirrors_to_the_public_feed():
+    """Owner 2026-09-06: "is auto-update working?" — not from a private repo. The workflow
+    mirrors installers + .sig + a rewritten latest.json to RELEASES_REPO, and the app says so
+    when the feed 404s instead of failing silently."""
+    workflow = (
+        Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml"
+    ).read_text()
+    assert "mirror:" in workflow and "needs: build" in workflow
+    for needle in (
+        "RELEASES_REPO",
+        "RELEASES_TOKEN",
+        "latest.json",
+        'sed -i "s#github.com/$SRC_REPO/',
+    ):
+        assert needle in workflow
+    button = (
+        Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "UpdaterButton.tsx"
+    ).read_text()
+    assert "private GitHub repository" in button and "Updates unavailable" in button
+    readme = (Path(settings.BASE_DIR) / "README.md").read_text()
+    assert "## Auto-update" in readme and "RELEASES_REPO" in readme

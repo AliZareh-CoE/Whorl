@@ -226,3 +226,69 @@ jobs:
           echo "$rel" | jq -r '.assets[] | "\(.id) \(.name)"' | while read -r aid name; do
             case "$name" in *"$VER"*|latest.json) echo "keep $name" ;; *) echo "delete $name"; curl -sS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$api/releases/assets/$aid" >/dev/null ;; esac
           done
+
+  # AUTO-UPDATE FEED (owner question, 2026-09-06: "is it working?"). Signing works, but this
+  # repository is PRIVATE, so the installed app's unauthenticated fetch of latest.json gets a
+  # 404 and no update is ever found. Fix: mirror this run's installers, .sig files and a
+  # rewritten latest.json into a PUBLIC releases repository (the app's first updater endpoint).
+  # Needs two secrets: RELEASES_REPO (e.g. AliZareh-CoE/atlas-releases — create it public and
+  # empty) and RELEASES_TOKEN (a fine-grained PAT with Contents: read+write on that repo).
+  # Without them the step explains itself and exits 0. Making this repo public works too.
+  mirror:
+    name: Mirror the release to the public update feed
+    needs: build
+    if: always() && needs.build.result == 'success' && (github.ref == 'refs/heads/claude/atlas-build-loop-qnf8a8' || github.ref == 'refs/heads/claude/desktop-app-project-tl12ri')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy installers, signatures and latest.json to the public feed
+        shell: bash
+        env:
+          SRC_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DST_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          DST_REPO: ${{ secrets.RELEASES_REPO }}
+          SRC_REPO: ${{ github.repository }}
+          VER: 0.1.${{ github.run_number }}
+        run: |
+          set -e
+          if [ -z "$DST_REPO" ] || [ -z "$DST_TOKEN" ]; then
+            echo "::warning::RELEASES_REPO / RELEASES_TOKEN not set — the public update feed was not refreshed. Installed apps cannot read a private repo's releases."
+            exit 0
+          fi
+          src="https://api.github.com/repos/$SRC_REPO"; dst="https://api.github.com/repos/$DST_REPO"
+          rel=$(curl -sS -H "Authorization: Bearer $SRC_TOKEN" "$src/releases/tags/desktop-preview")
+          mkdir -p mirror
+          echo "$rel" | jq -r --arg v "$VER" '.assets[] | select((.name | contains($v)) or .name == "latest.json") | "\(.id) \(.name)"' | while read -r aid name; do
+            curl -sSL -H "Authorization: Bearer $SRC_TOKEN" -H "Accept: application/octet-stream" -o "mirror/$name" "$src/releases/assets/$aid"
+            echo "fetched $name"
+          done
+          test -s mirror/latest.json
+          # the feed must point at the public copies (case-insensitive: GitHub mixes cases)
+          sed -i "s#github.com/$SRC_REPO/#github.com/$DST_REPO/#Ig" mirror/latest.json
+          grep -q "$DST_REPO" mirror/latest.json
+          drel=$(curl -sS -H "Authorization: Bearer $DST_TOKEN" "$dst/releases/tags/desktop-preview")
+          did=$(echo "$drel" | jq -r '.id // empty')
+          if [ -z "$did" ]; then
+            did=$(curl -sS -X POST -H "Authorization: Bearer $DST_TOKEN" -H "Content-Type: application/json" \
+              -d '{"tag_name":"desktop-preview","name":"Atlas desktop preview","body":"Ready-to-install Atlas desktop builds. Installed apps update themselves from this release.","prerelease":true}' \
+              "$dst/releases" | jq -r '.id')
+            echo "created public preview release $did"
+          fi
+          # replace latest.json first (names are unique per release), then add the new files,
+          # then drop older versions — so the feed never points at a missing installer
+          curl -sS -H "Authorization: Bearer $DST_TOKEN" "$dst/releases/$did/assets?per_page=100" \
+            | jq -r '.[] | select(.name == "latest.json") | .id' \
+            | while read -r a; do curl -sS -X DELETE -H "Authorization: Bearer $DST_TOKEN" "$dst/releases/assets/$a" >/dev/null; done
+          for f in mirror/*; do
+            n=$(basename "$f")
+            if [ "$n" != "latest.json" ]; then
+              curl -sS -H "Authorization: Bearer $DST_TOKEN" "$dst/releases/$did/assets?per_page=100" | jq -r --arg n "$n" '.[] | select(.name == $n) | .id' \
+                | while read -r a; do curl -sS -X DELETE -H "Authorization: Bearer $DST_TOKEN" "$dst/releases/assets/$a" >/dev/null; done
+            fi
+            curl -sS -X POST -H "Authorization: Bearer $DST_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$f" \
+              "https://uploads.github.com/repos/$DST_REPO/releases/$did/assets?name=$n" >/dev/null
+            echo "uploaded $n"
+          done
+          curl -sS -H "Authorization: Bearer $DST_TOKEN" "$dst/releases/$did/assets?per_page=100" \
+            | jq -r --arg v "$VER" '.[] | select((.name | contains($v) | not) and .name != "latest.json") | "\(.id) \(.name)"' \
+            | while read -r a n; do echo "prune $n"; curl -sS -X DELETE -H "Authorization: Bearer $DST_TOKEN" "$dst/releases/assets/$a" >/dev/null; done
+          echo "public feed refreshed: https://github.com/$DST_REPO/releases/tag/desktop-preview"
