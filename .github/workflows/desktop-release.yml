@@ -75,6 +75,36 @@ jobs:
           grep '"version"' desktop/tauri.conf.json | head -1
           grep '^version' desktop/Cargo.toml | head -1
 
+      # In-app updates (owner, 2026-09-06): updater artifacts (.sig + latest.json) are signed
+      # with the private key held ONLY in the TAURI_SIGNING_PRIVATE_KEY secret. Flip the flag
+      # on when the secret is present so builds stay green before the secret exists.
+      - name: Enable signed updater artifacts when the signing key is configured
+        if: env.HAS_SIGNING_KEY == 'true'
+        env:
+          HAS_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        shell: bash
+        run: |
+          tmp=$(mktemp)
+          jq '.bundle.createUpdaterArtifacts = true' desktop/tauri.conf.json > "$tmp" && mv "$tmp" desktop/tauri.conf.json
+          echo "updater artifacts: ON"
+
+      # The rolling desktop-preview release keeps only the newest build: delete assets from
+      # earlier versions (this run's other-platform assets share the version stamp and stay).
+      - name: Prune older installers from the preview release
+        if: github.ref == 'refs/heads/claude/atlas-build-loop-qnf8a8' || github.ref == 'refs/heads/claude/desktop-app-project-tl12ri'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VER: 0.1.${{ github.run_number }}
+        run: |
+          api="https://api.github.com/repos/${{ github.repository }}"
+          rel=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" "$api/releases/tags/desktop-preview" || true)
+          rid=$(echo "$rel" | jq -r '.id // empty')
+          if [ -z "$rid" ]; then echo "no preview release yet"; exit 0; fi
+          echo "$rel" | jq -r '.assets[] | "\(.id) \(.name)"' | while read -r aid name; do
+            case "$name" in *"$VER"*|latest.json) ;; *) echo "delete $name"; curl -sS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$api/releases/assets/$aid" >/dev/null ;; esac
+          done
+
       - name: Install Linux build dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -135,8 +165,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # D2 (auto-update) will add TAURI_SIGNING_PRIVATE_KEY here once the owner
-          # generates the updater keypair; unsigned bundles still install fine.
+          # Signs the updater artifacts when the secret exists (see the flag step above).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: desktop
           # A manual dispatch or version tag publishes under that name; an automatic
@@ -144,7 +175,9 @@ jobs:
           # stable place to download the latest installers.
           tagName: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'desktop-preview' }}
           releaseName: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'Atlas desktop preview' }}
-          releaseBody: "Ready-to-install Atlas desktop builds. Pick the file for your OS below."
-          releaseDraft: true
-          prerelease: false
+          releaseBody: "Ready-to-install Atlas desktop builds. Pick the file for your OS below. Installed apps update themselves from this release."
+          # Published (not draft) so the in-app updater can fetch latest.json + installers;
+          # marked prerelease so it never shadows a tagged v* release as "latest".
+          releaseDraft: ${{ startsWith(github.ref, 'refs/tags/') }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
           args: ${{ matrix.target-args }}

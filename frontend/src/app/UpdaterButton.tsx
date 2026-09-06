@@ -1,39 +1,64 @@
-// In-app "Check for updates" control (Owner epic D2, 2026-06-14).
+// In-app updates (Owner epic D2; owner 2026-09-06: "auto update or an update button so I
+// won't need to download and install again").
 //
-// Desktop-only: it invokes the Tauri `check_for_updates` command, which asks the GitHub
-// Releases update feed for a newer signed build and installs it if found. In the browser
-// there is no __TAURI__ bridge, so the component renders nothing (like the terminal).
-import { useState } from "react";
+// Desktop-only. On launch it asks the Tauri updater (GitHub Releases feed, signed) whether a
+// newer build exists — silently — and turns into an "Update to x.y.z" button when one does.
+// Clicking downloads + installs, then offers a restart. "Check for updates" stays available
+// for a manual check. In the browser there is no __TAURI__ bridge, so it renders nothing.
+import { useEffect, useState } from "react";
+import { ArrowDownToLine, RefreshCw } from "lucide-react";
 
 type TauriApi = {
   core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> };
 };
 
 const isDesktop = typeof window !== "undefined" && "__TAURI__" in window;
+const RELEASES = "https://github.com/alizareh-coe/project-manager/releases/tag/desktop-preview";
 
 type State =
   | { kind: "idle" }
   | { kind: "checking" }
-  | { kind: "current" }
+  | { kind: "current"; version: string }
+  | { kind: "available"; version: string; notes: string | null }
+  | { kind: "installing"; version: string }
   | { kind: "updated"; version: string }
   | { kind: "error"; message: string };
 
+async function tauri(): Promise<TauriApi> {
+  return (await import("@tauri-apps/api")) as unknown as TauriApi;
+}
+
 export function UpdaterButton() {
   const [state, setState] = useState<State>({ kind: "idle" });
+
+  const check = async (silent = false) => {
+    if (!silent) setState({ kind: "checking" });
+    try {
+      const out = (await (await tauri()).core.invoke("check_update")) as {
+        available_version: string | null;
+        current_version: string;
+        notes: string | null;
+      };
+      if (out.available_version) setState({ kind: "available", version: out.available_version, notes: out.notes });
+      else if (!silent) setState({ kind: "current", version: out.current_version });
+    } catch (e) {
+      if (!silent) setState({ kind: "error", message: String(e) });
+    }
+  };
+
+  // silent check once per launch (the desktop shell mounts the app once)
+  useEffect(() => {
+    if (isDesktop) void check(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!isDesktop) return null;
 
-  const check = async () => {
-    setState({ kind: "checking" });
+  const install = async (version: string) => {
+    setState({ kind: "installing", version });
     try {
-      const tauri = (await import("@tauri-apps/api")) as unknown as TauriApi;
-      const out = (await tauri.core.invoke("check_for_updates")) as {
-        installed_version: string | null;
-      };
-      setState(
-        out.installed_version
-          ? { kind: "updated", version: out.installed_version }
-          : { kind: "current" },
-      );
+      const out = (await (await tauri()).core.invoke("install_update")) as { installed_version: string | null };
+      setState(out.installed_version ? { kind: "updated", version: out.installed_version } : { kind: "current", version });
     } catch (e) {
       setState({ kind: "error", message: String(e) });
     }
@@ -41,44 +66,42 @@ export function UpdaterButton() {
 
   const restart = async () => {
     try {
-      const tauri = (await import("@tauri-apps/api")) as unknown as TauriApi;
-      // relaunches the whole app so the new binary + bundled server take effect; a bare
-      // webview reload would keep running the old process.
-      await tauri.core.invoke("restart_app");
+      await (await tauri()).core.invoke("restart_app");
     } catch (e) {
       setState({ kind: "error", message: String(e) });
     }
   };
 
-  if (state.kind === "updated") {
+  const base = "mb-1 flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors";
+
+  if (state.kind === "available")
     return (
-      <button
-        onClick={restart}
-        className="mb-2 block text-left text-indigo-600 hover:text-indigo-700"
-        title={`Installed ${state.version} — restart to finish`}
-      >
-        Update ready ({state.version}) — restart
+      <button onClick={() => install(state.version)} className={`${base} glow-accent bg-indigo-600 text-white hover:bg-indigo-500`} title={state.notes ?? `Download and install ${state.version}`}>
+        <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden="true" />Update to {state.version}
       </button>
     );
-  }
+  if (state.kind === "installing")
+    return (
+      <span className={`${base} text-indigo-500`}><RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Installing {state.version}…</span>
+    );
+  if (state.kind === "updated")
+    return (
+      <button onClick={restart} className={`${base} glow-accent bg-indigo-600 text-white hover:bg-indigo-500`} title={`Installed ${state.version} — restart to finish`}>
+        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />Restart to finish update
+      </button>
+    );
+  if (state.kind === "error")
+    return (
+      <span className={`${base} flex-wrap text-stone-400`} title={state.message}>
+        <button onClick={() => check()} className="hover:text-stone-700 dark:hover:text-stone-200">Update check failed — retry</button>
+        <a href={RELEASES} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline">get it manually ↗</a>
+      </span>
+    );
 
-  const label =
-    state.kind === "checking"
-      ? "Checking…"
-      : state.kind === "current"
-        ? "Up to date ✓"
-        : state.kind === "error"
-          ? "Update check failed — retry"
-          : "Check for updates";
-
+  const label = state.kind === "checking" ? "Checking for updates…" : state.kind === "current" ? `Up to date (${state.version}) ✓` : "Check for updates";
   return (
-    <button
-      onClick={check}
-      disabled={state.kind === "checking"}
-      className="mb-2 block text-left hover:text-stone-600 disabled:opacity-60"
-      title={state.kind === "error" ? state.message : "Check for a newer Atlas build"}
-    >
-      {label}
+    <button onClick={() => check()} disabled={state.kind === "checking"} className={`${base} hover:text-stone-700 disabled:opacity-60 dark:hover:text-stone-200`} title="Ask the release feed for a newer Atlas build">
+      <RefreshCw className={`h-3.5 w-3.5 ${state.kind === "checking" ? "animate-spin" : ""}`} aria-hidden="true" />{label}
     </button>
   );
 }

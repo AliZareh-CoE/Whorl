@@ -192,3 +192,32 @@ def test_release_builds_css_before_freezing():
     assert "static/css/app.css" in wf and "tailwindcss" in wf
     # it must come before the freeze step that bundles static/
     assert wf.index("Build Tailwind CSS") < wf.index("Freeze the Atlas server")
+
+
+def test_in_app_updates_are_live_wired():
+    # Owner 2026-09-06: "auto update or update button". The shell checks silently on launch
+    # (check_update), installs on click (install_update), restarts (restart_app); the feed is
+    # the published desktop-preview release, verified with the real public key; CI signs the
+    # updater artifacts whenever the TAURI_SIGNING_PRIVATE_KEY secret exists.
+    main = (DESKTOP / "src" / "main.rs").read_text()
+    updater_rs = (DESKTOP / "src" / "updater.rs").read_text()
+    assert "updater::check_update" in main and "updater::install_update" in main
+    assert "pub async fn check_update" in updater_rs and "pub async fn install_update" in updater_rs
+    cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
+    updater = cfg["plugins"]["updater"]
+    assert "REPLACE_ME" not in updater["pubkey"] and len(updater["pubkey"]) > 80
+    assert updater["endpoints"] == [
+        "https://github.com/alizareh-coe/project-manager/releases/download/desktop-preview/latest.json"
+    ]
+    assert cfg["bundle"]["createUpdaterArtifacts"] is False  # CI flips it when the secret exists
+    wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
+    assert "secrets.TAURI_SIGNING_PRIVATE_KEY != ''" in wf
+    assert ".bundle.createUpdaterArtifacts = true" in wf
+    assert "TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" in wf
+    assert "Prune older installers" in wf
+    assert "releaseDraft: ${{ startsWith(github.ref, 'refs/tags/') }}" in wf  # preview is published
+    button = (DESKTOP.parent / "frontend" / "src" / "app" / "UpdaterButton.tsx").read_text()
+    assert 'invoke("check_update")' in button and 'invoke("install_update")' in button
+    assert "get it manually" in button  # fallback when the feed is unreachable
+    bundle = (DESKTOP.parent / "static" / "js" / "spa.js").read_text(errors="ignore")
+    assert "check_update" in bundle and "install_update" in bundle

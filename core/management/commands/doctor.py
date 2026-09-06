@@ -52,8 +52,13 @@ class Command(BaseCommand):
                 "see desktop/README (generate keypair, set pubkey, flip "
                 "createUpdaterArtifacts, add the signing secret)"
             )
-        else:
+        elif makes_artifacts:
             self.ok("Desktop auto-update signing configured")
+        else:
+            self.ok(
+                "Desktop auto-update public key set — CI signs updater artifacts when the "
+                "TAURI_SIGNING_PRIVATE_KEY secret exists"
+            )
 
     def handle(self, *args, **options):
         self.failures = self.warnings = 0

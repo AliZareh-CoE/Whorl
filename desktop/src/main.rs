@@ -135,6 +135,8 @@ fn main() {
             terminal::terminal_resize,
             localfs::open_local_file,
             updater::check_for_updates,
+            updater::check_update,
+            updater::install_update,
             updater::restart_app
         ])
         .setup(|app| {

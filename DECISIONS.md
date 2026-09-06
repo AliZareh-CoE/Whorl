@@ -544,6 +544,31 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — In-app updates go live: signed feed on the published preview release (#303)
+
+**Decision.** (1) The updater keypair now exists: the public key is committed in
+`desktop/tauri.conf.json`; the private key is held by the owner and belongs in the
+`TAURI_SIGNING_PRIVATE_KEY` repo secret. (2) The release workflow flips
+`createUpdaterArtifacts` on only when that secret is present, so builds never go red for a
+missing key. (3) The rolling `desktop-preview` release is **published as a prerelease** (a
+draft can't be fetched by the app), with a prune step keeping only the newest build's assets;
+the updater endpoint is the tag URL (`releases/download/desktop-preview/latest.json`), not
+`releases/latest`, which ignores prereleases. (4) The shell exposes `check_update` (silent, on
+launch) and `install_update` separately; the sidebar control becomes "Update to x.y.z" when a
+build is available, installs on click, and offers a restart — with a "get it manually" link
+when the feed is unreachable.
+
+**Why.** Owner: "auto update or update button so I won't need to download it every time and
+install again." Tauri's updater refuses unsigned artifacts, so signing is the only route; the
+one thing the code cannot do is add the secret to GitHub — that stays a one-time owner action,
+and everything else is ready the moment it exists.
+
+**Alternatives.** (a) Download the installer and launch it (no signing) — rejected: no
+integrity check on a binary that runs as the user, and the NSIS/MSI dance is what the owner
+wants to stop doing. (b) Commit the private key to the workflow — rejected outright.
+(c) Generate a fresh key per build — rejected: the public key is baked into the installed app,
+so updates would never verify.
+
 ### 2026-09-06 — Library v2 slice 5: tags and smart views (#301)
 
 **Decision.** `literature.LibraryTag` (global, case-insensitive-unique labels with an optional
@@ -925,6 +950,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+304. Updater polish: download progress in the sidebar control (the install closure has a chunk callback), release notes from latest.json shown before installing, a "check on a schedule" while the app is open (currently once per launch).
+303. ~~In-app updates live (done 2026-09-06): keypair generated (public key committed, private key handed to the owner for the TAURI_SIGNING_PRIVATE_KEY secret), sign-when-secret CI logic, preview release published as a prerelease with asset pruning, silent launch check + one-click install + restart in the sidebar. See the 2026-09-06 decision.~~
 302. Library, remaining vs. Paperpile/Zotero after slice 5: duplicate merge (keep links/PDF/tags), inline PDF preview pane in the workbench, tag colours in the UI (model has the field), drag-to-reorder smart views, per-reference notes surfaced in the detail pane.
 301. ~~Library v2 slice 5 (done 2026-09-06): LibraryTag + SavedView, rail sections (Smart views with "+ save", Tags with Untagged), bulk/detail tag editing, API + MCP. See the 2026-09-06 decision.~~
 300. Today list, later: drag-to-reorder, a compact widget on the dashboard hero ("3 on your list"), a ⌘K verb "Add to my list", optional due times with a gentle nudge in the sidebar, carry-over count ("2 from yesterday").

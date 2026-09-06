@@ -106,23 +106,33 @@ frozen server without bundling, set `ATLAS_SERVER_BIN=/path/to/atlas-server` and
 
 `cargo test` in `desktop/` runs the shell's unit tests (port selection, log tailing).
 
-## Auto-update ("Check for updates" button)
-The app has Tauri's built-in updater (OSS — no paid service). The SPA sidebar shows a
-desktop-only **Check for updates** control that asks the GitHub Releases feed for a newer
-signed build, installs it, and offers a restart. It is wired but **dormant until a one-time
-signing setup** (updater bundles must be signed):
+## In-app updates
 
-1. Generate the keypair once: `cargo tauri signer generate -w ~/.atlas-updater.key`
-   (keep the private key secret — never commit it).
-2. Put the printed **public** key into `desktop/tauri.conf.json` → `plugins.updater.pubkey`
-   (replacing the `REPLACE_ME_…` placeholder).
-3. Flip `bundle.createUpdaterArtifacts` to `true` in the same file.
-4. Add the **private** key as a repo secret `TAURI_SIGNING_PRIVATE_KEY` (and
-   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if you set one) — the release workflow already passes
-   them through to the signed build.
+The app updates itself from the **desktop-preview** release (published as a prerelease so it
+never shadows a tagged `v*` release). On every launch the sidebar control silently asks the
+release feed (`latest.json`) whether a newer build exists; if so it becomes **Update to
+0.1.NN** — one click downloads and installs, then **Restart to finish update**. "Check for
+updates" stays available for a manual check, and if the feed is unreachable the control links
+to the release page as a fallback.
 
-Until then the installers still build fine; only the in-app update check stays inert (it
-reports an error gracefully if pressed). `manage.py doctor` warns while the placeholder is in.
+Updates are **signed**: every `.sig` and `latest.json` is produced with a private key that
+lives only in the repo secret `TAURI_SIGNING_PRIVATE_KEY`, and the app verifies downloads
+against the public key in `desktop/tauri.conf.json` (`plugins.updater.pubkey`). The release
+workflow turns `createUpdaterArtifacts` on automatically whenever that secret exists, so builds
+stay green before the secret is added — they just don't publish an update feed until then.
+
+**One-time setup (repo owner):** GitHub → Settings → Secrets and variables → Actions → New
+repository secret → name `TAURI_SIGNING_PRIVATE_KEY`, value = the private key that pairs with
+the committed public key (generated with `npx @tauri-apps/cli signer generate`; the owner holds
+it). If the key has a password, add `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` too. The next push
+that touches the desktop build publishes `latest.json`, and installed apps start updating.
+
+Losing the private key means generating a new pair, committing the new public key, and
+shipping one more manual install; keep it somewhere safe. `manage.py doctor` reports the
+updater's configuration state.
+
+The preview release keeps only the newest build: the workflow prunes installers from earlier
+versions (assets sharing the current version stamp — the other platform's — are kept).
 
 ## Not yet
 - **Code signing** (Windows Authenticode, macOS notarization) — needs a certificate / Apple
@@ -131,4 +141,3 @@ reports an error gracefully if pressed). `manage.py doctor` warns while the plac
   builds Linux + Windows only. Add a `macos-latest` entry to the matrix to get a `.dmg`.
 - **AppImage** — dropped because linuxdeploy could not relink the bundled native libraries;
   `.deb`/`.rpm` cover Linux.
-- **Live auto-update** — the signing setup above.
