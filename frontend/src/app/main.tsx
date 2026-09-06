@@ -29,6 +29,7 @@ const ManuscriptDetail = lazy(() => import("./pages/Writing").then((m) => ({ def
 const Studio = lazy(() => import("./pages/Studio"));
 const PetPage = lazy(() => import("./pages/Pet"));
 const Connect = lazy(() => import("./pages/Connect"));
+const Diagnostics = lazy(() => import("./pages/Diagnostics"));
 const Report = lazy(() => import("./pages/Report"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const Today = lazy(() => import("./pages/Today"));
@@ -73,6 +74,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="automations" element={<Automations />} />
           <Route path="pet" element={<PetPage />} />
           <Route path="connect" element={<Connect />} />
+          <Route path="diagnostics" element={<Diagnostics />} />
           <Route path="library" element={<Library />} />
           <Route path="references/:id" element={<Reference />} />
           <Route path="writing" element={<WritingBoard />} />

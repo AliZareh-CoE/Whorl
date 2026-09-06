@@ -2,8 +2,9 @@
  * Claude tool. Three steps — register, check, skills — with copy buttons, and on the desktop
  * a "run it here" button that opens the terminal dock with the command already typed. */
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Eye, EyeOff, ExternalLink, Plug, Sparkles, TerminalSquare } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, ExternalLink, Plug, Sparkles, Stethoscope, TerminalSquare } from "lucide-react";
 import { api } from "../api";
 import { openTerminal } from "../TerminalDock";
 
@@ -35,7 +36,7 @@ export default function Connect() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <nav className="mb-4 text-sm text-stone-400" aria-label="Breadcrumb">Connect Claude Code</nav>
+      <nav className="mb-4 flex items-center text-sm text-stone-400" aria-label="Breadcrumb">Connect Claude Code<Link to="/diagnostics" className="ml-auto inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-300"><Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />Diagnostics</Link></nav>
       <h1 className="text-3xl font-semibold tracking-tight"><span className="text-gradient">Claude</span> works inside Atlas</h1>
       <p className="mt-2 max-w-2xl text-sm text-stone-500">Atlas ships an MCP server: register it once and Claude Code can list your projects, tick milestones, add papers by DOI, write notes, drive the manuscript studio and run bib checks — everything the API can do, 86 tools. Four skills teach it the workflows.</p>
 

@@ -1579,6 +1579,7 @@ class HighlightViewSet(AtlasViewSet):
                 project=data.get("project"),
                 comment=data.get("comment", ""),
                 color=data.get("color", Highlight.Color.YELLOW),
+                rects=data.get("rects") or [],
             )
         except HighlightError as exc:
             raise rf_serializers.ValidationError({"text": str(exc)}) from exc
@@ -2454,6 +2455,22 @@ class DemoAPIView(APIView):
         return Response(
             {"project": project.slug if project else None, "projects": Project.objects.count()}
         )
+
+
+class DiagnosticsAPIView(APIView):
+    """Why didn't it work? Version, paths, engine, update feed, last compile failure, log tail."""
+
+    @extend_schema(
+        operation_id="v1_diagnostics",
+        description="Diagnostics report; ?network=1 also probes the update feed.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from core.diagnostics import as_text, collect
+
+        report = collect(check_network=request.query_params.get("network") == "1")
+        report["text"] = as_text(report)
+        return Response(report)
 
 
 class ConnectAPIView(APIView):

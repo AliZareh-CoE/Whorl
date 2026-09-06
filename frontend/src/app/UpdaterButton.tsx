@@ -103,7 +103,8 @@ export function UpdaterButton() {
   if (state.kind === "error")
     return (
       <span className={`${base} flex-wrap text-stone-400`} title={state.message} data-testid="updater-error">
-        <button onClick={() => check()} className="hover:text-stone-700 dark:hover:text-stone-200">{state.silent ? "Updates unavailable — why?" : "Update check failed — retry"}</button>
+        <button onClick={() => check()} className="hover:text-stone-700 dark:hover:text-stone-200">{state.silent ? "Updates unavailable" : "Update check failed — retry"}</button>
+        <a href="/diagnostics" className="text-indigo-500 hover:underline">why?</a>
         <button type="button" onClick={() => void openExternal(RELEASES)} className="text-indigo-500 hover:underline">get it manually ↗</button>
       </span>
     );
