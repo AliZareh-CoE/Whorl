@@ -115,7 +115,7 @@ export default function Library() {
   const highlights = useQuery({ queryKey: ["highlights", detailId], queryFn: () => api<Page<Highlight>>(`/highlights/?reference=${detailId}&page_size=200`).then((p) => p.results), enabled: detailId !== null });
   const readingNotes = useQuery({ queryKey: ["reading-notes", detailId], queryFn: () => api<ReadingNote[]>(`/references/${detailId}/reading-notes/`), enabled: detailId !== null });
   const addHighlight = useMutation({
-    mutationFn: (h: { reference: number; text: string; page: number | null; color: string; project: string | null }) => api<Highlight>("/highlights/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(h) }),
+    mutationFn: (h: { reference: number; text: string; page: number | null; color: string; project: string | null; rects?: { x: number; y: number; w: number; h: number }[] }) => api<Highlight>("/highlights/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(h) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["highlights"] }); queryClient.invalidateQueries({ queryKey: ["reading-notes"] }); invalidate(); flash("Highlight saved."); },
     onError: () => flash("Could not save the highlight."),
   });

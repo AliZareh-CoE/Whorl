@@ -485,9 +485,20 @@ class HighlightSerializer(serializers.ModelSerializer):
             "text",
             "comment",
             "color",
+            "rects",
             "created_at",
             "updated_at",
         ]
+
+    def validate_rects(self, value):
+        if not isinstance(value, list) or len(value) > 200:
+            raise serializers.ValidationError("rects must be a list of at most 200 boxes.")
+        for box in value:
+            if not isinstance(box, dict) or set(box) != {"x", "y", "w", "h"}:
+                raise serializers.ValidationError("each box needs x, y, w, h.")
+            if not all(isinstance(box[k], (int, float)) and -0.01 <= box[k] <= 1.01 for k in box):
+                raise serializers.ValidationError("box values are fractions of the page (0..1).")
+        return [{k: round(float(box[k]), 4) for k in ("x", "y", "w", "h")} for box in value]
 
 
 class MergeReferencesSerializer(serializers.Serializer):

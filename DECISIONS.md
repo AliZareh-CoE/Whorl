@@ -544,6 +544,16 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Exact highlight marks (#355)
+
+**Decision.** A highlight now stores the selection's line boxes as fractions of the page (`Highlight.rects`, migration 0008; validated to at most 200 boxes in 0..1). The reader captures them from the selection's client rects at save time and paints them in an `.hl-layer` between the canvas and the text layer, so marks look like a real PDF viewer's, survive zoom, and no longer depend on matching span text; highlights without boxes (older ones, MCP-created ones) keep the text-match painter. The API's `perform_create` passes the boxes through the `add_highlight` service — the first browser check caught that it silently dropped them.
+
+### 2026-09-06 — Diagnostics page (#354)
+
+**Decision.** `GET /api/v1/diagnostics/` (`core/diagnostics.py`) gathers version, platform, data folder, database, LaTeX engine path, job mode, API-key state, the updater endpoints (probed only with `?network=1`), the last failed compile's log and the tail of the desktop server log, plus a plain-text rendering. `pages/Diagnostics.tsx` at `/diagnostics` shows it with pass/fail marks and a **Copy report** button; the Connect page and the sidebar's "Updates unavailable — why?" link there.
+
+**Why.** Three of today's owner reports ("didn't compile", "check for update failed", "not allowed by ACL") took a round-trip each to understand. One paste should carry the answer.
+
 ### 2026-09-06 — Compile hardening for the desktop (#353)
 
 **Finding.** The owner: "the latex didn't compile". The Windows installer does carry `tectonic.exe` (verified in the run 75 job log: 50 MB in `bin/`), so the likely killers were the 180 s compile timeout — Tectonic's first run fetches the TeX bundle over the network, which takes minutes — and, before the ACL fix, nothing in the shell working at all.

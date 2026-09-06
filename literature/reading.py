@@ -29,6 +29,7 @@ def add_highlight(
     comment: str = "",
     color: str = Highlight.Color.YELLOW,
     mirror_to_note: bool = True,
+    rects: list | None = None,
 ) -> Highlight:
     """Save a highlight; optionally mirror it into the project's highlights note."""
     from notes.services import add_highlight_note
@@ -54,6 +55,7 @@ def add_highlight(
         text=text,
         comment=comment.strip(),
         color=color,
+        rects=rects or [],
     )
     if project is not None and mirror_to_note:
         add_highlight_note(reference, project, text, page)

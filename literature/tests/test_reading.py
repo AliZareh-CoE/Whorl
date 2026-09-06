@@ -135,3 +135,28 @@ def test_legacy_reader_highlight_view_writes_structured_row(client, paper):
     h = Highlight.objects.get()
     assert h.project == project and h.page == 2 and h.text == "from the reader"
     assert Note.objects.get(pk=out.json()["note_id"]).body.count("from the reader") == 1
+
+
+@pytest.mark.django_db
+def test_highlight_rects_round_trip_and_validation(client_logged_in):
+    from literature.tests.factories import ReferenceFactory
+
+    ref = ReferenceFactory()
+    boxes = [{"x": 0.1, "y": 0.2, "w": 0.5, "h": 0.0123456}]
+    made = client_logged_in.post(
+        "/api/v1/highlights/",
+        {"reference": ref.pk, "text": "a passage worth keeping", "page": 2, "rects": boxes},
+        content_type="application/json",
+    )
+    assert made.status_code == 201 and made.json()["rects"] == [
+        {"x": 0.1, "y": 0.2, "w": 0.5, "h": 0.0123}
+    ]
+    bad = client_logged_in.post(
+        "/api/v1/highlights/",
+        {"reference": ref.pk, "text": "bad boxes", "rects": [{"x": 2, "y": 0, "w": 1, "h": 1}]},
+        content_type="application/json",
+    )
+    assert bad.status_code == 400 and "rects" in bad.json()
+    assert client_logged_in.get(f"/api/v1/highlights/?reference={ref.pk}").json()["results"][0][
+        "rects"
+    ]

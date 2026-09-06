@@ -383,6 +383,10 @@
 /* Library v2 slice 7 — in-workbench PDF reader (pdf.js text layer + painted highlights) */
 .pdf-page { position: relative; margin: 0 auto; background: white; box-shadow: 0 1px 3px rgb(0 0 0 / 0.15); }
 .pdf-page canvas { display: block; }
+/* exact highlight boxes (Library v3) — sit between the canvas and the text layer */
+.pdf-page .hl-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.pdf-page .hl-layer i { position: absolute; display: block; border-radius: 2px; opacity: 0.38; mix-blend-mode: multiply; }
+.dark .pdf-page .hl-layer i { opacity: 0.55; mix-blend-mode: normal; }
 .textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; opacity: 1; }
 .textLayer span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; }
 .textLayer ::selection { background: rgb(79 70 229 / 0.35); }

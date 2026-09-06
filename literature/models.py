@@ -219,6 +219,9 @@ class Highlight(TimeStampedModel):
     text = models.TextField()
     comment = models.TextField(blank=True)
     color = models.CharField(max_length=10, choices=Color.choices, default=Color.YELLOW)
+    # Library v3: the selection's boxes as fractions of the page ({x, y, w, h} in 0..1), so the
+    # reader paints the exact marks like a real PDF viewer; empty = paint by text match.
+    rects = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["page", "created_at"]

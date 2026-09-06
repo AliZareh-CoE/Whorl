@@ -9,7 +9,25 @@ import { api } from "../../api";
 export type Highlight = {
   id: number; reference: number; project: string | null; project_name: string; page: number | null;
   text: string; comment: string; color: "yellow" | "green" | "blue" | "pink"; created_at: string;
+  rects?: Box[];
 };
+export type Box = { x: number; y: number; w: number; h: number };
+
+/** Exact marks (Library v3): paint each highlight's stored boxes over the page. Highlights
+ *  without boxes fall back to the text-match painter below. */
+export function paintRects(wrap: HTMLElement, marks: Highlight[]) {
+  let layer = wrap.querySelector<HTMLElement>(".hl-layer");
+  if (!layer) { layer = document.createElement("div"); layer.className = "hl-layer"; wrap.appendChild(layer); }
+  layer.innerHTML = "";
+  for (const h of marks) {
+    for (const b of h.rects ?? []) {
+      const el = document.createElement("i");
+      el.style.left = `${b.x * 100}%`; el.style.top = `${b.y * 100}%`; el.style.width = `${b.w * 100}%`; el.style.height = `${b.h * 100}%`;
+      el.style.background = HL_COLORS[h.color] ?? HL_COLORS.yellow; el.dataset.hlId = String(h.id); el.title = h.comment || h.text.slice(0, 120);
+      layer.appendChild(el);
+    }
+  }
+}
 export const HL_COLORS: Record<Highlight["color"], string> = { yellow: "#facc15", green: "#4ade80", blue: "#60a5fa", pink: "#f472b6" };
 
 type Props = {
@@ -21,7 +39,7 @@ type Props = {
   projects: { slug: string; name: string }[];
   project: string;
   onProject: (slug: string) => void;
-  onSave: (h: { text: string; page: number | null; color: Highlight["color"] }) => Promise<void>;
+  onSave: (h: { text: string; page: number | null; color: Highlight["color"]; rects?: Box[] }) => Promise<void>;
   onClose: () => void;
   jump: { page: number; nonce: number } | null;
   fullReaderHref: string;
@@ -66,7 +84,7 @@ export default function PdfReader({ refId, initialFind = "", pdfUrl, title, high
   const [numPages, setNumPages] = useState(0);
   const [current, setCurrent] = useState(1);
   const [error, setError] = useState("");
-  const [popover, setPopover] = useState<{ x: number; y: number; text: string; page: number | null } | null>(null);
+  const [popover, setPopover] = useState<{ x: number; y: number; text: string; page: number | null; rects: Box[] } | null>(null);
   const [saving, setSaving] = useState(false);
   const pdfRef = useRef<{ numPages: number; getPage: (n: number) => Promise<unknown> } | null>(null);
   const libRef = useRef<Record<string, unknown> | null>(null);
@@ -111,7 +129,9 @@ export default function PdfReader({ refId, initialFind = "", pdfUrl, title, high
     await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
     const TextLayer = lib.TextLayer as new (o: unknown) => { render: () => Promise<void> };
     await new TextLayer({ textContentSource: page.streamTextContent(), container: textDiv, viewport }).render();
-    paintHighlights(textDiv, highlightsRef.current.filter((h) => h.page === n), findRef.current);
+    const onPage = highlightsRef.current.filter((h) => h.page === n);
+    paintHighlights(textDiv, onPage.filter((h) => !h.rects?.length), findRef.current);
+    paintRects(wrap, onPage);
   }, [scale]);
 
   // lazy render on scroll + current page tracking
@@ -135,7 +155,8 @@ export default function PdfReader({ refId, initialFind = "", pdfUrl, title, high
     if (!root) return;
     root.querySelectorAll<HTMLElement>("[data-page]").forEach((wrap) => {
       const layer = wrap.querySelector<HTMLElement>(".textLayer");
-      if (layer) paintHighlights(layer, highlights.filter((h) => h.page === Number(wrap.dataset.page)), find);
+      const onPage = highlights.filter((h) => h.page === Number(wrap.dataset.page));
+      if (layer) { paintHighlights(layer, onPage.filter((h) => !h.rects?.length), find); paintRects(wrap, onPage); }
     });
   }, [highlights, find]);
 
@@ -164,15 +185,28 @@ export default function PdfReader({ refId, initialFind = "", pdfUrl, title, high
     const node = sel.anchorNode instanceof Element ? sel.anchorNode : sel.anchorNode?.parentElement;
     const wrap = node?.closest<HTMLElement>("[data-page]");
     if (!wrap || !scroller.current) { setPopover(null); return; }
-    const rect = sel.getRangeAt(0).getBoundingClientRect();
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
     const host = scroller.current.getBoundingClientRect();
-    setPopover({ x: rect.left - host.left + rect.width / 2, y: rect.top - host.top + scroller.current.scrollTop - 8, text: text.slice(0, 2000), page: Number(wrap.dataset.page) });
+    // the selection's line boxes as fractions of the page, so the mark survives zoom and a swapped PDF
+    const w = wrap.getBoundingClientRect();
+    const seen = new Set<string>();
+    const rects: Box[] = [];
+    for (const r of Array.from(range.getClientRects())) {
+      if (r.width < 2 || r.height < 2 || w.width === 0 || w.height === 0) continue;
+      const b = { x: (r.left - w.left) / w.width, y: (r.top - w.top) / w.height, w: r.width / w.width, h: r.height / w.height };
+      const key = [b.x, b.y, b.w, b.h].map((v) => v.toFixed(3)).join(",");
+      if (seen.has(key) || b.x < 0 || b.y < 0 || b.x + b.w > 1.01 || b.y + b.h > 1.01) continue;
+      seen.add(key); rects.push(b);
+      if (rects.length >= 200) break;
+    }
+    setPopover({ x: rect.left - host.left + rect.width / 2, y: rect.top - host.top + scroller.current.scrollTop - 8, text: text.slice(0, 2000), page: Number(wrap.dataset.page), rects });
   };
 
   const save = async (color: Highlight["color"]) => {
     if (!popover) return;
     setSaving(true);
-    try { await onSave({ text: popover.text, page: popover.page, color }); setPopover(null); window.getSelection()?.removeAllRanges(); }
+    try { await onSave({ text: popover.text, page: popover.page, color, rects: popover.rects }); setPopover(null); window.getSelection()?.removeAllRanges(); }
     finally { setSaving(false); }
   };
 

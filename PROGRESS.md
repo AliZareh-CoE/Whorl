@@ -2,6 +2,10 @@
 
 ## Current Status
 
+- **★ EXACT HIGHLIGHT MARKS (2026-09-06, #355).** `Highlight.rects` + validation, reader captures selection boxes and paints an `.hl-layer`; service/API pass-through. Test: rects round-trip + validation. Playwright: dragged a selection, saved yellow, boxes painted and returned by the API (docs/screenshots/highlight-rects.png).
+
+- **★ DIAGNOSTICS PAGE (2026-09-06, #354).** `/diagnostics` + `/api/v1/diagnostics/` (version, paths, engine, feed probe, last failed compile, log tail, copyable text). Tests: `core/tests/test_diagnostics.py`. Next: highlight rectangles; re-judge Today.
+
 - **fix(writing): compile hardening for the desktop (2026-09-06, #353).** 900 s timeout with a first-run explanation, frozen-path engine lookup, engine path in the log, no console window on Windows. Owner reports handled this round: ACL refusal (#352), external links (#352), update feed (#347), first run (#351).
 
 - **★ DESKTOP ACL FIX (2026-09-06, #353).** Owner: "terminal_spawn not allowed by ACL". Root cause: the capability lacked `remote.urls` for the http://127.0.0.1 origin the webview loads, so no Tauri command worked in the installed app (terminal, updater, file picker, external links). Fixed in `desktop/capabilities/default.json` + scaffold test; updater button explains the old refusal. Owner must reinstall once from the releases page (the old build cannot update itself).
