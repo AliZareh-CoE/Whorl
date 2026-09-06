@@ -454,3 +454,31 @@ def set_phase_dates(phase_id: int, start: str | None = None, end: str | None = N
 def get_week_focus(slug: str):
     """Overdue, due-this-week and next-up items for one project."""
     return _request("GET", f"/projects/{slug}/focus/")
+
+
+def list_notes(project: str, q: str = ""):
+    """Notes of a project (newest edited first), optionally filtered by text."""
+    params = {"project": project, "page_size": 100}
+    if q:
+        params["q"] = q
+    return _request("GET", "/notes/", params=params)
+
+
+def get_note(note_id: int):
+    """One note with its body, references and backlinks."""
+    return _request("GET", f"/notes/{note_id}/")
+
+
+def update_note(note_id: int, body: str | None = None, title: str | None = None):
+    """Replace a note's body and/or title; [[links]] and @keys are re-synced."""
+    payload = {}
+    if body is not None:
+        payload["body"] = body
+    if title is not None:
+        payload["title"] = title
+    return _request("PATCH", f"/notes/{note_id}/", json=payload)
+
+
+def get_note_links(note_id: int):
+    """Outgoing links, backlinks, references, unresolved links/keys, unlinked mentions."""
+    return _request("GET", f"/notes/{note_id}/links/")

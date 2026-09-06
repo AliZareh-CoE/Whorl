@@ -18,8 +18,7 @@ const Literature = lazy(() => import("./pages/Literature"));
 const ReadingFlow = lazy(() => import("./pages/ReadingFlow"));
 const Library = lazy(() => import("./pages/Library"));
 const Reference = lazy(() => import("./pages/Reference"));
-const NotesList = lazy(() => import("./pages/Notes").then((m) => ({ default: m.NotesList })));
-const NoteEditor = lazy(() => import("./pages/Notes").then((m) => ({ default: m.NoteEditor })));
+const Notes = lazy(() => import("./pages/Notes"));
 const Research = lazy(() => import("./pages/Research"));
 const Review = lazy(() => import("./pages/Review"));
 const Decisions = lazy(() => import("./pages/Decisions"));
@@ -54,9 +53,9 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/literature" element={<Literature />} />
           <Route path="projects/:slug/queue" element={<Literature queue />} />
           <Route path="projects/:slug/read" element={<ReadingFlow />} />
-          <Route path="projects/:slug/notes" element={<NotesList />} />
-          <Route path="projects/:slug/notes/new" element={<NoteEditor />} />
-          <Route path="projects/:slug/notes/:id" element={<NoteEditor />} />
+          <Route path="projects/:slug/notes" element={<Notes />} />
+          <Route path="projects/:slug/notes/new" element={<Notes />} />
+          <Route path="projects/:slug/notes/:id" element={<Notes />} />
           <Route path="projects/:slug/research" element={<Research />} />
           <Route path="projects/:slug/review" element={<Review />} />
           <Route path="review" element={<Review />} />

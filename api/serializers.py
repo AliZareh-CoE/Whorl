@@ -458,6 +458,7 @@ class AddByDoiSerializer(serializers.Serializer):
 class NoteSerializer(serializers.ModelSerializer):
     project = ProjectSlugField()
     backlinks = serializers.SerializerMethodField()
+    references_detail = ReferenceSummarySerializer(source="references", many=True, read_only=True)
 
     class Meta:
         model = Note
@@ -467,6 +468,7 @@ class NoteSerializer(serializers.ModelSerializer):
             "title",
             "body",
             "references",
+            "references_detail",
             "backlinks",
             "created_at",
             "updated_at",

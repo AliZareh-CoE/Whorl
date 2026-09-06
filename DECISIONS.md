@@ -544,6 +544,31 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Notes v2 slice 1: the notes workbench with @citations (#319)
+
+**Decision.** Notes adopt Pandoc-style citation keys: `@bibtex_key` in a body attaches the paper to
+the note (`sync_note_references`, additive — manual links are never removed) and renders as a link
+to the paper in the preview; `[[Title]]` keeps linking notes. New API: `GET /notes/{id}/links/`
+(outgoing, backlinks, references, unresolved titles/keys, unlinked mentions), `GET /notes/suggest/`
+(autocomplete for both triggers, prefix matches first, references limited to papers filed in the
+project), `GET /notes/unwritten/`; `references_detail` on the note serializer; MCP `list_notes`,
+`get_note`, `update_note`, `get_note_links` (66 tools). The SPA Notes page becomes a workbench:
+list with search and the "linked but unwritten" stubs, editor with a live preview beside it and
+autosave (1.2 s / ⌘S), an autocomplete popover for `[[` and `@` (client-side re-ranked against the
+characters typed now, since the query is debounced), and a link panel (Cites / Links out / Backlinks
+with mentions-without-a-link). One lazy component serves all three note routes so switching notes
+keeps the list state.
+
+**Why.** Obsidian and Logseq made `[[links]]` table stakes; what a researcher's notes lack there is a
+first-class tie to the literature. `@key` is the notation people already use in Markdown manuscripts,
+so a note that cites becomes a graph edge and a bibliography for free.
+
+**Alternatives considered.** A rich-text/CodeMirror editor — rejected for this slice: a textarea with
+a preview keeps the Markdown honest and ships without a dependency; caret-accurate popovers can come
+later. Removing references when a key disappears — rejected: manual attachments from the reader
+would be lost. Global reference suggestions — rejected: the project's own literature is the
+relevant set, and the library workbench files papers in one click.
+
 ### 2026-09-06 — Plan v2 slice 4: phase context, questions on the plan, keyboard reschedule (#317)
 
 **Decision.** The plan API now returns each phase's objective, target window and attached research

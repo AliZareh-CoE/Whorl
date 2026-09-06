@@ -19,6 +19,7 @@ milestones, add papers, fetch your saved prompts.
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Library workbench](docs/screenshots/library.png) |
 | ![Plan as glass phase cards](docs/screenshots/plan.png) | ![Write the plan as an outline](docs/screenshots/plan-outline.png) |
 | ![Roadmap: drag phases and milestones on a time axis](docs/screenshots/plan-roadmap.png) | ![This week + milestone drawer](docs/screenshots/plan-focus.png) |
+| ![Notes workbench with [[links]] and @citations](docs/screenshots/notes.png) | ![Search inside your PDFs](docs/screenshots/library-find.png) |
 | *The Observatory dashboard: a living constellation of your projects and what needs you today* | *The Library workbench: drop PDFs/BibTeX/RIS or pull Zotero, facet by year/venue/project, bulk-file, recover metadata* |
 | ![Discover from any paper](docs/screenshots/library-discover.png) | ![Knowledge graph](docs/screenshots/graph3d.png) |
 | *Discover from any paper: similar / cites / cited-by on OpenAlex, one-click add into a project* | *3D citation + notes graph, synced from OpenAlex* |
@@ -36,12 +37,12 @@ milestones, add papers, fetch your saved prompts.
 - **Formatted citations** — copy any paper or selection as APA 7, MLA 9, Chicago, Harvard, Vancouver, or IEEE (bibliography entry and in-text form) straight from the Library
 - **Discover from any paper** — three OpenAlex lenses in the Library (similar work, what it cites, what cites it), each row addable in one click into the library or the current project; export any selection or filtered view as `.bib`, copy BibTeX, fetch open-access PDFs in bulk
 - **Literature review matrix** — papers × themes grid with markdown export
-- **Notes & knowledge graph** — `[[wiki-links]]`, backlinks, typo-tolerant full-text search, related-paper suggestions (local TF-IDF, no API calls)
+- **Notes & knowledge graph** — `[[wiki-links]]`, backlinks, typo-tolerant full-text search, related-paper suggestions (local TF-IDF, no API calls); **Notes v2 workbench** — list | editor with live preview | link panel; `[[` autocompletes note titles, `@` autocompletes the cite keys of papers filed in the project and attaches them to the note (Pandoc-style `@key` renders as a link to the paper), autosave, backlinks, unlinked mentions, and one-click creation of linked-but-unwritten notes
 - **Writing studio** — manuscript pipeline (idea → published), cite checker against your `.tex`, **server-side LaTeX compilation** (vendored Tectonic) with split-view preview
 - **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
 - **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
 - **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 62 tools over the REST API; your AI assistant operates the same contract you do
+- **Claude/MCP integration** — 66 tools over the REST API; your AI assistant operates the same contract you do
 - **Today list** — a dead-simple personal to-do list for the day (add, tick, clear done); nothing is lost overnight; Claude can add to it
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
@@ -137,7 +138,7 @@ Library imports & discovery: `import_references` (BibTeX/CSL-JSON/RIS text), `im
 Tags, views & hygiene: `list_library_tags`, `tag_references`, `find_duplicates`, `merge_references`.
 Reading: `list_highlights`, `add_highlight`, `get_highlights_markdown`, `get_reading_notes`, `set_reading_notes`, `fetch_pdf`, `search_pdf_text`, `search_in_pdf`.
 Today list: `list_todos`, `add_todo`, `complete_todo`.
-Notes, search & review: `add_note`, `quick_capture`, `search`, `get_weekly_review`,
+Notes, search & review: `add_note`, `list_notes`, `get_note`, `update_note`, `get_note_links`, `quick_capture`, `search`, `get_weekly_review`,
 `list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,
 `list_manuscript_files`, `read_manuscript_file`, `write_manuscript_file`, `set_main_file`,
 `compile_manuscript`, `get_compile_status`, `get_compile_diagnostics`, `compile_and_wait`,

@@ -1726,15 +1726,89 @@ class NoteViewSet(AtlasViewSet):
                 return f"*[[{title}]]*"
 
             body = WIKI_LINK_RE.sub(replace, body)
+        # @cite-keys become links to the paper (Notes v2 slice 1)
+        from literature.models import Reference
+        from notes.services import CITE_RE, parse_cite_keys
+
+        keys = parse_cite_keys(body)
+        if keys:
+            refs = {r.bibtex_key.lower(): r for r in Reference.objects.filter(bibtex_key__in=keys)}
+
+            def cite(match: re.Match) -> str:
+                key = match.group(1).rstrip(".")
+                ref = refs.get(key.lower())
+                if ref:
+                    title = ref.title.replace('"', "'")
+                    return f'[@{key}]({ref.get_absolute_url()} "{title}")'
+                return f"*@{key}*"
+
+            body = CITE_RE.sub(cite, body)
         return Response({"html": str(markdownify(body))})
 
     def perform_create(self, serializer):
         note = serializer.save()
         note_services.sync_note_links(note)
+        note_services.sync_note_references(note)
 
     def perform_update(self, serializer):
         note = serializer.save()
         note_services.sync_note_links(note)
+        note_services.sync_note_references(note)
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="outgoing, backlinks, references, unresolved [[titles]], "
+                "unresolved @keys, and unlinked mentions of this note"
+            )
+        },
+        description="The link panel of one note.",
+    )
+    @action(detail=True, methods=["get"])
+    def links(self, request, pk=None):
+        return Response(note_services.note_links(self.get_object()))
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("project", str, required=True),
+            OpenApiParameter("q", str, description="Prefix typed so far"),
+            OpenApiParameter("kind", str, description="note (default) or reference"),
+        ],
+        responses={
+            200: inline_serializer(
+                "NoteSuggestion",
+                {
+                    "id": rf_serializers.IntegerField(),
+                    "label": rf_serializers.CharField(),
+                    "sublabel": rf_serializers.CharField(),
+                },
+                many=True,
+            )
+        },
+        description="Autocomplete for [[note titles]] and @cite-keys while writing.",
+    )
+    @action(detail=False, methods=["get"])
+    def suggest(self, request):
+        project = get_object_or_404(Project, slug=request.query_params.get("project", ""))
+        kind = "reference" if request.query_params.get("kind") == "reference" else "note"
+        return Response(
+            note_services.suggest(project, request.query_params.get("q", "")[:100], kind)
+        )
+
+    @extend_schema(
+        parameters=[OpenApiParameter("project", str, required=True)],
+        responses={
+            200: inline_serializer(
+                "UnwrittenNotes",
+                {"titles": rf_serializers.ListField(child=rf_serializers.CharField())},
+            )
+        },
+        description="[[Titles]] linked somewhere in the project that have no note yet.",
+    )
+    @action(detail=False, methods=["get"])
+    def unwritten(self, request):
+        project = get_object_or_404(Project, slug=request.query_params.get("project", ""))
+        return Response({"titles": note_services.unwritten_note_titles(project)})
 
 
 @method_decorator(login_not_required, name="dispatch")

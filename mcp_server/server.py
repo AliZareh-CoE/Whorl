@@ -426,3 +426,29 @@ def get_week_focus(slug: str) -> dict:
     """What to do on this project this week: overdue milestones/tasks first (with days late),
     then everything due within seven days, then the next milestones of the current phase."""
     return client.get_week_focus(slug)
+
+
+@mcp.tool()
+def list_notes(project: str, q: str = "") -> dict:
+    """Notes in a project, newest edited first; `q` filters by title/body text."""
+    return client.list_notes(project, q)
+
+
+@mcp.tool()
+def get_note(note_id: int) -> dict:
+    """A note's title, Markdown body, cited references and backlinks."""
+    return client.get_note(note_id)
+
+
+@mcp.tool()
+def update_note(note_id: int, body: str = "", title: str = "") -> dict:
+    """Rewrite a note's body and/or title (empty = unchanged). [[Note Title]] links other notes;
+    @bibtex_key cites a paper from the library and attaches it to the note."""
+    return client.update_note(note_id, body or None, title or None)
+
+
+@mcp.tool()
+def get_note_links(note_id: int) -> dict:
+    """The note's link panel: outgoing [[links]], backlinks, cited references, unresolved
+    titles/keys, and notes that mention this title without linking it."""
+    return client.get_note_links(note_id)

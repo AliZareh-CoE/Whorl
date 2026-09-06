@@ -419,3 +419,18 @@ def test_roadmap_client_calls(capture):
 def test_week_focus_client_call(capture):
     client.get_week_focus("deep")
     assert calls_url_has(capture, "/projects/deep/focus/")
+
+
+def test_notes_client_calls(capture):
+    client.list_notes("deep", q="load")
+    assert calls_url_has(capture, "/notes/") and "q=load" in capture["url"]
+    client.get_note(4)
+    assert calls_url_has(capture, "/notes/4/")
+    client.update_note(4, body="new body")
+    assert (
+        capture["method"] == "PATCH"
+        and '"body":"new body"' in capture["body"]
+        and "title" not in capture["body"]
+    )
+    client.get_note_links(4)
+    assert calls_url_has(capture, "/notes/4/links/")
