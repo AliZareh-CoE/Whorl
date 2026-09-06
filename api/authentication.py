@@ -22,3 +22,20 @@ class APIKeyAuthentication(BaseAuthentication):
 
     def authenticate_header(self, request):
         return "X-API-Key"
+
+
+class QueryKeyAuthentication(APIKeyAuthentication):
+    """`?key=` variant for feeds that calendar apps fetch without headers (calendar.ics only).
+    The URL therefore carries the API key — the Dashboard says so when it hands it out."""
+
+    def authenticate(self, request):
+        key = request.query_params.get("key")
+        if not key:
+            return None
+        expected = settings.ATLAS_API_KEY
+        if not expected or not constant_time_compare(key, expected):
+            raise AuthenticationFailed("Invalid API key.")
+        user = User.objects.filter(is_superuser=True).order_by("pk").first()
+        if user is None:
+            raise AuthenticationFailed("No owner account exists yet.")
+        return (user, None)

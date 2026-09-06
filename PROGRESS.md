@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ CALENDAR FEED SERVED (2026-09-06, #360).** `/api/v1/calendar.ics` (all projects or `?project=`), `?key=` auth for calendar apps, dashboard subscribe button. Test: feed auth (none/wrong/key/session), scoping, content type.
+
 - **★ FIGURES INTO THE MANUSCRIPT (2026-09-06, #359).** Studio: ⊕ on image assets inserts a figure environment; Project figures list copies a gallery image into `figures/` and inserts it; demo PNG seeded. Playwright: one click added `figures/…` to the file tree and `\includegraphics` to the source (docs/screenshots/studio-figures.png). CI smoke test of the frozen server passed on Windows and Linux (run 83).
 
 - **★ NOTES EDITOR v2 (2026-09-06, #358).** CodeMirror Markdown editor with `[[`/`@` completions, formatting shortcuts, palette for both themes; textarea autocomplete removed. Playwright: `[[Load` offered note titles, `@lav` offered cite keys, both inserted, autosaved, preview linked (docs/screenshots/notes-editor-v2.png).

@@ -4,6 +4,7 @@ from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.decorators import method_decorator
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -31,7 +32,7 @@ from research.models import Dataset, Evidence, ExperimentEntry, Hypothesis, Prot
 from writing.models import Manuscript
 
 from . import serializers
-from .authentication import APIKeyAuthentication
+from .authentication import APIKeyAuthentication, QueryKeyAuthentication
 
 
 @method_decorator(login_not_required, name="dispatch")
@@ -2466,6 +2467,33 @@ class DemoAPIView(APIView):
         return Response(
             {"project": project.slug if project else None, "projects": Project.objects.count()}
         )
+
+
+class CalendarFeedView(APIView):
+    """Milestones and manuscript deadlines as an iCalendar feed (subscribe by URL)."""
+
+    authentication_classes = [QueryKeyAuthentication, APIKeyAuthentication, SessionAuthentication]
+
+    @extend_schema(
+        operation_id="v1_calendar_ics",
+        description="VCALENDAR of milestones + manuscript deadlines; ?project=<slug> narrows, "
+        "?key=<api key> authenticates calendar apps that cannot send headers.",
+        responses={(200, "text/calendar"): OpenApiTypes.STR},
+    )
+    def get(self, request):
+        from django.http import HttpResponse
+
+        from core.calendar import build_ics
+
+        projects = Project.objects.exclude(status=Project.Status.ARCHIVED)
+        slug = request.query_params.get("project")
+        if slug:
+            projects = projects.filter(slug=slug)
+        body = build_ics(projects, name=f"Atlas — {slug}" if slug else "Atlas — deadlines")
+        response = HttpResponse(body, content_type="text/calendar; charset=utf-8")
+        response["Content-Disposition"] = 'inline; filename="atlas.ics"'
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 class DiagnosticsAPIView(APIView):

@@ -306,7 +306,7 @@ export default function Dashboard() {
         </section>
 
         <section className={`${panel} rise`} style={{ ["--i" as string]: 7 }}>
-          <h2 className={h2}>Deadlines</h2>
+          <div className="flex items-baseline justify-between"><h2 className={h2}>Deadlines</h2><CalendarSubscribe /></div>
           <ul className="space-y-0.5 text-sm">
             {data.deadlines.map((d) => (
               <li key={d.url + d.title}>
@@ -423,3 +423,20 @@ function Heatmap({ weeks }: { weeks: Dash["heatmap"] }) {
   );
 }
 
+/** Backlog #9: one click copies the .ics subscription URL (it carries the API key). */
+function CalendarSubscribe() {
+  const [state, setState] = useState<"idle" | "copied" | "error">("idle");
+  const copy = async () => {
+    try {
+      const c = await api<{ api_url: string; api_key: string; api_key_configured: boolean }>("/connect/");
+      if (!c.api_key_configured) { setState("error"); return; }
+      await navigator.clipboard.writeText(`${c.api_url}/api/v1/calendar.ics?key=${encodeURIComponent(c.api_key)}`);
+      setState("copied"); window.setTimeout(() => setState("idle"), 3000);
+    } catch { setState("error"); }
+  };
+  return (
+    <button type="button" onClick={() => void copy()} className="mb-3 inline-flex items-center gap-1 text-[11px] text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy a calendar subscription URL (milestones + manuscript deadlines). Paste it into Google Calendar / Outlook / Apple Calendar under 'subscribe by URL'. The URL contains your API key." data-testid="calendar-subscribe">
+      <CalendarClock className="h-3 w-3" aria-hidden="true" />{state === "copied" ? "URL copied — subscribe in your calendar" : state === "error" ? "no API key configured" : "subscribe (.ics)"}
+    </button>
+  );
+}

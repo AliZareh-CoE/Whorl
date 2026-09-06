@@ -544,6 +544,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — The calendar feed is finally served (#360)
+
+**Finding.** `core/calendar.py` has built valid `.ics` for months (Backlog #9) and nothing served it — the tests were the only caller.
+
+**Decision.** `GET /api/v1/calendar.ics` returns one VCALENDAR of every non-archived project's milestones and manuscript deadlines (`?project=<slug>` narrows). Calendar apps cannot send headers, so a `QueryKeyAuthentication` accepts `?key=<api key>` on this endpoint only; the session and the header still work. The dashboard's Deadlines card has a **subscribe (.ics)** button that copies the URL — with the key in it, which the tooltip says plainly.
+
 ### 2026-09-06 — Figures into the manuscript (#359)
 
 **Decision.** In the studio's Files panel every image asset gets an ⊕ that inserts a `figure` environment (`\includegraphics[width=\linewidth]{path}`, caption, `fig:` label) at the cursor, and a **Project figures** list shows the project's image documents: one click copies the file into the manuscript as `figures/<name>` through the existing upload endpoint and inserts the environment. `seed_demo` now includes a small PNG figure so the gallery and the studio have one to show.
