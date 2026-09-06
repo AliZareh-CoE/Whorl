@@ -584,7 +584,7 @@ export default function Files() {
             <div className="px-3 py-8 text-center">
               <p className="text-sm font-medium text-stone-600 dark:text-stone-300">This project has no files yet</p>
               <p className="mt-1 text-sm text-stone-400">Drag files here to upload, or add them on the{" "}
-                <a href={`/projects/${slug}/documents/`} className="text-indigo-600 hover:underline dark:text-indigo-400">documents page</a>.
+                <Link to={`/projects/${slug}/documents`} className="text-indigo-600 hover:underline dark:text-indigo-400">documents page</Link>.
               </p>
             </div>
           )}

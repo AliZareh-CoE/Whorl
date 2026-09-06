@@ -2430,6 +2430,47 @@ class PetAPIView(APIView):
         return Response(pet_state())
 
 
+class ConnectAPIView(APIView):
+    """Connect Claude Code (SPA page): the exact `claude mcp add` line for this install, the
+    MCP JSON for other clients, and the shipped skills with their install state."""
+
+    @extend_schema(
+        operation_id="v1_connect",
+        description="Connection details for Claude Code / MCP clients plus the Atlas skills.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from core.mcp_connect import connection_info
+        from core.skills import list_skills, personal_skills_dir
+
+        return Response(
+            {
+                **connection_info(request),
+                "skills": list_skills(),
+                "skills_dir": str(personal_skills_dir()),
+            }
+        )
+
+
+class ConnectSkillsAPIView(APIView):
+    """Install / update the Atlas skills into ~/.claude/skills."""
+
+    @extend_schema(
+        operation_id="v1_connect_install_skills",
+        description="Copy the shipped Atlas skills into the personal Claude Code skills folder.",
+        request=None,
+        responses={200: None},
+    )
+    def post(self, request):
+        from core.skills import install_skills, personal_skills_dir
+
+        try:
+            names = install_skills()
+        except OSError as exc:
+            return Response({"detail": f"Could not install the skills: {exc}"}, status=500)
+        return Response({"installed": names, "dir": str(personal_skills_dir())})
+
+
 class BotsAPIView(APIView):
     """Bots list with run history — the SPA automations page."""
 

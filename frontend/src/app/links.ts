@@ -23,6 +23,7 @@ export function toSpaUrl(url: string): { to: string; spa: boolean } {
     [/^\/search\/$/, () => "/search"],
     [/^\/automations\/$/, () => "/automations"],
     [/^\/pet\/$/, () => "/pet"],
+    [/^\/connect\/claude\/$/, () => "/connect"],
   ];
   for (const [re, build] of maps) {
     const m = url.match(re);

@@ -180,7 +180,7 @@ export default function Layout() {
             </NavLink>
           )}
           <NavLink to="/automations" className="mb-1 flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:text-stone-700 dark:hover:text-stone-200"><Bot className="h-3.5 w-3.5" aria-hidden="true" />Automations</NavLink>
-          <a href="/connect/claude/" className="mb-1 flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:text-stone-700 dark:hover:text-stone-200"><Plug className="h-3.5 w-3.5" aria-hidden="true" />Connect Claude Code</a>
+          <NavLink to="/connect" className="mb-1 flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:text-stone-700 dark:hover:text-stone-200"><Plug className="h-3.5 w-3.5" aria-hidden="true" />Connect Claude Code</NavLink>
           <button type="button" onClick={() => openTerminal({ toggle: true })} className="mb-1 flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:text-stone-700 dark:hover:text-stone-200" title="Toggle the terminal (⌃`)"><TerminalSquare className="h-3.5 w-3.5" aria-hidden="true" />Terminal<span className="ml-auto font-mono text-[10px] text-stone-400">⌃`</span></button>
           <UpdaterButton />
           <button

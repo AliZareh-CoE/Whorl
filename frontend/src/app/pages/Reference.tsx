@@ -155,10 +155,6 @@ export default function Reference() {
                className="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300">PDF ↗</a>
           )}
           <Link to={`/library?q=${encodeURIComponent(ref.bibtex_key)}`} className="ml-auto text-xs text-indigo-600 transition-colors hover:underline dark:text-indigo-400" title="Open in the Library workbench: read, highlight, cite, discover">open in the Library →</Link>
-          <a href={`/library/${ref.id}/`}
-             className="text-xs text-stone-400 transition-colors hover:text-stone-600 hover:underline focus:outline-none focus-visible:underline dark:text-stone-400 dark:hover:text-stone-300">
-            classic ↗
-          </a>
         </div>
       </section>
 

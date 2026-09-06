@@ -976,3 +976,50 @@ class TestCitations:
         ).json()
         assert [e["reference_id"] for e in many["entries"]] == [b.pk, a.pk]
         assert many["entries"][0]["text"].startswith("[1] A. Zed,")
+
+
+class TestProjectSummary:
+    """UI audit 2026-09-06: the Projects index needs phase/progress/health/counts per card."""
+
+    def test_list_carries_a_summary(self, client_logged_in):
+        from plans.models import Milestone, Phase
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        phase = Phase.objects.create(project=project, name="Pilot", order=1, status="in_progress")
+        Milestone.objects.create(phase=phase, title="a")
+        done = Milestone.objects.create(phase=phase, title="b")
+        done.completed_at = done.created_at
+        done.save()
+        row = client_logged_in.get("/api/v1/projects/").json()["results"][0]
+        s = row["summary"]
+        assert s["current_phase"] == "Pilot" and s["milestones_total"] == 2
+        assert s["milestones_done"] == 1 and s["percent"] == 50 and s["health"]["state"]
+        assert set(s["counts"]) == {"papers", "notes", "manuscripts", "documents"}
+
+    def test_summary_is_read_only(self, client_logged_in):
+        response = client_logged_in.post(
+            "/api/v1/projects/",
+            {"name": "Summary ignored", "summary": {"percent": 99}},
+            content_type="application/json",
+        )
+        assert response.status_code == 201 and response.json()["summary"]["percent"] == 0
+
+
+class TestConnectAPI:
+    """The SPA Connect page (2026-09-06) reads one endpoint and installs skills with one POST."""
+
+    def test_connect_details_and_skills(self, client_logged_in, tmp_path, monkeypatch):
+        from core import skills
+
+        monkeypatch.setattr(skills, "personal_skills_dir", lambda: tmp_path / "skills")
+        data = client_logged_in.get("/api/v1/connect/").json()
+        assert data["claude_command"].startswith("claude mcp add atlas")
+        assert "mcpServers" in data["mcp_json"] and data["api_url"].startswith("http")
+        assert len(data["skills"]) == 4 and not any(s["installed"] for s in data["skills"])
+        assert data["skills_dir"].endswith("skills")
+        response = client_logged_in.post("/api/v1/connect/skills/")
+        assert response.status_code == 200 and len(response.json()["installed"]) == 4
+        assert all(
+            s["up_to_date"] for s in client_logged_in.get("/api/v1/connect/").json()["skills"]
+        )

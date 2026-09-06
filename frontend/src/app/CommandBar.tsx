@@ -75,7 +75,7 @@ export default function CommandBar() {
   const { data: plan = null } = useQuery({
     queryKey: ["plan", slug],
     queryFn: () => api<PlanData>(`/projects/${slug}/plan/`),
-    enabled: !!slug,
+    enabled: !!slug && slug !== "new",
     staleTime: 30_000,
   });
 

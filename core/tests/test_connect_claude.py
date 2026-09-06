@@ -108,4 +108,4 @@ def test_sidebars_link_to_the_page(owner):
     from pathlib import Path
 
     layout = Path("frontend/src/app/Layout.tsx").read_text()
-    assert 'href="/connect/claude/"' in layout
+    assert 'to="/connect"' in layout

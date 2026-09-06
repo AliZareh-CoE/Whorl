@@ -11,6 +11,11 @@ from projects.models import DecisionRecord, Project
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    """Projects, with a read-only ``summary`` (UI audit 2026-09-06) so the Projects index can
+    show phase, progress, health and counts per card without one request per project."""
+
+    summary = serializers.SerializerMethodField()
+
     class Meta:
         model = Project
         fields = [
@@ -21,10 +26,37 @@ class ProjectSerializer(serializers.ModelSerializer):
             "status",
             "color",
             "position",
+            "summary",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["slug"]
+
+    def get_summary(self, project) -> dict:
+        from plans import selectors as plan_selectors
+        from plans.roadmap import project_roadmap
+
+        done, total, percent = plan_selectors.project_progress(project)
+        phase = plan_selectors.current_phase(project)
+        health = None
+        if phase is not None:
+            row = next((r for r in project_roadmap(project)["phases"] if r["id"] == phase.pk), None)
+            if row:
+                health = {"state": row["state"], "label": row["label"]}
+        return {
+            "current_phase": phase.name if phase else None,
+            "phase_progress": phase.progress if phase else None,
+            "milestones_done": done,
+            "milestones_total": total,
+            "percent": percent,
+            "health": health,
+            "counts": {
+                "papers": project.project_references.count(),
+                "notes": project.notes.count(),
+                "manuscripts": project.manuscripts.count(),
+                "documents": project.documents.count(),
+            },
+        }
 
 
 class ProjectSlugField(serializers.SlugRelatedField):

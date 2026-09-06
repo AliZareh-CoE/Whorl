@@ -86,7 +86,7 @@ def test_back_to_the_app_clears_the_cookie(client_logged_in):
 
 
 def test_pages_without_a_twin_still_render_with_the_banner(client_logged_in):
-    response = client_logged_in.get("/connect/claude/", **HTML)
+    response = client_logged_in.get("/library/add/", **HTML)
     assert response.status_code == 200 and b"classic-banner" in response.content
     assert b'href="/?ui=app"' in response.content
 

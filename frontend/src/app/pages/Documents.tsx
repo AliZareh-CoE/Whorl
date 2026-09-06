@@ -30,10 +30,10 @@ export default function Documents() {
                 className="font-medium text-indigo-600 hover:underline">
             View as gallery →
           </Link>
-          <a href={`/projects/${slug}/documents/`}
+          <Link to={`/projects/${slug}/files`}
              className="text-stone-400 underline hover:text-indigo-700">
-            folders & upload on the classic page ↗
-          </a>
+            folders & upload in Files →
+          </Link>
         </div>
       </div>
       <DocumentsTable

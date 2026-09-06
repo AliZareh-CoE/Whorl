@@ -172,8 +172,11 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
               {drafting ? "Drafting…" : "Draft synthesis"}
             </button>
           )}
-          <a href={`/projects/${slug}/literature/`} className="text-stone-400 dark:text-stone-400 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">
-            matrix & reports ↗
+          <Link to={`/projects/${slug}/matrix`} className="text-stone-400 dark:text-stone-400 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">
+            review matrix →
+          </Link>
+          <a href={`/projects/${slug}/literature/?classic=1`} className="text-stone-400 dark:text-stone-400 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400" title="Duplicate / missing-field / DOI / retraction report (classic page)">
+            bib report ↗
           </a>
         </div>
       </div>

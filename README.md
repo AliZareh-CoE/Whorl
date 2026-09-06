@@ -132,7 +132,7 @@ curl -H "X-API-Key: $ATLAS_API_KEY" -H "Content-Type: application/json" \
 `mcp_server/` exposes Atlas as MCP tools — a thin HTTP client over the API (no Django imports),
 so anything Claude can do, you can also do with curl.
 
-**The easy way:** open **Connect Claude Code** in the sidebar (`/connect/claude/`). It shows
+**The easy way:** open **Connect Claude Code** in the sidebar (`/connect`). It shows
 the exact `claude mcp add` line for *your* install, with a Copy button — paste it in a terminal
 once and you're done. Then `claude mcp list` shows `atlas` as connected.
 

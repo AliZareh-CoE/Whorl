@@ -175,7 +175,7 @@ export default function Plan() {
 
       {mode === "cards" && (
         <p className="mt-4 text-xs text-stone-400">
-          Tick to complete · click a status to cycle it · type at the bottom of a phase to add a milestone · <a href={`/projects/${slug}/plan/`} className="underline hover:text-indigo-700 dark:hover:text-indigo-300">classic page ↗</a>
+          Tick to complete · click a status to cycle it · type at the bottom of a phase to add a milestone
         </p>
       )}
       {drawerId !== null && (() => {
