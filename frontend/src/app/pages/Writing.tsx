@@ -8,7 +8,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Gauge, Loader2, MessageSquareReply, Package, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
-import { Kebab } from "../../components/Menu";
+import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 
@@ -59,6 +59,22 @@ export function WritingBoard() {
     onSuccess: (m) => { queryClient.invalidateQueries({ queryKey: ["manuscripts"] }); navigate(`/manuscripts/${m.id}`); },
   });
   useEffect(() => { if (!project && projects.data?.results.length) setProject(projects.data.results[0].slug); }, [projects.data, project]);
+  const menu = useMenu();
+  const patchOne = useMutation({ mutationFn: ({ id, ...body }: { id: number; status?: string }) => api(`/manuscripts/${id}/`, { method: "PATCH", headers: JSON_H, body: JSON.stringify(body) }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["manuscripts"] }), onError: (e) => void errorDialog("Couldn't update the manuscript", e) });
+  const removeOne = useMutation({ mutationFn: (id: number) => api(`/manuscripts/${id}/`, { method: "DELETE" }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["manuscripts"] }), onError: (e) => void errorDialog("Couldn't delete the manuscript", e) });
+  const cardItems = (m: Manuscript): MenuItem[] => {
+    const i = COLUMNS.findIndex(([k]) => k === m.status);
+    const next = COLUMNS[i + 1]?.[0];
+    return [
+      { label: "Open", onSelect: () => navigate(`/manuscripts/${m.id}`) },
+      { label: "Open the studio", icon: <ExternalLink className="h-3.5 w-3.5" />, onSelect: () => navigate(`/manuscripts/${m.id}/editor`) },
+      "-",
+      { label: next && next !== "shelved" ? `Move to ${COLUMNS[i + 1][1]}` : "Move forward", disabled: !next || next === "shelved", onSelect: () => { if (next) patchOne.mutate({ id: m.id, status: next }); } },
+      { label: "Shelve", disabled: m.status === "shelved", onSelect: () => patchOne.mutate({ id: m.id, status: "shelved" }) },
+      "-",
+      { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete “${m.title}”?`, body: "Its LaTeX source, revisions, bibliography links and submission timeline go with it.", danger: true, confirmLabel: "Delete manuscript", verify: m.title })) removeOne.mutate(m.id); } },
+    ];
+  };
   if (isLoading) return <div role="status" aria-label="Loading"><Skeleton className="mb-1 h-7 w-40" /><Skeleton className="mb-6 h-4 w-64" /><div className="flex gap-5">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-64" />)}</div></div>;
   if (error || !data) return <ErrorState message="Couldn't load manuscripts." onRetry={() => refetch()} />;
   const rows = data.results;
@@ -99,8 +115,8 @@ export function WritingBoard() {
                 <h2 className="mb-2 flex items-baseline gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">{label}<span className="text-stone-300 dark:text-stone-600">{items.length}</span></h2>
                 <div className="space-y-2">
                   {items.map((m) => { const dl = deadlineLabel(m.deadline); return (
-                    <Link key={m.id} to={`/manuscripts/${m.id}`} className="block rounded-xl border border-stone-200 p-3 text-sm transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 dark:border-stone-800 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10">
-                      <span className="font-medium text-stone-900 dark:text-stone-100">{m.title}</span>
+                    <Link key={m.id} to={`/manuscripts/${m.id}`} onContextMenu={(e) => menu.open(e, cardItems(m))} data-testid="manuscript-card" className="group block rounded-xl border border-stone-200 p-3 text-sm transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 dark:border-stone-800 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10">
+                      <span className="flex items-start gap-2"><span className="min-w-0 flex-1 font-medium text-stone-900 dark:text-stone-100">{m.title}</span><Kebab items={cardItems(m)} label={`Actions for ${m.title}`} className="-mr-1 -mt-1 opacity-0 group-hover:opacity-100 focus:opacity-100" /></span>
                       <p className="mt-1 text-xs text-stone-400">{m.project_name}{m.target_venue ? ` · ${m.target_venue}` : ""}</p>
                       {dl && <p className={`mt-1.5 text-xs ${dl.urgent ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{dl.text}</p>}
                     </Link>
@@ -111,6 +127,7 @@ export function WritingBoard() {
           })}
         </div>
       )}
+      {menu.element}
     </div>
   );
 }

@@ -47,13 +47,20 @@ def test_dialog_host_is_mounted_once_at_the_root():
         ("Reference.tsx", ["EditReference", "Delete from library"]),
         ("Research.tsx", ["QuestionsPanel", "/questions/${id}/", "/experiments/${id}/", "/datasets/${id}/"]),
         ("Plan.tsx", ["add-phase", "Delete phase", "Rename…"]),
-        ("Writing.tsx", ["Delete manuscript", "/manuscripts/${id}/"]),
+        ("Writing.tsx", ["Delete manuscript", "/manuscripts/${id}/", "cardItems", "Shelve"]),
     ],
 )
 def test_pages_expose_edit_and_delete(page, needles):
     text = _src(page)
     missing = [n for n in needles if n not in text]
     assert not missing, f"{page} lost: {missing}"
+
+
+def test_documents_table_rows_have_in_app_actions():
+    text = (COMPONENTS / "DocumentsTable.tsx").read_text()
+    for needle in ("rowItems", "Rename…", "Edit description…", "Delete…", "onContextMenu"):
+        assert needle in text
+    assert "href={doc.editUrl}" not in text  # no more exits to the classic edit page
 
 
 def test_files_open_from_disk_surfaces_errors_and_can_add_the_file():

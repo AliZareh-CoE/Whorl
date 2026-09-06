@@ -1,1 +1,1 @@
-import{t as e}from"./createLucideIcon-chunk.js";var t=e(`Minus`,[[`path`,{d:`M5 12h14`,key:`1ays0h`}]]);export{t};
+import{c as e}from"./Dialog-chunk.js";var t=e(`Minus`,[[`path`,{d:`M5 12h14`,key:`1ays0h`}]]);export{t};
