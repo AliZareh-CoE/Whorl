@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ FROZEN-SERVER SMOKE TEST IN CI (2026-09-06, #357).** Release workflow boots the frozen server on Windows and Linux, checks login, diagnostics (bundled engine) and the SPA bundle before building the installer; scaffold test pins it. Watching the next run for the Windows result.
+
 - **★ TODAY v2 + MATRIX SUGGESTIONS (2026-09-06, #356).** Today keyboard/inline edit/reorder/age chips/project links; matrix `suggest_themes` + API + chips. Tests: suggest ranking/skip-existing + API. Playwright: added, edited (e), deleted (x) an item; suggestions rendered as chips (docs/screenshots/today-v2.png, matrix-suggest.png).
 
 - **★ EXACT HIGHLIGHT MARKS (2026-09-06, #355).** `Highlight.rects` + validation, reader captures selection boxes and paints an `.hl-layer`; service/API pass-through. Test: rects round-trip + validation. Playwright: dragged a selection, saved yellow, boxes painted and returned by the API (docs/screenshots/highlight-rects.png).

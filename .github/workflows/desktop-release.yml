@@ -183,6 +183,36 @@ jobs:
       - name: Freeze the Atlas MCP server
         run: uv run pyinstaller desktop/server/atlas_mcp.spec --noconfirm --distpath desktop/server/dist --workpath ${{ runner.temp }}/pyi-mcp
 
+      # Boot the frozen server exactly as the desktop shell will (owner reports 2026-09-06:
+      # every failure so far happened only in the installed build). Setup, serve, hit the login
+      # page and the API's diagnostics, and check the bundled LaTeX engine is found — on the
+      # same OS the installer targets. The log is printed on failure.
+      - name: Smoke-test the frozen server
+        shell: bash
+        env:
+          ATLAS_DATA_DIR: ${{ runner.temp }}/atlas-smoke
+          ATLAS_PORT: "8765"
+          ATLAS_VERSION: 0.1.${{ github.run_number }}
+        run: |
+          set -e
+          BIN=desktop/server/dist/atlas-server/atlas-server
+          [ "$RUNNER_OS" = "Windows" ] && BIN="$BIN.exe"
+          mkdir -p "$ATLAS_DATA_DIR"
+          "$BIN" --setup-only
+          "$BIN" &
+          SERVER=$!
+          for i in $(seq 1 90); do curl -sf -o /dev/null http://127.0.0.1:8765/login/ && break; sleep 1; done
+          if ! curl -sf -o /dev/null http://127.0.0.1:8765/login/; then
+            echo "::error::frozen server did not answer on :8765"; cat "$ATLAS_DATA_DIR/atlas-server.log" || true; kill $SERVER || true; exit 1
+          fi
+          KEY=$(cat "$ATLAS_DATA_DIR/api_key" 2>/dev/null || true)
+          DIAG=$(curl -sf -H "X-API-Key: $KEY" http://127.0.0.1:8765/api/v1/diagnostics/ || echo '{}')
+          echo "$DIAG" | head -c 600; echo
+          echo "$DIAG" | grep -q '"engine": *"[^"]*tectonic' || { echo "::error::bundled LaTeX engine not found by the frozen server"; cat "$ATLAS_DATA_DIR/atlas-server.log" || true; kill $SERVER || true; exit 1; }
+          curl -sf -o /dev/null http://127.0.0.1:8765/static/js/spa.js || { echo "::error::SPA bundle not served"; kill $SERVER || true; exit 1; }
+          kill $SERVER || true
+          echo "frozen server smoke test passed"
+
       # The desktop shell loads the bundled server (frontendDist is only a Tauri formality),
       # so there is no Node/Vite build step needed for the bundle.
       - name: Build and release the desktop app

@@ -544,6 +544,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — CI boots the frozen server before an installer ships (#357)
+
+**Decision.** The release workflow now runs the PyInstaller output on each target OS: `--setup-only` (migrate, collect static, create the login), then serve on a spare port, fetch the login page, call `/api/v1/diagnostics/` with the minted key and require the bundled Tectonic path in the answer, and fetch the SPA bundle — printing the server log on failure. A scaffold test pins the step and its order.
+
+**Why.** Every owner report today was a defect that existed only in the installed build (no engine, ACL, links, first run). The suite runs the Django code, not the frozen artifact; this step runs the artifact.
+
 ### 2026-09-06 — Today v2 and matrix theme suggestions (#356)
 
 **Decision.** Today gets a keyboard (`j`/`k`, space ticks, `e` edits inline, `x` deletes, `⌥↑/↓` reorders through `position`, `n` focuses the input), inline editing by double-click, an amber "since Tue / N days old" chip on items carried over from earlier days, and project chips that link to the project. The review matrix gains **Suggest themes**: `literature/matrix.suggest_themes` runs the existing keyword extractor over each paper's title and abstract and ranks phrases by how many papers mention them, skipping themes that already exist (`GET /projects/{slug}/review-matrix/suggest/`); each chip adds a column.

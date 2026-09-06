@@ -273,3 +273,18 @@ def test_capability_covers_the_local_server_origin():
     assert any(u.startswith("http://127.0.0.1") for u in urls)
     assert any(u.startswith("http://localhost") for u in urls)
     assert "main" in cap["windows"] and "core:default" in cap["permissions"]
+
+
+def test_release_workflow_smoke_tests_the_frozen_server():
+    """Owner reports 2026-09-06: every failure lived only in the installed build. CI boots the
+    frozen server on the target OS and checks login, diagnostics (bundled engine) and the SPA."""
+    workflow = (ROOT / ".github" / "workflows" / "desktop-release.yml").read_text()
+    assert "Smoke-test the frozen server" in workflow
+    assert "--setup-only" in workflow and "/api/v1/diagnostics/" in workflow
+    assert (
+        "tectonic"
+        in workflow.split("Smoke-test the frozen server", 1)[1].split("Build and release", 1)[0]
+    )
+    assert workflow.index("Smoke-test the frozen server") < workflow.index(
+        "Build and release the desktop app"
+    )
