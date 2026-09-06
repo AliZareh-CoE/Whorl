@@ -336,6 +336,7 @@ class ProjectViewSet(AtlasViewSet):
         from plans import selectors as plan_selectors
         from plans.focus import week_focus
         from plans.roadmap import project_roadmap
+        from projects import overview as overview_extras
 
         project = self.get_object()
         done, total, percent = plan_selectors.project_progress(project)
@@ -398,6 +399,11 @@ class ProjectViewSet(AtlasViewSet):
                     }
                     for dec in project.decisions.all()[:5]
                 ],
+                # Overview v2 (slice 1): what changed, what is open, what is due
+                "week_digest": overview_extras.week_digest(project),
+                "questions": overview_extras.open_questions(project),
+                "manuscripts": overview_extras.manuscripts_glance(project),
+                "hypotheses": overview_extras.hypotheses_summary(project),
             }
         )
 

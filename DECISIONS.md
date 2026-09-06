@@ -544,6 +544,25 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Overview v2 slice 1: one glance, in the Observatory (#331)
+
+**Decision.** `projects/overview.py` adds four blocks to the overview API: `week_digest` (the
+project's timeline events of the last seven days, counted by kind with the six newest items),
+`questions` (open first, then partially answered, answered, abandoned; with their phases),
+`manuscripts` (live ones by nearest deadline, with days left and any venue-budget overruns), and
+`hypotheses` (counts by status). The SPA overview is rewritten in the Observatory identity: ring +
+gradient milestone count in the header, quick links, a current-phase card (health pill, objective,
+glowing bar, window), the compact This-week strip, a three-up row (digest, questions + hypotheses,
+manuscripts), count tiles that link into the right section, next milestones, recent documents and
+decisions. **Writing v2 judged best-in-field** after three slices; current area is the Overview.
+
+**Why.** CLAUDE.md calls the overview the heart of Atlas: "one glance = full situational
+awareness". It answered "where are we" but not "what changed" or "what is still open"; the digest and
+the questions block close that, and manuscripts with overruns bring the writing pipeline into view.
+
+**Alternatives considered.** A per-project activity heatmap — parked for the Dashboard, where the
+cross-project one lives. Pinned documents — parked; recent documents plus the Files page cover it.
+
 ### 2026-09-06 — Writing v2 slice 3: the venue budget (#329)
 
 **Decision.** `Manuscript.venue_limits` (JSON, migration writing 0012) stores the target venue's
