@@ -22,13 +22,13 @@ milestones, add papers, fetch your saved prompts.
 | *Discover from any paper: similar / cites / cited-by on OpenAlex, one-click add into a project* | *3D citation + notes graph, synced from OpenAlex* |
 | ![Project overview](docs/screenshots/overview.png) | ![LaTeX editor](docs/screenshots/latex-editor.png) |
 | *One-glance project overview with a tree that grows with progress* | *LaTeX editor: cite-key autocomplete, Tectonic compile, live PDF preview* |
-| ![Read and highlight inside the workbench](docs/screenshots/library-reader.png) | ![PDF reader](docs/screenshots/pdf-reader.png) |
+| ![Read and highlight inside the workbench](docs/screenshots/library-reader.png) | ![Search inside your PDFs](docs/screenshots/library-find.png) |
 | *In-browser PDF reader with highlight-to-note and page comments* | *Bulk bar: link, mark as read, export .bib, fetch OA PDFs, recover metadata* |
 
 ## What's inside
 
 - **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm
-- **Library workbench** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop a folder of PDFs onto the page (the DOI is read off page one and metadata fetched; scans without one are kept and can "find metadata" later), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click — all deduplicated; facets by project, year histogram, venue, type, PDF; keyboard `j/k/x/o`; bulk file-to-project, reading status, delete; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers; **read and highlight without leaving the workbench** — a pdf.js reader takes over the centre pane, selecting text saves a coloured highlight (structured rows with page + comment, mirrored into the project's highlights note), highlights paint back onto the page, copy them all as Markdown; per-project **reading notes** autosave in the detail pane; **Find PDF** per paper (arXiv → Unpaywall)
+- **Library workbench** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop a folder of PDFs onto the page (the DOI is read off page one and metadata fetched; scans without one are kept and can "find metadata" later), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click — all deduplicated; facets by project, year histogram, venue, type, PDF; keyboard `j/k/x/o`; bulk file-to-project, reading status, delete; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers; **read and highlight without leaving the workbench** — a pdf.js reader takes over the centre pane, selecting text saves a coloured highlight (structured rows with page + comment, mirrored into the project's highlights note), highlights paint back onto the page, copy them all as Markdown; per-project **reading notes** autosave in the detail pane; **Find PDF** per paper (arXiv → Unpaywall); **search inside your PDFs** — every attached PDF is read into searchable text, so the search box, the global search and Claude find papers by what they say, with the page and a snippet, and the reader jumps to it
 - **Duplicate merge** — the Library spots the same paper imported twice (DOI, arXiv id, near-identical title) and merges them in one click, keeping the most complete record and moving every link, tag, note, and PDF
 - **Tags & smart views** — label papers (bulk or one at a time), filter by tag in the rail, and save any filter combination as a named view that is one click away
 - **Formatted citations** — copy any paper or selection as APA 7, MLA 9, Chicago, Harvard, Vancouver, or IEEE (bibliography entry and in-text form) straight from the Library
@@ -39,7 +39,7 @@ milestones, add papers, fetch your saved prompts.
 - **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
 - **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
 - **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 55 tools over the REST API; your AI assistant operates the same contract you do
+- **Claude/MCP integration** — 57 tools over the REST API; your AI assistant operates the same contract you do
 - **Today list** — a dead-simple personal to-do list for the day (add, tick, clear done); nothing is lost overnight; Claude can add to it
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
@@ -133,7 +133,7 @@ Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 Library imports & discovery: `import_references` (BibTeX/CSL-JSON/RIS text), `import_from_zotero`,
 `discover_related` (similar / cites / cited-by on OpenAlex), `export_bibtex`, `format_citations` (APA/MLA/Chicago/Harvard/Vancouver/IEEE).
 Tags, views & hygiene: `list_library_tags`, `tag_references`, `find_duplicates`, `merge_references`.
-Reading: `list_highlights`, `add_highlight`, `get_highlights_markdown`, `get_reading_notes`, `set_reading_notes`, `fetch_pdf`.
+Reading: `list_highlights`, `add_highlight`, `get_highlights_markdown`, `get_reading_notes`, `set_reading_notes`, `fetch_pdf`, `search_pdf_text`, `search_in_pdf`.
 Today list: `list_todos`, `add_todo`, `complete_todo`.
 Notes, search & review: `add_note`, `quick_capture`, `search`, `get_weekly_review`,
 `list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,

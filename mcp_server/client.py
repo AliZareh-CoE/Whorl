@@ -409,3 +409,16 @@ def set_reading_notes(project_reference_id: int, notes: str):
 def fetch_pdf(reference_id: int):
     """Try to attach an open-access PDF (arXiv, then Unpaywall)."""
     return _request("POST", f"/references/{reference_id}/fetch-pdf/")
+
+
+def search_pdf_text(query: str, project: str = "", limit: int = 30):
+    """Papers whose PDF text contains the query, with the first matching page + snippet."""
+    params = {"q": query, "limit": limit}
+    if project:
+        params["project"] = project
+    return _request("GET", "/references/text-search/", params=params)
+
+
+def search_in_pdf(reference_id: int, query: str):
+    """Pages of one paper's PDF containing the query, with snippets."""
+    return _request("GET", f"/references/{reference_id}/text-search/", params={"q": query})

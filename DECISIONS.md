@@ -544,6 +544,30 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Library v2 slice 8: search inside your PDFs (#309)
+
+**Decision.** Every attached PDF is read once with pypdf into `literature.ReferenceText` (one string
+per page + the joined body; `source_name` remembers which file it came from). A `post_save` receiver
+on `Reference` enqueues `extract_text_task` whenever the PDF is new or changed (huey; immediate in the
+desktop and dev settings) and drops the row when the PDF is removed; `manage.py index_pdf_text` backfills.
+Matching is `icontains` on the body on every backend (the desktop runs SQLite) — Postgres additionally
+folds `text__body` into the global-search vector at weight D. The workbench search annotates
+`pdf_match` per row, the detail pane shows "Found in the PDF" with page + snippet, and the reader
+gets a find bar that walks the matching pages and paints the term on the text layer. API:
+`GET /references/text-search/?q=` (library-wide, optional project), `GET /references/{id}/text-search/?q=`,
+`POST /references/{id}/index-text/`; `text_status` on every reference. MCP: `search_pdf_text`,
+`search_in_pdf` (57 tools).
+
+**Why.** Zotero and Paperpile both index PDF text; a library that only searches titles and abstracts
+loses exactly the queries a researcher asks ("which paper mentioned the dissociation?"). Page-level
+storage is what makes the answer actionable: the hit names the page and the reader opens on it.
+
+**Alternatives considered.** A Postgres `SearchVectorField` with a GIN index on the body — better at
+scale, but SQLite desktop builds would need a second path; `icontains` is honest and identical on
+both, and a trigram/FTS upgrade stays possible behind `pdf_match_filter`. Storing text in
+`Reference.extra` — rejected: a multi-megabyte JSON field on the hot row. Extracting at import only —
+rejected: PDFs also arrive by Unpaywall fetch, API upload, and merge; the signal covers all of them.
+
 ### 2026-09-06 — Library v2 slice 7: read and highlight inside the workbench (#307)
 
 **Decision.** Highlights become a model (`literature.Highlight`: reference, optional project, page, text,

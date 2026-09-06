@@ -827,7 +827,9 @@ class ReferenceViewSet(AtlasViewSet):
         # needs_metadata, project, reading_status, unfiled, sort) — see literature/library.py.
         from literature.library import filter_references
 
-        queryset = Reference.objects.prefetch_related("project_links__project")
+        queryset = Reference.objects.prefetch_related("project_links__project").select_related(
+            "text"
+        )
         if self.action == "list":
             return filter_references(queryset, self.request.query_params)
         return queryset
@@ -1154,6 +1156,88 @@ class ReferenceViewSet(AtlasViewSet):
         except importers.ZoteroUnavailable as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(summary.as_dict())
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("q", str, required=True, description="Text to find inside PDFs"),
+            OpenApiParameter("project", str, description="Optional project slug"),
+            OpenApiParameter("limit", int, description="Max papers (default 30)"),
+        ],
+        responses={
+            200: inline_serializer(
+                "PdfTextSearchResult",
+                {
+                    "reference_id": rf_serializers.IntegerField(),
+                    "title": rf_serializers.CharField(),
+                    "year": rf_serializers.IntegerField(allow_null=True),
+                    "bibtex_key": rf_serializers.CharField(),
+                    "page": rf_serializers.IntegerField(allow_null=True),
+                    "snippet": rf_serializers.CharField(),
+                    "pages": rf_serializers.ListField(child=rf_serializers.IntegerField()),
+                },
+                many=True,
+            )
+        },
+        description="Search inside the text of every attached PDF; each hit names the page.",
+    )
+    @action(detail=False, methods=["get"], url_path="text-search")
+    def text_search(self, request):
+        from literature.fulltext import search_library
+
+        q = (request.query_params.get("q") or "").strip()[:200]
+        queryset = Reference.objects.all()
+        slug = request.query_params.get("project")
+        if slug:
+            queryset = queryset.filter(project_links__project__slug=slug)
+        try:
+            limit = max(1, min(int(request.query_params.get("limit", 30)), 100))
+        except ValueError:
+            limit = 30
+        return Response(search_library(q, limit=limit, queryset=queryset))
+
+    @extend_schema(
+        operation_id="v1_references_text_search_in_pdf",
+        parameters=[OpenApiParameter("q", str, required=True, description="Text to find")],
+        responses={
+            200: inline_serializer(
+                "PdfPageHit",
+                {"page": rf_serializers.IntegerField(), "snippet": rf_serializers.CharField()},
+                many=True,
+            )
+        },
+        description="Pages of this paper's PDF containing `q`, with a snippet each.",
+    )
+    @action(detail=True, methods=["get"], url_path="text-search")
+    def text_search_one(self, request, pk=None):
+        from literature.fulltext import search_pages
+
+        q = (request.query_params.get("q") or "").strip()[:200]
+        return Response(search_pages(self.get_object(), q))
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: inline_serializer(
+                "IndexTextResult",
+                {
+                    "page_count": rf_serializers.IntegerField(),
+                    "char_count": rf_serializers.IntegerField(),
+                    "error": rf_serializers.CharField(),
+                },
+            )
+        },
+        description="(Re)read this paper's PDF into searchable text.",
+    )
+    @action(detail=True, methods=["post"], url_path="index-text")
+    def index_text(self, request, pk=None):
+        from literature.fulltext import extract_text
+
+        row = extract_text(self.get_object())
+        if row is None:
+            return Response({"detail": "No PDF attached."}, status=400)
+        return Response(
+            {"page_count": row.page_count, "char_count": row.char_count, "error": row.error}
+        )
 
     @extend_schema(
         request=None,

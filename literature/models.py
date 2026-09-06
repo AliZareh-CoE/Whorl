@@ -226,3 +226,23 @@ class Highlight(TimeStampedModel):
     def __str__(self):
         page = f" p.{self.page}" if self.page else ""
         return f"{self.reference.bibtex_key}{page}: {self.text[:50]}"
+
+
+class ReferenceText(models.Model):
+    """Extracted text of a reference's PDF (Library v2 slice 8: search inside your PDFs).
+
+    `pages` keeps one string per page so a match can say "p.4" and the reader can jump there;
+    `body` is the same text joined, which is what the search filters run over.
+    """
+
+    reference = models.OneToOneField(Reference, on_delete=models.CASCADE, related_name="text")
+    source_name = models.CharField(max_length=500, blank=True)  # the PDF file this came from
+    pages = models.JSONField(default=list)
+    body = models.TextField(blank=True)
+    page_count = models.PositiveIntegerField(default=0)
+    char_count = models.PositiveIntegerField(default=0)
+    error = models.CharField(max_length=300, blank=True)
+    extracted_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"text of {self.reference.bibtex_key} ({self.page_count} pages)"

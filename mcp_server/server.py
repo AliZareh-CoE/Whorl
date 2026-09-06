@@ -376,3 +376,16 @@ def set_reading_notes(project_reference_id: int, notes: str) -> dict:
 def fetch_pdf(reference_id: int) -> dict:
     """Try to attach an open-access PDF to a paper (arXiv first, then Unpaywall by DOI)."""
     return client.fetch_pdf(reference_id)
+
+
+@mcp.tool()
+def search_pdf_text(query: str, project: str = "", limit: int = 30) -> list:
+    """Search inside the full text of every attached PDF (optionally one project). Each hit gives
+    the paper, the first page containing the query, a snippet, and up to three matching pages."""
+    return client.search_pdf_text(query, project=project, limit=limit)
+
+
+@mcp.tool()
+def search_in_pdf(reference_id: int, query: str) -> list:
+    """Pages of one paper's PDF that contain the query, each with a snippet — cite the page."""
+    return client.search_in_pdf(reference_id, query)

@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.utils import extend_schema_field, inline_serializer
 from rest_framework import serializers
 
@@ -161,6 +162,9 @@ class ReferenceSerializer(serializers.ModelSerializer):
     # Library v2: which projects hold this paper, with the per-project reading state — one
     # prefetch on the viewset, no per-row queries.
     projects = serializers.SerializerMethodField()
+    # Library v2 slice 8: did the search term hit inside the PDF text? (only on filtered lists)
+    pdf_match = serializers.SerializerMethodField()
+    text_status = serializers.SerializerMethodField()
     # Library v2 slice 5: tags by name (writable: a list of names creates missing tags)
     tags = serializers.ListField(
         child=serializers.CharField(max_length=60), required=False, write_only=True
@@ -170,6 +174,21 @@ class ReferenceSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data["tags"] = [t.name for t in instance.tags.all()]
         return data
+
+    @extend_schema_field(serializers.BooleanField(allow_null=True))
+    def get_pdf_match(self, obj):
+        return getattr(obj, "pdf_match", None)
+
+    @extend_schema_field(serializers.CharField())
+    def get_text_status(self, obj):
+        """'indexed' (searchable), 'error: …', 'pending' (PDF not read yet), or 'none' (no PDF)."""
+        if not obj.pdf:
+            return "none"
+        try:
+            text = obj.text
+        except ObjectDoesNotExist:
+            return "pending"
+        return f"error: {text.error}" if text.error else "indexed"
 
     def _apply_tags(self, instance, names):
         from literature.models import LibraryTag
@@ -241,6 +260,8 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "citation_count",
             "projects",
             "tags",
+            "pdf_match",
+            "text_status",
             "created_at",
             "updated_at",
         ]

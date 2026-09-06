@@ -6,6 +6,7 @@ from .models import (
     LibraryTag,
     ProjectReference,
     Reference,
+    ReferenceText,
     ReviewMark,
     ReviewTheme,
     SavedView,
@@ -57,4 +58,11 @@ class HighlightAdmin(admin.ModelAdmin):
     list_display = ("reference", "project", "page", "color", "created_at")
     list_filter = ("color", "project")
     search_fields = ("text", "comment", "reference__title")
+    raw_id_fields = ("reference",)
+
+
+@admin.register(ReferenceText)
+class ReferenceTextAdmin(admin.ModelAdmin):
+    list_display = ("reference", "page_count", "char_count", "error", "extracted_at")
+    search_fields = ("reference__title", "body")
     raw_id_fields = ("reference",)

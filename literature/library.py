@@ -8,10 +8,11 @@ from __future__ import annotations
 import re
 
 import httpx
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, Exists, OuterRef, Q, QuerySet
 
 from projects.models import Project
 
+from .fulltext import pdf_match_filter
 from .models import LibraryTag, ProjectReference, Reference, SavedView
 from .services import (
     TIMEOUT,
@@ -39,6 +40,12 @@ def _ordering(sort: str) -> list:
     }.get(sort, ["-created_at"])
 
 
+def _pdf_hit(q: str):
+    from .models import ReferenceText
+
+    return ReferenceText.objects.filter(reference=OuterRef("pk"), body__icontains=q)
+
+
 def filter_references(qs: QuerySet, params) -> QuerySet:
     """Apply the Library workbench filters from a query-params mapping."""
     q = (params.get("q") or "").strip()[:200]
@@ -50,7 +57,9 @@ def filter_references(qs: QuerySet, params) -> QuerySet:
             | Q(abstract__icontains=q)
             | Q(authors__icontains=q)
             | Q(doi__icontains=q)
+            | pdf_match_filter(q)  # slice 8: inside the PDF text too
         )
+        qs = qs.annotate(pdf_match=Exists(_pdf_hit(q)))
     year = params.get("year")
     if year and year.isdigit():
         qs = qs.filter(year=int(year))

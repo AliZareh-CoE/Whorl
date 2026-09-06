@@ -73,7 +73,7 @@ _SEARCH_SPECS = [
     (
         "reference",
         lambda: Reference.objects.all(),
-        ["title", "abstract", "venue", "bibtex_key"],
+        ["title", "abstract", "venue", "bibtex_key", "text__body"],
         lambda o: None,
     ),
     (
@@ -172,7 +172,8 @@ def search_all(text: str) -> list[dict]:
         SearchVector("title", weight="A")
         + SearchVector("abstract")
         + SearchVector("venue")
-        + SearchVector("bibtex_key", weight="A"),
+        + SearchVector("bibtex_key", weight="A")
+        + SearchVector("text__body", weight="D"),  # slice 8: inside the PDF too
         query,
     ):
         results.append({"type": "reference", "object": ref, "project": None})

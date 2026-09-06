@@ -19,6 +19,7 @@ type Ref = {
   abstract: string; doi: string | null; arxiv_id: string; url: string; pdf: string | null;
   entry_type: string; citation_count: number | null; extra: Record<string, unknown>; projects: ProjLink[];
   tags: string[];
+  pdf_match: boolean | null; text_status: string;
   created_at: string;
 };
 type ReadingNote = { project_reference_id: number; project: string; project_name: string; reading_status: string; notes: string };
@@ -106,7 +107,8 @@ export default function Library() {
   const [readerId, setReaderId] = useState<number | null>(null);
   const [hlProject, setHlProject] = useState("");
   const [jump, setJump] = useState<{ page: number; nonce: number } | null>(null);
-  const openReader = (r: Ref) => { setDetailId(r.id); setReaderId(r.id); setHlProject((prev) => (r.projects.some((p) => p.slug === prev) ? prev : r.projects.length === 1 ? r.projects[0].slug : prev)); };
+  const [readerFind, setReaderFind] = useState("");
+  const openReader = (r: Ref, find?: string) => { setReaderFind(find ?? (r.pdf_match && effective.q ? effective.q : "")); setDetailId(r.id); setReaderId(r.id); setHlProject((prev) => (r.projects.some((p) => p.slug === prev) ? prev : r.projects.length === 1 ? r.projects[0].slug : prev)); };
   const [keepChoice, setKeepChoice] = useState<Record<number, number>>({});
   const dups = useQuery({ queryKey: ["library-duplicates"], queryFn: () => api<{ groups: DupGroup[] }>("/references/duplicates/"), enabled: dupMode });
   const highlights = useQuery({ queryKey: ["highlights", detailId], queryFn: () => api<Page<Highlight>>(`/highlights/?reference=${detailId}&page_size=200`).then((p) => p.results), enabled: detailId !== null });
@@ -127,6 +129,11 @@ export default function Library() {
   const saveNotes = useMutation({
     mutationFn: ({ id, notes }: { id: number; notes: string }) => api<unknown>(`/project-references/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["reading-notes"] }),
+  });
+  const indexText = useMutation({
+    mutationFn: (id: number) => api<{ page_count: number; char_count: number; error: string }>(`/references/${id}/index-text/`, { method: "POST" }),
+    onSuccess: (out) => { invalidate(); flash(out.error ? out.error : `Read ${out.page_count} page${out.page_count === 1 ? "" : "s"} into searchable text.`); },
+    onError: () => flash("Could not read the PDF text."),
   });
   const fetchPdf = useMutation({
     mutationFn: (id: number) => api<{ outcome: string; attached: boolean; pdf: string | null }>(`/references/${id}/fetch-pdf/`, { method: "POST" }),
@@ -463,6 +470,8 @@ export default function Library() {
         {/* reader, duplicates workbench, or the list */}
         {readerId && reader ? (
           <PdfReader
+            refId={reader.id}
+            initialFind={readerFind}
             pdfUrl={reader.pdf as string}
             title={reader.title}
             highlights={highlights.data ?? []}
@@ -551,6 +560,7 @@ export default function Library() {
                     {r.tags.slice(0, 3).map((t) => <span key={t} className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500 dark:bg-stone-800 dark:text-stone-300">{t}</span>)}
                     {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
                     {r.pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">PDF</span>}
+                    {r.pdf_match && <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-200" title="Your search matched inside the PDF text"><Search className="mr-0.5 inline h-2.5 w-2.5" aria-hidden="true" />in PDF</span>}
                     {r.citation_count != null && r.citation_count > 0 && <span className="text-[10px] tabular-nums text-stone-400">{r.citation_count} cit.</span>}
                   </div>
                 </div>
@@ -601,7 +611,7 @@ export default function Library() {
               Select a paper to see its abstract, links, and related work.
             </div>
           ) : (
-            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
+            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
           )}
         </aside>
       </div>
@@ -610,7 +620,7 @@ export default function Library() {
   );
 }
 
-function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf }: { r: Ref; allTags: string[]; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
+function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText }: { r: Ref; allTags: string[]; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
   const [full, setFull] = useState(false);
   const [newTag, setNewTag] = useState("");
   const citation = useQuery({ queryKey: ["cite", r.id, citeStyle], queryFn: () => api<Citation>(`/references/${r.id}/cite/?style=${citeStyle}`), staleTime: 5 * 60_000 });
@@ -666,6 +676,7 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
           <datalist id="detail-tag-names">{allTags.map((t) => <option key={t} value={t} />)}</datalist>
         </form>
       </div>
+      <FoundInPdf r={r} q={q} onFind={onFind} onIndexText={onIndexText} />
       <HighlightsBlock r={r} highlights={highlights} onJump={onJump} onEdit={onEditHighlight} onRemove={onRemoveHighlight} onCopied={onCopied} />
       <ReadingNotesBlock notes={readingNotes} onSave={onSaveNotes} />
       <div className="mt-5">
@@ -813,6 +824,34 @@ function ReadingNotesBlock({ notes, onSave }: { notes: ReadingNote[]; onSave: (i
           <textarea value={drafts[n.project_reference_id] ?? n.notes} onChange={(e) => change(n.project_reference_id, e.target.value)} rows={3} placeholder="What did you take from it? Autosaves." className="w-full resize-y rounded-lg border border-stone-200 bg-stone-50 px-2 py-1.5 text-xs leading-relaxed placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-800 dark:bg-stone-950/40 dark:text-stone-200" aria-label={`Reading notes for ${n.project_name}`} />
         </div>
       ))}
+    </div>
+  );
+}
+
+function FoundInPdf({ r, q, onFind, onIndexText }: { r: Ref; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void }) {
+  const active = Boolean(r.pdf && q.trim().length >= 2);
+  const hits = useQuery({ queryKey: ["pdf-find", r.id, q], queryFn: () => api<{ page: number; snippet: string }[]>(`/references/${r.id}/text-search/?q=${encodeURIComponent(q)}`), enabled: active, staleTime: 60_000 });
+  if (r.pdf && r.text_status !== "indexed") {
+    return (
+      <div className="mt-4 flex items-center justify-between gap-2 rounded-lg border border-dashed border-stone-300 px-2.5 py-1.5 text-[11px] text-stone-500 dark:border-stone-700" data-testid="text-status">
+        <span>{r.text_status === "pending" ? "PDF text not read yet — it becomes searchable once indexed." : `PDF text: ${r.text_status.replace("error: ", "")}`}</span>
+        <button type="button" onClick={onIndexText} className="shrink-0 rounded-md border border-stone-300 px-2 py-0.5 hover:border-indigo-300 dark:border-stone-700">{r.text_status === "pending" ? "Index now" : "Retry"}</button>
+      </div>
+    );
+  }
+  if (!active || !hits.data?.length) return null;
+  return (
+    <div className="mt-4" data-testid="found-in-pdf">
+      <p className={railH}><Search className="mr-1 inline h-3 w-3" aria-hidden="true" />Found in the PDF · “{q}”</p>
+      <ul className="space-y-1">
+        {hits.data.map((h) => (
+          <li key={h.page}>
+            <button type="button" onClick={() => onFind(h.page, q)} className="w-full rounded-lg border border-violet-500/20 bg-violet-500/5 px-2.5 py-1.5 text-left text-[11px] leading-relaxed text-stone-600 hover:border-violet-400 dark:text-stone-300" title="Open the reader at this page">
+              <span className="mr-1.5 font-medium text-violet-700 dark:text-violet-200">p.{h.page}</span>{h.snippet}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

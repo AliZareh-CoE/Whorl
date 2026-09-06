@@ -2,7 +2,9 @@
  *  text layer; selecting text pops a colour bar that saves a structured Highlight through the API.
  *  Saved highlights are painted back onto the text layer by matching their text on the page. */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, ExternalLink, Loader2, Minus, Plus, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Highlighter, Loader2, Minus, Plus, Search, X } from "lucide-react";
+import { api } from "../../api";
 
 export type Highlight = {
   id: number; reference: number; project: string | null; project_name: string; page: number | null;
@@ -11,6 +13,8 @@ export type Highlight = {
 export const HL_COLORS: Record<Highlight["color"], string> = { yellow: "#facc15", green: "#4ade80", blue: "#60a5fa", pink: "#f472b6" };
 
 type Props = {
+  refId: number;
+  initialFind?: string;
   pdfUrl: string;
   title: string;
   highlights: Highlight[];
@@ -28,10 +32,11 @@ const LIB = "/static/vendor/pdfjs/pdf.min.mjs";
 
 function norm(s: string): string { return s.replace(/\s+/g, " ").trim().toLowerCase(); }
 
-/** Paint saved highlights onto a rendered text layer by substring-matching span text. */
-export function paintHighlights(layer: HTMLElement, marks: Highlight[]) {
+/** Paint saved highlights (and the current find term) onto a rendered text layer by
+ *  substring-matching span text — no stored rectangles, so a replaced PDF still shows them. */
+export function paintHighlights(layer: HTMLElement, marks: Highlight[], find = "") {
   const spans = Array.from(layer.querySelectorAll<HTMLSpanElement>("span"));
-  for (const span of spans) span.removeAttribute("data-hl");
+  for (const span of spans) { span.removeAttribute("data-hl"); span.removeAttribute("data-find"); }
   for (const h of marks) {
     const hay = norm(h.text);
     if (hay.length < 4) continue;
@@ -40,10 +45,23 @@ export function paintHighlights(layer: HTMLElement, marks: Highlight[]) {
       if (t.length >= 4 && hay.includes(t)) span.dataset.hl = h.color;
     }
   }
+  const term = norm(find);
+  if (term.length >= 2) {
+    for (const span of spans) {
+      const t = norm(span.textContent ?? "");
+      if (t.includes(term) || (term.length >= 4 && t.length >= 4 && term.includes(t))) span.dataset.find = "1";
+    }
+  }
 }
 
-export default function PdfReader({ pdfUrl, title, highlights, projects, project, onProject, onSave, onClose, jump, fullReaderHref }: Props) {
+export default function PdfReader({ refId, initialFind = "", pdfUrl, title, highlights, projects, project, onProject, onSave, onClose, jump, fullReaderHref }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
+  const [findInput, setFindInput] = useState(initialFind);
+  const [find, setFind] = useState(initialFind);
+  const [hitIndex, setHitIndex] = useState(0);
+  const hits = useQuery({ queryKey: ["pdf-find", refId, find], queryFn: () => api<{ page: number; snippet: string }[]>(`/references/${refId}/text-search/?q=${encodeURIComponent(find)}`), enabled: find.trim().length >= 2, staleTime: 60_000 });
+  const findRef = useRef(find);
+  findRef.current = find;
   const [scale, setScale] = useState(1.25);
   const [numPages, setNumPages] = useState(0);
   const [current, setCurrent] = useState(1);
@@ -93,7 +111,7 @@ export default function PdfReader({ pdfUrl, title, highlights, projects, project
     await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
     const TextLayer = lib.TextLayer as new (o: unknown) => { render: () => Promise<void> };
     await new TextLayer({ textContentSource: page.streamTextContent(), container: textDiv, viewport }).render();
-    paintHighlights(textDiv, highlightsRef.current.filter((h) => h.page === n));
+    paintHighlights(textDiv, highlightsRef.current.filter((h) => h.page === n), findRef.current);
   }, [scale]);
 
   // lazy render on scroll + current page tracking
@@ -111,15 +129,26 @@ export default function PdfReader({ pdfUrl, title, highlights, projects, project
     return () => io.disconnect();
   }, [numPages, renderPage]);
 
-  // repaint highlights when they change
+  // repaint highlights / find matches when they change
   useEffect(() => {
     const root = scroller.current;
     if (!root) return;
     root.querySelectorAll<HTMLElement>("[data-page]").forEach((wrap) => {
       const layer = wrap.querySelector<HTMLElement>(".textLayer");
-      if (layer) paintHighlights(layer, highlights.filter((h) => h.page === Number(wrap.dataset.page)));
+      if (layer) paintHighlights(layer, highlights.filter((h) => h.page === Number(wrap.dataset.page)), find);
     });
-  }, [highlights]);
+  }, [highlights, find]);
+
+  // walking the find hits scrolls to their pages
+  const goTo = useCallback((page: number) => {
+    scroller.current?.querySelector(`[data-page="${page}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+  useEffect(() => {
+    const page = hits.data?.[hitIndex]?.page;
+    if (page) goTo(page);
+  }, [hits.data, hitIndex, goTo]);
+  useEffect(() => { setHitIndex(0); }, [find]);
+  useEffect(() => { if (initialFind) { setFindInput(initialFind); setFind(initialFind); } }, [initialFind]);
 
   // jump to a page from the highlights list
   useEffect(() => {
@@ -165,13 +194,26 @@ export default function PdfReader({ pdfUrl, title, highlights, projects, project
         <button type="button" onClick={onClose} className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800" title="Back to the list (Esc)"><X className="h-3.5 w-3.5" aria-hidden="true" />List</button>
         <span className="min-w-0 flex-1 truncate font-medium text-stone-700 dark:text-stone-100" title={title}>{title}</span>
         <span className="tabular-nums text-stone-400">{numPages ? `p. ${current} / ${numPages}` : "opening…"}</span>
+        <form onSubmit={(e) => { e.preventDefault(); if (find === findInput.trim()) setHitIndex((i) => (hits.data?.length ? (i + 1) % hits.data.length : 0)); else setFind(findInput.trim()); }} className="relative inline-flex items-center" role="search" aria-label="Find in PDF">
+          <Search className="pointer-events-none absolute left-1.5 h-3 w-3 text-stone-400" aria-hidden="true" />
+          <input value={findInput} onChange={(e) => setFindInput(e.target.value)} placeholder="Find in PDF…" className="w-32 rounded-md border border-stone-200 bg-white py-1 pl-6 pr-1.5 text-xs placeholder:text-stone-400 focus:w-44 focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200" onKeyDown={(e) => { if (e.key === "Escape") { setFindInput(""); setFind(""); (e.target as HTMLInputElement).blur(); } }} />
+          {find && (
+            <span className="ml-1 inline-flex items-center gap-0.5 tabular-nums text-stone-400">
+              {hits.isLoading ? "…" : hits.data?.length ? `${hitIndex + 1}/${hits.data.length} pages` : "no hits"}
+              {(hits.data?.length ?? 0) > 1 && (<>
+                <button type="button" onClick={() => setHitIndex((i) => (i - 1 + hits.data!.length) % hits.data!.length)} className="rounded px-0.5 hover:bg-stone-100 dark:hover:bg-stone-800" aria-label="Previous page with a hit"><ChevronLeft className="h-3 w-3" aria-hidden="true" /></button>
+                <button type="button" onClick={() => setHitIndex((i) => (i + 1) % hits.data!.length)} className="rounded px-0.5 hover:bg-stone-100 dark:hover:bg-stone-800" aria-label="Next page with a hit"><ChevronRight className="h-3 w-3" aria-hidden="true" /></button>
+              </>)}
+            </span>
+          )}
+        </form>
         <span className="inline-flex items-center overflow-hidden rounded-md border border-stone-200 dark:border-stone-700">
           <button type="button" onClick={() => setScale((s) => Math.max(0.6, +(s - 0.15).toFixed(2)))} className="px-1.5 py-1 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800" aria-label="Zoom out"><Minus className="h-3 w-3" aria-hidden="true" /></button>
           <span className="px-1.5 tabular-nums text-stone-500">{Math.round(scale * 80)}%</span>
           <button type="button" onClick={() => setScale((s) => Math.min(2.5, +(s + 0.15).toFixed(2)))} className="px-1.5 py-1 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800" aria-label="Zoom in"><Plus className="h-3 w-3" aria-hidden="true" /></button>
         </span>
-        <label className="inline-flex items-center gap-1 text-stone-400">
-          highlights →
+        <label className="inline-flex items-center gap-1 text-stone-400" title="Project that receives new highlights">
+          <Highlighter className="h-3 w-3" aria-hidden="true" />
           <span className="relative">
             <select value={project} onChange={(e) => onProject(e.target.value)} className="appearance-none rounded-md border border-stone-200 bg-white py-1 pl-2 pr-6 text-xs text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200" aria-label="Project that receives highlights">
               <option value="">library only</option>
@@ -180,7 +222,7 @@ export default function PdfReader({ pdfUrl, title, highlights, projects, project
             <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-stone-400" aria-hidden="true" />
           </span>
         </label>
-        <a href={fullReaderHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Open the full-page reader with read-aloud"><ExternalLink className="h-3 w-3" aria-hidden="true" />full reader</a>
+        <a href={fullReaderHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Open the full-page reader with read-aloud"><ExternalLink className="h-3 w-3" aria-hidden="true" /><span className="hidden xl:inline">full reader</span></a>
       </div>
       <div ref={scroller} onMouseUp={onMouseUp} className="pdf-scroller relative flex-1 overflow-auto bg-stone-100 p-4 dark:bg-stone-950/60" style={{ maxHeight: "calc(100vh - 11rem)" }}>
         {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">{error}</p>}

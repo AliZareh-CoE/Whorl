@@ -392,3 +392,10 @@ def test_reading_client_calls(capture):
     assert capture["method"] == "PATCH" and calls_url_has(capture, "/project-references/4/")
     client.fetch_pdf(7)
     assert capture["method"] == "POST" and calls_url_has(capture, "/references/7/fetch-pdf/")
+
+
+def test_pdf_text_search_client_calls(capture):
+    client.search_pdf_text("perceptual load", project="deep", limit=5)
+    assert calls_url_has(capture, "/references/text-search/") and "project=deep" in capture["url"]
+    client.search_in_pdf(7, "load")
+    assert calls_url_has(capture, "/references/7/text-search/") and "q=load" in capture["url"]
