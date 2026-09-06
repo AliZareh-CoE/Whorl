@@ -378,3 +378,14 @@
 .gutter.gutter-horizontal:hover {
   background-color: rgba(99, 102, 241, 0.08);
 }
+
+/* Library v2 slice 7 — in-workbench PDF reader (pdf.js text layer + painted highlights) */
+.pdf-page { position: relative; margin: 0 auto; background: white; box-shadow: 0 1px 3px rgb(0 0 0 / 0.15); }
+.pdf-page canvas { display: block; }
+.textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; opacity: 1; }
+.textLayer span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; }
+.textLayer ::selection { background: rgb(79 70 229 / 0.35); }
+.textLayer span[data-hl="yellow"] { background: rgb(250 204 21 / 0.45); }
+.textLayer span[data-hl="green"] { background: rgb(74 222 128 / 0.4); }
+.textLayer span[data-hl="blue"] { background: rgb(96 165 250 / 0.4); }
+.textLayer span[data-hl="pink"] { background: rgb(244 114 182 / 0.4); }

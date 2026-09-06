@@ -370,3 +370,25 @@ def test_duplicate_client_calls(capture):
         and calls_url_has(capture, "/references/merge/")
         and '"merge":[2,3]' in capture["body"]
     )
+
+
+def test_reading_client_calls(capture):
+    client.list_highlights(7)
+    assert calls_url_has(capture, "/highlights/") and "reference=7" in capture["url"]
+    client.add_highlight(7, "a passage", page=3, project="deep", comment="why")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/highlights/")
+        and '"page":3' in capture["body"]
+        and '"project":"deep"' in capture["body"]
+    )
+    client.add_highlight(7, "global")
+    assert '"project"' not in capture["body"] and '"page"' not in capture["body"]
+    client.get_highlights_markdown(7)
+    assert calls_url_has(capture, "/references/7/highlights-markdown/")
+    client.get_reading_notes(7)
+    assert calls_url_has(capture, "/references/7/reading-notes/")
+    client.set_reading_notes(4, "notes")
+    assert capture["method"] == "PATCH" and calls_url_has(capture, "/project-references/4/")
+    client.fetch_pdf(7)
+    assert capture["method"] == "POST" and calls_url_has(capture, "/references/7/fetch-pdf/")

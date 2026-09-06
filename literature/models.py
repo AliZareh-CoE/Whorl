@@ -195,3 +195,34 @@ class ReviewMark(TimeStampedModel):
 
     def __str__(self):
         return f"{self.project_reference.reference.bibtex_key} × {self.theme.name}"
+
+
+class Highlight(TimeStampedModel):
+    """A passage marked while reading a PDF (Library v2 slice 7).
+
+    Structured, unlike the older "append to a highlights note" flow, so the workbench can list,
+    jump to, comment on, and export highlights per paper. When a project is given the passage is
+    still mirrored into that project's highlights note so it stays in the wiki-link graph.
+    """
+
+    class Color(models.TextChoices):
+        YELLOW = "yellow", "Yellow"
+        GREEN = "green", "Green"
+        BLUE = "blue", "Blue"
+        PINK = "pink", "Pink"
+
+    reference = models.ForeignKey(Reference, on_delete=models.CASCADE, related_name="highlights")
+    project = models.ForeignKey(
+        Project, on_delete=models.SET_NULL, null=True, blank=True, related_name="highlights"
+    )
+    page = models.PositiveIntegerField(null=True, blank=True)
+    text = models.TextField()
+    comment = models.TextField(blank=True)
+    color = models.CharField(max_length=10, choices=Color.choices, default=Color.YELLOW)
+
+    class Meta:
+        ordering = ["page", "created_at"]
+
+    def __str__(self):
+        page = f" p.{self.page}" if self.page else ""
+        return f"{self.reference.bibtex_key}{page}: {self.text[:50]}"

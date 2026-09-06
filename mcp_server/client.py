@@ -372,3 +372,40 @@ def find_duplicates():
 def merge_references(keep: int, merge: list[int]):
     """Fold references into one (links, tags, notes, PDF move; the rest are deleted)."""
     return _request("POST", "/references/merge/", json={"keep": keep, "merge": merge})
+
+
+def list_highlights(reference_id: int):
+    """Structured highlights of one paper (page, text, comment, colour)."""
+    return _request("GET", "/highlights/", params={"reference": reference_id, "page_size": 200})
+
+
+def add_highlight(
+    reference_id: int, text: str, page: int | None = None, project: str = "", comment: str = ""
+):
+    """Save a highlight; with a project it is mirrored into that project's highlights note."""
+    payload = {"reference": reference_id, "text": text, "comment": comment}
+    if page:
+        payload["page"] = page
+    if project:
+        payload["project"] = project
+    return _request("POST", "/highlights/", json=payload)
+
+
+def get_highlights_markdown(reference_id: int):
+    """All highlights of a paper as one Markdown block."""
+    return _request("GET", f"/references/{reference_id}/highlights-markdown/")
+
+
+def get_reading_notes(reference_id: int):
+    """Per-project reading notes for a paper."""
+    return _request("GET", f"/references/{reference_id}/reading-notes/")
+
+
+def set_reading_notes(project_reference_id: int, notes: str):
+    """Replace the reading notes on one project link."""
+    return _request("PATCH", f"/project-references/{project_reference_id}/", json={"notes": notes})
+
+
+def fetch_pdf(reference_id: int):
+    """Try to attach an open-access PDF (arXiv, then Unpaywall)."""
+    return _request("POST", f"/references/{reference_id}/fetch-pdf/")

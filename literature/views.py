@@ -241,7 +241,9 @@ def read_pdf(request, pk):
 def save_highlight(request, pk):
     from django.http import JsonResponse
 
-    from notes.services import add_highlight_note
+    from notes.models import Note
+
+    from .reading import add_highlight
 
     reference = get_object_or_404(Reference, pk=pk)
     project = get_object_or_404(
@@ -255,7 +257,11 @@ def save_highlight(request, pk):
             {"error": "Selection too long — highlight at most 2000 characters."}, status=400
         )
     page = request.POST.get("page")
-    note = add_highlight_note(reference, project, text, int(page) if page else None)
+    # structured highlight (Library v2 slice 7) — mirrors into the highlights note itself
+    add_highlight(reference, text, page=int(page) if page else None, project=project)
+    note = Note.objects.filter(
+        project=project, title__iexact=f"Highlights — {reference.bibtex_key}"
+    ).first()
     return JsonResponse({"note_id": note.pk, "note_url": note.get_absolute_url()})
 
 

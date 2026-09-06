@@ -90,12 +90,11 @@ jobs:
 
       # The rolling desktop-preview release keeps only the newest build: delete assets from
       # earlier versions (this run's other-platform assets share the version stamp and stay).
-      - name: Prune older installers from the preview release
+      - name: Publish the preview release before uploading
         if: github.ref == 'refs/heads/claude/atlas-build-loop-qnf8a8' || github.ref == 'refs/heads/claude/desktop-app-project-tl12ri'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VER: 0.1.${{ github.run_number }}
         run: |
           api="https://api.github.com/repos/${{ github.repository }}"
           # stale DRAFT copies of the preview (drafts are invisible to the by-tag lookup and to
@@ -103,15 +102,11 @@ jobs:
           curl -sS -H "Authorization: Bearer $GH_TOKEN" "$api/releases?per_page=50" \
             | jq -r '.[] | select(.draft and .tag_name == "desktop-preview") | .id' \
             | while read -r did; do echo "delete stale draft release $did"; curl -sS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$api/releases/$did" >/dev/null; done
-          rel=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" "$api/releases/tags/desktop-preview" || true)
-          rid=$(echo "$rel" | jq -r '.id // empty')
+          rid=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" "$api/releases/tags/desktop-preview" | jq -r '.id // empty')
           if [ -z "$rid" ]; then echo "no preview release yet"; exit 0; fi
           # the preview used to be a draft; the in-app updater can only fetch a published release
           curl -sS -X PATCH -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" \
             -d '{"draft": false, "prerelease": true}' "$api/releases/$rid" >/dev/null && echo "preview release published (prerelease)"
-          echo "$rel" | jq -r '.assets[] | "\(.id) \(.name)"' | while read -r aid name; do
-            case "$name" in *"$VER"*|latest.json) ;; *) echo "delete $name"; curl -sS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$api/releases/assets/$aid" >/dev/null ;; esac
-          done
 
       - name: Install Linux build dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -189,3 +184,24 @@ jobs:
           releaseDraft: ${{ startsWith(github.ref, 'refs/tags/') }}
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
           args: ${{ matrix.target-args }}
+
+  # Older installers are pruned only AFTER every platform has uploaded, so the release never
+  # has a window where an OS has no installer (the owner hit that: "I can't find the exe").
+  # A failed platform keeps its previous installer in place.
+  prune:
+    name: Prune older installers
+    needs: build
+    if: always() && needs.build.result == 'success' && (github.ref == 'refs/heads/claude/atlas-build-loop-qnf8a8' || github.ref == 'refs/heads/claude/desktop-app-project-tl12ri')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete installers from earlier runs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VER: 0.1.${{ github.run_number }}
+        run: |
+          api="https://api.github.com/repos/${{ github.repository }}"
+          rel=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" "$api/releases/tags/desktop-preview")
+          echo "$rel" | jq -r '.assets[] | "\(.id) \(.name)"' | while read -r aid name; do
+            case "$name" in *"$VER"*|latest.json) echo "keep $name" ;; *) echo "delete $name"; curl -sS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$api/releases/assets/$aid" >/dev/null ;; esac
+          done

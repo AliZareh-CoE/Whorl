@@ -544,6 +544,32 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Library v2 slice 7: read and highlight inside the workbench (#307)
+
+**Decision.** Highlights become a model (`literature.Highlight`: reference, optional project, page, text,
+comment, colour) instead of lines appended to a note. `reading.add_highlight` still mirrors the passage
+into the project's "Highlights — <key>" note when a project is given (the note graph keeps working) and
+bumps `to_read` links to `skimmed`. The classic reader's save endpoint now goes through the same service.
+The workbench gets a pdf.js reader in the centre pane (vendored build, lazy per-page render, text layer,
+selection → colour bar → POST /highlights/), and saved highlights are painted back by matching their text
+against the page's text spans — no stored rectangles, so a re-rendered or re-imported PDF still shows them.
+Reading notes reuse `ProjectReference.notes` (one textarea per project, debounced PATCH). Per-row
+`POST /references/{id}/fetch-pdf/` wraps the existing OA download. MCP: `list_highlights`, `add_highlight`,
+`get_highlights_markdown`, `get_reading_notes`, `set_reading_notes`, `fetch_pdf` (55 tools).
+
+**Why.** Zotero's reader is the one thing people say they can't leave it for; Paperpile and ReadCube
+charge for it. Reading is where a library earns its keep, and every highlight should be a first-class row
+Claude can list, comment on and paste into a manuscript — not a line buried in a note body.
+
+**Alternatives considered.** Storing highlight rectangles (exact repaint, but breaks when the PDF is
+replaced, and doubles the payload) — rejected for now; text matching is good enough and honest.
+Embedding the classic reader page in an iframe — rejected: no shared state with the detail pane.
+A separate `/read` SPA route — rejected: the whole point is not leaving the list.
+
+**Release workflow.** Pruning old installers moved from the start of every matrix job to a post-build
+`prune` job that runs only when every platform succeeded: the owner opened the release mid-run and found
+no `.exe` because the Linux job had already deleted the previous Windows installer.
+
 ### 2026-09-06 — Library v2 slice 6: duplicate clusters and a real merge (#305)
 
 **Decision.** `library.duplicate_groups()` clusters probable duplicates with a union-find over

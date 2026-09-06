@@ -21,7 +21,7 @@ from rest_framework.views import APIView
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
 from literature import services as literature_services
-from literature.models import LibraryTag, ProjectReference, Reference, SavedView
+from literature.models import Highlight, LibraryTag, ProjectReference, Reference, SavedView
 from notes import services as note_services
 from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
@@ -1156,6 +1156,75 @@ class ReferenceViewSet(AtlasViewSet):
         return Response(summary.as_dict())
 
     @extend_schema(
+        request=None,
+        responses={
+            200: inline_serializer(
+                "FetchPdfResult",
+                {
+                    "outcome": rf_serializers.CharField(),
+                    "attached": rf_serializers.BooleanField(),
+                    "pdf": rf_serializers.CharField(allow_null=True),
+                },
+            )
+        },
+        description="Try to attach an open-access PDF (arXiv, then Unpaywall) to this reference.",
+    )
+    @action(detail=True, methods=["post"], url_path="fetch-pdf")
+    def fetch_pdf(self, request, pk=None):
+        from literature.oa import fetch_and_attach_pdf
+
+        reference = self.get_object()
+        outcome = fetch_and_attach_pdf(reference)
+        reference.refresh_from_db()
+        return Response(
+            {
+                "outcome": outcome,
+                "attached": bool(reference.pdf),
+                "pdf": reference.pdf.url if reference.pdf else None,
+            }
+        )
+
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                "HighlightsMarkdown",
+                {"markdown": rf_serializers.CharField(), "count": rf_serializers.IntegerField()},
+            )
+        },
+        description="All highlights of this paper as one Markdown block (quotes with page numbers).",
+    )
+    @action(detail=True, methods=["get"], url_path="highlights-markdown")
+    def highlights_markdown(self, request, pk=None):
+        from literature.reading import highlights_markdown
+
+        reference = self.get_object()
+        return Response(
+            {"markdown": highlights_markdown(reference), "count": reference.highlights.count()}
+        )
+
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                "ReadingNotes",
+                {
+                    "project_reference_id": rf_serializers.IntegerField(),
+                    "project": rf_serializers.CharField(),
+                    "project_name": rf_serializers.CharField(),
+                    "reading_status": rf_serializers.CharField(),
+                    "notes": rf_serializers.CharField(),
+                },
+                many=True,
+            )
+        },
+        description="Per-project reading notes for this paper (edit via PATCH /project-references/{id}/).",
+    )
+    @action(detail=True, methods=["get"], url_path="reading-notes")
+    def reading_notes(self, request, pk=None):
+        from literature.reading import reading_notes
+
+        return Response(reading_notes(self.get_object()))
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Most similar library references with scores")},
         description="Related papers in the library (TF-IDF cosine over title/abstract/venue).",
     )
@@ -1193,6 +1262,39 @@ class ProjectReferenceViewSet(AtlasViewSet):
 
             queryset = theme_candidates(queryset, theme)
         return queryset
+
+
+class HighlightViewSet(AtlasViewSet):
+    """Passages marked while reading a PDF (Library v2 slice 7). Filter with `?reference=<id>`;
+    `?project=<slug>` narrows to one project's highlights."""
+
+    queryset = Highlight.objects.select_related("reference", "project")
+    serializer_class = serializers.HighlightSerializer
+    project_filter = "project__slug"
+    q_fields = ("text", "comment")
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        reference = self.request.query_params.get("reference")
+        if reference and reference.isdigit():
+            queryset = queryset.filter(reference_id=int(reference))
+        return queryset
+
+    def perform_create(self, serializer):
+        from literature.reading import HighlightError, add_highlight
+
+        data = serializer.validated_data
+        try:
+            serializer.instance = add_highlight(
+                data["reference"],
+                data["text"],
+                page=data.get("page"),
+                project=data.get("project"),
+                comment=data.get("comment", ""),
+                color=data.get("color", Highlight.Color.YELLOW),
+            )
+        except HighlightError as exc:
+            raise rf_serializers.ValidationError({"text": str(exc)}) from exc
 
 
 class LibraryTagViewSet(AtlasViewSet):

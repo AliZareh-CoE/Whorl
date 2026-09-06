@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     CitationEdge,
+    Highlight,
     LibraryTag,
     ProjectReference,
     Reference,
@@ -49,3 +50,11 @@ class LibraryTagAdmin(admin.ModelAdmin):
 @admin.register(SavedView)
 class SavedViewAdmin(admin.ModelAdmin):
     list_display = ("name", "position", "params", "created_at")
+
+
+@admin.register(Highlight)
+class HighlightAdmin(admin.ModelAdmin):
+    list_display = ("reference", "project", "page", "color", "created_at")
+    list_filter = ("color", "project")
+    search_fields = ("text", "comment", "reference__title")
+    raw_id_fields = ("reference",)

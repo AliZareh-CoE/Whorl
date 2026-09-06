@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
-from literature.models import LibraryTag, ProjectReference, Reference, SavedView
+from literature.models import Highlight, LibraryTag, ProjectReference, Reference, SavedView
 from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
@@ -325,6 +325,28 @@ class SavedViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = SavedView
         fields = ["id", "name", "params", "position", "created_at", "updated_at"]
+
+
+class HighlightSerializer(serializers.ModelSerializer):
+    """A passage marked while reading (Library v2 slice 7)."""
+
+    project = ProjectSlugField(required=False, allow_null=True)
+    project_name = serializers.CharField(source="project.name", read_only=True, default="")
+
+    class Meta:
+        model = Highlight
+        fields = [
+            "id",
+            "reference",
+            "project",
+            "project_name",
+            "page",
+            "text",
+            "comment",
+            "color",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class MergeReferencesSerializer(serializers.Serializer):

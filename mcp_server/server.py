@@ -337,3 +337,42 @@ def merge_references(keep: int, merge: list[int]) -> dict:
     """Merge duplicate references into `keep`: project links, tags, notes, manuscript
     bibliographies, evidence, citations, comments, and the PDF move over; the others are deleted."""
     return client.merge_references(keep, merge)
+
+
+@mcp.tool()
+def list_highlights(reference_id: int) -> dict:
+    """Passages highlighted while reading a paper: page, text, comment, colour, project."""
+    return client.list_highlights(reference_id)
+
+
+@mcp.tool()
+def add_highlight(
+    reference_id: int, text: str, page: int | None = None, project: str = "", comment: str = ""
+) -> dict:
+    """Save a highlight on a paper (optionally at a page, with a comment). With a project slug it
+    is also mirrored into that project's "Highlights — <key>" note and the paper is marked skimmed."""
+    return client.add_highlight(reference_id, text, page=page, project=project, comment=comment)
+
+
+@mcp.tool()
+def get_highlights_markdown(reference_id: int) -> dict:
+    """Every highlight of a paper as one Markdown block of quotes with page numbers — paste-ready."""
+    return client.get_highlights_markdown(reference_id)
+
+
+@mcp.tool()
+def get_reading_notes(reference_id: int) -> list:
+    """Reading notes for a paper in each project it is filed in (with project_reference_id)."""
+    return client.get_reading_notes(reference_id)
+
+
+@mcp.tool()
+def set_reading_notes(project_reference_id: int, notes: str) -> dict:
+    """Replace the reading notes on one project link (see get_reading_notes for the id)."""
+    return client.set_reading_notes(project_reference_id, notes)
+
+
+@mcp.tool()
+def fetch_pdf(reference_id: int) -> dict:
+    """Try to attach an open-access PDF to a paper (arXiv first, then Unpaywall by DOI)."""
+    return client.fetch_pdf(reference_id)
