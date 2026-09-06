@@ -1629,6 +1629,13 @@ class ManuscriptFileViewSet(AtlasViewSet):
         return queryset
 
 
+def _touch_manuscript(manuscript) -> None:
+    """Bump updated_at so the detail ETag changes when a related row (event, bib entry) changes."""
+    from django.utils import timezone
+
+    type(manuscript).objects.filter(pk=manuscript.pk).update(updated_at=timezone.now())
+
+
 def _bibliography_rows(manuscript) -> list[dict]:
     rows = []
     for link in manuscript.manuscriptreference_set.select_related("reference").order_by(
@@ -1713,6 +1720,7 @@ class ManuscriptViewSet(AtlasViewSet):
             if override is not None and override != link.cite_key_override:
                 link.cite_key_override = override
                 link.save(update_fields=["cite_key_override"])
+            _touch_manuscript(manuscript)
         return Response(_bibliography_rows(manuscript))
 
     @extend_schema(
@@ -1725,9 +1733,11 @@ class ManuscriptViewSet(AtlasViewSet):
     def remove_reference(self, request, pk=None, reference_id=None):
         from writing.models import ManuscriptReference
 
+        manuscript = self.get_object()
         ManuscriptReference.objects.filter(
-            manuscript=self.get_object(), reference_id=reference_id
+            manuscript=manuscript, reference_id=reference_id
         ).delete()
+        _touch_manuscript(manuscript)
         return Response(status=204)
 
     @extend_schema(
@@ -1790,14 +1800,72 @@ class ManuscriptViewSet(AtlasViewSet):
         serializer = serializers.SubmissionEventInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         event = SubmissionEvent.objects.create(manuscript=manuscript, **serializer.validated_data)
+        _touch_manuscript(manuscript)
         return Response(serializers.SubmissionEventSerializer(event).data, status=201)
+
+    @extend_schema(
+        request=serializers.ReviewsInSerializer,
+        responses={
+            201: inline_serializer(
+                "ReviewsLogged",
+                {
+                    "event": serializers.SubmissionEventSerializer(),
+                    "note": rf_serializers.DictField(),
+                    "points": rf_serializers.IntegerField(),
+                },
+            )
+        },
+        description="Log received reviews: creates the reviews_received event and a point-by-point "
+        "'Response to reviewers' note (one checkbox per reviewer point) in the project.",
+    )
+    @action(detail=True, methods=["post"])
+    def reviews(self, request, pk=None):
+        from writing.reviews import log_reviews
+
+        manuscript = self.get_object()
+        serializer = serializers.ReviewsInSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        event, note, points = log_reviews(
+            manuscript, data["text"], received=data.get("date"), notes=data.get("notes", "")
+        )
+        _touch_manuscript(manuscript)
+        return Response(
+            {
+                "event": serializers.SubmissionEventSerializer(event).data,
+                "note": {
+                    "id": note.pk,
+                    "title": note.title,
+                    "app_url": f"/projects/{manuscript.project.slug}/notes/{note.pk}",
+                },
+                "points": len(points),
+            },
+            status=201,
+        )
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="{progress: {note_id, title, done, total, percent, app_url} | null} "
+                "for the newest response note"
+            )
+        },
+        description="How many reviewer points have a final response (ticked in the note).",
+    )
+    @action(detail=True, methods=["get"], url_path="response-progress")
+    def response_progress(self, request, pk=None):
+        from writing.reviews import response_progress
+
+        return Response({"progress": response_progress(self.get_object())})
 
     @extend_schema(request=None, responses={204: None}, description="Delete a submission event.")
     @action(detail=True, methods=["delete"], url_path=r"events/(?P<event_id>\d+)")
     def remove_event(self, request, pk=None, event_id=None):
         from writing.models import SubmissionEvent
 
-        SubmissionEvent.objects.filter(manuscript=self.get_object(), pk=event_id).delete()
+        manuscript = self.get_object()
+        SubmissionEvent.objects.filter(manuscript=manuscript, pk=event_id).delete()
+        _touch_manuscript(manuscript)
         return Response(status=204)
 
     @extend_schema(

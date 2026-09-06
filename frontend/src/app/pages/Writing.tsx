@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Loader2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Loader2, MessageSquareReply, Package, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -20,6 +20,7 @@ type WordCount = { words: number; headers?: number; captions?: number; math?: nu
 type Compile = { status: string; diagnostics: { level: string; file: string; line: number | null; message: string }[]; compiled_at: string | null; pdf_url: string | null; log: string };
 type LibRef = { id: number; bibtex_key: string; title: string; year: number | null; authors: { family?: string; given?: string }[] };
 type Project = { slug: string; name: string };
+type ResponseProgress = { note_id: number; title: string; done: number; total: number; percent: number; app_url: string } | null;
 
 const COLUMNS: [string, string][] = [["idea", "Idea"], ["outlining", "Outlining"], ["drafting", "Drafting"], ["internal_review", "Internal review"], ["submitted", "Submitted"], ["under_review", "Under review"], ["revision", "Revision"], ["accepted", "Accepted"], ["published", "Published"], ["shelved", "Shelved"]];
 const EVENT_KINDS: [string, string][] = [["submitted", "Submitted"], ["desk_reject", "Desk reject"], ["reviews_received", "Reviews received"], ["revision_submitted", "Revision submitted"], ["accepted", "Accepted"], ["rejected", "Rejected"], ["published", "Published"], ["note", "Note"]];
@@ -197,7 +198,7 @@ function CompileCard({ m }: { m: Manuscript }) {
       {s?.status === "failed" && s.diagnostics.length > 0 && (
         <ul className="mt-3 space-y-1 text-xs">{s.diagnostics.slice(0, 5).map((d, i) => <li key={i} className="flex items-start gap-1.5 text-red-600 dark:text-red-300"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" /><span><span className="font-mono">{d.file}{d.line ? `:${d.line}` : ""}</span> {d.message}</span></li>)}</ul>
       )}
-      <p className="mt-2 text-[11px] text-stone-400">{s?.compiled_at ? `Last compiled ${new Date(s.compiled_at).toLocaleString()}` : "Word count is approximate (LaTeX detex)."} · <a href={`/projects/${m.project}/writing/${m.id}/editor/`} className="hover:underline">open the editor ↗</a></p>
+      <p className="mt-2 flex flex-wrap items-center gap-x-3 text-[11px] text-stone-400"><span>{s?.compiled_at ? `Last compiled ${new Date(s.compiled_at).toLocaleString()}` : "Word count is approximate (LaTeX detex)."}</span><a href={`/projects/${m.project}/writing/${m.id}/editor/`} className="hover:underline">open the editor ↗</a><a href={`/projects/${m.project}/writing/${m.id}/submission.zip`} className="inline-flex items-center gap-1 hover:underline" title="arXiv-ready source + .bib"><Package className="h-3 w-3" aria-hidden="true" />submission .zip</a></p>
     </section>
   );
 }
@@ -286,10 +287,19 @@ function CiteCheckCard({ m, onChanged }: { m: Manuscript; onChanged: () => void 
 }
 
 function TimelineCard({ m, onChanged }: { m: Manuscript; onChanged: () => void }) {
+  const queryClient = useQueryClient();
   const [kind, setKind] = useState("submitted");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const add = useMutation({ mutationFn: () => api(`/manuscripts/${m.id}/events/`, { method: "POST", headers: JSON_H, body: JSON.stringify({ kind, date, notes }) }), onSuccess: () => { setNotes(""); onChanged(); } });
+  const [reviewText, setReviewText] = useState("");
+  const progress = useQuery({ queryKey: ["response-progress", m.id], queryFn: () => api<{ progress: ResponseProgress }>(`/manuscripts/${m.id}/response-progress/`).then((r) => r.progress) });
+  const add = useMutation({
+    mutationFn: () => kind === "reviews_received"
+      ? api<{ points: number; note: { id: number; app_url: string } }>(`/manuscripts/${m.id}/reviews/`, { method: "POST", headers: JSON_H, body: JSON.stringify({ text: reviewText, date, notes }) })
+      : api(`/manuscripts/${m.id}/events/`, { method: "POST", headers: JSON_H, body: JSON.stringify({ kind, date, notes }) }),
+    onSuccess: () => { setNotes(""); setReviewText(""); queryClient.invalidateQueries({ queryKey: ["response-progress", m.id] }); queryClient.invalidateQueries({ queryKey: ["notes"] }); onChanged(); },
+  });
+  const pr = progress.data;
   const remove = useMutation({ mutationFn: (eventId: number) => api(`/manuscripts/${m.id}/events/${eventId}/`, { method: "DELETE" }), onSuccess: onChanged });
   return (
     <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 3 }} data-testid="timeline-card">
@@ -304,6 +314,19 @@ function TimelineCard({ m, onChanged }: { m: Manuscript; onChanged: () => void }
             </li>
           ))}
         </ol>
+      )}
+      {pr && (
+        <div className="mb-3 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-3 py-2" data-testid="response-progress">
+          <div className="flex items-center gap-2 text-xs">
+            <MessageSquareReply className="h-3.5 w-3.5 text-indigo-500" aria-hidden="true" />
+            <Link to={pr.app_url} className="min-w-0 flex-1 truncate font-medium text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300" title={pr.title}>Response to reviewers</Link>
+            <span className="tabular-nums text-stone-500 dark:text-stone-300">{pr.done}/{pr.total} points answered</span>
+          </div>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800"><div className="h-1.5 rounded-full bg-indigo-500 transition-[width] duration-500" style={{ width: `${pr.percent}%` }} /></div>
+        </div>
+      )}
+      {kind === "reviews_received" && (
+        <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} rows={5} placeholder={"Paste the reviews here. 'Reviewer 1' headings and numbered points become a point-by-point response note with a checkbox per point."} className="mb-2 w-full resize-y rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-relaxed placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-800 dark:bg-stone-950/40 dark:text-stone-200" aria-label="Reviews received" data-testid="reviews-text" />
       )}
       <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} className="flex flex-wrap items-center gap-2 text-xs">
         <select value={kind} onChange={(e) => setKind(e.target.value)} className="rounded-md border border-stone-200 bg-white px-2 py-1 dark:border-stone-700 dark:bg-stone-800" aria-label="Event kind">{EVENT_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>

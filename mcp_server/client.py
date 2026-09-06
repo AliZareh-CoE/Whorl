@@ -528,3 +528,16 @@ def add_submission_event(manuscript_id: int, kind: str, date: str, notes: str = 
         f"/manuscripts/{manuscript_id}/events/",
         json={"kind": kind, "date": date, "notes": notes},
     )
+
+
+def log_reviews(manuscript_id: int, text: str, date: str = "", notes: str = ""):
+    """Log received reviews → reviews_received event + point-by-point response note."""
+    payload = {"text": text, "notes": notes}
+    if date:
+        payload["date"] = date
+    return _request("POST", f"/manuscripts/{manuscript_id}/reviews/", json=payload)
+
+
+def get_response_progress(manuscript_id: int):
+    """Ticked / total reviewer points in the newest response note (None when there is none)."""
+    return _request("GET", f"/manuscripts/{manuscript_id}/response-progress/")["progress"]

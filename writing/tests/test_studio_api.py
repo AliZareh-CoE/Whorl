@@ -130,3 +130,28 @@ def test_create_manuscript_through_api(client, world):
         **HEADERS,
     )
     assert made.status_code == 201 and made.json()["project_name"] == project.name
+
+
+def test_related_changes_bump_the_manuscript_etag(client, world):
+    _, m, lavie, _ = world
+    first = client.get(f"/api/v1/manuscripts/{m.pk}/", **HEADERS)
+    etag = first["ETag"]
+    client.post(
+        f"/api/v1/manuscripts/{m.pk}/events/",
+        {"kind": "note", "date": "2026-09-06"},
+        content_type="application/json",
+        **HEADERS,
+    )
+    again = client.get(f"/api/v1/manuscripts/{m.pk}/", HTTP_IF_NONE_MATCH=etag, **HEADERS)
+    assert again.status_code == 200 and again["ETag"] != etag  # not a stale 304
+    etag = again["ETag"]
+    client.post(
+        f"/api/v1/manuscripts/{m.pk}/bibliography/",
+        {"reference": lavie.pk},
+        content_type="application/json",
+        **HEADERS,
+    )
+    assert (
+        client.get(f"/api/v1/manuscripts/{m.pk}/", HTTP_IF_NONE_MATCH=etag, **HEADERS).status_code
+        == 200
+    )

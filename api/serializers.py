@@ -372,6 +372,17 @@ class SubmissionEventInSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True)
 
 
+class ReviewsInSerializer(serializers.Serializer):
+    """Paste the reviews you received (Writing v2 slice 2)."""
+
+    text = serializers.CharField(
+        allow_blank=True,
+        help_text="The reviews as received; 'Reviewer N' headings and numbered/bulleted points are recognised.",
+    )
+    date = serializers.DateField(required=False)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
 class NoteFromTemplateSerializer(serializers.Serializer):
     """Create a note from a template (Notes v2 slice 3)."""
 

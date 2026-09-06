@@ -503,3 +503,17 @@ def add_submission_event(manuscript_id: int, kind: str, date: str, notes: str = 
     """Log a submission event: submitted / desk_reject / reviews_received / revision_submitted /
     accepted / rejected / published / note, with an ISO date."""
     return client.add_submission_event(manuscript_id, kind, date, notes)
+
+
+@mcp.tool()
+def log_reviews(manuscript_id: int, text: str, date: str = "", notes: str = "") -> dict:
+    """Paste the reviews a manuscript received: Atlas logs a reviews_received event and writes a
+    'Response to reviewers' note with one checkbox per reviewer point (R1.1, R1.2, …) and a
+    Response slot under each. Returns the event, the note and the point count."""
+    return client.log_reviews(manuscript_id, text, date, notes)
+
+
+@mcp.tool()
+def get_response_progress(manuscript_id: int) -> dict | None:
+    """How many reviewer points have a final (ticked) response in the newest response note."""
+    return client.get_response_progress(manuscript_id)

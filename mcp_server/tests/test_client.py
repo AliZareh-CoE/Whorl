@@ -466,3 +466,17 @@ def test_manuscript_bibliography_client_calls(capture):
     assert calls_url_has(capture, "/manuscripts/3/cite-check/")
     client.add_submission_event(3, "submitted", "2026-09-06", "to NeurIPS")
     assert capture["method"] == "POST" and '"kind":"submitted"' in capture["body"]
+
+
+def test_reviews_client_calls(capture):
+    client.log_reviews(3, "Reviewer 1\n1. small n", date="2026-09-06")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/manuscripts/3/reviews/")
+        and '"date":"2026-09-06"' in capture["body"]
+    )
+    try:
+        client.get_response_progress(3)
+    except (KeyError, TypeError):
+        pass  # the capture transport returns an empty body; the URL is what we check
+    assert calls_url_has(capture, "/manuscripts/3/response-progress/")

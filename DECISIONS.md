@@ -544,6 +544,31 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Writing v2 slice 2: the reviewer-response tracker (#327)
+
+**Decision.** `writing/reviews.py` parses pasted reviews into points (reviewers split on
+"Reviewer N" / "Referee N" headings, points on numbered or bulleted lines, unmarked paragraphs
+folded into the previous point), logs a `reviews_received` event whose notes link the note with
+`[[…]]`, and writes a "Response to reviewers — <title> (<date>)" note: `## Reviewer N` sections,
+`- [ ] **RN.k** <point>` with a `> Response:` slot under each. Progress = ticked boxes / boxes in
+the newest such note for that manuscript (scoped by title prefix, so two manuscripts in one project
+don't share). API `POST /manuscripts/{id}/reviews/`, `GET …/response-progress/` (`{progress: …|null}`
+— a bare null renders as an empty body in DRF); MCP `log_reviews`, `get_response_progress` (75
+tools). UI: choosing "Reviews received" in the timeline form reveals the paste box; a progress card
+links to the note; the compile card gains the submission `.zip` link. Fixed on the way: the
+manuscript detail ETag is built from `updated_at`, so events and bibliography changes now touch the
+manuscript — otherwise the SPA (and MCP polling) kept a 304-stale timeline.
+
+**Why.** The revision round is where papers die: reviewer points scattered across an email, a
+response letter rebuilt from scratch. Turning the reviews into a checklist note the moment they
+arrive, and showing "7/12 answered" on the manuscript, keeps the round moving — and the note is
+already in the project's graph, citing the papers the reviewers asked for once you add `@keys`.
+
+**Alternatives considered.** A dedicated ReviewPoint model — rejected for now: the note is
+editable, exportable and linkable for free, and checkbox progress is honest enough; a model can
+come if per-point status or reviewer assignment is needed. Parsing with an LLM — rejected: the
+heuristics cover the common shapes and never fail (an unparseable paste still scaffolds R1.1).
+
 ### 2026-09-06 — Writing v2 slice 1: the manuscript studio (#325)
 
 **Decision.** The SPA manuscript page becomes the studio: everything about one paper on one screen,
