@@ -6,7 +6,7 @@
  * problems panel wired to the compile log, autosave with a status bar, and the shortcuts
  * people expect (⌘S save, ⌘↩ compile, ⌘B sidebar, ⌘\ preview, ⌘J problems, ⌘P quick open). */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { EditorView, keymap } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
@@ -25,6 +25,7 @@ type Diag = { level: string; file: string; line: number | null; message: string 
 type Compile = { status: string; diagnostics: Diag[]; compiled_at: string | null; pdf_url: string | null; log: string };
 type BibRow = { link_id: number; reference_id: number; cite_key: string; bibtex_key: string; title: string; year: number | null; authors: string; venue: string };
 type Candidate = { reference_id: number; key: string; title: string; authors: string; year: number | null; linked: boolean };
+type Hl = { id: number; reference: number; page: number | null; text: string; comment: string; color: string };
 type Revision = { id: number; label: string; labeled: boolean; created_at: string; files: string[] };
 type WordCount = { words: number; headers?: number; captions?: number; math?: number };
 type Settings = { keymap: "default" | "vim"; fontSize: number; spellcheck: boolean; autoCompile: boolean };
@@ -35,6 +36,11 @@ const HEADING_RE = /\\(part|chapter|section|subsection|subsubsection|paragraph)\
 const DEPTH: Record<string, number> = { part: 0, chapter: 0, section: 0, subsection: 1, subsubsection: 2, paragraph: 3 };
 const PDFJS = "/static/vendor/pdfjs/pdf.min.mjs";
 const PDFJS_WORKER = "/static/vendor/pdfjs/pdf.worker.min.mjs";
+
+/** A highlighted passage as LaTeX: a quote environment with the citation and page. */
+export function quoteLatex(text: string, key: string, page: number | null): string {
+  return `\\begin{quote}\n  ${text.trim().replace(/\s+/g, " ")} \\citep{${key}}${page ? `, p.~${page}` : ""}\n\\end{quote}\n`;
+}
 
 function loadSettings(): Settings {
   try { return { keymap: "default", fontSize: 14, spellcheck: false, autoCompile: false, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") }; } catch { return { keymap: "default", fontSize: 14, spellcheck: false, autoCompile: false }; }
@@ -227,6 +233,20 @@ function StudioInner({ m }: { m: Manuscript }) {
     return () => { cancelled = true; };
   }, [base, mainId, saveFile, recomputeOutline]);
 
+  // deep link from the Library: /manuscripts/:id/editor?quote=<highlight id> inserts that passage
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const qid = params.get("quote"); if (!ready || !qid) return;
+    (async () => {
+      try {
+        const h = await api<Hl & { reference_detail?: { bibtex_key: string } }>(`/highlights/${qid}/`);
+        const key = h.reference_detail?.bibtex_key ?? (await api<{ bibtex_key: string }>(`/references/${h.reference}/`)).bibtex_key;
+        adRef.current?.insertAtCursor(quoteLatex(h.text, key, h.page)); setTab("bib"); setFlash("Quote inserted from your highlights.");
+      } catch { setFlash("That highlight could not be loaded."); }
+      params.delete("quote"); setParams(params, { replace: true });
+    })();
+  }, [ready, params, setParams]);
+
   useEffect(() => { const ad = adRef.current; if (!ad) return; ad.setKeymap(settings.keymap); ad.setFontSize(String(settings.fontSize)); ad.setSpellcheck(settings.spellcheck); try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* private mode */ } }, [settings, ready]);
 
   useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirtyRef.current.size) { e.preventDefault(); e.returnValue = ""; } }; window.addEventListener("beforeunload", guard); return () => window.removeEventListener("beforeunload", guard); }, []);
@@ -373,7 +393,7 @@ function StudioInner({ m }: { m: Manuscript }) {
                   <ul>{outline.map((o) => <li key={o.line}><button type="button" onClick={() => adRef.current?.gotoLine(o.line)} className={`${sideItem} st-text`} style={{ paddingLeft: 8 + o.depth * 12 }} title={`line ${o.line}`}><span className="truncate">{o.title}</span></button></li>)}</ul>
                 </div>
               )}
-              {tab === "bib" && <BibPanel m={m} base={base} onInsert={(key) => { adRef.current?.insertAtCursor(`\\cite{${key}}`); }} onLinked={() => adRef.current?.reloadCiteLibrary()} />}
+              {tab === "bib" && <BibPanel m={m} base={base} onInsert={(key) => { adRef.current?.insertAtCursor(`\\cite{${key}}`); }} onQuote={(latex) => { adRef.current?.insertAtCursor(latex); setFlash("Quote inserted."); }} onLinked={() => adRef.current?.reloadCiteLibrary()} />}
               {tab === "history" && <HistoryPanel base={base} onRestored={async () => { loaded.current.clear(); const ad = adRef.current; if (ad) { for (const fid of tabs) { const data = await wb<{ content?: string }>(`${base}files/${fid}/`); ad.setFileValue(fid, data.content || ""); loaded.current.add(fid); } } setFlash("Version restored."); recomputeOutline(); }} />}
             </div>
           </aside>
@@ -424,8 +444,9 @@ function StudioInner({ m }: { m: Manuscript }) {
 }
 
 // ------------------------------------------------------------------ side panels
-function BibPanel({ m, base, onInsert, onLinked }: { m: Manuscript; base: string; onInsert: (key: string) => void; onLinked: () => void }) {
+function BibPanel({ m, base, onInsert, onQuote, onLinked }: { m: Manuscript; base: string; onInsert: (key: string) => void; onQuote: (latex: string) => void; onLinked: () => void }) {
   const bib = useQuery({ queryKey: ["manuscript-bib", m.id], queryFn: () => api<BibRow[]>(`/manuscripts/${m.id}/bibliography/`) });
+  const [openRef, setOpenRef] = useState<number | null>(null);
   const [q, setQ] = useState("");
   const lib = useQuery({ queryKey: ["cite-library", m.id], queryFn: () => wb<{ candidates: Candidate[] }>(`${base}cite-library/`), enabled: q.length > 0 });
   const matches = useMemo(() => { const needle = q.toLowerCase(); return (lib.data?.candidates ?? []).filter((c) => !c.linked && (c.key.toLowerCase().includes(needle) || c.title.toLowerCase().includes(needle) || c.authors.toLowerCase().includes(needle))).slice(0, 12); }, [lib.data, q]);
@@ -433,11 +454,35 @@ function BibPanel({ m, base, onInsert, onLinked }: { m: Manuscript; base: string
   return (
     <div>
       <p className="mb-1 px-1 text-[10px] uppercase tracking-wider st-dim">Bibliography · {bib.data?.length ?? 0}</p>
-      <p className="mb-2 px-1 text-[10px] leading-4 st-dim">Click a paper to insert \cite{"{key}"}. Type \cite{"{"} in the editor to complete from the whole project library.</p>
-      <ul className="mb-3">{(bib.data ?? []).map((r) => <li key={r.link_id}><button type="button" onClick={() => onInsert(r.cite_key)} className={`${sideItem} st-text`} title={`${r.authors} (${r.year ?? "n.d."}) — ${r.title}`}><span className="shrink-0 font-mono text-indigo-300">@{r.cite_key}</span><span className="truncate st-dim">{r.title}</span></button></li>)}</ul>
+      <p className="mb-2 px-1 text-[10px] leading-4 st-dim">Click a paper to insert \cite{"{key}"}; ✎ shows the passages you highlighted while reading — one click quotes them with the citation. Type \cite{"{"} in the editor to complete from the whole library.</p>
+      <ul className="mb-3">{(bib.data ?? []).map((r) => (
+        <li key={r.link_id}>
+          <div className="flex items-center">
+            <button type="button" onClick={() => onInsert(r.cite_key)} className={`${sideItem} st-text`} title={`${r.authors} (${r.year ?? "n.d."}) — ${r.title}`}><span className="shrink-0 font-mono text-indigo-300">@{r.cite_key}</span><span className="truncate st-dim">{r.title}</span></button>
+            <button type="button" onClick={() => setOpenRef(openRef === r.reference_id ? null : r.reference_id)} className="shrink-0 px-1 text-[10px] st-dim st-hover-fg" title="Your highlights from this paper" aria-label={`Highlights of ${r.cite_key}`}>{openRef === r.reference_id ? "−" : "✎"}</button>
+          </div>
+          {openRef === r.reference_id && <PaperHighlights referenceId={r.reference_id} citeKey={r.cite_key} onQuote={onQuote} />}
+        </li>
+      ))}</ul>
       <div className="relative px-1"><Search className="pointer-events-none absolute left-3 top-1.5 h-3 w-3 st-dim" aria-hidden="true" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Add from the project library…" className="w-full rounded-md border bg-transparent py-1 pl-6 pr-2 text-xs st-fg st-placeholder focus:outline-none" style={{ borderColor: "var(--studio-line)" }} aria-label="Search the library" /></div>
       {q && <ul className="mt-1">{matches.map((c) => <li key={c.reference_id}><button type="button" onClick={() => void link(c)} className={`${sideItem} st-text`} title={c.title}><Plus className="h-3 w-3 shrink-0 text-emerald-400" aria-hidden="true" /><span className="shrink-0 font-mono text-indigo-300">@{c.key}</span><span className="truncate st-dim">{c.authors} {c.year ?? ""}</span></button></li>)}{lib.data && matches.length === 0 && <li className="px-2 py-1 text-xs st-dim">Nothing unlinked matches.</li>}</ul>}
     </div>
+  );
+}
+
+function PaperHighlights({ referenceId, citeKey, onQuote }: { referenceId: number; citeKey: string; onQuote: (latex: string) => void }) {
+  const hls = useQuery({ queryKey: ["studio-highlights", referenceId], queryFn: () => api<{ results: Hl[] }>(`/highlights/?reference=${referenceId}&page_size=100`).then((p) => p.results) });
+  if (!hls.data) return <p className="px-2 py-1 text-[10px] st-dim">Loading highlights…</p>;
+  if (hls.data.length === 0) return <p className="px-2 py-1 text-[10px] st-dim">No highlights yet — read it in the Library and select text.</p>;
+  return (
+    <ul className="mb-1 ml-2 border-l pl-2" style={{ borderColor: "var(--studio-line)" }} data-testid="paper-highlights">
+      {hls.data.map((h) => (
+        <li key={h.id} className="group py-1">
+          <p className="line-clamp-3 text-[11px] leading-4 st-text">{h.text}</p>
+          <div className="mt-0.5 flex items-center gap-2 text-[10px] st-dim"><span>{h.page ? `p. ${h.page}` : "no page"}</span>{h.comment && <span className="truncate italic">{h.comment}</span>}<button type="button" onClick={() => onQuote(quoteLatex(h.text, citeKey, h.page))} className="ml-auto text-indigo-300 hover:underline" title="Insert as a quote with \\citep{} at the cursor">quote →</button></div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -808,6 +808,7 @@ function HighlightsBlock({ r, highlights, onJump, onEdit, onRemove, onCopied }: 
                 {h.project_name && <span className="truncate">→ {h.project_name}</span>}
                 <span className="ml-auto flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
                   {(Object.keys(HL_COLORS) as Highlight["color"][]).filter((c) => c !== h.color).map((c) => <button key={c} type="button" onClick={() => onEdit(h.id, { color: c })} className="h-2.5 w-2.5 rounded-full hover:scale-125" style={{ background: HL_COLORS[c] }} aria-label={`Recolour ${c}`} />)}
+                  <button type="button" onClick={async () => { await navigator.clipboard?.writeText(`\u201c${h.text.trim()}\u201d \\cite{${r.bibtex_key}}${h.page ? ` (p.\u00a0${h.page})` : ""}`); onCopied("Copied as a LaTeX quote with \\cite{}."); }} className="hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy as a quotation with \\cite{}">quote</button>
                   {!h.comment && editing !== h.id && <button type="button" onClick={() => { setEditing(h.id); setDraft(""); }} className="hover:text-indigo-600 dark:hover:text-indigo-300">comment</button>}
                   <button type="button" onClick={() => onRemove(h.id)} className="hover:text-red-500" aria-label="Delete highlight"><Trash2 className="h-3 w-3" aria-hidden="true" /></button>
                 </span>
