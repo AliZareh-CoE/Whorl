@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  Bot, Command, FolderKanban, Inbox, LayoutDashboard, Library, Moon, PenLine, Plug, Search, Sparkles, Sun, Wand2,
+  Bot, CheckSquare, Command, FolderKanban, Inbox, LayoutDashboard, Library, Moon, PenLine, Plug, Search, Sparkles, Sun, Wand2,
 } from "lucide-react";
 import { api, csrfToken } from "./api";
 import { toSpaUrl } from "./links";
@@ -135,6 +135,7 @@ export default function Layout() {
         </div>
         <nav className="mt-5 space-y-0.5">
           <NavLink to="/" end className={navCls}><LayoutDashboard className={iconCls} aria-hidden="true" />Dashboard</NavLink>
+          <NavLink to="/today" className={navCls}><CheckSquare className={iconCls} aria-hidden="true" />Today</NavLink>
           <NavLink to="/review" className={navCls}><Sparkles className={iconCls} aria-hidden="true" />Review</NavLink>
           <NavLink to="/projects" className={navCls}><FolderKanban className={iconCls} aria-hidden="true" />Projects</NavLink>
           <NavLink to="/library" className={navCls}><Library className={iconCls} aria-hidden="true" />Library</NavLink>

@@ -27,6 +27,7 @@ const Graph = lazy(() => import("./pages/Graph"));
 const WritingBoard = lazy(() => import("./pages/Writing").then((m) => ({ default: m.WritingBoard })));
 const ManuscriptDetail = lazy(() => import("./pages/Writing").then((m) => ({ default: m.ManuscriptDetail })));
 const Inbox = lazy(() => import("./pages/Inbox"));
+const Today = lazy(() => import("./pages/Today"));
 const Prompts = lazy(() => import("./pages/Prompts"));
 const Search = lazy(() => import("./pages/Search"));
 const Automations = lazy(() => import("./pages/Automations"));
@@ -67,6 +68,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="writing" element={<WritingBoard />} />
           <Route path="manuscripts/:id" element={<ManuscriptDetail />} />
           <Route path="inbox" element={<Inbox />} />
+          <Route path="today" element={<Today />} />
           <Route path="prompts" element={<Prompts />} />
           <Route path="search" element={<Search />} />
           <Route path="*" element={

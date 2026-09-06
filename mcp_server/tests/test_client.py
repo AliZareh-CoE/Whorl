@@ -335,3 +335,16 @@ def test_format_citations_builds_request(capture):
         and "ids=3%2C1" in capture["url"]
         and "style=chicago" in capture["url"]
     )
+
+
+def test_todo_client_calls(capture):
+    client.list_todos()
+    assert calls_url_has(capture, "/todos/") and "done=false" in capture["url"]
+    client.add_todo("Book scanner", "proj")
+    assert capture["method"] == "POST" and '"project":"proj"' in capture["body"]
+    client.complete_todo(4)
+    assert (
+        capture["method"] == "PATCH"
+        and calls_url_has(capture, "/todos/4/")
+        and '"done":true' in capture["body"]
+    )

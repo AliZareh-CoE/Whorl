@@ -329,3 +329,22 @@ def format_citations(reference_ids: list[int], style: str = "apa"):
         "/references/cite/",
         params={"ids": ",".join(str(i) for i in reference_ids), "style": style},
     )
+
+
+# --- the owner's Today list ---
+
+
+def list_todos(include_done: bool = False):
+    params = {} if include_done else {"done": "false"}
+    return _request("GET", "/todos/", params=params)
+
+
+def add_todo(text: str, project: str | None = None):
+    payload = {"text": text}
+    if project:
+        payload["project"] = project
+    return _request("POST", "/todos/", json=payload)
+
+
+def complete_todo(todo_id: int, done: bool = True):
+    return _request("PATCH", f"/todos/{todo_id}/", json={"done": done})

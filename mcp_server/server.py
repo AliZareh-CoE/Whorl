@@ -293,3 +293,21 @@ def format_citations(reference_ids: list[int], style: str = "apa") -> dict:
     a full bibliography (text + html) and each entry's in-text form. Find ids via search or
     get_reading_queue."""
     return client.format_citations(reference_ids, style)
+
+
+@mcp.tool()
+def list_todos(include_done: bool = False) -> dict:
+    """The owner's personal Today list (plain to-dos, not plan tasks). Open items by default."""
+    return client.list_todos(include_done)
+
+
+@mcp.tool()
+def add_todo(text: str, project: str = "") -> dict:
+    """Put something on the owner's Today list (optionally tagged with a project slug)."""
+    return client.add_todo(text, project or None)
+
+
+@mcp.tool()
+def complete_todo(todo_id: int, done: bool = True) -> dict:
+    """Tick (or untick) an item on the Today list. Find ids with list_todos."""
+    return client.complete_todo(todo_id, done)

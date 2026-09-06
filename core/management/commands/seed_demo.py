@@ -421,6 +421,17 @@ class Command(BaseCommand):
                 ),
             )
 
+        from core.models import TodoItem
+
+        for i, text in enumerate(
+            [
+                "Email the lab about Thursday's pilot slot",
+                "Skim the two new load-theory papers",
+                "Draft the ethics amendment paragraph",
+            ],
+            start=1,
+        ):
+            TodoItem.objects.get_or_create(text=text, defaults={"position": i, "project": project})
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
         )

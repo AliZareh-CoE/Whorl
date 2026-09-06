@@ -13,6 +13,7 @@ export function toSpaUrl(url: string): { to: string; spa: boolean } {
     [/^\/library\/$/, () => "/library"],
     [/^\/writing\/$/, () => "/writing"],
     [/^\/inbox\/$/, () => "/inbox"],
+    [/^\/today\/?$/, () => "/today"],
     [/^\/prompts\/$/, () => "/prompts"],
     [/^\/search\/$/, () => "/search"],
     [/^\/automations\/$/, () => "/automations"],

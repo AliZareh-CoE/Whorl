@@ -544,6 +544,23 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — A plain "Today" list, separate from plan tasks (owner request, #299)
+
+**Decision.** `core.TodoItem` (text, done, done_at, position, optional project) with a
+dead-simple SPA page at `/today` (input + Enter, one-click tick with an optimistic update, done
+items sink to a "Done" section, "Clear done"), a "Today" entry at the top of the sidebar,
+`/api/v1/todos/` (+ `clear-done`), and MCP `list_todos` / `add_todo` / `complete_todo`.
+
+**Why.** The owner: "I have ADHD and I keep losing track of the stuff I need to do for the day…
+something very simple." Plan tasks live under milestones and carry research structure; the
+inbox is for unprocessed thoughts. Neither is a scratch list you glance at ten times a day.
+Open items are never auto-cleared — losing an item overnight is the failure mode to avoid.
+
+**Alternatives.** (a) Reuse `plans.Task` with a null milestone — rejected: it would leak into
+plan progress roll-ups and the model's invariant (every task under a milestone). (b) Reuse
+`QuickCapture` with a flag — rejected: the inbox's job is triage, and mixing the two makes
+both noisier. Parked ideas: due dates/reminders, drag-to-reorder, a dashboard widget (#300).
+
 ### 2026-09-06 — Library v2 slice 4: formatted citations without a CSL engine (#297)
 
 **Decision.** `literature/citations.py` formats bibliography entries, in-text forms, and whole
@@ -888,6 +905,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+300. Today list, later: drag-to-reorder, a compact widget on the dashboard hero ("3 on your list"), a ⌘K verb "Add to my list", optional due times with a gentle nudge in the sidebar, carry-over count ("2 from yesterday").
+299. ~~Today list (done 2026-09-06, owner request): core.TodoItem + /today page + sidebar entry + /api/v1/todos/ + MCP list/add/complete. See the 2026-09-06 decision.~~
 298. Citations, later: a CSL-engine backend (citeproc-py) behind the same cite()/bibliography() contract for the long tail of styles; a "Cite" button on the Reference page and the PDF reader; citation export as RTF/Word-ready HTML.
 297. ~~Library v2 slice 4 (done 2026-09-06): formatted citations in six styles + in-text forms + bibliographies; cite endpoints; MCP format_citations; Cite block in the detail pane and Copy citations in the bulk bar; volume/issue/pages carried from Crossref/OpenAlex. See the 2026-09-06 decision.~~
 296. Library v2 slice 4 candidates (judge after slice 3): (a) reference tags + smart lists (saved filter views in the rail), (b) duplicate merge (the bib report flags duplicates; merging keeps links/PDF/notes), (c) per-reference notes + highlight summary surfaced in the detail pane, (d) inline PDF preview pane in the workbench, (e) "Find PDF" per row with a status pill after fetch.

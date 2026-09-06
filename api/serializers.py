@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema_field, inline_serializer
 from rest_framework import serializers
 
+from core.models import TodoItem
 from documents.models import Document, Folder, Tag
 from literature.models import ProjectReference, Reference
 from notes.models import Note, QuickCapture
@@ -264,6 +265,26 @@ class QuickCaptureSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuickCapture
         fields = ["id", "text", "processed", "project", "created_at", "updated_at"]
+
+
+class TodoItemSerializer(serializers.ModelSerializer):
+    """The owner's Today list: text, done, optional project."""
+
+    project = ProjectSlugField(required=False, allow_null=True)
+
+    class Meta:
+        model = TodoItem
+        fields = [
+            "id",
+            "text",
+            "done",
+            "done_at",
+            "position",
+            "project",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["done_at"]
 
 
 class BulkReferenceActionSerializer(serializers.Serializer):

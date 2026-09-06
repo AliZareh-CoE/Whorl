@@ -38,3 +38,34 @@ class Pet(TimeStampedModel):
 
     def __str__(self):
         return self.name
+
+
+class TodoItem(TimeStampedModel):
+    """The owner's personal "Today" list (owner request, 2026-09-06): one plain list of things
+    to do, ticked off with one click, never lost overnight. Deliberately NOT a plan task —
+    plans stay about research; this is the ADHD-friendly scratch list for the day."""
+
+    text = models.CharField(max_length=300)
+    done = models.BooleanField(default=False)
+    done_at = models.DateTimeField(null=True, blank=True)
+    position = models.PositiveIntegerField(default=0)
+    project = models.ForeignKey(
+        "projects.Project",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="todo_items",
+    )
+
+    class Meta:
+        ordering = ["done", "position", "id"]
+
+    def __str__(self):
+        return self.text
+
+    def mark(self, done: bool) -> None:
+        from django.utils import timezone
+
+        self.done = done
+        self.done_at = timezone.now() if done else None
+        self.save(update_fields=["done", "done_at", "updated_at"])

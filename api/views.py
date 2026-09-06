@@ -17,6 +17,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.models import TodoItem
 from documents.models import Document, Folder, Tag
 from literature import services as literature_services
 from literature.models import ProjectReference, Reference
@@ -888,6 +889,7 @@ class ReferenceViewSet(AtlasViewSet):
         return Response({"kind": kind, "results": rows, "error": ""})
 
     @extend_schema(
+        operation_id="v1_references_cite_one",
         parameters=[
             OpenApiParameter(
                 "style", str, description="apa (default), mla, chicago, harvard, vancouver, ieee"
@@ -906,6 +908,7 @@ class ReferenceViewSet(AtlasViewSet):
         return Response(citations.cite(self.get_object(), style))
 
     @extend_schema(
+        operation_id="v1_references_cite_many",
         parameters=[
             OpenApiParameter(
                 "ids",
@@ -1158,6 +1161,46 @@ class ProjectReferenceViewSet(AtlasViewSet):
 
             queryset = theme_candidates(queryset, theme)
         return queryset
+
+
+class TodoItemViewSet(AtlasViewSet):
+    """The owner's personal Today list (plain to-dos, not plan tasks)."""
+
+    queryset = TodoItem.objects.select_related("project")
+    serializer_class = serializers.TodoItemSerializer
+    project_filter = "project__slug"
+    q_fields = ("text",)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        done = self.request.query_params.get("done")
+        if done in ("true", "1"):
+            queryset = queryset.filter(done=True)
+        elif done in ("false", "0"):
+            queryset = queryset.filter(done=False)
+        return queryset
+
+    def perform_create(self, serializer):
+        from django.db.models import Max
+
+        top = TodoItem.objects.aggregate(m=Max("position"))["m"] or 0
+        serializer.save(position=top + 1)
+
+    def perform_update(self, serializer):
+        before = serializer.instance.done
+        item = serializer.save()
+        if item.done != before:
+            item.mark(item.done)  # stamps/clears done_at
+
+    @extend_schema(
+        request=None,
+        responses={200: OpenApiResponse(description="{deleted}")},
+        description="Delete every ticked-off item, leaving the open ones.",
+    )
+    @action(detail=False, methods=["post"], url_path="clear-done")
+    def clear_done(self, request):
+        deleted, _ = TodoItem.objects.filter(done=True).delete()
+        return Response({"deleted": deleted})
 
 
 class QuickCaptureViewSet(AtlasViewSet):

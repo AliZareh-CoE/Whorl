@@ -37,7 +37,8 @@ milestones, add papers, fetch your saved prompts.
 - **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
 - **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
 - **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 42 tools over the REST API; your AI assistant operates the same contract you do
+- **Claude/MCP integration** — 45 tools over the REST API; your AI assistant operates the same contract you do
+- **Today list** — a dead-simple personal to-do list for the day (add, tick, clear done); nothing is lost overnight; Claude can add to it
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
 ## Quick start (one command)
@@ -129,6 +130,7 @@ Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `set_reading_status`, `run_bib_check`, `get_review_matrix`, `get_synthesis_scaffold`.
 Library imports & discovery: `import_references` (BibTeX/CSL-JSON/RIS text), `import_from_zotero`,
 `discover_related` (similar / cites / cited-by on OpenAlex), `export_bibtex`, `format_citations` (APA/MLA/Chicago/Harvard/Vancouver/IEEE).
+Today list: `list_todos`, `add_todo`, `complete_todo`.
 Notes, search & review: `add_note`, `quick_capture`, `search`, `get_weekly_review`,
 `list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,
 `list_manuscript_files`, `read_manuscript_file`, `write_manuscript_file`, `set_main_file`,
