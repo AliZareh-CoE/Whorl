@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Research v2 slice 1: the hypothesis ledger (#341)
+
+**Decision.** The research viewsets (hypotheses, experiments, datasets) become writable, and evidence gets its own `/api/v1/evidence/` resource (`project_filter` walks `hypothesis__project__slug`). `HypothesisSerializer` nests evidence rows (with a `reference_detail` summary, note and document titles), the supports/contradicts/mixed tallies and `suggested_status` from the evidence balance. Evidence writes bump the hypothesis' `updated_at` (`_touch_hypothesis`) so list/detail ETags change — the same stale-304 bug the manuscript studio had (#327), caught again by Playwright. MCP gains `add_hypothesis`, `set_hypothesis_status`, `add_evidence`, `log_experiment` (86 tools). `Research.tsx` is rewritten as a ledger: propose box, hypothesis cards with the evidence balance bar, "evidence says X →" one-click accept, an inline evidence form with paper/note autocomplete (reusing the notes suggest endpoint), experiment log and dataset registry; both destructive buttons confirm.
+
+**Why.** The Research page was the last area without a v2 pass and the only one where the SPA could not create anything — every hypothesis had to come from the admin. A ledger is only useful if attaching evidence is a five-second act from the page you are reading on.
+
+**Alternatives.** Evidence as a nested write on the hypothesis (rejected: a flat resource is simpler for MCP and for deletes); a modal per evidence row (rejected: inline is faster and matches the rest of the SPA).
+
 ### 2026-09-06 — Review matrix v2: the extraction table (#339)
 
 **Decision.** `literature/matrix.py` turns the review matrix into an extraction table: `add_theme`

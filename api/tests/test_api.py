@@ -544,9 +544,9 @@ class TestResearchAPI:
         row = data["results"][0]
         assert row["supports"] == 1 and row["contradicts"] == 1
 
-    def test_research_endpoints_are_read_only(self, client_logged_in):
+    def test_research_endpoints_validate_writes(self, client_logged_in):
         response = client_logged_in.post("/api/v1/hypotheses/", {}, content_type="application/json")
-        assert response.status_code == 405
+        assert response.status_code == 400 and "statement" in response.json()
 
     def test_experiments_and_datasets_listed(self, client_logged_in):
         from projects.tests.factories import ProjectFactory

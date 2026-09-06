@@ -572,3 +572,38 @@ def set_review_mark(
 def add_review_theme(slug: str, name: str) -> dict:
     """Add a theme (column) to the project's review matrix, e.g. 'Sample size' or 'Load type'."""
     return client.add_review_theme(slug, name)
+
+
+@mcp.tool()
+def add_hypothesis(project: str, statement: str, status: str = "proposed") -> dict:
+    """Propose a hypothesis in a project's ledger (status: proposed / testing / …)."""
+    return client.add_hypothesis(project, statement, status)
+
+
+@mcp.tool()
+def set_hypothesis_status(hypothesis_id: int, status: str) -> dict:
+    """Set a hypothesis to proposed / testing / supported / contradicted / inconclusive / abandoned.
+    The ledger also suggests a status from the evidence balance (suggested_status)."""
+    return client.set_hypothesis_status(hypothesis_id, status)
+
+
+@mcp.tool()
+def add_evidence(
+    hypothesis_id: int, direction: str, summary: str, reference_id: int = 0, note_id: int = 0
+) -> dict:
+    """Attach evidence to a hypothesis: direction supports / contradicts / mixed, a one-line
+    summary, and optionally the paper (reference_id) and/or note (note_id) it comes from."""
+    return client.add_evidence(hypothesis_id, direction, summary, reference_id, note_id)
+
+
+@mcp.tool()
+def log_experiment(
+    project: str,
+    title: str,
+    body: str = "",
+    hypothesis_ids: list[int] | None = None,
+    date: str = "",
+) -> dict:
+    """Write a lab-notebook entry (Markdown body: setup, what happened, outcome), dated today
+    unless `date` is given, linked to the hypotheses it tests."""
+    return client.log_experiment(project, title, body, hypothesis_ids, date)

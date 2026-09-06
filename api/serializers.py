@@ -559,15 +559,63 @@ class NoteSerializer(serializers.ModelSerializer):
         ]
 
 
+class EvidenceSerializer(serializers.ModelSerializer):
+    """One piece of evidence for a hypothesis (Research v2): a paper, a note or a document,
+    with a direction and a one-line summary."""
+
+    reference_detail = ReferenceSummarySerializer(source="reference", read_only=True)
+    note_title = serializers.CharField(source="note.title", read_only=True, default="")
+    document_title = serializers.CharField(source="document.title", read_only=True, default="")
+
+    class Meta:
+        from research.models import Evidence
+
+        model = Evidence
+        fields = [
+            "id",
+            "hypothesis",
+            "direction",
+            "summary",
+            "reference",
+            "reference_detail",
+            "note",
+            "note_title",
+            "document",
+            "document_title",
+            "created_at",
+        ]
+        extra_kwargs = {
+            "reference": {"required": False, "allow_null": True},
+            "note": {"required": False, "allow_null": True},
+            "document": {"required": False, "allow_null": True},
+        }
+
+
 class HypothesisSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
     supports = serializers.SerializerMethodField()
     contradicts = serializers.SerializerMethodField()
+    mixed = serializers.SerializerMethodField()
+    suggested_status = serializers.SerializerMethodField()
+    evidence = EvidenceSerializer(many=True, read_only=True)
 
     class Meta:
         from research.models import Hypothesis
 
         model = Hypothesis
-        fields = ["id", "statement", "status", "supports", "contradicts", "created_at"]
+        fields = [
+            "id",
+            "project",
+            "statement",
+            "status",
+            "supports",
+            "contradicts",
+            "mixed",
+            "suggested_status",
+            "evidence",
+            "created_at",
+            "updated_at",
+        ]
 
     def get_supports(self, obj) -> int:
         return sum(1 for e in obj.evidence.all() if e.direction == "supports")
@@ -575,10 +623,23 @@ class HypothesisSerializer(serializers.ModelSerializer):
     def get_contradicts(self, obj) -> int:
         return sum(1 for e in obj.evidence.all() if e.direction == "contradicts")
 
+    def get_mixed(self, obj) -> int:
+        return sum(1 for e in obj.evidence.all() if e.direction == "mixed")
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_suggested_status(self, obj):
+        return obj.suggested_status
+
 
 class ExperimentEntrySerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
     commit_label = serializers.CharField(read_only=True)
     protocol_label = serializers.SerializerMethodField()
+    hypotheses = serializers.PrimaryKeyRelatedField(
+        many=True,
+        required=False,
+        queryset=__import__("research.models", fromlist=["Hypothesis"]).Hypothesis.objects.all(),
+    )
 
     class Meta:
         from research.models import ExperimentEntry
@@ -586,6 +647,7 @@ class ExperimentEntrySerializer(serializers.ModelSerializer):
         model = ExperimentEntry
         fields = [
             "id",
+            "project",
             "date",
             "title",
             "body",
@@ -593,19 +655,26 @@ class ExperimentEntrySerializer(serializers.ModelSerializer):
             "commit_label",
             "protocol",
             "protocol_label",
+            "hypotheses",
             "created_at",
         ]
+        extra_kwargs = {
+            "protocol": {"required": False, "allow_null": True},
+            "date": {"required": False},
+        }
 
     def get_protocol_label(self, obj) -> str:
         return str(obj.protocol) if obj.protocol_id else ""
 
 
 class DatasetSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+
     class Meta:
         from research.models import Dataset
 
         model = Dataset
-        fields = ["id", "name", "location", "version", "checksum", "description"]
+        fields = ["id", "project", "name", "location", "version", "checksum", "description"]
 
 
 class ProtocolSerializer(serializers.ModelSerializer):

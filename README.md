@@ -9,7 +9,7 @@ Atlas is a single-user, self-hosted research platform for people who find Jira-s
 and task-obsessed. It treats what researchers actually care about as first-class: a **plan** you
 write like a document, a **library** that reads your PDFs, **notes** that cite papers with `@key`,
 a **writing studio** that checks your citations and compiles LaTeX, and an **MCP server** so
-Claude Code can do all of it with you — 82 tools over the same API the UI uses.
+Claude Code can do all of it with you — 86 tools over the same API the UI uses.
 
 > Built like Django itself: boring technology, strong conventions, everything has exactly one
 > obvious place. No cloud, no telemetry. Runs as a web app or a one-click desktop app.
@@ -63,7 +63,7 @@ Claude Code can do all of it with you — 82 tools over the same API the UI uses
 - Project overview: current phase with health, this week, a digest of what changed, open questions, manuscripts at a glance.
 - Dashboard: needs-attention lead, "this week, everywhere" (completable in place), phase health per project, monthly stats, 26-week heatmap.
 - Inbox: capture from anywhere (⌘K, the page, Claude); smart triage turns a DOI into a paper, "todo:" into a Today item, "idea:" into a note, "milestone:" and "decision:" into the real thing.
-- Today: a dead-simple personal list for the day. Research tools: hypothesis ledger, experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Local extras: Piper read-aloud, extractive tl;dr — offline.
+- Today: a dead-simple personal list for the day. Research tools: a hypothesis ledger (evidence from papers, notes or documents; the balance suggests a status), experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Local extras: Piper read-aloud, extractive tl;dr — offline.
 
 **Claude / MCP** — 80 tools over the REST API; your AI assistant operates the same contract you do. **A pet owl** 🦉 — fed by finished research; never nags.
 
@@ -163,7 +163,7 @@ Notes, search & review: `add_note`, `list_notes`, `get_note`, `update_note`, `ge
 `list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,
 `list_manuscript_files`, `read_manuscript_file`, `write_manuscript_file`, `set_main_file`,
 `compile_manuscript`, `get_compile_status`, `get_compile_diagnostics`, `compile_and_wait`,
-`latex_word_count`. Protocols: `list_protocols`, `add_protocol`, `new_protocol_version`. Bibliography & submissions: `get_manuscript_bibliography`, `add_manuscript_reference`, `remove_manuscript_reference`, `manuscript_cite_check`, `add_submission_event`, `log_reviews`, `get_response_progress`, `get_manuscript_budget`, `set_venue_limits`.
+`latex_word_count`. Protocols: `list_protocols`, `add_protocol`, `new_protocol_version`. Research: `add_hypothesis`, `set_hypothesis_status`, `add_evidence`, `log_experiment`. Bibliography & submissions: `get_manuscript_bibliography`, `add_manuscript_reference`, `remove_manuscript_reference`, `manuscript_cite_check`, `add_submission_event`, `log_reviews`, `get_response_progress`, `get_manuscript_budget`, `set_venue_limits`.
 
 Smoke-test conversation script (after `seed_demo`):
 

@@ -590,3 +590,41 @@ def set_review_mark(slug: str, reference, theme, marked: bool = True, note: str 
 def add_review_theme(slug: str, name: str):
     """Add a column to the review matrix."""
     return _request("POST", f"/projects/{slug}/review-matrix/themes/", json={"name": name})
+
+
+def add_hypothesis(project: str, statement: str, status: str = "proposed"):
+    """Propose a hypothesis in a project."""
+    return _request(
+        "POST", "/hypotheses/", json={"project": project, "statement": statement, "status": status}
+    )
+
+
+def set_hypothesis_status(hypothesis_id: int, status: str):
+    """Set a hypothesis status (proposed/testing/supported/contradicted/inconclusive/abandoned)."""
+    return _request("PATCH", f"/hypotheses/{hypothesis_id}/", json={"status": status})
+
+
+def add_evidence(
+    hypothesis_id: int, direction: str, summary: str, reference_id: int = 0, note_id: int = 0
+):
+    """Attach evidence (supports/contradicts/mixed) from a paper and/or note to a hypothesis."""
+    payload = {"hypothesis": hypothesis_id, "direction": direction, "summary": summary}
+    if reference_id:
+        payload["reference"] = reference_id
+    if note_id:
+        payload["note"] = note_id
+    return _request("POST", "/evidence/", json=payload)
+
+
+def log_experiment(
+    project: str,
+    title: str,
+    body: str = "",
+    hypothesis_ids: list[int] | None = None,
+    date: str = "",
+):
+    """Add a lab-notebook entry, optionally linked to hypotheses."""
+    payload = {"project": project, "title": title, "body": body, "hypotheses": hypothesis_ids or []}
+    if date:
+        payload["date"] = date
+    return _request("POST", "/experiments/", json=payload)

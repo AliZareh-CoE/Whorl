@@ -27,7 +27,7 @@ from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 from prompts.models import Prompt
-from research.models import Dataset, ExperimentEntry, Hypothesis, Protocol
+from research.models import Dataset, Evidence, ExperimentEntry, Hypothesis, Protocol
 from writing.models import Manuscript
 
 from . import serializers
@@ -1705,18 +1705,50 @@ class QuickCaptureViewSet(AtlasViewSet):
 
 
 class HypothesisViewSet(AtlasViewSet):
-    queryset = Hypothesis.objects.prefetch_related("evidence")
+    """Hypothesis ledger (Research v2): writable, with nested evidence and a suggested status."""
+
+    queryset = Hypothesis.objects.prefetch_related(
+        "evidence__reference", "evidence__note", "evidence__document"
+    )
     serializer_class = serializers.HypothesisSerializer
     project_filter = "project__slug"
     q_fields = ("statement",)  # Backlog #100: search opt-in
-    http_method_names = ["get", "head", "options"]  # read-only for now
+
+
+class EvidenceViewSet(AtlasViewSet):
+    """Evidence rows for hypotheses: a paper / note / document with a direction and summary."""
+
+    queryset = Evidence.objects.select_related("reference", "note", "document", "hypothesis")
+    serializer_class = serializers.EvidenceSerializer
+    project_filter = "hypothesis__project__slug"
+    q_fields = ("summary",)
+
+    # Evidence changes must move the hypothesis' updated_at, or the hypothesis list/detail
+    # ETag stays put and the SPA (and any polling MCP client) keeps getting 304s.
+    def perform_create(self, serializer):
+        _touch_hypothesis(serializer.save().hypothesis)
+
+    def perform_update(self, serializer):
+        _touch_hypothesis(serializer.save().hypothesis)
+
+    def perform_destroy(self, instance):
+        hypothesis = instance.hypothesis
+        super().perform_destroy(instance)
+        _touch_hypothesis(hypothesis)
+
+
+def _touch_hypothesis(hypothesis) -> None:
+    """Bump updated_at so hypothesis ETags change when evidence changes."""
+    from django.utils import timezone
+
+    type(hypothesis).objects.filter(pk=hypothesis.pk).update(updated_at=timezone.now())
 
 
 class ExperimentEntryViewSet(AtlasViewSet):
-    queryset = ExperimentEntry.objects.all()
+    queryset = ExperimentEntry.objects.prefetch_related("hypotheses")
     serializer_class = serializers.ExperimentEntrySerializer
     project_filter = "project__slug"
-    http_method_names = ["get", "head", "options"]
+    q_fields = ("title", "body")
 
 
 class DatasetViewSet(AtlasViewSet):
@@ -1724,7 +1756,6 @@ class DatasetViewSet(AtlasViewSet):
     serializer_class = serializers.DatasetSerializer
     project_filter = "project__slug"
     q_fields = ("name", "description")  # Backlog #100: search opt-in
-    http_method_names = ["get", "head", "options"]
 
 
 class ProtocolViewSet(AtlasViewSet):

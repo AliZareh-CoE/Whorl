@@ -514,3 +514,22 @@ def test_review_matrix_client_calls(capture):
     )
     client.add_review_theme("deep", "Load type")
     assert calls_url_has(capture, "/projects/deep/review-matrix/themes/")
+
+
+def test_research_client_calls(capture):
+    client.add_hypothesis("deep", "Load is strategic")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/hypotheses/")
+        and '"statement":"Load is strategic"' in capture["body"]
+    )
+    client.set_hypothesis_status(4, "testing")
+    assert capture["method"] == "PATCH" and calls_url_has(capture, "/hypotheses/4/")
+    client.add_evidence(4, "supports", "n=12 pilot", reference_id=9)
+    assert (
+        calls_url_has(capture, "/evidence/")
+        and '"reference":9' in capture["body"]
+        and "note" not in capture["body"]
+    )
+    client.log_experiment("deep", "Pilot run", hypothesis_ids=[4], date="2026-09-06")
+    assert calls_url_has(capture, "/experiments/") and '"hypotheses":[4]' in capture["body"]

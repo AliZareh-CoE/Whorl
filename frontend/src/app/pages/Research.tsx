@@ -1,169 +1,199 @@
-/** Research tools: hypothesis ledger, experiment log, datasets (SPA slice 9). */
-import { useQuery } from "@tanstack/react-query";
+/** Research v2 (Observatory): the hypothesis ledger with evidence you can add in place (from a
+ *  paper in the project's literature, a note, or plain text), an evidence balance with a
+ *  suggested status, a lab-notebook experiment log linked to hypotheses, datasets, protocols.
+ *  Everything here is also in the API (/hypotheses/, /evidence/, /experiments/, /datasets/) and MCP. */
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../api";
+import { Check, FlaskConical, Minus, Plus, Scale, Trash2, X } from "lucide-react";
+import { api, petReact } from "../api";
+import { ErrorState } from "../../components/ErrorState";
+import { Skeleton } from "../../components/Skeleton";
 
-type Hypothesis = { id: number; statement: string; status: string; supports: number; contradicts: number };
-type Experiment = { id: number; date: string; title: string; body: string; commit_url: string; commit_label: string };
+type Evidence = { id: number; direction: "supports" | "contradicts" | "mixed"; summary: string; reference: number | null; reference_detail: { id: number; bibtex_key: string; title: string } | null; note: number | null; note_title: string; created_at: string };
+type Hypothesis = { id: number; statement: string; status: string; supports: number; contradicts: number; mixed: number; suggested_status: string | null; evidence: Evidence[] };
+type Experiment = { id: number; date: string; title: string; body: string; commit_url: string; commit_label: string; hypotheses: number[] };
 type Dataset = { id: number; name: string; location: string; version: string; description: string };
 type Protocol = { id: number; title: string; version: number; is_current: boolean };
 type Page<T> = { count: number; results: T[] };
+type Suggestion = { id: number; label: string; sublabel: string };
 
-const statusCls: Record<string, string> = {
-  supported: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300",
-  contradicted: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300",
-  testing: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300",
-  proposed: "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300",
-  inconclusive: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  abandoned: "bg-stone-100 text-stone-400 dark:bg-stone-800 dark:text-stone-400",
-};
+const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
+const railH = "mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:text-stone-500";
+const JSON_H = { "Content-Type": "application/json" };
+const STATUSES = ["proposed", "testing", "supported", "contradicted", "inconclusive", "abandoned"];
+const statusCls: Record<string, string> = { supported: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", contradicted: "bg-red-500/15 text-red-700 dark:text-red-300", testing: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200", proposed: "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300", inconclusive: "bg-amber-500/15 text-amber-700 dark:text-amber-300", abandoned: "bg-stone-100 text-stone-400 line-through dark:bg-stone-800" };
+const DIR: Record<string, { label: string; cls: string; bar: string }> = { supports: { label: "supports", cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", bar: "bg-emerald-500" }, contradicts: { label: "contradicts", cls: "bg-red-500/15 text-red-700 dark:text-red-300", bar: "bg-red-500" }, mixed: { label: "mixed", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-300", bar: "bg-amber-500" } };
+function useDebounced<T>(value: T, ms: number): T { const [v, setV] = useState(value); useEffect(() => { const t = setTimeout(() => setV(value), ms); return () => clearTimeout(t); }, [value, ms]); return v; }
 
-function SectionCard({ title, count, children }: {
-  title: string; count: number; children: React.ReactNode;
-}) {
+export default function Research() {
+  const { slug } = useParams();
+  const queryClient = useQueryClient();
+  const hyps = useQuery({ queryKey: ["hypotheses", slug], queryFn: () => api<Page<Hypothesis>>(`/hypotheses/?project=${slug}&page_size=100`) });
+  const exps = useQuery({ queryKey: ["experiments", slug], queryFn: () => api<Page<Experiment>>(`/experiments/?project=${slug}&page_size=50`) });
+  const dsets = useQuery({ queryKey: ["datasets", slug], queryFn: () => api<Page<Dataset>>(`/datasets/?project=${slug}&page_size=50`) });
+  const protos = useQuery({ queryKey: ["protocols", slug], queryFn: () => api<Page<Protocol>>(`/protocols/?project=${slug}&page_size=50`) });
+  const refresh = () => { queryClient.invalidateQueries({ queryKey: ["hypotheses", slug] }); queryClient.invalidateQueries({ queryKey: ["experiments", slug] }); queryClient.invalidateQueries({ queryKey: ["overview", slug] }); };
+  const [statement, setStatement] = useState("");
+  const addHyp = useMutation({ mutationFn: () => api("/hypotheses/", { method: "POST", headers: JSON_H, body: JSON.stringify({ project: slug, statement: statement.trim() }) }), onSuccess: () => { setStatement(""); refresh(); } });
+  const setStatus = useMutation({ mutationFn: ({ id, status }: { id: number; status: string }) => api(`/hypotheses/${id}/`, { method: "PATCH", headers: JSON_H, body: JSON.stringify({ status }) }), onSettled: refresh });
+  const delHyp = useMutation({ mutationFn: (id: number) => api(`/hypotheses/${id}/`, { method: "DELETE" }), onSuccess: refresh });
+  const addEv = useMutation({ mutationFn: (body: Record<string, unknown>) => api("/evidence/", { method: "POST", headers: JSON_H, body: JSON.stringify(body) }), onSuccess: () => { petReact("paper"); refresh(); } });
+  const delEv = useMutation({ mutationFn: (id: number) => api(`/evidence/${id}/`, { method: "DELETE" }), onSuccess: refresh });
+  const addExp = useMutation({ mutationFn: (body: Record<string, unknown>) => api("/experiments/", { method: "POST", headers: JSON_H, body: JSON.stringify({ project: slug, ...body }) }), onSuccess: refresh });
+  const addDs = useMutation({ mutationFn: (body: Record<string, unknown>) => api("/datasets/", { method: "POST", headers: JSON_H, body: JSON.stringify({ project: slug, ...body }) }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["datasets", slug] }) });
+
+  if (hyps.isLoading) return <div className="space-y-3"><Skeleton className="h-8 w-56" /><Skeleton className="h-40 w-full" /></div>;
+  if (hyps.error) return <ErrorState message="Couldn't load the research tools." onRetry={() => hyps.refetch()} />;
+  const list = hyps.data?.results ?? [];
+  const experiments = exps.data?.results ?? [];
+  const datasets = dsets.data?.results ?? [];
+  const protocols = (protos.data?.results ?? []).filter((p) => p.is_current);
+  const evidenceTotal = list.reduce((n, h) => n + h.evidence.length, 0);
   return (
-    <section className="rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
-      <h2 className="mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">
-        {title}
-        {count > 0 && <span className="text-stone-300 dark:text-stone-400">{count}</span>}
-      </h2>
-      {children}
+    <div>
+      <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400"><Link to="/projects" className="hover:underline">Projects</Link> / <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Research</nav>
+      <div className="mb-4 flex flex-wrap items-baseline gap-3">
+        <h1 className="font-display text-3xl font-bold tracking-tight dark:text-stone-100">Research <span className="text-gradient">· {list.length} hypothes{list.length === 1 ? "is" : "es"}</span></h1>
+        <p className="text-sm text-stone-400">{evidenceTotal} piece{evidenceTotal === 1 ? "" : "s"} of evidence · {experiments.length} experiment{experiments.length === 1 ? "" : "s"} · {datasets.length} dataset{datasets.length === 1 ? "" : "s"}</p>
+      </div>
+      <form onSubmit={(e) => { e.preventDefault(); if (statement.trim()) addHyp.mutate(); }} className={`${panel} hairline-gradient rise mb-4 flex items-center gap-2 p-2 pl-4`} data-testid="new-hypothesis">
+        <FlaskConical className="h-4 w-4 shrink-0 text-indigo-400" aria-hidden="true" />
+        <input value={statement} onChange={(e) => setStatement(e.target.value)} placeholder="Propose a hypothesis — a falsifiable sentence…" className="min-w-0 flex-1 bg-transparent py-2 text-base placeholder:text-stone-400 focus:outline-none dark:text-stone-100" aria-label="New hypothesis" />
+        <button type="submit" disabled={!statement.trim() || addHyp.isPending} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Propose</button>
+      </form>
+      {list.length === 0 ? (
+        <div className={`${panel} rise mb-4 p-8 text-center`} style={{ ["--i" as string]: 1 }}>
+          <Scale className="mx-auto mb-2 h-7 w-7 text-indigo-400" aria-hidden="true" />
+          <p className="font-medium text-stone-700 dark:text-stone-100">No hypotheses yet.</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-stone-400">Write the claim you are betting on, then attach evidence from papers, notes and experiments as it comes in. The ledger keeps the balance honest.</p>
+        </div>
+      ) : (
+        <div className="mb-4 space-y-3">
+          {list.map((h, i) => <HypothesisCard key={h.id} h={h} i={i} slug={slug!} onStatus={(status) => setStatus.mutate({ id: h.id, status })} onDelete={() => { if (window.confirm(`Delete this hypothesis and its ${h.evidence.length} evidence row(s)?`)) delHyp.mutate(h.id); }} onAddEvidence={(body) => addEv.mutate({ hypothesis: h.id, ...body })} onDeleteEvidence={(id) => { if (window.confirm("Remove this evidence row?")) delEv.mutate(id); }} busy={addEv.isPending} />)}
+        </div>
+      )}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <ExperimentLog experiments={experiments} hypotheses={list} onAdd={(body) => addExp.mutate(body)} busy={addExp.isPending} />
+        <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 3 }}>
+          <p className={railH}>Datasets <span className="normal-case tracking-normal text-stone-400">{datasets.length}</span></p>
+          <ul className="mb-3 space-y-1.5 text-sm">{datasets.map((d) => <li key={d.id}><p className="flex items-baseline gap-2"><span className="min-w-0 flex-1 truncate font-medium text-stone-800 dark:text-stone-100">{d.name}</span>{d.version && <span className="text-[11px] text-stone-400">v{d.version}</span>}</p><p className="truncate font-mono text-[11px] text-stone-400" title={d.location}>{d.location}</p></li>)}</ul>
+          <DatasetForm onAdd={(b) => addDs.mutate(b)} busy={addDs.isPending} />
+        </section>
+        <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 4 }}>
+          <p className={railH}>Protocols <span className="normal-case tracking-normal text-stone-400">{protocols.length}</span></p>
+          {protocols.length === 0 ? <p className="text-xs text-stone-400">No protocols yet — <a href={`/projects/${slug}/research/protocols/`} className="text-indigo-600 hover:underline dark:text-indigo-300">write one</a> (versioned).</p> : (
+            <ul className="space-y-1 text-sm">{protocols.map((p) => <li key={p.id} className="flex items-baseline gap-2"><span className="min-w-0 flex-1 truncate text-stone-800 dark:text-stone-100">{p.title}</span><span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-500 dark:bg-stone-800 dark:text-stone-300">v{p.version}</span></li>)}</ul>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function HypothesisCard({ h, i, slug, onStatus, onDelete, onAddEvidence, onDeleteEvidence, busy }: { h: Hypothesis; i: number; slug: string; onStatus: (s: string) => void; onDelete: () => void; onAddEvidence: (body: Record<string, unknown>) => void; onDeleteEvidence: (id: number) => void; busy: boolean }) {
+  const [adding, setAdding] = useState(false);
+  const total = h.supports + h.contradicts + h.mixed;
+  return (
+    <section className={`${panel} rise p-4`} style={{ ["--i" as string]: i + 1 }} data-testid="hypothesis-card">
+      <div className="flex flex-wrap items-start gap-3">
+        <p className="min-w-0 flex-1 text-base leading-snug text-stone-900 dark:text-stone-100">{h.statement}</p>
+        <select value={h.status} onChange={(e) => onStatus(e.target.value)} className={`rounded-full border-0 px-2.5 py-1 text-xs font-medium ${statusCls[h.status] ?? statusCls.proposed}`} aria-label="Hypothesis status">{STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+        <button type="button" onClick={onDelete} className="text-stone-300 hover:text-red-500" aria-label="Delete hypothesis"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
+        <div className="flex h-1.5 w-40 overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800" title={`${h.supports} supports · ${h.contradicts} contradicts · ${h.mixed} mixed`}>
+          {total > 0 && <><span className="h-full bg-emerald-500" style={{ width: `${(100 * h.supports) / total}%` }} /><span className="h-full bg-amber-500" style={{ width: `${(100 * h.mixed) / total}%` }} /><span className="h-full bg-red-500" style={{ width: `${(100 * h.contradicts) / total}%` }} /></>}
+        </div>
+        <span className="tabular-nums text-stone-500 dark:text-stone-400"><span className="text-emerald-600 dark:text-emerald-300">+{h.supports}</span> · <span className="text-amber-600 dark:text-amber-300">~{h.mixed}</span> · <span className="text-red-600 dark:text-red-300">−{h.contradicts}</span></span>
+        {h.suggested_status && h.suggested_status !== h.status && <button type="button" onClick={() => onStatus(h.suggested_status!)} className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-200" title="The evidence balance suggests this status — click to accept" data-testid="suggested-status">evidence says {h.suggested_status} →</button>}
+        <button type="button" onClick={() => setAdding((v) => !v)} className="ml-auto inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">{adding ? <X className="h-3 w-3" aria-hidden="true" /> : <Plus className="h-3 w-3" aria-hidden="true" />}{adding ? "close" : "Add evidence"}</button>
+      </div>
+      {adding && <EvidenceForm slug={slug} busy={busy} onSubmit={(body) => { onAddEvidence(body); setAdding(false); }} />}
+      {h.evidence.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {h.evidence.map((e) => (
+            <li key={e.id} className="group flex items-start gap-2 text-sm">
+              <span className={`mt-0.5 shrink-0 rounded-full px-1.5 py-px text-[10px] ${DIR[e.direction]?.cls ?? ""}`}>{e.direction}</span>
+              <span className="min-w-0 flex-1 leading-relaxed text-stone-700 dark:text-stone-200">{e.summary}
+                {e.reference_detail && <Link to={`/references/${e.reference_detail.id}`} className="ml-1.5 font-mono text-[11px] text-indigo-600 hover:underline dark:text-indigo-300" title={e.reference_detail.title}>@{e.reference_detail.bibtex_key}</Link>}
+                {e.note && <Link to={`/projects/${slug}/notes/${e.note}`} className="ml-1.5 text-[11px] text-indigo-600 hover:underline dark:text-indigo-300">[[{e.note_title}]]</Link>}
+              </span>
+              <button type="button" onClick={() => onDeleteEvidence(e.id)} className="text-stone-300 opacity-0 hover:text-red-500 group-hover:opacity-100" aria-label="Delete evidence"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-stone-400 dark:text-stone-400">{children}</p>;
+function EvidenceForm({ slug, busy, onSubmit }: { slug: string; busy: boolean; onSubmit: (body: Record<string, unknown>) => void }) {
+  const [direction, setDirection] = useState<"supports" | "contradicts" | "mixed">("supports");
+  const [summary, setSummary] = useState("");
+  const [paperQ, setPaperQ] = useState("");
+  const [paper, setPaper] = useState<Suggestion | null>(null);
+  const [noteQ, setNoteQ] = useState("");
+  const [note, setNote] = useState<Suggestion | null>(null);
+  const dpq = useDebounced(paperQ, 150); const dnq = useDebounced(noteQ, 150);
+  const papers = useQuery({ queryKey: ["note-suggest", slug, "reference", dpq], queryFn: () => api<Suggestion[]>(`/notes/suggest/?project=${slug}&kind=reference&q=${encodeURIComponent(dpq)}`), enabled: paperQ.length > 0 && !paper });
+  const notes = useQuery({ queryKey: ["note-suggest", slug, "note", dnq], queryFn: () => api<Suggestion[]>(`/notes/suggest/?project=${slug}&kind=note&q=${encodeURIComponent(dnq)}`), enabled: noteQ.length > 0 && !note });
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (!summary.trim()) return; onSubmit({ direction, summary: summary.trim(), reference: paper?.id ?? null, note: note?.id ?? null }); }} className="mt-3 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs dark:border-stone-800 dark:bg-stone-950/30" data-testid="evidence-form">
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        {(["supports", "contradicts", "mixed"] as const).map((d) => <button key={d} type="button" onClick={() => setDirection(d)} className={`rounded-full px-2.5 py-1 font-medium transition-colors ${direction === d ? DIR[d].cls + " ring-1 ring-current" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"}`}>{d === "supports" ? <Check className="mr-1 inline h-3 w-3" aria-hidden="true" /> : d === "contradicts" ? <Minus className="mr-1 inline h-3 w-3" aria-hidden="true" /> : null}{d}</button>)}
+      </div>
+      <input value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="What does the evidence show? One line." className="mb-2 w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Evidence summary" autoFocus />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="relative">
+          {paper ? <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-1 font-mono text-indigo-700 dark:text-indigo-200">@{paper.label}<button type="button" onClick={() => setPaper(null)} aria-label="Remove paper"><X className="h-3 w-3" aria-hidden="true" /></button></span> : <input value={paperQ} onChange={(e) => setPaperQ(e.target.value)} placeholder="From a paper — cite key or title…" className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Evidence paper" />}
+          {paperQ && !paper && papers.data && <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-40 overflow-auto rounded-lg border border-stone-200 bg-white shadow-lg dark:border-stone-700 dark:bg-stone-900">{papers.data.map((s) => <li key={s.id}><button type="button" onClick={() => { setPaper(s); setPaperQ(""); }} className="block w-full truncate px-2 py-1 text-left hover:bg-indigo-500/10"><span className="font-mono text-indigo-500">@{s.label}</span> <span className="text-stone-500">{s.sublabel}</span></button></li>)}{papers.data.length === 0 && <li className="px-2 py-1 text-stone-400">No paper in this project matches.</li>}</ul>}
+        </div>
+        <div className="relative">
+          {note ? <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-1 text-indigo-700 dark:text-indigo-200">[[{note.label}]]<button type="button" onClick={() => setNote(null)} aria-label="Remove note"><X className="h-3 w-3" aria-hidden="true" /></button></span> : <input value={noteQ} onChange={(e) => setNoteQ(e.target.value)} placeholder="From a note — title…" className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Evidence note" />}
+          {noteQ && !note && notes.data && <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-40 overflow-auto rounded-lg border border-stone-200 bg-white shadow-lg dark:border-stone-700 dark:bg-stone-900">{notes.data.map((s) => <li key={s.id}><button type="button" onClick={() => { setNote(s); setNoteQ(""); }} className="block w-full truncate px-2 py-1 text-left hover:bg-indigo-500/10">{s.label}</button></li>)}</ul>}
+        </div>
+      </div>
+      <button type="submit" disabled={busy || !summary.trim()} className="mt-2 rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Attach evidence</button>
+    </form>
+  );
 }
 
-export default function Research() {
-  const { slug } = useParams();
-  const { data: hypotheses } = useQuery({
-    queryKey: ["hypotheses", slug],
-    queryFn: () => api<Page<Hypothesis>>(`/hypotheses/?project=${slug}`),
-  });
-  const { data: experiments } = useQuery({
-    queryKey: ["experiments", slug],
-    queryFn: () => api<Page<Experiment>>(`/experiments/?project=${slug}`),
-  });
-  const { data: datasets } = useQuery({
-    queryKey: ["datasets", slug],
-    queryFn: () => api<Page<Dataset>>(`/datasets/?project=${slug}`),
-  });
-  const { data: protocols } = useQuery({
-    queryKey: ["protocols", slug],
-    queryFn: () => api<Page<Protocol>>(`/protocols/?project=${slug}`),
-  });
-  const currentProtocols = (protocols?.results ?? []).filter((p) => p.is_current);
-
-  const hyps = hypotheses?.results ?? [];
-  const exps = experiments?.results ?? [];
-  const dsets = datasets?.results ?? [];
-  const classic = `/projects/${slug}/research/`;
-
+function ExperimentLog({ experiments, hypotheses, onAdd, busy }: { experiments: Experiment[]; hypotheses: Hypothesis[]; onAdd: (body: Record<string, unknown>) => void; busy: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(""); const [body, setBody] = useState(""); const [picked, setPicked] = useState<number[]>([]);
   return (
-    <div>
-      <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
-        <Link to="/projects" className="transition-colors hover:underline">Projects</Link> /{" "}
-        <Link to={`/projects/${slug}`} className="transition-colors hover:underline">{slug}</Link> / Research
-      </nav>
-      <div className="mb-6 flex items-baseline justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Research</h1>
-        <a href={classic} className="shrink-0 text-xs text-stone-400 underline-offset-2 transition-colors hover:text-indigo-700 hover:underline dark:text-stone-400 dark:hover:text-indigo-300">
-          add &amp; edit on the classic page ↗
-        </a>
-      </div>
+    <section className={`${panel} rise p-4 lg:col-span-1`} style={{ ["--i" as string]: 2 }} data-testid="experiment-log">
+      <div className="mb-2 flex items-baseline justify-between"><p className={`${railH} mb-0`}>Experiment log <span className="normal-case tracking-normal text-stone-400">{experiments.length}</span></p><button type="button" onClick={() => setOpen((v) => !v)} className="text-[11px] text-indigo-600 hover:underline dark:text-indigo-300">{open ? "close" : "+ log an experiment"}</button></div>
+      {open && (
+        <form onSubmit={(e) => { e.preventDefault(); if (!title.trim()) return; onAdd({ title: title.trim(), body, hypotheses: picked }); setTitle(""); setBody(""); setPicked([]); setOpen(false); }} className="mb-3 space-y-2 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs dark:border-stone-800 dark:bg-stone-950/30">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title — e.g. Pilot session 3" className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Experiment title" autoFocus />
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="Setup, what happened, outcome (Markdown)" className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Experiment body" />
+          {hypotheses.length > 0 && <div className="flex flex-wrap gap-1.5">{hypotheses.map((h) => <label key={h.id} className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 ${picked.includes(h.id) ? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"}`}><input type="checkbox" className="hidden" checked={picked.includes(h.id)} onChange={() => setPicked((p) => (p.includes(h.id) ? p.filter((x) => x !== h.id) : [...p, h.id]))} />{h.statement.slice(0, 40)}{h.statement.length > 40 ? "…" : ""}</label>)}</div>}
+          <button type="submit" disabled={busy || !title.trim()} className="rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Log</button>
+        </form>
+      )}
+      {experiments.length === 0 && !open && <p className="text-xs text-stone-400">Nothing logged yet — dated entries: setup, what happened, outcome.</p>}
+      <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+        {experiments.map((e) => (
+          <li key={e.id} className="py-2 text-sm first:pt-0">
+            <div className="flex items-baseline gap-2"><span className="min-w-0 flex-1 truncate font-medium text-stone-800 dark:text-stone-100">{e.title}</span><span className="shrink-0 text-[11px] tabular-nums text-stone-400">{e.date}</span></div>
+            {e.body && <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-stone-500 dark:text-stone-400">{e.body}</p>}
+            <p className="mt-0.5 flex flex-wrap gap-1 text-[10px] text-stone-400">{e.commit_url && <a href={e.commit_url} target="_blank" rel="noopener" className="font-mono text-indigo-600 hover:underline dark:text-indigo-300">⎇ {e.commit_label}</a>}{e.hypotheses.map((id) => { const h = hypotheses.find((x) => x.id === id); return h ? <span key={id} className="rounded-full bg-stone-100 px-1.5 py-px dark:bg-stone-800" title={h.statement}>H{id}</span> : null; })}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
-      <section className="mb-4 rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
-        <h2 className="mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">
-          Hypothesis ledger
-          {hyps.length > 0 && <span className="text-stone-300 dark:text-stone-400">{hyps.length}</span>}
-        </h2>
-        {hyps.length === 0 ? (
-          <Empty>
-            No hypotheses yet — <a href={classic} className="text-indigo-600 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">propose one</a> on the classic page.
-          </Empty>
-        ) : (
-          <ul className="divide-y divide-stone-100 dark:divide-stone-800">
-            {hyps.map((h) => (
-              <li key={h.id} className="flex items-start gap-3 py-2.5 text-sm first:pt-0 last:pb-0">
-                <span className={`mt-px shrink-0 rounded px-2 py-0.5 text-xs ${statusCls[h.status] ?? statusCls.proposed}`}>
-                  {h.status}
-                </span>
-                <span className="min-w-0 flex-1 leading-relaxed text-stone-700 dark:text-stone-300">{h.statement}</span>
-                <span className="shrink-0 pt-0.5 text-xs tabular-nums text-stone-400 dark:text-stone-400">
-                  <span className="text-green-700 dark:text-green-300">+{h.supports}</span> · <span className="text-red-700 dark:text-red-300">−{h.contradicts}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <SectionCard title="Experiment log" count={exps.length}>
-          {exps.length === 0 ? (
-            <Empty>
-              No entries yet — <a href={classic} className="text-indigo-600 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">log an experiment</a>.
-            </Empty>
-          ) : (
-            <ul className="divide-y divide-stone-100 dark:divide-stone-800">
-              {exps.map((e) => (
-                <li key={e.id} className="py-2.5 text-sm first:pt-0 last:pb-0">
-                  <div className="flex items-baseline gap-2">
-                    <span className="min-w-0 flex-1 truncate font-medium text-stone-800 dark:text-stone-200">{e.title}</span>
-                    <span className="shrink-0 text-xs tabular-nums text-stone-400 dark:text-stone-400">{e.date}</span>
-                  </div>
-                  {e.commit_url && (
-                    <a href={e.commit_url} target="_blank" rel="noopener"
-                       className="mt-1 inline-block font-mono text-xs text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300" title={e.commit_url}>
-                      ⎇ {e.commit_label}
-                    </a>
-                  )}
-                  {e.body && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-stone-500 dark:text-stone-400">{e.body}</p>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Datasets" count={dsets.length}>
-          {dsets.length === 0 ? (
-            <Empty>
-              No datasets registered — <a href={classic} className="text-indigo-600 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">add one</a>.
-            </Empty>
-          ) : (
-            <ul className="divide-y divide-stone-100 dark:divide-stone-800">
-              {dsets.map((d) => (
-                <li key={d.id} className="py-2.5 text-sm first:pt-0 last:pb-0">
-                  <div className="flex items-baseline gap-2">
-                    <span className="min-w-0 flex-1 truncate font-medium text-stone-800 dark:text-stone-200">{d.name}</span>
-                    {d.version && <span className="shrink-0 text-xs tabular-nums text-stone-400 dark:text-stone-400">v{d.version}</span>}
-                  </div>
-                  <p className="mt-1 truncate font-mono text-xs text-stone-500 dark:text-stone-400" title={d.location}>{d.location}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Protocols" count={currentProtocols.length}>
-          {currentProtocols.length === 0 ? (
-            <Empty>
-              No protocols yet — <a href={`${classic}protocols/`} className="text-indigo-600 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">write one</a>.
-            </Empty>
-          ) : (
-            <ul className="divide-y divide-stone-100 dark:divide-stone-800">
-              {currentProtocols.map((p) => (
-                <li key={p.id} className="flex items-baseline gap-2 py-2.5 text-sm first:pt-0 last:pb-0">
-                  <span className="min-w-0 flex-1 truncate font-medium text-stone-800 dark:text-stone-200">{p.title}</span>
-                  <span className="shrink-0 rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-500 dark:bg-stone-800 dark:text-stone-300">v{p.version}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
-      </div>
-    </div>
+function DatasetForm({ onAdd, busy }: { onAdd: (body: Record<string, unknown>) => void; busy: boolean }) {
+  const [name, setName] = useState(""); const [location, setLocation] = useState("");
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (name.trim() && location.trim()) { onAdd({ name: name.trim(), location: location.trim() }); setName(""); setLocation(""); } }} className="flex flex-wrap gap-1.5 text-xs">
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="name" className="min-w-0 flex-1 rounded-md border border-stone-200 bg-white px-2 py-1 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Dataset name" />
+      <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="path or URL" className="min-w-0 flex-[2] rounded-md border border-stone-200 bg-white px-2 py-1 font-mono dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Dataset location" />
+      <button type="submit" disabled={busy || !name.trim() || !location.trim()} className="rounded-md bg-indigo-600 px-2 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Register</button>
+    </form>
   );
 }
