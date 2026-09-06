@@ -544,6 +544,22 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Inbox keyboard triage and matrix CSV (#350)
+
+**Decision.** The Inbox gets a cursor: `j`/`k` (or arrows) move it, `Enter` converts with the suggested target, `1`–`5` pick paper / today / note / milestone / decision, `f` files under the project, `x` dismisses, `?` shows the legend; keys are ignored while typing in the capture box, and hovering a row moves the cursor so mouse and keyboard agree. The review matrix gains a **CSV** export (key, title, year, one column per theme with the extracted finding or an `x`) built client-side from the table the page already holds.
+
+**Why.** Triage is a batch activity; the mouse round-trip per capture was the slowest part of inbox zero. The CSV is what co-authors and R scripts ask for when a matrix leaves Atlas.
+
+**Alternatives.** A server-side CSV endpoint (rejected: the page already has the full table; one less route in the schema); vim-style `d` for dismiss (rejected: `x` reads as "close" to everyone).
+
+### 2026-09-06 — Quotes from highlights into the manuscript (#349)
+
+**Decision.** The studio's Bibliography panel opens each cited paper (✎) to the passages the owner highlighted while reading; one click inserts them at the cursor as a `quote` environment with `\citep{key}` and the page (`quoteLatex`). The Library's highlight cards gain a **quote** action that copies the same thing as inline LaTeX, and `/manuscripts/:id/editor?quote=<highlight id>` inserts a specific highlight on open (the deep link the Library and MCP can hand out). No new backend: highlights already carry text, page and paper.
+
+**Why.** Reading and writing were two rooms; the passage you marked on page 3 should be one click from the paragraph that needs it. This is the "quotes into manuscripts" item from the Library second-pass list.
+
+**Alternatives.** A separate "Quotes" tab (rejected: the bibliography already lists exactly the papers that may be quoted); storing quotes as their own objects (rejected: a highlight *is* the quote — duplicating it would drift).
+
 ### 2026-09-06 — Library health and protocols move into the app (#348)
 
 **Decision.** The bib report becomes `pages/Report.tsx` at `/projects/:slug/report`: the four checkers as cards with levels, `@key` links to each paper, a **Merge into first** action on duplicate findings (`POST /references/merge/`), and network checks (doi.org / Crossref) behind an explicit toggle so the page opens instantly. Protocols are written, read and re-versioned inside the Research page (`ProtocolPanel`: create v1, open, "new version" → `POST /protocols/{id}/new-version/`). Both classic pages keep working; the report URL maps to the app.

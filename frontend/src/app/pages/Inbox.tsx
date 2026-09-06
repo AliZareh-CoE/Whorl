@@ -54,6 +54,37 @@ export default function Inbox() {
   if (error || !data) return <ErrorState message="Couldn't load the inbox." onRetry={() => refetch()} />;
   const open = data.results.filter((c) => !c.processed);
   const projectRows = projects?.results ?? [];
+  return <InboxBody open={open} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} toast={toast} />;
+}
+
+/* Keyboard triage (Inbox v2 slice 2): j/k or arrows move the cursor, Enter takes the
+   suggested target, 1–5 pick a target, x dismisses, f files under the project — the whole
+   inbox without touching the mouse. Keys are ignored while typing in the capture box. */
+const KEY_TARGETS = ["paper", "todo", "note", "milestone", "decision"] as const;
+
+function InboxBody({ open, projectRows, text, setText, capture, convert, triage, toast }: { open: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
+  const [cursor, setCursor] = useState(0);
+  const [legend, setLegend] = useState(false);
+  const projectFor = (c: Capture) => c.project ?? projectRows[0]?.slug ?? undefined;
+  useEffect(() => { if (cursor > open.length - 1) setCursor(Math.max(0, open.length - 1)); }, [open.length, cursor]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (e.metaKey || e.ctrlKey || e.altKey || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const c = open[cursor];
+      if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); setCursor((i) => Math.min(open.length - 1, i + 1)); }
+      else if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); setCursor((i) => Math.max(0, i - 1)); }
+      else if (e.key === "?") { setLegend((v) => !v); }
+      else if (!c) return;
+      else if (e.key === "Enter") { e.preventDefault(); convert.mutate({ id: c.id, target: c.hint.suggested, project: projectFor(c) }); }
+      else if (/^[1-5]$/.test(e.key)) { const target = KEY_TARGETS[Number(e.key) - 1]; if (target === "paper" && !(c.hint.doi || c.hint.arxiv_id)) return; e.preventDefault(); convert.mutate({ id: c.id, target, project: projectFor(c) }); }
+      else if (e.key === "x" || e.key === "Delete") { e.preventDefault(); triage.mutate({ id: c.id }); }
+      else if (e.key === "f") { const p = projectFor(c); if (p) { e.preventDefault(); triage.mutate({ id: c.id, project: p }); } }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, cursor, projectRows]);
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-4">
@@ -68,6 +99,12 @@ export default function Inbox() {
         </div>
       </form>
 
+      {open.length > 0 && (
+        <p className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-400" data-testid="inbox-legend">
+          <button type="button" onClick={() => setLegend((v) => !v)} className="rounded border border-stone-200 px-1.5 font-mono dark:border-stone-700" title="Keyboard triage">?</button>
+          {legend ? <><span><kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> move</span><span><kbd className="font-mono">↵</kbd> suggested</span><span><kbd className="font-mono">1</kbd> paper · <kbd className="font-mono">2</kbd> today · <kbd className="font-mono">3</kbd> note · <kbd className="font-mono">4</kbd> milestone · <kbd className="font-mono">5</kbd> decision</span><span><kbd className="font-mono">f</kbd> file</span><span><kbd className="font-mono">x</kbd> dismiss</span></> : <span>keyboard triage: j/k · ↵ · 1–5 · x</span>}
+        </p>
+      )}
       {open.length === 0 ? (
         <div className={`${panel} rise p-10 text-center`} style={{ ["--i" as string]: 1 }}>
           <InboxIcon className="mx-auto mb-2 h-7 w-7 text-indigo-400" aria-hidden="true" />
@@ -76,7 +113,7 @@ export default function Inbox() {
         </div>
       ) : (
         <ul className="space-y-2" data-testid="inbox-list">
-          {open.map((c, i) => <Row key={c.id} c={c} i={i} projects={projectRows} busy={convert.isPending || triage.isPending} onConvert={(target, project) => convert.mutate({ id: c.id, target, project })} onFile={(project) => triage.mutate({ id: c.id, project })} onDismiss={() => triage.mutate({ id: c.id })} />)}
+          {open.map((c, i) => <Row key={c.id} c={c} i={i} active={i === cursor} onFocus={() => setCursor(i)} projects={projectRows} busy={convert.isPending || triage.isPending} onConvert={(target, project) => convert.mutate({ id: c.id, target, project })} onFile={(project) => triage.mutate({ id: c.id, project })} onDismiss={() => triage.mutate({ id: c.id })} />)}
         </ul>
       )}
       {toast && (
@@ -88,7 +125,8 @@ export default function Inbox() {
   );
 }
 
-function Row({ c, i, projects, busy, onConvert, onFile, onDismiss }: { c: Capture; i: number; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void }) {
+
+function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismiss }: { c: Capture; i: number; active: boolean; onFocus: () => void; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void }) {
   const [project, setProject] = useState(c.project ?? projects[0]?.slug ?? "");
   useEffect(() => { if (!project && projects[0]) setProject(projects[0].slug); }, [projects, project]);
   const suggested = TARGETS.find((t) => t.key === c.hint.suggested)!;
@@ -97,7 +135,7 @@ function Row({ c, i, projects, busy, onConvert, onFile, onDismiss }: { c: Captur
   if (c.hint.arxiv_id) chips.push(`arXiv ${c.hint.arxiv_id}`);
   if (c.hint.url && !c.hint.doi) chips.push("link");
   return (
-    <li className={`${panel} rise p-3`} style={{ ["--i" as string]: i + 1 }} data-testid="inbox-row">
+    <li className={`${panel} rise p-3 transition-shadow ${active ? "ring-2 ring-indigo-500/60" : ""}`} style={{ ["--i" as string]: i + 1 }} data-testid="inbox-row" data-active={active ? "1" : undefined} onMouseEnter={onFocus}>
       <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-stone-800 dark:text-stone-100">{c.text}</p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="text-stone-400">{ago(c.created_at)}</span>
