@@ -262,3 +262,14 @@ def test_external_links_open_in_the_os_browser():
         Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "UpdaterButton.tsx"
     ).read_text()
     assert "openExternal(RELEASES)" in button
+
+
+def test_capability_covers_the_local_server_origin():
+    """Owner 2026-09-06: "terminal_spawn not allowed by ACL". The webview loads
+    http://127.0.0.1:<port>, a remote origin to Tauri; the capability must name it or every
+    command is refused."""
+    cap = json.loads((DESKTOP / "capabilities" / "default.json").read_text())
+    urls = cap["remote"]["urls"]
+    assert any(u.startswith("http://127.0.0.1") for u in urls)
+    assert any(u.startswith("http://localhost") for u in urls)
+    assert "main" in cap["windows"] and "core:default" in cap["permissions"]

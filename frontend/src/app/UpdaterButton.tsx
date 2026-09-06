@@ -27,6 +27,7 @@ type State =
 
 /** Turn the updater's raw error into the one sentence that says what to do. */
 function explain(raw: string): string {
+  if (/not allowed by ACL/i.test(raw)) return "This build's shell blocked the command (a capability bug fixed in 0.1.79+). Install the newest build from the releases page once; after that updates work in-app.";
   if (/404|not found/i.test(raw)) return "The update feed answered 404. The releases live in a private GitHub repository, which the app cannot read — publish them to the public feed (README › Auto-update).";
   if (/signature|verify|pubkey|public key/i.test(raw)) return "The download's signature did not match this app's public key. The release was signed with a different key — reinstall from the releases page.";
   if (/dns|resolve|connect|network|timed? ?out|offline/i.test(raw)) return "Could not reach GitHub to check for updates (offline?).";

@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Desktop commands were refused by the ACL (#353)
+
+**Finding.** The owner: "shell couldn't start — command terminal_spawn not allowed by ACL". The desktop webview loads the bundled server at `http://127.0.0.1:<port>`. Tauri 2 treats any http origin as *remote*, and a capability applies to remote origins only when it names them under `remote.urls`. Ours did not, so the window matched no capability and **every** command was refused — the terminal, the updater's check and install, the native file picker, and the new external-link opener. The earlier in-browser checks could not catch this because the browser has no Tauri IPC at all.
+
+**Decision.** `desktop/capabilities/default.json` now declares `remote.urls` for `http://127.0.0.1:*` and `http://localhost:*` (any port: the shell picks a free one), guarded by a scaffold test. The updater button explains an ACL refusal on older builds and points to a one-time reinstall. This also means "check for update failed" on the installed build was this refusal first and the private-repo 404 second; both are now handled.
+
+**Alternatives.** Serving the app through Tauri's custom protocol instead of http (rejected: the bundled Django server is the single source of truth and the browser build must stay identical); per-command permissions (not needed: application commands are allowed once a capability matches the origin).
+
 ### 2026-09-06 — Outbound links in the desktop app (#352)
 
 **Finding.** The owner: "the button to get it manually failed". The Tauri shell only navigates within the local Atlas origin (a deliberate hardening), so every outbound link in the desktop app — the releases page, DOIs, API docs, "Open ↗" on a PDF host — silently did nothing.

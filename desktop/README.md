@@ -127,6 +127,11 @@ the committed public key (generated with `npx @tauri-apps/cli signer generate`; 
 it). If the key has a password, add `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` too. The next push
 that touches the desktop build publishes `latest.json`, and installed apps start updating.
 
+**Commands and the ACL.** The window loads `http://127.0.0.1:<port>`, which Tauri counts as a
+*remote* origin, so `capabilities/default.json` must list it under `remote.urls` — otherwise
+every command (terminal, updater, file picker, external links) is refused with "not allowed
+by ACL". A test pins this.
+
 **Private repository = no feed.** The app fetches `latest.json` without credentials, and
 GitHub answers 404 for a private repo's release assets — signing is fine, but nothing is ever
 found. The release workflow's `mirror` job fixes this by copying each build's installers,
