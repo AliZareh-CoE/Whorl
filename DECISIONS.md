@@ -544,6 +544,26 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Search v2 + Reference page parity (#337)
+
+**Decision.** Search results now explain themselves: `core.search.describe` adds a `snippet`
+(for papers the PDF page hit with its `page` and `where: "in the PDF"`, else an excerpt of the
+abstract; for notes/decisions/phases/manuscripts an excerpt of their text around the first term),
+an `app_url` that opens the object in the SPA, and a one-line `meta`; the API also returns
+`project_name`. The Search page is rewritten: `?q=` in the URL, results grouped by kind with counts,
+terms marked in labels and snippets, "in the PDF · p.N" chips, ↑↓/Enter navigation. The standalone
+Reference page gains the Cite block (remembered style, in-text and `\cite{}` copies) and the
+Highlights section, links "open in the Library", and replaces the PDF iframe — which the
+`X-Frame-Options: DENY` header (kept, it is a security test) blanked — with a "Read & highlight →"
+jump that deep-links the Library reader via `?q=<key>&read=<id>`.
+
+**Why.** A search that only lists titles makes the reader open five things to find the one; the
+snippet with the page is the answer in place, and it showcases the PDF full-text index. The
+Reference page was the one paper view without highlights or citations.
+
+**Alternatives considered.** Relaxing frame options to SAMEORIGIN for the iframe — rejected: the
+workbench reader is better than an iframe and the header stays strict.
+
 ### 2026-09-06 — Inbox v2 slice 1: smart capture triage (#335)
 
 **Decision.** `notes/capture.py` reads a capture (`detect`: DOI / arXiv id / URL, and the prefixes

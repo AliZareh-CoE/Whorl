@@ -2160,14 +2160,22 @@ class SearchAPIView(APIView):
 
     @extend_schema(
         parameters=[OpenApiParameter(name="q", type=str, required=True, description="Search text")],
-        responses={200: OpenApiResponse(description="Ranked results grouped by object type")},
-        description="Global full-text search across projects, references, notes, documents, decisions, and plans.",
+        responses={
+            200: OpenApiResponse(
+                description="Ranked results: {type, id, label, project, project_name, url, "
+                "app_url, snippet, page, where, meta} — snippet is the matching passage "
+                "(for papers: from the PDF text with its page when the hit is inside the PDF)"
+            )
+        },
+        description="Global full-text search across projects, references (title, abstract and "
+        "PDF text), notes, documents, decisions, plans, and research objects.",
     )
     def get(self, request):
-        from core.search import search_all
+        from core.search import describe, search_all
 
+        q = request.query_params.get("q", "")
         results = []
-        for result in search_all(request.query_params.get("q", "")):
+        for result in search_all(q):
             obj = result["object"]
             results.append(
                 {
@@ -2175,10 +2183,13 @@ class SearchAPIView(APIView):
                     "id": obj.pk,
                     "label": str(obj),
                     "project": result["project"].slug if result["project"] else None,
+                    "project_name": result["project"].name if result["project"] else None,
                     "url": obj.get_absolute_url() if hasattr(obj, "get_absolute_url") else None,
+                    # Search v2: why it matched and where to open it in the app
+                    **describe(result, q),
                 }
             )
-        return Response({"query": request.query_params.get("q", ""), "results": results})
+        return Response({"query": q, "results": results})
 
 
 class DashboardAPIView(APIView):

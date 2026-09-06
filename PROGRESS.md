@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ SEARCH v2 + REFERENCE PARITY SHIPPED (2026-09-06, #337).** `core/search.py`: `excerpt`, `describe` (snippet / page / where / app_url / meta per kind); `/search/` returns them + `project_name` (MCP `search` gains them). Search.tsx rewritten (Observatory: `?q=` sync, grouped by kind, marked terms, PDF page chips, keyboard). Reference.tsx: Cite block, Highlights section, "open in the Library", PDF iframe → "Read & highlight →" deep link; Library.tsx honours `?q=` and `?read=<id>` (opens the reader once rows arrive). Tests: 2 search v2 tests; suite green (987 + 2 skipped). Playwright: "dissociation" → Papers group with "in the PDF · p.1" and the marked snippet; Enter opened the reference; its Read button opened the Library reader (docs/screenshots/search.png).
+
 - **docs(readme): front page rewritten (2026-09-06).** Hero with the download link, two badges, a corrected pitch (React islands are prebuilt; Node only for island development), a 14-shot screen grid with matching captions, and "What's inside" regrouped per area (Plan / Library / Notes & graph / Writing / Overview-dashboard-inbox-today / Claude) instead of run-on bullets; comparison table gains `@key` notes and reviewer/budget rows. Guard tests (MCP tool list + count, desktop scaffold, smoke) green. Inbox v2 judged done after slice 1; the next loop starts with a second pass over the Library.
 
 - **Current feature area: Inbox (Inbox v2).** Dashboard v2 judged done after slice 1.

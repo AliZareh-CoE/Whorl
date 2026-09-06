@@ -87,7 +87,7 @@ export default function Library() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [filters, setFilters] = useState<Filters>(EMPTY);
-  const [qInput, setQInput] = useState("");
+  const [qInput, setQInput] = useState(() => { try { return new URLSearchParams(window.location.search).get("q") ?? ""; } catch { return ""; } });
   const q = useDebounced(qInput, 220);
   const effective = useMemo(() => ({ ...filters, q }), [filters, q]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -172,6 +172,15 @@ export default function Library() {
   });
   const rows = useMemo(() => list.data?.pages.flatMap((p) => p.results) ?? [], [list.data]);
   const reader = useMemo(() => rows.find((r) => r.id === readerId) ?? null, [rows, readerId]);
+  // deep link: /library?q=<key>&read=<id> opens the reader on that paper once the rows arrive
+  const readParam = useRef<number | null>((() => { try { const v = new URLSearchParams(window.location.search).get("read"); return v ? Number(v) : null; } catch { return null; } })());
+  useEffect(() => {
+    const id = readParam.current;
+    if (id === null || rows.length === 0) return;
+    const row = rows.find((r) => r.id === id);
+    if (row?.pdf) { readParam.current = null; openReader(row); }
+    else if (row) { readParam.current = null; setDetailId(row.id); }
+  }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = list.data?.pages[0]?.count ?? 0;
   const detail = rows.find((r) => r.id === detailId) ?? null;
 

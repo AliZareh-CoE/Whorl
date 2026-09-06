@@ -250,3 +250,99 @@ def search_all(text: str) -> list[dict]:
         results = _trigram_fallback(text.strip())
 
     return results
+
+
+# --- Search v2 (2026-09-06): explain each hit — snippet, page, SPA link, meta ---------------
+
+EXCERPT_RADIUS = 80
+
+
+def excerpt(text: str, q: str, radius: int = EXCERPT_RADIUS) -> str:
+    """A short window of `text` around the first term of `q` (or the start when absent)."""
+    text = " ".join((text or "").split())
+    if not text:
+        return ""
+    terms = [t.strip('"') for t in q.split() if t.strip('"') and not t.startswith("-")]
+    low = text.lower()
+    pos = -1
+    for term in terms:
+        pos = low.find(term.lower())
+        if pos >= 0:
+            break
+    if pos < 0:
+        return text[: radius * 2] + ("…" if len(text) > radius * 2 else "")
+    lo, hi = max(0, pos - radius), min(len(text), pos + radius)
+    return ("…" if lo > 0 else "") + text[lo:hi] + ("…" if hi < len(text) else "")
+
+
+def describe(result: dict, q: str) -> dict:
+    """Snippet / page / app_url / meta for one search_all() row."""
+    kind, obj, project = result["type"], result["object"], result["project"]
+    slug = project.slug if project else None
+    out = {"snippet": "", "page": None, "app_url": None, "meta": "", "where": ""}
+    if kind == "reference":
+        from literature.fulltext import search_pages
+
+        hits = search_pages(obj, q.strip('"'), limit=1) if q.strip() else []
+        authors = ", ".join(
+            a.get("family") or a.get("given") or "" for a in (obj.authors or [])[:3]
+        )
+        out["meta"] = " · ".join(str(x) for x in (authors, obj.year, obj.venue) if x)
+        out["app_url"] = f"/references/{obj.pk}"
+        if hits:
+            out.update(snippet=hits[0]["snippet"], page=hits[0]["page"], where="in the PDF")
+        else:
+            out["snippet"] = excerpt(obj.abstract, q)
+    elif kind == "note":
+        out.update(
+            snippet=excerpt(obj.body, q),
+            app_url=f"/projects/{slug}/notes/{obj.pk}",
+            meta=obj.updated_at.date().isoformat(),
+        )
+    elif kind == "project":
+        out.update(
+            snippet=excerpt(obj.description, q), app_url=f"/projects/{obj.slug}", meta=obj.status
+        )
+    elif kind == "document":
+        out.update(
+            snippet=excerpt(obj.description, q),
+            app_url=f"/projects/{slug}/files",
+            meta=obj.created_at.date().isoformat(),
+        )
+    elif kind == "decision":
+        out.update(
+            snippet=excerpt(obj.decision or obj.context, q),
+            app_url=f"/projects/{slug}/decisions",
+            meta=obj.decided_on.isoformat(),
+        )
+    elif kind == "phase":
+        out.update(
+            snippet=excerpt(obj.objective, q),
+            app_url=f"/projects/{slug}/plan",
+            meta=obj.status.replace("_", " "),
+        )
+    elif kind == "milestone":
+        out.update(
+            snippet=excerpt(obj.notes, q),
+            app_url=f"/projects/{slug}/plan",
+            meta=(f"due {obj.due_date}" if obj.due_date else ""),
+        )
+    elif kind == "manuscript":
+        out.update(
+            snippet=excerpt(obj.abstract, q),
+            app_url=f"/manuscripts/{obj.pk}",
+            meta=obj.status.replace("_", " "),
+        )
+    elif kind in ("hypothesis", "experiment", "dataset", "question"):
+        body = (
+            getattr(obj, "statement", "")
+            or getattr(obj, "body", "")
+            or getattr(obj, "description", "")
+            or getattr(obj, "question", "")
+        )
+        out.update(
+            snippet=excerpt(body, q),
+            app_url=f"/projects/{slug}/research",
+            meta=getattr(obj, "status", "") or "",
+        )
+    return out

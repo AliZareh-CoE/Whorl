@@ -17,7 +17,11 @@ type Ref = {
   url: string;
   pdf: string | null;
   citation_count: number | null;
+  projects?: { slug: string; name: string; color: string; reading_status: string }[];
+  tags?: string[];
 };
+type Highlight = { id: number; page: number | null; text: string; comment: string; color: string; project_name: string };
+type Citation = { style: string; label: string; text: string; html: string; intext: string };
 
 function authorLine(r: Ref): string {
   const names = (r.authors ?? []).map((a) => [a.given, a.family].filter(Boolean).join(" ")).filter(Boolean);
@@ -37,6 +41,9 @@ export default function Reference() {
     queryKey: ["reference", id],
     queryFn: () => api<Ref>(`/references/${id}/`),
   });
+  const { data: highlights } = useQuery({ queryKey: ["highlights", Number(id)], queryFn: () => api<{ results: Highlight[] }>(`/highlights/?reference=${id}&page_size=200`).then((p) => p.results) });
+  const citeStyle = (() => { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } })();
+  const { data: citation } = useQuery({ queryKey: ["cite", Number(id), citeStyle], queryFn: () => api<Citation>(`/references/${id}/cite/?style=${citeStyle}`) });
   const { data: commentData } = useQuery({
     queryKey: ["comments", "reference", id],
     queryFn: () => api<{ comments: { id: number; body: string; created_at: string }[] }>(`/comments/reference/${id}/`),
@@ -147,9 +154,10 @@ export default function Reference() {
             <a href={ref.pdf}
                className="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300">PDF ↗</a>
           )}
+          <Link to={`/library?q=${encodeURIComponent(ref.bibtex_key)}`} className="ml-auto text-xs text-indigo-600 transition-colors hover:underline dark:text-indigo-400" title="Open in the Library workbench: read, highlight, cite, discover">open in the Library →</Link>
           <a href={`/library/${ref.id}/`}
-             className="ml-auto text-xs text-stone-400 transition-colors hover:text-stone-600 hover:underline focus:outline-none focus-visible:underline dark:text-stone-400 dark:hover:text-stone-300">
-            edit / annotate (classic) ↗
+             className="text-xs text-stone-400 transition-colors hover:text-stone-600 hover:underline focus:outline-none focus-visible:underline dark:text-stone-400 dark:hover:text-stone-300">
+            classic ↗
           </a>
         </div>
       </section>
@@ -179,9 +187,38 @@ export default function Reference() {
         </section>
       )}
 
+      {citation && (
+        <section className="mb-4 rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900" data-testid="cite-block">
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Cite · {citation.label}</h2>
+          <p className="text-sm leading-relaxed text-stone-700 dark:text-stone-200" dangerouslySetInnerHTML={{ __html: citation.html }} />
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <button type="button" onClick={() => navigator.clipboard?.writeText(citation.text)} className="rounded bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700">Copy citation</button>
+            <button type="button" onClick={() => navigator.clipboard?.writeText(citation.intext)} className="rounded border border-stone-300 px-2.5 py-1 text-stone-600 dark:border-stone-700 dark:text-stone-300">{citation.intext}</button>
+            <button type="button" onClick={() => navigator.clipboard?.writeText(`\\cite{${ref.bibtex_key}}`)} className="rounded border border-stone-300 px-2.5 py-1 font-mono text-stone-600 dark:border-stone-700 dark:text-stone-300">\cite{"{"}{ref.bibtex_key}{"}"}</button>
+          </div>
+        </section>
+      )}
+
+      {highlights && highlights.length > 0 && (
+        <section className="mb-4 rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900" data-testid="highlights-section">
+          <h2 className="mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Highlights <span className="text-stone-300 dark:text-stone-500">{highlights.length}</span></h2>
+          <ul className="space-y-2">
+            {highlights.map((h) => (
+              <li key={h.id} className="rounded-lg border border-stone-200 p-3 text-sm dark:border-stone-800" style={{ borderLeft: `3px solid ${({ yellow: "#facc15", green: "#4ade80", blue: "#60a5fa", pink: "#f472b6" } as Record<string, string>)[h.color] ?? "#facc15"}` }}>
+                <p className="leading-relaxed text-stone-700 dark:text-stone-200">{h.text}</p>
+                {h.comment && <p className="mt-1 text-xs italic text-stone-500 dark:text-stone-400">{h.comment}</p>}
+                <p className="mt-1 text-[11px] text-stone-400">{h.page ? `p.${h.page}` : "no page"}{h.project_name ? ` · ${h.project_name}` : ""}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {ref.pdf && (
-        <section className="mb-4 rounded border border-stone-200 bg-white p-2 dark:border-stone-800 dark:bg-stone-900">
-          <iframe src={ref.pdf} title="PDF" className="h-[70vh] w-full rounded" />
+        <section className="mb-4 flex flex-wrap items-center gap-3 rounded border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900" data-testid="read-cta">
+          <p className="min-w-0 flex-1 text-sm text-stone-600 dark:text-stone-300">A PDF is attached. Read it in the Library's reader to highlight passages, search inside it and take reading notes.</p>
+          <Link to={`/library?q=${encodeURIComponent(ref.bibtex_key)}&read=${ref.id}`} className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Read &amp; highlight →</Link>
+          <a href={ref.pdf} target="_blank" rel="noreferrer" className="text-xs text-stone-400 hover:underline">open the file ↗</a>
         </section>
       )}
 
