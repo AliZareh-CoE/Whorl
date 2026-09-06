@@ -890,6 +890,37 @@ class ReferenceViewSet(AtlasViewSet):
         return Response({"kind": kind, "results": rows, "error": ""})
 
     @extend_schema(
+        responses={
+            200: OpenApiResponse(description="Groups of probable duplicates with a suggested keep")
+        },
+        description="Probable duplicate clusters in the library (same DOI or arXiv id, near-identical titles), each with the most complete record suggested as `keep`.",
+    )
+    @action(detail=False, methods=["get"])
+    def duplicates(self, request):
+        from literature.library import duplicate_groups
+
+        return Response({"groups": duplicate_groups()})
+
+    @extend_schema(
+        request=serializers.MergeReferencesSerializer,
+        responses={200: OpenApiResponse(description="{kept, merged, moved}")},
+        description="Merge references: project links, tags, notes, manuscript bibliographies, evidence, citation edges, comments, and the PDF move onto `keep`; empty fields are filled in; the others are deleted.",
+    )
+    @action(detail=False, methods=["post"])
+    def merge(self, request):
+        from literature.library import merge_references
+
+        serializer = serializers.MergeReferencesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        if not Reference.objects.filter(pk=data["keep"]).exists():
+            return Response({"detail": "keep: no such reference"}, status=404)
+        try:
+            return Response(merge_references(data["keep"], data["merge"]))
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+    @extend_schema(
         operation_id="v1_references_cite_one",
         parameters=[
             OpenApiParameter(

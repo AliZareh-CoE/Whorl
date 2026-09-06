@@ -98,6 +98,11 @@ jobs:
           VER: 0.1.${{ github.run_number }}
         run: |
           api="https://api.github.com/repos/${{ github.repository }}"
+          # stale DRAFT copies of the preview (drafts are invisible to the by-tag lookup and to
+          # the in-app updater) — delete them so there is exactly one preview release
+          curl -sS -H "Authorization: Bearer $GH_TOKEN" "$api/releases?per_page=50" \
+            | jq -r '.[] | select(.draft and .tag_name == "desktop-preview") | .id' \
+            | while read -r did; do echo "delete stale draft release $did"; curl -sS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$api/releases/$did" >/dev/null; done
           rel=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" "$api/releases/tags/desktop-preview" || true)
           rid=$(echo "$rel" | jq -r '.id // empty')
           if [ -z "$rid" ]; then echo "no preview release yet"; exit 0; fi

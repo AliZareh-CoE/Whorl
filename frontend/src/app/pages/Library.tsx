@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Check, ChevronDown, Copy, Download, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { Skeleton } from "../../components/Skeleton";
@@ -28,7 +28,10 @@ type Facets = {
   venues: { venue: string; count: number }[]; projects: { slug: string; name: string; count: number }[];
   all_projects: { slug: string; name: string; color: string }[];
   untagged: number; tags: { name: string; color: string; count: number }[]; views: SavedView[];
+  duplicates: number;
 };
+type DupMember = { id: number; title: string; year: number | null; doi: string | null; venue: string; bibtex_key: string; has_pdf: boolean; projects: string[]; tags: string[]; score: number };
+type DupGroup = { keep: number; reasons: string[]; members: DupMember[] };
 type DiscoverRow = {
   openalex_id: string; doi: string; title: string; year: number | null; venue: string; authors: string[];
   more_authors: number; citations: number | null; in_library: boolean; library_id: number | null; addable: boolean;
@@ -97,6 +100,13 @@ export default function Library() {
   const [bulkProject, setBulkProject] = useState("");
   const [citeStyle, setCiteStyleState] = useState<string>(readStyle);
   const [viewName, setViewName] = useState<string | null>(null);
+  const [dupMode, setDupMode] = useState(false);
+  const [keepChoice, setKeepChoice] = useState<Record<number, number>>({});
+  const dups = useQuery({ queryKey: ["library-duplicates"], queryFn: () => api<{ groups: DupGroup[] }>("/references/duplicates/"), enabled: dupMode });
+  const merge = useMutation({
+    mutationFn: (body: { keep: number; merge: number[] }) => api<{ kept: number; merged: number[] }>("/references/merge/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    onSuccess: (out) => { invalidate(); queryClient.invalidateQueries({ queryKey: ["library-duplicates"] }); setDetailId(out.kept); flash(`Merged ${out.merged.length} duplicate(s) — links, tags, notes and PDFs kept.`); },
+  });
   const [bulkTag, setBulkTag] = useState("");
   const saveView = useMutation({
     mutationFn: (name: string) => api<SavedView>("/library-views/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, params: { ...effective, sort: filters.sort } }) }),
@@ -399,6 +409,7 @@ export default function Library() {
                 <button type="button" className={chip(filters.has_pdf === "true")} onClick={() => toggle("has_pdf", "true")}><span>Has PDF</span><span className="tabular-nums text-stone-400">{f.with_pdf}</span></button>
                 <button type="button" className={chip(filters.has_pdf === "false")} onClick={() => toggle("has_pdf", "false")}><span>No PDF</span><span className="tabular-nums text-stone-400">{f.without_pdf}</span></button>
                 <button type="button" className={chip(filters.needs_metadata === "true")} onClick={() => toggle("needs_metadata", "true")}><span>Needs metadata</span><span className="tabular-nums text-stone-400">{f.needs_metadata}</span></button>
+                <button type="button" className={chip(dupMode)} onClick={() => setDupMode((v) => !v)} title="Papers that look like the same work imported twice"><span className="flex items-center gap-1.5"><CopyCheck className="h-3 w-3" aria-hidden="true" />Duplicates</span><span className={`tabular-nums ${f.duplicates ? "text-amber-500" : "text-stone-400"}`}>{f.duplicates}</span></button>
               </div>
               <div className="mb-3">
                 <p className={railH}>Type</p>
@@ -418,7 +429,55 @@ export default function Library() {
           )}
         </aside>
 
-        {/* list */}
+        {/* list (or the duplicates workbench) */}
+        {dupMode ? (
+          <section className={`${panel} rise flex min-h-[60vh] flex-col overflow-hidden`} style={{ ["--i" as string]: 1 }}>
+            <div className="flex items-center gap-2 border-b border-stone-100 px-4 py-2.5 text-xs dark:border-stone-800">
+              <CopyCheck className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
+              <span className="font-medium text-stone-700 dark:text-stone-100">Duplicates</span>
+              <span className="text-stone-400">same DOI or arXiv id, or near-identical titles · the most complete record is pre-selected to keep</span>
+              <button type="button" onClick={() => setDupMode(false)} className="ml-auto text-stone-400 hover:underline">back to the list</button>
+            </div>
+            <div className="flex-1 space-y-4 overflow-auto p-4">
+              {dups.isLoading && <p className="text-sm text-stone-400">Scanning the library…</p>}
+              {dups.data && dups.data.groups.length === 0 && (
+                <div className="px-4 py-16 text-center">
+                  <Check className="mx-auto mb-2 h-6 w-6 text-emerald-400" aria-hidden="true" />
+                  <p className="text-sm font-medium text-stone-700 dark:text-stone-100">No duplicates found.</p>
+                  <p className="mt-1 text-xs text-stone-400">Imports are deduplicated on the way in; this catches the near-misses.</p>
+                </div>
+              )}
+              {dups.data?.groups.map((g, gi) => {
+                const keep = keepChoice[gi] ?? g.keep;
+                return (
+                  <div key={g.members.map((m) => m.id).join("-")} className="rounded-xl border border-stone-200 dark:border-stone-800">
+                    <div className="flex items-center gap-2 border-b border-stone-100 px-3 py-1.5 text-[11px] text-stone-400 dark:border-stone-800">
+                      <span>{g.members.length} records · matched by {g.reasons.join(" + ")}</span>
+                      <button type="button" disabled={merge.isPending} onClick={() => merge.mutate({ keep, merge: g.members.map((m) => m.id).filter((id) => id !== keep) })} className="ml-auto inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><CopyCheck className="h-3 w-3" aria-hidden="true" />Merge into the selected</button>
+                    </div>
+                    <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+                      {g.members.map((m) => (
+                        <li key={m.id} className={`flex items-start gap-3 px-3 py-2 ${keep === m.id ? "bg-indigo-50 dark:bg-indigo-500/10" : ""}`}>
+                          <input type="radio" name={`keep-${gi}`} checked={keep === m.id} onChange={() => setKeepChoice((c) => ({ ...c, [gi]: m.id }))} className="mt-1 accent-indigo-500" aria-label={`Keep ${m.title}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm text-stone-900 dark:text-stone-100">{m.title}</p>
+                            <p className="truncate text-[11px] text-stone-400">{[m.year, m.venue, m.doi ? `doi ${m.doi}` : "no DOI", m.bibtex_key].filter(Boolean).join(" · ")}</p>
+                            <p className="mt-0.5 flex flex-wrap gap-1 text-[10px]">
+                              {m.has_pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-indigo-600 dark:text-indigo-300">PDF</span>}
+                              {m.projects.map((p) => <span key={p} className="rounded-full bg-stone-100 px-1.5 py-0.5 text-stone-500 dark:bg-stone-800 dark:text-stone-300">{p}</span>)}
+                              {m.tags.map((t) => <span key={t} className="rounded-full bg-stone-100 px-1.5 py-0.5 text-stone-500 dark:bg-stone-800 dark:text-stone-300">#{t}</span>)}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-[10px] tabular-nums text-stone-400" title="completeness score">{m.score}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : (
         <section className={`${panel} rise flex min-h-[60vh] flex-col overflow-hidden`} style={{ ["--i" as string]: 1 }}>
           <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 px-3 py-2 text-xs dark:border-stone-800">
             <label className="flex items-center gap-1.5 text-stone-500"><input type="checkbox" checked={allSelectedOnPage} onChange={() => setSelected(allSelectedOnPage ? new Set() : new Set(rows.map((r) => r.id)))} className="accent-indigo-500" />{total} result{total === 1 ? "" : "s"}</label>
@@ -487,6 +546,8 @@ export default function Library() {
             </div>
           )}
         </section>
+
+        )}
 
         {/* detail */}
         <aside className={`${panel} rise h-fit p-5 lg:sticky lg:top-6`} style={{ ["--i" as string]: 2 }}>

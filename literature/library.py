@@ -139,6 +139,7 @@ def facets(qs: QuerySet) -> dict:
         "needs_metadata": qs.filter(extra__needs_metadata=True).count(),
         "unfiled": qs.filter(project_links__isnull=True).count(),
         "untagged": qs.filter(tags__isnull=True).count(),
+        "duplicates": sum(len(g["members"]) for g in duplicate_groups(qs)),
         "tags": tags,
         "views": list(SavedView.objects.values("id", "name", "params", "position")),
         "years": years,
@@ -311,3 +312,224 @@ def export_bibtex(references) -> str:
     from .services import render_bibtex
 
     return "\n\n".join(render_bibtex(ref) for ref in references) + ("\n" if references else "")
+
+
+# --- duplicates (Library v2 slice 6) ---------------------------------------------------------
+
+
+def duplicate_groups(qs: QuerySet | None = None) -> list[dict]:
+    """Clusters of probable duplicates (same DOI, same arXiv id, or near-identical titles),
+    each with a suggested `keep` (the most complete record: PDF, DOI, abstract, links, age)."""
+    from .services import check_duplicates
+
+    refs = list(
+        (qs if qs is not None else Reference.objects.all()).prefetch_related(
+            "project_links", "tags"
+        )
+    )
+    parent = {r.pk: r.pk for r in refs}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    reasons: dict[int, set[str]] = {}
+    for finding in check_duplicates(refs):
+        a, b = finding["references"]
+        # a similar title with clearly different years is a series/edition, not a duplicate
+        if "DOI" not in finding["message"] and a.year and b.year and abs(a.year - b.year) > 1:
+            continue
+        union(a.pk, b.pk)
+        reasons.setdefault(a.pk, set()).add("doi" if "DOI" in finding["message"] else "title")
+        reasons.setdefault(b.pk, set()).add("doi" if "DOI" in finding["message"] else "title")
+    by_arxiv: dict[str, Reference] = {}
+    for r in refs:
+        if r.arxiv_id:
+            if r.arxiv_id in by_arxiv:
+                union(by_arxiv[r.arxiv_id].pk, r.pk)
+                reasons.setdefault(r.pk, set()).add("arxiv")
+                reasons.setdefault(by_arxiv[r.arxiv_id].pk, set()).add("arxiv")
+            else:
+                by_arxiv[r.arxiv_id] = r
+    clusters: dict[int, list[Reference]] = {}
+    for r in refs:
+        root = find(r.pk)
+        if root in reasons or r.pk in reasons:
+            clusters.setdefault(root, []).append(r)
+    groups = []
+    for members in clusters.values():
+        if len(members) < 2:
+            continue
+        members.sort(key=_completeness, reverse=True)
+        groups.append(
+            {
+                "keep": members[0].pk,
+                "reasons": sorted({x for m in members for x in reasons.get(m.pk, set())}),
+                "members": [
+                    {
+                        "id": m.pk,
+                        "title": m.title,
+                        "year": m.year,
+                        "doi": m.doi,
+                        "venue": m.venue,
+                        "bibtex_key": m.bibtex_key,
+                        "has_pdf": bool(m.pdf),
+                        "projects": [link.project.slug for link in m.project_links.all()],
+                        "tags": [t.name for t in m.tags.all()],
+                        "score": _completeness(m),
+                    }
+                    for m in members
+                ],
+            }
+        )
+    groups.sort(key=lambda g: -len(g["members"]))
+    return groups
+
+
+def _completeness(r: Reference) -> int:
+    return (
+        (8 if r.pdf else 0)
+        + (4 if r.doi else 0)
+        + (2 if r.abstract else 0)
+        + (2 if r.year else 0)
+        + (1 if r.venue else 0)
+        + len(r.authors or [])
+        + r.project_links.count() * 3
+        + r.tags.count()
+    )
+
+
+def merge_references(keep_id: int, merge_ids: list[int]) -> dict:
+    """Fold `merge_ids` into `keep_id`: project links (best reading state wins), tags, notes,
+    manuscript bibliographies, evidence, citation edges, comments, and the PDF move over;
+    empty fields on the kept record are filled from the merged ones; then the others are
+    deleted. Returns {kept, merged, moved: {...}}."""
+    from django.contrib.contenttypes.models import ContentType
+    from django.db import transaction
+
+    from core.models import Comment
+    from research.models import Evidence
+    from writing.models import ManuscriptReference
+
+    from .models import CitationEdge
+
+    keep = Reference.objects.get(pk=keep_id)
+    others = list(Reference.objects.filter(pk__in=[i for i in merge_ids if i != keep_id]))
+    if not others:
+        raise ValueError("Nothing to merge into the kept reference.")
+    merged_ids = [o.pk for o in others]  # captured now: delete() clears pk
+    status_rank = {"to_read": 0, "skimmed": 1, "read": 2, "annotated": 3}
+    moved = {
+        "project_links": 0,
+        "tags": 0,
+        "notes": 0,
+        "manuscripts": 0,
+        "evidence": 0,
+        "citations": 0,
+        "comments": 0,
+        "pdf": False,
+    }
+    ct = ContentType.objects.get_for_model(Reference)
+    with transaction.atomic():
+        for other in others:
+            for link in other.project_links.all():
+                existing = ProjectReference.objects.filter(
+                    project=link.project, reference=keep
+                ).first()
+                if existing is None:
+                    link.reference = keep
+                    link.save(update_fields=["reference", "updated_at"])
+                    moved["project_links"] += 1
+                else:
+                    if status_rank.get(link.reading_status, 0) > status_rank.get(
+                        existing.reading_status, 0
+                    ):
+                        existing.reading_status = link.reading_status
+                    if link.priority == "high":
+                        existing.priority = "high"
+                    if link.notes and link.notes not in existing.notes:
+                        existing.notes = (existing.notes + "\n\n" + link.notes).strip()
+                    existing.save()
+                    for mark in link.review_marks.all():
+                        if not existing.review_marks.filter(theme=mark.theme).exists():
+                            mark.project_reference = existing
+                            mark.save(update_fields=["project_reference"])
+                    link.delete()
+            for tag in other.tags.all():
+                if not keep.tags.filter(pk=tag.pk).exists():
+                    keep.tags.add(tag)
+                    moved["tags"] += 1
+            for note in other.notes.all():
+                if not note.references.filter(pk=keep.pk).exists():
+                    note.references.add(keep)
+                    moved["notes"] += 1
+                note.references.remove(other)
+            for mref in ManuscriptReference.objects.filter(reference=other):
+                if ManuscriptReference.objects.filter(
+                    manuscript=mref.manuscript, reference=keep
+                ).exists():
+                    mref.delete()
+                else:
+                    mref.reference = keep
+                    mref.save(update_fields=["reference"])
+                    moved["manuscripts"] += 1
+            moved["evidence"] += Evidence.objects.filter(reference=other).update(reference=keep)
+            for edge in CitationEdge.objects.filter(citing=other):
+                if (
+                    edge.cited_id == keep.pk
+                    or CitationEdge.objects.filter(citing=keep, cited=edge.cited).exists()
+                ):
+                    edge.delete()
+                else:
+                    edge.citing = keep
+                    edge.save(update_fields=["citing"])
+                    moved["citations"] += 1
+            for edge in CitationEdge.objects.filter(cited=other):
+                if (
+                    edge.citing_id == keep.pk
+                    or CitationEdge.objects.filter(citing=edge.citing, cited=keep).exists()
+                ):
+                    edge.delete()
+                else:
+                    edge.cited = keep
+                    edge.save(update_fields=["cited"])
+                    moved["citations"] += 1
+            moved["comments"] += Comment.objects.filter(content_type=ct, object_id=other.pk).update(
+                object_id=keep.pk
+            )
+            if not keep.pdf and other.pdf:
+                keep.pdf = other.pdf
+                other.pdf = None  # keep the file: it now belongs to `keep`
+                moved["pdf"] = True
+            for field in (
+                "doi",
+                "arxiv_id",
+                "openalex_id",
+                "abstract",
+                "year",
+                "venue",
+                "url",
+                "citation_count",
+            ):
+                if not getattr(keep, field) and getattr(other, field):
+                    setattr(keep, field, getattr(other, field))
+            if not keep.authors and other.authors:
+                keep.authors = other.authors
+            keep.extra = {
+                **other.extra,
+                **keep.extra,
+                "merged_from": [*keep.extra.get("merged_from", []), other.bibtex_key],
+            }
+            # release the unique DOI (and the PDF file) from the merged record BEFORE the kept
+            # one saves them, or the DOI unique constraint fires
+            Reference.objects.filter(pk=other.pk).update(doi=None, pdf="")
+            keep.save()
+            other.delete()
+    return {"kept": keep.pk, "merged": merged_ids, "moved": moved}

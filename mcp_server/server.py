@@ -323,3 +323,17 @@ def list_library_tags() -> dict:
 def tag_references(reference_ids: list[int], tag: str, remove: bool = False) -> dict:
     """Put a tag on (or take it off) many references at once; missing tags are created."""
     return client.tag_references(reference_ids, tag, remove)
+
+
+@mcp.tool()
+def find_duplicates() -> dict:
+    """Probable duplicate papers in the library (same DOI/arXiv id or near-identical titles),
+    grouped, each with the most complete record suggested as `keep`."""
+    return client.find_duplicates()
+
+
+@mcp.tool()
+def merge_references(keep: int, merge: list[int]) -> dict:
+    """Merge duplicate references into `keep`: project links, tags, notes, manuscript
+    bibliographies, evidence, citations, comments, and the PDF move over; the others are deleted."""
+    return client.merge_references(keep, merge)

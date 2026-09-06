@@ -362,3 +362,13 @@ def tag_references(reference_ids: list[int], tag: str, remove: bool = False):
         "/references/bulk/",
         json={"ids": reference_ids, "action": "untag" if remove else "tag", "value": tag},
     )
+
+
+def find_duplicates():
+    """Probable duplicate clusters in the library with a suggested keep."""
+    return _request("GET", "/references/duplicates/")
+
+
+def merge_references(keep: int, merge: list[int]):
+    """Fold references into one (links, tags, notes, PDF move; the rest are deleted)."""
+    return _request("POST", "/references/merge/", json={"keep": keep, "merge": merge})

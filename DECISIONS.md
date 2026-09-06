@@ -544,6 +544,32 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Library v2 slice 6: duplicate clusters and a real merge (#305)
+
+**Decision.** `library.duplicate_groups()` clusters probable duplicates with a union-find over
+the existing `check_duplicates` findings (near-identical normalised titles; DOI matches are
+impossible in the database because DOI is unique) plus identical arXiv ids, and suggests the
+most complete record to keep (PDF 8, DOI 4, abstract 2, year 2, venue 1, +authors, +3 per
+project link, +tags). `library.merge_references(keep, merge)` folds everything into the kept
+record inside a transaction: project links (the better reading status / high priority / merged
+notes / review marks win when both exist), tags, note links, manuscript bibliographies, evidence,
+citation edges (deduplicated, self-edges dropped), comments (generic FK), the PDF file, and
+empty scalar fields; `extra.merged_from` records the folded keys; the merged record's DOI and
+file are released before the kept one saves (unique constraint). Exposed as
+`GET /references/duplicates/`, `POST /references/merge/`, MCP `find_duplicates` /
+`merge_references` (49 tools), a `duplicates` facet count, and a **Duplicates** mode in the
+workbench (rail chip → grouped cards with a keep radio and "Merge into the selected").
+
+**Why.** Every library that imports from more than one source grows duplicates; the bib report
+flagged them for months without a fix action, and the workbench made bulk import easy enough
+that a merge became the missing half. Losing a project link, a note, or a PDF during cleanup is
+the failure mode every researcher fears — hence the relation-by-relation move with tests.
+
+**Alternatives.** (a) Auto-merge on import when titles match — rejected: title similarity has
+false positives (editions, errata, translations); a human picks the survivor. (b) Soft-delete the
+merged rows — rejected: the export/dedupe paths would need to filter them everywhere; the
+`merged_from` trail on the kept record preserves the history that matters.
+
 ### 2026-09-06 — In-app updates go live: signed feed on the published preview release (#303)
 
 **Decision.** (1) The updater keypair now exists: the public key is committed in
@@ -950,6 +976,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+306. Library v2 slice 7 candidates: inline PDF preview pane in the workbench (needs pdf.js vendored for offline desktop); per-reference reading notes + highlights surfaced in the detail pane; "Find PDF" per row with a status pill; drag-to-reorder for smart views.
+305. ~~Library v2 slice 6 (done 2026-09-06): duplicate clusters with a suggested keep, relation-preserving merge, Duplicates mode in the workbench, API + MCP. See the 2026-09-06 decision.~~
 304. Updater polish: download progress in the sidebar control (the install closure has a chunk callback), release notes from latest.json shown before installing, a "check on a schedule" while the app is open (currently once per launch).
 303. ~~In-app updates live (done 2026-09-06): keypair generated (public key committed, private key handed to the owner for the TAURI_SIGNING_PRIVATE_KEY secret), sign-when-secret CI logic, preview release published as a prerelease with asset pruning, silent launch check + one-click install + restart in the sidebar. See the 2026-09-06 decision.~~
 302. Library, remaining vs. Paperpile/Zotero after slice 5: duplicate merge (keep links/PDF/tags), inline PDF preview pane in the workbench, tag colours in the UI (model has the field), drag-to-reorder smart views, per-reference notes surfaced in the detail pane.

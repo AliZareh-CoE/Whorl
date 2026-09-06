@@ -359,3 +359,14 @@ def test_tag_client_calls(capture):
         and '"action":"untag"' in capture["body"]
         and '"value":"pilot"' in capture["body"]
     )
+
+
+def test_duplicate_client_calls(capture):
+    client.find_duplicates()
+    assert calls_url_has(capture, "/references/duplicates/")
+    client.merge_references(1, [2, 3])
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/references/merge/")
+        and '"merge":[2,3]' in capture["body"]
+    )

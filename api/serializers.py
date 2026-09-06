@@ -327,6 +327,16 @@ class SavedViewSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "params", "position", "created_at", "updated_at"]
 
 
+class MergeReferencesSerializer(serializers.Serializer):
+    keep = serializers.IntegerField(help_text="The reference that survives.")
+    merge = serializers.ListField(
+        child=serializers.IntegerField(),
+        min_length=1,
+        max_length=50,
+        help_text="Ids folded into `keep` and deleted.",
+    )
+
+
 class BulkReferenceActionSerializer(serializers.Serializer):
     """Library v2 bulk bar: one action over many references."""
 
