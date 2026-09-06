@@ -101,6 +101,9 @@ jobs:
           rel=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" "$api/releases/tags/desktop-preview" || true)
           rid=$(echo "$rel" | jq -r '.id // empty')
           if [ -z "$rid" ]; then echo "no preview release yet"; exit 0; fi
+          # the preview used to be a draft; the in-app updater can only fetch a published release
+          curl -sS -X PATCH -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" \
+            -d '{"draft": false, "prerelease": true}' "$api/releases/$rid" >/dev/null && echo "preview release published (prerelease)"
           echo "$rel" | jq -r '.assets[] | "\(.id) \(.name)"' | while read -r aid name; do
             case "$name" in *"$VER"*|latest.json) ;; *) echo "delete $name"; curl -sS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$api/releases/assets/$aid" >/dev/null ;; esac
           done
