@@ -13,6 +13,7 @@ export function toSpaUrl(url: string): { to: string; spa: boolean } {
     [/^\/projects\/([^/]+)\/(timeline|files)\/$/, (m) => `/projects/${m[1]}/${m[2]}`],
     [/^\/projects\/([^/]+)\/writing\/$/, () => "/writing"],
     [/^\/projects\/([^/]+)\/writing\/(\d+)\/$/, (m) => `/manuscripts/${m[2]}`],
+    [/^\/projects\/([^/]+)\/writing\/(\d+)\/editor\/$/, (m) => `/manuscripts/${m[2]}/editor`],
     [/^\/library\/(\d+)\/$/, (m) => `/references/${m[1]}`],
     [/^\/library\/$/, () => "/library"],
     [/^\/writing\/$/, () => "/writing"],

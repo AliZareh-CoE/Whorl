@@ -1,5 +1,7 @@
 """Server-side LaTeX compilation via the vendored Tectonic binary (Owner idea #9/#24)."""
 
+import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -13,6 +15,10 @@ from .services import export_manuscript_bib
 
 TECTONIC = Path(settings.BASE_DIR) / "bin" / "tectonic"
 COMPILE_TIMEOUT = 180
+MISSING_ENGINE = (
+    "The LaTeX engine (Tectonic) was not found. Desktop builds bundle it; in a source "
+    "checkout run `make tectonic`, or point ATLAS_TECTONIC at a tectonic binary."
+)
 
 RESULT_FIELDS = [
     "compile_status",
@@ -24,8 +30,23 @@ RESULT_FIELDS = [
 ]
 
 
+def tectonic_path() -> Path | None:
+    """Where the engine lives: ATLAS_TECTONIC, then the bundled bin/ (desktop builds ship
+    `tectonic` / `tectonic.exe` there), then PATH. Owner report 2026-09-06: the desktop
+    installer had no engine at all, so Recompile always failed."""
+    env = os.environ.get("ATLAS_TECTONIC")
+    if env and Path(env).exists():
+        return Path(env)
+    for name in ("tectonic", "tectonic.exe"):
+        candidate = TECTONIC.with_name(name)
+        if candidate.exists():
+            return candidate
+    found = shutil.which("tectonic")
+    return Path(found) if found else None
+
+
 def tectonic_available() -> bool:
-    return TECTONIC.exists()
+    return tectonic_path() is not None
 
 
 def _stale(manuscript: Manuscript, generation: int | None) -> bool:
@@ -82,7 +103,7 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
     if not source.strip():
         return _fail(manuscript, "Nothing to compile — the LaTeX source is empty.")
     if not tectonic_available():
-        return _fail(manuscript, "Tectonic binary missing — run `make tectonic` first.")
+        return _fail(manuscript, MISSING_ENGINE)
 
     manuscript.compile_status = Manuscript.CompileStatus.RUNNING
     manuscript.save(update_fields=["compile_status", "updated_at"])
@@ -101,7 +122,7 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
             (work / "references.bib").write_text(bib)
         try:
             proc = subprocess.run(
-                [str(TECTONIC), "--untrusted", "--chatter", "minimal", main_path],
+                [str(tectonic_path()), "--untrusted", "--chatter", "minimal", main_path],
                 cwd=work,
                 capture_output=True,
                 text=True,

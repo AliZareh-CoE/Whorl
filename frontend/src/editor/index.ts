@@ -45,6 +45,8 @@ export type EditorCfg = {
   initialFileId?: number; // the file id the initial doc belongs to (multi-file)
   citeLibraryUrl?: string; // B1: whole-library cite source + auto-link (Slice C)
   csrfToken?: string;
+  extensions?: Extension[]; // studio: theme, extra keymaps
+  fillHost?: boolean; // studio: the host is a flex child — fill it instead of 72vh
 };
 
 // Beyond-Overleaf B1/B2 (Slice C): \cite{} completes from the WHOLE project library; an
@@ -279,6 +281,7 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
         indentWithTab,
       ]),
       updateListener,
+      ...(cfg.extensions ?? []),
     ];
   }
 
@@ -287,7 +290,11 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
 
   loadCiteLibrary(cfg);
   const view = new EditorView({ state: newState(cfg.initialDoc ?? ""), parent: host });
-  view.dom.style.minHeight = "72vh";
+  if (cfg.fillHost) {
+    view.dom.style.height = "100%";
+  } else {
+    view.dom.style.minHeight = "72vh";
+  }
 
   // multi-file: keep an EditorState per file id; the live `view` holds the active one
   const states = new Map<number, EditorState>();

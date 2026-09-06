@@ -57,7 +57,7 @@ Claude Code can do all of it with you — 86 tools over the same API the UI uses
 **Writing** — one studio page per manuscript: status pipeline, deadline countdown, abstract, compile card with approximate word count, bibliography built from the project's literature, cite check with one-click fixes, submission timeline.
 - Reviewer-response tracker: paste the reviews, get a point-by-point response note and "7/12 answered".
 - Venue budget: words, abstract, figures, tables, references, pages — live bars against the venue's limits.
-- LaTeX editor with cite-key autocomplete, server-side Tectonic compile, revisions, submission `.zip`.
+- A full-window LaTeX studio: files, outline, bibliography and history panels, CodeMirror with `\cite{}` completion from your library and a live cite-check, PDF preview, problems panel, autosave, Vim keymap, ⌘P quick open. Compiles with Tectonic (bundled in the desktop app), keeps revisions, exports an arXiv-ready `.zip`.
 
 **Overview, dashboard, inbox, today**
 - Project overview: current phase with health, this week, a digest of what changed, open questions, manuscripts at a glance.
@@ -94,7 +94,7 @@ uv venv --python 3.12 && uv sync
 
 docker compose up -d          # Postgres 16 (5432) + Redis 7 (6379)
 make css                      # downloads the Tailwind standalone CLI on first run
-make tectonic                 # optional: LaTeX engine for compiling manuscripts to PDF
+make tectonic                 # LaTeX engine for the studio's Recompile (desktop builds bundle it)
 
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py createsuperuser   # you are the single user

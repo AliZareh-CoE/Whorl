@@ -544,6 +544,16 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — The LaTeX studio moves into the app; desktop builds ship Tectonic (#343)
+
+**Decision.** `frontend/src/app/pages/Studio.tsx` at `/manuscripts/:id/editor` is a full-window, VS-Code-shaped editor rendered outside the app layout: activity sidebar (Files with new/upload/rename/delete, Outline, Bibliography with click-to-cite and add-from-library, History with labelled snapshots, diffs and restore), a tabbed CodeMirror 6 editor built on the shared `frontend/src/editor` core (LaTeX grammar, snippets, `\cite{}` completion from the whole project library, live cite-check), a pdf.js preview with page navigation and zoom, a Problems panel wired to the compile diagnostics (click → file + line, deduplicated), autosave with a status bar (line, file, word count, missing cite keys, compile state, keymap), settings (Vim keymap, font size, spellcheck, compile-on-save), Quick Open (⌘P) over files and sections, and ⌘S / ⌘↩ / ⌘B / ⌘\ / ⌘J shortcuts. The CodeMirror theme and syntax colours read CSS variables from `.studio` so one theme serves Observatory and Paper. The classic editor page keeps working but browsers are redirected to the studio (#342 map). The workbench file list now bootstraps `main.tex` from `latex_source`, and `seed_demo` seeds a two-file manuscript with real cite keys, a table and an equation.
+
+**Engine.** `writing/compile.py` resolves Tectonic from `ATLAS_TECTONIC`, then the bundled `bin/tectonic[.exe]`, then PATH, and fails with an actionable message. The release workflow downloads Tectonic 0.15.0 per platform into `bin/` before PyInstaller freezes the server (the spec bundles it), so Recompile works on an installed app — until now the desktop build had no engine at all and every compile failed. A compile that gets no answer for four minutes tells the user about `make worker` instead of spinning.
+
+**Why.** The owner: "the latex editor is terrible … nothing close to real world standards". The old editor was the biggest exit into the classic UI, was light-only, cramped (72 vh preview) and could not compile on the desktop.
+
+**Alternatives.** Porting the 1,000-line vanilla editor script as-is into a React shell (rejected: it was written around DOM ids and would keep two code paths alive); Monaco (rejected: 5 MB, no LaTeX grammar, and the CM6 core with codemirror-lang-latex was already there); bundling a full TeX Live (rejected: gigabytes; Tectonic downloads exactly the packages a document needs).
+
 ### 2026-09-06 — One front door: classic pages send browsers to the app (#342)
 
 **Decision.** `core/ui_middleware.ClassicRedirectMiddleware` redirects a plain browser GET (Accept `text/html`, not HTMX, not XHR) for a classic trailing-slash page to its SPA twin, using `core/spa_routes.spa_equivalent` (mirrors `frontend/src/app/links.ts`; a test pins both). Escape hatches: `?classic=1` or entering through `/classic/` sets an `atlas_ui=classic` session cookie so classic stays browsable; every classic page now carries a banner whose "Back to the app" link (`?ui=app`) clears it. The sidebar's "← Classic Atlas" link is gone (it sat right under the theme toggle and was a one-misclick exit); classic is reachable from ⌘K ("Classic Atlas (old UI)") and by URL.

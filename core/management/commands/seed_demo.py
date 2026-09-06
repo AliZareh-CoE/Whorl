@@ -473,6 +473,7 @@ class Command(BaseCommand):
         )
         for reference in corpus_refs[:6]:
             ManuscriptReference.objects.get_or_create(manuscript=manuscript, reference=reference)
+        _seed_manuscript_source(manuscript)
         for kind, days_ago, note in [
             (SubmissionEvent.Kind.SUBMITTED, 95, "Initial submission."),
             (SubmissionEvent.Kind.REVIEWS_RECEIVED, 40, "R2 wants a power analysis."),
@@ -589,3 +590,107 @@ class Command(BaseCommand):
                 f"{CitationEdge.objects.filter(citing__project_links__project=project).count()} citation edges."
             )
         )
+
+
+def _seed_manuscript_source(manuscript):
+    """A realistic multi-file LaTeX tree for the studio (Owner report 2026-09-06): main.tex
+    with an \\input, real \\cite keys from the manuscript's bibliography, a table, an equation
+    and a bibliography line — so the outline, cite completion, compile and PDF preview all
+    have something to show. Never clobbers a source someone has actually written."""
+    from writing.models import ManuscriptFile
+
+    main = manuscript.main_file
+    if main is not None and len(main.content.strip()) > 120:
+        return
+    keys = [
+        link.cite_key for link in manuscript.manuscriptreference_set.select_related("reference")
+    ]
+    k = (keys + ["placeholder"] * 4)[:4]
+    main_src = f"""\\documentclass[11pt]{{article}}
+\\usepackage[margin=1in]{{geometry}}
+\\usepackage{{amsmath,booktabs,graphicx,hyperref}}
+\\usepackage[numbers]{{natbib}}
+
+\\title{{Strategic Allocation of Attention Under Working Memory Load}}
+\\author{{A. Researcher \\and B. Collaborator}}
+\\date{{\\today}}
+
+\\begin{{document}}
+\\maketitle
+
+\\begin{{abstract}}
+Load effects on sustained attention are usually read as a structural capacity limit.
+We argue instead that they reflect a strategic trade-off, and test the account with an
+incentive manipulation in a dual-task paradigm.
+\\end{{abstract}}
+
+\\section{{Introduction}}
+Working-memory load reliably degrades vigilance \\citep{{{k[0]}}}. The dominant reading is a
+capacity account \\citep{{{k[1]}}}; an alternative is that observers allocate a limited but
+flexible resource according to payoffs \\citep{{{k[2]},{k[3]}}}. The two accounts make
+different predictions when incentives change mid-block.
+
+\\section{{Hypotheses}}
+\\begin{{enumerate}}
+  \\item Load costs shrink under incentive if allocation is strategic.
+  \\item Load costs are invariant to incentive if the limit is structural.
+\\end{{enumerate}}
+
+\\input{{sections/method}}
+
+\\section{{Results}}
+Mean sensitivity by condition is summarised in Table~\\ref{{tab:dprime}}.
+
+\\begin{{table}}[h]
+  \\centering
+  \\begin{{tabular}}{{lcc}}
+    \\toprule
+    Condition & Low load & High load \\\\
+    \\midrule
+    No incentive & 2.41 & 1.72 \\\\
+    Incentive    & 2.39 & 2.18 \\\\
+    \\bottomrule
+  \\end{{tabular}}
+  \\caption{{Sensitivity ($d'$) by load and incentive (pilot, $n = 12$).}}
+  \\label{{tab:dprime}}
+\\end{{table}}
+
+The load cost under incentive was
+\\begin{{equation}}
+  \\Delta d' = d'_{{\\text{{low}}}} - d'_{{\\text{{high}}}} = 0.21,
+  \\label{{eq:cost}}
+\\end{{equation}}
+roughly 30\\% of the cost without incentive.
+
+\\section{{Discussion}}
+A structural limit cannot shrink by 70\\% because money was offered. The pattern favours
+strategic allocation, with the residual cost as an upper bound on the structural component.
+
+\\bibliographystyle{{plainnat}}
+\\bibliography{{references}}
+
+\\end{{document}}
+"""
+    method_src = """\\section{Method}
+\\subsection{Participants}
+Twelve pilot participants (target $n = 80$ after the power analysis requested by R2).
+
+\\subsection{Design}
+A $2 \\times 2$ within-subject design crossing working-memory load (low, high) with
+incentive (none, performance-contingent bonus). Blocks were counterbalanced.
+
+\\subsection{Procedure}
+Each block paired a sustained-attention task with a concurrent memory set. The bonus
+structure was explained before incentive blocks and verified by a comprehension check.
+"""
+    manuscript.latex_source = main_src
+    manuscript.save(update_fields=["latex_source", "updated_at"])
+    main = manuscript.ensure_main_file()
+    if main.content != main_src:
+        main.content = main_src
+        main.save()
+    ManuscriptFile.objects.update_or_create(
+        manuscript=manuscript,
+        path="sections/method.tex",
+        defaults={"content": method_src, "kind": ManuscriptFile.Kind.TEX},
+    )

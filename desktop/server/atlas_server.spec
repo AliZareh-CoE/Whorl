@@ -53,6 +53,12 @@ datas = [
     (os.path.join(ROOT, "templates"), "templates"),
     (os.path.join(ROOT, "static"), "static"),
 ]
+# The LaTeX engine (Tectonic) rides along when the release workflow fetched it into bin/,
+# so Recompile works out of the box on an installed desktop app (writing/compile.py looks
+# in BASE_DIR/bin first). PyInstaller keeps the executable bit.
+for engine in ("tectonic", "tectonic.exe"):
+    if os.path.exists(os.path.join(ROOT, "bin", engine)):
+        datas.append((os.path.join(ROOT, "bin", engine), "bin"))
 for pkg in LOCAL_APPS + THIRD_PARTY:
     hiddenimports += collect_submodules(pkg)
     datas += collect_data_files(pkg, include_py_files=True)

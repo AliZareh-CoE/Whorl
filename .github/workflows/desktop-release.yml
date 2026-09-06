@@ -154,6 +154,27 @@ jobs:
           fi
           test -s static/css/app.css
 
+      # The LaTeX engine ships inside the installer (Owner report 2026-09-06: Recompile
+      # failed on every desktop build because no engine was bundled). Tectonic is a single
+      # static binary; it fetches its TeX bundle on first compile.
+      - name: Fetch the Tectonic LaTeX engine
+        shell: bash
+        run: |
+          set -e
+          mkdir -p bin
+          V=0.15.0
+          BASE="https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40$V"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            curl -sL --fail -o tectonic.zip "$BASE/tectonic-$V-x86_64-pc-windows-msvc.zip" \
+              && unzip -o -q tectonic.zip -d bin && rm -f tectonic.zip \
+              || echo "::warning::Tectonic download failed — this build compiles LaTeX only with a tectonic on PATH"
+          else
+            curl -sL --fail -o tectonic.tar.gz "$BASE/tectonic-$V-x86_64-unknown-linux-musl.tar.gz" \
+              && tar -xzf tectonic.tar.gz -C bin && rm -f tectonic.tar.gz && chmod +x bin/tectonic \
+              || echo "::warning::Tectonic download failed — this build compiles LaTeX only with a tectonic on PATH"
+          fi
+          ls -la bin || true
+
       - name: Freeze the Atlas server
         run: uv run pyinstaller desktop/server/atlas_server.spec --noconfirm --distpath desktop/server/dist --workpath ${{ runner.temp }}/pyi
 

@@ -26,6 +26,7 @@ const Decisions = lazy(() => import("./pages/Decisions"));
 const Graph = lazy(() => import("./pages/Graph"));
 const WritingBoard = lazy(() => import("./pages/Writing").then((m) => ({ default: m.WritingBoard })));
 const ManuscriptDetail = lazy(() => import("./pages/Writing").then((m) => ({ default: m.ManuscriptDetail })));
+const Studio = lazy(() => import("./pages/Studio"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const Today = lazy(() => import("./pages/Today"));
 const Prompts = lazy(() => import("./pages/Prompts"));
@@ -41,6 +42,8 @@ createRoot(document.getElementById("root")!).render(
     <BrowserRouter basename="/">
       <Suspense fallback={<p className="p-8 text-sm text-stone-400">Loading…</p>}>
       <Routes>
+        {/* the LaTeX studio owns the whole window — no sidebar, its own chrome */}
+        <Route path="manuscripts/:id/editor" element={<Studio />} />
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />

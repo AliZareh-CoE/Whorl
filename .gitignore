@@ -22,3 +22,4 @@ desktop/server/dist/atlas-server/*
 !desktop/server/dist/atlas-server/.gitkeep
 desktop/server/dist/atlas-mcp/*
 !desktop/server/dist/atlas-mcp/.gitkeep
+dump.rdb

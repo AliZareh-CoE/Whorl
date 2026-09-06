@@ -395,3 +395,86 @@
 /* Plan v2 slice 3 — the milestone drawer must be opaque over the page (glass panels bleed) */
 .drawer-solid { background: #ffffff; }
 .dark .drawer-solid { background: rgb(9 12 26 / 0.97); backdrop-filter: blur(24px); }
+
+/* --- The LaTeX studio (Owner report 2026-09-06): one CSS-variable palette drives the
+   CodeMirror theme, the panes and the syntax colours in both Paper and Observatory. --- */
+.studio {
+  --studio-bg: #f5f5f4;
+  --studio-panel: #ffffff;
+  --studio-editor-bg: #ffffff;
+  --studio-fg: #1c1917;
+  --studio-line: #e7e5e4;
+  --studio-accent: #4f46e5;
+  --studio-selection: rgba(79, 70, 229, 0.16);
+  --studio-active-line: rgba(79, 70, 229, 0.05);
+  --studio-gutter-fg: #a8a29e;
+  --studio-match: rgba(251, 191, 36, 0.35);
+  --tok-keyword: #7c3aed;
+  --tok-command: #4f46e5;
+  --tok-string: #0f766e;
+  --tok-comment: #a8a29e;
+  --tok-number: #b45309;
+  --tok-bracket: #57534e;
+  --tok-heading: #1c1917;
+  --tok-label: #0369a1;
+  --tok-math: #be185d;
+  color: var(--studio-fg);
+  background: var(--studio-bg);
+}
+.dark .studio {
+  --studio-bg: #0b0d14;
+  --studio-panel: #10131c;
+  --studio-editor-bg: #0e1119;
+  --studio-fg: #e7e5e4;
+  --studio-line: #1f2333;
+  --studio-accent: #a5b4fc;
+  --studio-selection: rgba(129, 140, 248, 0.25);
+  --studio-active-line: rgba(129, 140, 248, 0.07);
+  --studio-gutter-fg: #4b5163;
+  --studio-match: rgba(251, 191, 36, 0.3);
+  --tok-keyword: #c4b5fd;
+  --tok-command: #93c5fd;
+  --tok-string: #6ee7b7;
+  --tok-comment: #5b6275;
+  --tok-number: #fcd34d;
+  --tok-bracket: #a8a29e;
+  --tok-heading: #f5f5f4;
+  --tok-label: #7dd3fc;
+  --tok-math: #f9a8d4;
+}
+.studio {
+  --studio-text: #292524;
+  --studio-muted: #57534e;
+  --studio-dim: #78716c;
+  --studio-hover: rgba(28, 25, 23, 0.06);
+  --studio-badge: rgba(28, 25, 23, 0.08);
+}
+.dark .studio {
+  --studio-text: #d6d3d1;
+  --studio-muted: #a8a29e;
+  --studio-dim: #6b7280;
+  --studio-hover: rgba(255, 255, 255, 0.07);
+  --studio-badge: rgba(255, 255, 255, 0.1);
+}
+.studio .st-fg { color: var(--studio-fg); }
+.studio .st-text { color: var(--studio-text); }
+.studio .st-muted { color: var(--studio-muted); }
+.studio .st-dim { color: var(--studio-dim); }
+.studio .st-hover-fg:hover { color: var(--studio-fg); }
+.studio .st-hover-bg:hover { background: var(--studio-hover); }
+.studio .st-badge { background: var(--studio-badge); }
+.studio .st-placeholder::placeholder { color: var(--studio-dim); }
+.studio .cm-editor { height: 100%; }
+.studio .cm-scroller { overflow: auto; }
+.studio-gutter {
+  background: var(--studio-line);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+.studio-gutter:hover { background: var(--studio-accent); }
+.studio-page {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.25);
+  background: #fff;
+  max-width: 100%;
+}
+.studio select option { color: #1c1917; }

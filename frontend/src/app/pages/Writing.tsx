@@ -133,7 +133,7 @@ export function ManuscriptDetail() {
       <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400"><Link to="/writing" className="hover:underline">Writing</Link> / <Link to={`/projects/${m.project}`} className="hover:underline">{m.project_name}</Link> / {m.title}</nav>
       <div className="mb-2 flex flex-wrap items-center gap-3">
         <input value={m.title} onChange={(e) => patch.mutate({ title: e.target.value })} className="font-display min-w-0 flex-1 bg-transparent text-3xl font-bold tracking-tight text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Manuscript title" />
-        <a href={`/projects/${m.project}/writing/${m.id}/editor/`} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">LaTeX editor<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+        <Link to={`/manuscripts/${m.id}/editor`} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Open the studio<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></Link>
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-500 dark:text-stone-400">
         <label className="flex items-center gap-1.5">venue <input value={m.target_venue} onChange={(e) => patch.mutate({ target_venue: e.target.value })} placeholder="target venue" className="w-44 rounded-md border border-transparent bg-transparent px-1 py-0.5 hover:border-stone-300 focus:border-indigo-400 focus:outline-none dark:text-stone-200 dark:hover:border-stone-700" aria-label="Target venue" /></label>
@@ -201,7 +201,7 @@ function CompileCard({ m }: { m: Manuscript }) {
       {s?.status === "failed" && s.diagnostics.length > 0 && (
         <ul className="mt-3 space-y-1 text-xs">{s.diagnostics.slice(0, 5).map((d, i) => <li key={i} className="flex items-start gap-1.5 text-red-600 dark:text-red-300"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" /><span><span className="font-mono">{d.file}{d.line ? `:${d.line}` : ""}</span> {d.message}</span></li>)}</ul>
       )}
-      <p className="mt-2 flex flex-wrap items-center gap-x-3 text-[11px] text-stone-400"><span>{s?.compiled_at ? `Last compiled ${new Date(s.compiled_at).toLocaleString()}` : "Word count is approximate (LaTeX detex)."}</span><a href={`/projects/${m.project}/writing/${m.id}/editor/`} className="hover:underline">open the editor ↗</a><a href={`/projects/${m.project}/writing/${m.id}/submission.zip`} className="inline-flex items-center gap-1 hover:underline" title="arXiv-ready source + .bib"><Package className="h-3 w-3" aria-hidden="true" />submission .zip</a></p>
+      <p className="mt-2 flex flex-wrap items-center gap-x-3 text-[11px] text-stone-400"><span>{s?.compiled_at ? `Last compiled ${new Date(s.compiled_at).toLocaleString()}` : "Word count is approximate (LaTeX detex)."}</span><Link to={`/manuscripts/${m.id}/editor`} className="hover:underline">open the studio ↗</Link><a href={`/projects/${m.project}/writing/${m.id}/submission.zip`} className="inline-flex items-center gap-1 hover:underline" title="arXiv-ready source + .bib"><Package className="h-3 w-3" aria-hidden="true" />submission .zip</a></p>
     </section>
   );
 }

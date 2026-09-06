@@ -334,6 +334,7 @@ def manuscript_files(request, slug, pk):
     from .models import ManuscriptFile, kind_for_path, validate_manuscript_path
 
     manuscript, _ = _workbench_objects(slug, pk)
+    manuscript.ensure_main_file()  # the studio lists files before anything else: bootstrap
     if request.method == "POST":
         path = request.POST.get("path", "").strip()
         try:
