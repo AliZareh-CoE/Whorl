@@ -3,10 +3,12 @@
  * active work sits first and archived projects fold away. Descriptions render as plain text
  * (they are Markdown) instead of leaking asterisks. */
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { BookOpen, ChevronDown, FileText, FolderKanban, PenLine, Plus, StickyNote } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
+import { Archive, ArchiveRestore, BookOpen, ChevronDown, FileText, FolderKanban, ListTodo, PenLine, Plus, Settings2, StickyNote, Trash2 } from "lucide-react";
 import { ErrorState } from "../../components/ErrorState";
+import { confirmDialog, errorDialog } from "../../components/Dialog";
+import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 import { api } from "../api";
 
 type Summary = { current_phase: string | null; phase_progress: number | null; milestones_done: number; milestones_total: number; percent: number; health: { state: string; label: string } | null; counts: { papers: number; notes: number; manuscripts: number; documents: number } };
@@ -36,6 +38,31 @@ const panel = "rounded-2xl border border-stone-200 bg-white/70 backdrop-blur dar
 export default function Projects() {
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["projects"], queryFn: () => api<Page<Project>>("/projects/?page_size=100") });
   const [showArchived, setShowArchived] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const menu = useMenu();
+  const patch = useMutation({
+    mutationFn: ({ slug, ...body }: { slug: string; status?: string }) => api(`/projects/${slug}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
+    onError: (e) => void errorDialog("Couldn't update the project", e),
+  });
+  const remove = useMutation({
+    mutationFn: (slug: string) => api(`/projects/${slug}/`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries(),
+    onError: (e) => void errorDialog("Couldn't delete the project", e),
+  });
+  // right-click or ⋯ on a card: the same actions the project overview offers (CRUD everywhere)
+  const itemsFor = (p: Project): MenuItem[] => {
+    const archived = p.status.toLowerCase() === "archived";
+    return [
+      { label: "Open", icon: <FolderKanban className="h-3.5 w-3.5" />, onSelect: () => navigate(`/projects/${p.slug}`) },
+      { label: "Open the plan", icon: <ListTodo className="h-3.5 w-3.5" />, onSelect: () => navigate(`/projects/${p.slug}/plan`) },
+      { label: "Edit project…", icon: <Settings2 className="h-3.5 w-3.5" />, onSelect: () => navigate(`/projects/${p.slug}?settings=1`) },
+      "-",
+      { label: archived ? "Unarchive" : "Archive", icon: archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />, onSelect: () => patch.mutate({ slug: p.slug, status: archived ? "active" : "archived" }) },
+      { label: "Delete project…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete “${p.name}”?`, danger: true, confirmLabel: "Delete project", verify: p.name, body: <>Everything inside it goes too: plan, documents, notes, manuscripts, decisions, research. Library references stay. This cannot be undone.</> })) remove.mutate(p.slug); } },
+    ];
+  };
   const groups = useMemo(() => {
     const by = new Map<string, Project[]>();
     for (const p of data?.results ?? []) { const k = p.status.toLowerCase(); by.set(k, [...(by.get(k) ?? []), p]); }
@@ -76,26 +103,28 @@ export default function Projects() {
             </div>
             {!folded && (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {g.rows.map((p, i) => <ProjectCard key={p.slug} p={p} i={gi * 6 + i} />)}
+                {g.rows.map((p, i) => <ProjectCard key={p.slug} p={p} i={gi * 6 + i} items={itemsFor(p)} onContextMenu={(e) => menu.open(e, itemsFor(p))} />)}
               </div>
             )}
           </section>
         );
       })}
+      {menu.element}
     </div>
   );
 }
 
-function ProjectCard({ p, i }: { p: Project; i: number }) {
+function ProjectCard({ p, i, items, onContextMenu }: { p: Project; i: number; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void }) {
   const s = p.summary;
   const desc = stripMd(p.description || "");
   const pct = s.milestones_total ? Math.round((s.milestones_done / s.milestones_total) * 100) : 0;
   return (
-    <Link to={`/projects/${p.slug}`} className={`${panel} rise group relative flex flex-col overflow-hidden p-5 pl-6 transition-colors hover:border-indigo-300 dark:hover:border-indigo-500/50`} style={{ ["--i" as string]: i + 1 }} data-testid="project-card">
+    <Link to={`/projects/${p.slug}`} onContextMenu={onContextMenu} className={`${panel} rise group relative flex flex-col overflow-hidden p-5 pl-6 transition-colors hover:border-indigo-300 dark:hover:border-indigo-500/50`} style={{ ["--i" as string]: i + 1 }} data-testid="project-card">
       <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={{ background: p.color }} />
-      <div className="mb-1.5 flex items-start justify-between gap-3">
+      <div className="mb-1.5 flex items-start justify-between gap-2">
         <h3 className="min-w-0 truncate text-base font-semibold tracking-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-300">{p.name}</h3>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS[p.status.toLowerCase()]?.cls ?? "bg-stone-500/10 text-stone-500"}`}>{STATUS[p.status.toLowerCase()]?.label ?? p.status.toLowerCase()}</span>
+        <Kebab items={items} label={`Actions for ${p.name}`} className="-mr-1 -mt-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100" />
       </div>
       {desc ? <p className="line-clamp-2 text-sm leading-relaxed text-stone-500">{desc}</p> : <p className="text-sm italic text-stone-400">No description yet.</p>}
       <div className="mt-4">

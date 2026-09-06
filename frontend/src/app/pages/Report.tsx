@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, Copy, Globe, Loader2, Merge, ShieldAlert, XCircle } from "lucide-react";
 import { api } from "../api";
+import { confirmDialog } from "../../components/Dialog";
 
 type Finding = { level: string; message: string; reference_ids: number[] };
 type Report = { network_checks_included: boolean; findings: Record<string, Finding[]> };
@@ -68,7 +69,7 @@ export default function Report() {
                           <span className={`mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${LEVEL[f.level] ?? LEVEL.info}`}>{f.level}</span>
                           <p className="min-w-0 flex-1 text-stone-700 dark:text-stone-200">{f.message}</p>
                           {cat === "duplicates" && f.reference_ids.length > 1 && (
-                            <button type="button" onClick={() => { const [keep, ...rest] = f.reference_ids; const k = byId.get(keep); if (window.confirm(`Keep "${k?.title ?? keep}" and fold ${rest.length} duplicate${rest.length === 1 ? "" : "s"} into it? Links, notes and highlights move over.`)) merge.mutate({ keep, merge: rest }); }} disabled={merge.isPending} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><Merge className="h-3 w-3" aria-hidden="true" />Merge into first</button>
+                            <button type="button" onClick={async () => { const [keep, ...rest] = f.reference_ids; const k = byId.get(keep); if (await confirmDialog({ title: `Merge ${rest.length} duplicate${rest.length === 1 ? "" : "s"} into “${k?.title ?? keep}”?`, body: "Project links, notes and highlights move over to the kept entry.", confirmLabel: "Merge" })) merge.mutate({ keep, merge: rest }); }} disabled={merge.isPending} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><Merge className="h-3 w-3" aria-hidden="true" />Merge into first</button>
                           )}
                         </div>
                         <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 pl-1 text-xs">

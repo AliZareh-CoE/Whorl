@@ -188,6 +188,10 @@ documents *and* your manuscript/LaTeX sources together, kept live. Click any fil
 it in-app — text/code/Markdown in a viewer, PDFs via the (locally vendored) pdf.js, CSVs
 as a table, images inline. You can edit text in place, create folders, rename, delete,
 drag-drop to upload, move files between folders, and jump to any file with **Ctrl/Cmd-P**.
+**Right-click anything** (or press the ⋯ on a row) for its actions — rename, delete, download,
+new folder inside, upload here; F2 renames and Del deletes the focused row. The same ⋯ menus
+appear on projects, decisions, figures, prompts, papers, hypotheses, experiments, datasets,
+questions, phases and manuscripts: everything you can see, you can edit and delete in place.
 It is machine-friendly too: `list_project_files`, `read_project_file`, `write_project_file`,
 `create_project`, and `list_project_templates` are MCP tools.
 

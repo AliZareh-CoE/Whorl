@@ -2,9 +2,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { BookOpen, Check, Flag, Highlighter, Plus, Unlink } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
+import { confirmDialog, errorDialog } from "../../components/Dialog";
+import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 
 type Ref = { id: number; bibtex_key: string; title: string; authors: { family?: string; given?: string }[]; year: number | null; venue: string };
 type LinkRow = {
@@ -90,6 +93,33 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["literature", slug] }),
   });
 
+  // CRUD sweep 2026-09-06: priority and "remove from project" were only in the classic UI
+  const menu = useMenu();
+  const setPriority = useMutation({
+    mutationFn: ({ id, priority }: { id: number; priority: string }) => api(`/project-references/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priority }) }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["literature", slug] }),
+    onError: (e) => void errorDialog("Couldn't change the priority", e),
+  });
+  const unlink = useMutation({
+    mutationFn: (id: number) => api(`/project-references/${id}/`, { method: "DELETE" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["literature", slug] }); queryClient.invalidateQueries({ queryKey: ["overview", slug] }); },
+    onError: (e) => void errorDialog("Couldn't remove the paper", e),
+  });
+  const itemsFor = (row: LinkRow): MenuItem[] => {
+    const ref = row.reference_summary;
+    const tick = (on: boolean) => (on ? <Check className="h-3.5 w-3.5" /> : <span className="inline-block h-3.5 w-3.5" />);
+    return [
+      { label: "Open the paper", icon: <BookOpen className="h-3.5 w-3.5" />, onSelect: () => navigate(`/references/${ref.id}`) },
+      { label: "Read & highlight", icon: <Highlighter className="h-3.5 w-3.5" />, onSelect: () => navigate(`/library?q=${encodeURIComponent(ref.bibtex_key)}&read=${ref.id}`) },
+      "-",
+      ...(["high", "normal", "low"] as const).map((p) => ({ label: `${p[0].toUpperCase()}${p.slice(1)} priority`, icon: row.priority === p ? tick(true) : <Flag className="h-3.5 w-3.5 opacity-40" />, onSelect: () => setPriority.mutate({ id: row.id, priority: p }) })),
+      "-",
+      ...STATUSES.map(([v, l]) => ({ label: l, icon: tick(row.reading_status === v), onSelect: () => setStatus.mutate({ id: row.id, status: v }) })),
+      "-",
+      { label: "Remove from this project…", icon: <Unlink className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Remove “${ref.title.slice(0, 60)}${ref.title.length > 60 ? "…" : ""}” from this project?`, body: "The paper stays in the library; only this project's link, reading state and notes go.", danger: true, confirmLabel: "Remove" })) unlink.mutate(row.id); } },
+    ];
+  };
+
   async function applyBulk() {
     const body = new URLSearchParams({ reading_status: bulkStatus });
     selected.forEach((id) => body.append("ids", String(id)));
@@ -167,6 +197,9 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
             </Link>
           )}
           {!queue && (
+            <Link to="/library" className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2.5 py-1.5 font-medium text-white transition-colors hover:bg-indigo-700" title="Add papers from the library (or add new ones there by DOI)"><Plus className="h-3.5 w-3.5" aria-hidden="true" />Add papers</Link>
+          )}
+          {!queue && (
             <button onClick={draftSynthesis} disabled={drafting}
                     className="rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 py-1.5 font-medium text-stone-700 dark:text-stone-300 transition-colors hover:border-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-50">
               {drafting ? "Drafting…" : "Draft synthesis"}
@@ -239,7 +272,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
         )}
         <div className="divide-y divide-stone-100 dark:divide-stone-800">
           {rows.map((row) => (
-            <div key={row.id} className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-stone-50 dark:hover:bg-stone-800">
+            <div key={row.id} className="group flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-stone-50 dark:hover:bg-stone-800" onContextMenu={(e) => menu.open(e, itemsFor(row))} data-testid="literature-row">
               <input
                 type="checkbox"
                 aria-label={`Select ${row.reference_summary.title.slice(0, 40)}`}
@@ -281,6 +314,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
               >
                 {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
+              <Kebab items={itemsFor(row)} label={`Actions for ${row.reference_summary.title.slice(0, 40)}`} className="opacity-0 group-hover:opacity-100 focus:opacity-100" />
             </div>
           ))}
           {rows.length === 0 && (
@@ -318,6 +352,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
           )}
         </div>
       </div>
+      {menu.element}
     </div>
   );
 }

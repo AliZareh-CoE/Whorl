@@ -5,6 +5,8 @@ the user's machine. The Tauri shell starts a bundled `atlas-server` (the Django 
 PyInstaller, running on a per-user **SQLite** file, served by waitress), waits for it to answer,
 and opens it in a native window. The web app stays the single source of truth — the desktop
 build adds a **built-in terminal** and **Open from disk** on top of it.
+**Open from disk** picks one file (async command — a blocking picker inside a sync command never
+appears), previews it when it is text, and can add it to the project into any folder.
 
 ## Install it (no build needed)
 

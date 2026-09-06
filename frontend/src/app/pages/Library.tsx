@@ -8,6 +8,7 @@ import {
   Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
+import { confirmDialog } from "../../components/Dialog";
 import PdfReader, { HL_COLORS, type Highlight } from "./library/PdfReader";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -610,7 +611,7 @@ export default function Library() {
               <button type="button" onClick={async () => { const b = await api<{ text: string }>(`/references/cite/?ids=${[...selected].join(",")}&style=${citeStyle}`); await navigator.clipboard?.writeText(b.text); flash(`Copied ${selected.size} citation(s) in ${STYLES.find(([k]) => k === citeStyle)?.[1] ?? citeStyle}.`); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Copy a formatted bibliography of the selection"><Quote className="h-3 w-3" aria-hidden="true" />Copy citations</button>
               <button type="button" disabled={bulk.isPending} onClick={() => bulk.mutate({ ids: [...selected], action: "fetch_pdf" })} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Find and attach open-access PDFs"><Download className="h-3 w-3" aria-hidden="true" />Fetch OA PDFs</button>
               <button type="button" disabled={bulk.isPending} onClick={() => bulk.mutate({ ids: [...selected], action: "find_metadata" })} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"><Wand2 className="h-3 w-3" aria-hidden="true" />Find metadata</button>
-              <button type="button" disabled={bulk.isPending} onClick={() => { if (confirm(`Delete ${selected.size} reference(s) from the library? Their project links and PDFs go too.`)) bulk.mutate({ ids: [...selected], action: "delete" }); }} className="inline-flex items-center gap-1 rounded-md border border-red-300/60 px-2 py-1 text-red-600 hover:bg-red-500/10 dark:text-red-300"><Trash2 className="h-3 w-3" aria-hidden="true" />Delete</button>
+              <button type="button" disabled={bulk.isPending} onClick={async () => { if (await confirmDialog({ title: `Delete ${selected.size} reference${selected.size === 1 ? "" : "s"} from the library?`, body: "Their project links, highlights and PDFs go too.", danger: true, confirmLabel: "Delete" })) bulk.mutate({ ids: [...selected], action: "delete" }); }} className="inline-flex items-center gap-1 rounded-md border border-red-300/60 px-2 py-1 text-red-600 hover:bg-red-500/10 dark:text-red-300"><Trash2 className="h-3 w-3" aria-hidden="true" />Delete</button>
               <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-stone-400 hover:underline">clear</button>
             </div>
           )}

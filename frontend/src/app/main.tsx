@@ -3,6 +3,7 @@ import { Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "./Layout";
+import { DialogHost } from "../components/Dialog";
 
 // Route-level code splitting (Backlog #76): each page is its own chunk, fetched on
 // first visit — spa.js carries only the shell, router, and query client.
@@ -93,6 +94,7 @@ createRoot(document.getElementById("root")!).render(
         </Route>
       </Routes>
       </Suspense>
+      <DialogHost />
     </BrowserRouter>
   </QueryClientProvider>,
 );

@@ -544,6 +544,34 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — CRUD everywhere: in-app dialogs, context menus, every object editable and deletable in the SPA (#364)
+
+**Decision.** Three owner reports in one evening ("I made a project to test, now I can't delete it", "left click doesn't have much functionality", "CRUD is missing from the whole project") were the same defect: the SPA had migrated the *reading* of most objects but not their editing. This slice closes it as a rule, not a patch:
+- `components/Dialog.tsx` — `confirmDialog` / `promptDialog` / `noticeDialog` / `errorDialog` with one `<DialogHost />` at the root. No page may call `window.prompt/confirm/alert` again (guarded by `core/tests/test_crud_everywhere.py`): the desktop webview can swallow native dialogs, which is why "+ Folder" looked dead. Destructive confirms are red; the ones that erase a lot (project, manuscript) require typing the name.
+- `components/Menu.tsx` — `useMenu()` (right-click) and `<Kebab />` (the ⋯ every row carries) share one popup with keyboard navigation. Pages declare actions as data, so right-click, ⋯ and the detail pane all offer the same list.
+- Coverage: project settings + archive + delete (overview, card menus); Files (file: open/new tab/download/copy path/rename/delete; folder: new folder inside/upload here/rename/delete; blank: new folder/upload/refresh; F2/Del; drop onto a folder uploads into it); decisions edit/delete + dated; figures rename/delete; prompts create/edit/delete; literature priority/status/remove-from-project + Add papers; reference metadata editor + delete; research: hypothesis edit, experiments edit/delete, datasets rename/location/version/delete, **research questions panel** (the object nothing in the app could create); plan: add/rename/delete phase; manuscripts delete (typed title) + shelve.
+- Failed writes surface as an error dialog with the server's text instead of vanishing.
+
+**Why.** §1 "a place for everything" includes the way out: an object you cannot rename or delete is clutter you are stuck with. One dialog and one menu component keep the answer to "how do I change this?" identical on every page.
+
+**Alternatives rejected.** Per-page modals (twelve styles of the same question); sending people to the classic UI or the admin for deletes (the front door is the SPA now, #342); native dialogs with a desktop-only polyfill (the desktop is the primary target).
+
+### 2026-09-06 — Django serves `/media/` in every settings module (#365)
+
+**Decision.** `config/urls.py` routes `media/<path>` to `django.views.static.serve` unconditionally (behind the login middleware) instead of the `static()` helper that only works with `DEBUG=True`.
+
+**Why.** Owner report: the studio's PDF pane said *Missing PDF* for `/media/manuscripts/pdf/manuscript-1.pdf`. Desktop settings run with `DEBUG=False` and no reverse proxy, so nothing served uploads at all — every compiled PDF, attached paper and figure 404'd in the installed app. A single-user app has no proxy to hand this to.
+
+**Alternatives rejected.** Whitenoise-style media (wrong tool; media is per-user data); an API endpoint per file type (the URLs are already in the models' `FileField.url`).
+
+### 2026-09-06 — `open_local_file` is an async Tauri command and returns bytes (#366)
+
+**Decision.** The desktop file picker command is `async fn`, receives the pick through a channel and returns `{path, name, size, content?, data_b64}`; Files shows a text preview when the file is UTF-8, says "binary" otherwise, and offers **Add to this project** (into any folder) which uploads the bytes through the normal upload endpoint.
+
+**Why.** Owner: "open from disk not working". A `blocking_pick_file` inside a synchronous command runs on the main thread — exactly where the dialog plugin documents it must not — so the picker never opened. Returning the bytes turns a viewer into the missing "bring a file in" path.
+
+**Alternatives rejected.** The fs plugin with a scoped allowlist (broader surface than one user-picked file); text-only as before (PDFs and images are the common case).
+
 ### 2026-09-06 — One-file backup (#363)
 
 **Decision.** `GET /api/v1/backup.zip` (`core/backup.py`) downloads a zip with a transactionally consistent copy of the SQLite database (both a byte-exact `atlas.sqlite3` for copy-it-back restores and a `database.sql` dump), or a `database.json` `dumpdata` on other databases, plus the whole media folder, a `MANIFEST.json` and a `README.txt` with the restore steps. The Diagnostics page has the **Download a backup** button.

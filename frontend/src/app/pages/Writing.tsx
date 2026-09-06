@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Gauge, Loader2, MessageSquareReply, Package, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
+import { confirmDialog, errorDialog } from "../../components/Dialog";
+import { Kebab } from "../../components/Menu";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 
@@ -125,6 +127,12 @@ export function ManuscriptDetail() {
   });
   const [toast, setToast] = useState("");
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3500); };
+  const navigate = useNavigate();
+  const remove = useMutation({
+    mutationFn: () => api(`/manuscripts/${id}/`, { method: "DELETE" }),
+    onSuccess: () => { queryClient.invalidateQueries(); navigate("/writing"); },
+    onError: (e) => void errorDialog("Couldn't delete the manuscript", e),
+  });
   if (isLoading || !m) return <div role="status" aria-label="Loading" className="space-y-4"><Skeleton className="h-4 w-32" /><Skeleton className="h-7 w-2/3" /><div className={`${panel} max-w-2xl p-5`}><SkeletonLines lines={3} /></div></div>;
   const dl = deadlineLabel(m.deadline);
   const stepIndex = COLUMNS.findIndex(([k]) => k === m.status);
@@ -134,6 +142,11 @@ export function ManuscriptDetail() {
       <div className="mb-2 flex flex-wrap items-center gap-3">
         <input value={m.title} onChange={(e) => patch.mutate({ title: e.target.value })} className="font-display min-w-0 flex-1 bg-transparent text-3xl font-bold tracking-tight text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Manuscript title" />
         <Link to={`/manuscripts/${m.id}/editor`} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Open the studio<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></Link>
+        <Kebab label="Manuscript actions" items={[
+          { label: "Shelve", onSelect: () => patch.mutate({ status: "shelved" }), disabled: m.status === "shelved" },
+          "-",
+          { label: "Delete manuscript…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete “${m.title}”?`, body: "Its LaTeX source, revisions, bibliography links and submission timeline go with it. This cannot be undone.", danger: true, confirmLabel: "Delete manuscript", verify: m.title })) remove.mutate(); } },
+        ]} />
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-500 dark:text-stone-400">
         <label className="flex items-center gap-1.5">venue <input value={m.target_venue} onChange={(e) => patch.mutate({ target_venue: e.target.value })} placeholder="target venue" className="w-44 rounded-md border border-transparent bg-transparent px-1 py-0.5 hover:border-stone-300 focus:border-indigo-400 focus:outline-none dark:text-stone-200 dark:hover:border-stone-700" aria-label="Target venue" /></label>

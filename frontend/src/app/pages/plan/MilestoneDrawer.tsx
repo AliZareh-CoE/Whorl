@@ -4,6 +4,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Check, Plus, Trash2, X } from "lucide-react";
+import { confirmDialog } from "../../../components/Dialog";
 import { api } from "../../api";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
@@ -63,7 +64,7 @@ export default function MilestoneDrawer({ slug, milestone, onClose }: { slug: st
         </form>
       </div>
       <div className="mt-8 border-t border-stone-100 pt-4 dark:border-stone-800">
-        <button type="button" onClick={() => { if (window.confirm(`Delete “${milestone.title}” and its ${milestone.tasks.length} task(s)?`)) remove.mutate(); }} className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Delete milestone</button>
+        <button type="button" onClick={async () => { if (await confirmDialog({ title: `Delete “${milestone.title}”?`, body: milestone.tasks.length ? `Its ${milestone.tasks.length} task${milestone.tasks.length === 1 ? "" : "s"} go with it.` : undefined, danger: true, confirmLabel: "Delete milestone" })) remove.mutate(); }} className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Delete milestone</button>
       </div>
     </aside>
   );

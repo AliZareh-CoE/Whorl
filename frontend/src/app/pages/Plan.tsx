@@ -5,8 +5,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, CalendarRange, Check, FileText, HelpCircle, LayoutList, Loader2, Plus, Save, X } from "lucide-react";
+import { AlertTriangle, CalendarRange, Check, FileText, HelpCircle, LayoutList, Loader2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
+import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
+import { Kebab } from "../../components/Menu";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 import Roadmap from "./plan/Roadmap";
@@ -97,6 +99,23 @@ export default function Plan() {
     mutationFn: ({ id, ...body }: { id: number; objective?: string; target_start?: string | null; target_end?: string | null }) => api(`/phases/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     onSettled: invalidate,
   });
+  // CRUD sweep 2026-09-06: phases can be added, renamed and deleted here, not only via the outline
+  const addPhase = useMutation({
+    mutationFn: (name: string) => api(`/phases/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project: slug, name, order: (data?.phases.reduce((n, p) => Math.max(n, p.order), 0) ?? 0) + 1 }) }),
+    onSuccess: invalidate,
+    onError: (e) => void errorDialog("Couldn't add the phase", e),
+  });
+  const renamePhase = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => api(`/phases/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }),
+    onSuccess: invalidate,
+    onError: (e) => void errorDialog("Couldn't rename the phase", e),
+  });
+  const deletePhase = useMutation({
+    mutationFn: (id: number) => api(`/phases/${id}/`, { method: "DELETE" }),
+    onSuccess: invalidate,
+    onError: (e) => void errorDialog("Couldn't delete the phase", e),
+  });
+  const askAddPhase = async () => { const name = await promptDialog({ title: "New phase", label: "Name", placeholder: "e.g. Pilot study", validate: (v) => (v.trim() ? null : "Name the phase.") }); if (name) addPhase.mutate(name.trim()); };
   const attachQuestion = useMutation({
     mutationFn: ({ question, phases }: { question: number; phases: number[] }) => api(`/questions/${question}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phases }) }),
     onSettled: invalidate,
@@ -168,14 +187,15 @@ export default function Plan() {
         <div className="space-y-4">
           <Focus slug={slug!} onChanged={invalidate} />
           {data.phases.map((phase, pi) => (
-            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
+            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onRename={async () => { const name = await promptDialog({ title: "Rename phase", label: "Name", initial: phase.name, validate: (v) => (v.trim() ? null : "Name the phase.") }); if (name && name.trim() !== phase.name) renamePhase.mutate({ id: phase.id, name: name.trim() }); }} onDelete={async () => { const n = phase.milestones.length; if (await confirmDialog({ title: `Delete the phase “${phase.name}”?`, body: n ? `Its ${n} milestone${n === 1 ? "" : "s"} and their tasks go with it.` : "The phase has no milestones.", danger: true, confirmLabel: "Delete phase" })) deletePhase.mutate(phase.id); }} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
           ))}
+          <button type="button" onClick={() => void askAddPhase()} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-stone-300 px-3 py-2 text-sm text-stone-500 hover:border-indigo-400 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-indigo-300" data-testid="add-phase"><Plus className="h-4 w-4" aria-hidden="true" />Add a phase</button>
         </div>
       )}
 
       {mode === "cards" && (
         <p className="mt-4 text-xs text-stone-400">
-          Tick to complete · click a status to cycle it · type at the bottom of a phase to add a milestone
+          Tick to complete · click a status to cycle it · type at the bottom of a phase to add a milestone · ⋯ on a phase to rename or delete it
         </p>
       )}
       {drawerId !== null && (() => {
@@ -187,7 +207,7 @@ export default function Plan() {
   );
 }
 
-function PhaseCard({ phase, index, accent, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen, allQuestions, onPatchPhase, onAttachQuestion }: { phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void; allQuestions: Question[]; onPatchPhase: (body: { objective?: string; target_start?: string | null; target_end?: string | null }) => void; onAttachQuestion: (question: number, attach: boolean) => void }) {
+function PhaseCard({ phase, index, accent, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen, allQuestions, onPatchPhase, onRename, onDelete, onAttachQuestion }: { onRename: () => void; onDelete: () => void; phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void; allQuestions: Question[]; onPatchPhase: (body: { objective?: string; target_start?: string | null; target_end?: string | null }) => void; onAttachQuestion: (question: number, attach: boolean) => void }) {
   const [draft, setDraft] = useState("");
   const [taskFor, setTaskFor] = useState<number | null>(null);
   const [taskDraft, setTaskDraft] = useState("");
@@ -208,6 +228,7 @@ function PhaseCard({ phase, index, accent, onToggleMilestone, onToggleTask, onCy
           <input type="date" value={phase.target_end ?? ""} onChange={(e) => onPatchPhase({ target_end: e.target.value || null })} className="w-[7.5rem] rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-stone-400 hover:border-stone-300 focus:border-indigo-400 focus:outline-none dark:hover:border-stone-700" aria-label={`${phase.name} end`} />
         </label>
         <button type="button" onClick={onCycleStatus} className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs transition-colors hover:ring-2 hover:ring-indigo-400/40 ${statusCls[phase.status] ?? statusCls.not_started}`} title="Click to cycle the status">{STATUS_LABEL[phase.status] ?? phase.status}</button>
+        <Kebab label={`Actions for ${phase.name}`} className="self-center" items={[{ label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: onRename }, "-", { label: "Delete phase…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: onDelete }]} />
       </div>
       {dates && <p className="-mt-2 mb-2 text-[11px] text-stone-400 sm:hidden">{dates}</p>}
       <div className="mb-3 rounded-xl border border-stone-100 bg-stone-50/60 px-3 py-2 text-sm dark:border-stone-800 dark:bg-stone-950/30" data-testid="phase-context">

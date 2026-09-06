@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Check, Copy, FileText, Plus, Search, Sparkles, X } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
+import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 
@@ -121,7 +122,7 @@ export default function Matrix() {
           <thead>
             <tr>
               <th className="sticky left-0 top-0 z-20 border-b border-r border-stone-200 bg-white px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:border-stone-800 dark:bg-stone-900">Paper</th>
-              {data.themes.map((t) => <ThemeHead key={t.id} t={t} onRename={(name) => renameTheme.mutate({ id: t.id, name })} onDelete={() => { if (window.confirm(`Delete the theme “${t.name}” and its ${t.covered} mark${t.covered === 1 ? "" : "s"}?`)) deleteTheme.mutate(t.id); }} />)}
+              {data.themes.map((t) => <ThemeHead key={t.id} t={t} onRename={(name) => renameTheme.mutate({ id: t.id, name })} onDelete={async () => { if (await confirmDialog({ title: `Delete the theme “${t.name}”?`, body: `Its ${t.covered} mark${t.covered === 1 ? "" : "s"} go with it.`, danger: true, confirmLabel: "Delete theme" })) deleteTheme.mutate(t.id); }} />)}
             </tr>
           </thead>
           <tbody>

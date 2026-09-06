@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { mountEditor, Split, type EditorAdapter } from "../../editor";
 import { api, csrfToken } from "../api";
+import { confirmDialog, promptDialog } from "../../components/Dialog";
 
 type MFile = { id: number; path: string; kind: string; is_main: boolean; url?: string; size?: number };
 type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; compile_status: string; compiled_at: string | null; files: MFile[] };
@@ -318,12 +319,12 @@ function StudioInner({ m }: { m: Manuscript }) {
   // --- file operations ------------------------------------------------------------------
   const reloadFiles = useCallback(async () => { const d = await wb<{ files: MFile[] }>(`${base}files/`); setFiles(d.files); return d.files; }, [base]);
   const newFile = async () => {
-    const path = window.prompt("New file path (e.g. sections/method.tex or references.bib)"); if (!path) return;
+    const path = await promptDialog({ title: "New file", label: "Path", placeholder: "sections/method.tex or references.bib", validate: (v) => (v.trim() ? null : "Give the file a path.") }); if (!path) return;
     try { const f = await wb<MFile>(`${base}files/`, { path }); const list = await reloadFiles(); if (list.some((x) => x.id === f.id)) { adRef.current?.setFileValue(f.id, ""); loaded.current.add(f.id); await openFile(f.id); } } catch (e) { setFlash(e instanceof Error ? e.message : "Could not create the file."); }
   };
   const uploadFile = async (file: File) => { try { await wb(`${base}files/upload/`, { file, path: file.name.replace(/\s+/g, "_") }); await reloadFiles(); setFlash(`Uploaded ${file.name}`); } catch (e) { setFlash(e instanceof Error ? e.message : "Upload failed."); } };
-  const deleteFile = async (f: MFile) => { if (!window.confirm(`Delete ${f.path}?`)) return; await wb(`${base}files/${f.id}/delete/`, {}); loaded.current.delete(f.id); setTabs((tt) => tt.filter((x) => x !== f.id)); if (activeId === f.id) await openFile(mainId); await reloadFiles(); };
-  const renameFile = async (f: MFile) => { const path = window.prompt("Rename to", f.path); if (!path || path === f.path) return; try { await wb(`${base}files/${f.id}/rename/`, { path }); await reloadFiles(); } catch (e) { setFlash(e instanceof Error ? e.message : "Rename failed."); } };
+  const deleteFile = async (f: MFile) => { if (!(await confirmDialog({ title: `Delete ${f.path}?`, danger: true, confirmLabel: "Delete file" }))) return; await wb(`${base}files/${f.id}/delete/`, {}); loaded.current.delete(f.id); setTabs((tt) => tt.filter((x) => x !== f.id)); if (activeId === f.id) await openFile(mainId); await reloadFiles(); };
+  const renameFile = async (f: MFile) => { const path = await promptDialog({ title: "Rename file", label: "Path", initial: f.path }); if (!path || path === f.path) return; try { await wb(`${base}files/${f.id}/rename/`, { path }); await reloadFiles(); } catch (e) { setFlash(e instanceof Error ? e.message : "Rename failed."); } };
   const closeTab = (fid: number) => { setTabs((tt) => { const next = tt.filter((x) => x !== fid); if (fid === activeId) void openFile(next[next.length - 1] ?? mainId); return next.length ? next : [mainId]; }); };
 
   useEffect(() => { if (!flash) return; const tmr = window.setTimeout(() => setFlash(""), 3500); return () => window.clearTimeout(tmr); }, [flash]);
@@ -527,8 +528,8 @@ function HistoryPanel({ base, onRestored }: { base: string; onRestored: () => Pr
   const [open, setOpen] = useState<Revision | null>(null);
   const [diff, setDiff] = useState<{ path: string; diff: string }[] | null>(null);
   const show = async (r: Revision) => { setOpen(r); setDiff(null); const d = await wb<{ diffs: { path: string; diff: string }[] }>(`${base}revisions/${r.id}/diff/`); setDiff(d.diffs); };
-  const snapshot = async () => { const label = window.prompt("Label this version", "Before major edit"); if (label === null) return; await wb(`${base}revisions/`, { label }); await revs.refetch(); };
-  const restore = async () => { if (!open || !window.confirm(`Restore "${open.label || "this version"}"? The current text is snapshotted first.`)) return; await wb(`${base}revisions/${open.id}/restore/`, {}); setOpen(null); await revs.refetch(); await onRestored(); };
+  const snapshot = async () => { const label = await promptDialog({ title: "Snapshot this version", label: "Label", initial: "Before major edit", confirmLabel: "Snapshot" }); if (label === null) return; await wb(`${base}revisions/`, { label }); await revs.refetch(); };
+  const restore = async () => { if (!open || !(await confirmDialog({ title: `Restore “${open.label || "this version"}”?`, body: "The current text is snapshotted first, so nothing is lost.", confirmLabel: "Restore" }))) return; await wb(`${base}revisions/${open.id}/restore/`, {}); setOpen(null); await revs.refetch(); await onRestored(); };
   return (
     <div>
       <div className="mb-1 flex items-center justify-between px-1 text-[10px] uppercase tracking-wider st-dim"><span>History</span><button type="button" onClick={() => void snapshot()} className="normal-case tracking-normal text-indigo-300 hover:underline">+ snapshot</button></div>

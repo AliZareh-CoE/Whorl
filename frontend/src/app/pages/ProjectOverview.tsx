@@ -2,12 +2,15 @@
  *  Current phase with health + ring, this week's focus, what changed this week, open questions,
  *  manuscripts at a glance, counts, next milestones, recent documents and decisions.
  *  Data: GET /projects/{slug}/overview/ (also the MCP get_project_overview tool). */
-import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
-import { Activity, BookOpen, FileText, FlaskConical, HelpCircle, PenLine } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Activity, Archive, ArchiveRestore, BookOpen, FileText, FlaskConical, HelpCircle, PenLine, Settings2, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
+import { confirmDialog, errorDialog } from "../../components/Dialog";
+import { Kebab } from "../../components/Menu";
 import Focus, { type FocusData } from "./plan/Focus";
 
 type Overview = {
@@ -44,11 +47,72 @@ function Ring({ percent, color, size = 56 }: { percent: number; color: string; s
 }
 /** Markdown → plain text for one-line descriptions (bold/italic/code/link markers dropped). */
 function plain(md: string): string { return md.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1").replace(/`(.+?)`/g, "$1").replace(/\[(.+?)\]\([^)]*\)/g, "$1"); }
+const PROJECT_STATUSES = [["planning", "Planning"], ["active", "Active"], ["paused", "Paused"], ["complete", "Complete"], ["archived", "Archived"]] as const;
+const field = "w-full rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100";
+
+/** Project CRUD lives here (owner report 2026-09-06: "I made a project to test, now I can't
+ * delete it"). Every field of the project is editable in place; archive is one click and
+ * reversible; delete asks for the project's name and takes everything inside it with it. */
+export function useProjectActions(slug: string, name: string, status: string) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const refresh = () => { queryClient.invalidateQueries({ queryKey: ["overview", slug] }); queryClient.invalidateQueries({ queryKey: ["projects"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); };
+  const patch = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api(`/projects/${slug}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    onSuccess: refresh,
+    onError: (e) => void errorDialog("Couldn't save the project", e),
+  });
+  const remove = useMutation({
+    mutationFn: () => api(`/projects/${slug}/`, { method: "DELETE" }),
+    onSuccess: () => { queryClient.removeQueries({ queryKey: ["overview", slug] }); queryClient.invalidateQueries(); navigate("/projects"); },
+    onError: (e) => void errorDialog("Couldn't delete the project", e),
+  });
+  const archived = status === "archived";
+  const toggleArchive = () => patch.mutate({ status: archived ? "active" : "archived" });
+  const confirmDelete = async () => {
+    const ok = await confirmDialog({ title: `Delete “${name}”?`, danger: true, confirmLabel: "Delete project", verify: name, body: <>This removes the project and <b>everything inside it</b>: its plan, documents, notes, manuscripts, decisions and research. Library references stay in the library. This cannot be undone.</> });
+    if (ok) remove.mutate();
+  };
+  return { patch, remove, archived, toggleArchive, confirmDelete };
+}
+
+function ProjectSettings({ project, onClose }: { project: Overview["project"]; onClose: () => void }) {
+  const { patch, archived, toggleArchive, confirmDelete } = useProjectActions(project.slug, project.name, project.status);
+  const [name, setName] = useState(project.name);
+  const [description, setDescription] = useState(project.description);
+  const [status, setStatus] = useState(project.status);
+  const [color, setColor] = useState(project.color);
+  useEffect(() => { setName(project.name); setDescription(project.description); setStatus(project.status); setColor(project.color); }, [project]);
+  const dirty = name !== project.name || description !== project.description || status !== project.status || color !== project.color;
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (name.trim()) patch.mutate({ name: name.trim(), description, status, color }, { onSuccess: onClose }); }} className={`${panel} rise mb-5 p-4`} style={{ ["--i" as string]: 0 }} data-testid="project-settings">
+      <p className={h2}><Settings2 className="h-3 w-3" aria-hidden="true" />Project settings</p>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_5rem]">
+        <label className="block text-xs text-stone-500"><span className="mb-1 block">Name</span><input value={name} onChange={(e) => setName(e.target.value)} className={field} required aria-label="Project name" /></label>
+        <label className="block text-xs text-stone-500"><span className="mb-1 block">Status</span><select value={status} onChange={(e) => setStatus(e.target.value)} className={field} aria-label="Project status">{PROJECT_STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+        <label className="block text-xs text-stone-500"><span className="mb-1 block">Accent</span><input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-8 w-full cursor-pointer rounded-lg border border-stone-300 bg-white p-0.5 dark:border-stone-700 dark:bg-stone-950" aria-label="Accent color" /></label>
+      </div>
+      <label className="mt-3 block text-xs text-stone-500"><span className="mb-1 block">Description <span className="text-stone-400">· Markdown</span></span><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={field} aria-label="Project description" /></label>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={!dirty || !name.trim() || patch.isPending} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40">{patch.isPending ? "Saving…" : "Save changes"}</button>
+        <button type="button" onClick={onClose} className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-600 hover:border-stone-400 dark:border-stone-700 dark:text-stone-300">Close</button>
+        <span className="ml-auto flex flex-wrap items-center gap-2 text-xs">
+          <button type="button" onClick={toggleArchive} className="inline-flex items-center gap-1 rounded-lg border border-stone-300 px-2.5 py-1.5 text-stone-600 hover:border-stone-400 dark:border-stone-700 dark:text-stone-300" data-testid="archive-project">{archived ? <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" /> : <Archive className="h-3.5 w-3.5" aria-hidden="true" />}{archived ? "Unarchive" : "Archive"}</button>
+          <button type="button" onClick={() => void confirmDelete()} className="inline-flex items-center gap-1 rounded-lg border border-red-300/70 px-2.5 py-1.5 text-red-600 hover:bg-red-500/10 dark:border-red-500/40 dark:text-red-300" data-testid="delete-project"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Delete project…</button>
+        </span>
+      </div>
+    </form>
+  );
+}
+
 function when(days: number | null): string { if (days == null) return "no deadline"; if (days < 0) return `${-days} d overdue`; if (days === 0) return "due today"; return `${days} d left`; }
 
 export default function ProjectOverview() {
   const { slug } = useParams();
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["overview", slug], queryFn: () => api<Overview>(`/projects/${slug}/overview/`) });
+  const [searchParams] = useSearchParams();
+  const [settingsOpen, setSettingsOpen] = useState(searchParams.get("settings") === "1");
+  const actions = useProjectActions(slug ?? "", data?.project.name ?? "", data?.project.status ?? "");
   if (isLoading) return <div role="status" aria-label="Loading" className="space-y-4"><Skeleton className="h-4 w-40" /><Skeleton className="h-8 w-72" /><SkeletonCard /><div className="grid gap-4 lg:grid-cols-2"><SkeletonCard /><SkeletonCard /></div></div>;
   if (error || !data) return <ErrorState message="Couldn't load this project." onRetry={() => refetch()} />;
   const { project, progress } = data;
@@ -64,6 +128,15 @@ export default function ProjectOverview() {
             <h1 className="font-display text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-100">{project.name}</h1>
             <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:bg-stone-800 dark:text-stone-300">{project.status}</span>
             <span className="text-sm text-stone-400"><span className="text-gradient font-display text-base font-bold">{progress.done}/{progress.total}</span> milestones</span>
+            <span className="ml-auto flex items-center gap-1">
+              <button type="button" onClick={() => setSettingsOpen((v) => !v)} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors ${settingsOpen ? "border-indigo-300 text-indigo-700 dark:border-indigo-500/50 dark:text-indigo-200" : "border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-800 dark:border-stone-700 dark:text-stone-400 dark:hover:text-stone-100"}`} data-testid="project-settings-toggle" aria-expanded={settingsOpen}><Settings2 className="h-3.5 w-3.5" aria-hidden="true" />Settings</button>
+              <Kebab label="Project actions" items={[
+                { label: settingsOpen ? "Close settings" : "Edit project…", icon: <Settings2 className="h-3.5 w-3.5" />, onSelect: () => setSettingsOpen((v) => !v) },
+                { label: actions.archived ? "Unarchive" : "Archive project", icon: actions.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />, onSelect: actions.toggleArchive },
+                "-",
+                { label: "Delete project…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: () => void actions.confirmDelete() },
+              ]} />
+            </span>
           </div>
           {project.description && <p className="mt-1 max-w-2xl text-sm leading-relaxed text-stone-500 dark:text-stone-400">{plain(project.description)}</p>}
           <nav className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-400">
@@ -71,6 +144,7 @@ export default function ProjectOverview() {
           </nav>
         </div>
       </header>
+      {settingsOpen && <ProjectSettings project={project} onClose={() => setSettingsOpen(false)} />}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 0 }} data-testid="phase-card">

@@ -1,9 +1,12 @@
 /** Reference reader: metadata, abstract with Listen (TTS), PDF, status (SPA, cycle 74). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Pencil, Trash2 } from "lucide-react";
 import { api, csrfToken } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
+import { confirmDialog, errorDialog } from "../../components/Dialog";
+import { Kebab } from "../../components/Menu";
 
 type Ref = {
   id: number;
@@ -27,6 +30,48 @@ function authorLine(r: Ref): string {
   const names = (r.authors ?? []).map((a) => [a.given, a.family].filter(Boolean).join(" ")).filter(Boolean);
   return names.join(", ");
 }
+/** One author per line, "Family, Given" — the editable form of the JSON author list. */
+function authorsToText(a: Ref["authors"]): string { return (a ?? []).map((x) => (x.given ? `${x.family ?? ""}, ${x.given}` : x.family ?? "")).join("\n"); }
+function textToAuthors(t: string): Ref["authors"] {
+  return t.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+    if (l.includes(",")) { const [family, ...rest] = l.split(","); return { family: family.trim(), given: rest.join(",").trim() }; }
+    const parts = l.split(/\s+/); return parts.length > 1 ? { family: parts[parts.length - 1], given: parts.slice(0, -1).join(" ") } : { family: l };
+  });
+}
+const field = "w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-800 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100";
+
+/** CRUD sweep 2026-09-06: every metadata field is editable in place; delete removes the
+ * paper from the library (and every project) after a confirm. */
+function EditReference({ r, onClose }: { r: Ref; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ title: r.title, authors: authorsToText(r.authors), year: r.year ? String(r.year) : "", venue: r.venue, doi: r.doi ?? "", url: r.url ?? "", abstract: r.abstract });
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const save = useMutation({
+    mutationFn: () => api(`/references/${r.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: form.title.trim(), authors: textToAuthors(form.authors), year: form.year ? Number(form.year) : null, venue: form.venue, doi: form.doi.trim() || null, url: form.url.trim(), abstract: form.abstract }) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["reference", String(r.id)] }); queryClient.invalidateQueries({ queryKey: ["library"] }); onClose(); },
+    onError: (e) => void errorDialog("Couldn't save the reference", e),
+  });
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (form.title.trim()) save.mutate(); }} className="mb-4 space-y-3 rounded border border-indigo-200 bg-white p-6 dark:border-indigo-500/40 dark:bg-stone-900" data-testid="reference-edit">
+      <h2 className="text-sm font-medium uppercase tracking-wide text-stone-400">Edit reference</h2>
+      <label className="block text-xs text-stone-500"><span className="mb-1 block">Title</span><input value={form.title} onChange={set("title")} className={field} required aria-label="Title" /></label>
+      <label className="block text-xs text-stone-500"><span className="mb-1 block">Authors · one per line, “Family, Given”</span><textarea value={form.authors} onChange={set("authors")} rows={3} className={`${field} font-mono text-xs`} aria-label="Authors" /></label>
+      <div className="grid gap-3 sm:grid-cols-[6rem_minmax(0,1fr)]">
+        <label className="block text-xs text-stone-500"><span className="mb-1 block">Year</span><input value={form.year} onChange={set("year")} inputMode="numeric" pattern="[0-9]{4}" className={field} aria-label="Year" /></label>
+        <label className="block text-xs text-stone-500"><span className="mb-1 block">Venue</span><input value={form.venue} onChange={set("venue")} className={field} aria-label="Venue" /></label>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block text-xs text-stone-500"><span className="mb-1 block">DOI</span><input value={form.doi} onChange={set("doi")} className={`${field} font-mono text-xs`} aria-label="DOI" /></label>
+        <label className="block text-xs text-stone-500"><span className="mb-1 block">URL</span><input value={form.url} onChange={set("url")} className={`${field} font-mono text-xs`} aria-label="URL" /></label>
+      </div>
+      <label className="block text-xs text-stone-500"><span className="mb-1 block">Abstract</span><textarea value={form.abstract} onChange={set("abstract")} rows={5} className={field} aria-label="Abstract" /></label>
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={save.isPending || !form.title.trim()} className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">{save.isPending ? "Saving…" : "Save changes"}</button>
+        <button type="button" onClick={onClose} className="text-sm text-stone-500 hover:underline dark:text-stone-400">Cancel</button>
+      </div>
+    </form>
+  );
+}
 
 export default function Reference() {
   const { id } = useParams();
@@ -35,6 +80,8 @@ export default function Reference() {
   const [ttsError, setTtsError] = useState("");
   const [tldr, setTldr] = useState<string[] | null>(null);
   const [summarizing, setSummarizing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const navigate = useNavigate();
 
   const queryClient = useQueryClient();
   const { data: ref, isLoading } = useQuery({
@@ -49,6 +96,16 @@ export default function Reference() {
     queryFn: () => api<{ comments: { id: number; body: string; created_at: string }[] }>(`/comments/reference/${id}/`),
   });
   const [commentBody, setCommentBody] = useState("");
+  const remove = useMutation({
+    mutationFn: () => api(`/references/${id}/`, { method: "DELETE" }),
+    onSuccess: () => { queryClient.invalidateQueries(); navigate("/library"); },
+    onError: (e) => void errorDialog("Couldn't delete the reference", e),
+  });
+  const confirmDelete = async () => {
+    if (!ref) return;
+    const n = ref.projects?.length ?? 0;
+    if (await confirmDialog({ title: "Delete this reference from the library?", body: <>“{ref.title}” disappears from {n === 0 ? "the library" : `${n} project${n === 1 ? "" : "s"} and the library`}, with its PDF, highlights and reading notes. This cannot be undone.</>, danger: true, confirmLabel: "Delete reference" })) remove.mutate();
+  };
   const addComment = useMutation({
     mutationFn: () =>
       api(`/comments/reference/${id}/`, {
@@ -128,8 +185,16 @@ export default function Reference() {
         <span className="font-mono text-xs text-stone-400 dark:text-stone-400">{ref.bibtex_key}</span>
       </nav>
 
+      {editing && <EditReference r={ref} onClose={() => setEditing(false)} />}
       <section className="mb-4 rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
-        <h1 className="text-2xl font-semibold leading-snug tracking-tight text-stone-900 dark:text-stone-100">{ref.title}</h1>
+        <div className="flex items-start gap-3">
+          <h1 className="min-w-0 flex-1 text-2xl font-semibold leading-snug tracking-tight text-stone-900 dark:text-stone-100">{ref.title}</h1>
+          <Kebab label="Reference actions" className="mt-1 shrink-0" items={[
+            { label: editing ? "Close the editor" : "Edit metadata…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: () => setEditing((v) => !v) },
+            "-",
+            { label: "Delete from library…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: () => void confirmDelete() },
+          ]} />
+        </div>
         {authorLine(ref) && (
           <p className="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">{authorLine(ref)}</p>
         )}
