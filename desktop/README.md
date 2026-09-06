@@ -44,7 +44,29 @@ can replace its files (`installer-hooks.nsh`).
    starting a second server on the same database.
 
 The data folder holds everything: `atlas.sqlite3`, `media/`, `staticfiles/`, `secret_key`,
-`atlas-server.log`. Back it up to back up Atlas.
+`api_key`, `server.json` (the URL this launch is serving on), `atlas-server.log`. Back it up
+to back up Atlas.
+
+## Claude Code integration (`atlas-mcp`)
+
+The installer also ships the Atlas MCP server, frozen as `atlas-mcp` next to `atlas-server`
+(both are Tauri bundle resources). On first launch the app mints an API key into the data
+folder; `atlas-mcp` reads that key and the live URL from `server.json`, so registering Atlas in
+Claude Code is one line with nothing to copy:
+
+```
+claude mcp add atlas -- "<install dir>/atlas-mcp/atlas-mcp"      # .exe on Windows
+claude mcp list                                                   # → atlas … ✓ Connected
+```
+
+The app's **Connect Claude Code** page (sidebar, `/connect/claude/`) prints that line with the
+real installed path filled in, plus the API key and a JSON snippet for other MCP clients. The
+Tauri shell passes the bundled binary's path to the server as `ATLAS_MCP_BIN`, which is how the
+page knows it. Explicit `ATLAS_API_URL` / `ATLAS_API_KEY` env vars on the MCP server always win
+over discovery, and `ATLAS_DATA_DIR` points it at a non-default data folder.
+
+Both binaries are frozen with PyInstaller (`atlas_server.spec`, `atlas_mcp.spec`) — see
+`make desktop-server`.
 
 ## Build it yourself
 
@@ -72,10 +94,9 @@ Point the shell at another server with `ATLAS_URL=http://host:port/`. Without a 
 ```
 # 1. the stylesheet is a gitignored build artifact — build it first
 make css
-# 2. freeze the Django server
-uv run pyinstaller desktop/server/atlas_server.spec --noconfirm \
-    --distpath desktop/server/dist --workpath /tmp/pyi
-# 3. bundle: tauri.conf.json ships desktop/server/dist/atlas-server as a resource
+# 2. freeze the Django server + the MCP server
+make desktop-server
+# 3. bundle: tauri.conf.json ships desktop/server/dist/{atlas-server,atlas-mcp} as resources
 make desktop-build
 ```
 

@@ -12,6 +12,25 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
 
+def write_server_info(data_dir, host: str, port: int) -> dict:
+    """Publish where this instance is serving so the bundled MCP server (and anything else on
+    the machine) can find it without configuration: the desktop shell may pick a port other
+    than 8000 when it is taken, and `atlas-mcp` reads the live URL from here."""
+    import json
+
+    reach_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    info = {
+        "url": f"http://{reach_host}:{port}",
+        "port": port,
+        "data_dir": str(data_dir),
+        "mcp_bin": os.environ.get("ATLAS_MCP_BIN") or None,
+        "version": os.environ.get("ATLAS_VERSION", "dev"),
+        "pid": os.getpid(),
+    }
+    (data_dir / "server.json").write_text(json.dumps(info, indent=2))
+    return info
+
+
 class Command(BaseCommand):
     help = "Prepare and serve the bundled single-user Atlas (SQLite, no Redis/Docker)."
 
@@ -73,5 +92,6 @@ class Command(BaseCommand):
         from config.wsgi import application
 
         host, port = options["host"], options["port"]
+        write_server_info(settings.DATA_DIR, host, port)
         self.stdout.write(self.style.SUCCESS(f"Atlas is running → http://{host}:{port}"))
         serve(application, host=host, port=port, threads=4)

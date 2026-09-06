@@ -186,3 +186,69 @@ def test_run_desktop_cleans_up_old_postgres_data():
     # drop the now-unused pgdata/ + postgres.log so the data dir is clean (no manual wipe).
     text = (BASE_DIR / "core" / "management" / "commands" / "run_desktop.py").read_text()
     assert "pgdata" in text and "rmtree" in text and "postgres.log" in text
+
+
+def test_desktop_mints_and_persists_an_api_key(tmp_path):
+    # Claude Code (via atlas-mcp) needs a key; the desktop build has no .env, so the settings
+    # mint one on first launch and keep it in the data dir — stable across restarts.
+    code = "import django; django.setup(); from django.conf import settings; print(settings.ATLAS_API_KEY)"
+    env = _desktop_env(tmp_path, DJANGO_SETTINGS_MODULE="config.settings.desktop")
+    env.pop("ATLAS_API_KEY")  # the frozen server starts with no key in its environment
+    first = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=BASE_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert first.returncode == 0, first.stderr
+    key = first.stdout.strip()
+    assert len(key) >= 32
+    assert (tmp_path / "api_key").read_text().strip() == key
+    second = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=BASE_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert second.stdout.strip() == key  # persisted, not re-minted
+    # an explicit key still wins (a server install keeps its .env key)
+    explicit = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=BASE_DIR,
+        env=_desktop_env(
+            tmp_path, DJANGO_SETTINGS_MODULE="config.settings.desktop", ATLAS_API_KEY="mine"
+        ),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert explicit.stdout.strip() == "mine"
+
+
+def test_run_desktop_publishes_server_json_for_atlas_mcp(tmp_path, monkeypatch):
+    # atlas-mcp finds the live URL (the port can differ from 8000) in <data dir>/server.json.
+    import json
+
+    from core.management.commands.run_desktop import write_server_info
+
+    monkeypatch.setenv("ATLAS_MCP_BIN", "/opt/Atlas/atlas-mcp/atlas-mcp")
+    info = write_server_info(tmp_path, "127.0.0.1", 8123)
+    on_disk = json.loads((tmp_path / "server.json").read_text())
+    assert on_disk == info
+    assert on_disk["url"] == "http://127.0.0.1:8123"
+    assert on_disk["mcp_bin"] == "/opt/Atlas/atlas-mcp/atlas-mcp"
+    assert write_server_info(tmp_path, "0.0.0.0", 80)["url"] == "http://127.0.0.1:80"
+
+
+def test_mcp_server_freeze_scaffold_present():
+    # the installer ships atlas-mcp so Claude Code can drive the app with no Python installed
+    server = BASE_DIR / "desktop" / "server"
+    entry = (server / "atlas_mcp.py").read_text()
+    spec = (server / "atlas_mcp.spec").read_text()
+    assert "desktop_config.apply_env()" in entry and "mcp_server.server" in entry
+    assert 'name="atlas-mcp"' in spec and "console=True" in spec  # stdio server keeps its streams
+    assert "mcp_server" in spec and '"mcp"' in spec

@@ -23,6 +23,7 @@ on:
       # installer too — they're not under desktop/.
       - "core/management/commands/run_desktop.py"
       - "config/settings/desktop.py"
+      - "mcp_server/**"
       - "pyproject.toml"
       # the frozen server also bundles the templates and the built static assets (JS + the
       # Tailwind CSS compiled from these), so a UI change must rebuild the installer too.
@@ -122,6 +123,11 @@ jobs:
 
       - name: Freeze the Atlas server
         run: uv run pyinstaller desktop/server/atlas_server.spec --noconfirm --distpath desktop/server/dist --workpath ${{ runner.temp }}/pyi
+
+      # The MCP server ships too (atlas-mcp), so Claude Code can drive the installed app with
+      # `claude mcp add atlas -- <path>` — no Python on the machine.
+      - name: Freeze the Atlas MCP server
+        run: uv run pyinstaller desktop/server/atlas_mcp.spec --noconfirm --distpath desktop/server/dist --workpath ${{ runner.temp }}/pyi-mcp
 
       # The desktop shell loads the bundled server (frontendDist is only a Tauri formality),
       # so there is no Node/Vite build step needed for the bundle.

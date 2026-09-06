@@ -44,7 +44,14 @@ def _request(method: str, path: str, **kwargs):
         if cached:
             headers["If-None-Match"] = cached[0]
     with _client() as client:
-        response = client.request(method, path, headers=headers or None, **kwargs)
+        try:
+            response = client.request(method, path, headers=headers or None, **kwargs)
+        except httpx.ConnectError as exc:
+            # the desktop app was closed (or the dev server isn't up): say so, instead of
+            # httpx's "All connection attempts failed"
+            raise AtlasClientError(
+                f"Atlas is not reachable at {client.base_url} — is the Atlas app running? ({exc})"
+            ) from exc
     if response.status_code == 304 and cache_key:
         return _etag_cache[cache_key][1]
     if response.status_code >= 400:

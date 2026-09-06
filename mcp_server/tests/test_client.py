@@ -281,3 +281,17 @@ def test_new_protocol_version_omits_unset_fields(capture):
     assert capture["url"].endswith("/protocols/5/new-version/")
     assert "step 2" in capture["body"]
     assert "title" not in capture["body"]  # carried over, not sent
+
+
+def test_connection_refused_explains_that_atlas_is_not_running(monkeypatch, env):
+    def fake_client():
+        def handler(request):
+            raise httpx.ConnectError("All connection attempts failed", request=request)
+
+        return httpx.Client(
+            base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(client, "_client", fake_client)
+    with pytest.raises(client.AtlasClientError, match="is the Atlas app running"):
+        client.list_projects()

@@ -119,3 +119,11 @@ def spa_shell(request, rest=""):
     ensure_csrf_cookie: the shell has no form, but the SPA's writes need the token.
     """
     return render(request, "spa.html")
+
+
+def connect_claude(request):
+    """The one page that makes Atlas usable from Claude Code: the exact `claude mcp add` line
+    for THIS install (desktop or dev), the API key, and a snippet for other MCP clients."""
+    from .mcp_connect import connection_info
+
+    return render(request, "core/connect_claude.html", {"conn": connection_info(request)})

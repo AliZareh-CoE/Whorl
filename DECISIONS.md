@@ -544,6 +544,36 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Desktop ↔ Claude Code: ship `atlas-mcp` in the installer, zero-config (#289)
+
+**Decision.** Make the installed desktop app driveable from Claude Code with one line and no
+secrets to copy. Three pieces: (1) `config/settings/desktop.py` mints an API key on first launch
+and persists it as `<data dir>/api_key` (an explicit `ATLAS_API_KEY` still wins); `run_desktop`
+publishes `<data dir>/server.json` with the live URL (the port can differ from 8000 since #286).
+(2) The MCP server is frozen with PyInstaller too (`desktop/server/atlas_mcp.{py,spec}` →
+`atlas-mcp`) and shipped as a second Tauri bundle resource; with no `ATLAS_API_URL`/`ATLAS_API_KEY`
+in its environment it discovers both from the data dir (`mcp_server/desktop_config.py`, still
+Django-free), so the registration is `claude mcp add atlas -- "<install dir>/atlas-mcp/atlas-mcp"`.
+(3) A **Connect Claude Code** page (`/connect/claude/`, linked from both sidebars) prints that
+line for *this* install with the real path (the shell passes it as `ATLAS_MCP_BIN`), plus the key
+and a JSON snippet for other MCP clients; on a dev/server install it prints the explicit
+`--env ATLAS_API_URL/ATLAS_API_KEY … python -m mcp_server.server` form instead.
+
+**Why.** Phase 6's acceptance ("from Claude Code, the owner can list projects…") was only true
+for a repo checkout: the desktop build started with an EMPTY API key (so the API rejected every
+call) and had no MCP server on the machine at all. The owner's ask was "100% integratable with
+Claude Code" — for a desktop user that means no Python, no .env, no copying keys.
+
+**Alternatives.** (a) Print the key in the `claude mcp add` line — rejected: it lands in shell
+history and `.claude.json`; discovery from the data dir gives the same one-liner with no secret in
+it (the key is still shown on the page for other clients). (b) Have `atlas-mcp` fail to start when
+Atlas isn't running — rejected: Claude Code would then lose the tool list whenever the app is
+closed; instead tool calls return "Atlas is not reachable … is the Atlas app running?".
+(c) Bundle the MCP server INTO `atlas-server` (one binary, a `--mcp` flag) — rejected: the MCP
+server must stay a pure API client (CLAUDE.md §5 Phase 6), and a separate binary keeps that
+boundary visible. Verified end to end with the real `claude` CLI: `claude mcp list` → `√ Connected`
+against the frozen binaries; a stdio client listed 37 tools and created a project through them.
+
 ### 2026-09-06 — Desktop: finish the SQLite switch by removing the Postgres remnants (#286)
 
 **Decision.** Strip everything the bundled-Postgres design (#210g) left behind after the SQLite
@@ -761,6 +791,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+289. ~~Desktop ↔ Claude Code, zero-config (done 2026-09-06): API key minted+persisted in the desktop data dir; `server.json` with the live URL; `atlas-mcp` (frozen MCP server) shipped in the installer and discovering both by itself; "Connect Claude Code" page with the exact `claude mcp add` line per install; friendly "is the Atlas app running?" tool error. See the 2026-09-06 decision.~~
+290. Connect page: a live "test the connection" button (server-side: spawn the MCP server? no — call the API with the key and report; client-side can't reach the CLI). Low priority; `claude mcp list` covers it.
 288. AppImage retry — it was dropped (#210f) because linuxdeploy could not relink the bundled Postgres `.so`s; with Postgres gone (#286) the only native libs are PyInstaller's, so adding `appimage` back to `bundle.targets` may just work. One CI experiment on a branch; keep .deb/.rpm regardless.
 287. macOS desktop build — add `macos-latest` to the desktop-release matrix (Tauri + PyInstaller both support it; the frozen server needs the same Tailwind + freeze steps). Unsigned .dmg will hit Gatekeeper ("damaged"/right-click Open) until notarization is set up, so document that alongside D3.
 286. ~~Strip the dead Postgres bundling from the desktop app (done 2026-09-06, was parked as #268): removed the per-OS embedded-postgres CI steps, the `resources/pg` bundle resource, ATLAS_PG_BIN in the shell, postgres.exe in the NSIS hooks, the Postgres/MSVCR120 advice on the diagnostic page, and `core/desktop_runtime.py` + its 12 tests. Added `choose_port` (8000 else a free port) so a dev `runserver` no longer breaks the launch, with CSRF origins following ATLAS_PORT; a real `run_desktop --setup-only` test on a fresh SQLite data dir; desktop README rewritten (it still said the server was "NOT YET" bundled). Frozen binary verified end to end on :8077 (login 302→200, CSRF POST 302, foreign Origin 403). See the 2026-09-06 decision.~~

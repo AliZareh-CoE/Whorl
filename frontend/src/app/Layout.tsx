@@ -160,6 +160,7 @@ export default function Layout() {
             </a>
           )}
           <NavLink to="/automations" className="mb-2 block rounded px-1 py-0.5 transition-colors hover:text-stone-700 dark:hover:text-stone-200">Automations</NavLink>
+          <a href="/connect/claude/" className="mb-2 block rounded px-1 py-0.5 transition-colors hover:text-stone-700 dark:hover:text-stone-200">Connect Claude Code</a>
           <UpdaterButton />
           <button
             type="button"

@@ -6,8 +6,15 @@ use std::path::Path;
 use std::process::{Child, Command};
 use std::time::{Duration, Instant};
 
-/// Spawn the frozen atlas-server with the per-user data dir and the port it should listen on.
-pub fn spawn(server_bin: &Path, data_dir: &Path, port: u16) -> std::io::Result<Child> {
+/// Spawn the frozen atlas-server with the per-user data dir, the port it should listen on,
+/// and (when bundled) the path of the frozen `atlas-mcp` so the app can show the user the
+/// exact `claude mcp add` line for this install.
+pub fn spawn(
+    server_bin: &Path,
+    data_dir: &Path,
+    port: u16,
+    mcp_bin: Option<&Path>,
+) -> std::io::Result<Child> {
     let mut cmd = Command::new(server_bin);
     cmd.env("ATLAS_DATA_DIR", data_dir)
         .env("ATLAS_PORT", port.to_string())
@@ -15,6 +22,9 @@ pub fn spawn(server_bin: &Path, data_dir: &Path, port: u16) -> std::io::Result<C
         // repeat launches of the same build, but re-collect after an update (#241).
         .env("ATLAS_VERSION", env!("CARGO_PKG_VERSION"))
         .env("DJANGO_SETTINGS_MODULE", "config.settings.desktop");
+    if let Some(mcp) = mcp_bin {
+        cmd.env("ATLAS_MCP_BIN", mcp);
+    }
     cmd.spawn()
 }
 

@@ -102,9 +102,17 @@ def test_release_workflow_assembles_the_bundled_server():
     # the ONLY bundled resource (#266: SQLite — no database binaries to ship).
     wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
     assert "pyinstaller desktop/server/atlas_server.spec" in wf
+    assert "pyinstaller desktop/server/atlas_mcp.spec" in wf  # the MCP server ships too
     cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
     resources = cfg["bundle"]["resources"]
-    assert resources == {"server/dist/atlas-server": "atlas-server"}
+    assert resources == {
+        "server/dist/atlas-server": "atlas-server",
+        "server/dist/atlas-mcp": "atlas-mcp",
+    }
+    # the shell tells the server where the bundled atlas-mcp lives, for the Connect page
+    main = (DESKTOP / "src" / "main.rs").read_text()
+    server = (DESKTOP / "src" / "server.rs").read_text()
+    assert 'bundled_bin(app, "atlas-mcp")' in main and "ATLAS_MCP_BIN" in server
 
 
 def test_release_workflow_rebuilds_on_frozen_server_sources():
@@ -113,6 +121,7 @@ def test_release_workflow_rebuilds_on_frozen_server_sources():
     wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
     assert "core/management/commands/run_desktop.py" in wf
     assert "config/settings/desktop.py" in wf
+    assert "mcp_server/**" in wf
     assert "templates/**" in wf and "static/**" in wf
 
 

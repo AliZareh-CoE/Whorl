@@ -83,20 +83,35 @@ uploaded files, and this log there.</li></ul></div>
     )
 }
 
+/// A bundled one-folder PyInstaller binary: `<resource dir>/<name>/<name>[.exe]`.
+fn bundled_bin(app: &tauri::App, name: &str) -> Option<PathBuf> {
+    let res = app.path().resource_dir().ok()?;
+    let exe = if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_string()
+    };
+    let bin = res.join(name).join(exe);
+    bin.exists().then_some(bin)
+}
+
 /// Find the frozen server binary: an env override (dev/CI), else the bundled resource.
 /// Returns None when there's nothing to launch (dev with an externally-run server).
 fn resolve_server(app: &tauri::App) -> Option<PathBuf> {
     if let Ok(bin) = std::env::var("ATLAS_SERVER_BIN") {
         return Some(PathBuf::from(bin));
     }
-    let res = app.path().resource_dir().ok()?;
-    let exe = if cfg!(windows) {
-        "atlas-server.exe"
-    } else {
-        "atlas-server"
-    };
-    let bin = res.join("atlas-server").join(exe);
-    bin.exists().then_some(bin)
+    bundled_bin(app, "atlas-server")
+}
+
+/// Find the frozen MCP server (`atlas-mcp`) that ships next to the app: an env override, else
+/// the bundled resource. Handed to the server so the "Connect Claude Code" page can print the
+/// exact `claude mcp add atlas -- <path>` line for this machine.
+fn resolve_mcp(app: &tauri::App) -> Option<PathBuf> {
+    if let Ok(bin) = std::env::var("ATLAS_MCP_BIN") {
+        return Some(PathBuf::from(bin));
+    }
+    bundled_bin(app, "atlas-mcp")
 }
 
 fn main() {
@@ -146,7 +161,8 @@ fn main() {
             let url = if std::env::var("ATLAS_URL").is_ok() {
                 atlas_url()
             } else if let Some(bin) = resolve_server(app) {
-                match server::spawn(&bin, &data_dir, port) {
+                let mcp = resolve_mcp(app);
+                match server::spawn(&bin, &data_dir, port, mcp.as_deref()) {
                     Ok(child) => {
                         app.state::<ServerProc>().0.lock().unwrap().replace(child);
                         launched_bundled = true;

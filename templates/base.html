@@ -102,6 +102,7 @@
           </a>
         {% endif %}
         <a href="{% url 'bots:automations' %}" class="mb-2 block hover:text-stone-600 dark:hover:text-stone-200 {% if request.resolver_match.namespace == 'bots' %}font-medium text-stone-600{% endif %}">Automations</a>
+        <a href="{% url 'core:connect_claude' %}" class="mb-2 block hover:text-stone-600 dark:hover:text-stone-200 {% if request.resolver_match.url_name == 'connect_claude' %}font-medium text-stone-600{% endif %}">Connect Claude Code</a>
         <button type="button" onclick="window.__toggleTheme()" class="mb-2 block hover:text-stone-600 dark:hover:text-stone-200">
           <span class="dark:hidden">Dark mode 🌙</span><span class="hidden dark:inline">Light mode ☀</span>
         </button>

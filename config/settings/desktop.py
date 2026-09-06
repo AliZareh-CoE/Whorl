@@ -28,6 +28,16 @@ if not _secret_file.exists():
     _secret_file.write_text(secrets.token_urlsafe(64))
 SECRET_KEY = _secret_file.read_text().strip()
 
+# A persisted API key so Claude Code (via the bundled atlas-mcp) and any other API client can
+# talk to the installed app. Minted once on first launch; an explicit ATLAS_API_KEY still wins.
+# The frozen `atlas-mcp` reads this same file, so registering Atlas in Claude Code needs no
+# copying of secrets (see core/mcp_connect.py + the "Connect Claude Code" page).
+_api_key_file = DATA_DIR / "api_key"
+if not os.environ.get("ATLAS_API_KEY"):
+    if not _api_key_file.exists():
+        _api_key_file.write_text(secrets.token_urlsafe(32))
+    ATLAS_API_KEY = _api_key_file.read_text().strip()
+
 # SQLite — a single file in the data dir, no server (#266). After a multi-day saga bundling a
 # full PostgreSQL server into the Windows installer (initdb exit-1, missing client tools, a
 # console crash loop, a psycopg connect hang, a pg_ctl pipe-inheritance hang…), the owner and I
