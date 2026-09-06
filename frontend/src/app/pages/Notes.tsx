@@ -3,12 +3,13 @@
  *  attaches them to the note), autosave, backlinks / unresolved / mentions, unwritten stubs.
  *  Everything here is also in the API (/notes/, /links/, /suggest/, /unwritten/, /preview/) and MCP. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowUpRight, AtSign, BookOpen, CalendarDays, FileDown, FlaskConical, Link2, Plus, Search, Sparkles, Trash2, Users } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarDays, FileDown, FlaskConical, Plus, Search, Sparkles, Trash2, Users } from "lucide-react";
 import { api, petReact } from "../api";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
+import MarkdownEditor from "../notes/MarkdownEditor";
 
 type Backlink = { id: number; title: string };
 type RefSummary = { id: number; bibtex_key: string; title: string; year: number | null };
@@ -155,6 +156,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
   const links = useQuery({ queryKey: ["note-links", id], queryFn: () => api<Links>(`/notes/${id}/links/`) });
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const bodyRef = useRef(""); bodyRef.current = body;
   const [loaded, setLoaded] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -175,47 +177,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
   const queueSave = useCallback((t: string, b: string) => { setDirty(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => save.mutate({ title: t, body: b }), 1200); }, [save]);
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); window.clearTimeout(timer.current); save.mutate({ title, body }); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [title, body, save]);
 
-  // --- autocomplete for [[ and @ ---
-  const ta = useRef<HTMLTextAreaElement>(null);
-  const [trigger, setTrigger] = useState<{ kind: "note" | "reference"; q: string; start: number } | null>(null);
-  const [cursor, setCursor] = useState(0);
-  const detect = () => {
-    const el = ta.current; if (!el) return setTrigger(null);
-    const upto = el.value.slice(0, el.selectionStart);
-    const wiki = upto.match(/\[\[([^\]\n]*)$/);
-    if (wiki) return setTrigger({ kind: "note", q: wiki[1], start: upto.length - wiki[0].length });
-    const cite = upto.match(/(?:^|[\s(])@([\w:.-]*)$/);
-    if (cite) return setTrigger({ kind: "reference", q: cite[1], start: upto.length - cite[1].length - 1 });
-    setTrigger(null);
-  };
-  const dtq = useDebounced(trigger?.q ?? "", 120);
-  const suggestions = useQuery({ queryKey: ["note-suggest", slug, trigger?.kind, dtq], queryFn: () => api<Suggestion[]>(`/notes/suggest/?project=${slug}&kind=${trigger?.kind}&q=${encodeURIComponent(dtq)}`), enabled: trigger !== null, placeholderData: (p) => p });
-  const rows = useMemo(() => {
-    // filter/rank client-side against what is typed *now* (the query is debounced), prefix first
-    const needle = (trigger?.q ?? "").trim().toLowerCase();
-    const base = (suggestions.data ?? [])
-      .filter((r) => !needle || r.label.toLowerCase().includes(needle) || r.sublabel.toLowerCase().includes(needle))
-      .sort((a, b) => Number(b.label.toLowerCase().startsWith(needle)) - Number(a.label.toLowerCase().startsWith(needle)));
-    if (trigger?.kind === "note" && trigger.q.trim() && !base.some((r) => r.label.toLowerCase() === trigger.q.trim().toLowerCase())) return [...base, { id: 0, label: trigger.q.trim(), sublabel: "new note — created when you first open the link" }];
-    return base;
-  }, [suggestions.data, trigger]);
-  useEffect(() => { setCursor(0); }, [rows.length, trigger?.q]);
-  const accept = (row: Suggestion) => {
-    const el = ta.current; if (!el || !trigger) return;
-    const insert = trigger.kind === "note" ? `[[${row.label}]]` : `@${row.label} `;
-    const next = el.value.slice(0, trigger.start) + insert + el.value.slice(el.selectionStart);
-    setBody(next); queueSave(title, next); setTrigger(null);
-    requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = trigger.start + insert.length; });
-  };
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (trigger && rows.length) {
-      if (e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => (c + 1) % rows.length); return; }
-      if (e.key === "ArrowUp") { e.preventDefault(); setCursor((c) => (c - 1 + rows.length) % rows.length); return; }
-      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); accept(rows[cursor]); return; }
-      if (e.key === "Escape") { setTrigger(null); return; }
-    }
-    if (e.key === "Tab") { e.preventDefault(); const el = e.currentTarget; const s = el.selectionStart; const next = el.value.slice(0, s) + "  " + el.value.slice(el.selectionEnd); setBody(next); queueSave(title, next); requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = s + 2; }); }
-  };
+  const suggest = useCallback(async (kind: "note" | "reference", q: string) => api<Suggestion[]>(`/notes/suggest/?project=${slug}&kind=${kind}&q=${encodeURIComponent(q)}`), [slug]);
 
   if (note.isLoading || !loaded) return <div className={`${panel} p-6`}><Skeleton className="mb-3 h-7 w-1/2" /><Skeleton className="h-64 w-full" /></div>;
   if (note.error) return <ErrorState message="Couldn't load this note." onRetry={() => note.refetch()} />;
@@ -233,22 +195,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
         <input value={title} onChange={(e) => { setTitle(e.target.value); queueSave(e.target.value, body); }} className="font-display w-full bg-transparent px-5 pt-4 text-2xl font-semibold text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Note title" />
         <div className="grid md:grid-cols-2">
           <div className="relative">
-            <textarea ref={ta} value={body} onChange={(e) => { setBody(e.target.value); queueSave(title, e.target.value); detect(); }} onKeyUp={(e) => { if (!["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(e.key)) detect(); }} onClick={detect} onKeyDown={onKeyDown} onBlur={() => setTimeout(() => setTrigger(null), 150)} spellCheck={false} rows={22} placeholder="Write in Markdown. [[Another note]] links it; @lavie2010attention cites a paper and attaches it to this note." className="w-full resize-y border-0 bg-transparent px-5 py-4 font-mono text-[13px] leading-6 text-stone-800 placeholder:text-stone-400 focus:outline-none dark:text-stone-100" aria-label="Note body" />
-            {trigger && rows.length > 0 && (
-              <div className="absolute left-5 top-2 z-20 w-80 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl dark:border-stone-700 dark:bg-stone-900" role="listbox" aria-label={trigger.kind === "note" ? "Link a note" : "Cite a paper"} data-testid="autocomplete">
-                <p className="flex items-center gap-1 border-b border-stone-100 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:border-stone-800">{trigger.kind === "note" ? <><Link2 className="h-3 w-3" aria-hidden="true" />Link a note</> : <><AtSign className="h-3 w-3" aria-hidden="true" />Cite a paper</>}<span className="ml-auto normal-case tracking-normal">↑↓ Enter</span></p>
-                <ul className="max-h-64 overflow-auto">
-                  {rows.map((r, i) => (
-                    <li key={`${r.id}-${r.label}`} role="option" aria-selected={i === cursor}>
-                      <button type="button" onMouseDown={(e) => { e.preventDefault(); accept(r); }} className={`block w-full px-3 py-1.5 text-left ${i === cursor ? "bg-indigo-50 dark:bg-indigo-500/15" : ""}`}>
-                        <p className="truncate text-sm text-stone-800 dark:text-stone-100">{trigger.kind === "reference" ? <span className="font-mono">@{r.label}</span> : r.label}</p>
-                        {r.sublabel && <p className="truncate text-[11px] text-stone-400">{r.sublabel}</p>}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <MarkdownEditor value={body} onChange={(v) => { setBody(v); queueSave(title, v); }} onSave={() => { window.clearTimeout(timer.current); save.mutate({ title, body: bodyRef.current }); }} suggest={suggest} placeholder="Write in Markdown. [[Another note]] links it; @lavie2010attention cites a paper and attaches it to this note." />
           </div>
           <div className="border-t border-stone-100 md:border-l md:border-t-0 dark:border-stone-800">
             <div className="prose prose-sm prose-stone max-w-none px-5 py-4 dark:prose-invert" data-testid="note-preview" dangerouslySetInnerHTML={{ __html: preview.data?.html ?? "" }} />

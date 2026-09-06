@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ NOTES EDITOR v2 (2026-09-06, #358).** CodeMirror Markdown editor with `[[`/`@` completions, formatting shortcuts, palette for both themes; textarea autocomplete removed. Playwright: `[[Load` offered note titles, `@lav` offered cite keys, both inserted, autosaved, preview linked (docs/screenshots/notes-editor-v2.png).
+
 - **★ FROZEN-SERVER SMOKE TEST IN CI (2026-09-06, #357).** Release workflow boots the frozen server on Windows and Linux, checks login, diagnostics (bundled engine) and the SPA bundle before building the installer; scaffold test pins it. Watching the next run for the Windows result.
 
 - **★ TODAY v2 + MATRIX SUGGESTIONS (2026-09-06, #356).** Today keyboard/inline edit/reorder/age chips/project links; matrix `suggest_themes` + API + chips. Tests: suggest ranking/skip-existing + API. Playwright: added, edited (e), deleted (x) an item; suggestions rendered as chips (docs/screenshots/today-v2.png, matrix-suggest.png).

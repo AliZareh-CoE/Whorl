@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Notes editor v2: CodeMirror Markdown (#358)
+
+**Decision.** The note body is a CodeMirror 6 editor (`frontend/src/app/notes/MarkdownEditor.tsx`, `@codemirror/lang-markdown` added): Markdown highlighting (headings, emphasis, links, code, quotes), `[[` note-link and `@` cite completions from `/notes/suggest/` (with the "new note" option preserved), ⌘B / ⌘I / ⌘K formatting, ⌘S save, find, history, line wrapping, and a CSS-variable palette (`.md-editor`) for both looks. The hand-rolled textarea autocomplete (regex on `selectionStart`, own popover, own key handling) is gone; the preview, autosave and link panel are untouched.
+
+**Why.** Notes are written every day; a textarea with a bolted-on popover is not a writing surface, and the studio already proved the CodeMirror core. One editor engine now serves LaTeX and Markdown.
+
+**Alternatives.** A WYSIWYG editor (rejected: `[[links]]` and `@keys` are the point; Markdown stays visible and portable); keeping the textarea and adding shortcuts (rejected: no highlighting, no proper completion UI).
+
 ### 2026-09-06 — CI boots the frozen server before an installer ships (#357)
 
 **Decision.** The release workflow now runs the PyInstaller output on each target OS: `--setup-only` (migrate, collect static, create the login), then serve on a spare port, fetch the login page, call `/api/v1/diagnostics/` with the minted key and require the bundled Tectonic path in the answer, and fetch the SPA bundle — printing the server log on failure. A scaffold test pins the step and its order.

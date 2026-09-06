@@ -549,3 +549,32 @@
 @media (prefers-reduced-motion: reduce) {
   .mochi .mochi-body, .mochi .mochi-lid, .mochi .mochi-tufts, .mochi .mochi-sparkle, .mochi .mochi-wing, .mochi-zzz i, .mochi-hop, .mochi-celebrate, .mochi-love, .mochi-nom, .mochi-think, .mochi-particles i { animation: none; }
 }
+
+/* --- Notes editor (CodeMirror markdown, 2026-09-06): one palette for both looks --- */
+.md-editor {
+  --md-fg: #292524;
+  --md-dim: #a8a29e;
+  --md-heading: #1c1917;
+  --md-accent: #4f46e5;
+  --md-selection: rgba(79, 70, 229, 0.16);
+  --md-active-line: rgba(79, 70, 229, 0.04);
+  --md-panel: #ffffff;
+  --md-line: #e7e5e4;
+  --md-match: rgba(251, 191, 36, 0.35);
+  --md-code: #be185d;
+  --md-code-bg: rgba(28, 25, 23, 0.06);
+}
+.dark .md-editor {
+  --md-fg: #e7e5e4;
+  --md-dim: #6b7280;
+  --md-heading: #f5f5f4;
+  --md-accent: #a5b4fc;
+  --md-selection: rgba(129, 140, 248, 0.25);
+  --md-active-line: rgba(129, 140, 248, 0.06);
+  --md-panel: #10131c;
+  --md-line: #1f2333;
+  --md-match: rgba(251, 191, 36, 0.3);
+  --md-code: #f9a8d4;
+  --md-code-bg: rgba(255, 255, 255, 0.08);
+}
+.md-editor .cm-editor { min-height: 22rem; }
