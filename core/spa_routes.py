@@ -29,6 +29,7 @@ _MAPS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^/prompts/$"), "/prompts"),
     (re.compile(r"^/search/$"), "/search"),
     (re.compile(r"^/automations/$"), "/automations"),
+    (re.compile(r"^/pet/$"), "/pet"),
 ]
 
 

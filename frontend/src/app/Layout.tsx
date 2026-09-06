@@ -6,7 +6,7 @@ import { api, csrfToken } from "./api";
 import { toSpaUrl } from "./links";
 import CommandBar from "./CommandBar";
 import TerminalDock, { openTerminal } from "./TerminalDock";
-import { PetSvg } from "./PetSvg";
+import { Creature, type Reaction } from "./pet/Creature";
 import { UpdaterButton } from "./UpdaterButton";
 
 // Observatory rail: a glowing gradient bar marks the active page; the rest stays quiet.
@@ -72,6 +72,8 @@ export default function Layout() {
   // Buddy-style life (Owner idea #23): rotate observation bubbles, hop on real events.
   const [lineIdx, setLineIdx] = useState(0);
   const [reaction, setReaction] = useState<string | null>(null);
+  const [petMove, setPetMove] = useState<Reaction | null>(null);
+  const REACTION_MOVES: Record<string, Reaction> = { milestone: "celebrate", paper: "nom", capture: "think", note: "hop" };
   useEffect(() => {
     const t = setInterval(() => setLineIdx((i) => i + 1), 20_000);
     return () => clearInterval(t);
@@ -82,6 +84,7 @@ export default function Layout() {
       const line = pet?.reactions?.[kind];
       if (!line) return;
       setReaction(line);
+      setPetMove(null); window.setTimeout(() => setPetMove(REACTION_MOVES[kind] ?? "hop"), 10);
       setTimeout(() => setReaction(null), 4000);
     }
     window.addEventListener("atlas-pet", onPet);
@@ -145,7 +148,7 @@ export default function Layout() {
         </nav>
         <div className="mt-auto border-t border-stone-100 px-1 pt-4 text-xs text-stone-400 dark:border-stone-800">
           {pet && (
-            <a href="/pet/" title={`${pet.name} is ${pet.mood}`} className="group mb-3 block">
+            <NavLink to="/pet" title={`${pet.name} is ${pet.mood} — open its page`} className="group mb-3 block">
               <span
                 key={bubble}
                 className={`pet-bubble relative mb-1.5 block rounded-lg border px-2.5 py-1.5 text-[10px] leading-snug calm:hidden ${
@@ -166,9 +169,7 @@ export default function Layout() {
                 </button>
               </span>
               <span className="flex items-center gap-2 rounded-lg border border-stone-100 bg-stone-50 px-2 py-1.5 group-hover:border-stone-200 dark:border-stone-800 dark:bg-stone-950/40 dark:group-hover:border-stone-700">
-                <span className={reaction ? "pet-hop inline-block" : "inline-block"}>
-                  <PetSvg stage={pet.stage} mood={pet.mood} size={28} />
-                </span>
+                <Creature stage={pet.stage} mood={pet.mood} size={44} reaction={petMove} onClick={() => { setPetMove(null); window.setTimeout(() => setPetMove("love"), 10); }} />
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-stone-600 dark:text-stone-200">{pet.name}</span>
                   <span className="block truncate text-[10px] text-stone-400">
@@ -176,7 +177,7 @@ export default function Layout() {
                   </span>
                 </span>
               </span>
-            </a>
+            </NavLink>
           )}
           <NavLink to="/automations" className="mb-1 flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:text-stone-700 dark:hover:text-stone-200"><Bot className="h-3.5 w-3.5" aria-hidden="true" />Automations</NavLink>
           <a href="/connect/claude/" className="mb-1 flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:text-stone-700 dark:hover:text-stone-200"><Plug className="h-3.5 w-3.5" aria-hidden="true" />Connect Claude Code</a>

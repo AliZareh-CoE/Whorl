@@ -25,7 +25,7 @@ HTML = {"HTTP_ACCEPT": "text/html,application/xhtml+xml,*/*;q=0.8"}
         ("/projects/x/writing/7/editor/", "/manuscripts/7/editor"),
         ("/projects/x/writing/7/files/", None),
         ("/classic/", None),
-        ("/pet/", None),
+        ("/pet/", "/pet"),
     ],
 )
 def test_spa_equivalent(classic, spa):
@@ -86,7 +86,7 @@ def test_back_to_the_app_clears_the_cookie(client_logged_in):
 
 
 def test_pages_without_a_twin_still_render_with_the_banner(client_logged_in):
-    response = client_logged_in.get("/pet/", **HTML)
+    response = client_logged_in.get("/connect/claude/", **HTML)
     assert response.status_code == 200 and b"classic-banner" in response.content
     assert b'href="/?ui=app"' in response.content
 

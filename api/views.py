@@ -2405,10 +2405,28 @@ class DashboardAPIView(APIView):
 class PetAPIView(APIView):
     """The pet's state for the SPA sidebar widget."""
 
-    @extend_schema(description="Mochi's state: stage, mood, speech line.", responses={200: None})
+    @extend_schema(
+        description="Mochi's state: stage, mood, speech lines, stats, streak, achievements.",
+        responses={200: None},
+    )
     def get(self, request):
         from core.pet import pet_state
 
+        return Response(pet_state())
+
+    @extend_schema(
+        operation_id="v1_pet_rename",
+        description='Rename the pet: {"name": "..."} (1-40 characters).',
+        request=inline_serializer("PetRename", {"name": rf_serializers.CharField(max_length=40)}),
+        responses={200: None},
+    )
+    def post(self, request):
+        from core.pet import pet_state, rename_pet
+
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            return Response({"name": ["A name is required."]}, status=400)
+        rename_pet(name)
         return Response(pet_state())
 
 

@@ -65,7 +65,7 @@ Claude Code can do all of it with you — 86 tools over the same API the UI uses
 - Inbox: capture from anywhere (⌘K, the page, Claude); smart triage turns a DOI into a paper, "todo:" into a Today item, "idea:" into a note, "milestone:" and "decision:" into the real thing.
 - Today: a dead-simple personal list for the day. Research tools: a hypothesis ledger (evidence from papers, notes or documents; the balance suggests a status), experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Local extras: Piper read-aloud, extractive tl;dr — offline.
 
-**Claude / MCP** — 80 tools over the REST API; your AI assistant operates the same contract you do. **A pet owl** 🦉 — fed by finished research; never nags.
+**Claude / MCP** — 86 tools over the REST API plus four skills; your AI assistant operates the same contract you do. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags.
 
 ## Quick start (one command)
 

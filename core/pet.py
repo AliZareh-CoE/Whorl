@@ -180,6 +180,130 @@ def pet_stats() -> dict:
     }
 
 
+POINTS_LEGEND = [
+    ("milestone completed", 3),
+    ("note written", 2),
+    ("paper read or annotated", 2),
+    ("experiment logged", 2),
+    ("paper added to the library", 1),
+    ("comment left", 1),
+]
+
+
+def _activity_days(limit: int = 120) -> set:
+    """Calendar days with any pet-feeding activity (for the streak)."""
+    from literature.models import ProjectReference, Reference
+    from notes.models import Note
+    from plans.models import Milestone
+    from research.models import ExperimentEntry
+
+    since = timezone.now() - datetime.timedelta(days=limit)
+    days = set()
+    for qs, field in (
+        (Milestone.objects.filter(completed_at__isnull=False), "completed_at"),
+        (Note.objects.all(), "created_at"),
+        (Reference.objects.all(), "created_at"),
+        (ProjectReference.objects.filter(reading_status__in=["read", "annotated"]), "updated_at"),
+        (ExperimentEntry.objects.all(), "created_at"),
+    ):
+        for value in qs.filter(**{f"{field}__gte": since}).values_list(field, flat=True):
+            days.add(timezone.localtime(value).date())
+    return days
+
+
+def streak_days(days: set | None = None, today=None) -> int:
+    """Consecutive days ending today (or yesterday, so a morning visit does not read 0)."""
+    days = _activity_days() if days is None else days
+    today = today or timezone.localdate()
+    start = today if today in days else today - datetime.timedelta(days=1)
+    if start not in days:
+        return 0
+    n = 0
+    while start in days:
+        n += 1
+        start -= datetime.timedelta(days=1)
+    return n
+
+
+ACHIEVEMENTS = [
+    # (key, title, description, predicate(stats, lifetime, streak, counts))
+    (
+        "first_light",
+        "First light",
+        "Feed Mochi once — any note, paper or milestone.",
+        lambda st, life, streak, c: life >= 1,
+    ),
+    ("hatched", "Hatched", "Reach 10 lifetime points.", lambda st, life, streak, c: life >= 10),
+    (
+        "bookworm",
+        "Bookworm",
+        "Read or annotate 10 papers.",
+        lambda st, life, streak, c: c["read"] >= 10,
+    ),
+    (
+        "closer",
+        "Closer",
+        "Complete 10 milestones.",
+        lambda st, life, streak, c: c["milestones"] >= 10,
+    ),
+    ("scribe", "Scribe", "Write 25 notes.", lambda st, life, streak, c: c["notes"] >= 25),
+    ("lab_rat", "Lab rat", "Log 5 experiments.", lambda st, life, streak, c: c["experiments"] >= 5),
+    (
+        "week_long",
+        "Seven days",
+        "A seven-day activity streak.",
+        lambda st, life, streak, c: streak >= 7,
+    ),
+    (
+        "month_long",
+        "Thirty days",
+        "A thirty-day activity streak.",
+        lambda st, life, streak, c: streak >= 30,
+    ),
+    (
+        "well_rounded",
+        "Well-rounded",
+        "Every stat at level 3 or more.",
+        lambda st, life, streak, c: min(st.values()) >= 3,
+    ),
+    ("sage", "Sage", "Reach the sage stage (120 points).", lambda st, life, streak, c: life >= 120),
+]
+
+
+def achievements(stats: dict, lifetime: int, streak: int) -> list[dict]:
+    from literature.models import ProjectReference
+    from notes.models import Note
+    from plans.models import Milestone
+    from research.models import ExperimentEntry
+
+    counts = {
+        "read": ProjectReference.objects.filter(reading_status__in=["read", "annotated"]).count(),
+        "milestones": Milestone.objects.filter(completed_at__isnull=False).count(),
+        "notes": Note.objects.count(),
+        "experiments": ExperimentEntry.objects.count(),
+    }
+    return [
+        {
+            "key": key,
+            "title": title,
+            "description": desc,
+            "unlocked": bool(pred(stats, lifetime, streak, counts)),
+        }
+        for key, title, desc, pred in ACHIEVEMENTS
+    ]
+
+
+def rename_pet(name: str) -> str:
+    from core.models import Pet
+
+    name = (name or "").strip()[:40] or "Mochi"
+    pet, _ = Pet.objects.get_or_create(pk=1)
+    pet.name = name
+    pet.save(update_fields=["name", "updated_at"])
+    cache.delete("atlas-pet-state")
+    return name
+
+
 def pet_state() -> dict:
     cached = cache.get("atlas-pet-state")
     if cached is not None:
@@ -203,7 +327,7 @@ def pet_state() -> dict:
     if stats[dominant] > 0:
         lines.append(dict(STAT_RULES)[dominant])
     rng.shuffle(lines)
-
+    streak = streak_days()
     state = {
         "name": pet.name,
         "speech": lines[0],
@@ -220,6 +344,12 @@ def pet_state() -> dict:
         "lifetime_points": lifetime,
         "to_next_stage": (next_stage[0] - lifetime) if next_stage else None,
         "next_stage_name": next_stage[1] if next_stage else None,
+        "stage_floor": stage[0],
+        "next_stage_points": next_stage[0] if next_stage else None,
+        "streak_days": streak,
+        "achievements": achievements(stats, lifetime, streak),
+        "points_legend": [{"action": a, "points": p} for a, p in POINTS_LEGEND],
+        "stages": [{"points": p, "name": n, "blurb": b} for p, n, _e, b in STAGES],
     }
     cache.set("atlas-pet-state", state, 300)
     return state

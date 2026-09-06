@@ -27,6 +27,7 @@ const Graph = lazy(() => import("./pages/Graph"));
 const WritingBoard = lazy(() => import("./pages/Writing").then((m) => ({ default: m.WritingBoard })));
 const ManuscriptDetail = lazy(() => import("./pages/Writing").then((m) => ({ default: m.ManuscriptDetail })));
 const Studio = lazy(() => import("./pages/Studio"));
+const PetPage = lazy(() => import("./pages/Pet"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const Today = lazy(() => import("./pages/Today"));
 const Prompts = lazy(() => import("./pages/Prompts"));
@@ -67,6 +68,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/decisions" element={<Decisions />} />
           <Route path="projects/:slug/graph" element={<Graph />} />
           <Route path="automations" element={<Automations />} />
+          <Route path="pet" element={<PetPage />} />
           <Route path="library" element={<Library />} />
           <Route path="references/:id" element={<Reference />} />
           <Route path="writing" element={<WritingBoard />} />
