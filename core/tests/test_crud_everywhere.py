@@ -20,7 +20,13 @@ def test_no_native_browser_dialogs_in_the_spa():
     offenders = []
     for path in list(PAGES.rglob("*.tsx")) + list(Path(PAGES.parent).glob("*.tsx")):
         text = path.read_text()
-        for needle in ("window.prompt(", "window.confirm(", "window.alert(", " confirm(`", " alert("):
+        for needle in (
+            "window.prompt(",
+            "window.confirm(",
+            "window.alert(",
+            " confirm(`",
+            " alert(",
+        ):
             if needle in text:
                 offenders.append(f"{path.name}: {needle.strip()}")
     assert not offenders, offenders
@@ -37,15 +43,24 @@ def test_dialog_host_is_mounted_once_at_the_root():
 @pytest.mark.parametrize(
     ("page", "needles"),
     [
-        ("ProjectOverview.tsx", ['method: "DELETE"', "verify: name", "Archive", "project-settings"]),
+        (
+            "ProjectOverview.tsx",
+            ['method: "DELETE"', "verify: name", "Archive", "project-settings"],
+        ),
         ("Projects.tsx", ["onContextMenu", "Delete project", "Archive"]),
-        ("Files.tsx", ["onContextMenu", "/folders/${v.id}/", "Upload here", "New folder inside", "F2"]),
+        (
+            "Files.tsx",
+            ["onContextMenu", "/folders/${v.id}/", "Upload here", "New folder inside", "F2"],
+        ),
         ("Decisions.tsx", ['method: editing ? "PATCH" : "POST"', "/decisions/${id}/"]),
         ("Figures.tsx", ["Rename…", "Delete…", "/documents/${id}/"]),
         ("Prompts.tsx", ["/prompts/${id}/", "New prompt"]),
         ("Literature.tsx", ["Remove from this project", "priority"]),
         ("Reference.tsx", ["EditReference", "Delete from library"]),
-        ("Research.tsx", ["QuestionsPanel", "/questions/${id}/", "/experiments/${id}/", "/datasets/${id}/"]),
+        (
+            "Research.tsx",
+            ["QuestionsPanel", "/questions/${id}/", "/experiments/${id}/", "/datasets/${id}/"],
+        ),
         ("Plan.tsx", ["add-phase", "Delete phase", "Rename…"]),
         ("Writing.tsx", ["Delete manuscript", "/manuscripts/${id}/", "cardItems", "Shelve"]),
         ("Library.tsx", ["rowItems", "Delete from library", "Find metadata", "onContextMenu"]),
@@ -66,7 +81,7 @@ def test_documents_table_rows_have_in_app_actions():
 
 def test_files_open_from_disk_surfaces_errors_and_can_add_the_file():
     text = _src("Files.tsx")
-    assert "errorDialog(\"Couldn't open a file from disk\"" in text
+    assert 'errorDialog("Couldn\'t open a file from disk"' in text
     assert "add-local-file" in text
 
 

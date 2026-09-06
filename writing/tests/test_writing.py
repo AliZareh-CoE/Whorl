@@ -316,7 +316,7 @@ class TestCompile:
         manuscript = ManuscriptFactory()
         called = {}
         monkeypatch.setattr(
-            "writing.tasks.compile_manuscript_task",
+            "writing.tasks.enqueue_compile",
             lambda pk, gen=None: called.setdefault("pk", pk),
         )
         response = client_logged_in.post(
@@ -457,7 +457,7 @@ class TestCompileDiagnostics:
 
         called = {}
         monkeypatch.setattr(
-            "writing.tasks.compile_manuscript_task",
+            "writing.tasks.enqueue_compile",
             lambda pk, gen=None: called.setdefault("pk", pk),
         )
         queued = client_logged_in.post(f"/api/v1/manuscripts/{manuscript.pk}/compile/")
@@ -502,7 +502,7 @@ class TestEpicSlice2:
         manuscript = ManuscriptFactory(latex_source="x")
         seen = {}
         monkeypatch.setattr(
-            "writing.tasks.compile_manuscript_task",
+            "writing.tasks.enqueue_compile",
             lambda pk, gen=None: seen.update(pk=pk, gen=gen),
         )
         url = f"/projects/{manuscript.project.slug}/writing/{manuscript.pk}/compile/"

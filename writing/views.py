@@ -174,9 +174,9 @@ def compile_manuscript_view(request, slug, pk):
     manuscript.compile_generation += 1
     manuscript.compile_status = manuscript.CompileStatus.RUNNING
     manuscript.save()
-    from .tasks import compile_manuscript_task
+    from .tasks import enqueue_compile
 
-    compile_manuscript_task(manuscript.pk, manuscript.compile_generation)
+    enqueue_compile(manuscript.pk, manuscript.compile_generation)
     if request.headers.get("X-SPA"):  # epic slice 2: compile without a page reload
         from django.http import JsonResponse
 

@@ -1855,7 +1855,7 @@ class ManuscriptViewSet(AtlasViewSet):
     )
     @action(detail=True, methods=["post"])
     def compile(self, request, pk=None):
-        from writing.tasks import compile_manuscript_task
+        from writing.tasks import enqueue_compile
 
         manuscript = self.get_object()
         if not manuscript.source_text().strip():
@@ -1863,7 +1863,7 @@ class ManuscriptViewSet(AtlasViewSet):
         manuscript.compile_generation += 1
         manuscript.compile_status = Manuscript.CompileStatus.RUNNING
         manuscript.save(update_fields=["compile_generation", "compile_status", "updated_at"])
-        compile_manuscript_task(manuscript.pk, manuscript.compile_generation)
+        enqueue_compile(manuscript.pk, manuscript.compile_generation)
         return Response({"status": "running"}, status=202)
 
     @extend_schema(

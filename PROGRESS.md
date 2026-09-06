@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Desktop compiles off the request thread (2026-09-06, #367).** `enqueue_compile` runs the compile on a daemon thread in immediate mode; tests `writing/tests/test_enqueue_compile.py`. Also: the desktop swallows the webview's own right-click menu outside text fields.
+
 - **CRUD sweep, third pass (2026-09-06).** Library rows: right-click → open, read & highlight, reference page, find metadata, copy \\cite, delete. Files hides "Open in a new tab" on the desktop (no tabs there).
 
 - **CRUD sweep, second pass (2026-09-06).** Documents table rows: right-click/⋯ → download, comments, rename, edit description, delete (no more exit to the classic edit page); Writing board cards: open, studio, move forward, shelve, delete (typed title). Playwright: uploaded → renamed → deleted a document from the table; card menu rendered; no console errors (docs/screenshots/documents-menu.png).

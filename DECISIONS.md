@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Compiles never run inside the request (#367)
+
+**Decision.** `writing/tasks.enqueue_compile` queues the huey task on server installs and, in *immediate* mode (desktop, Redis-less dev), runs the compile on a daemon thread that closes its DB connection when done. Both compile views call it.
+
+**Why.** Immediate-mode huey executes the task inline inside the HTTP request, so on the desktop the click on Compile held the request for the whole run — a first Tectonic run downloads its bundle for minutes — and the studio's "stalled compile" hint could not tell that apart from a hang. The studio polls compile-status anyway; nothing needed the synchronous result.
+
+**Alternatives rejected.** A real huey consumer thread in the desktop process (more moving parts for one long task); making compile synchronous with a short timeout (the first run is legitimately slow).
+
 ### 2026-09-06 — CRUD everywhere: in-app dialogs, context menus, every object editable and deletable in the SPA (#364)
 
 **Decision.** Three owner reports in one evening ("I made a project to test, now I can't delete it", "left click doesn't have much functionality", "CRUD is missing from the whole project") were the same defect: the SPA had migrated the *reading* of most objects but not their editing. This slice closes it as a rule, not a patch:
