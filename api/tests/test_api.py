@@ -830,3 +830,74 @@ class TestLibraryImport:
             "/api/v1/references/import-zotero/", {}, content_type="application/json", **HEADERS
         ).json()
         assert data["created"] == 1 and data["results"][0]["source"] == "zotero"
+
+
+class TestLibraryWorkbench:
+    """Library v2: facets, list filters, bulk, find-metadata over the API."""
+
+    def _seed(self):
+        from literature.models import Reference
+
+        a = Reference.objects.create(title="Alpha Paper", bibtex_key="alpha", year=2020, venue="V")
+        b = Reference.objects.create(title="Beta Paper", bibtex_key="beta", year=2019, venue="W")
+        return a, b
+
+    def test_list_filters_and_projects_field(self, client, owner):
+        from literature.models import ProjectReference
+
+        a, b = self._seed()
+        project = ProjectFactory()
+        ProjectReference.objects.create(project=project, reference=a, reading_status="read")
+        data = client.get("/api/v1/references/?year=2020", **HEADERS).json()
+        assert [r["title"] for r in data["results"]] == ["Alpha Paper"]
+        assert data["results"][0]["projects"][0]["reading_status"] == "read"
+        data = client.get("/api/v1/references/?q=beta&sort=title", **HEADERS).json()
+        assert [r["title"] for r in data["results"]] == ["Beta Paper"]
+        data = client.get("/api/v1/references/?unfiled=true", **HEADERS).json()
+        assert [r["title"] for r in data["results"]] == ["Beta Paper"]
+
+    def test_facets_endpoint(self, client, owner):
+        self._seed()
+        data = client.get("/api/v1/references/facets/", **HEADERS).json()
+        assert data["total"] == 2 and [y["year"] for y in data["years"]] == [2019, 2020]
+
+    def test_bulk_endpoint(self, client, owner):
+        a, b = self._seed()
+        project = ProjectFactory()
+        data = client.post(
+            "/api/v1/references/bulk/",
+            {"ids": [a.pk, b.pk], "action": "link", "project": project.slug},
+            content_type="application/json",
+            **HEADERS,
+        ).json()
+        assert data["affected"] == 2
+        bad = client.post(
+            "/api/v1/references/bulk/",
+            {"ids": [a.pk], "action": "status", "project": project.slug, "value": "nah"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert bad.status_code == 400
+
+    def test_find_metadata_endpoint(self, client, owner, monkeypatch):
+        from literature import library
+
+        a, b = self._seed()
+        monkeypatch.setattr(
+            library,
+            "fetch_metadata_by_doi",
+            lambda doi: {"doi": doi, "title": "Found", "extra": {}},
+        )
+        a.doi = "10.9/x"
+        a.save()
+        data = client.post(f"/api/v1/references/{a.pk}/find-metadata/", **HEADERS).json()
+        assert data["title"] == "Found"
+        from literature.services import MetadataError
+
+        def boom(reference, client=None):
+            raise MetadataError("No confident match")
+
+        monkeypatch.setattr(library, "find_metadata", boom)
+        assert (
+            client.post(f"/api/v1/references/{b.pk}/find-metadata/", **HEADERS).status_code == 400
+        )

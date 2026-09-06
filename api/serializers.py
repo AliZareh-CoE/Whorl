@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field, inline_serializer
 from rest_framework import serializers
 
 from documents.models import Document, Folder, Tag
@@ -156,6 +157,36 @@ class DocumentSerializer(serializers.ModelSerializer):
 
 
 class ReferenceSerializer(serializers.ModelSerializer):
+    # Library v2: which projects hold this paper, with the per-project reading state — one
+    # prefetch on the viewset, no per-row queries.
+    projects = serializers.SerializerMethodField()
+
+    @extend_schema_field(
+        serializers.ListField(
+            child=inline_serializer(
+                "ReferenceProjectLink",
+                fields={
+                    "slug": serializers.CharField(),
+                    "name": serializers.CharField(),
+                    "color": serializers.CharField(),
+                    "reading_status": serializers.CharField(),
+                    "priority": serializers.CharField(),
+                },
+            )
+        )
+    )
+    def get_projects(self, obj) -> list[dict]:
+        return [
+            {
+                "slug": link.project.slug,
+                "name": link.project.name,
+                "color": link.project.color,
+                "reading_status": link.reading_status,
+                "priority": link.priority,
+            }
+            for link in obj.project_links.all()
+        ]
+
     def validate_pdf(self, value):
         from django.core.exceptions import ValidationError as DjangoValidationError
 
@@ -185,10 +216,11 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "raw_bibtex",
             "extra",
             "citation_count",
+            "projects",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["bibtex_key"]
+        read_only_fields = ["bibtex_key", "projects"]
 
     def create(self, validated_data):
         from literature.services import generate_bibtex_key
@@ -232,6 +264,21 @@ class QuickCaptureSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuickCapture
         fields = ["id", "text", "processed", "project", "created_at", "updated_at"]
+
+
+class BulkReferenceActionSerializer(serializers.Serializer):
+    """Library v2 bulk bar: one action over many references."""
+
+    ids = serializers.ListField(child=serializers.IntegerField(), min_length=1, max_length=500)
+    action = serializers.ChoiceField(
+        choices=["link", "unlink", "status", "priority", "delete", "find_metadata"]
+    )
+    project = serializers.SlugField(
+        required=False, allow_blank=True, help_text="Needed for link/unlink/status/priority."
+    )
+    value = serializers.CharField(
+        required=False, allow_blank=True, help_text="The reading status or priority to set."
+    )
 
 
 class ImportReferencesSerializer(serializers.Serializer):

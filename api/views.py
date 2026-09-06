@@ -816,9 +816,85 @@ class DocumentViewSet(AtlasViewSet):
 
 
 class ReferenceViewSet(AtlasViewSet):
-    queryset = Reference.objects.all()
+    queryset = Reference.objects.prefetch_related("project_links__project")
     serializer_class = serializers.ReferenceSerializer
     project_filter = "project_links__project__slug"
+
+    def get_queryset(self):
+        # Library v2 workbench filters (q, year, year_min/max, entry_type, venue, has_pdf,
+        # needs_metadata, project, reading_status, unfiled, sort) — see literature/library.py.
+        from literature.library import filter_references
+
+        queryset = Reference.objects.prefetch_related("project_links__project")
+        if self.action == "list":
+            return filter_references(queryset, self.request.query_params)
+        return queryset
+
+    @extend_schema(
+        parameters=[OpenApiParameter("project", str, description="Optional project slug")],
+        responses={
+            200: OpenApiResponse(
+                description="Facet counts: years, entry types, venues, projects, PDF/needs-metadata/unfiled totals"
+            )
+        },
+        description="Counts that drive the Library's filter rail, over the whole library (or one project).",
+    )
+    @action(detail=False, methods=["get"])
+    def facets(self, request):
+        from literature.library import facets
+
+        queryset = Reference.objects.all()
+        slug = request.query_params.get("project")
+        if slug:
+            queryset = queryset.filter(project_links__project__slug=slug).distinct()
+        return Response(facets(queryset))
+
+    @extend_schema(
+        request=serializers.BulkReferenceActionSerializer,
+        responses={200: OpenApiResponse(description="{action, affected, errors}")},
+        description=(
+            "One action over many references: link/unlink to a project, set reading status or "
+            "priority within a project, delete, or find_metadata (recover metadata for stubs by "
+            "DOI/arXiv id or a Crossref title search)."
+        ),
+    )
+    @action(detail=False, methods=["post"])
+    def bulk(self, request):
+        from literature.library import bulk
+
+        serializer = serializers.BulkReferenceActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            result = bulk(
+                data["ids"], data["action"], data.get("project") or None, data.get("value") or None
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: serializers.ReferenceSerializer,
+            400: OpenApiResponse(description="No confident metadata found"),
+        },
+        description="Recover/refresh metadata for one reference (by DOI, arXiv id, or Crossref title search).",
+    )
+    @action(detail=True, methods=["post"], url_path="find-metadata")
+    def find_metadata(self, request, pk=None):
+        from literature.library import find_metadata
+        from literature.services import MetadataError
+
+        reference = self.get_object()
+        try:
+            find_metadata(reference)
+        except MetadataError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        reference.refresh_from_db()
+        return Response(
+            serializers.ReferenceSerializer(reference, context={"request": request}).data
+        )
 
     @extend_schema(
         request=serializers.AddByDoiSerializer,

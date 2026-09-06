@@ -16,6 +16,8 @@ milestones, add papers, fetch your saved prompts.
 
 | | |
 |---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Library workbench](docs/screenshots/library.png) |
+| *The Observatory dashboard: a living constellation of your projects and what needs you today* | *The Library workbench: drop PDFs/BibTeX/RIS or pull Zotero, facet by year/venue/project, bulk-file, recover metadata* |
 | ![Project overview](docs/screenshots/overview.png) | ![Knowledge graph](docs/screenshots/graph3d.png) |
 | *One-glance project overview with a tree that grows with progress* | *3D citation + notes graph, synced from OpenAlex* |
 | ![LaTeX editor](docs/screenshots/latex-editor.png) | ![PDF reader](docs/screenshots/pdf-reader.png) |
@@ -24,7 +26,7 @@ milestones, add papers, fetch your saved prompts.
 ## What's inside
 
 - **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm
-- **Reference library** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop PDFs (the DOI is read off page one and metadata fetched), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers
+- **Library workbench** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop a folder of PDFs onto the page (the DOI is read off page one and metadata fetched; scans without one are kept and can "find metadata" later), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click — all deduplicated; facets by project, year histogram, venue, type, PDF; keyboard `j/k/x/o`; bulk file-to-project, reading status, delete; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers
 - **Literature review matrix** — papers × themes grid with markdown export
 - **Notes & knowledge graph** — `[[wiki-links]]`, backlinks, typo-tolerant full-text search, related-paper suggestions (local TF-IDF, no API calls)
 - **Writing studio** — manuscript pipeline (idea → published), cite checker against your `.tex`, **server-side LaTeX compilation** (vendored Tectonic) with split-view preview
