@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "./Layout";
 import { DialogHost } from "../components/Dialog";
+import { installDesktopContextMenuGuard } from "./external";
 
 // Route-level code splitting (Backlog #76): each page is its own chunk, fetched on
 // first visit — spa.js carries only the shell, router, and query client.
@@ -41,6 +42,8 @@ const Figures = lazy(() => import("./pages/Figures"));
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
+
+installDesktopContextMenuGuard();
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>

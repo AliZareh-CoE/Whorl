@@ -33,3 +33,16 @@ export function installExternalLinkHandler(): void {
     void openExternal(url.href);
   }, true);
 }
+
+/** Install once (desktop only): swallow the webview's own right-click menu ("Reload", "Back",
+ * "Inspect"…) everywhere except text fields, so a right-click on a row shows Atlas's menu and a
+ * right-click on empty space shows nothing — never the browser's. */
+export function installDesktopContextMenuGuard(): void {
+  if (!isDesktop() || (window as unknown as { __atlasCtx?: boolean }).__atlasCtx) return;
+  (window as unknown as { __atlasCtx?: boolean }).__atlasCtx = true;
+  document.addEventListener("contextmenu", (e) => {
+    const el = e.target as HTMLElement | null;
+    if (el?.closest?.("input, textarea, [contenteditable], .cm-editor")) return;
+    if (!e.defaultPrevented) e.preventDefault();
+  });
+}
