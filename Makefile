@@ -56,3 +56,9 @@ desktop:
 
 desktop-build:
 	cd desktop && cargo tauri build
+
+# Freeze the Django server into desktop/server/dist/atlas-server (what the installer bundles;
+# needs `uv sync --group build`). Run `make css` first so the bundle carries the stylesheet.
+desktop-server:
+	uv run pyinstaller desktop/server/atlas_server.spec --noconfirm \
+		--distpath desktop/server/dist --workpath /tmp/atlas-pyi

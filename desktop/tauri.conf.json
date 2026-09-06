@@ -30,8 +30,7 @@
     "homepage": "https://github.com/alizareh-coe/project-manager",
     "createUpdaterArtifacts": false,
     "resources": {
-      "server/dist/atlas-server": "atlas-server",
-      "resources/pg": "pg"
+      "server/dist/atlas-server": "atlas-server"
     },
     "windows": {
       "nsis": {

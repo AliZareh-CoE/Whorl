@@ -15,12 +15,12 @@ on:
   push:
     branches:
       - "claude/atlas-build-loop-qnf8a8"
+      - "claude/desktop-app-project-tl12ri"
     paths:
       - "desktop/**"
       - ".github/workflows/desktop-release.yml"
-      # the frozen server bundles these Django sources, so a fix here (e.g. the bundled-
-      # Postgres lifecycle) must rebuild the installer too — they're not under desktop/.
-      - "core/desktop_runtime.py"
+      # the frozen server bundles these Django sources, so a fix here must rebuild the
+      # installer too — they're not under desktop/.
       - "core/management/commands/run_desktop.py"
       - "config/settings/desktop.py"
       - "pyproject.toml"
@@ -94,8 +94,8 @@ jobs:
         with:
           workspaces: desktop
 
-      # --- Self-contained server (#210f/#210i): freeze the Django server + bundle Postgres,
-      # so the installer carries everything and the app needs no Python/Postgres/Docker. ---
+      # --- Self-contained server (#210f, #266): freeze the Django server (SQLite, no DB
+      # server) so the installer carries everything and the app needs no Python/Docker. ---
       - name: Set up Python + uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -122,30 +122,6 @@ jobs:
 
       - name: Freeze the Atlas server
         run: uv run pyinstaller desktop/server/atlas_server.spec --noconfirm --distpath desktop/server/dist --workpath ${{ runner.temp }}/pyi
-
-      - name: Bundle Postgres binaries (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          set -e
-          PG_VER=16.4.0
-          curl -fL -o /tmp/pg.jar "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-linux-amd64/${PG_VER}/embedded-postgres-binaries-linux-amd64-${PG_VER}.jar"
-          mkdir -p /tmp/pgjar desktop/resources/pg
-          unzip -oq /tmp/pg.jar -d /tmp/pgjar
-          tar -xJf "$(ls /tmp/pgjar/*.txz)" -C desktop/resources/pg
-          test -x desktop/resources/pg/bin/initdb
-
-      - name: Bundle Postgres binaries (Windows)
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PG_VER = "16.4.0"
-          curl.exe -fL -o pg.jar "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/$PG_VER/embedded-postgres-binaries-windows-amd64-$PG_VER.jar"
-          New-Item -ItemType Directory -Force pgjar, desktop/resources/pg | Out-Null
-          Expand-Archive pg.jar -DestinationPath pgjar -Force
-          $txz = Get-ChildItem pgjar/*.txz | Select-Object -First 1
-          tar -xf $txz.FullName -C desktop/resources/pg
-          if (-not (Test-Path desktop/resources/pg/bin/initdb.exe)) { throw "initdb.exe missing" }
 
       # The desktop shell loads the bundled server (frontendDist is only a Tauri formality),
       # so there is no Node/Vite build step needed for the bundle.

@@ -60,5 +60,7 @@ STORAGES = {
 # No Redis in a single-user desktop build: run background jobs in-process, immediately.
 HUEY = {"huey_class": "huey.MemoryHuey", "name": "atlas", "immediate": True}
 
-# A local desktop app talks only to itself; keep CSRF/sessions sane for 127.0.0.1.
-CSRF_TRUSTED_ORIGINS = ["http://127.0.0.1:8000", "http://localhost:8000"]
+# A local desktop app talks only to itself; keep CSRF/sessions sane for 127.0.0.1. The port
+# follows ATLAS_PORT because the shell steps aside to a free port when 8000 is already taken.
+_port = os.environ.get("ATLAS_PORT", "8000")
+CSRF_TRUSTED_ORIGINS = [f"http://127.0.0.1:{_port}", f"http://localhost:{_port}"]

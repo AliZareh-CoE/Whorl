@@ -48,18 +48,17 @@ def test_webview_navigation_is_origin_locked():
 
 
 def test_installer_kills_running_server_before_install():
-    # #242: a running atlas-server.exe/postgres.exe locks pg\bin\postgres.exe, so an update
-    # over a running app fails with "Error opening file for writing". The NSIS pre-install hook
-    # taskkills them first.
+    # #242: a running atlas-server.exe holds its files open, so an update over a running app
+    # fails with "Error opening file for writing". The NSIS pre-install hook taskkills it first.
     cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
     hook = cfg["bundle"]["windows"]["nsis"]["installerHooks"]
     nsh = (DESKTOP / hook).read_text()
-    assert "NSIS_HOOK_PREINSTALL" in nsh
-    assert "atlas-server.exe" in nsh and "postgres.exe" in nsh and "taskkill" in nsh
+    assert "NSIS_HOOK_PREINSTALL" in nsh and "NSIS_HOOK_PREUNINSTALL" in nsh
+    assert "atlas-server.exe" in nsh and "taskkill" in nsh
 
 
 def test_window_auto_reloads_when_server_becomes_ready():
-    # #225: the bundled server's first launch (initdb+migrate) can be slow; the window must
+    # #225: the bundled server's first launch (migrate+collectstatic) can be slow; the window must
     # not get stuck on a "can't reach this page". It opens immediately and a background thread
     # reloads it (navigate) once wait_for_port answers — no manual refresh.
     main = (DESKTOP / "src" / "main.rs").read_text()
@@ -84,7 +83,7 @@ def test_bundle_targets_cover_linux_and_windows_installers():
     cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
     targets = cfg["bundle"]["targets"]
     assert isinstance(targets, list)
-    # AppImage is dropped (#210f): linuxdeploy can't bundle our native Postgres .so's;
+    # AppImage is not built (#210f: linuxdeploy choked on the bundled native libraries);
     # .deb/.rpm cover Linux, .nsis/.msi cover Windows.
     for fmt in ("deb", "rpm", "nsis", "msi"):
         assert fmt in targets, f"bundle target {fmt} missing"
@@ -99,23 +98,22 @@ def test_desktop_release_workflow_exists():
 
 
 def test_release_workflow_assembles_the_bundled_server():
-    # #210f/#210i: the release CI freezes the server and bundles Postgres before tauri build.
+    # #210f: the release CI freezes the server before the tauri build, and the frozen server is
+    # the ONLY bundled resource (#266: SQLite — no database binaries to ship).
     wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
     assert "pyinstaller desktop/server/atlas_server.spec" in wf
-    assert "embedded-postgres-binaries" in wf  # the portable Postgres source
-    assert "desktop/resources/pg" in wf
     cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
     resources = cfg["bundle"]["resources"]
-    assert "server/dist/atlas-server" in resources  # the frozen server ships as a resource
-    assert "resources/pg" in resources  # the Postgres binaries ship as a resource
+    assert resources == {"server/dist/atlas-server": "atlas-server"}
 
 
 def test_release_workflow_rebuilds_on_frozen_server_sources():
     # #228: the frozen server bundles these Django files, so a change to them must trigger the
     # installer rebuild — they live outside desktop/, so they have to be in the push paths.
     wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
-    assert "core/desktop_runtime.py" in wf
+    assert "core/management/commands/run_desktop.py" in wf
     assert "config/settings/desktop.py" in wf
+    assert "templates/**" in wf and "static/**" in wf
 
 
 def test_release_workflow_stamps_a_unique_version():
@@ -156,14 +154,25 @@ def test_startup_failure_shows_an_in_app_diagnostic():
     # self-reports instead of leaving us debugging blind.
     main = (DESKTOP / "src" / "main.rs").read_text()
     server = (DESKTOP / "src" / "server.rs").read_text()
-    # the failure path renders the captured logs and the most common Windows fix
+    # the failure path renders the captured server log, the data folder, and the port it used
     assert "diagnostic_html" in main and "splash_html" in main
-    assert "atlas-server.log" in main and "postgres.log" in main
-    assert "MSVCR120" in main or "Visual C++ 2013" in main  # the vcredist hint
+    assert "atlas-server.log" in main and "Data folder" in main
+    assert "127.0.0.1:{port}" in main
     # it detects an early crash (try_wait) instead of only waiting out the timeout
     assert "try_wait" in main
     # server.rs provides the log-tail + escaping helpers the diagnostic uses
     assert "tail_file" in server and "escape_html" in server
+
+
+def test_shell_steps_aside_when_port_8000_is_taken():
+    # A developer's `runserver` (or any other app) on 8000 must not break the desktop launch:
+    # without ATLAS_PORT the shell asks choose_port for 8000-or-a-free-port and hands the
+    # result to the server, and the diagnostic page names the port it actually used.
+    main = (DESKTOP / "src" / "main.rs").read_text()
+    server = (DESKTOP / "src" / "server.rs").read_text()
+    assert "pub fn choose_port" in server and "TcpListener::bind" in server
+    assert "server::choose_port(8000)" in main
+    assert 'env("ATLAS_PORT", port.to_string())' in server
 
 
 def test_release_builds_css_before_freezing():

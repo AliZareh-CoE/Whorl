@@ -1,11 +1,10 @@
-"""The self-contained desktop build (#210) stays well-formed.
+"""The self-contained desktop build (#210, #266) stays well-formed.
 
-The bundled desktop app runs Atlas with a bundled, auto-started Postgres (owner's choice —
-full parity incl. full-text search) in a per-user data dir, huey immediate, WhiteNoise
-static. The full initdb→migrate→serve flow needs a non-root user + the postgres binaries, so
-it's exercised live in the desktop-release CI (and was verified by hand); here we guard the
-pieces that are checkable anywhere: `manage.py check` loads the settings, they select
-Postgres, the binary resolver honours ATLAS_PG_BIN, and run_desktop starts Postgres first.
+The bundled desktop app runs Atlas on a per-user SQLite file (no database server), huey
+immediate, WhiteNoise static. Here we guard everything checkable without the frozen binary:
+`manage.py check` loads the settings, `run_desktop --setup-only` really provisions a fresh
+data dir (migrate on SQLite + static + the login), the port follows ATLAS_PORT, and the old
+bundled-Postgres path stays gone.
 """
 
 import os
@@ -56,42 +55,84 @@ def test_desktop_static_storage_is_plain_for_fast_first_run():
     assert "CompressedManifestStaticFilesStorage" not in text
 
 
-def test_pg_bin_resolves_from_env(tmp_path, monkeypatch):
-    from core.desktop_runtime import _pg_bin
-
-    fake = tmp_path / "initdb"
-    fake.write_text("#!/bin/sh\n")
-    monkeypatch.setenv("ATLAS_PG_BIN", str(tmp_path))
-    assert _pg_bin("initdb") == str(fake)
-
-
-def test_pg_bin_resolves_when_env_points_at_pg_root(tmp_path, monkeypatch):
-    # ATLAS_PG_BIN may be the pg root (zonky layout), with binaries under bin/ (#210 fix).
-    from core.desktop_runtime import _pg_bin
-
-    (tmp_path / "bin").mkdir()
-    fake = tmp_path / "bin" / "initdb"
-    fake.write_text("#!/bin/sh\n")
-    monkeypatch.setenv("ATLAS_PG_BIN", str(tmp_path))
-    assert _pg_bin("initdb") == str(fake)
-
-
-def test_pg_bin_handles_exe_suffix(tmp_path, monkeypatch):
-    # the Windows crash: binaries are initdb.exe; the lookup must find them (#210 fix).
-    from core.desktop_runtime import _pg_bin
-
-    fake = tmp_path / "initdb.exe"
-    fake.write_text("")
-    monkeypatch.setenv("ATLAS_PG_BIN", str(tmp_path))
-    assert _pg_bin("initdb") == str(fake)
-
-
 def test_run_desktop_uses_sqlite_no_postgres_step():
     # #266: SQLite needs no server — run_desktop goes straight to migrate (which creates the
     # file). The old ensure_postgres bring-up step is gone (it never started reliably on Windows).
     text = (BASE_DIR / "core" / "management" / "commands" / "run_desktop.py").read_text()
     assert "ensure_postgres" not in text
     assert "migrate" in text and "collectstatic" in text and "waitress" in text
+
+
+def test_bundled_postgres_runtime_is_gone():
+    # The bundled-Postgres lifecycle module and every place that shipped or configured it were
+    # removed with the SQLite switch: no dead code, no 50MB of unused binaries per installer,
+    # no Postgres advice on the failure page.
+    assert not (BASE_DIR / "core" / "desktop_runtime.py").exists()
+    assert not (BASE_DIR / "desktop" / "resources" / "pg").exists()
+    wf = (BASE_DIR / ".github" / "workflows" / "desktop-release.yml").read_text()
+    assert "embedded-postgres-binaries" not in wf and "desktop_runtime" not in wf
+    for rel in ("desktop/src/main.rs", "desktop/src/server.rs", "desktop/installer-hooks.nsh"):
+        text = (BASE_DIR / rel).read_text()
+        assert "ATLAS_PG_BIN" not in text and "postgres.exe" not in text, rel
+        assert "postgres.log" not in text and "MSVCR120" not in text, rel
+
+
+def _desktop_env(tmp_path, **extra):
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "ATLAS_DATA_DIR": str(tmp_path),
+        "DEBUG": "False",
+        "ATLAS_API_KEY": "test-key",
+    }
+    env.update(extra)
+    return env
+
+
+def test_run_desktop_setup_provisions_a_fresh_data_dir(tmp_path):
+    # The real first-launch path the frozen binary runs, end to end on SQLite: migrate creates
+    # the database file, static assets are collected (and version-marked), and the single login
+    # exists — all inside ATLAS_DATA_DIR, nothing on the machine touched.
+    result = subprocess.run(
+        [
+            sys.executable,
+            "manage.py",
+            "run_desktop",
+            "--setup-only",
+            "--settings=config.settings.desktop",
+        ],
+        cwd=BASE_DIR,
+        env=_desktop_env(tmp_path, ATLAS_VERSION="test-build", ATLAS_ADMIN_PASSWORD="pw"),
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert (tmp_path / "atlas.sqlite3").exists()
+    assert (tmp_path / "staticfiles" / ".collected_version").read_text() == "test-build"
+    assert (tmp_path / "staticfiles" / "js").is_dir()
+    assert "Created the Atlas login 'atlas'" in result.stdout
+    assert "Setup complete." in result.stdout
+
+
+def test_desktop_csrf_origins_follow_the_chosen_port(tmp_path):
+    # The shell steps aside to a free port when 8000 is taken (choose_port in server.rs), so the
+    # trusted origins must be built from ATLAS_PORT or every POST would fail the CSRF check.
+    code = (
+        "import os, django; django.setup(); from django.conf import settings; "
+        "print(','.join(settings.CSRF_TRUSTED_ORIGINS))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=BASE_DIR,
+        env=_desktop_env(
+            tmp_path, ATLAS_PORT="8123", DJANGO_SETTINGS_MODULE="config.settings.desktop"
+        ),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "http://127.0.0.1:8123,http://localhost:8123"
 
 
 def test_trigram_indexes_are_postgres_only():
@@ -116,76 +157,11 @@ def test_run_desktop_logs_progress_and_skips_static_recollect():
     assert "ATLAS_VERSION" in text and ".collected_version" in text
 
 
-def test_postgres_skips_unix_socket_on_windows():
-    # the Windows "127.0.0.1 refused to connect" fix: the unix-socket `-k` token must only be
-    # passed on POSIX (it breaks pg_ctl start on Windows / paths with spaces); TCP loopback
-    # is used everywhere. A start failure must also surface postgres.log, not exit blank.
-    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
-    assert 'os.name != "nt"' in runtime
-    assert "listen_addresses=127.0.0.1" in runtime
-    assert "postgres.log" in runtime and "RuntimeError" in runtime
-
-
-def test_postgres_isolated_from_console_signals():
-    # #245: the 0xC000013A crash loop — a console event Ctrl+C'd Postgres's workers because the
-    # server ran in a console that Postgres shared. The frozen server is now windowed, and the
-    # pg helpers start in their own process group with no console window. #248: the windowed
-    # build has no valid stdin, so the helpers are given an explicit DEVNULL stdin or they can
-    # fail to spawn on Windows.
+def test_frozen_server_is_windowed():
+    # #245: the frozen server runs without a console window — no black box on Windows; its
+    # output goes to atlas-server.log instead.
     spec = (BASE_DIR / "desktop" / "server" / "atlas_server.spec").read_text()
     assert "console=False" in spec
-    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
-    assert "_CREATIONFLAGS" in runtime and 'os.name == "nt"' in runtime
-    assert "stdin" in runtime and "DEVNULL" in runtime
-
-
-def test_setup_cannot_hang_forever():
-    # #244: a wedged initdb/pg_ctl or a stuck query must time out (surfacing an error in the
-    # log) instead of leaving the desktop window black forever.
-    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
-    assert 'setdefault("timeout"' in runtime  # bounded subprocess
-    assert "statement_timeout" in runtime  # bounded psycopg queries
-    assert "timed out" in runtime
-
-
-def test_run_surfaces_stderr_on_failure():
-    # the windowed build has no console, so a failing Postgres helper must raise WITH its
-    # stderr (e.g. initdb's real complaint), not a bare exit code (#224 follow-up).
-    import pytest
-
-    from core.desktop_runtime import _run
-
-    with pytest.raises(RuntimeError) as exc:
-        _run(["sh", "-c", "echo boom-message 1>&2; exit 1"])
-    assert "boom-message" in str(exc.value)
-
-
-def test_plain_strips_extended_length_prefix():
-    # Tauri hands us \\?\C:\... ; initdb mis-resolves its share/ dir from that, so we strip it.
-    from core.desktop_runtime import _plain
-
-    assert _plain("\\\\?\\C:\\pg\\bin\\initdb.exe") == "C:\\pg\\bin\\initdb.exe"
-    assert _plain("/usr/lib/postgresql/16/bin/initdb") == "/usr/lib/postgresql/16/bin/initdb"
-
-
-def test_initdb_clears_partial_pgdata():
-    # a half-built pgdata from a prior failed launch (no PG_VERSION) is wiped so initdb's
-    # "directory not empty" can't make every retry fail.
-    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
-    assert "rmtree" in runtime and "PG_VERSION" in runtime
-
-
-def test_postgres_provisioning_uses_psycopg_not_client_tools():
-    # #231: the Windows Postgres bundle ships ONLY initdb/pg_ctl/postgres — not the
-    # pg_isready/psql/createdb client tools — so the readiness wait and database creation must
-    # go through psycopg (already in the frozen server), never shell out to those binaries.
-    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
-    assert "import psycopg" in runtime
-    assert "CREATE DATABASE" in runtime
-    for missing in ("pg_isready", "psql", "createdb"):
-        assert f'_pg_bin("{missing}")' not in runtime, (
-            f"must not invoke {missing} (absent on Windows)"
-        )
 
 
 def test_frozen_server_logs_to_data_dir():
@@ -203,19 +179,6 @@ def test_pyinstaller_freeze_scaffold_present():
     assert "run_desktop" in entry
     assert "templates" in spec and "static" in spec  # bundled at the frozen root
     assert "atlas-server" in spec  # the executable name the Tauri sidecar spawns
-
-
-def test_ensure_postgres_logs_each_step_and_bounds_the_wait():
-    # #265: ensure_postgres was silent, so a hang after Postgres started left atlas-server.log
-    # empty and us debugging blind. It now flushes a progress line at every step and waits for
-    # the DB with a reliably-bounded raw TCP socket + a thread-timeout around psycopg, so a
-    # wedged connect surfaces an error instead of hanging the launch with no output.
-    runtime = (BASE_DIR / "core" / "desktop_runtime.py").read_text()
-    assert "_log(" in runtime and "flush=True" in runtime
-    assert "_wait_for_tcp" in runtime and "settimeout" in runtime
-    assert "ThreadPoolExecutor" in runtime and "FuturesTimeout" in runtime
-    # the bounded connect must not block on a hung thread when it gives up
-    assert "shutdown(wait=False)" in runtime
 
 
 def test_run_desktop_cleans_up_old_postgres_data():
