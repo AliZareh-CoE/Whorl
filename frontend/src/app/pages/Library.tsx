@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  BookOpen, Check, ChevronDown, Copy, Download, ExternalLink, FileDown, FileText, FolderPlus, Loader2, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  BookOpen, Check, ChevronDown, Copy, Download, Quote, ExternalLink, FileDown, FileText, FolderPlus, Loader2, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { Skeleton } from "../../components/Skeleton";
@@ -38,6 +38,9 @@ type Filters = {
 };
 
 const EMPTY: Filters = { q: "", year: "", entry_type: "", venue: "", has_pdf: "", needs_metadata: "", project: "", unfiled: "", reading_status: "", sort: "added" };
+const STYLES: [string, string][] = [["apa", "APA 7"], ["mla", "MLA 9"], ["chicago", "Chicago"], ["harvard", "Harvard"], ["vancouver", "Vancouver"], ["ieee", "IEEE"]];
+function readStyle(): string { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } }
+type Citation = { style: string; label: string; text: string; html: string; intext: string };
 const STATUS_LABEL: Record<string, string> = { to_read: "To read", skimmed: "Skimmed", read: "Read", annotated: "Annotated" };
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
 const railH = "mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:text-stone-500";
@@ -89,6 +92,8 @@ export default function Library() {
   const [doi, setDoi] = useState("");
   const [doiError, setDoiError] = useState("");
   const [bulkProject, setBulkProject] = useState("");
+  const [citeStyle, setCiteStyleState] = useState<string>(readStyle);
+  const setCiteStyle = (v: string) => { setCiteStyleState(v); try { localStorage.setItem("atlas-cite-style", v); } catch { /* private mode */ } };
   const [toast, setToast] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -418,6 +423,7 @@ export default function Library() {
               )}
               <a href={`/api/v1/references/export/?ids=${[...selected].join(",")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Open the selection as a .bib file"><FileDown className="h-3 w-3" aria-hidden="true" />Export .bib</a>
               <button type="button" onClick={async () => { const text = await (await fetch(`/api/v1/references/export/?ids=${[...selected].join(",")}`, { credentials: "same-origin" })).text(); await navigator.clipboard?.writeText(text); flash(`Copied BibTeX for ${selected.size} reference(s).`); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Copy BibTeX to the clipboard"><Copy className="h-3 w-3" aria-hidden="true" />Copy BibTeX</button>
+              <button type="button" onClick={async () => { const b = await api<{ text: string }>(`/references/cite/?ids=${[...selected].join(",")}&style=${citeStyle}`); await navigator.clipboard?.writeText(b.text); flash(`Copied ${selected.size} citation(s) in ${STYLES.find(([k]) => k === citeStyle)?.[1] ?? citeStyle}.`); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Copy a formatted bibliography of the selection"><Quote className="h-3 w-3" aria-hidden="true" />Copy citations</button>
               <button type="button" disabled={bulk.isPending} onClick={() => bulk.mutate({ ids: [...selected], action: "fetch_pdf" })} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Find and attach open-access PDFs"><Download className="h-3 w-3" aria-hidden="true" />Fetch OA PDFs</button>
               <button type="button" disabled={bulk.isPending} onClick={() => bulk.mutate({ ids: [...selected], action: "find_metadata" })} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"><Wand2 className="h-3 w-3" aria-hidden="true" />Find metadata</button>
               <button type="button" disabled={bulk.isPending} onClick={() => { if (confirm(`Delete ${selected.size} reference(s) from the library? Their project links and PDFs go too.`)) bulk.mutate({ ids: [...selected], action: "delete" }); }} className="inline-flex items-center gap-1 rounded-md border border-red-300/60 px-2 py-1 text-red-600 hover:bg-red-500/10 dark:text-red-300"><Trash2 className="h-3 w-3" aria-hidden="true" />Delete</button>
@@ -434,7 +440,7 @@ export default function Library() {
               Select a paper to see its abstract, links, and related work.
             </div>
           ) : (
-            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
+            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
           )}
         </aside>
       </div>
@@ -443,8 +449,10 @@ export default function Library() {
   );
 }
 
-function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded }: { r: Ref; onFindMeta: () => void; finding: boolean; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void }) {
+function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied }: { r: Ref; onFindMeta: () => void; finding: boolean; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
   const [full, setFull] = useState(false);
+  const citation = useQuery({ queryKey: ["cite", r.id, citeStyle], queryFn: () => api<Citation>(`/references/${r.id}/cite/?style=${citeStyle}`), staleTime: 5 * 60_000 });
+  const copy = async (text: string, what: string) => { await navigator.clipboard?.writeText(text); onCopied(`Copied ${what}.`); };
   const [lens, setLens] = useState<"similar" | "references" | "cited_by" | null>(null);
   const discover = useQuery({
     queryKey: ["discover", r.id, lens],
@@ -479,6 +487,23 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
         {r.doi && <a href={`https://doi.org/${r.doi}`} target="_blank" rel="noreferrer" className="rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">DOI</a>}
         {r.url && !r.doi && <a href={r.url} target="_blank" rel="noreferrer" className="rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">Link</a>}
         <button type="button" onClick={() => navigator.clipboard?.writeText(r.bibtex_key)} title="Copy cite key" className="rounded-md border border-stone-300 px-2.5 py-1 font-mono text-stone-500 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">{r.bibtex_key}</button>
+      </div>
+      <div className="mt-5">
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className={`${railH} mb-0`}><Quote className="mr-1 inline h-3 w-3" aria-hidden="true" />Cite</p>
+          <select value={citeStyle} onChange={(e) => onStyle(e.target.value)} className="rounded-md border border-stone-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-stone-700 dark:bg-stone-800" aria-label="Citation style">
+            {STYLES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+          </select>
+        </div>
+        {citation.data ? (
+          <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-950/40">
+            <p className="text-xs leading-relaxed text-stone-700 dark:text-stone-200" dangerouslySetInnerHTML={{ __html: citation.data.html }} />
+            <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+              <button type="button" onClick={() => copy(citation.data!.text, `the ${citation.data!.label} citation`)} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700"><Copy className="h-3 w-3" aria-hidden="true" />Copy citation</button>
+              <button type="button" onClick={() => copy(citation.data!.intext, "the in-text citation")} className="rounded-md border border-stone-300 px-2 py-0.5 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="In-text form">{citation.data.intext}</button>
+            </div>
+          </div>
+        ) : <p className="text-xs text-stone-400">Formatting…</p>}
       </div>
       <div className="mt-5">
         <p className={railH}>In projects</p>

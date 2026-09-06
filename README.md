@@ -29,6 +29,7 @@ milestones, add papers, fetch your saved prompts.
 
 - **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm
 - **Library workbench** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop a folder of PDFs onto the page (the DOI is read off page one and metadata fetched; scans without one are kept and can "find metadata" later), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click — all deduplicated; facets by project, year histogram, venue, type, PDF; keyboard `j/k/x/o`; bulk file-to-project, reading status, delete; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers
+- **Formatted citations** — copy any paper or selection as APA 7, MLA 9, Chicago, Harvard, Vancouver, or IEEE (bibliography entry and in-text form) straight from the Library
 - **Discover from any paper** — three OpenAlex lenses in the Library (similar work, what it cites, what cites it), each row addable in one click into the library or the current project; export any selection or filtered view as `.bib`, copy BibTeX, fetch open-access PDFs in bulk
 - **Literature review matrix** — papers × themes grid with markdown export
 - **Notes & knowledge graph** — `[[wiki-links]]`, backlinks, typo-tolerant full-text search, related-paper suggestions (local TF-IDF, no API calls)
@@ -36,7 +37,7 @@ milestones, add papers, fetch your saved prompts.
 - **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
 - **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
 - **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 41 tools over the REST API; your AI assistant operates the same contract you do
+- **Claude/MCP integration** — 42 tools over the REST API; your AI assistant operates the same contract you do
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
 ## Quick start (one command)
@@ -127,7 +128,7 @@ Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,
 `set_reading_status`, `run_bib_check`, `get_review_matrix`, `get_synthesis_scaffold`.
 Library imports & discovery: `import_references` (BibTeX/CSL-JSON/RIS text), `import_from_zotero`,
-`discover_related` (similar / cites / cited-by on OpenAlex), `export_bibtex`.
+`discover_related` (similar / cites / cited-by on OpenAlex), `export_bibtex`, `format_citations` (APA/MLA/Chicago/Harvard/Vancouver/IEEE).
 Notes, search & review: `add_note`, `quick_capture`, `search`, `get_weekly_review`,
 `list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,
 `list_manuscript_files`, `read_manuscript_file`, `write_manuscript_file`, `set_main_file`,

@@ -285,3 +285,11 @@ def discover_related(reference_id: int, kind: str = "similar", limit: int = 12) 
 def export_bibtex(reference_ids: list[int] | None = None, project: str = "") -> str:
     """BibTeX for a list of reference ids, or for every reference linked to a project (slug)."""
     return client.export_bibtex(reference_ids, project or None)
+
+
+@mcp.tool()
+def format_citations(reference_ids: list[int], style: str = "apa") -> dict:
+    """Formatted citations for reference ids in apa, mla, chicago, harvard, vancouver, or ieee:
+    a full bibliography (text + html) and each entry's in-text form. Find ids via search or
+    get_reading_queue."""
+    return client.format_citations(reference_ids, style)

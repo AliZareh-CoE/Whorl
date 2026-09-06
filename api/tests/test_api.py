@@ -950,3 +950,29 @@ class TestLibraryDiscovery:
         assert (
             "beta2019" in response.content.decode() and "alpha2020" not in response.content.decode()
         )
+
+
+class TestCitations:
+    def test_cite_one_and_many(self, client, owner):
+        from literature.models import Reference
+
+        a = Reference.objects.create(
+            title="Alpha", bibtex_key="a", year=2000, authors=[{"family": "Adams", "given": "B"}]
+        )
+        b = Reference.objects.create(
+            title="Beta", bibtex_key="b", year=2001, authors=[{"family": "Zed", "given": "A"}]
+        )
+        one = client.get(f"/api/v1/references/{a.pk}/cite/?style=mla", **HEADERS).json()
+        assert (
+            one["style"] == "mla"
+            and one["text"].startswith("Adams, B. “Alpha.”")
+            and one["intext"] == "(Adams)"
+        )
+        assert (
+            client.get(f"/api/v1/references/{a.pk}/cite/?style=nope", **HEADERS).status_code == 400
+        )
+        many = client.get(
+            f"/api/v1/references/cite/?ids={b.pk},{a.pk}&style=ieee", **HEADERS
+        ).json()
+        assert [e["reference_id"] for e in many["entries"]] == [b.pk, a.pk]
+        assert many["entries"][0]["text"].startswith("[1] A. Zed,")

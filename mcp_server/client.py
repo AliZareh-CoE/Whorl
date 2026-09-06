@@ -320,3 +320,12 @@ def export_bibtex(reference_ids: list[int] | None = None, project: str | None = 
     if response.status_code >= 400:
         raise AtlasClientError(f"Atlas API {response.status_code} on /references/export/")
     return response.text
+
+
+def format_citations(reference_ids: list[int], style: str = "apa"):
+    """Formatted bibliography (+ per-entry in-text forms) for reference ids in a citation style."""
+    return _request(
+        "GET",
+        "/references/cite/",
+        params={"ids": ",".join(str(i) for i in reference_ids), "style": style},
+    )

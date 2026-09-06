@@ -890,6 +890,54 @@ class ReferenceViewSet(AtlasViewSet):
     @extend_schema(
         parameters=[
             OpenApiParameter(
+                "style", str, description="apa (default), mla, chicago, harvard, vancouver, ieee"
+            )
+        ],
+        responses={200: OpenApiResponse(description="{style, label, text, html, intext}")},
+        description="One formatted citation (bibliography entry + in-text form) for this reference.",
+    )
+    @action(detail=True, methods=["get"], url_path="cite")
+    def cite_one(self, request, pk=None):
+        from literature import citations
+
+        style = request.query_params.get("style", "apa")
+        if style not in citations.STYLES:
+            return Response({"detail": f"style must be one of {citations.STYLES}"}, status=400)
+        return Response(citations.cite(self.get_object(), style))
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "ids",
+                str,
+                description="Comma-separated reference ids (order matters for numbered styles)",
+            ),
+            OpenApiParameter(
+                "style", str, description="apa (default), mla, chicago, harvard, vancouver, ieee"
+            ),
+        ],
+        responses={200: OpenApiResponse(description="{style, label, entries[], text, html}")},
+        description="A formatted bibliography for a set of references: alphabetical for author-date styles, numbered for Vancouver/IEEE.",
+    )
+    @action(detail=False, methods=["get"], url_path="cite")
+    def cite_many(self, request):
+        from literature import citations
+
+        style = request.query_params.get("style", "apa")
+        if style not in citations.STYLES:
+            return Response({"detail": f"style must be one of {citations.STYLES}"}, status=400)
+        wanted = [
+            int(i)
+            for i in (request.query_params.get("ids") or "").split(",")
+            if i.strip().isdigit()
+        ][:500]
+        by_id = {r.pk: r for r in Reference.objects.filter(pk__in=wanted)}
+        refs = [by_id[i] for i in wanted if i in by_id]
+        return Response(citations.bibliography(refs, style))
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
                 "ids",
                 str,
                 description="Comma-separated reference ids; omit to export the filtered list (same filters as the list endpoint)",

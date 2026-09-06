@@ -544,6 +544,26 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Library v2 slice 4: formatted citations without a CSL engine (#297)
+
+**Decision.** `literature/citations.py` formats bibliography entries, in-text forms, and whole
+bibliographies in six styles (APA 7, MLA 9, Chicago author-date, Harvard, Vancouver, IEEE) as
+hand-written pure functions over the metadata Atlas holds, with volume/issue/pages now carried
+into `Reference.extra` by the Crossref and OpenAlex mappers. Exposed as
+`GET /references/{id}/cite/?style=`, `GET /references/cite/?ids=&style=` (alphabetical for
+author-date styles, numbered in the given order for Vancouver/IEEE), MCP `format_citations`, a
+Cite block in the workbench's detail pane (style picker remembered in localStorage, Copy
+citation, the in-text form as a copy button), and **Copy citations** in the bulk bar.
+
+**Why.** "Copy a citation" is the single most frequent thing researchers open Zotero for, and
+the reason Paperpile's browser button exists; six styles cover the vast majority of venues.
+
+**Alternatives.** (a) citeproc-py + CSL styles — rejected for now: 2k+ style files, a heavy
+dependency, and a JSON-schema conversion layer, for output the six hand-written styles already
+give; the module is shaped so a CSL engine could replace it behind the same `cite()` /
+`bibliography()` contract later. (b) Client-side citation.js — rejected: would duplicate the
+formatting in the SPA and leave the API/MCP without it.
+
 ### 2026-09-06 — Library v2 slice 3: grow the library from any paper (#295)
 
 **Decision.** Three OpenAlex lenses on every reference, inside the workbench's detail pane:
@@ -868,6 +888,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+298. Citations, later: a CSL-engine backend (citeproc-py) behind the same cite()/bibliography() contract for the long tail of styles; a "Cite" button on the Reference page and the PDF reader; citation export as RTF/Word-ready HTML.
+297. ~~Library v2 slice 4 (done 2026-09-06): formatted citations in six styles + in-text forms + bibliographies; cite endpoints; MCP format_citations; Cite block in the detail pane and Copy citations in the bulk bar; volume/issue/pages carried from Crossref/OpenAlex. See the 2026-09-06 decision.~~
 296. Library v2 slice 4 candidates (judge after slice 3): (a) reference tags + smart lists (saved filter views in the rail), (b) duplicate merge (the bib report flags duplicates; merging keeps links/PDF/notes), (c) per-reference notes + highlight summary surfaced in the detail pane, (d) inline PDF preview pane in the workbench, (e) "Find PDF" per row with a status pill after fetch.
 295. ~~Library v2 slice 3 (done 2026-09-06): discovery lenses (similar / cites / cited-by) with one-click add in the detail pane, export .bib for selection/view + copy BibTeX, bulk Fetch OA PDFs; MCP discover_related + export_bibtex. See the 2026-09-06 decision.~~
 295. Library v2 slice 3 candidates (pick the most "finally" one): (a) PDF-first reading flow from the workbench — open the reader in the detail pane with highlights → notes; (b) smart collections / saved filters ("unread 2024 in Project X", "no PDF yet") pinned to the rail; (c) "find PDFs for all" (OA fetch) as a bulk action + per-row OA badge; (d) author facet + author pages; (e) Zotero collections → projects mapping on import; (f) BibTeX/CSL export of any filtered selection (respecting facets) — Paperpile-style "export what I see".

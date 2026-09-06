@@ -82,7 +82,13 @@ def _crossref_to_meta(work: dict) -> dict:
         "abstract": re.sub(r"<[^>]+>", "", work.get("abstract", "")),
         "url": work.get("URL", ""),
         "citation_count": work.get("is-referenced-by-count"),
-        "extra": {"source": "crossref"},
+        "extra": {
+            "source": "crossref",
+            # formatted citations (literature/citations.py) use these when present
+            "volume": work.get("volume", ""),
+            "issue": work.get("issue", ""),
+            "pages": work.get("page", ""),
+        },
     }
 
 
@@ -115,7 +121,19 @@ def _openalex_to_meta(work: dict) -> dict:
         "abstract": _invert_abstract(work.get("abstract_inverted_index")),
         "url": doi or (work.get("primary_location") or {}).get("landing_page_url", "") or "",
         "citation_count": work.get("cited_by_count"),
-        "extra": {"source": "openalex"},
+        "extra": {
+            "source": "openalex",
+            "volume": (work.get("biblio") or {}).get("volume") or "",
+            "issue": (work.get("biblio") or {}).get("issue") or "",
+            "pages": "-".join(
+                p
+                for p in (
+                    (work.get("biblio") or {}).get("first_page"),
+                    (work.get("biblio") or {}).get("last_page"),
+                )
+                if p
+            ),
+        },
     }
 
 

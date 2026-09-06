@@ -326,3 +326,12 @@ def test_export_bibtex_returns_text(monkeypatch, env):
 
     monkeypatch.setattr(client, "_client", fake_client)
     assert client.export_bibtex([1, 2]).startswith("@article")
+
+
+def test_format_citations_builds_request(capture):
+    client.format_citations([3, 1], "chicago")
+    assert (
+        calls_url_has(capture, "/references/cite/")
+        and "ids=3%2C1" in capture["url"]
+        and "style=chicago" in capture["url"]
+    )
