@@ -7,11 +7,17 @@
 // for a manual check. In the browser there is no __TAURI__ bridge, so it renders nothing.
 import { useEffect, useState } from "react";
 import { openExternal } from "./external";
+import { confirmDialog } from "../components/Dialog";
 import { ArrowDownToLine, RefreshCw } from "lucide-react";
 
 type TauriApi = {
   core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> };
+  event: { listen: (name: string, cb: (ev: { payload: unknown }) => void) => Promise<() => void> };
 };
+type Progress = { downloaded: number; total: number | null; done: boolean };
+const RECHECK_MS = 6 * 60 * 60 * 1000; // backlog #304: look again while the app stays open
+
+function mb(n: number): string { return `${(n / 1048576).toFixed(1)} MB`; }
 
 const isDesktop = typeof window !== "undefined" && "__TAURI__" in window;
 const RELEASES = "https://github.com/alizareh-coe/project-manager/releases/tag/desktop-preview";
@@ -21,7 +27,7 @@ type State =
   | { kind: "checking" }
   | { kind: "current"; version: string }
   | { kind: "available"; version: string; notes: string | null }
-  | { kind: "installing"; version: string }
+  | { kind: "installing"; version: string; progress?: Progress }
   | { kind: "updated"; version: string }
   | { kind: "error"; message: string; silent?: boolean };
 
@@ -56,21 +62,32 @@ export function UpdaterButton() {
     }
   };
 
-  // silent check once per launch (the desktop shell mounts the app once)
+  // silent check once per launch, then every few hours while the window stays open
   useEffect(() => {
-    if (isDesktop) void check(true);
+    if (!isDesktop) return;
+    void check(true);
+    const timer = window.setInterval(() => void check(true), RECHECK_MS);
+    return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!isDesktop) return null;
 
-  const install = async (version: string) => {
+  const install = async (version: string, notes: string | null) => {
+    // release notes first — the feed's body is the changelog the workflow writes
+    const ok = await confirmDialog({ title: `Update to ${version}?`, confirmLabel: "Download and install", body: notes ? <pre className="max-h-56 overflow-auto whitespace-pre-wrap font-sans text-xs leading-relaxed">{notes.slice(0, 2000)}</pre> : "The app restarts when the install finishes." });
+    if (!ok) return;
     setState({ kind: "installing", version });
+    let stop: (() => void) | null = null;
     try {
-      const out = (await (await tauri()).core.invoke("install_update")) as { installed_version: string | null };
+      const t = await tauri();
+      stop = await t.event.listen("update-progress", (ev) => { const p = ev.payload as Progress; setState((s) => (s.kind === "installing" ? { ...s, progress: p } : s)); });
+      const out = (await t.core.invoke("install_update")) as { installed_version: string | null };
       setState(out.installed_version ? { kind: "updated", version: out.installed_version } : { kind: "current", version });
     } catch (e) {
-      setState({ kind: "error", message: String(e) });
+      setState({ kind: "error", message: explain(String(e)) });
+    } finally {
+      stop?.();
     }
   };
 
@@ -86,14 +103,21 @@ export function UpdaterButton() {
 
   if (state.kind === "available")
     return (
-      <button onClick={() => install(state.version)} className={`${base} glow-accent bg-indigo-600 text-white hover:bg-indigo-500`} title={state.notes ?? `Download and install ${state.version}`}>
+      <button onClick={() => void install(state.version, state.notes)} className={`${base} glow-accent bg-indigo-600 text-white hover:bg-indigo-500`} title={state.notes ?? `Download and install ${state.version}`} data-testid="update-available">
         <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden="true" />Update to {state.version}
       </button>
     );
-  if (state.kind === "installing")
+  if (state.kind === "installing") {
+    const p = state.progress;
+    const pct = p && p.total ? Math.min(100, Math.round((100 * p.downloaded) / p.total)) : null;
+    const label = !p ? `Preparing ${state.version}…` : p.done ? `Installing ${state.version}…` : pct !== null ? `Downloading ${pct}%` : `Downloading ${mb(p.downloaded)}…`;
     return (
-      <span className={`${base} text-indigo-500`}><RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Installing {state.version}…</span>
+      <span className={`${base} flex-col items-stretch text-indigo-500`} data-testid="update-progress" aria-live="polite">
+        <span className="flex items-center gap-2"><RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />{label}</span>
+        {pct !== null && !p?.done && <span className="mt-1 h-1 w-full overflow-hidden rounded-full bg-indigo-500/20"><span className="block h-full rounded-full bg-indigo-500 transition-[width]" style={{ width: `${pct}%` }} /></span>}
+      </span>
     );
+  }
   if (state.kind === "updated")
     return (
       <button onClick={restart} className={`${base} glow-accent bg-indigo-600 text-white hover:bg-indigo-500`} title={`Installed ${state.version} — restart to finish`}>

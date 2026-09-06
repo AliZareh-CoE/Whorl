@@ -150,6 +150,11 @@ def test_updater_is_wired():
     assert "restart_app" in updater_rs and "app.restart()" in updater_rs
     button = (DESKTOP.parent / "frontend" / "src" / "app" / "UpdaterButton.tsx").read_text()
     assert "restart_app" in button
+    # backlog #304: download progress is emitted per chunk and rendered; release notes are
+    # shown before installing; the silent check repeats while the window stays open
+    assert '"update-progress"' in updater_rs and "UpdateProgress" in updater_rs
+    assert 'listen("update-progress"' in button and "update-progress" in button
+    assert "confirmDialog" in button and "RECHECK_MS" in button
     cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
     updater = cfg["plugins"]["updater"]
     assert updater["endpoints"] and "pubkey" in updater

@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Updater polish: progress, notes, re-check (#370)
+
+**Decision.** `install_update` emits `update-progress {downloaded, total, done}` from the download callback; the sidebar control shows a percent bar (or MB when the feed sends no length), then "Installing…". Clicking "Update to x" first shows the release notes from the feed in a confirm dialog. The silent check repeats every six hours while the window is open. Backlog #304 done; a public feed (#347) is still the owner's step.
+
+**Why.** A multi-minute download with a spinner is indistinguishable from a hang — the thing the owner keeps reporting. Notes before installing are basic courtesy; the periodic check means a laptop left open still learns about a fix shipped that day.
+
+**Alternatives rejected.** A separate updates page (the sidebar control is where the state already lives); auto-install without asking (a restart in the middle of writing is not calm).
+
 ### 2026-09-06 — Connect page: a live connection test that launches the real MCP command (#369)
 
 **Decision.** `POST /api/v1/connect/test/` runs four checks server-side (API key set; API answers that key at the URL in the command; the exact MCP command with `--check` starts and reaches the API; `claude` on PATH), each with a fix line. The MCP server gained `--check`: it lists projects through the API and counts its tools, printing one JSON line. Backlog #290 done.
@@ -1587,7 +1595,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 ## Backlog
 306. Library v2 slice 7 candidates: inline PDF preview pane in the workbench (needs pdf.js vendored for offline desktop); per-reference reading notes + highlights surfaced in the detail pane; "Find PDF" per row with a status pill; drag-to-reorder for smart views.
 305. ~~Library v2 slice 6 (done 2026-09-06): duplicate clusters with a suggested keep, relation-preserving merge, Duplicates mode in the workbench, API + MCP. See the 2026-09-06 decision.~~
-304. Updater polish: download progress in the sidebar control (the install closure has a chunk callback), release notes from latest.json shown before installing, a "check on a schedule" while the app is open (currently once per launch).
+304. ~~Updater polish (done 2026-09-06, #370: progress events + bar, release notes confirm, 6-hourly re-check)~~ — original note: download progress in the sidebar control (the install closure has a chunk callback), release notes from latest.json shown before installing, a "check on a schedule" while the app is open (currently once per launch).
 303. ~~In-app updates live (done 2026-09-06): keypair generated (public key committed, private key handed to the owner for the TAURI_SIGNING_PRIVATE_KEY secret), sign-when-secret CI logic, preview release published as a prerelease with asset pruning, silent launch check + one-click install + restart in the sidebar. See the 2026-09-06 decision.~~
 302. Library, remaining vs. Paperpile/Zotero after slice 5: duplicate merge (keep links/PDF/tags), inline PDF preview pane in the workbench, tag colours in the UI (model has the field), drag-to-reorder smart views, per-reference notes surfaced in the detail pane.
 301. ~~Library v2 slice 5 (done 2026-09-06): LibraryTag + SavedView, rail sections (Smart views with "+ save", Tags with Untagged), bulk/detail tag editing, API + MCP. See the 2026-09-06 decision.~~

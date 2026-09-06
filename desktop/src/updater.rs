@@ -9,8 +9,17 @@
 // Every download is verified against the public key in tauri.conf.json, so a tampered feed
 // or file is rejected — this is why the release workflow signs the updater artifacts.
 use serde::Serialize;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 use tauri_plugin_updater::UpdaterExt;
+
+/// Download progress for the sidebar control (backlog #304): emitted as `update-progress`
+/// after every chunk. `total` is None when the feed sends no Content-Length.
+#[derive(Clone, Serialize)]
+pub struct UpdateProgress {
+    pub downloaded: u64,
+    pub total: Option<u64>,
+    pub done: bool,
+}
 
 #[derive(Serialize)]
 pub struct UpdateOutcome {
@@ -62,8 +71,33 @@ pub async fn install_update(app: AppHandle) -> Result<UpdateOutcome, String> {
     match updater.check().await.map_err(|e| e.to_string())? {
         Some(update) => {
             let version = update.version.clone();
+            let progress_app = app.clone();
+            let finished_app = app.clone();
+            let mut downloaded: u64 = 0;
             update
-                .download_and_install(|_chunk, _total| {}, || {})
+                .download_and_install(
+                    move |chunk, total| {
+                        downloaded += chunk as u64;
+                        let _ = progress_app.emit(
+                            "update-progress",
+                            UpdateProgress {
+                                downloaded,
+                                total,
+                                done: false,
+                            },
+                        );
+                    },
+                    move || {
+                        let _ = finished_app.emit(
+                            "update-progress",
+                            UpdateProgress {
+                                downloaded: 0,
+                                total: None,
+                                done: true,
+                            },
+                        );
+                    },
+                )
                 .await
                 .map_err(|e| e.to_string())?;
             Ok(UpdateOutcome {
