@@ -544,6 +544,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Compile hardening for the desktop (#353)
+
+**Finding.** The owner: "the latex didn't compile". The Windows installer does carry `tectonic.exe` (verified in the run 75 job log: 50 MB in `bin/`), so the likely killers were the 180 s compile timeout — Tectonic's first run fetches the TeX bundle over the network, which takes minutes — and, before the ACL fix, nothing in the shell working at all.
+
+**Decision.** `COMPILE_TIMEOUT` is 900 s with a message that says what the wait is; `tectonic_path()` also looks next to the frozen executable (`_MEIPASS/bin`, `<exe>/bin`, `<exe>/_internal/bin`); the engine path is the first line of every compile log so a failure names the binary it used; on Windows the subprocess runs with `CREATE_NO_WINDOW` so no console flashes behind the app, and output is decoded as UTF-8 with replacement.
+
 ### 2026-09-06 — Desktop commands were refused by the ACL (#353)
 
 **Finding.** The owner: "shell couldn't start — command terminal_spawn not allowed by ACL". The desktop webview loads the bundled server at `http://127.0.0.1:<port>`. Tauri 2 treats any http origin as *remote*, and a capability applies to remote origins only when it names them under `remote.urls`. Ours did not, so the window matched no capability and **every** command was refused — the terminal, the updater's check and install, the native file picker, and the new external-link opener. The earlier in-browser checks could not catch this because the browser has no Tauri IPC at all.

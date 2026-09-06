@@ -3,6 +3,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from .models import Manuscript, ManuscriptFile
 from .services import export_manuscript_bib
 
 TECTONIC = Path(settings.BASE_DIR) / "bin" / "tectonic"
-COMPILE_TIMEOUT = 180
+COMPILE_TIMEOUT = 900  # the first compile downloads Tectonic's TeX bundle (minutes on a slow link)
 MISSING_ENGINE = (
     "The LaTeX engine (Tectonic) was not found. Desktop builds bundle it; in a source "
     "checkout run `make tectonic`, or point ATLAS_TECTONIC at a tectonic binary."
@@ -37,10 +38,18 @@ def tectonic_path() -> Path | None:
     env = os.environ.get("ATLAS_TECTONIC")
     if env and Path(env).exists():
         return Path(env)
-    for name in ("tectonic", "tectonic.exe"):
-        candidate = TECTONIC.with_name(name)
-        if candidate.exists():
-            return candidate
+    roots = [TECTONIC.parent]
+    # frozen server (PyInstaller): data files live next to the executable, under _internal
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        roots.append(Path(meipass) / "bin")
+    exe_dir = Path(sys.executable).resolve().parent
+    roots += [exe_dir / "bin", exe_dir / "_internal" / "bin"]
+    for root in roots:
+        for name in ("tectonic", "tectonic.exe"):
+            candidate = root / name
+            if candidate.exists():
+                return candidate
     found = shutil.which("tectonic")
     return Path(found) if found else None
 
@@ -121,14 +130,21 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
         if bib and not (work / "references.bib").exists():
             (work / "references.bib").write_text(bib)
         try:
+            engine = tectonic_path()
+            run_kwargs = {}
+            if sys.platform == "win32":  # no console window flashing behind the app
+                run_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             proc = subprocess.run(
-                [str(tectonic_path()), "--untrusted", "--chatter", "minimal", main_path],
+                [str(engine), "--untrusted", "--chatter", "minimal", main_path],
                 cwd=work,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=COMPILE_TIMEOUT,
+                **run_kwargs,
             )
-            log = (proc.stdout + proc.stderr).strip()
+            log = f"engine: {engine}\n" + (proc.stdout + proc.stderr).strip()
             pdf_path = (work / main_path).with_suffix(".pdf")
             if proc.returncode == 0 and pdf_path.exists():
                 manuscript.compiled_pdf.save(
@@ -141,7 +157,10 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
             else:
                 manuscript.compile_status = Manuscript.CompileStatus.FAILED
         except subprocess.TimeoutExpired:
-            log = f"Compile timed out after {COMPILE_TIMEOUT}s."
+            log = (
+                f"Compile timed out after {COMPILE_TIMEOUT}s. The first compile downloads the TeX "
+                "bundle (a few hundred MB) — check the connection and try again."
+            )
             manuscript.compile_status = Manuscript.CompileStatus.FAILED
     if _stale(manuscript, generation):
         return "skipped: a newer compile superseded this one"
