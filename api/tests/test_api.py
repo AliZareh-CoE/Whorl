@@ -297,6 +297,11 @@ class TestMCPSupportEndpoints:
         slug = task.milestone.phase.project.slug
         data = client.get(f"/api/v1/projects/{slug}/plan/", **HEADERS).json()
         assert data["phases"][0]["milestones"][0]["tasks"][0]["title"] == "Leaf"
+        # the SPA plan page prints the project name and paints progress in its colour
+        project = task.milestone.phase.project
+        assert data["project"] == slug
+        assert data["project_name"] == project.name
+        assert data["project_color"] == project.color
 
     def test_reading_queue_endpoint_sorted(self, client, owner):
         from literature.tests.factories import ProjectReferenceFactory

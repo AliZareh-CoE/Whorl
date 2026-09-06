@@ -193,7 +193,9 @@ def test_desktop_mints_and_persists_an_api_key(tmp_path):
     # mint one on first launch and keep it in the data dir — stable across restarts.
     code = "import django; django.setup(); from django.conf import settings; print(settings.ATLAS_API_KEY)"
     env = _desktop_env(tmp_path, DJANGO_SETTINGS_MODULE="config.settings.desktop")
-    env.pop("ATLAS_API_KEY")  # the frozen server starts with no key in its environment
+    # the frozen server starts with ATLAS_API_KEY="" (atlas_server.py setdefault) — an empty
+    # env var also shadows any .env on a dev checkout, so the settings must mint a key
+    env["ATLAS_API_KEY"] = ""
     first = subprocess.run(
         [sys.executable, "-c", code],
         cwd=BASE_DIR,

@@ -21,7 +21,7 @@ type Phase = {
   progress: number;
   milestones: Milestone[];
 };
-type PlanData = { project: { name: string; slug: string; color: string }; phases: Phase[] };
+type PlanData = { project: string; project_name: string; project_color: string; phases: Phase[] };
 
 const statusCls: Record<string, string> = {
   done: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300",
@@ -121,7 +121,7 @@ export default function Plan() {
     <div>
       <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
         <Link to="/projects" className="hover:underline">Projects</Link> /{" "}
-        <Link to={`/projects/${slug}`} className="hover:underline">{data.project.name}</Link> / Plan
+        <Link to={`/projects/${slug}`} className="hover:underline">{data.project_name}</Link> / Plan
       </nav>
 
       <div className="mb-6 flex items-baseline justify-between gap-4">
@@ -166,7 +166,7 @@ export default function Plan() {
                 <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">
                   <div
                     className="h-1.5 rounded-full transition-[width] duration-300"
-                    style={{ width: `${phase.progress}%`, background: data.project.color }}
+                    style={{ width: `${phase.progress}%`, background: data.project_color || "var(--color-indigo-500)" }}
                   />
                 </div>
 

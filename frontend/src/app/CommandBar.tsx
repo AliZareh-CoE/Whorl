@@ -202,9 +202,9 @@ export default function CommandBar() {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh]">
-      <div className="absolute inset-0 bg-stone-900/40 dark:bg-black/60 backdrop-blur-[2px]" onClick={() => setOpen(false)} aria-hidden="true" />
+      <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-[3px] dark:bg-[#05070f]/70" onClick={() => setOpen(false)} aria-hidden="true" />
       <div role="dialog" aria-modal="true" aria-label="Command bar"
-           className="relative w-full max-w-xl overflow-hidden rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-xl ring-1 ring-black/5">
+           className="hairline-gradient glow-accent rise relative w-full max-w-2xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-transparent dark:bg-stone-900">
         <div className="flex items-center gap-3 border-b border-stone-100 dark:border-stone-800 px-4">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"
                className="h-4 w-4 shrink-0 text-stone-400 dark:text-stone-500">
@@ -222,7 +222,7 @@ export default function CommandBar() {
             }}
             placeholder="Jump anywhere — or  capture: idea   done: milestone"
             aria-label="Command"
-            className="w-full bg-transparent py-3.5 text-sm text-stone-800 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none"
+            className="w-full bg-transparent py-4 text-base text-stone-800 placeholder:text-stone-400 focus:outline-none dark:text-stone-100"
           />
         </div>
         {flash && (
@@ -244,9 +244,9 @@ export default function CommandBar() {
                   aria-selected={i === active}
                   onClick={() => runRow(row)}
                   onMouseEnter={() => setActive(i)}
-                  className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors ${i === active ? "bg-indigo-50 dark:bg-indigo-500/15" : "dark:hover:bg-stone-800"}`}
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${i === active ? "bg-indigo-50 dark:bg-indigo-500/20 dark:shadow-[inset_0_0_0_1px_rgba(139,124,255,0.35)]" : "dark:hover:bg-stone-800"}`}
                 >
-                  <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${i === active ? "bg-indigo-500" : "bg-transparent"}`} />
+                  <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${i === active ? "bg-indigo-500 shadow-[0_0_8px_rgba(139,124,255,0.9)]" : "bg-transparent"}`} />
                   <span className={`min-w-0 flex-1 truncate ${i === active ? "text-stone-900 dark:text-stone-100" : "text-stone-700 dark:text-stone-300"}`}>{row.label}</span>
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${i === active ? "bg-white dark:bg-stone-900 text-indigo-500 dark:text-indigo-400" : "bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-300"}`}>
                     {row.tag}

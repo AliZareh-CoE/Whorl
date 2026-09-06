@@ -496,7 +496,15 @@ class ProjectViewSet(AtlasViewSet):
                     ],
                 }
             )
-        return Response({"project": project.slug, "phases": phases})
+        return Response(
+            {
+                "project": project.slug,
+                # the SPA plan page prints the name and paints progress in the accent colour
+                "project_name": project.name,
+                "project_color": project.color,
+                "phases": phases,
+            }
+        )
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Unread references, highest priority first")},

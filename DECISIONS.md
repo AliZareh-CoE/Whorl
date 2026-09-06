@@ -544,6 +544,33 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — "Observatory": a new visual identity, dark by default (owner-directed, #291)
+
+**Decision.** The owner rejected the calm-editorial look outright ("I still don't like the UI at
+all… make this crazy enough for YouTube"). Atlas now has a signature identity, **Observatory**:
+a deep-space canvas with a slow aurora and star grain, glass panels with luminous hairlines, an
+electric-violet accent paired with cyan/magenta in gradients, display type (Space Grotesk) for
+headings and numerals, staggered entrances, and a **living constellation** of the active
+projects (a zero-dependency canvas module, `static/js/constellation.js`) behind the dashboard
+greeting and on the login screen. The shell is an icon rail with a glowing active bar and an
+"Ask Atlas anything ⌘K" spotlight; the command bar is a glass spotlight; the dashboard opens
+with a time-aware greeting ("Good evening. 2 things need you.") and orbit-ring project progress.
+Dark is the default; "Paper" (light) stays as an explicit choice via the same toggle.
+
+**How it reaches every page without a rewrite.** Tailwind v4 emits colours as `var(--color-*)`,
+so redefining the stone/indigo tokens under `.dark` re-skins all 16 SPA pages and every classic
+template at once; panels get glass via the literal `dark:bg-stone-900` class token they already
+carry (`[class~="dark:bg-stone-900"]`). Only Layout, Dashboard, CommandBar, and login were
+touched by hand. Fonts are vendored (OFL) so the desktop app looks the same offline.
+
+**Alternatives.** (a) A React redesign page-by-page — rejected for now: 5.6k lines of TSX for
+the same visual result the tokens give; individual pages can still get bespoke treatment later
+(backlog #292). (b) Keep follow-the-OS theming (#273) — rejected: the owner wants the new look on
+first launch; the light theme is one click away. (c) three.js for the hero — rejected: the
+citation graph already depends on a CDN that an offline desktop can't reach; a 2D canvas
+particle field is dependency-free and cheap. §7 of CLAUDE.md ("calm and editorial") is
+superseded by this owner direction; the calm-mode toggle and reduced-motion support remain.
+
 ### 2026-09-06 — Desktop ↔ Claude Code: ship `atlas-mcp` in the installer, zero-config (#289)
 
 **Decision.** Make the installed desktop app driveable from Claude Code with one line and no
@@ -791,6 +818,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+292. Observatory, second pass: bespoke treatment for the pages a video lingers on — Project Overview (constellation of that project's references + notes as the header), the Plan (phases as an orbital timeline), the Library (cover-style reference cards), and the 3D graph page (Observatory palette for nodes/links, bloom). Also vendor 3d-force-graph so the graph works offline in the desktop app.
+291. ~~Observatory visual identity (done 2026-09-06): dark-by-default tokens re-skinning every page, aurora + star grain, glass panels, vendored Inter/Space Grotesk, constellation canvas on the dashboard hero and login, icon rail with ⌘K spotlight, spotlight command bar, orbit-ring progress, time-aware greeting. Plan API now returns project_name/project_color (the SPA plan page had an empty breadcrumb and an invisible progress bar). See the 2026-09-06 decision.~~
 289. ~~Desktop ↔ Claude Code, zero-config (done 2026-09-06): API key minted+persisted in the desktop data dir; `server.json` with the live URL; `atlas-mcp` (frozen MCP server) shipped in the installer and discovering both by itself; "Connect Claude Code" page with the exact `claude mcp add` line per install; friendly "is the Atlas app running?" tool error. See the 2026-09-06 decision.~~
 290. Connect page: a live "test the connection" button (server-side: spawn the MCP server? no — call the API with the key and report; client-side can't reach the CLI). Low priority; `claude mcp list` covers it.
 288. AppImage retry — it was dropped (#210f) because linuxdeploy could not relink the bundled Postgres `.so`s; with Postgres gone (#286) the only native libs are PyInstaller's, so adding `appimage` back to `bundle.targets` may just work. One CI experiment on a branch; keep .deb/.rpm regardless.

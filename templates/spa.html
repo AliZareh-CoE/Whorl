@@ -6,23 +6,16 @@
   <title>Atlas</title>
   {% load static %}
   <script>
-    // Apply the effective theme before paint (no flash): an explicit saved choice wins,
-    // otherwise follow the OS prefers-color-scheme. The toggle records an explicit choice;
-    // with none stored we keep tracking the OS live. Dark mode is complete app-wide now (#273).
+    // Apply the theme before paint (no flash). Observatory (dark) is Atlas's identity and the
+    // default; "Paper" (light) is an explicit saved choice via the toggle (owner-directed,
+    // 2026-09-06 — this replaced the follow-the-OS default of #273).
     (function () {
-      var mql = window.matchMedia("(prefers-color-scheme: dark)");
       function stored() { try { return localStorage.getItem("theme"); } catch (e) { return null; } }
-      function apply() {
-        var t = stored();
-        var dark = t === "dark" || (t !== "light" && mql.matches);
-        document.documentElement.classList.toggle("dark", dark);
-      }
-      apply();
+      document.documentElement.classList.toggle("dark", stored() !== "light");
       window.__toggleTheme = function () {
         var dark = document.documentElement.classList.toggle("dark");
         try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
       };
-      if (mql.addEventListener) mql.addEventListener("change", function () { if (!stored()) apply(); });
       // Calm mode (#275): reflect the saved preference as a class before paint, so calm: CSS
       // applies without a flash. The in-app toggle keeps it in sync live.
       try { if (localStorage.getItem("atlas-calm") === "1") document.documentElement.classList.add("calm"); } catch (e) {}

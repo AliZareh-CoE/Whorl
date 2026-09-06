@@ -140,23 +140,22 @@ def test_reduced_motion_is_respected_globally():
     assert "prefers-reduced-motion" in built  # it actually compiled into the served CSS
 
 
-def test_theme_follows_os_preference_by_default():
-    # #273: dark mode is complete app-wide, so a fresh visitor with no stored choice should
-    # follow their OS prefers-color-scheme; the toggle still records an explicit override.
+def test_observatory_is_the_default_theme():
+    # Observatory (dark) is Atlas's identity and the default (owner-directed, 2026-09-06);
+    # "Paper" (light) is an explicit saved choice. This replaced #273's follow-the-OS default.
     from pathlib import Path
 
     from django.conf import settings
 
     for name in ("base.html", "spa.html"):
         html = (Path(settings.BASE_DIR) / "templates" / name).read_text()
-        assert "prefers-color-scheme: dark" in html, name  # OS preference is consulted
-        assert 'localStorage.setItem("theme"' in html, name  # toggle still persists a choice
-        # the old opt-in-only comment must be gone (it gated dark on an explicit "dark")
-        assert "opt-in only until dark mode is complete" not in html, name
+        assert 'classList.toggle("dark", stored() !== "light")' in html, name
+        assert 'localStorage.setItem("theme"' in html, name  # the toggle persists a choice
+        assert "prefers-color-scheme" not in html, name  # the OS no longer decides
 
-    # The standalone login page (the desktop app's first screen) must follow the OS too.
+    # The standalone login page (the desktop app's first screen) follows the same rule.
     login = (Path(settings.BASE_DIR) / "templates" / "registration" / "login.html").read_text()
-    assert "prefers-color-scheme: dark" in login
+    assert 'if (t !== "light") document.documentElement.classList.add("dark")' in login
 
 
 def test_calm_mode_is_class_based_app_wide():
