@@ -544,6 +544,25 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Plan v2 slice 4: phase context, questions on the plan, keyboard reschedule (#317)
+
+**Decision.** The plan API now returns each phase's objective, target window and attached research
+questions, plus the project's full question list; the phase card shows a context block (objective —
+click to edit, autosaved on blur; question chips coloured by status with detach; "+ research
+question" attaches through `PATCH /questions/{id}/ {phases}`), and the header carries editable date
+inputs. The roadmap's bars and diamonds are focusable; ←/→ nudge a day, Shift+←/→ a week, saving on
+each press. **Plan judged best-in-field after four slices** (document outline, roadmap with health and
+forecast, this-week focus, drawer, context, API + MCP parity) — next area: Notes + knowledge graph.
+
+**Why.** CLAUDE.md's research-first value puts questions and phases together; until now the link was
+only editable in the classic forms. Objectives are the "why" of a phase and belong at the top of the
+card, not in a form. Keyboard rescheduling makes the roadmap usable without a mouse and with a
+screen reader (the bars are sliders with value text).
+
+**Alternatives considered.** Creating questions from the plan page — parked; the Research page owns
+question CRUD and the Plan only links. Natural-language dates — parked again; date inputs and the
+outline cover it.
+
 ### 2026-09-06 — Plan v2 slice 3: this week + the milestone drawer (#315)
 
 **Decision.** `plans/focus.py` computes one project's week: overdue milestones and tasks (oldest

@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, CalendarRange, Check, FileText, LayoutList, Loader2, Plus, Save, X } from "lucide-react";
+import { AlertTriangle, CalendarRange, Check, FileText, HelpCircle, LayoutList, Loader2, Plus, Save, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -15,8 +15,9 @@ import MilestoneDrawer, { type DrawerMilestone } from "./plan/MilestoneDrawer";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
 type Milestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue: boolean; notes?: string; tasks: Task[] };
-type Phase = { id: number; name: string; order: number; status: string; progress: number; milestones: Milestone[] };
-type PlanData = { project: string; project_name: string; project_color: string; phases: Phase[] };
+type Question = { id: number; question: string; status: string };
+type Phase = { id: number; name: string; order: number; status: string; progress: number; objective: string; target_start: string | null; target_end: string | null; questions: Question[]; milestones: Milestone[] };
+type PlanData = { project: string; project_name: string; project_color: string; questions: Question[]; phases: Phase[] };
 type Summary = { phases: number; milestones: number; tasks: number; created: string[]; renamed: string[]; deleted: string[]; errors: { line: number; message: string }[]; applied?: boolean; markdown?: string };
 
 const STATUS_ORDER = ["not_started", "in_progress", "blocked", "done"];
@@ -92,6 +93,14 @@ export default function Plan() {
     onMutate: async ({ id, status }) => { patchPlan((plan) => ({ ...plan, phases: plan.phases.map((ph) => (ph.id === id ? { ...ph, status } : ph)) })); },
     onSettled: invalidate,
   });
+  const patchPhase = useMutation({
+    mutationFn: ({ id, ...body }: { id: number; objective?: string; target_start?: string | null; target_end?: string | null }) => api(`/phases/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    onSettled: invalidate,
+  });
+  const attachQuestion = useMutation({
+    mutationFn: ({ question, phases }: { question: number; phases: number[] }) => api(`/questions/${question}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phases }) }),
+    onSettled: invalidate,
+  });
   const addMilestone = useMutation({
     mutationFn: ({ phase, title }: { phase: number; title: string }) => api(`/milestones/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phase, title }) }),
     onSuccess: invalidate,
@@ -159,7 +168,7 @@ export default function Plan() {
         <div className="space-y-4">
           <Focus slug={slug!} onChanged={invalidate} />
           {data.phases.map((phase, pi) => (
-            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} />
+            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
           ))}
         </div>
       )}
@@ -178,17 +187,51 @@ export default function Plan() {
   );
 }
 
-function PhaseCard({ phase, index, accent, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen }: { phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void }) {
+function PhaseCard({ phase, index, accent, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen, allQuestions, onPatchPhase, onAttachQuestion }: { phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void; allQuestions: Question[]; onPatchPhase: (body: { objective?: string; target_start?: string | null; target_end?: string | null }) => void; onAttachQuestion: (question: number, attach: boolean) => void }) {
   const [draft, setDraft] = useState("");
   const [taskFor, setTaskFor] = useState<number | null>(null);
   const [taskDraft, setTaskDraft] = useState("");
+  const [editingObjective, setEditingObjective] = useState(false);
+  const [objective, setObjective] = useState(phase.objective);
+  useEffect(() => { if (!editingObjective) setObjective(phase.objective); }, [phase.objective, editingObjective]);
   const done = phase.milestones.filter((m) => m.completed_at).length;
+  const dates = phase.target_start || phase.target_end ? `${phase.target_start ?? "…"} → ${phase.target_end ?? "…"}` : "";
+  const unattached = allQuestions.filter((q) => !phase.questions.some((x) => x.id === q.id));
   return (
     <section className={`${panel} rise p-5`} style={{ ["--i" as string]: index }} data-testid="phase-card">
       <div className="mb-3 flex items-baseline gap-3">
         <span className="font-display text-2xl font-bold leading-none text-stone-300 dark:text-stone-600">{String(phase.order).padStart(2, "0")}</span>
         <h2 className="font-display min-w-0 flex-1 text-lg font-semibold text-stone-900 dark:text-stone-100">{phase.name}</h2>
+        <label className="hidden shrink-0 items-center gap-1 text-[11px] text-stone-400 sm:flex" title="Target window">
+          <input type="date" value={phase.target_start ?? ""} onChange={(e) => onPatchPhase({ target_start: e.target.value || null })} className="w-[7.5rem] rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-stone-400 hover:border-stone-300 focus:border-indigo-400 focus:outline-none dark:hover:border-stone-700" aria-label={`${phase.name} start`} />
+          →
+          <input type="date" value={phase.target_end ?? ""} onChange={(e) => onPatchPhase({ target_end: e.target.value || null })} className="w-[7.5rem] rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-stone-400 hover:border-stone-300 focus:border-indigo-400 focus:outline-none dark:hover:border-stone-700" aria-label={`${phase.name} end`} />
+        </label>
         <button type="button" onClick={onCycleStatus} className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs transition-colors hover:ring-2 hover:ring-indigo-400/40 ${statusCls[phase.status] ?? statusCls.not_started}`} title="Click to cycle the status">{STATUS_LABEL[phase.status] ?? phase.status}</button>
+      </div>
+      {dates && <p className="-mt-2 mb-2 text-[11px] text-stone-400 sm:hidden">{dates}</p>}
+      <div className="mb-3 rounded-xl border border-stone-100 bg-stone-50/60 px-3 py-2 text-sm dark:border-stone-800 dark:bg-stone-950/30" data-testid="phase-context">
+        {editingObjective ? (
+          <textarea autoFocus value={objective} onChange={(e) => setObjective(e.target.value)} onBlur={() => { setEditingObjective(false); if (objective !== phase.objective) onPatchPhase({ objective }); }} onKeyDown={(e) => { if (e.key === "Escape") { setObjective(phase.objective); setEditingObjective(false); } }} rows={3} className="w-full resize-y bg-transparent text-sm leading-relaxed text-stone-700 focus:outline-none dark:text-stone-200" aria-label={`${phase.name} objective`} placeholder="What must be true when this phase ends?" />
+        ) : (
+          <button type="button" onClick={() => setEditingObjective(true)} className="block w-full text-left leading-relaxed text-stone-600 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100" title="Click to edit the objective">
+            {phase.objective ? phase.objective : <span className="text-stone-400">Add the objective — what must be true when this phase ends?</span>}
+          </button>
+        )}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {phase.questions.map((q) => (
+            <span key={q.id} className={`group/q inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${q.status === "answered" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : q.status === "abandoned" ? "bg-stone-100 text-stone-400 line-through dark:bg-stone-800" : "bg-indigo-500/10 text-indigo-700 dark:text-indigo-200"}`} title={`Research question · ${q.status.replace("_", " ")}`}>
+              <HelpCircle className="h-3 w-3 shrink-0" aria-hidden="true" /><span className="truncate">{q.question}</span>
+              <button type="button" onClick={() => onAttachQuestion(q.id, false)} aria-label={`Detach question ${q.question}`} className="opacity-0 group-hover/q:opacity-100"><X className="h-3 w-3" aria-hidden="true" /></button>
+            </span>
+          ))}
+          {unattached.length > 0 && (
+            <select value="" onChange={(e) => { if (e.target.value) onAttachQuestion(Number(e.target.value), true); }} className="max-w-[16rem] rounded-full border border-dashed border-stone-300 bg-transparent px-2 py-0.5 text-[11px] text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-700" aria-label={`Attach a research question to ${phase.name}`}>
+              <option value="">+ research question</option>
+              {unattached.map((q) => <option key={q.id} value={q.id}>{q.question.slice(0, 80)}</option>)}
+            </select>
+          )}
+                  </div>
       </div>
       <div className="mb-1 flex items-center justify-between text-xs text-stone-400"><span>{done}/{phase.milestones.length} milestones</span><span>{phase.progress}%</span></div>
       <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">

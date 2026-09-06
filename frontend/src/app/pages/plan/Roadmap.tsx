@@ -109,6 +109,19 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
     return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
   }, [local, savePhase, saveMilestone]);
 
+  // keyboard: ←/→ move a focused phase bar or milestone by a day (Shift: a week)
+  const nudge = (p: PhaseRow, delta: number, m?: MilestoneRow) => {
+    if (!local) return;
+    if (m && m.due_date) { const due = isoOf(dayOf(m.due_date) + delta); setLocal({ ...local, phases: local.phases.map((ph) => (ph.id === p.id ? { ...ph, milestones: ph.milestones.map((mm) => (mm.id === m.id ? { ...mm, due_date: due } : mm)) } : ph)) }); saveMilestone.mutate({ id: m.id, due }); return; }
+    const start = isoOf(dayOf(p.start) + delta), end = isoOf(dayOf(p.end) + delta);
+    setLocal({ ...local, phases: local.phases.map((ph) => (ph.id === p.id ? { ...ph, start, end, inferred: false } : ph)) });
+    savePhase.mutate({ id: p.id, start, end });
+  };
+  const onKey = (e: React.KeyboardEvent, p: PhaseRow, m?: MilestoneRow) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    nudge(p, (e.key === "ArrowRight" ? 1 : -1) * (e.shiftKey ? 7 : 1), m);
+  };
   const begin = (e: React.PointerEvent, d: Drag) => { e.preventDefault(); e.stopPropagation(); drag.current = d; document.body.style.cursor = d.kind === "move" || d.kind === "milestone" ? "grabbing" : "ew-resize"; };
 
   if (isLoading || !view || !range) return <div className="space-y-3"><Skeleton className="h-8 w-full" />{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>;
@@ -118,7 +131,7 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
   return (
     <div className="rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900" data-testid="roadmap">
       <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-2 text-[11px] text-stone-400 dark:border-stone-800">
-        <span>drag a bar to move it · drag its edges to resize · slide a ◆ to change a due date</span>
+        <span>drag a bar to move it · drag its edges to resize · slide a ◆ to change a due date · focus + ←/→ nudges a day, Shift a week</span>
         <span className="ml-auto flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-sm bg-amber-500/75" />behind<span className="inline-block h-2 w-2 rounded-sm bg-red-500/75" />overdue<span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/70" />ahead / done<span className="inline-block h-2 w-3 rounded-sm border border-dashed border-stone-400" />suggested dates</span>
       </div>
       <div className="flex">
@@ -159,7 +172,7 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
                     </div>
                   )}
                   <div
-                    role="slider" aria-label={`${p.name}: ${p.start} to ${p.end}`} aria-valuetext={`${p.start} → ${p.end}`}
+                    role="slider" tabIndex={0} aria-label={`${p.name}: ${p.start} to ${p.end}`} aria-valuetext={`${p.start} → ${p.end}`} onKeyDown={(e) => onKey(e, p)}
                     onPointerDown={(e) => begin(e, { kind: "move", phase: p.id, originX: e.clientX, start: s, end: en })}
                     onMouseEnter={() => setHover(`${p.name} · ${p.start} → ${p.end}${p.inferred ? " (suggested)" : ""}`)} onMouseLeave={() => setHover("")}
                     className={`group absolute top-4 h-6 cursor-grab select-none rounded-md ${STATE_BAR[p.state] ?? STATE_BAR.empty} ${p.inferred ? "border border-dashed border-stone-400/80 dark:border-stone-400/60" : ""} shadow-[0_0_10px_rgb(0_0_0/.08)] transition-shadow hover:shadow-[0_0_14px_rgb(124_108_255/.45)] active:cursor-grabbing`}
@@ -173,7 +186,7 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
                   {p.milestones.filter((m) => m.due_date).map((m) => (
                     <button
                       key={m.id} type="button" title={`${m.title} · due ${m.due_date}${m.done ? " · done" : m.overdue ? " · overdue" : ""}`} aria-label={`${m.title}, due ${m.due_date}`}
-                      onPointerDown={(e) => begin(e, { kind: "milestone", id: m.id, phase: p.id, originX: e.clientX, day: dayOf(m.due_date as string) })}
+                      onPointerDown={(e) => begin(e, { kind: "milestone", id: m.id, phase: p.id, originX: e.clientX, day: dayOf(m.due_date as string) })} onKeyDown={(e) => onKey(e, p, m)}
                       className={`absolute top-[42px] h-3 w-3 -translate-x-1/2 rotate-45 cursor-grab rounded-[2px] border transition-transform hover:scale-125 ${m.done ? "border-emerald-500 bg-emerald-500" : m.overdue ? "border-red-500 bg-red-500 shadow-[0_0_8px_rgb(239_68_68/.8)]" : "border-indigo-400 bg-white dark:bg-stone-900"}`}
                       style={{ left: x(dayOf(m.due_date as string)) }} data-testid="milestone-diamond"
                     />

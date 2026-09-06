@@ -570,7 +570,7 @@ class ProjectViewSet(AtlasViewSet):
     def plan(self, request, slug=None):
         project = self.get_object()
         phases = []
-        for phase in project.phases.prefetch_related("milestones__tasks"):
+        for phase in project.phases.prefetch_related("milestones__tasks", "questions"):
             phases.append(
                 {
                     "id": phase.pk,
@@ -578,6 +578,14 @@ class ProjectViewSet(AtlasViewSet):
                     "order": phase.order,
                     "status": phase.status,
                     "progress": phase.progress,
+                    # Plan v2 slice 4: the phase's own context, editable inline
+                    "objective": phase.objective,
+                    "target_start": phase.target_start,
+                    "target_end": phase.target_end,
+                    "questions": [
+                        {"id": q.pk, "question": q.question, "status": q.status}
+                        for q in phase.questions.all()
+                    ],
                     "milestones": [
                         {
                             "id": m.pk,
@@ -598,6 +606,11 @@ class ProjectViewSet(AtlasViewSet):
         return Response(
             {
                 "project": project.slug,
+                # every research question of the project, so a phase can adopt one in place
+                "questions": [
+                    {"id": q.pk, "question": q.question, "status": q.status}
+                    for q in project.questions.all()
+                ],
                 # the SPA plan page prints the name and paints progress in the accent colour
                 "project_name": project.name,
                 "project_color": project.color,

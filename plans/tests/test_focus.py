@@ -84,3 +84,39 @@ def test_focus_api(client, settings, django_user_model):
         "upcoming",
         "empty",
     }
+
+
+def test_plan_api_carries_phase_context(client, settings, django_user_model):
+    from plans.tests.factories import ResearchQuestionFactory
+
+    settings.ATLAS_API_KEY = "k"
+    django_user_model.objects.create_superuser("owner", password="pw")
+    project = ProjectFactory(slug="deep")
+    phase = PhaseFactory(
+        project=project, order=1, objective="Settle the paradigm.", target_start=D(2026, 9, 1)
+    )
+    q = ResearchQuestionFactory(project=project, question="Does load gate distractors?")
+    q.phases.add(phase)
+    ResearchQuestionFactory(project=project, question="Unattached question")
+    out = client.get("/api/v1/projects/deep/plan/", HTTP_X_API_KEY="k").json()
+    ph = out["phases"][0]
+    assert ph["objective"] == "Settle the paradigm." and ph["target_start"] == "2026-09-01"
+    assert [x["question"] for x in ph["questions"]] == ["Does load gate distractors?"]
+    assert len(out["questions"]) == 2
+    # attach the other question to the phase through the questions endpoint
+    other = out["questions"][1]["id"]
+    patched = client.patch(
+        f"/api/v1/questions/{other}/",
+        {"phases": [phase.pk]},
+        content_type="application/json",
+        HTTP_X_API_KEY="k",
+    )
+    assert patched.status_code == 200
+    assert (
+        len(
+            client.get("/api/v1/projects/deep/plan/", HTTP_X_API_KEY="k").json()["phases"][0][
+                "questions"
+            ]
+        )
+        == 2
+    )
