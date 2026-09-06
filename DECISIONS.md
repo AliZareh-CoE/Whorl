@@ -544,6 +544,31 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Desktop: finish the SQLite switch by removing the Postgres remnants (#286)
+
+**Decision.** Strip everything the bundled-Postgres design (#210g) left behind after the SQLite
+switch (#266): the two CI steps that downloaded zonky's embedded-postgres binaries per OS, the
+`resources/pg` bundle resource, the `ATLAS_PG_BIN` plumbing in the Tauri shell, the
+`postgres.exe` taskkill in the NSIS hooks, the Postgres/`MSVCR120.dll` advice on the in-app
+diagnostic page, and the dead `core/desktop_runtime.py` module (262 lines) with its 12 tests.
+Keep `run_desktop`'s one-time cleanup of a stale `pgdata/` (that is the upgrade path for machines
+that ran the old build). At the same time make the shell **step aside to a free port** when 8000
+is taken (`choose_port` in server.rs) and derive `CSRF_TRUSTED_ORIGINS` from `ATLAS_PORT`.
+
+**Why.** Every installer shipped ~50 MB of Postgres it never ran, the failure page told users to
+install a VC++ redistributable that could not help, and a developer's `runserver` on 8000 made the
+desktop app fail to bind (the CSRF origins were also hardcoded to :8000, so a different port would
+have rejected every POST). This is the parked #268. The desktop README also still said the server
+was "NOT YET" bundled.
+
+**Alternatives.** (a) Leave the Postgres bundling as an "option" behind a flag — rejected: the
+owner chose SQLite, and dead alternate paths are exactly what made the saga hard to debug.
+(b) Fail loudly when 8000 is busy instead of choosing another port — rejected: the user cannot fix
+that from inside the app, and nothing in the app depends on the port number. (c) Re-enable
+AppImage now that the native Postgres `.so`s are gone — deferred (#288): worth one CI experiment,
+but not bundled into this change so the release stays green.
+
+
 ### 2026-06-17 — Theme follows the OS by default now that dark mode is complete (#273)
 
 - **Decision:** the theme bootstrap (base.html, spa.html, and the standalone login page) now
@@ -736,6 +761,9 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+288. AppImage retry — it was dropped (#210f) because linuxdeploy could not relink the bundled Postgres `.so`s; with Postgres gone (#286) the only native libs are PyInstaller's, so adding `appimage` back to `bundle.targets` may just work. One CI experiment on a branch; keep .deb/.rpm regardless.
+287. macOS desktop build — add `macos-latest` to the desktop-release matrix (Tauri + PyInstaller both support it; the frozen server needs the same Tailwind + freeze steps). Unsigned .dmg will hit Gatekeeper ("damaged"/right-click Open) until notarization is set up, so document that alongside D3.
+286. ~~Strip the dead Postgres bundling from the desktop app (done 2026-09-06, was parked as #268): removed the per-OS embedded-postgres CI steps, the `resources/pg` bundle resource, ATLAS_PG_BIN in the shell, postgres.exe in the NSIS hooks, the Postgres/MSVCR120 advice on the diagnostic page, and `core/desktop_runtime.py` + its 12 tests. Added `choose_port` (8000 else a free port) so a dev `runserver` no longer breaks the launch, with CSRF origins following ATLAS_PORT; a real `run_desktop --setup-only` test on a fresh SQLite data dir; desktop README rewritten (it still said the server was "NOT YET" bundled). Frozen binary verified end to end on :8077 (login 302→200, CSRF POST 302, foreign Origin 403). See the 2026-09-06 decision.~~
 285. Adopt `calm:hidden` on more secondary chrome (follows #275) — now that the `.calm` variant exists, quiet the remaining noise sources in calm mode: the classic dashboard's activity heatmap, the figure-gallery per-image counts, and any "X this month" stat figures on the classic overview. One class each, no new state. Could also add a tiny "Calm" affordance to the classic base.html so calm mode is discoverable outside the SPA dashboard (idea added by the cycle that shipped #275, 2026-06-17).
 284. ⌘K palette recents/empty-state — when the query is empty the palette shows the "Actions" + page-context block, but not the user's recent jumps. A short "Recent" group (last 3-4 navigations, persisted to localStorage like the classic base.html search-recents already does) would make reopening ⌘K a one-keystroke return to where you were. Pairs with the new group-header rendering (#279) (idea added by the cycle that shipped #279's header, 2026-06-17).
 283. ~~Extend ErrorState to the secondary pages (done 2026-06-17): wired the retryable error state into Decisions, Timeline, Figures, Inbox, and Review (the latter previously masked a failed load as a perpetual "Assembling your week…"). 16 SPA pages now share the error state; guard asserts all 16. Chose this lower-risk coverage pass over the #282 render-prop refactor (rollback frequency made churning 11 working pages unwise this cycle).~~

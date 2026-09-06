@@ -142,19 +142,26 @@ analysis/, manuscript/, notes/ ...), or **save any project's structure as your o
 
 ### Desktop app (Tauri)
 
-Atlas can run as a native desktop app that wraps the local server — and there it gains a
-**built-in terminal** (a real PTY) and **Open from disk** (a native file picker). The web app
-stays the single source of truth. Build it on your machine:
+Atlas also ships as a **self-contained desktop app**: one installer for Linux (`.deb`/`.rpm`)
+or Windows (`.exe`/`.msi`) that bundles the Django server frozen with PyInstaller, running on a
+per-user SQLite file — no Python, Postgres, Redis, or Docker on the machine. Installers are
+built by the **Desktop release** GitHub Actions workflow and attached to the "Atlas desktop
+preview" release (or a `v*` tag). On top of the web app the desktop build adds a **built-in
+terminal** (a real PTY) and **Open from disk** (a native file picker). The web app stays the
+single source of truth.
+
+To hack on the shell against a running dev server:
 
 ```bash
 cd desktop
 cargo install tauri-cli --version "^2"   # one-time
-make desktop          # dev run (Atlas must be running)
+make desktop          # dev run (Atlas must be running on :8000)
 make desktop-build    # packaged binary -> desktop/target/release/bundle/
 ```
 
-See `desktop/README.md` for per-OS prerequisites (Rust + a system webview). The terminal and
-disk access are desktop-only and are never exposed through the web API or MCP.
+See `desktop/README.md` for how the bundled build works, per-OS prerequisites, and the
+one-time signing setup that activates the in-app updater. The terminal and disk access are
+desktop-only and are never exposed through the web API or MCP.
 
 ## How Atlas compares
 
