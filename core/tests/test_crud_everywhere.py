@@ -48,6 +48,7 @@ def test_dialog_host_is_mounted_once_at_the_root():
         ("Research.tsx", ["QuestionsPanel", "/questions/${id}/", "/experiments/${id}/", "/datasets/${id}/"]),
         ("Plan.tsx", ["add-phase", "Delete phase", "Rename…"]),
         ("Writing.tsx", ["Delete manuscript", "/manuscripts/${id}/", "cardItems", "Shelve"]),
+        ("Library.tsx", ["rowItems", "Delete from library", "Find metadata", "onContextMenu"]),
     ],
 )
 def test_pages_expose_edit_and_delete(page, needles):

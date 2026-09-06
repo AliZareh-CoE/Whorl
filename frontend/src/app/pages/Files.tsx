@@ -376,7 +376,8 @@ export default function Files() {
     const raw = `/api/v1/documents/${f.id}/raw/`;
     return [
       { label: "Open", icon: <File className="h-3.5 w-3.5" />, hint: "↵", onSelect: () => setSelected(f) },
-      { label: "Open in a new tab", icon: <ExternalLink className="h-3.5 w-3.5" />, onSelect: () => window.open(raw, "_blank", "noopener") },
+      // the desktop webview has no tabs — window.open would spawn a bare window without the session
+      ...(isDesktop ? [] : [{ label: "Open in a new tab", icon: <ExternalLink className="h-3.5 w-3.5" />, onSelect: () => window.open(raw, "_blank", "noopener") }]),
       { label: "Download", icon: <Download className="h-3.5 w-3.5" />, onSelect: () => { const a = document.createElement("a"); a.href = raw; a.download = f.name; a.click(); } },
       { label: "Copy path", icon: <Copy className="h-3.5 w-3.5" />, onSelect: () => void copyText(f.rel_path) },
       "-",

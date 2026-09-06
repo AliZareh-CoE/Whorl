@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog } from "../../components/Dialog";
+import { useMenu, type MenuItem } from "../../components/Menu";
 import PdfReader, { HL_COLORS, type Highlight } from "./library/PdfReader";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -234,6 +235,18 @@ export default function Library() {
       flash(`${vars.action.replace("_", " ")}: ${out.affected} affected${out.errors.length ? ` · ${out.errors.length} error(s)` : ""}`);
     },
   });
+  // CRUD sweep 2026-09-06: one paper's actions on right-click, without selecting it first
+  const menu = useMenu();
+  const rowItems = (r: Ref): MenuItem[] => [
+    { label: "Open", icon: <BookOpen className="h-3.5 w-3.5" />, onSelect: () => setDetailId(r.id) },
+    { label: "Read & highlight", icon: <Highlighter className="h-3.5 w-3.5" />, disabled: !r.pdf, onSelect: () => openReader(r) },
+    { label: "Reference page", icon: <ExternalLink className="h-3.5 w-3.5" />, onSelect: () => navigate(`/references/${r.id}`) },
+    "-",
+    { label: "Find metadata", icon: <Sparkles className="h-3.5 w-3.5" />, onSelect: () => findMeta.mutate(r.id) },
+    { label: "Copy \\cite{key}", icon: <Copy className="h-3.5 w-3.5" />, onSelect: () => void navigator.clipboard?.writeText(`\\cite{${r.bibtex_key}}`) },
+    "-",
+    { label: "Delete from library…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete “${r.title.slice(0, 70)}${r.title.length > 70 ? "…" : ""}”?`, body: "Its project links, highlights and PDF go too.", danger: true, confirmLabel: "Delete" })) bulk.mutate({ ids: [r.id], action: "delete" }); } },
+  ];
   const findMeta = useMutation({
     mutationFn: (id: number) => api<Ref>(`/references/${id}/find-metadata/`, { method: "POST" }),
     onSuccess: () => { invalidate(); flash("Metadata found and applied."); },
@@ -563,7 +576,7 @@ export default function Library() {
               const needs = Boolean(r.extra?.needs_metadata);
               const active = i === cursor;
               return (
-                <div key={r.id} data-row={i} onClick={() => { setCursor(i); setDetailId(r.id); }} className={`group flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors ${detailId === r.id ? "bg-indigo-50 dark:bg-indigo-500/10" : active ? "bg-stone-50 dark:bg-stone-800/60" : "hover:bg-stone-50 dark:hover:bg-stone-800/40"}`}>
+                <div key={r.id} data-row={i} data-testid="library-row" onClick={() => { setCursor(i); setDetailId(r.id); }} onContextMenu={(e) => { setCursor(i); menu.open(e, rowItems(r)); }} className={`group flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors ${detailId === r.id ? "bg-indigo-50 dark:bg-indigo-500/10" : active ? "bg-stone-50 dark:bg-stone-800/60" : "hover:bg-stone-50 dark:hover:bg-stone-800/40"}`}>
                   <input type="checkbox" checked={selected.has(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSelect(r.id)} className="mt-1 accent-indigo-500" aria-label={`Select ${r.title}`} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">{r.title}</p>
@@ -631,6 +644,7 @@ export default function Library() {
           )}
         </aside>
       </div>
+      {menu.element}
       {toast && <div className="glow-accent fixed bottom-5 right-5 z-50 rounded-xl bg-stone-900 px-4 py-2.5 text-sm text-stone-100 dark:bg-stone-800">{toast}</div>}
     </div>
   );
