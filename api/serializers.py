@@ -348,6 +348,19 @@ class SavedViewSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "params", "position", "created_at", "updated_at"]
 
 
+class NoteFromTemplateSerializer(serializers.Serializer):
+    """Create a note from a template (Notes v2 slice 3)."""
+
+    project = ProjectSlugField()
+    kind = serializers.ChoiceField(
+        choices=["blank", "literature", "daily", "meeting", "experiment"],
+        help_text="literature needs `reference`; daily returns today's note if it exists.",
+    )
+    reference = serializers.PrimaryKeyRelatedField(
+        queryset=Reference.objects.all(), required=False, allow_null=True
+    )
+
+
 class PlanOutlineSerializer(serializers.Serializer):
     """Plan v2: the whole plan as a Markdown outline (see plans/outline.py for the grammar)."""
 

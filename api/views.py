@@ -1796,6 +1796,68 @@ class NoteViewSet(AtlasViewSet):
         )
 
     @extend_schema(
+        responses={
+            200: inline_serializer(
+                "NoteTemplate",
+                {
+                    "kind": rf_serializers.CharField(),
+                    "label": rf_serializers.CharField(),
+                    "description": rf_serializers.CharField(),
+                },
+                many=True,
+            )
+        },
+        description="Available note templates.",
+    )
+    @action(detail=False, methods=["get"])
+    def templates(self, request):
+        from notes.templates import TEMPLATES
+
+        return Response([{"kind": k, **v} for k, v in TEMPLATES.items()])
+
+    @extend_schema(
+        request=serializers.NoteFromTemplateSerializer,
+        responses={201: serializers.NoteSerializer},
+        description="Create a note from a template: literature (needs `reference`; pulls the "
+        "paper's metadata, @key and highlights), daily (this week's focus as checkboxes; one per "
+        "day), meeting, experiment, blank.",
+    )
+    @action(detail=False, methods=["post"], url_path="from-template")
+    def from_template(self, request):
+        from notes.templates import create_from_template
+
+        serializer = serializers.NoteFromTemplateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            note = create_from_template(
+                data["kind"], data["project"], reference=data.get("reference")
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(serializers.NoteSerializer(note).data, status=201)
+
+    @extend_schema(
+        parameters=[OpenApiParameter("style", str, description="apa (default) … ieee")],
+        responses={
+            200: inline_serializer(
+                "NoteExport",
+                {
+                    "markdown": rf_serializers.CharField(),
+                    "style": rf_serializers.CharField(),
+                    "references": rf_serializers.IntegerField(),
+                },
+            )
+        },
+        description="The note as portable Markdown with a formatted bibliography of its references.",
+    )
+    @action(detail=True, methods=["get"])
+    def export(self, request, pk=None):
+        from notes.templates import export_note
+
+        return Response(export_note(self.get_object(), request.query_params.get("style", "apa")))
+
+    @extend_schema(
         parameters=[OpenApiParameter("project", str, required=True)],
         responses={
             200: inline_serializer(

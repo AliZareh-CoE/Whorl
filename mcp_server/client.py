@@ -482,3 +482,16 @@ def update_note(note_id: int, body: str | None = None, title: str | None = None)
 def get_note_links(note_id: int):
     """Outgoing links, backlinks, references, unresolved links/keys, unlinked mentions."""
     return _request("GET", f"/notes/{note_id}/links/")
+
+
+def create_note_from_template(project: str, kind: str, reference_id: int | None = None):
+    """Create a note from a template (literature needs reference_id)."""
+    payload = {"project": project, "kind": kind}
+    if reference_id:
+        payload["reference"] = reference_id
+    return _request("POST", "/notes/from-template/", json=payload)
+
+
+def export_note(note_id: int, style: str = "apa"):
+    """The note as Markdown with a formatted bibliography."""
+    return _request("GET", f"/notes/{note_id}/export/", params={"style": style})

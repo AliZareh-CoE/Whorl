@@ -3,7 +3,7 @@
  *  (/references/, /facets/, /bulk/, /import/, /import-zotero/, /find-metadata/) and MCP. */
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
@@ -85,6 +85,7 @@ async function postForm<T>(path: string, form: FormData): Promise<T> {
 
 export default function Library() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [qInput, setQInput] = useState("");
   const q = useDebounced(qInput, 220);
@@ -134,6 +135,11 @@ export default function Library() {
     mutationFn: (id: number) => api<{ page_count: number; char_count: number; error: string }>(`/references/${id}/index-text/`, { method: "POST" }),
     onSuccess: (out) => { invalidate(); flash(out.error ? out.error : `Read ${out.page_count} page${out.page_count === 1 ? "" : "s"} into searchable text.`); },
     onError: () => flash("Could not read the PDF text."),
+  });
+  const litNote = useMutation({
+    mutationFn: ({ reference, project }: { reference: number; project: string }) => api<{ id: number }>("/notes/from-template/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project, kind: "literature", reference }) }),
+    onSuccess: (n, vars) => { petReact("note"); navigate(`/projects/${vars.project}/notes/${n.id}`); },
+    onError: () => flash("Could not create the note."),
   });
   const fetchPdf = useMutation({
     mutationFn: (id: number) => api<{ outcome: string; attached: boolean; pdf: string | null }>(`/references/${id}/fetch-pdf/`, { method: "POST" }),
@@ -611,7 +617,7 @@ export default function Library() {
               Select a paper to see its abstract, links, and related work.
             </div>
           ) : (
-            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
+            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} onLitNote={(project) => litNote.mutate({ reference: detail.id, project })} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
           )}
         </aside>
       </div>
@@ -620,7 +626,7 @@ export default function Library() {
   );
 }
 
-function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText }: { r: Ref; allTags: string[]; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
+function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText, onLitNote }: { r: Ref; allTags: string[]; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; onLitNote: (project: string) => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
   const [full, setFull] = useState(false);
   const [newTag, setNewTag] = useState("");
   const citation = useQuery({ queryKey: ["cite", r.id, citeStyle], queryFn: () => api<Citation>(`/references/${r.id}/cite/?style=${citeStyle}`), staleTime: 5 * 60_000 });
@@ -662,6 +668,9 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
         )}
         {r.doi && <a href={`https://doi.org/${r.doi}`} target="_blank" rel="noreferrer" className="rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">DOI</a>}
         {r.url && !r.doi && <a href={r.url} target="_blank" rel="noreferrer" className="rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">Link</a>}
+        {r.projects.length > 0 && (
+          <button type="button" onClick={() => onLitNote(r.projects.some((p) => p.slug === currentProject) ? currentProject : r.projects[0].slug)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title={`Start a literature note about this paper in ${r.projects.some((p) => p.slug === currentProject) ? currentProject : r.projects[0].name} (claims, method, limitations, highlights)`}><NotebookPen className="h-3 w-3" aria-hidden="true" />Note</button>
+        )}
         <button type="button" onClick={() => navigator.clipboard?.writeText(r.bibtex_key)} title="Copy cite key" className="rounded-md border border-stone-300 px-2.5 py-1 font-mono text-stone-500 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">{r.bibtex_key}</button>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-1.5">

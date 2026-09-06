@@ -452,3 +452,18 @@ def get_note_links(note_id: int) -> dict:
     """The note's link panel: outgoing [[links]], backlinks, cited references, unresolved
     titles/keys, and notes that mention this title without linking it."""
     return client.get_note_links(note_id)
+
+
+@mcp.tool()
+def create_note_from_template(project: str, kind: str, reference_id: int = 0) -> dict:
+    """Start a note from a template: 'literature' (give reference_id — the paper's metadata, @key
+    and highlights are filled in), 'daily' (this week's focus as checkboxes; returns today's note if
+    it exists), 'meeting', 'experiment', or 'blank'."""
+    return client.create_note_from_template(project, kind, reference_id or None)
+
+
+@mcp.tool()
+def export_note(note_id: int, style: str = "apa") -> dict:
+    """The note as portable Markdown with a References section formatted in apa / mla / chicago /
+    harvard / vancouver / ieee — paste it into a manuscript or send it to a colleague."""
+    return client.export_note(note_id, style)

@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowUpRight, AtSign, BookOpen, Link2, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUpRight, AtSign, BookOpen, CalendarDays, FileDown, FlaskConical, Link2, Plus, Search, Sparkles, Trash2, Users } from "lucide-react";
 import { api, petReact } from "../api";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -50,6 +50,10 @@ export default function NotesWorkbench() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["notes-unwritten", slug] }); queryClient.invalidateQueries({ queryKey: ["graph", slug] }); navigate(`/projects/${slug}/notes`); },
   });
 
+  const fromTemplate = useMutation({
+    mutationFn: (body: { kind: string; reference?: number }) => api<Note>("/notes/from-template/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project: slug, ...body }) }),
+    onSuccess: (n) => { petReact("note"); queryClient.invalidateQueries({ queryKey: ["notes"] }); navigate(`/projects/${slug}/notes/${n.id}`); },
+  });
   if (list.error) return <ErrorState message="Couldn't load notes." onRetry={() => list.refetch()} />;
   return (
     <div>
@@ -93,7 +97,7 @@ export default function NotesWorkbench() {
           </div>
         </aside>
         {isNew ? (
-          <NewNote slug={slug!} onCreate={(t) => create.mutate(t)} pending={create.isPending} />
+          <NewNote slug={slug!} onCreate={(t) => create.mutate(t)} pending={create.isPending || fromTemplate.isPending} onTemplate={(kind, reference) => fromTemplate.mutate({ kind, reference })} />
         ) : selectedId ? (
           <Editor key={selectedId} slug={slug!} id={selectedId} onDelete={() => remove.mutate(selectedId)} onCreateStub={(t) => create.mutate(t)} />
         ) : (
@@ -110,15 +114,38 @@ export default function NotesWorkbench() {
 }
 export { NotesWorkbench as NotesList, NotesWorkbench as NoteEditor };
 
-function NewNote({ slug, onCreate, pending }: { slug: string; onCreate: (title: string) => void; pending: boolean }) {
+function NewNote({ slug, onCreate, pending, onTemplate }: { slug: string; onCreate: (title: string) => void; pending: boolean; onTemplate: (kind: string, reference?: number) => void }) {
   const [title, setTitle] = useState(() => new URLSearchParams(window.location.search).get("title") ?? "");
+  const [paperQ, setPaperQ] = useState("");
+  const dpq = useDebounced(paperQ, 150);
+  const papers = useQuery({ queryKey: ["note-suggest", slug, "reference", dpq], queryFn: () => api<Suggestion[]>(`/notes/suggest/?project=${slug}&kind=reference&q=${encodeURIComponent(dpq)}`), enabled: paperQ.length > 0 });
+  const tpl = "flex items-start gap-3 rounded-xl border border-stone-200 p-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 disabled:opacity-50 dark:border-stone-800 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10";
   return (
-    <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) onCreate(title.trim()); }} className={`${panel} rise p-6`} style={{ ["--i" as string]: 1 }}>
-      <p className={railH}>New note in {slug}</p>
-      <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title — e.g. Load theory: open questions" className="font-display w-full bg-transparent text-2xl font-semibold text-stone-900 placeholder:text-stone-300 focus:outline-none dark:text-stone-100 dark:placeholder:text-stone-600" aria-label="New note title" />
-      <p className="mt-3 text-xs text-stone-400">Enter creates the note and opens the editor. Titles are unique per project; [[Title]] elsewhere links here.</p>
-      <button type="submit" disabled={pending || !title.trim()} className="mt-4 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Create note</button>
-    </form>
+    <div className={`${panel} rise p-6`} style={{ ["--i" as string]: 1 }} data-testid="new-note">
+      <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) onCreate(title.trim()); }}>
+        <p className={railH}>New note in {slug}</p>
+        <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title — e.g. Load theory: open questions" className="font-display w-full bg-transparent text-2xl font-semibold text-stone-900 placeholder:text-stone-300 focus:outline-none dark:text-stone-100 dark:placeholder:text-stone-600" aria-label="New note title" />
+        <p className="mt-2 text-xs text-stone-400">Enter creates a blank note. Titles are unique per project; [[Title]] elsewhere links here.</p>
+        <button type="submit" disabled={pending || !title.trim()} className="mt-3 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Create note</button>
+      </form>
+      <p className={`${railH} mt-6`}>Or start from a template</p>
+      <div className="grid gap-2 sm:grid-cols-2" data-testid="templates">
+        <div className={`${tpl} flex-col`}>
+          <span className="flex items-center gap-2 text-sm font-medium text-stone-800 dark:text-stone-100"><BookOpen className="h-4 w-4 text-indigo-500" aria-hidden="true" />Literature note</span>
+          <span className="text-xs text-stone-400">One paper: claims, method, limitations, relevance — its highlights come along.</span>
+          <input value={paperQ} onChange={(e) => setPaperQ(e.target.value)} placeholder="Type a cite key or title…" className="mt-1 w-full rounded-md border border-stone-200 bg-white px-2 py-1 text-xs focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800" aria-label="Paper for the literature note" />
+          {paperQ && (
+            <ul className="mt-1 max-h-32 w-full overflow-auto text-xs">
+              {(papers.data ?? []).map((r) => <li key={r.id}><button type="button" disabled={pending} onClick={() => onTemplate("literature", r.id)} className="block w-full truncate rounded px-1.5 py-1 text-left hover:bg-indigo-500/10"><span className="font-mono text-indigo-500">@{r.label}</span> <span className="text-stone-500">{r.sublabel}</span></button></li>)}
+              {papers.data && papers.data.length === 0 && <li className="px-1.5 py-1 text-stone-400">No paper in this project matches.</li>}
+            </ul>
+          )}
+        </div>
+        <button type="button" disabled={pending} onClick={() => onTemplate("daily")} className={tpl}><CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" /><span><span className="block text-sm font-medium text-stone-800 dark:text-stone-100">Daily note</span><span className="text-xs text-stone-400">Today's page: this week's focus as checkboxes, a log, captures. One per day.</span></span></button>
+        <button type="button" disabled={pending} onClick={() => onTemplate("meeting")} className={tpl}><Users className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" /><span><span className="block text-sm font-medium text-stone-800 dark:text-stone-100">Meeting</span><span className="text-xs text-stone-400">Attendees, agenda, decisions, actions.</span></span></button>
+        <button type="button" disabled={pending} onClick={() => onTemplate("experiment")} className={tpl}><FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" /><span><span className="block text-sm font-medium text-stone-800 dark:text-stone-100">Experiment</span><span className="text-xs text-stone-400">Hypothesis, setup, observations, result, next step.</span></span></button>
+      </div>
+    </div>
   );
 }
 
@@ -131,6 +158,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
   const [loaded, setLoaded] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [exported, setExported] = useState("");
   useEffect(() => { if (note.data && !loaded) { setTitle(note.data.title); setBody(note.data.body); setLoaded(true); } }, [note.data, loaded]);
   const debouncedBody = useDebounced(body, 500);
   const preview = useQuery({
@@ -194,10 +222,12 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
   const L = links.data;
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_17rem]">
+      {exported && <div role="status" className="fixed bottom-5 right-5 z-30 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm shadow-lg dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100">{exported}</div>}
       <div className={`${panel} rise overflow-hidden`} style={{ ["--i" as string]: 1 }} data-testid="note-editor">
         <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-2 text-[11px] text-stone-400 dark:border-stone-800">
           <span className="font-mono">[[</span><span>link a note</span><span className="font-mono">@</span><span>cite a paper</span><span>· ⌘S saves</span>
           <span className="ml-auto tabular-nums" data-testid="save-state">{save.isPending ? "saving…" : dirty ? "editing…" : savedAt ? "saved" : ""}</span>
+          <button type="button" onClick={async () => { const style = (() => { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } })(); const out = await api<{ markdown: string; references: number }>(`/notes/${id}/export/?style=${style}`); await navigator.clipboard?.writeText(out.markdown); setExported(`Copied as Markdown${out.references ? ` with ${out.references} reference${out.references === 1 ? "" : "s"} (${style.toUpperCase()})` : ""}.`); setTimeout(() => setExported(""), 3500); }} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy the note as Markdown with a formatted bibliography"><FileDown className="h-3.5 w-3.5" aria-hidden="true" />export</button>
           <button type="button" onClick={() => { if (window.confirm(`Delete “${title}”?`)) onDelete(); }} className="inline-flex items-center gap-1 hover:text-red-500" aria-label="Delete note"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
         </div>
         <input value={title} onChange={(e) => { setTitle(e.target.value); queueSave(e.target.value, body); }} className="font-display w-full bg-transparent px-5 pt-4 text-2xl font-semibold text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Note title" />

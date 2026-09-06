@@ -544,6 +544,31 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Notes v2 slice 3: templates and export with a bibliography (#323)
+
+**Decision.** `notes/templates.py` renders five templates from project data: *literature* (title
+"Family Year — title", first line `@key`, metadata + DOI, sections In one sentence / Claims / Method /
+Limitations / Why it matters, then every highlight of the paper as block quotes with page and
+comment, and a `[[Highlights — key]]` link when that note exists; the reference is attached), *daily*
+(title = ISO date, unique per day; this week's focus from `plans.focus` as checkboxes, then Log and
+Captured), *meeting*, *experiment*, *blank*. `export_note` returns the body as written plus a
+References section formatted by `literature.citations.bibliography` in the chosen style. API:
+`GET /notes/templates/`, `POST /notes/from-template/`, `GET /notes/{id}/export/?style=`; MCP
+`create_note_from_template`, `export_note` (68 tools). UI: the New-note pane offers the templates (the
+literature card searches the project's papers inline), the editor toolbar gets "export" (copies
+Markdown with the bibliography in the Library's remembered citation style), and the Library detail
+pane gets a "Note" button that starts a literature note in the paper's project. **Notes + graph
+judged best-in-field** after three slices (workbench with @citations, navigable vendored graph,
+templates + export); next area: the Writing studio.
+
+**Why.** Zettelkasten tooling asks the researcher to build literature notes by hand; here the paper,
+its key and the highlights already taken arrive in one click, and the note leaves with a
+bibliography. The daily note is the ADHD-friendly page the owner asked for, seeded from the plan.
+
+**Alternatives considered.** User-editable template bodies — parked: convention over configuration,
+and the five cover the research loop; a `templates` setting screen can wait. Pandoc-style
+`[@key]` brackets — rejected: `@key` alone is what people type and what the autocomplete inserts.
+
 ### 2026-09-06 — Notes v2 slice 2: Graph v2, vendored and navigable (#321)
 
 **Decision.** `3d-force-graph` 1.73.4 and `force-graph` 1.43.5 are vendored under

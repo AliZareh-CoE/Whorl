@@ -434,3 +434,16 @@ def test_notes_client_calls(capture):
     )
     client.get_note_links(4)
     assert calls_url_has(capture, "/notes/4/links/")
+
+
+def test_note_template_and_export_client_calls(capture):
+    client.create_note_from_template("deep", "literature", reference_id=9)
+    assert (
+        capture["method"] == "POST"
+        and '"reference":9' in capture["body"]
+        and '"kind":"literature"' in capture["body"]
+    )
+    client.create_note_from_template("deep", "daily")
+    assert "reference" not in capture["body"]
+    client.export_note(4, style="ieee")
+    assert calls_url_has(capture, "/notes/4/export/") and "style=ieee" in capture["url"]
