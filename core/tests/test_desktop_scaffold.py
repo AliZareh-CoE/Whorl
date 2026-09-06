@@ -278,7 +278,9 @@ def test_capability_covers_the_local_server_origin():
 def test_release_workflow_smoke_tests_the_frozen_server():
     """Owner reports 2026-09-06: every failure lived only in the installed build. CI boots the
     frozen server on the target OS and checks login, diagnostics (bundled engine) and the SPA."""
-    workflow = (ROOT / ".github" / "workflows" / "desktop-release.yml").read_text()
+    workflow = (
+        Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml"
+    ).read_text()
     assert "Smoke-test the frozen server" in workflow
     assert "--setup-only" in workflow and "/api/v1/diagnostics/" in workflow
     assert (
