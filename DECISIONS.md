@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Outbound links in the desktop app (#352)
+
+**Finding.** The owner: "the button to get it manually failed". The Tauri shell only navigates within the local Atlas origin (a deliberate hardening), so every outbound link in the desktop app — the releases page, DOIs, API docs, "Open ↗" on a PDF host — silently did nothing.
+
+**Decision.** A `open_external` command in the shell hands http(s)/mailto URLs to the operating system's browser (`cmd /C start`, `open`, `xdg-open`; everything else is refused, unit-tested), and the app installs one capturing click handler that routes any off-origin anchor through it (`frontend/src/app/external.ts`). In a normal browser nothing changes. The updater's "get it manually" uses it directly.
+
+**Alternatives.** Widening `on_navigation` to allow any https host (rejected: the window would leave the app; the hardening exists so a compromised page cannot steer it); the tauri-plugin-opener crate (rejected for now: same result with zero new dependencies and no new capability grants).
+
 ### 2026-09-06 — First run on the desktop: login hint, welcome panel, demo loader, doctor (#351)
 
 **Finding.** A fresh install (verified against an empty desktop-settings instance) showed a login form with no hint that the bundled login is `atlas / atlas`, then a dashboard saying "All clear, everywhere" with zero projects. `seed_demo` also could not be re-run: deleting a project with a manuscript re-created the manuscript's mirror folder mid-cascade (the `ManuscriptFile` post-delete signal re-synced while the parents were still inside the collector's transaction), leaving an orphan folder and a foreign-key error at commit.

@@ -8,6 +8,7 @@
 
 mod localfs;
 mod server;
+mod external;
 mod terminal;
 mod updater;
 
@@ -134,6 +135,7 @@ fn main() {
             terminal::terminal_write,
             terminal::terminal_resize,
             terminal::terminal_kill,
+            external::open_external,
             localfs::open_local_file,
             updater::check_for_updates,
             updater::check_update,

@@ -247,3 +247,18 @@ def test_release_workflow_mirrors_to_the_public_feed():
     assert "private GitHub repository" in button and "Updates unavailable" in button
     readme = (Path(settings.BASE_DIR) / "README.md").read_text()
     assert "## Auto-update" in readme and "RELEASES_REPO" in readme
+
+
+def test_external_links_open_in_the_os_browser():
+    """Owner 2026-09-06: "the button to get it manually failed" — the shell blocks off-origin
+    navigation, so outbound links go through open_external (http/https/mailto only)."""
+    main = (DESKTOP / "src" / "main.rs").read_text()
+    external = (DESKTOP / "src" / "external.rs").read_text()
+    assert "external::open_external" in main
+    assert 'starts_with("https://")' in external and "javascript:" in external
+    layout = (Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "Layout.tsx").read_text()
+    assert "installExternalLinkHandler()" in layout
+    button = (
+        Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "UpdaterButton.tsx"
+    ).read_text()
+    assert "openExternal(RELEASES)" in button

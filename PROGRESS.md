@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ DESKTOP OUTBOUND LINKS (2026-09-06, #352).** `desktop/src/external.rs` `open_external` (http/https/mailto only, OS browser) + `frontend/src/app/external.ts` capturing click handler installed by the layout; "get it manually" uses it. cargo check + Rust unit test; scaffold test. **Owner reports answered (20:40 UTC):** "check for update failed" = private repo 404 (#347 — needs the public feed or a public repo); "get it manually failed" = this fix; "Connect Claude Code removed the todo list" = the old build's classic exit (#342/#346 fixed it) — the installed app must be reinstalled once from the releases page because it cannot update itself yet.
+
 - **★ FIRST RUN ON THE DESKTOP (2026-09-06, #351).** Login hint (desktop + default password), dashboard Welcome panel with "Load the demo project" (`/api/v1/demo/`), cascade-delete mirror bug fixed (seed_demo re-runnable; regression test), doctor: engine resolver + update-feed check. Verified on an empty desktop-settings instance: hint shown, welcome shown, demo loaded and the welcome disappeared (docs/screenshots/first-run-login.png, first-run-dashboard.png). Tests: `core/tests/test_first_run.py` (4). Next: highlight rectangles, matrix suggest-themes, re-judge Today/Dashboard.
 
 - **★ INBOX KEYBOARD TRIAGE + MATRIX CSV (2026-09-06, #350).** Inbox cursor (j/k/arrows, ↵ suggested, 1–5 targets, f file, x dismiss, ? legend, hover syncs), matrix CSV download. Playwright: j moved the cursor, ? showed the legend, ↵ on a "todo:" capture created the Today item and removed the row, x dismissed the other, no console errors (docs/screenshots/inbox-keys.png). Next: highlight rectangles, matrix suggest-themes, then judge the Dashboard/Today again with fresh eyes.

@@ -85,7 +85,9 @@ class Command(BaseCommand):
         else:
             self.warn(
                 "update feed unreachable ("
-                + ", ".join(f"{u.split('/')[3]}: {c}" for u, c in zip(endpoints, statuses, strict=True))
+                + ", ".join(
+                    f"{u.split('/')[3]}: {c}" for u, c in zip(endpoints, statuses, strict=True)
+                )
                 + ") — a private repo answers 404; create the public atlas-releases feed or "
                 "make the repo public (README › Auto-update)"
             )

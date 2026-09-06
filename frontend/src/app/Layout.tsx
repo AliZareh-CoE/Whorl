@@ -6,6 +6,7 @@ import { api, csrfToken } from "./api";
 import { toSpaUrl } from "./links";
 import CommandBar from "./CommandBar";
 import TerminalDock, { openTerminal } from "./TerminalDock";
+import { installExternalLinkHandler } from "./external";
 import { Creature, type Reaction } from "./pet/Creature";
 import { UpdaterButton } from "./UpdaterButton";
 
@@ -54,6 +55,7 @@ export default function Layout() {
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
   }, [navigate]);
+  useEffect(() => { installExternalLinkHandler(); }, []);
   const { data: pet } = useQuery({
     queryKey: ["pet"],
     queryFn: () =>

@@ -6,6 +6,7 @@
 // Clicking downloads + installs, then offers a restart. "Check for updates" stays available
 // for a manual check. In the browser there is no __TAURI__ bridge, so it renders nothing.
 import { useEffect, useState } from "react";
+import { openExternal } from "./external";
 import { ArrowDownToLine, RefreshCw } from "lucide-react";
 
 type TauriApi = {
@@ -102,7 +103,7 @@ export function UpdaterButton() {
     return (
       <span className={`${base} flex-wrap text-stone-400`} title={state.message} data-testid="updater-error">
         <button onClick={() => check()} className="hover:text-stone-700 dark:hover:text-stone-200">{state.silent ? "Updates unavailable — why?" : "Update check failed — retry"}</button>
-        <a href={RELEASES} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline">get it manually ↗</a>
+        <button type="button" onClick={() => void openExternal(RELEASES)} className="text-indigo-500 hover:underline">get it manually ↗</button>
       </span>
     );
 
