@@ -556,3 +556,19 @@ def convert_capture(
     the DOI/arXiv paper, filed into project), 'note', 'todo' (Today list), 'milestone' (into
     phase_id or the project's current phase; optional ISO due), or 'decision'."""
     return client.convert_capture(capture_id, target, project, phase_id, due)
+
+
+@mcp.tool()
+def set_review_mark(
+    slug: str, reference: str, theme: str, marked: bool = True, note: str = ""
+) -> dict:
+    """Fill one cell of the project's literature review matrix: `reference` is an id or bibtex
+    key, `theme` an id or name (a new name adds the column), `note` the extracted finding (≤300
+    chars). marked=False clears the cell. Read the paper first (search_in_pdf, list_highlights)."""
+    return client.set_review_mark(slug, reference, theme, marked, note)
+
+
+@mcp.tool()
+def add_review_theme(slug: str, name: str) -> dict:
+    """Add a theme (column) to the project's review matrix, e.g. 'Sample size' or 'Load type'."""
+    return client.add_review_theme(slug, name)

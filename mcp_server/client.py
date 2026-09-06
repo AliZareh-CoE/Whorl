@@ -576,3 +576,17 @@ def convert_capture(
     if due:
         payload["due"] = due
     return _request("POST", f"/quick-capture/{capture_id}/convert/", json=payload)
+
+
+def set_review_mark(slug: str, reference, theme, marked: bool = True, note: str = ""):
+    """Set one review-matrix cell (theme may be a name; it is created when missing)."""
+    return _request(
+        "POST",
+        f"/projects/{slug}/review-matrix/mark/",
+        json={"reference": str(reference), "theme": str(theme), "marked": marked, "note": note},
+    )
+
+
+def add_review_theme(slug: str, name: str):
+    """Add a column to the review matrix."""
+    return _request("POST", f"/projects/{slug}/review-matrix/themes/", json={"name": name})

@@ -387,6 +387,20 @@ class SubmissionEventInSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True)
 
 
+class ReviewThemeInSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=200)
+    order = serializers.IntegerField(required=False, allow_null=True)
+
+
+class ReviewMarkInSerializer(serializers.Serializer):
+    """One matrix cell (Matrix v2)."""
+
+    reference = serializers.CharField(help_text="Reference id or bibtex key")
+    theme = serializers.CharField(help_text="Theme id or name (a name creates the theme)")
+    marked = serializers.BooleanField(default=True)
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=300)
+
+
 class ReviewsInSerializer(serializers.Serializer):
     """Paste the reviews you received (Writing v2 slice 2)."""
 

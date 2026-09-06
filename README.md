@@ -9,7 +9,7 @@ Atlas is a single-user, self-hosted research platform for people who find Jira-s
 and task-obsessed. It treats what researchers actually care about as first-class: a **plan** you
 write like a document, a **library** that reads your PDFs, **notes** that cite papers with `@key`,
 a **writing studio** that checks your citations and compiles LaTeX, and an **MCP server** so
-Claude Code can do all of it with you — 80 tools over the same API the UI uses.
+Claude Code can do all of it with you — 82 tools over the same API the UI uses.
 
 > Built like Django itself: boring technology, strong conventions, everything has exactly one
 > obvious place. No cloud, no telemetry. Runs as a web app or a one-click desktop app.
@@ -33,8 +33,8 @@ Claude Code can do all of it with you — 80 tools over the same API the UI uses
 | *Notes: `[[links]]` and `@citations` autocomplete, live preview, link panel* | *Knowledge graph: search-to-focus, neighbourhood mode, hubs; works offline* |
 | ![Manuscript studio](docs/screenshots/writing-studio.png) | ![Reviewer response tracker](docs/screenshots/writing-reviews.png) |
 | *Manuscript studio: pipeline, bibliography from your literature, cite check, compile, budget* | *Paste the reviews — get a point-by-point response note and a progress bar* |
-| ![Inbox triage](docs/screenshots/inbox.png) | ![LaTeX editor](docs/screenshots/latex-editor.png) |
-| *Inbox: a DOI becomes a paper, "todo:" a Today item, "decision:" a decision — one click* | *LaTeX editor: cite-key autocomplete, Tectonic compile, live PDF preview* |
+| ![Inbox triage](docs/screenshots/inbox.png) | ![Review matrix](docs/screenshots/matrix.png) |
+| *Inbox: a DOI becomes a paper, "todo:" a Today item, "decision:" a decision — one click* | *Review matrix: papers × themes, the finding typed into each cell, coverage per theme* |
 
 ## What's inside
 
@@ -47,7 +47,8 @@ Claude Code can do all of it with you — 80 tools over the same API the UI uses
 - Facets, keyboard `j/k/x/o`, bulk file / mark / tag / export, saved smart views, duplicate merge that keeps every link.
 - Read and highlight without leaving the page; per-project reading notes; Find PDF (arXiv → Unpaywall).
 - Search inside your PDFs: every attached PDF is read into searchable text — hits name the page.
-- Discover from any paper (similar / cites / cited-by), citations in APA · MLA · Chicago · Harvard · Vancouver · IEEE, retraction and duplicate checkers, literature review matrix.
+- Discover from any paper (similar / cites / cited-by), citations in APA · MLA · Chicago · Harvard · Vancouver · IEEE, retraction and duplicate checkers.
+- Review matrix: an extraction table of papers × themes — click a cell, type the finding, add themes in place, copy as Markdown, draft a synthesis note; Claude fills cells from the PDFs through MCP.
 
 **Notes & graph** — `[[wiki-links]]` and Pandoc-style `@key` citations with autocomplete, live preview, autosave, backlinks and unlinked mentions.
 - Templates: a literature note built from any paper with its highlights, a daily note seeded with this week's focus, meeting, experiment. Export any note with a formatted bibliography.
@@ -152,7 +153,7 @@ Tools — projects & plans: `get_dashboard`, `list_projects`, `get_project_overv
 `complete_milestone`, `get_timeline`, `create_project`, `list_project_templates`, `get_plan_outline`, `set_plan_outline`, `get_roadmap`, `set_phase_dates`, `get_week_focus`.
 Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,
-`set_reading_status`, `run_bib_check`, `get_review_matrix`, `get_synthesis_scaffold`.
+`set_reading_status`, `run_bib_check`, `get_review_matrix`, `set_review_mark`, `add_review_theme`, `get_synthesis_scaffold`.
 Library imports & discovery: `import_references` (BibTeX/CSL-JSON/RIS text), `import_from_zotero`,
 `discover_related` (similar / cites / cited-by on OpenAlex), `export_bibtex`, `format_citations` (APA/MLA/Chicago/Harvard/Vancouver/IEEE).
 Tags, views & hygiene: `list_library_tags`, `tag_references`, `find_duplicates`, `merge_references`.

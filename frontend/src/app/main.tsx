@@ -21,6 +21,7 @@ const Reference = lazy(() => import("./pages/Reference"));
 const Notes = lazy(() => import("./pages/Notes"));
 const Research = lazy(() => import("./pages/Research"));
 const Review = lazy(() => import("./pages/Review"));
+const Matrix = lazy(() => import("./pages/Matrix"));
 const Decisions = lazy(() => import("./pages/Decisions"));
 const Graph = lazy(() => import("./pages/Graph"));
 const WritingBoard = lazy(() => import("./pages/Writing").then((m) => ({ default: m.WritingBoard })));
@@ -58,6 +59,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/notes/:id" element={<Notes />} />
           <Route path="projects/:slug/research" element={<Research />} />
           <Route path="projects/:slug/review" element={<Review />} />
+          <Route path="projects/:slug/matrix" element={<Matrix />} />
           <Route path="review" element={<Review />} />
           <Route path="projects/:slug/decisions" element={<Decisions />} />
           <Route path="projects/:slug/graph" element={<Graph />} />

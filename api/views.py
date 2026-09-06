@@ -676,6 +676,7 @@ class ProjectViewSet(AtlasViewSet):
             }
             for link in project.project_references.select_related("reference")
         ]
+        from literature.matrix import matrix as matrix_table
         from literature.selectors import theme_coverage
 
         return Response(
@@ -683,8 +684,94 @@ class ProjectViewSet(AtlasViewSet):
                 "themes": [t.name for t in themes],
                 "papers": papers,
                 "coverage": theme_coverage(project),
+                # Matrix v2: the full table with ids, cells and per-theme coverage
+                "table": matrix_table(project),
             }
         )
+
+    @extend_schema(
+        request=serializers.ReviewThemeInSerializer,
+        responses={201: OpenApiResponse(description="{id, name, order}")},
+        description="Add a review theme (a column of the matrix); an existing name is reused.",
+    )
+    @action(detail=True, methods=["post"], url_path="review-matrix/themes")
+    def add_review_theme(self, request, slug=None):
+        from literature.matrix import add_theme
+
+        serializer = serializers.ReviewThemeInSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        theme = add_theme(
+            self.get_object(),
+            serializer.validated_data["name"],
+            serializer.validated_data.get("order"),
+        )
+        return Response({"id": theme.pk, "name": theme.name, "order": theme.order}, status=201)
+
+    @extend_schema(
+        request=serializers.ReviewThemeInSerializer,
+        responses={200: OpenApiResponse(description="{id, name, order}"), 204: None},
+        description="Rename / reorder (PATCH) or delete (DELETE) a review theme.",
+    )
+    @action(
+        detail=True, methods=["patch", "delete"], url_path=r"review-matrix/themes/(?P<theme_id>\d+)"
+    )
+    def review_theme(self, request, slug=None, theme_id=None):
+        from literature.models import ReviewTheme
+
+        theme = get_object_or_404(ReviewTheme, pk=theme_id, project=self.get_object())
+        if request.method == "DELETE":
+            theme.delete()
+            return Response(status=204)
+        serializer = serializers.ReviewThemeInSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        if "name" in serializer.validated_data:
+            theme.name = serializer.validated_data["name"]
+        if serializer.validated_data.get("order") is not None:
+            theme.order = serializer.validated_data["order"]
+        theme.save()
+        return Response({"id": theme.pk, "name": theme.name, "order": theme.order})
+
+    @extend_schema(
+        request=serializers.ReviewMarkInSerializer,
+        responses={200: OpenApiResponse(description="{reference_id, theme_id, marked, note}")},
+        description="Set one matrix cell: mark (with an optional note — the extracted finding) or "
+        "clear it. `theme` may be a name; unknown names create the theme.",
+    )
+    @action(detail=True, methods=["post"], url_path="review-matrix/mark")
+    def set_review_mark(self, request, slug=None):
+        from literature.matrix import set_mark
+
+        serializer = serializers.ReviewMarkInSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            out = set_mark(
+                self.get_object(),
+                data["reference"],
+                data["theme"],
+                marked=data["marked"],
+                note=data.get("note"),
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(out)
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Markdown table (text/markdown)")},
+        description="The review matrix as a Markdown table.",
+    )
+    @action(detail=True, methods=["get"], url_path="review-matrix/markdown")
+    def review_matrix_markdown(self, request, slug=None):
+        from django.http import HttpResponse
+
+        from literature.matrix import matrix_markdown
+
+        project = self.get_object()
+        response = HttpResponse(
+            matrix_markdown(project), content_type="text/markdown; charset=utf-8"
+        )
+        response["Content-Disposition"] = f'attachment; filename="{project.slug}-review-matrix.md"'
+        return response
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Bib checker findings grouped by category")},

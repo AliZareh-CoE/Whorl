@@ -544,6 +544,29 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Review matrix v2: the extraction table (#339)
+
+**Decision.** `literature/matrix.py` turns the review matrix into an extraction table: `add_theme`
+(case-insensitive reuse, auto order), `resolve_theme` (id or name — a new name creates the column),
+`set_mark` (reference by id or bibtex key; create / update note / clear), `matrix` (themes with
+coverage, rows with cells keyed by theme id) and `matrix_markdown`. API on projects:
+`review-matrix/` gains `table`; `POST review-matrix/themes/`, `PATCH|DELETE
+review-matrix/themes/{id}/`, `POST review-matrix/mark/`, `GET review-matrix/markdown/`. MCP
+`set_review_mark`, `add_review_theme` (82 tools). New SPA page `/projects/{slug}/matrix` (also a
+quick link on the overview): sticky paper column and theme header with coverage bars, click to mark,
+click again to type the finding (Enter saves, right-click clears), inline theme rename/delete, paper
+filter and "only untouched", Copy as Markdown, `.md` download, Draft synthesis note.
+
+**Why.** Elicit's paper × question table is the feature researchers screenshot; Atlas has had the
+data model since Phase 2 but only a classic toggle grid. With cells that hold the extracted finding
+and an MCP tool to fill them, Claude can read the project's PDFs (`search_in_pdf`, highlights) and
+draft the table for the researcher to correct — offline, on their own library.
+
+**Alternatives considered.** Free-form column types (numbers, enums) — parked: a 300-character
+note per cell covers extraction; typed columns can come with an export to CSV. Auto-suggested
+themes from keywords — parked (the keyword cloud exists; a "suggest themes" button is a small
+follow-up).
+
 ### 2026-09-06 — Search v2 + Reference page parity (#337)
 
 **Decision.** Search results now explain themselves: `core.search.describe` adds a `snippet`

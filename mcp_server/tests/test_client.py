@@ -503,3 +503,14 @@ def test_inbox_client_calls(capture):
         and calls_url_has(capture, "/quick-capture/5/convert/")
         and '"phase":3' in capture["body"]
     )
+
+
+def test_review_matrix_client_calls(capture):
+    client.set_review_mark("deep", "lavie2010attention", "Sample size", note="n=12")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/projects/deep/review-matrix/mark/")
+        and '"note":"n=12"' in capture["body"]
+    )
+    client.add_review_theme("deep", "Load type")
+    assert calls_url_has(capture, "/projects/deep/review-matrix/themes/")
