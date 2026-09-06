@@ -694,6 +694,17 @@ class ProjectViewSet(AtlasViewSet):
         responses={201: OpenApiResponse(description="{id, name, order}")},
         description="Add a review theme (a column of the matrix); an existing name is reused.",
     )
+    @extend_schema(
+        operation_id="v1_projects_review_matrix_suggest",
+        description="Theme candidates that recur across the project's papers (title + abstract).",
+        responses={200: None},
+    )
+    @action(detail=True, methods=["get"], url_path="review-matrix/suggest")
+    def suggest_review_themes(self, request, slug=None):
+        from literature.matrix import suggest_themes
+
+        return Response({"suggestions": suggest_themes(self.get_object())})
+
     @action(detail=True, methods=["post"], url_path="review-matrix/themes")
     def add_review_theme(self, request, slug=None):
         from literature.matrix import add_theme

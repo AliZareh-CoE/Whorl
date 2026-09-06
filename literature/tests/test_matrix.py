@@ -107,3 +107,26 @@ def test_matrix_api(client, world):
         == 204
     )
     assert not ReviewTheme.objects.exists()
+
+
+@pytest.mark.django_db
+def test_suggest_themes_ranks_recurring_phrases_and_skips_existing(client_logged_in):
+    from literature.matrix import add_theme, suggest_themes
+    from literature.models import ProjectReference
+    from literature.tests.factories import ReferenceFactory
+    from projects.tests.factories import ProjectFactory
+
+    project = ProjectFactory()
+    for i in range(4):
+        ref = ReferenceFactory(
+            title=f"Working memory load and attention control {i}",
+            abstract="Working memory load changes attention control under dual-task demands.",
+        )
+        ProjectReference.objects.create(project=project, reference=ref)
+    names = [s["name"] for s in suggest_themes(project)]
+    assert names and all(s["papers"] >= 2 for s in suggest_themes(project))
+    top = names[0]
+    add_theme(project, top)
+    assert top not in [s["name"] for s in suggest_themes(project)]
+    data = client_logged_in.get(f"/api/v1/projects/{project.slug}/review-matrix/suggest/").json()
+    assert "suggestions" in data and top not in [s["name"] for s in data["suggestions"]]

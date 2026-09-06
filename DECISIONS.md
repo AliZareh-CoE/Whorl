@@ -544,6 +544,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Today v2 and matrix theme suggestions (#356)
+
+**Decision.** Today gets a keyboard (`j`/`k`, space ticks, `e` edits inline, `x` deletes, `⌥↑/↓` reorders through `position`, `n` focuses the input), inline editing by double-click, an amber "since Tue / N days old" chip on items carried over from earlier days, and project chips that link to the project. The review matrix gains **Suggest themes**: `literature/matrix.suggest_themes` runs the existing keyword extractor over each paper's title and abstract and ranks phrases by how many papers mention them, skipping themes that already exist (`GET /projects/{slug}/review-matrix/suggest/`); each chip adds a column.
+
+**Why.** The Today list is used dozens of times a day, so every mouse trip counts, and old items should look old. Matrix columns were typed from memory; the papers already know their themes.
+
 ### 2026-09-06 — Exact highlight marks (#355)
 
 **Decision.** A highlight now stores the selection's line boxes as fractions of the page (`Highlight.rects`, migration 0008; validated to at most 200 boxes in 0..1). The reader captures them from the selection's client rects at save time and paints them in an `.hl-layer` between the canvas and the text layer, so marks look like a real PDF viewer's, survive zoom, and no longer depend on matching span text; highlights without boxes (older ones, MCP-created ones) keep the text-match painter. The API's `perform_create` passes the boxes through the `add_highlight` service — the first browser check caught that it silently dropped them.

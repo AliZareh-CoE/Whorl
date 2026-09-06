@@ -137,3 +137,29 @@ def matrix_markdown(project) -> str:
             cells.append((c["note"] or "✓") if c else "")
         lines.append(f"| {r['bibtex_key']} | " + " | ".join(cells) + " |")
     return "\n".join(lines) + "\n"
+
+
+def suggest_themes(project, limit: int = 8) -> list[dict]:
+    """Theme candidates for the matrix (Review matrix v3): keyword phrases that recur across the
+    project's papers (title + abstract), ranked by how many papers mention them, minus the
+    themes that already exist. Each row: {name, papers}."""
+    from core.keywords import extract_keywords
+
+    existing = {t.name.strip().lower() for t in project.review_themes.all()}
+    counts: dict[str, int] = {}
+    links = ProjectReference.objects.filter(project=project).select_related("reference")
+    for link in links:
+        ref = link.reference
+        text = f"{ref.title}. {ref.abstract or ''}"
+        for phrase in set(extract_keywords(text, max_keywords=6)):
+            key = phrase.strip().lower()
+            if len(key) < 4 or key in existing:
+                continue
+            counts[key] = counts.get(key, 0) + 1
+    total = links.count()
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [
+        {"name": name, "papers": n}
+        for name, n in ranked
+        if n >= 2 or total < 4  # a theme worth a column recurs — unless the library is tiny
+    ][:limit]

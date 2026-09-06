@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ TODAY v2 + MATRIX SUGGESTIONS (2026-09-06, #356).** Today keyboard/inline edit/reorder/age chips/project links; matrix `suggest_themes` + API + chips. Tests: suggest ranking/skip-existing + API. Playwright: added, edited (e), deleted (x) an item; suggestions rendered as chips (docs/screenshots/today-v2.png, matrix-suggest.png).
+
 - **★ EXACT HIGHLIGHT MARKS (2026-09-06, #355).** `Highlight.rects` + validation, reader captures selection boxes and paints an `.hl-layer`; service/API pass-through. Test: rects round-trip + validation. Playwright: dragged a selection, saved yellow, boxes painted and returned by the API (docs/screenshots/highlight-rects.png).
 
 - **★ DIAGNOSTICS PAGE (2026-09-06, #354).** `/diagnostics` + `/api/v1/diagnostics/` (version, paths, engine, feed probe, last failed compile, log tail, copyable text). Tests: `core/tests/test_diagnostics.py`. Next: highlight rectangles; re-judge Today.

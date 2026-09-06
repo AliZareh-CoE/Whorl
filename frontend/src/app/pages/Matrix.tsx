@@ -28,6 +28,8 @@ export default function Matrix() {
   const [q, setQ] = useState("");
   const [onlyUnmarked, setOnlyUnmarked] = useState(false);
   const [newTheme, setNewTheme] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+  const suggestions = useQuery({ queryKey: ["matrix-suggest", slug, data?.themes.length], queryFn: () => api<{ suggestions: { name: string; papers: number }[] }>(`/projects/${slug}/review-matrix/suggest/`), enabled: suggesting });
   const [editing, setEditing] = useState<{ ref: number; theme: number } | null>(null);
   const [draft, setDraft] = useState("");
   const [toast, setToast] = useState("");
@@ -93,7 +95,8 @@ export default function Matrix() {
       <div className={`${panel} rise mb-3 flex flex-wrap items-center gap-3 px-3 py-2 text-xs`} style={{ ["--i" as string]: 0 }}>
         <label className="relative"><Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" aria-hidden="true" /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter papers…" className="w-56 rounded-lg border border-stone-200 bg-white py-1.5 pl-7 pr-2 placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800" aria-label="Filter papers" /></label>
         <label className="flex items-center gap-1.5 text-stone-500"><input type="checkbox" checked={onlyUnmarked} onChange={(e) => setOnlyUnmarked(e.target.checked)} className="accent-indigo-500" />only untouched papers</label>
-        <form onSubmit={(e) => { e.preventDefault(); if (newTheme.trim()) addTheme.mutate(newTheme.trim()); }} className="ml-auto flex items-center gap-1.5">
+        <button type="button" onClick={() => setSuggesting((v) => !v)} className={`ml-auto inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 ${suggesting ? "border-indigo-400 text-indigo-600 dark:text-indigo-300" : "border-stone-300 text-stone-600 dark:border-stone-700 dark:text-stone-300"}`} title="Themes that recur across the papers' titles and abstracts"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" />Suggest themes</button>
+        <form onSubmit={(e) => { e.preventDefault(); if (newTheme.trim()) addTheme.mutate(newTheme.trim()); }} className="flex items-center gap-1.5">
           <input value={newTheme} onChange={(e) => setNewTheme(e.target.value)} placeholder="New theme — e.g. Sample size" className="w-52 rounded-lg border border-stone-200 bg-white px-2 py-1.5 placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800" aria-label="New theme" />
           <button type="submit" disabled={!newTheme.trim() || addTheme.isPending} className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-40"><Plus className="h-3.5 w-3.5" aria-hidden="true" />Theme</button>
         </form>
@@ -105,6 +108,14 @@ export default function Matrix() {
           <p className="mx-auto mt-1 max-w-lg text-sm text-stone-400">Columns like <em>Sample size</em>, <em>Load manipulation</em>, <em>Main finding</em>, <em>Limitation</em>. Then click a cell per paper and type what that paper says — or ask Claude to fill the matrix from the PDFs (<span className="font-mono">set_review_mark</span>).</p>
         </div>
       )}
+      {suggesting && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5 text-xs" data-testid="theme-suggestions">
+          {suggestions.isLoading && <span className="text-stone-400">Reading titles and abstracts…</span>}
+          {suggestions.data?.suggestions.map((sg) => <button key={sg.name} type="button" onClick={() => addTheme.mutate(sg.name)} disabled={addTheme.isPending} className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-indigo-800 hover:border-indigo-400 disabled:opacity-50 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200" title={`${sg.papers} papers mention it — click to add as a column`}>+ {sg.name}<span className="text-indigo-400">{sg.papers}</span></button>)}
+          {suggestions.data && suggestions.data.suggestions.length === 0 && <span className="text-stone-400">No recurring phrases beyond the themes you already have.</span>}
+        </div>
+      )}
+
       <div className={`${panel} rise overflow-auto`} style={{ ["--i" as string]: 2 }} data-testid="matrix">
         <table className="w-full min-w-[40rem] border-separate border-spacing-0 text-sm">
           <thead>
