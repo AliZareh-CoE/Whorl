@@ -42,3 +42,62 @@ mod tests {
         assert!(!allowed("javascript:alert(1)"));
     }
 }
+
+// Files on disk (CRUD sweep follow-up, 2026-09-06): the Files page can hand a document to
+// the operating system — open it with the default app, or show it in the file manager. The
+// server only reports local paths in desktop mode, and only for files it stores, so the
+// webview never names arbitrary files; still, we refuse anything that is not an existing
+// regular file.
+fn existing_file(path: &str) -> Result<std::path::PathBuf, String> {
+    let p = std::path::PathBuf::from(path);
+    if path.chars().any(|c| c.is_control()) || !p.is_absolute() || !p.is_file() {
+        return Err("not a file on this computer".into());
+    }
+    Ok(p)
+}
+
+#[tauri::command]
+pub fn open_path(path: String) -> Result<(), String> {
+    let p = existing_file(&path)?;
+    let s = p.to_string_lossy().into_owned();
+    let result = if cfg!(target_os = "windows") {
+        Command::new("cmd").args(["/C", "start", "", &s]).spawn()
+    } else if cfg!(target_os = "macos") {
+        Command::new("open").arg(&s).spawn()
+    } else {
+        Command::new("xdg-open").arg(&s).spawn()
+    };
+    result.map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn reveal_path(path: String) -> Result<(), String> {
+    let p = existing_file(&path)?;
+    let s = p.to_string_lossy().into_owned();
+    let result = if cfg!(target_os = "windows") {
+        Command::new("explorer").arg(format!("/select,{s}")).spawn()
+    } else if cfg!(target_os = "macos") {
+        Command::new("open").args(["-R", &s]).spawn()
+    } else {
+        let dir = p.parent().map(|d| d.to_string_lossy().into_owned()).unwrap_or(s);
+        Command::new("xdg-open").arg(dir).spawn()
+    };
+    result.map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::existing_file;
+
+    #[test]
+    fn only_existing_regular_files_pass() {
+        let dir = std::env::temp_dir();
+        let file = dir.join("atlas-existing-file-test.txt");
+        std::fs::write(&file, b"x").unwrap();
+        assert!(existing_file(&file.to_string_lossy()).is_ok());
+        assert!(existing_file(&dir.to_string_lossy()).is_err()); // a directory
+        assert!(existing_file("relative/file.txt").is_err());
+        assert!(existing_file(&dir.join("does-not-exist.bin").to_string_lossy()).is_err());
+        std::fs::remove_file(file).unwrap();
+    }
+}

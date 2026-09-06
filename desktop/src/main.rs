@@ -136,6 +136,8 @@ fn main() {
             terminal::terminal_resize,
             terminal::terminal_kill,
             external::open_external,
+            external::open_path,
+            external::reveal_path,
             localfs::open_local_file,
             updater::check_for_updates,
             updater::check_update,

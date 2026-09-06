@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Desktop: open with the system app / show in folder (2026-09-06, #368).** `local_path` in the tree (desktop only, tested both modes), `open_path`/`reveal_path` commands (cargo test: only existing regular files pass), Files menu items. Release run 90 (CRUD everywhere + async picker + media) built green on Windows and Linux.
+
 - **Desktop compiles off the request thread (2026-09-06, #367).** `enqueue_compile` runs the compile on a daemon thread in immediate mode; tests `writing/tests/test_enqueue_compile.py`. Also: the desktop swallows the webview's own right-click menu outside text fields.
 
 - **CRUD sweep, third pass (2026-09-06).** Library rows: right-click → open, read & highlight, reference page, find metadata, copy \\cite, delete. Files hides "Open in a new tab" on the desktop (no tabs there).

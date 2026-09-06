@@ -18,6 +18,16 @@ export async function openExternal(url: string): Promise<boolean> {
   }
 }
 
+/** Desktop: open a stored file with the OS default app / show it in the file manager. */
+export async function openPath(path: string): Promise<void> {
+  const tauri = (await import("@tauri-apps/api")) as unknown as TauriApi;
+  await tauri.core.invoke("open_path", { path });
+}
+export async function revealPath(path: string): Promise<void> {
+  const tauri = (await import("@tauri-apps/api")) as unknown as TauriApi;
+  await tauri.core.invoke("reveal_path", { path });
+}
+
 /** Install once: intercept clicks on links that leave this origin. */
 export function installExternalLinkHandler(): void {
   if (!isDesktop() || (window as unknown as { __atlasExternal?: boolean }).__atlasExternal) return;

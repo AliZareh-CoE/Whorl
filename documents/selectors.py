@@ -34,7 +34,12 @@ def workspace_tree(project: Project) -> dict:
     Folder and every Document node — general AND manuscript-source — flat, for the
     explorer to nest client-side. One query each.
     """
+    from django.conf import settings
+
     TEXT_KINDS = {"tex", "bib", "other"}
+    # desktop only: where the file lives on this computer, so the explorer can hand it to
+    # the OS ("Open with the system app", "Show in folder"); never exposed on a server
+    local_paths = settings.ATLAS_DESKTOP
     folders = [
         {"id": f.id, "name": f.name, "parent_id": f.parent_id} for f in project.folders.all()
     ]
@@ -51,6 +56,7 @@ def workspace_tree(project: Project) -> dict:
                 "folder_id": d.folder_id,
                 "size": d.file_size,
                 "is_text": d.kind in TEXT_KINDS or (bool(d.content) and not d.file),
+                "local_path": (d.file.path if local_paths and d.file else None),
             }
         )
     return {"folders": folders, "files": files}

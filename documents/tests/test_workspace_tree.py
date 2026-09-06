@@ -48,6 +48,7 @@ class TestWorkspaceTree:
                 "id",
                 "name",
                 "rel_path",
+                "local_path",
                 "kind",
                 "role",
                 "folder_id",
@@ -68,3 +69,29 @@ class TestWorkspaceTree:
     def test_requires_auth(self, client):
         project, _ = _seed()
         assert client.get(f"/api/v1/projects/{project.slug}/tree/").status_code == 401
+
+
+class TestLocalPaths:
+    """Desktop builds tell the explorer where a stored file lives; servers never do."""
+
+    def test_server_mode_reports_no_local_path(self, settings):
+        settings.ATLAS_DESKTOP = False
+        project, _ = _seed()
+        assert all(f["local_path"] is None for f in workspace_tree(project)["files"])
+
+    def test_desktop_mode_reports_the_stored_file_path(self, settings, tmp_path):
+        from django.core.files.base import ContentFile
+
+        settings.ATLAS_DESKTOP = True
+        settings.MEDIA_ROOT = tmp_path
+        project, _ = _seed()
+        doc = Document.objects.create(
+            project=project, title="notes.txt", rel_path="notes.txt", kind="other"
+        )
+        doc.file.save("notes.txt", ContentFile(b"hi"), save=True)
+        tree = workspace_tree(project)
+        by_id = {f["id"]: f for f in tree["files"]}
+        assert by_id[doc.id]["local_path"] == doc.file.path
+        assert str(tmp_path) in by_id[doc.id]["local_path"]
+        # a node without a stored file (manuscript mirror, text-only node) has none
+        assert any(f["local_path"] is None for f in tree["files"])

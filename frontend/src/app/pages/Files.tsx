@@ -10,6 +10,7 @@ import { confirmDialog, errorDialog, noticeDialog, promptDialog } from "../../co
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 
 import { openTerminal } from "../TerminalDock";
+import { openPath, revealPath } from "../external";
 
 type FileNode = {
   id: number;
@@ -20,6 +21,7 @@ type FileNode = {
   folder_id: number | null;
   size: number;
   is_text: boolean;
+  local_path?: string | null; // desktop builds only: where the file lives on this computer
 };
 type FolderNode = { id: number; name: string; parent_id: number | null };
 type Tree = { folders: FolderNode[]; files: FileNode[] };
@@ -378,8 +380,13 @@ export default function Files() {
       { label: "Open", icon: <File className="h-3.5 w-3.5" />, hint: "↵", onSelect: () => setSelected(f) },
       // the desktop webview has no tabs — window.open would spawn a bare window without the session
       ...(isDesktop ? [] : [{ label: "Open in a new tab", icon: <ExternalLink className="h-3.5 w-3.5" />, onSelect: () => window.open(raw, "_blank", "noopener") }]),
+      // desktop: hand the stored file to the operating system
+      ...(isDesktop && f.local_path ? [
+        { label: "Open with the system app", icon: <ExternalLink className="h-3.5 w-3.5" />, onSelect: async () => { try { await openPath(f.local_path!); } catch (e) { void errorDialog("Couldn't open the file", e); } } },
+        { label: "Show in folder", icon: <FolderOpen className="h-3.5 w-3.5" />, onSelect: async () => { try { await revealPath(f.local_path!); } catch (e) { void errorDialog("Couldn't show the file", e); } } },
+      ] : []),
       { label: "Download", icon: <Download className="h-3.5 w-3.5" />, onSelect: () => { const a = document.createElement("a"); a.href = raw; a.download = f.name; a.click(); } },
-      { label: "Copy path", icon: <Copy className="h-3.5 w-3.5" />, onSelect: () => void copyText(f.rel_path) },
+      { label: "Copy path", icon: <Copy className="h-3.5 w-3.5" />, onSelect: () => void copyText(isDesktop && f.local_path ? f.local_path : f.rel_path) },
       "-",
       { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, hint: "F2", disabled: ms, onSelect: () => void askRenameFile(f) },
       { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, hint: "Del", danger: true, disabled: ms, onSelect: () => void askDeleteFile(f) },

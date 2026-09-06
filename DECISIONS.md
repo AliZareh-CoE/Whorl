@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Desktop hands stored files to the operating system (#368)
+
+**Decision.** In desktop mode the workspace tree carries `local_path` for every stored file; the Files menu offers **Open with the system app** and **Show in folder**, backed by two Tauri commands (`open_path`, `reveal_path`) that accept only an existing regular file. Servers never report local paths.
+
+**Why.** A researcher's files are used by other programs — a CSV in R, a figure in Illustrator, a PDF in the reader they already know. Downloading a copy from a local app is absurd; the file is right there. This is the desktop half of "contain any file from disk" (#30).
+
+**Alternatives rejected.** The Tauri opener plugin (another permission surface for two commands); reporting local paths everywhere (leaks server layout for no gain).
+
 ### 2026-09-06 — Compiles never run inside the request (#367)
 
 **Decision.** `writing/tasks.enqueue_compile` queues the huey task on server installs and, in *immediate* mode (desktop, Redis-less dev), runs the compile on a daemon thread that closes its DB connection when done. Both compile views call it.
