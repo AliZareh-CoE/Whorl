@@ -14,7 +14,7 @@ type Evidence = { id: number; direction: "supports" | "contradicts" | "mixed"; s
 type Hypothesis = { id: number; statement: string; status: string; supports: number; contradicts: number; mixed: number; suggested_status: string | null; evidence: Evidence[] };
 type Experiment = { id: number; date: string; title: string; body: string; commit_url: string; commit_label: string; hypotheses: number[] };
 type Dataset = { id: number; name: string; location: string; version: string; description: string };
-type Protocol = { id: number; title: string; version: number; is_current: boolean };
+type Protocol = { id: number; title: string; body: string; version: number; is_current: boolean };
 type Page<T> = { count: number; results: T[] };
 type Suggestion = { id: number; label: string; sublabel: string };
 
@@ -80,12 +80,7 @@ export default function Research() {
           <ul className="mb-3 space-y-1.5 text-sm">{datasets.map((d) => <li key={d.id}><p className="flex items-baseline gap-2"><span className="min-w-0 flex-1 truncate font-medium text-stone-800 dark:text-stone-100">{d.name}</span>{d.version && <span className="text-[11px] text-stone-400">v{d.version}</span>}</p><p className="truncate font-mono text-[11px] text-stone-400" title={d.location}>{d.location}</p></li>)}</ul>
           <DatasetForm onAdd={(b) => addDs.mutate(b)} busy={addDs.isPending} />
         </section>
-        <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 4 }}>
-          <p className={railH}>Protocols <span className="normal-case tracking-normal text-stone-400">{protocols.length}</span></p>
-          {protocols.length === 0 ? <p className="text-xs text-stone-400">No protocols yet — <a href={`/projects/${slug}/research/protocols/`} className="text-indigo-600 hover:underline dark:text-indigo-300">write one</a> (versioned).</p> : (
-            <ul className="space-y-1 text-sm">{protocols.map((p) => <li key={p.id} className="flex items-baseline gap-2"><span className="min-w-0 flex-1 truncate text-stone-800 dark:text-stone-100">{p.title}</span><span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-500 dark:bg-stone-800 dark:text-stone-300">v{p.version}</span></li>)}</ul>
-          )}
-        </section>
+        <ProtocolPanel slug={slug!} protocols={protocols} onChange={() => queryClient.invalidateQueries({ queryKey: ["protocols", slug] })} />
       </div>
     </div>
   );
@@ -195,5 +190,46 @@ function DatasetForm({ onAdd, busy }: { onAdd: (body: Record<string, unknown>) =
       <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="path or URL" className="min-w-0 flex-[2] rounded-md border border-stone-200 bg-white px-2 py-1 font-mono dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Dataset location" />
       <button type="submit" disabled={busy || !name.trim() || !location.trim()} className="rounded-md bg-indigo-600 px-2 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Register</button>
     </form>
+  );
+}
+
+
+/* Protocols (moved in-app 2026-09-06): versioned method write-ups. A new version keeps the
+   old one in the chain (is_current flips), so a paper can cite exactly the protocol it ran. */
+function ProtocolPanel({ slug, protocols, onChange }: { slug: string; protocols: Protocol[]; onChange: () => void }) {
+  const [open, setOpen] = useState<Protocol | null>(null);
+  const [writing, setWriting] = useState(false);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const JSON_H = { "Content-Type": "application/json" };
+  const create = async () => { setBusy(true); try { await api("/protocols/", { method: "POST", headers: JSON_H, body: JSON.stringify({ project: slug, title: title.trim(), body }) }); setTitle(""); setBody(""); setWriting(false); onChange(); } finally { setBusy(false); } };
+  const revise = async () => { if (!open) return; setBusy(true); try { const next = await api<Protocol>(`/protocols/${open.id}/new-version/`, { method: "POST", headers: JSON_H, body: JSON.stringify({ title: title.trim() || open.title, body }) }); setOpen(next); setWriting(false); onChange(); } finally { setBusy(false); } };
+  return (
+    <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 4 }} data-testid="protocols">
+      <div className="mb-2 flex items-baseline justify-between"><p className={`${railH} mb-0`}>Protocols <span className="normal-case tracking-normal text-stone-400">{protocols.length}</span></p><button type="button" onClick={() => { setOpen(null); setTitle(""); setBody(""); setWriting((v) => !v); }} className="text-[11px] text-indigo-600 hover:underline dark:text-indigo-300">{writing && !open ? "close" : "+ write a protocol"}</button></div>
+      {writing && !open && (
+        <form onSubmit={(e) => { e.preventDefault(); void create(); }} className="mb-3 space-y-2 text-xs">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title — e.g. Dual-task procedure" className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Protocol title" autoFocus />
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} placeholder="Steps, materials, timing (Markdown)" className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Protocol body" />
+          <button type="submit" disabled={busy || !title.trim()} className="rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Save v1</button>
+        </form>
+      )}
+      {protocols.length === 0 && !writing ? <p className="text-xs text-stone-400">No protocols yet — write one; every revision is kept as a version.</p> : (
+        <ul className="space-y-1 text-sm">{protocols.map((p) => <li key={p.id} className="flex items-baseline gap-2"><button type="button" onClick={() => { setOpen(open?.id === p.id ? null : p); setWriting(false); }} className="min-w-0 flex-1 truncate text-left text-stone-800 hover:text-indigo-600 dark:text-stone-100 dark:hover:text-indigo-300">{p.title}</button><span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] text-stone-500 dark:bg-stone-800">v{p.version}</span></li>)}</ul>
+      )}
+      {open && (
+        <div className="mt-3 rounded-lg border border-stone-200 p-3 text-sm dark:border-stone-700" data-testid="protocol-open">
+          <div className="mb-1 flex items-center justify-between gap-2"><p className="font-medium">{open.title} <span className="font-mono text-[10px] text-stone-400">v{open.version}</span></p><span className="flex gap-2 text-[11px]"><button type="button" onClick={() => { setTitle(open.title); setBody(open.body); setWriting(true); }} className="text-indigo-600 hover:underline dark:text-indigo-300">new version</button><button type="button" onClick={() => setOpen(null)} className="text-stone-400 hover:underline">close</button></span></div>
+          {writing ? (
+            <form onSubmit={(e) => { e.preventDefault(); void revise(); }} className="space-y-2 text-xs">
+              <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Protocol title" />
+              <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Protocol body" autoFocus />
+              <button type="submit" disabled={busy} className="rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Save as v{open.version + 1}</button>
+            </form>
+          ) : <pre className="whitespace-pre-wrap font-sans text-xs leading-5 text-stone-600 dark:text-stone-300">{open.body || "(empty)"}</pre>}
+        </div>
+      )}
+    </section>
   );
 }

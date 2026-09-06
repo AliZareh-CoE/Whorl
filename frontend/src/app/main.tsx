@@ -29,6 +29,7 @@ const ManuscriptDetail = lazy(() => import("./pages/Writing").then((m) => ({ def
 const Studio = lazy(() => import("./pages/Studio"));
 const PetPage = lazy(() => import("./pages/Pet"));
 const Connect = lazy(() => import("./pages/Connect"));
+const Report = lazy(() => import("./pages/Report"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const Today = lazy(() => import("./pages/Today"));
 const Prompts = lazy(() => import("./pages/Prompts"));
@@ -64,6 +65,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/notes/:id" element={<Notes />} />
           <Route path="projects/:slug/research" element={<Research />} />
           <Route path="projects/:slug/review" element={<Review />} />
+          <Route path="projects/:slug/report" element={<Report />} />
           <Route path="projects/:slug/matrix" element={<Matrix />} />
           <Route path="review" element={<Review />} />
           <Route path="projects/:slug/decisions" element={<Decisions />} />

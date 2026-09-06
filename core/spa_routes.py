@@ -13,6 +13,7 @@ _MAPS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^/projects/(?P<slug>[^/]+)/$"), "/projects/{slug}"),
     (re.compile(rf"^/projects/(?P<slug>[^/]+)/(?P<page>{SPA_PAGES})/$"), "/projects/{slug}/{page}"),
     (re.compile(r"^/projects/(?P<slug>[^/]+)/literature/queue/$"), "/projects/{slug}/queue"),
+    (re.compile(r"^/projects/(?P<slug>[^/]+)/literature/report/$"), "/projects/{slug}/report"),
     (re.compile(r"^/projects/(?P<slug>[^/]+)/notes/$"), "/projects/{slug}/notes"),
     (re.compile(r"^/projects/(?P<slug>[^/]+)/notes/(?P<pk>\d+)/$"), "/projects/{slug}/notes/{pk}"),
     (re.compile(r"^/projects/(?P<slug>[^/]+)/writing/$"), "/writing"),

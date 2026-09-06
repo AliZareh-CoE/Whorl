@@ -21,6 +21,7 @@ HTML = {"HTTP_ACCEPT": "text/html,application/xhtml+xml,*/*;q=0.8"}
         ("/projects/x/", "/projects/x"),
         ("/projects/x/plan/", "/projects/x/plan"),
         ("/projects/x/notes/3/", "/projects/x/notes/3"),
+        ("/projects/x/literature/report/", "/projects/x/report"),
         ("/projects/x/writing/7/", "/manuscripts/7"),
         ("/projects/x/writing/7/editor/", "/manuscripts/7/editor"),
         ("/projects/x/writing/7/files/", None),

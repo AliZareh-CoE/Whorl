@@ -175,9 +175,9 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
           <Link to={`/projects/${slug}/matrix`} className="text-stone-400 dark:text-stone-400 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">
             review matrix →
           </Link>
-          <a href={`/projects/${slug}/literature/?classic=1`} className="text-stone-400 dark:text-stone-400 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400" title="Duplicate / missing-field / DOI / retraction report (classic page)">
-            bib report ↗
-          </a>
+          <Link to={`/projects/${slug}/report`} className="text-stone-400 dark:text-stone-400 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400" title="Duplicates, missing fields, DOI and retraction checks">
+            library health →
+          </Link>
         </div>
       </div>
 

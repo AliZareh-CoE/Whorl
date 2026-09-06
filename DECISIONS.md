@@ -544,6 +544,22 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Library health and protocols move into the app (#348)
+
+**Decision.** The bib report becomes `pages/Report.tsx` at `/projects/:slug/report`: the four checkers as cards with levels, `@key` links to each paper, a **Merge into first** action on duplicate findings (`POST /references/merge/`), and network checks (doi.org / Crossref) behind an explicit toggle so the page opens instantly. Protocols are written, read and re-versioned inside the Research page (`ProtocolPanel`: create v1, open, "new version" → `POST /protocols/{id}/new-version/`). Both classic pages keep working; the report URL maps to the app.
+
+**Why.** After #342 every remaining classic link is a small betrayal of the "one front door" promise; these were the last two the SPA still pointed at.
+
+**Alternatives.** Auto-merging duplicates (rejected: the checker's fuzzy title match needs a human "yes"); a modal editor for protocols (rejected: inline keeps the page calm and the version chain visible).
+
+### 2026-09-06 — Auto-update: a private repo cannot feed the updater (#347)
+
+**Finding.** The owner added `TAURI_SIGNING_PRIVATE_KEY`; every release since 0.1.67 carries `.sig` files and `latest.json`, so the signing half works. But the repository is private, and the Tauri updater fetches `https://github.com/<repo>/releases/download/desktop-preview/latest.json` without credentials — GitHub answers 404 (verified with curl). The launch-time check swallowed the error, so the app looked fine and simply never updated.
+
+**Decision.** (1) The workflow gains a `mirror` job: after both platforms upload, it copies this build's installers, signatures and a URL-rewritten `latest.json` into a public releases repository named by the `RELEASES_REPO` secret using `RELEASES_TOKEN`, replacing older versions; without the secrets it emits a warning and exits cleanly. (2) The app's updater endpoints list the public feed first (`alizareh-coe/atlas-releases`) and this repo second, so either "create the public feed" or "make the repo public" fixes updates without a rebuild. (3) `UpdaterButton` no longer hides launch-check failures: it shows *Updates unavailable — why?* with a plain-language explanation (404 → private repo; signature mismatch → reinstall; network). (4) README gains an *Auto-update* section with the two owner actions.
+
+**Alternatives.** Embedding a GitHub token in the app (rejected: anyone with the binary could read the repo); proxying the feed through the local Atlas server with a user-entered token (rejected: more moving parts than a public feed, and still needs a token per machine); asking the owner to make the repo public without a fallback (rejected: their call — both paths are wired).
+
 ### 2026-09-06 — UI audit pass 1: every page swept, the flaws fixed (#346)
 
 **Decision.** A Playwright sweep of all 30 SPA routes (dark, 1440 px) checked horizontal overflow, sub-10 px text, empty bodies, console errors and redirects, and every screenshot was reviewed by eye. Findings and fixes: the Projects index leaked raw Markdown and said nothing about progress → rewritten (`pages/Projects.tsx`: grouped by status with archived folded, cards with accent, phase, progress bar, health pill, counts; `ProjectSerializer.summary` feeds it in one request); `/projects/new` fired `GET /projects/new/plan/` 404s from the command bar → guarded; five links still pointed at classic pages that now redirect straight back to the same SPA page (Documents "folders & upload", Files "documents page", Literature "matrix & reports", Plan "classic page", Reference "classic") → replaced with the real in-app destinations (Files for uploads, the review matrix) or removed; the bib report keeps an explicit `?classic=1` link until it has an SPA twin. The rest of the pages (dashboard, library, notes, graph, timeline, files, figures, queue, reading flow, review, decisions, automations, prompts, today, inbox, search, writing, studio, pet) passed both the automated checks and the eye test. The last sidebar link into classic — Connect Claude Code — became an SPA page (`pages/Connect.tsx` at `/connect`, `GET /api/v1/connect/`, `POST /api/v1/connect/skills/`) with a desktop-only "Run it here" button that types the `claude mcp add` line into the terminal dock.

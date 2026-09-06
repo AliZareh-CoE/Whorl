@@ -219,6 +219,31 @@ See `desktop/README.md` for how the bundled build works, per-OS prerequisites, a
 one-time signing setup that activates the in-app updater. The terminal and disk access are
 desktop-only and are never exposed through the web API or MCP.
 
+## Auto-update
+
+Installed desktop apps check for a new build once per launch and show **Update to 0.1.N** in
+the sidebar; one click downloads, verifies and installs it, then **Restart to finish**. The
+pieces, in order:
+
+1. Every push builds installers; when the `TAURI_SIGNING_PRIVATE_KEY` secret is set the
+   workflow also produces a `.sig` per installer and a `latest.json` feed, signed with that key.
+   The matching public key is baked into the app (`desktop/tauri.conf.json`), so a tampered
+   feed is rejected.
+2. The app fetches `latest.json` from its updater endpoints, compares versions, and offers the
+   download.
+3. **The catch: an app cannot read a private repository.** The feed lives on the private repo's
+   `desktop-preview` release, so the fetch returns 404 and the sidebar shows
+   *Updates unavailable — why?*. Two ways out, either works:
+   - create a **public** repository named `atlas-releases` under the same owner, add the secrets
+     `RELEASES_REPO` (`Owner/atlas-releases`) and `RELEASES_TOKEN` (a fine-grained personal
+     access token with *Contents: read and write* on that repo) — the `mirror` job then copies
+     each build's installers, signatures and feed there, and apps update from it; or
+   - make this repository public.
+
+`cargo tauri signer generate` makes the key pair; keep the private key only in the GitHub
+secret. Rotating it means users must reinstall once, because the old public key no longer
+matches.
+
 ## How Atlas compares
 
 | | Atlas | Zotero | Notion | Overleaf |
