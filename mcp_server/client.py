@@ -628,3 +628,13 @@ def log_experiment(
     if date:
         payload["date"] = date
     return _request("POST", "/experiments/", json=payload)
+
+
+def suggest_review_themes(slug: str):
+    """Theme candidates recurring across the project's papers (titles + abstracts)."""
+    return _request("GET", f"/projects/{slug}/review-matrix/suggest/")
+
+
+def get_diagnostics(network: bool = False):
+    """Version, paths, LaTeX engine, jobs, update feed, last failed compile, server log tail."""
+    return _request("GET", "/diagnostics/" + ("?network=1" if network else ""))

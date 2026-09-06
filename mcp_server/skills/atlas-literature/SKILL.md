@@ -26,7 +26,8 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
 
 ## Synthesise
 
-1. `get_review_matrix` — papers × themes. Add missing themes with `add_review_theme`;
+1. `get_review_matrix` — papers × themes. `suggest_review_themes` proposes columns from the
+   papers themselves; add the good ones with `add_review_theme`;
    mark cells with `set_review_mark` (marked + a one-line finding).
 2. `get_synthesis_scaffold` → draft the synthesis; write it with `add_note` (Markdown,
    cite papers as `@bibtex_key` so Atlas links them) and offer `export_note`.

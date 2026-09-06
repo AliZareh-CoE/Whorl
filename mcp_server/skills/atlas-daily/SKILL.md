@@ -33,6 +33,12 @@ unless the user says so.
    read, next.
 3. Offer to `quick_capture` any loose thought the user mentions so nothing is lost.
 
+## When something is broken
+
+`get_diagnostics` (add `network=true` to probe the update feed) returns the same report as
+the app's Diagnostics page — quote its `text` field when the user asks why a compile, an
+update or the terminal failed.
+
 ## Conventions
 
 - Prefer reading tools first; write only what the user asked for.

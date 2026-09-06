@@ -544,6 +544,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — MCP: `get_diagnostics` and `suggest_review_themes` (88 tools, #361)
+
+**Decision.** Claude can read the same diagnostics report as the app (with an optional network probe) and propose matrix columns from the papers. The daily skill points at `get_diagnostics` for "why didn't it work" questions; the literature skill uses `suggest_review_themes` before `add_review_theme`.
+
 ### 2026-09-06 — The calendar feed is finally served (#360)
 
 **Finding.** `core/calendar.py` has built valid `.ics` for months (Backlog #9) and nothing served it — the tests were the only caller.

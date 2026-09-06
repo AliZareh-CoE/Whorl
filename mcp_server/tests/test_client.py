@@ -533,3 +533,10 @@ def test_research_client_calls(capture):
     )
     client.log_experiment("deep", "Pilot run", hypothesis_ids=[4], date="2026-09-06")
     assert calls_url_has(capture, "/experiments/") and '"hypotheses":[4]' in capture["body"]
+
+
+def test_theme_suggestions_and_diagnostics_client_calls(capture):
+    client.suggest_review_themes("attention")
+    assert calls_url_has(capture, "/projects/attention/review-matrix/suggest/")
+    client.get_diagnostics(network=True)
+    assert calls_url_has(capture, "/diagnostics/?network=1")

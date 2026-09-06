@@ -607,3 +607,20 @@ def log_experiment(
     """Write a lab-notebook entry (Markdown body: setup, what happened, outcome), dated today
     unless `date` is given, linked to the hypotheses it tests."""
     return client.log_experiment(project, title, body, hypothesis_ids, date)
+
+
+@mcp.tool()
+def suggest_review_themes(project: str) -> dict:
+    """Theme candidates for a project's review matrix: keyword phrases that recur across its
+    papers' titles and abstracts, ranked by how many papers mention them, minus the themes that
+    already exist. Add the good ones with add_review_theme."""
+    return client.suggest_review_themes(project)
+
+
+@mcp.tool()
+def get_diagnostics(network: bool = False) -> dict:
+    """Why didn't it work? The same report as the app's Diagnostics page: version, platform,
+    data folder, database, LaTeX engine path, background-job mode, API-key state, the updater
+    endpoints (probed only when network=true), the last failed compile's log and the tail of
+    the desktop server log — plus a plain-text `text` field to paste into a bug report."""
+    return client.get_diagnostics(network=network)

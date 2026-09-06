@@ -38,7 +38,7 @@ export default function Connect() {
     <div className="mx-auto max-w-4xl">
       <nav className="mb-4 flex items-center text-sm text-stone-400" aria-label="Breadcrumb">Connect Claude Code<Link to="/diagnostics" className="ml-auto inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-300"><Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />Diagnostics</Link></nav>
       <h1 className="text-3xl font-semibold tracking-tight"><span className="text-gradient">Claude</span> works inside Atlas</h1>
-      <p className="mt-2 max-w-2xl text-sm text-stone-500">Atlas ships an MCP server: register it once and Claude Code can list your projects, tick milestones, add papers by DOI, write notes, drive the manuscript studio and run bib checks — everything the API can do, 86 tools. Four skills teach it the workflows.</p>
+      <p className="mt-2 max-w-2xl text-sm text-stone-500">Atlas ships an MCP server: register it once and Claude Code can list your projects, tick milestones, add papers by DOI, write notes, drive the manuscript studio and run bib checks — everything the API can do, 88 tools. Four skills teach it the workflows.</p>
 
       <div className={`${panel} mt-5 flex items-start gap-3 text-sm`} style={{ ["--i" as string]: 1 }}>
         <Plug className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" />
