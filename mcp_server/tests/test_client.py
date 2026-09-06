@@ -406,3 +406,11 @@ def test_plan_outline_client_calls(capture):
     assert calls_url_has(capture, "/projects/deep/outline/")
     client.set_plan_outline("deep", "# A", dry_run=True)
     assert capture["method"] == "POST" and '"dry_run":true' in capture["body"]
+
+
+def test_roadmap_client_calls(capture):
+    client.get_roadmap("deep")
+    assert calls_url_has(capture, "/projects/deep/roadmap/")
+    client.set_phase_dates(3, start="2026-09-01")
+    assert capture["method"] == "PATCH" and calls_url_has(capture, "/phases/3/")
+    assert '"target_start":"2026-09-01"' in capture["body"] and "target_end" not in capture["body"]

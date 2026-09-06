@@ -1,0 +1,190 @@
+/** Plan v2 slice 2 — the roadmap: phases as draggable bars on a time axis, milestones as
+ *  diamonds you can slide to a new due date, a today line, and an honest health reading per
+ *  phase (behind / on track / ahead / overdue …) with a finish forecast from the completion pace.
+ *  Data: GET /projects/{slug}/roadmap/; edits go through PATCH /phases/{id}/ and /milestones/{id}/. */
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../../api";
+import { Skeleton } from "../../../components/Skeleton";
+
+type MilestoneRow = { id: number; title: string; due_date: string | null; done: boolean; overdue: boolean };
+type PhaseRow = { id: number; name: string; order: number; status: string; start: string; end: string; inferred: boolean; progress: number; milestones: MilestoneRow[]; state: string; label: string; forecast_end: string | null };
+type RoadmapData = { project: string; today: string; range_start: string; range_end: string; phases: PhaseRow[] };
+
+const DAY = 864e5;
+const PX_PER_DAY = 5;
+const LEFT_W = 232;
+const ROW_H = 56;
+
+function dayOf(iso: string): number { const [y, m, d] = iso.split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / DAY); }
+function isoOf(day: number): string { return new Date(day * DAY).toISOString().slice(0, 10); }
+function monthStarts(fromDay: number, toDay: number): { day: number; label: string }[] {
+  const out: { day: number; label: string }[] = [];
+  const d = new Date(fromDay * DAY); d.setUTCDate(1);
+  while (d.getTime() / DAY <= toDay) {
+    const day = Math.round(d.getTime() / DAY);
+    if (day >= fromDay) out.push({ day, label: d.toLocaleDateString(undefined, { month: "short", year: d.getUTCMonth() === 0 ? "numeric" : undefined, timeZone: "UTC" }) });
+    d.setUTCMonth(d.getUTCMonth() + 1);
+  }
+  return out;
+}
+
+const STATE_BAR: Record<string, string> = {
+  on_track: "bg-indigo-500/70", ahead: "bg-emerald-500/70", behind: "bg-amber-500/75", overdue: "bg-red-500/75", blocked: "bg-red-500/60",
+  done: "bg-emerald-600/60", upcoming: "bg-stone-400/50 dark:bg-stone-500/40", empty: "bg-stone-300/40 dark:bg-stone-600/30",
+};
+const STATE_PILL: Record<string, string> = {
+  on_track: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200", ahead: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", behind: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  overdue: "bg-red-500/15 text-red-700 dark:text-red-300", blocked: "bg-red-500/15 text-red-700 dark:text-red-300", done: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  upcoming: "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-300", empty: "bg-stone-100 text-stone-400 dark:bg-stone-800",
+};
+
+type Drag = { kind: "move" | "start" | "end"; phase: number; originX: number; start: number; end: number } | { kind: "milestone"; id: number; phase: number; originX: number; day: number };
+
+export default function Roadmap({ slug, accent, onChanged }: { slug: string; accent: string; onChanged: () => void }) {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["roadmap", slug], queryFn: () => api<RoadmapData>(`/projects/${slug}/roadmap/`) });
+  const [local, setLocal] = useState<RoadmapData | null>(null);
+  useEffect(() => { if (data) setLocal(data); }, [data]);
+  const drag = useRef<Drag | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<string>("");
+  const invalidate = () => { queryClient.invalidateQueries({ queryKey: ["roadmap", slug] }); onChanged(); };
+  const savePhase = useMutation({
+    mutationFn: ({ id, start, end }: { id: number; start: string; end: string }) => api(`/phases/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target_start: start, target_end: end }) }),
+    onSettled: invalidate,
+  });
+  const saveMilestone = useMutation({
+    mutationFn: ({ id, due }: { id: number; due: string }) => api(`/milestones/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ due_date: due }) }),
+    onSettled: invalidate,
+  });
+
+  const view = local ?? data;
+  const range = useMemo(() => {
+    if (!view) return null;
+    const from = Math.min(dayOf(view.range_start), dayOf(view.today)) - 14;
+    const to = Math.max(dayOf(view.range_end), dayOf(view.today)) + 21;
+    return { from, to, width: (to - from) * PX_PER_DAY };
+  }, [view]);
+  const x = (day: number) => (range ? (day - range.from) * PX_PER_DAY : 0);
+
+  // scroll so today sits a third of the way in on first render
+  useEffect(() => {
+    if (!range || !view || !scroller.current) return;
+    const el = scroller.current;
+    el.scrollLeft = Math.max(0, x(dayOf(view.today)) - el.clientWidth / 3);
+  }, [range?.from, view?.today]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const d = drag.current; if (!d || !local) return;
+      const delta = Math.round((e.clientX - d.originX) / PX_PER_DAY);
+      setLocal({
+        ...local,
+        phases: local.phases.map((p) => {
+          if (d.kind === "milestone") {
+            if (p.id !== d.phase) return p;
+            return { ...p, milestones: p.milestones.map((m) => (m.id === d.id ? { ...m, due_date: isoOf(d.day + delta) } : m)) };
+          }
+          if (p.id !== d.phase) return p;
+          let s = d.start, en = d.end;
+          if (d.kind === "move") { s += delta; en += delta; }
+          if (d.kind === "start") s = Math.min(d.start + delta, en);
+          if (d.kind === "end") en = Math.max(d.end + delta, s);
+          return { ...p, start: isoOf(s), end: isoOf(en), inferred: false };
+        }),
+      });
+    };
+    const up = () => {
+      const d = drag.current; if (!d || !local) return;
+      drag.current = null;
+      document.body.style.cursor = "";
+      const p = local.phases.find((ph) => ph.id === d.phase);
+      if (!p) return;
+      if (d.kind === "milestone") { const m = p.milestones.find((mm) => mm.id === d.id); if (m?.due_date) saveMilestone.mutate({ id: m.id, due: m.due_date }); }
+      else savePhase.mutate({ id: p.id, start: p.start, end: p.end });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+  }, [local, savePhase, saveMilestone]);
+
+  const begin = (e: React.PointerEvent, d: Drag) => { e.preventDefault(); e.stopPropagation(); drag.current = d; document.body.style.cursor = d.kind === "move" || d.kind === "milestone" ? "grabbing" : "ew-resize"; };
+
+  if (isLoading || !view || !range) return <div className="space-y-3"><Skeleton className="h-8 w-full" />{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>;
+  const months = monthStarts(range.from, range.to);
+  const todayX = x(dayOf(view.today));
+
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900" data-testid="roadmap">
+      <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-2 text-[11px] text-stone-400 dark:border-stone-800">
+        <span>drag a bar to move it · drag its edges to resize · slide a ◆ to change a due date</span>
+        <span className="ml-auto flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-sm bg-amber-500/75" />behind<span className="inline-block h-2 w-2 rounded-sm bg-red-500/75" />overdue<span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/70" />ahead / done<span className="inline-block h-2 w-3 rounded-sm border border-dashed border-stone-400" />suggested dates</span>
+      </div>
+      <div className="flex">
+        <div className="shrink-0 border-r border-stone-100 dark:border-stone-800" style={{ width: LEFT_W }}>
+          <div className="h-8 border-b border-stone-100 dark:border-stone-800" />
+          {view.phases.map((p) => (
+            <div key={p.id} className="flex flex-col justify-center border-b border-stone-50 px-3 dark:border-stone-800/60" style={{ height: ROW_H }}>
+              <p className="truncate text-sm font-medium text-stone-800 dark:text-stone-100" title={p.name}><span className="mr-1.5 font-display text-stone-300 dark:text-stone-600">{String(p.order).padStart(2, "0")}</span>{p.name}</p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[10px]"><span className={`rounded-full px-1.5 py-px ${STATE_PILL[p.state] ?? STATE_PILL.empty}`} title={p.label}>{p.label}</span></p>
+            </div>
+          ))}
+          {view.phases.length === 0 && <p className="px-3 py-6 text-xs text-stone-400">No phases yet.</p>}
+        </div>
+        <div ref={scroller} className="relative flex-1 overflow-x-auto">
+          <div className="relative" style={{ width: range.width, height: 32 + ROW_H * view.phases.length }}>
+            {/* month header + gridlines */}
+            {months.map((m) => (
+              <div key={m.day} className="absolute top-0 h-full border-l border-stone-100 dark:border-stone-800/70" style={{ left: x(m.day) }}>
+                <span className="absolute left-1.5 top-2 whitespace-nowrap text-[10px] font-medium uppercase tracking-wider text-stone-400">{m.label}</span>
+              </div>
+            ))}
+            <div className="absolute left-0 right-0 top-8 border-t border-stone-100 dark:border-stone-800" />
+            {/* today */}
+            <div className="absolute top-0 h-full w-px" style={{ left: todayX, background: accent, boxShadow: `0 0 8px ${accent}` }} data-testid="today-line">
+              <span className="absolute -left-4 top-[34px] rounded px-1 text-[9px] font-semibold uppercase tracking-wider text-white" style={{ background: accent }}>today</span>
+            </div>
+            {/* rows */}
+            {view.phases.map((p, i) => {
+              const s = dayOf(p.start), en = dayOf(p.end);
+              const top = 32 + i * ROW_H;
+              const w = Math.max(PX_PER_DAY * 2, (en - s + 1) * PX_PER_DAY);
+              const forecast = p.forecast_end ? dayOf(p.forecast_end) : null;
+              return (
+                <div key={p.id} className="absolute left-0 right-0" style={{ top, height: ROW_H }}>
+                  {forecast && forecast > en && (
+                    <div className="absolute top-4 h-6 rounded-r-md border border-dashed border-amber-400/70 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,rgb(245_158_11/.18)_4px,rgb(245_158_11/.18)_8px)]" style={{ left: x(en + 1), width: (forecast - en) * PX_PER_DAY }} title={`At the current pace this phase finishes around ${p.forecast_end}`}>
+                      <span className="absolute -top-3.5 left-1 whitespace-nowrap text-[9px] text-amber-600 dark:text-amber-300">forecast {p.forecast_end}</span>
+                    </div>
+                  )}
+                  <div
+                    role="slider" aria-label={`${p.name}: ${p.start} to ${p.end}`} aria-valuetext={`${p.start} → ${p.end}`}
+                    onPointerDown={(e) => begin(e, { kind: "move", phase: p.id, originX: e.clientX, start: s, end: en })}
+                    onMouseEnter={() => setHover(`${p.name} · ${p.start} → ${p.end}${p.inferred ? " (suggested)" : ""}`)} onMouseLeave={() => setHover("")}
+                    className={`group absolute top-4 h-6 cursor-grab select-none rounded-md ${STATE_BAR[p.state] ?? STATE_BAR.empty} ${p.inferred ? "border border-dashed border-stone-400/80 dark:border-stone-400/60" : ""} shadow-[0_0_10px_rgb(0_0_0/.08)] transition-shadow hover:shadow-[0_0_14px_rgb(124_108_255/.45)] active:cursor-grabbing`}
+                    style={{ left: x(s), width: w }} data-testid="phase-bar"
+                  >
+                    <div className="absolute inset-y-0 left-0 rounded-md bg-white/35 dark:bg-white/20" style={{ width: `${p.progress}%` }} />
+                    <span className="absolute inset-y-0 left-2 right-2 flex items-center truncate text-[11px] font-medium text-white drop-shadow">{p.progress > 0 ? `${p.progress}%` : ""}</span>
+                    <div onPointerDown={(e) => begin(e, { kind: "start", phase: p.id, originX: e.clientX, start: s, end: en })} className="absolute inset-y-0 left-0 w-2 cursor-ew-resize rounded-l-md hover:bg-white/40" aria-hidden="true" />
+                    <div onPointerDown={(e) => begin(e, { kind: "end", phase: p.id, originX: e.clientX, start: s, end: en })} className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r-md hover:bg-white/40" aria-hidden="true" />
+                  </div>
+                  {p.milestones.filter((m) => m.due_date).map((m) => (
+                    <button
+                      key={m.id} type="button" title={`${m.title} · due ${m.due_date}${m.done ? " · done" : m.overdue ? " · overdue" : ""}`} aria-label={`${m.title}, due ${m.due_date}`}
+                      onPointerDown={(e) => begin(e, { kind: "milestone", id: m.id, phase: p.id, originX: e.clientX, day: dayOf(m.due_date as string) })}
+                      className={`absolute top-[42px] h-3 w-3 -translate-x-1/2 rotate-45 cursor-grab rounded-[2px] border transition-transform hover:scale-125 ${m.done ? "border-emerald-500 bg-emerald-500" : m.overdue ? "border-red-500 bg-red-500 shadow-[0_0_8px_rgb(239_68_68/.8)]" : "border-indigo-400 bg-white dark:bg-stone-900"}`}
+                      style={{ left: x(dayOf(m.due_date as string)) }} data-testid="milestone-diamond"
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="flex h-7 items-center border-t border-stone-100 px-4 text-[11px] text-stone-400 dark:border-stone-800">{hover || (savePhase.isPending || saveMilestone.isPending ? "saving…" : `${view.phases.filter((p) => p.state === "behind" || p.state === "overdue").length} phase(s) need attention`)}</div>
+    </div>
+  );
+}

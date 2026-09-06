@@ -544,6 +544,30 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Plan v2 slice 2: the roadmap (#313)
+
+**Decision.** `plans/roadmap.py` turns the plan into timeline rows: each phase gets a window (its
+target dates, else inferred: after the previous phase / from its milestones' due dates / six weeks,
+flagged `inferred`), its milestones with due/done/overdue, a health state computed from the share of
+milestones done against the share of the window elapsed (±15 % band → on_track; blocked / overdue /
+upcoming / done / empty are explicit), a one-line reason, and a finish forecast = today + remaining ×
+the measured days-per-milestone once two are done. `GET /projects/{slug}/roadmap/`; rescheduling
+reuses `PATCH /phases/{id}/` and `/milestones/{id}/`; MCP `get_roadmap`, `set_phase_dates` (61 tools).
+The Plan page grows a Phases | Roadmap | Outline switch (remembered in localStorage). The roadmap is
+plain React + pointer events: month gridlines, a glowing today line, bars coloured by health with
+the progress fill inside, dashed bars for suggested dates, a striped forecast tail, diamonds for
+milestones (filled = done, red glow = overdue); drag a bar to move, its edges to resize, a diamond
+to change a due date — optimistic locally, one PATCH on release.
+
+**Why.** "Where are we against the plan?" needs time on an axis, not a list. Inferred windows mean
+the view is useful from the first milestone; the health reading names *why* a phase is behind so
+the fix is obvious; drag-to-reschedule makes the roadmap the place plans get adjusted, not a report.
+
+**Alternatives considered.** A Gantt library (frappe-gantt, dhtmlx) — rejected: a dependency and its
+own styling for a view that is 300 lines of React; the Observatory look would fight it. Dependencies
+between phases (finish-to-start arrows) — parked: phases are already ordered, and arrows add noise
+before there is a scheduling engine. Per-milestone "days late" statistics — parked to the dashboard.
+
 ### 2026-09-06 — Plan v2 slice 1: the plan as a document (#311)
 
 **Decision.** The Library is judged best-in-field after eight slices (import from anywhere, faceted

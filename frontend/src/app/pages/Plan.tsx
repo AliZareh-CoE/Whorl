@@ -5,10 +5,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, Check, FileText, ListChecks, Loader2, Plus, Save, X } from "lucide-react";
+import { AlertTriangle, CalendarRange, Check, FileText, LayoutList, Loader2, Plus, Save, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
+import Roadmap from "./plan/Roadmap";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
 type Milestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue: boolean; tasks: Task[] };
@@ -57,7 +58,10 @@ export default function Plan() {
   const { slug } = useParams();
   const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["plan", slug], queryFn: () => api<PlanData>(`/projects/${slug}/plan/`) });
-  const [outlineMode, setOutlineMode] = useState(false);
+  const [mode, setMode] = useState<"cards" | "roadmap" | "outline">(() => { try { return (localStorage.getItem("atlas-plan-mode") as "cards" | "roadmap" | "outline") || "cards"; } catch { return "cards"; } });
+  const outlineMode = mode === "outline";
+  const setOutlineMode = (v: boolean | ((prev: boolean) => boolean)) => setMode((prev) => ((typeof v === "function" ? v(prev === "outline") : v) ? "outline" : "cards"));
+  useEffect(() => { try { localStorage.setItem("atlas-plan-mode", mode); } catch { /* private mode */ } }, [mode]);
   const [toast, setToast] = useState("");
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 4000); };
   const invalidate = () => {
@@ -128,12 +132,18 @@ export default function Plan() {
             {overdue > 0 && <span className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600 dark:text-red-300">{overdue} overdue</span>}
           </p>
         </div>
-        <button type="button" onClick={() => setOutlineMode((v) => !v)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${outlineMode ? "bg-indigo-600 text-white hover:bg-indigo-700" : "border border-stone-300 text-stone-700 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-200"}`} title="Write the whole plan as a Markdown outline">
-          {outlineMode ? <ListChecks className="h-4 w-4" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}{outlineMode ? "Back to the plan" : "Edit as outline"}
-        </button>
+        <div className="flex overflow-hidden rounded-lg border border-stone-300 text-sm dark:border-stone-700" role="tablist" aria-label="Plan view">
+          {([["cards", "Phases", LayoutList], ["roadmap", "Roadmap", CalendarRange], ["outline", "Outline", FileText]] as const).map(([k, label, Icon]) => (
+            <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors ${mode === k ? "bg-indigo-600 text-white" : "text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"}`} title={k === "outline" ? "Write the whole plan as a Markdown outline" : k === "roadmap" ? "Phases on a time axis — drag to reschedule" : "Phase cards with check-off and quick-add"}>
+              <Icon className="h-4 w-4" aria-hidden="true" />{label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {outlineMode ? (
+      {mode === "roadmap" ? (
+        <Roadmap slug={slug!} accent={accent} onChanged={invalidate} />
+      ) : outlineMode ? (
         <OutlineEditor slug={slug!} empty={data.phases.length === 0} onSaved={(s) => { setOutlineMode(false); invalidate(); flash(`Plan updated — ${s.phases} phase${s.phases === 1 ? "" : "s"}, ${s.milestones} milestone${s.milestones === 1 ? "" : "s"}${s.created.length ? `, ${s.created.length} new` : ""}${s.deleted.length ? `, ${s.deleted.length} removed` : ""}.`); }} />
       ) : data.phases.length === 0 ? (
         <div className={`${panel} rise p-10 text-center`}>
@@ -150,7 +160,7 @@ export default function Plan() {
         </div>
       )}
 
-      {!outlineMode && (
+      {mode === "cards" && (
         <p className="mt-4 text-xs text-stone-400">
           Tick to complete · click a status to cycle it · type at the bottom of a phase to add a milestone · <a href={`/projects/${slug}/plan/`} className="underline hover:text-indigo-700 dark:hover:text-indigo-300">classic page ↗</a>
         </p>

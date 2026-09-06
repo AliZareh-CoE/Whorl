@@ -434,3 +434,18 @@ def set_plan_outline(slug: str, markdown: str, dry_run: bool = False):
     return _request(
         "POST", f"/projects/{slug}/outline/", json={"markdown": markdown, "dry_run": dry_run}
     )
+
+
+def get_roadmap(slug: str):
+    """Phases as dated windows with health and a finish forecast."""
+    return _request("GET", f"/projects/{slug}/roadmap/")
+
+
+def set_phase_dates(phase_id: int, start: str | None = None, end: str | None = None):
+    """Reschedule a phase (ISO dates; omit one to leave it unchanged)."""
+    payload = {}
+    if start is not None:
+        payload["target_start"] = start
+    if end is not None:
+        payload["target_end"] = end
+    return _request("PATCH", f"/phases/{phase_id}/", json=payload)

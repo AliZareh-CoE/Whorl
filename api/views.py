@@ -467,6 +467,23 @@ class ProjectViewSet(AtlasViewSet):
         return Response(documents_table_props(project, documents))
 
     @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="Phases as dated bars (real or inferred windows) with milestones, "
+                "health (behind / on_track / ahead / blocked / overdue / upcoming / done / empty) "
+                "and a finish forecast from the completion pace"
+            )
+        },
+        description="Roadmap data for the plan's timeline view. Reschedule with PATCH /phases/{id}/ "
+        "(target_start/target_end) and /milestones/{id}/ (due_date).",
+    )
+    @action(detail=True, methods=["get"])
+    def roadmap(self, request, slug=None):
+        from plans.roadmap import project_roadmap
+
+        return Response(project_roadmap(self.get_object()))
+
+    @extend_schema(
         request=serializers.PlanOutlineSerializer,
         responses={
             200: inline_serializer(

@@ -1,0 +1,117 @@
+"""Roadmap data for the Plan page (Plan v2 slice 2).
+
+Phases become bars on a time axis, milestones become diamonds on their due dates, and each
+phase gets an honest health reading: the share of milestones done against the share of the
+phase's time that has elapsed, plus a finish forecast from the pace of the milestones already
+completed. Phases without dates get a suggested window so the roadmap never starts empty.
+"""
+
+from __future__ import annotations
+
+from datetime import date, timedelta
+
+from django.utils import timezone
+
+from projects.models import Project
+
+from .models import Phase
+
+DEFAULT_PHASE_WEEKS = 6
+
+
+def _phase_window(phase: Phase, previous_end: date | None, today: date) -> tuple[date, date, bool]:
+    """(start, end, inferred) — real dates, else a window inferred from milestones/neighbours."""
+    milestones = list(phase.milestones.all())
+    dues = sorted(m.due_date for m in milestones if m.due_date)
+    start, end = phase.target_start, phase.target_end
+    inferred = False
+    if start is None:
+        inferred = True
+        start = (previous_end + timedelta(days=1)) if previous_end else (dues[0] if dues else today)
+        if end is None and dues:
+            start = min(start, dues[0])
+    if end is None:
+        inferred = True
+        end = dues[-1] if dues else start + timedelta(weeks=DEFAULT_PHASE_WEEKS)
+    if end < start:
+        end = start
+    return start, end, inferred
+
+
+def _health(phase: Phase, start: date, end: date, today: date) -> dict:
+    milestones = list(phase.milestones.all())
+    total = len(milestones)
+    done = [m for m in milestones if m.completed_at]
+    if phase.status == Phase.Status.DONE:
+        return {"state": "done", "label": "done", "forecast_end": None}
+    if total == 0:
+        return {"state": "empty", "label": "no milestones", "forecast_end": None}
+    span = max(1, (end - start).days)
+    elapsed = min(max((today - start).days, 0), span) / span
+    progress = len(done) / total
+    remaining = total - len(done)
+    forecast = None
+    if remaining and len(done) >= 2:
+        # pace: days per milestone measured between the first and last completions
+        stamps = sorted(m.completed_at.date() for m in done)
+        pace = max(1, (stamps[-1] - stamps[0]).days) / (len(done) - 1)
+        forecast = today + timedelta(days=round(pace * remaining))
+    if today < start:
+        state, label = "upcoming", f"starts in {(start - today).days} d"
+    elif today > end:
+        state, label = "overdue", f"{(today - end).days} d past its end"
+    elif phase.status == Phase.Status.BLOCKED:
+        state, label = "blocked", "blocked"
+    elif progress + 0.15 < elapsed:
+        state, label = (
+            "behind",
+            f"behind — {len(done)}/{total} done, {round(elapsed * 100)}% of time used",
+        )
+    elif progress > elapsed + 0.15:
+        state, label = "ahead", f"ahead — {len(done)}/{total} done"
+    else:
+        state, label = "on_track", "on track"
+    return {"state": state, "label": label, "forecast_end": forecast}
+
+
+def project_roadmap(project: Project, today: date | None = None) -> dict:
+    today = today or timezone.localdate()
+    rows = []
+    previous_end: date | None = None
+    for phase in project.phases.prefetch_related("milestones"):
+        start, end, inferred = _phase_window(phase, previous_end, today)
+        previous_end = end
+        milestones = [
+            {
+                "id": m.pk,
+                "title": m.title,
+                "due_date": m.due_date,
+                "done": bool(m.completed_at),
+                "overdue": m.is_overdue,
+            }
+            for m in phase.milestones.all()
+        ]
+        health = _health(phase, start, end, today)
+        rows.append(
+            {
+                "id": phase.pk,
+                "name": phase.name,
+                "order": phase.order,
+                "status": phase.status,
+                "start": start,
+                "end": end,
+                "inferred": inferred,
+                "progress": phase.progress,
+                "milestones": milestones,
+                **health,
+            }
+        )
+    starts = [r["start"] for r in rows]
+    ends = [r["end"] for r in rows] + [r["forecast_end"] for r in rows if r["forecast_end"]]
+    return {
+        "project": project.slug,
+        "today": today,
+        "range_start": min(starts + [today]) if rows else today,
+        "range_end": max(ends + [today]) if rows else today + timedelta(weeks=12),
+        "phases": rows,
+    }

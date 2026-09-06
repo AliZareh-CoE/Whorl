@@ -405,3 +405,17 @@ def set_plan_outline(slug: str, markdown: str, dry_run: bool = False) -> dict:
     create objects, missing ids delete them, checkboxes set completion. Use dry_run=True first to
     see what would be created, renamed and deleted; parse errors name the line."""
     return client.set_plan_outline(slug, markdown, dry_run=dry_run)
+
+
+@mcp.tool()
+def get_roadmap(slug: str) -> dict:
+    """The plan as a timeline: each phase's window (real or inferred from milestones), its
+    milestones with due dates, a health state (behind / on_track / ahead / blocked / overdue /
+    upcoming / done) with a one-line reason, and a finish forecast from the completion pace."""
+    return client.get_roadmap(slug)
+
+
+@mcp.tool()
+def set_phase_dates(phase_id: int, start: str = "", end: str = "") -> dict:
+    """Reschedule a phase: ISO dates for its target start and/or end (empty = unchanged)."""
+    return client.set_phase_dates(phase_id, start or None, end or None)
