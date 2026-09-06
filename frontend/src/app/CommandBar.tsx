@@ -21,6 +21,11 @@ type AssistantContext = {
   recent: Recent[];
 };
 type Milestone = { id: number; title: string; completed_at: string | null };
+// Recent jumps (backlog #284): the last places the palette navigated to, per browser
+type Jump = { label: string; url: string; tag: string };
+const JUMPS_KEY = "atlas-recent-jumps";
+function readJumps(): Jump[] { try { return JSON.parse(localStorage.getItem(JUMPS_KEY) || "[]") as Jump[]; } catch { return []; } }
+function pushJump(j: Jump) { try { const next = [j, ...readJumps().filter((x) => x.url !== j.url)].slice(0, 6); localStorage.setItem(JUMPS_KEY, JSON.stringify(next)); } catch { /* storage blocked */ } }
 type PlanData = { phases: { milestones: Milestone[] }[] };
 
 /** Subsequence fuzzy score — higher is better, null = no match. */
@@ -56,6 +61,8 @@ export default function CommandBar() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [flash, setFlash] = useState("");
+  const [jumps, setJumps] = useState<Jump[]>([]);
+  useEffect(() => { if (open) setJumps(readJumps()); }, [open]);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -118,6 +125,18 @@ export default function CommandBar() {
     return `✓ ${title}`;
   }, [queryClient, slug]);
 
+  // backlog #300: "todo: buy the cheaper eye-tracker" → the Today list, scoped to the project you are in
+  const doTodo = useCallback(async (text: string) => {
+    await api("/todos/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+      body: JSON.stringify({ text, project: slug ?? null }),
+    });
+    queryClient.invalidateQueries({ queryKey: ["todos"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    return `On your list: ${text.slice(0, 60)}`;
+  }, [queryClient, slug]);
+
   const doToggleTheme = useCallback(async () => {
     (window as unknown as { __toggleTheme?: () => void }).__toggleTheme?.();
     return document.documentElement.classList.contains("dark") ? "Dark mode on" : "Light mode on";
@@ -143,6 +162,12 @@ export default function CommandBar() {
       const text = q.slice(q.indexOf(":") + 1).trim();
       return text
         ? [{ kind: "verb", label: `Capture “${text}”`, tag: "inbox", run: () => doCapture(text) }]
+        : [];
+    }
+    if (q.toLowerCase().startsWith("todo:") || q.toLowerCase().startsWith("t:")) {
+      const text = q.slice(q.indexOf(":") + 1).trim();
+      return text
+        ? [{ kind: "verb", label: `Add “${text}” to Today${slug ? ` · ${slug}` : ""}`, tag: "today", run: () => doTodo(text) }]
         : [];
     }
     if (q.toLowerCase().startsWith("done:")) {
@@ -173,13 +198,14 @@ export default function CommandBar() {
       .slice(0, 8)
       .map(({ c }) => ({ kind: "nav" as const, label: c.title, tag: c.type, url: c.url }));
     return [...verbRows, ...navRows];
-  }, [query, assistant, plan, doCapture, verbs]);
+  }, [query, assistant, plan, doCapture, doTodo, verbs, slug]);
 
   useEffect(() => setActive(0), [query]);
 
   async function runRow(row: Row) {
     if (row.kind === "nav") {
       const { to, spa } = toSpaUrl(row.url);
+      pushJump({ label: row.label, url: row.url, tag: row.tag });
       setOpen(false);
       if (spa) navigate(to);
       else location_assign(row.url);
@@ -220,7 +246,7 @@ export default function CommandBar() {
               else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
               else if (e.key === "Enter" && rows[active]) runRow(rows[active]);
             }}
-            placeholder="Jump anywhere — or  capture: idea   done: milestone"
+            placeholder="Jump anywhere — or  capture: idea   todo: task   done: milestone"
             aria-label="Command"
             className="w-full bg-transparent py-4 text-base text-stone-800 placeholder:text-stone-400 focus:outline-none dark:text-stone-100"
           />
@@ -281,9 +307,28 @@ export default function CommandBar() {
               <span aria-hidden="true">✨</span>
               <span>Ask Claude about this — copy a context-rich MCP prompt</span>
             </button>
+            {jumps.length > 0 && (
+              <div className="mb-4" data-testid="recent-jumps">
+                <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-400 dark:text-stone-500">Recent jumps</p>
+                <ul className="-mx-1.5">
+                  {jumps.map((j) => {
+                    const { to, spa } = toSpaUrl(j.url);
+                    return (
+                      <li key={j.url}>
+                        <button type="button" onClick={() => { pushJump(j); setOpen(false); spa ? navigate(to) : window.location.assign(j.url); }}
+                                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left text-sm transition-colors hover:bg-stone-50 dark:hover:bg-stone-800">
+                          <span className="min-w-0 flex-1 truncate text-stone-600 dark:text-stone-300">{j.label}</span>
+                          <span className="shrink-0 rounded bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-stone-400 dark:text-stone-300">{j.tag}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
             {assistant && assistant.recent.length > 0 && (
               <div>
-                <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-400 dark:text-stone-500">Recent</p>
+                <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-400 dark:text-stone-500">Recently edited</p>
                 <ul className="-mx-1.5">
                   {assistant.recent.slice(0, 5).map((r) => {
                     const { to, spa } = toSpaUrl(r.url);
@@ -318,7 +363,7 @@ export default function CommandBar() {
             <kbd className="rounded border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-1 font-sans text-stone-500 dark:text-stone-400">esc</kbd>
             close
           </span>
-          <span className="ml-auto">capture: <i>text</i> · done: <i>milestone</i></span>
+          <span className="ml-auto">capture: <i>text</i> · todo: <i>task</i> · done: <i>milestone</i></span>
         </div>
       </div>
     </div>

@@ -103,3 +103,14 @@ def test_frontend_wiring():
 
 def test_reverse_of_unrelated_login_still_works():
     assert reverse("login")
+
+
+def test_palette_offers_todo_verb_and_recent_jumps():
+    """Backlog #300/#284: `todo:` in ⌘K adds to the Today list (scoped to the open project);
+    the palette remembers the last places it navigated to."""
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parents[2] / "frontend/src/app/CommandBar.tsx").read_text()
+    assert 'startsWith("todo:")' in src
+    assert 'api("/todos/"' in src and "project: slug ?? null" in src
+    assert "atlas-recent-jumps" in src and "pushJump(" in src

@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **⌘K: `todo:` + recent jumps (2026-09-06, #371).** Playwright: `todo: PW palette item` created a project-scoped Today item; jumping to the Library then reopening showed it under Recent jumps (docs/screenshots/palette-jumps.png). Guard test in core/tests/test_today.py.
+
 - **Updater polish (2026-09-06, #370).** Progress events + bar, release-notes confirm, 6-hourly re-check; cargo tests green; scaffold test pins the wiring. Unverifiable here (needs the public feed); the code paths are the plugin's documented callbacks.
 
 - **★ CONNECT: TEST THE CONNECTION (2026-09-06, #369).** Four server-side checks with fixes, MCP `--check` self-test, real bug fixed (`-m mcp_server.server` exposed 29/88 tools — entry point moved to the end, AST test). Playwright: all four rows green in dev, 88 tools · 1 project (docs/screenshots/connect-test.png). Tests: core/tests/test_connect_test.py (5), mcp_server/tests/test_check.py (5).
