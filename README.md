@@ -1,54 +1,70 @@
 # Atlas 🗺️ — the self-hosted research workbench
 
 ![CI](https://github.com/AliZareh-CoE/project-manager/actions/workflows/ci.yml/badge.svg)
+![Desktop release](https://github.com/AliZareh-CoE/project-manager/actions/workflows/desktop-release.yml/badge.svg)
 
-**Plans, papers, notes, and manuscripts in one calm place — with an AI collaborator built in.**
+**Plans, papers, notes and manuscripts in one calm place — with Claude built in.**
 
-Atlas is a single-user, self-hosted platform for researchers who find Jira-style tools noisy
-and task-obsessed. It treats the things researchers actually care about as first-class:
-project **plans** (phases → milestones), a **reference library** with one-click DOI import,
-**linked notes** with a 3D knowledge graph, a **writing studio** that compiles LaTeX, and an
-**MCP server** so Claude can work inside your research base — list projects, check off
-milestones, add papers, fetch your saved prompts.
+Atlas is a single-user, self-hosted research platform for people who find Jira-style tools noisy
+and task-obsessed. It treats what researchers actually care about as first-class: a **plan** you
+write like a document, a **library** that reads your PDFs, **notes** that cite papers with `@key`,
+a **writing studio** that checks your citations and compiles LaTeX, and an **MCP server** so
+Claude Code can do all of it with you — 80 tools over the same API the UI uses.
 
-> Built like Django itself: boring technology, strong conventions, everything has exactly
-> one obvious place. No SPA, no Node build, no cloud, no telemetry.
+> Built like Django itself: boring technology, strong conventions, everything has exactly one
+> obvious place. No cloud, no telemetry. Runs as a web app or a one-click desktop app.
+
+**Download:** [Atlas desktop preview](https://github.com/AliZareh-CoE/project-manager/releases/tag/desktop-preview)
+(Windows `.exe`/`.msi`, Linux `.deb`/`.rpm`) · login `atlas` / `atlas` after `seed_demo`, or create your own user.
+
+## Screens
 
 | | |
 |---|---|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Library workbench](docs/screenshots/library.png) |
-| ![Plan as glass phase cards](docs/screenshots/plan.png) | ![Write the plan as an outline](docs/screenshots/plan-outline.png) |
-| ![Roadmap: drag phases and milestones on a time axis](docs/screenshots/plan-roadmap.png) | ![This week + milestone drawer](docs/screenshots/plan-focus.png) |
-| ![Notes workbench with [[links]] and @citations](docs/screenshots/notes.png) | ![Search inside your PDFs](docs/screenshots/library-find.png) |
-| ![Manuscript studio](docs/screenshots/writing-studio.png) | ![Literature note from a paper](docs/screenshots/notes-literature.png) |
-| *The Observatory dashboard: a living constellation of your projects and what needs you today* | *The Library workbench: drop PDFs/BibTeX/RIS or pull Zotero, facet by year/venue/project, bulk-file, recover metadata* |
-| ![Discover from any paper](docs/screenshots/library-discover.png) | ![Knowledge graph](docs/screenshots/graph3d.png) |
-| *Discover from any paper: similar / cites / cited-by on OpenAlex, one-click add into a project* | *3D citation + notes graph, synced from OpenAlex* |
-| ![Project overview](docs/screenshots/overview.png) | ![LaTeX editor](docs/screenshots/latex-editor.png) |
-| *One-glance project overview with a tree that grows with progress* | *LaTeX editor: cite-key autocomplete, Tectonic compile, live PDF preview* |
-| ![Read and highlight inside the workbench](docs/screenshots/library-reader.png) | ![Search inside your PDFs](docs/screenshots/library-find.png) |
-| *In-browser PDF reader with highlight-to-note and page comments* | *Bulk bar: link, mark as read, export .bib, fetch OA PDFs, recover metadata* |
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Project overview](docs/screenshots/overview.png) |
+| *Dashboard: what needs you, this week everywhere, projects with phase health, activity* | *Project overview: current phase with health, this week, what changed, open questions, manuscripts* |
+| ![Plan as an outline](docs/screenshots/plan-outline.png) | ![Roadmap](docs/screenshots/plan-roadmap.png) |
+| *Write the plan as a Markdown outline — the preview says what a save creates, renames, deletes* | *Roadmap: drag phases and milestones on a time axis; each phase rated behind / on track / ahead* |
+| ![Library workbench](docs/screenshots/library.png) | ![Read and highlight in place](docs/screenshots/library-reader.png) |
+| *Library: drop PDFs / BibTeX / RIS or pull Zotero, facet, bulk-file, recover metadata* | *Read in place: highlights save as structured rows and paint back onto the page* |
+| ![Search inside your PDFs](docs/screenshots/library-find.png) | ![Discover from any paper](docs/screenshots/library-discover.png) |
+| *Search inside every attached PDF — the hit names the page, the reader jumps to it* | *Discover: similar / cites / cited-by on OpenAlex, one-click add into a project* |
+| ![Notes workbench](docs/screenshots/notes.png) | ![Knowledge graph](docs/screenshots/graph3d.png) |
+| *Notes: `[[links]]` and `@citations` autocomplete, live preview, link panel* | *Knowledge graph: search-to-focus, neighbourhood mode, hubs; works offline* |
+| ![Manuscript studio](docs/screenshots/writing-studio.png) | ![Reviewer response tracker](docs/screenshots/writing-reviews.png) |
+| *Manuscript studio: pipeline, bibliography from your literature, cite check, compile, budget* | *Paste the reviews — get a point-by-point response note and a progress bar* |
+| ![Inbox triage](docs/screenshots/inbox.png) | ![LaTeX editor](docs/screenshots/latex-editor.png) |
+| *Inbox: a DOI becomes a paper, "todo:" a Today item, "decision:" a decision — one click* | *LaTeX editor: cite-key autocomplete, Tectonic compile, live PDF preview* |
 
 ## What's inside
 
-- **Dashboard** — what should I work on today, everywhere: needs-attention lead, "this week, everywhere" across active projects (completable in place), projects with progress and phase health, monthly stats, today-list tile, upcoming milestones and deadlines, 26-week activity heatmap
-- **Inbox** — capture anything from anywhere (⌘K, the page, Claude); smart triage detects DOIs/arXiv ids, "todo:", "idea:", "milestone:" and "decision:" and converts each capture into a paper, a Today item, a note, a milestone or a decision in one click
-- **Project overview** — one glance: current phase with health and forecast, this week's focus, a "this week in the project" digest, open research questions and the hypotheses tally, manuscripts at a glance with deadlines and venue-budget overruns, counts, next milestones, recent documents and decisions
-- **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm; **write the plan as a document** — the whole plan round-trips through a Markdown outline (`# phase [status] (start → end)`, `> objective`, `- [ ] milestone (due …)`, indented tasks) with a live preview of what a save creates, renames and deletes; Claude edits the same outline through MCP; inline quick-add for milestones and tasks, click-to-cycle phase status; **roadmap view** — phases as bars on a time axis (windows inferred from milestones when undated), milestones as diamonds, a today line, drag to move or resize a phase or slide a milestone's due date, and an honest health reading per phase (behind / on track / ahead / overdue) with a finish forecast from the completion pace; **"This week" strip** on the Plan and the project overview (overdue first, then due within seven days, then the next milestones of the current phase, each completable in place) and a **milestone drawer** (notes, due date, tasks) so the plan is fully editable without leaving the page; each phase carries its **objective** (click to edit), its **target window** and the **research questions** it serves, attachable in place; the roadmap also nudges by keyboard (←/→ a day, Shift a week)
-- **Library workbench** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop a folder of PDFs onto the page (the DOI is read off page one and metadata fetched; scans without one are kept and can "find metadata" later), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click — all deduplicated; facets by project, year histogram, venue, type, PDF; keyboard `j/k/x/o`; bulk file-to-project, reading status, delete; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers; **read and highlight without leaving the workbench** — a pdf.js reader takes over the centre pane, selecting text saves a coloured highlight (structured rows with page + comment, mirrored into the project's highlights note), highlights paint back onto the page, copy them all as Markdown; per-project **reading notes** autosave in the detail pane; **Find PDF** per paper (arXiv → Unpaywall); **search inside your PDFs** — every attached PDF is read into searchable text, so the search box, the global search and Claude find papers by what they say, with the page and a snippet, and the reader jumps to it
-- **Duplicate merge** — the Library spots the same paper imported twice (DOI, arXiv id, near-identical title) and merges them in one click, keeping the most complete record and moving every link, tag, note, and PDF
-- **Tags & smart views** — label papers (bulk or one at a time), filter by tag in the rail, and save any filter combination as a named view that is one click away
-- **Formatted citations** — copy any paper or selection as APA 7, MLA 9, Chicago, Harvard, Vancouver, or IEEE (bibliography entry and in-text form) straight from the Library
-- **Discover from any paper** — three OpenAlex lenses in the Library (similar work, what it cites, what cites it), each row addable in one click into the library or the current project; export any selection or filtered view as `.bib`, copy BibTeX, fetch open-access PDFs in bulk
-- **Literature review matrix** — papers × themes grid with markdown export
-- **Notes & knowledge graph** — `[[wiki-links]]`, backlinks, typo-tolerant full-text search, related-paper suggestions (local TF-IDF, no API calls); **Notes v2 workbench** — list | editor with live preview | link panel; `[[` autocompletes note titles, `@` autocompletes the cite keys of papers filed in the project and attaches them to the note (Pandoc-style `@key` renders as a link to the paper), autosave, backlinks, unlinked mentions, and one-click creation of linked-but-unwritten notes; **Graph v2** — the 3D/2D knowledge graph ships its own copy of 3d-force-graph (works offline in the desktop app), with search-to-focus, paper/note and link-kind filters, a neighbourhood focus mode (depth 1–2), hover highlighting, hubs and unconnected counts, and a side panel with the node's facts and neighbours; **note templates** — a literature note built from any paper (metadata, `@key`, every highlight you took), a daily note that starts with this week's focus, meeting and experiment pages; **export** any note as Markdown with a formatted bibliography in six styles
-- **Writing studio** — manuscript pipeline (idea → published), cite checker against your `.tex`, **server-side LaTeX compilation** (vendored Tectonic) with split-view preview; **manuscript studio** — one page per paper: status pipeline, venue and deadline countdown, abstract with word count, source & compile card (approx word count, compile, diagnostics, PDF), bibliography built by searching the project's literature with one-click `\cite{}` copies and `.bib` export, a cite check that finds `\cite` keys missing from the bib (one-click add when the library knows them) and entries never cited, and the submission timeline; start a manuscript from the board; **reviewer-response tracker** — paste the reviews you received and Atlas logs the event and writes a point-by-point "Response to reviewers" note (one checkbox per reviewer point, a Response slot under each); the studio shows how many points are answered; submission `.zip` one click away; **venue budget** — store the venue's limits (words, abstract, figures, tables, references, pages) and watch live usage bars turn amber near the limit and red over it
-- **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
-- **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
-- **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 80 tools over the REST API; your AI assistant operates the same contract you do
-- **Today list** — a dead-simple personal to-do list for the day (add, tick, clear done); nothing is lost overnight; Claude can add to it
-- **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
+**Plan** — phases → milestones → optional tasks, progress rolling up visually.
+- Write the whole plan as a Markdown outline (`# phase [status] (start → end)`, `- [ ] milestone (due …)`, indented tasks) with a live dry-run of what a save creates, renames and deletes; Claude edits the same outline.
+- Roadmap: phases as bars (windows inferred when undated), milestones as diamonds, drag or use the keyboard to reschedule; per-phase health (behind / on track / ahead / overdue) and a finish forecast from your pace.
+- "This week" strip, milestone drawer (notes, due date, tasks), phase objectives and research questions in place.
+
+**Library** — add by DOI / arXiv; drop a folder of PDFs (the DOI is read off page one), BibTeX, RIS, CSL-JSON, or pull Zotero; everything deduplicated.
+- Facets, keyboard `j/k/x/o`, bulk file / mark / tag / export, saved smart views, duplicate merge that keeps every link.
+- Read and highlight without leaving the page; per-project reading notes; Find PDF (arXiv → Unpaywall).
+- Search inside your PDFs: every attached PDF is read into searchable text — hits name the page.
+- Discover from any paper (similar / cites / cited-by), citations in APA · MLA · Chicago · Harvard · Vancouver · IEEE, retraction and duplicate checkers, literature review matrix.
+
+**Notes & graph** — `[[wiki-links]]` and Pandoc-style `@key` citations with autocomplete, live preview, autosave, backlinks and unlinked mentions.
+- Templates: a literature note built from any paper with its highlights, a daily note seeded with this week's focus, meeting, experiment. Export any note with a formatted bibliography.
+- 3D/2D knowledge graph (vendored, works offline): search-to-focus, kind and link filters, neighbourhood focus, hubs.
+
+**Writing** — one studio page per manuscript: status pipeline, deadline countdown, abstract, compile card with approximate word count, bibliography built from the project's literature, cite check with one-click fixes, submission timeline.
+- Reviewer-response tracker: paste the reviews, get a point-by-point response note and "7/12 answered".
+- Venue budget: words, abstract, figures, tables, references, pages — live bars against the venue's limits.
+- LaTeX editor with cite-key autocomplete, server-side Tectonic compile, revisions, submission `.zip`.
+
+**Overview, dashboard, inbox, today**
+- Project overview: current phase with health, this week, a digest of what changed, open questions, manuscripts at a glance.
+- Dashboard: needs-attention lead, "this week, everywhere" (completable in place), phase health per project, monthly stats, 26-week heatmap.
+- Inbox: capture from anywhere (⌘K, the page, Claude); smart triage turns a DOI into a paper, "todo:" into a Today item, "idea:" into a note, "milestone:" and "decision:" into the real thing.
+- Today: a dead-simple personal list for the day. Research tools: hypothesis ledger, experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Local extras: Piper read-aloud, extractive tl;dr — offline.
+
+**Claude / MCP** — 80 tools over the REST API; your AI assistant operates the same contract you do. **A pet owl** 🦉 — fed by finished research; never nags.
 
 ## Quick start (one command)
 
@@ -199,7 +215,9 @@ desktop-only and are never exposed through the web API or MCP.
 |---|---|---|---|---|
 | Research project plans | ✅ phases/milestones | — | manual | — |
 | Reference manager + DOI import | ✅ | ✅ | — | — |
-| Knowledge graph of citations & notes | ✅ 3D | — | — | — |
+| Knowledge graph of citations & notes | ✅ 3D, offline | — | — | — |
+| Notes that cite papers (`@key`) | ✅ | partial | — | — |
+| Reviewer-response tracker, venue budget | ✅ | — | — | — |
 | LaTeX editing + compile | ✅ Tectonic | — | — | ✅ |
 | Cite checker against your bib | ✅ | — | — | partial |
 | Self-hosted, your data | ✅ | ✅ | — | — |
@@ -208,7 +226,7 @@ desktop-only and are never exposed through the web API or MCP.
 ## Development
 
 ```bash
-make test     # pytest -q (300+ tests)
+make test     # pytest -q (900+ tests)
 make lint     # ruff check + ruff format --check
 make doctor   # health check: db, migrations, redis, worker freshness, optional components
 make worker   # (re)start the background worker — it does NOT hot-reload after code changes
