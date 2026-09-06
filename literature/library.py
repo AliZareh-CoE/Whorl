@@ -135,7 +135,7 @@ def facets(qs: QuerySet) -> dict:
     }
 
 
-BULK_ACTIONS = ("link", "unlink", "status", "priority", "delete", "find_metadata")
+BULK_ACTIONS = ("link", "unlink", "status", "priority", "delete", "find_metadata", "fetch_pdf")
 
 
 def bulk(
@@ -172,6 +172,12 @@ def bulk(
             affected += 1
     elif action == "delete":
         affected, _ = refs.delete()
+    elif action == "fetch_pdf":
+        from .tasks import fetch_oa_pdf_task
+
+        for ref in refs.filter(Q(pdf="") | Q(pdf__isnull=True)):
+            fetch_oa_pdf_task(ref.pk)  # queued (worker) or immediate (desktop/dev)
+            affected += 1
     elif action == "find_metadata":
         for ref in refs:
             try:
@@ -257,3 +263,10 @@ def find_metadata(reference: Reference, client: httpx.Client | None = None) -> b
     reference.extra = extra
     reference.save()
     return True
+
+
+def export_bibtex(references) -> str:
+    """One .bib for any iterable/queryset of references, stable generated keys."""
+    from .services import render_bibtex
+
+    return "\n\n".join(render_bibtex(ref) for ref in references) + ("\n" if references else "")

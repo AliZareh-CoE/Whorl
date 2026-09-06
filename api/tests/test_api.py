@@ -901,3 +901,52 @@ class TestLibraryWorkbench:
         assert (
             client.post(f"/api/v1/references/{b.pk}/find-metadata/", **HEADERS).status_code == 400
         )
+
+
+class TestLibraryDiscovery:
+    """Library v2 slice 3: discover lenses + export over the API."""
+
+    def test_discover_endpoint_validates_kind_and_returns_rows(self, client, owner, monkeypatch):
+        from literature import discover
+        from literature.models import Reference
+
+        ref = Reference.objects.create(title="Anchor", bibtex_key="anchor", doi="10.1/a")
+        monkeypatch.setattr(
+            discover,
+            "discover",
+            lambda reference, kind, limit: [{"title": f"{kind}:{limit}", "addable": True}],
+        )
+        data = client.get(
+            f"/api/v1/references/{ref.pk}/discover/?kind=cited_by&limit=5", **HEADERS
+        ).json()
+        assert data == {
+            "kind": "cited_by",
+            "results": [{"title": "cited_by:5", "addable": True}],
+            "error": "",
+        }
+
+        def limited(reference, kind, limit):
+            raise discover.DiscoverError("OpenAlex's free daily budget for this network is used up")
+
+        monkeypatch.setattr(discover, "discover", limited)
+        data = client.get(f"/api/v1/references/{ref.pk}/discover/?kind=similar", **HEADERS).json()
+        assert data["results"] == [] and "daily budget" in data["error"]
+        assert (
+            client.get(f"/api/v1/references/{ref.pk}/discover/?kind=nope", **HEADERS).status_code
+            == 400
+        )
+
+    def test_export_by_ids_and_by_filter(self, client, owner):
+        from literature.models import Reference
+
+        a = Reference.objects.create(title="Alpha", bibtex_key="alpha2020", year=2020)
+        Reference.objects.create(title="Beta", bibtex_key="beta2019", year=2019)
+        response = client.get(f"/api/v1/references/export/?ids={a.pk}", **HEADERS)
+        assert response["Content-Type"].startswith("application/x-bibtex")
+        assert (
+            "alpha2020" in response.content.decode() and "beta2019" not in response.content.decode()
+        )
+        response = client.get("/api/v1/references/export/?year=2019", **HEADERS)
+        assert (
+            "beta2019" in response.content.decode() and "alpha2020" not in response.content.decode()
+        )

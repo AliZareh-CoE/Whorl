@@ -129,6 +129,8 @@ LOGIN_REDIRECT_URL = "/"  # the SPA front door (classic dashboard lives at /clas
 LOGOUT_REDIRECT_URL = "login"
 
 ATLAS_API_KEY = env("ATLAS_API_KEY", default="")
+# Optional OpenAlex key: raises the daily budget for the Library's discovery lenses.
+ATLAS_OPENALEX_API_KEY = env("ATLAS_OPENALEX_API_KEY", default="")
 ATLAS_CONTACT_EMAIL = env("ATLAS_CONTACT_EMAIL", default="atlas-owner@localhost")
 ATLAS_AUTO_FETCH_PDF = env.bool("ATLAS_AUTO_FETCH_PDF", default=True)
 

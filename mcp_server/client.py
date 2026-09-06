@@ -298,3 +298,25 @@ def import_from_zotero(project: str | None = None):
     """Import the whole library from the Zotero running on this machine (local API)."""
     payload = {"project": project} if project else {}
     return _request("POST", "/references/import-zotero/", json=payload)
+
+
+def discover_related(reference_id: int, kind: str = "similar", limit: int = 12):
+    """Papers around one reference on OpenAlex: similar, references (cites), or cited_by."""
+    return _request(
+        "GET", f"/references/{reference_id}/discover/", params={"kind": kind, "limit": limit}
+    )
+
+
+def export_bibtex(reference_ids: list[int] | None = None, project: str | None = None) -> str:
+    """BibTeX text for explicit ids, or for a whole project's library."""
+    params = {}
+    if reference_ids:
+        params["ids"] = ",".join(str(i) for i in reference_ids)
+    elif project:
+        params["project"] = project
+    base_url = os.environ.get("ATLAS_API_URL", "http://127.0.0.1:8000").rstrip("/")
+    with _client() as client:
+        response = client.get(f"{base_url}/api/v1/references/export/", params=params)
+    if response.status_code >= 400:
+        raise AtlasClientError(f"Atlas API {response.status_code} on /references/export/")
+    return response.text

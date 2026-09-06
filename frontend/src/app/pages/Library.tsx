@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  BookOpen, Check, ChevronDown, Download, FileText, FolderPlus, Loader2, Search, Sparkles, Trash2, Upload, Wand2, X,
+  BookOpen, Check, ChevronDown, Copy, Download, ExternalLink, FileDown, FileText, FolderPlus, Loader2, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { Skeleton } from "../../components/Skeleton";
@@ -25,6 +25,10 @@ type Facets = {
   years: { year: number; count: number }[]; entry_types: { entry_type: string; count: number }[];
   venues: { venue: string; count: number }[]; projects: { slug: string; name: string; count: number }[];
   all_projects: { slug: string; name: string; color: string }[];
+};
+type DiscoverRow = {
+  openalex_id: string; doi: string; title: string; year: number | null; venue: string; authors: string[];
+  more_authors: number; citations: number | null; in_library: boolean; library_id: number | null; addable: boolean;
 };
 type ImportResult = { title: string; reference_id: number | null; created: boolean; source: string; error: string; needs_metadata: boolean };
 type ImportSummary = { created: number; existing: number; failed: number; results: ImportResult[] };
@@ -367,7 +371,8 @@ export default function Library() {
               <button key={k} type="button" onClick={() => set({ [k]: "" } as Partial<Filters>)} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-indigo-700 dark:text-indigo-200">{k.replace("_", " ")}: {k === "reading_status" ? STATUS_LABEL[filters[k]] : filters[k]}<X className="h-3 w-3" aria-hidden="true" /></button>
             ))}
             {activeChips.length > 0 && <button type="button" onClick={() => setFilters({ ...EMPTY, sort: filters.sort })} className="text-stone-400 hover:underline">clear</button>}
-            <span className="ml-auto hidden text-stone-400 lg:inline">j/k move · enter open · x select · o pdf</span>
+            <a href={`/api/v1/references/export/?${toQuery(effective, 1)}`} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Open everything in this view as a .bib file"><FileDown className="h-3 w-3" aria-hidden="true" />.bib of this view</a>
+            <span className="hidden text-stone-400 lg:inline">· j/k move · enter open · x select · o pdf</span>
           </div>
           <div ref={listRef} className="flex-1 divide-y divide-stone-100 overflow-auto dark:divide-stone-800">
             {list.isLoading && Array.from({ length: 8 }).map((_, i) => <div key={i} className="px-4 py-3"><Skeleton className="mb-1.5 h-4 w-2/3" /><Skeleton className="h-3 w-1/3" /></div>)}
@@ -411,6 +416,9 @@ export default function Library() {
               {(bulkProject || filters.project) && (
                 <select defaultValue="" onChange={(e) => { if (e.target.value) { bulk.mutate({ ids: [...selected], action: "status", project: bulkProject || filters.project, value: e.target.value }); e.target.value = ""; } }} className="rounded-md border border-stone-300 bg-white px-1.5 py-1 text-xs dark:border-stone-700 dark:bg-stone-800"><option value="">mark as…</option>{Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
               )}
+              <a href={`/api/v1/references/export/?ids=${[...selected].join(",")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Open the selection as a .bib file"><FileDown className="h-3 w-3" aria-hidden="true" />Export .bib</a>
+              <button type="button" onClick={async () => { const text = await (await fetch(`/api/v1/references/export/?ids=${[...selected].join(",")}`, { credentials: "same-origin" })).text(); await navigator.clipboard?.writeText(text); flash(`Copied BibTeX for ${selected.size} reference(s).`); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Copy BibTeX to the clipboard"><Copy className="h-3 w-3" aria-hidden="true" />Copy BibTeX</button>
+              <button type="button" disabled={bulk.isPending} onClick={() => bulk.mutate({ ids: [...selected], action: "fetch_pdf" })} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Find and attach open-access PDFs"><Download className="h-3 w-3" aria-hidden="true" />Fetch OA PDFs</button>
               <button type="button" disabled={bulk.isPending} onClick={() => bulk.mutate({ ids: [...selected], action: "find_metadata" })} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"><Wand2 className="h-3 w-3" aria-hidden="true" />Find metadata</button>
               <button type="button" disabled={bulk.isPending} onClick={() => { if (confirm(`Delete ${selected.size} reference(s) from the library? Their project links and PDFs go too.`)) bulk.mutate({ ids: [...selected], action: "delete" }); }} className="inline-flex items-center gap-1 rounded-md border border-red-300/60 px-2 py-1 text-red-600 hover:bg-red-500/10 dark:text-red-300"><Trash2 className="h-3 w-3" aria-hidden="true" />Delete</button>
               <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-stone-400 hover:underline">clear</button>
@@ -426,7 +434,7 @@ export default function Library() {
               Select a paper to see its abstract, links, and related work.
             </div>
           ) : (
-            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} />
+            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
           )}
         </aside>
       </div>
@@ -435,8 +443,20 @@ export default function Library() {
   );
 }
 
-function DetailPane({ r, onFindMeta, finding, projects, onLink }: { r: Ref; onFindMeta: () => void; finding: boolean; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void }) {
+function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded }: { r: Ref; onFindMeta: () => void; finding: boolean; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void }) {
   const [full, setFull] = useState(false);
+  const [lens, setLens] = useState<"similar" | "references" | "cited_by" | null>(null);
+  const discover = useQuery({
+    queryKey: ["discover", r.id, lens],
+    queryFn: () => api<{ kind: string; results: DiscoverRow[]; error?: string }>(`/references/${r.id}/discover/?kind=${lens}&limit=15`),
+    enabled: lens !== null,
+    staleTime: 10 * 60_000,
+  });
+  const [added, setAdded] = useState<Record<string, number>>({});
+  const add = useMutation({
+    mutationFn: (doi: string) => api<Ref>("/references/by-doi/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(currentProject ? { doi, project: currentProject } : { doi }) }),
+    onSuccess: (ref, doi) => { setAdded((m) => ({ ...m, [doi]: ref.id })); onAdded(ref); },
+  });
   const related = useQuery({ queryKey: ["related", r.id], queryFn: () => api<{ id: number; title: string; year: number | null; score: number }[]>(`/references/${r.id}/related/`), staleTime: 60_000 });
   const needs = Boolean(r.extra?.needs_metadata);
   const inProjects = new Set(r.projects.map((p) => p.slug));
@@ -473,6 +493,40 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink }: { r: Ref; onFi
             <option value="">+ file into a project…</option>
             {projects.filter((p) => !inProjects.has(p.slug)).map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
           </select>
+        )}
+      </div>
+      <div className="mt-5">
+        <p className={railH}><Telescope className="mr-1 inline h-3 w-3" aria-hidden="true" />Discover beyond your library</p>
+        <div className="mb-2 flex gap-1 text-xs">
+          {([["similar", "Similar"], ["references", "It cites"], ["cited_by", "Cited by"]] as const).map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setLens(k)} className={`rounded-md px-2 py-1 transition-colors ${lens === k ? "bg-indigo-500/20 text-indigo-700 dark:text-indigo-200" : "text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800"}`}>{label}</button>
+          ))}
+        </div>
+        {lens === null && <p className="text-xs text-stone-400">Pick a lens: OpenAlex finds related work, the papers this one cites, or the papers citing it — each addable in one click{currentProject ? " into the current project" : ""}.</p>}
+        {lens !== null && discover.isLoading && <p className="flex items-center gap-1.5 text-xs text-stone-400"><Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />Asking OpenAlex…</p>}
+        {lens !== null && discover.data?.error && <p className="rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-200">{discover.data.error}</p>}
+        {lens !== null && discover.data && !discover.data.error && discover.data.results.length === 0 && <p className="text-xs text-stone-400">Nothing found — OpenAlex doesn't know this paper (no DOI?) or has no {lens === "cited_by" ? "citations" : lens === "references" ? "reference list" : "related works"} for it yet.</p>}
+        {lens !== null && discover.data && discover.data.results.length > 0 && (
+          <ul className="max-h-72 space-y-1.5 overflow-auto pr-1 text-sm">
+            {discover.data.results.map((row) => {
+              const libraryId = row.library_id ?? added[row.doi];
+              return (
+                <li key={row.openalex_id || row.doi || row.title} className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-stone-800 dark:text-stone-100" title={row.title}>{row.title}</p>
+                    <p className="truncate text-[11px] text-stone-400">{[row.authors.join(", ") + (row.more_authors ? ` +${row.more_authors}` : ""), row.year, row.venue].filter(Boolean).join(" · ")}{row.citations != null ? ` · ${row.citations} cit.` : ""}</p>
+                  </div>
+                  {libraryId ? (
+                    <Link to={`/references/${libraryId}`} className="shrink-0 rounded-md bg-stone-100 px-2 py-0.5 text-[11px] text-stone-500 dark:bg-stone-800 dark:text-stone-300" title="Already in your library">in library</Link>
+                  ) : row.addable ? (
+                    <button type="button" disabled={add.isPending} onClick={() => add.mutate(row.doi)} className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-indigo-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><Plus className="h-3 w-3" aria-hidden="true" />Add</button>
+                  ) : (
+                    <a href={`https://openalex.org/${row.openalex_id}`} target="_blank" rel="noreferrer" className="shrink-0 text-stone-400" title="No DOI — open on OpenAlex"><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
       <div className="mt-5">

@@ -850,6 +850,73 @@ class ReferenceViewSet(AtlasViewSet):
         return Response(facets(queryset))
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "kind",
+                str,
+                description="similar (OpenAlex related works), references (what it cites), or cited_by (what cites it)",
+            ),
+            OpenApiParameter("limit", int, description="Max rows (default 12, max 50)"),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Rows: title, authors, year, venue, doi, citations, in_library, library_id, addable"
+            )
+        },
+        description=(
+            "Discover papers around this one on OpenAlex: similar work, what it cites, or what "
+            "cites it. Each row says whether it is already in the library; addable rows have a "
+            "DOI and can be added with POST /references/by-doi/."
+        ),
+    )
+    @action(detail=True, methods=["get"])
+    def discover(self, request, pk=None):
+        from literature import discover as discover_mod
+
+        kind = request.query_params.get("kind", "similar")
+        if kind not in discover_mod.KINDS:
+            return Response({"detail": f"kind must be one of {discover_mod.KINDS}"}, status=400)
+        try:
+            limit = max(1, min(50, int(request.query_params.get("limit", 12))))
+        except ValueError:
+            limit = 12
+        try:
+            rows = discover_mod.discover(self.get_object(), kind, limit)
+        except discover_mod.DiscoverError as exc:
+            # 200 with an explanation: the pane shows *why* instead of an empty list
+            return Response({"kind": kind, "results": [], "error": str(exc)})
+        return Response({"kind": kind, "results": rows, "error": ""})
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "ids",
+                str,
+                description="Comma-separated reference ids; omit to export the filtered list (same filters as the list endpoint)",
+            ),
+        ],
+        responses={(200, "application/x-bibtex"): OpenApiResponse(description="BibTeX text")},
+        description="Export references as BibTeX: an explicit id list, or everything matching the list filters (q, year, project, …).",
+    )
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        from django.http import HttpResponse
+
+        from literature.library import export_bibtex, filter_references
+
+        ids = request.query_params.get("ids")
+        if ids:
+            wanted = [int(i) for i in ids.split(",") if i.strip().isdigit()][:500]
+            queryset = Reference.objects.filter(pk__in=wanted).order_by("bibtex_key")
+        else:
+            queryset = filter_references(Reference.objects.all(), request.query_params)[:500]
+        response = HttpResponse(
+            export_bibtex(list(queryset)), content_type="application/x-bibtex; charset=utf-8"
+        )
+        response["Content-Disposition"] = 'attachment; filename="atlas-library.bib"'
+        return response
+
+    @extend_schema(
         request=serializers.BulkReferenceActionSerializer,
         responses={200: OpenApiResponse(description="{action, affected, errors}")},
         description=(

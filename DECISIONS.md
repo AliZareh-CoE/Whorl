@@ -544,6 +544,30 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Library v2 slice 3: grow the library from any paper (#295)
+
+**Decision.** Three OpenAlex lenses on every reference, inside the workbench's detail pane:
+*Similar* (`related_works`), *It cites* (`referenced_works`, batched 50 at a time), and
+*Cited by* (`filter=cites:`, most-cited first). Every row is annotated with library membership
+in one query (by DOI and by OpenAlex id), so the UI offers **+ Add** (via the existing
+`by-doi` endpoint, into the current project filter when one is set), **in library** (a link),
+or an OpenAlex link for rows without a DOI. The resolved OpenAlex id is stored on the reference
+the first time, so later lenses cost one request less. Same slice: **Export .bib** for a
+selection or for the whole filtered view (`GET /references/export/?ids=…` or the list
+filters), **Copy BibTeX** to the clipboard, and a **Fetch OA PDFs** bulk action that queues the
+existing open-access fetch for every selected paper without a file. MCP: `discover_related`,
+`export_bibtex` (41 tools).
+
+**Why.** This is ResearchRabbit's whole pitch and Zotero has nothing like it; putting it one
+click from every paper, with dedupe and project filing built in, is the "finally" moment for
+literature review. Export-of-selection is the most common thing Paperpile users do daily.
+
+**Alternatives.** (a) Semantic Scholar's API — rejected: needs an API key for useful rate
+limits; OpenAlex is keyless and already used. (b) A full citation-graph page instead of a pane —
+already exists (Graph); the pane is about *action* (add), not visualisation. (c) A download
+endpoint with `Content-Disposition` only — kept, plus clipboard copy, because the Tauri webview
+does not download files.
+
 ### 2026-09-06 — Library v2 begins: one import engine for every source (#293)
 
 **Decision.** The Library is the first feature area to be made best-in-field (owner: "one
@@ -844,6 +868,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+296. Library v2 slice 4 candidates (judge after slice 3): (a) reference tags + smart lists (saved filter views in the rail), (b) duplicate merge (the bib report flags duplicates; merging keeps links/PDF/notes), (c) per-reference notes + highlight summary surfaced in the detail pane, (d) inline PDF preview pane in the workbench, (e) "Find PDF" per row with a status pill after fetch.
+295. ~~Library v2 slice 3 (done 2026-09-06): discovery lenses (similar / cites / cited-by) with one-click add in the detail pane, export .bib for selection/view + copy BibTeX, bulk Fetch OA PDFs; MCP discover_related + export_bibtex. See the 2026-09-06 decision.~~
 295. Library v2 slice 3 candidates (pick the most "finally" one): (a) PDF-first reading flow from the workbench — open the reader in the detail pane with highlights → notes; (b) smart collections / saved filters ("unread 2024 in Project X", "no PDF yet") pinned to the rail; (c) "find PDFs for all" (OA fetch) as a bulk action + per-row OA badge; (d) author facet + author pages; (e) Zotero collections → projects mapping on import; (f) BibTeX/CSL export of any filtered selection (respecting facets) — Paperpile-style "export what I see".
 294. ~~Library v2 slice 2 — the workbench (done 2026-09-06): facets | list | detail; whole-page drop zone; import panel (files + paste + link-to-project) with per-item results; keyboard j/k/enter/x/o; multi-select bulk bar (link, status, find metadata, delete); year histogram; needs-metadata recovery via DOI/arXiv/Crossref title search; load-more pagination; `projects` on every reference. API: `/references/facets/`, list filters + sorts (NULLs last), `/references/bulk/`, `/references/{id}/find-metadata/`. Screenshots in README.~~
 294. Library v2 slice 2 — the workbench UI: three-pane Library (facets | list | detail), drop-anything import zone with per-file progress, keyboard j/k/enter/x, multi-select bulk actions (link to project, reading status, priority, delete), "find metadata" for needs_metadata stubs, sort/filters, load-more pagination. Backend: `/references/facets/`, list filters (year, has_pdf, entry_type, venue, sort), `/references/bulk/`.

@@ -271,3 +271,17 @@ def import_from_zotero(project: str = "") -> dict:
     port 23119 must be enabled: Settings → Advanced → allow other applications). Deduplicated;
     optional project slug links everything to that project."""
     return client.import_from_zotero(project or None)
+
+
+@mcp.tool()
+def discover_related(reference_id: int, kind: str = "similar", limit: int = 12) -> dict:
+    """Grow the library from one paper: OpenAlex rows for kind='similar' (related work),
+    'references' (what it cites), or 'cited_by' (what cites it, most-cited first). Each row
+    carries in_library / library_id; addable rows have a DOI — add them with add_reference_by_doi."""
+    return client.discover_related(reference_id, kind, limit)
+
+
+@mcp.tool()
+def export_bibtex(reference_ids: list[int] | None = None, project: str = "") -> str:
+    """BibTeX for a list of reference ids, or for every reference linked to a project (slug)."""
+    return client.export_bibtex(reference_ids, project or None)

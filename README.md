@@ -18,22 +18,25 @@ milestones, add papers, fetch your saved prompts.
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Library workbench](docs/screenshots/library.png) |
 | *The Observatory dashboard: a living constellation of your projects and what needs you today* | *The Library workbench: drop PDFs/BibTeX/RIS or pull Zotero, facet by year/venue/project, bulk-file, recover metadata* |
-| ![Project overview](docs/screenshots/overview.png) | ![Knowledge graph](docs/screenshots/graph3d.png) |
-| *One-glance project overview with a tree that grows with progress* | *3D citation + notes graph, synced from OpenAlex* |
-| ![LaTeX editor](docs/screenshots/latex-editor.png) | ![PDF reader](docs/screenshots/pdf-reader.png) |
-| *LaTeX editor: cite-key autocomplete, Tectonic compile, live PDF preview* | *In-browser PDF reader with highlight-to-note and page comments* |
+| ![Discover from any paper](docs/screenshots/library-discover.png) | ![Knowledge graph](docs/screenshots/graph3d.png) |
+| *Discover from any paper: similar / cites / cited-by on OpenAlex, one-click add into a project* | *3D citation + notes graph, synced from OpenAlex* |
+| ![Project overview](docs/screenshots/overview.png) | ![LaTeX editor](docs/screenshots/latex-editor.png) |
+| *One-glance project overview with a tree that grows with progress* | *LaTeX editor: cite-key autocomplete, Tectonic compile, live PDF preview* |
+| ![PDF reader](docs/screenshots/pdf-reader.png) | ![Library workbench](docs/screenshots/library.png) |
+| *In-browser PDF reader with highlight-to-note and page comments* | *Bulk bar: link, mark as read, export .bib, fetch OA PDFs, recover metadata* |
 
 ## What's inside
 
 - **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm
 - **Library workbench** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop a folder of PDFs onto the page (the DOI is read off page one and metadata fetched; scans without one are kept and can "find metadata" later), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click — all deduplicated; facets by project, year histogram, venue, type, PDF; keyboard `j/k/x/o`; bulk file-to-project, reading status, delete; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers
+- **Discover from any paper** — three OpenAlex lenses in the Library (similar work, what it cites, what cites it), each row addable in one click into the library or the current project; export any selection or filtered view as `.bib`, copy BibTeX, fetch open-access PDFs in bulk
 - **Literature review matrix** — papers × themes grid with markdown export
 - **Notes & knowledge graph** — `[[wiki-links]]`, backlinks, typo-tolerant full-text search, related-paper suggestions (local TF-IDF, no API calls)
 - **Writing studio** — manuscript pipeline (idea → published), cite checker against your `.tex`, **server-side LaTeX compilation** (vendored Tectonic) with split-view preview
 - **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
 - **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
 - **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 39 tools over the REST API; your AI assistant operates the same contract you do
+- **Claude/MCP integration** — 41 tools over the REST API; your AI assistant operates the same contract you do
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
 ## Quick start (one command)
@@ -123,7 +126,8 @@ Tools — projects & plans: `list_projects`, `get_project_overview`, `get_plan`,
 Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,
 `set_reading_status`, `run_bib_check`, `get_review_matrix`, `get_synthesis_scaffold`.
-Library imports: `import_references` (BibTeX/CSL-JSON/RIS text), `import_from_zotero`.
+Library imports & discovery: `import_references` (BibTeX/CSL-JSON/RIS text), `import_from_zotero`,
+`discover_related` (similar / cites / cited-by on OpenAlex), `export_bibtex`.
 Notes, search & review: `add_note`, `quick_capture`, `search`, `get_weekly_review`,
 `list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,
 `list_manuscript_files`, `read_manuscript_file`, `write_manuscript_file`, `set_main_file`,

@@ -307,3 +307,22 @@ def test_import_from_zotero_posts(capture):
     client.import_from_zotero()
     assert capture["method"] == "POST" and calls_url_has(capture, "/references/import-zotero/")
     assert capture["body"] == "{}"
+
+
+def test_discover_related_builds_request(capture):
+    client.discover_related(7, "cited_by", 5)
+    assert calls_url_has(capture, "/references/7/discover/") and "kind=cited_by" in capture["url"]
+
+
+def test_export_bibtex_returns_text(monkeypatch, env):
+    def fake_client():
+        def handler(request):
+            assert "ids=1%2C2" in str(request.url) or "ids=1,2" in str(request.url)
+            return httpx.Response(200, text="@article{k, title={T}}")
+
+        return httpx.Client(
+            base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(client, "_client", fake_client)
+    assert client.export_bibtex([1, 2]).startswith("@article")

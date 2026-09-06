@@ -271,7 +271,7 @@ class BulkReferenceActionSerializer(serializers.Serializer):
 
     ids = serializers.ListField(child=serializers.IntegerField(), min_length=1, max_length=500)
     action = serializers.ChoiceField(
-        choices=["link", "unlink", "status", "priority", "delete", "find_metadata"]
+        choices=["link", "unlink", "status", "priority", "delete", "find_metadata", "fetch_pdf"]
     )
     project = serializers.SlugField(
         required=False, allow_blank=True, help_text="Needed for link/unlink/status/priority."
