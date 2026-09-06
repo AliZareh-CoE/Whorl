@@ -1571,6 +1571,51 @@ class QuickCaptureViewSet(AtlasViewSet):
     serializer_class = serializers.QuickCaptureSerializer
     project_filter = "project__slug"
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        processed = self.request.query_params.get("processed")
+        if processed in ("true", "false"):
+            queryset = queryset.filter(processed=(processed == "true"))
+        return queryset
+
+    @extend_schema(
+        request=serializers.ConvertCaptureSerializer,
+        responses={
+            201: inline_serializer(
+                "CaptureConverted",
+                {
+                    "kind": rf_serializers.CharField(),
+                    "id": rf_serializers.IntegerField(),
+                    "title": rf_serializers.CharField(),
+                    "app_url": rf_serializers.CharField(),
+                },
+            )
+        },
+        description="Turn a capture into a first-class object and mark it processed: paper (by "
+        "the DOI/arXiv id in the text, filed into `project` if given), note, todo (Today list), "
+        "milestone (into `phase` or the project's current phase, optional `due`), decision.",
+    )
+    @action(detail=True, methods=["post"])
+    def convert(self, request, pk=None):
+        from literature.services import MetadataError
+        from notes.capture import convert
+        from plans.models import Phase
+
+        capture = self.get_object()
+        serializer = serializers.ConvertCaptureSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        phase = Phase.objects.filter(pk=data.get("phase")).first() if data.get("phase") else None
+        try:
+            result = convert(
+                capture, data["target"], data.get("project"), phase=phase, due=data.get("due")
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        except MetadataError as exc:
+            return Response({"detail": f"Could not fetch the paper: {exc}"}, status=502)
+        return Response(result, status=201)
+
 
 class HypothesisViewSet(AtlasViewSet):
     queryset = Hypothesis.objects.prefetch_related("evidence")

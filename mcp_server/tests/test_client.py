@@ -492,3 +492,14 @@ def test_budget_client_calls(capture):
 def test_dashboard_client_call(capture):
     client.get_dashboard()
     assert calls_url_has(capture, "/dashboard/")
+
+
+def test_inbox_client_calls(capture):
+    client.list_inbox()
+    assert calls_url_has(capture, "/quick-capture/") and "processed=false" in capture["url"]
+    client.convert_capture(5, "milestone", project="deep", phase_id=3, due="2026-10-01")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/quick-capture/5/convert/")
+        and '"phase":3' in capture["body"]
+    )

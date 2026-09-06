@@ -539,3 +539,20 @@ def get_dashboard() -> dict:
     inside two weeks, untriaged inbox), this week's items across every active project, projects
     with progress and phase health, monthly stats, upcoming milestones and deadlines."""
     return client.get_dashboard()
+
+
+@mcp.tool()
+def list_inbox() -> dict:
+    """Captures waiting for triage, each with a `hint` (suggested target and any DOI / arXiv id /
+    URL found in the text)."""
+    return client.list_inbox()
+
+
+@mcp.tool()
+def convert_capture(
+    capture_id: int, target: str, project: str = "", phase_id: int = 0, due: str = ""
+) -> dict:
+    """Triage a capture into a first-class object and mark it processed. target: 'paper' (adds
+    the DOI/arXiv paper, filed into project), 'note', 'todo' (Today list), 'milestone' (into
+    phase_id or the project's current phase; optional ISO due), or 'decision'."""
+    return client.convert_capture(capture_id, target, project, phase_id, due)

@@ -544,6 +544,29 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Inbox v2 slice 1: smart capture triage (#335)
+
+**Decision.** `notes/capture.py` reads a capture (`detect`: DOI / arXiv id / URL, and the prefixes
+`todo:` `idea:`/`note:` `decision:` `milestone:`; long or multi-line text suggests a note; the rest
+suggests a Today item) and converts it (`convert`) into a paper (via `add_reference_by_identifier`,
+filed into the project), a note (title from the first line, URL appended), a Today item, a milestone
+(current phase, or a "Backlog" phase created on demand, optional due date) or a decision record —
+then marks the capture processed and filed. The list serializer carries `hint`; `POST
+/quick-capture/{id}/convert/`; `?processed=` filter; MCP `list_inbox`, `convert_capture` (80 tools).
+The Inbox page is rewritten in the Observatory identity: live "looks like a …" hint while typing,
+⌘Enter capture, rows with detected chips and one-click targets (the suggested one highlighted),
+project select, File and Dismiss; optimistic removal and a toast with an "open →" link. **Dashboard
+v2 judged done** after slice 1; current area: Inbox.
+
+**Why.** An inbox that only files text under a project is a to-do list with extra steps. Research
+captures are usually a paper, a task or an idea; turning them into the real object is the triage,
+and doing it in one click is what makes the inbox get emptied.
+
+**Alternatives considered.** LLM classification of captures — rejected: the prefixes and ids cover
+the common cases deterministically and offline; the suggested target is only a highlight, every
+target stays one click away. Auto-converting DOIs on capture — rejected: the owner should choose the
+project, and a capture may be a reminder rather than a request to add.
+
 ### 2026-09-06 — Dashboard v2 slice 1: this week, everywhere (#333)
 
 **Decision.** `core/dashboard.py` gains `week_everywhere` (two cross-project queries: open

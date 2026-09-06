@@ -557,3 +557,22 @@ def get_dashboard():
     """Everything the dashboard shows: needs-attention, this week everywhere, projects with
     health, stats, milestones, deadlines, heatmap."""
     return _request("GET", "/dashboard/")
+
+
+def list_inbox():
+    """Untriaged captures with detected hints (paper / note / todo / …)."""
+    return _request("GET", "/quick-capture/", params={"processed": "false", "page_size": 100})
+
+
+def convert_capture(
+    capture_id: int, target: str, project: str = "", phase_id: int = 0, due: str = ""
+):
+    """Turn a capture into a paper / note / todo / milestone / decision."""
+    payload = {"target": target}
+    if project:
+        payload["project"] = project
+    if phase_id:
+        payload["phase"] = phase_id
+    if due:
+        payload["due"] = due
+    return _request("POST", f"/quick-capture/{capture_id}/convert/", json=payload)

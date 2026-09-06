@@ -308,10 +308,25 @@ class ProjectReferenceSerializer(serializers.ModelSerializer):
 
 class QuickCaptureSerializer(serializers.ModelSerializer):
     project = ProjectSlugField(required=False, allow_null=True)
+    hint = serializers.SerializerMethodField()
 
     class Meta:
         model = QuickCapture
-        fields = ["id", "text", "processed", "project", "created_at", "updated_at"]
+        fields = ["id", "text", "processed", "project", "hint", "created_at", "updated_at"]
+
+    @extend_schema_field(serializers.DictField())
+    def get_hint(self, obj):
+        """Inbox v2: what the capture looks like (paper / note / todo / …) and any ids found."""
+        from notes.capture import detect
+
+        return detect(obj.text)
+
+
+class ConvertCaptureSerializer(serializers.Serializer):
+    target = serializers.ChoiceField(choices=["paper", "note", "todo", "milestone", "decision"])
+    project = ProjectSlugField(required=False, allow_null=True)
+    phase = serializers.IntegerField(required=False, allow_null=True)
+    due = serializers.DateField(required=False, allow_null=True)
 
 
 class TodoItemSerializer(serializers.ModelSerializer):
