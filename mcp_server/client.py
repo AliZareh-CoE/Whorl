@@ -281,3 +281,20 @@ def new_protocol_version(protocol_id: int, body: str | None = None, title: str |
     if title is not None:
         payload["title"] = title
     return _request("POST", f"/protocols/{protocol_id}/new-version/", json=payload)
+
+
+# --- Library v2: imports ---
+
+
+def import_references(text: str, fmt: str = "auto", project: str | None = None):
+    """Import pasted BibTeX / CSL-JSON / RIS into the library (deduplicated)."""
+    payload = {"text": text, "format": fmt}
+    if project:
+        payload["project"] = project
+    return _request("POST", "/references/import/", json=payload)
+
+
+def import_from_zotero(project: str | None = None):
+    """Import the whole library from the Zotero running on this machine (local API)."""
+    payload = {"project": project} if project else {}
+    return _request("POST", "/references/import-zotero/", json=payload)

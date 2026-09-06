@@ -856,6 +856,80 @@ class ReferenceViewSet(AtlasViewSet):
         )
 
     @extend_schema(
+        request=serializers.ImportReferencesSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Import summary: created/existing/failed + per-item results"
+            )
+        },
+        description=(
+            "Import references from dropped files (.pdf, .bib, .ris, CSL .json) and/or pasted "
+            "text. PDFs are read for a DOI/arXiv id, their metadata fetched, and the file "
+            "attached; papers without an id are kept as stubs flagged needs_metadata. Everything "
+            "is deduplicated by DOI, arXiv id, or title+year. Optional project slug links the lot."
+        ),
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import",
+        parser_classes=[MultiPartParser, FormParser, JSONParser],
+    )
+    def import_references(self, request):
+        from literature import importers
+
+        serializer = serializers.ImportReferencesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        project = None
+        if data.get("project"):
+            project = get_object_or_404(Project, slug=data["project"])
+        summary = importers.ImportSummary()
+        for upload in request.FILES.getlist("files"):
+            summary.results.extend(
+                importers.import_file(upload.name, upload.read(), project).results
+            )
+        text = (data.get("text") or "").strip()
+        if text:
+            fmt = data.get("format") or "auto"
+            try:
+                if fmt == "auto":
+                    fmt = importers.sniff_format("pasted.txt", text.encode())
+                summary.results.extend(importers.import_text(text, fmt, project).results)
+            except (ValueError, KeyError) as exc:
+                summary.results.append(importers.ImportResult(title="pasted text", error=str(exc)))
+        if not summary.results:
+            return Response({"detail": "Nothing to import: send files and/or text."}, status=400)
+        return Response(summary.as_dict())
+
+    @extend_schema(
+        request=serializers.ImportZoteroSerializer,
+        responses={
+            200: OpenApiResponse(description="Import summary"),
+            503: OpenApiResponse(description="Zotero is not reachable / its local API is off"),
+        },
+        description=(
+            "Import the whole library from a Zotero 7 running on this machine (its local API on "
+            "port 23119). Deduplicated like every other import; optional project slug to link."
+        ),
+    )
+    @action(detail=False, methods=["post"], url_path="import-zotero")
+    def import_zotero(self, request):
+        from literature import importers
+
+        serializer = serializers.ImportZoteroSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        project = get_object_or_404(Project, slug=data["project"]) if data.get("project") else None
+        try:
+            summary = importers.import_from_zotero(
+                project, data.get("base_url") or importers.ZOTERO_LOCAL_URL
+            )
+        except importers.ZoteroUnavailable as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(summary.as_dict())
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Most similar library references with scores")},
         description="Related papers in the library (TF-IDF cosine over title/abstract/venue).",
     )

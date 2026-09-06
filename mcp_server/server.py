@@ -255,3 +255,19 @@ def new_protocol_version(protocol_id: int, body: str = "", title: str = "") -> d
     """Revise a protocol by creating its next version (immutable history): pass the updated
     body and/or title; anything omitted carries over from the current version."""
     return client.new_protocol_version(protocol_id, body or None, title or None)
+
+
+@mcp.tool()
+def import_references(text: str, format: str = "auto", project: str = "") -> dict:
+    """Import references from pasted BibTeX, CSL-JSON, or RIS text (format 'auto' sniffs it).
+    Deduplicated by DOI / arXiv id / title+year; returns created/existing/failed counts and
+    per-item results. Optional project slug links every imported paper to that project."""
+    return client.import_references(text, format, project or None)
+
+
+@mcp.tool()
+def import_from_zotero(project: str = "") -> dict:
+    """Pull the entire library from a Zotero 7 running on this computer (its local API on
+    port 23119 must be enabled: Settings → Advanced → allow other applications). Deduplicated;
+    optional project slug links everything to that project."""
+    return client.import_from_zotero(project or None)

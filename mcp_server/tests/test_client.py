@@ -295,3 +295,15 @@ def test_connection_refused_explains_that_atlas_is_not_running(monkeypatch, env)
     monkeypatch.setattr(client, "_client", fake_client)
     with pytest.raises(client.AtlasClientError, match="is the Atlas app running"):
         client.list_projects()
+
+
+def test_import_references_posts_text_and_project(capture):
+    client.import_references("@article{k, title={T}}", "bibtex", "proj")
+    assert capture["method"] == "POST" and calls_url_has(capture, "/references/import/")
+    assert '"format":"bibtex"' in capture["body"] and '"project":"proj"' in capture["body"]
+
+
+def test_import_from_zotero_posts(capture):
+    client.import_from_zotero()
+    assert capture["method"] == "POST" and calls_url_has(capture, "/references/import-zotero/")
+    assert capture["body"] == "{}"

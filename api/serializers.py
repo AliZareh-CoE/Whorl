@@ -234,6 +234,36 @@ class QuickCaptureSerializer(serializers.ModelSerializer):
         fields = ["id", "text", "processed", "project", "created_at", "updated_at"]
 
 
+class ImportReferencesSerializer(serializers.Serializer):
+    """Library import (Library v2): drop files and/or paste text in one call."""
+
+    files = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        help_text="Any mix of .pdf, .bib, .ris, or CSL .json files (multipart).",
+    )
+    text = serializers.CharField(
+        required=False, allow_blank=True, help_text="Pasted BibTeX / CSL-JSON / RIS."
+    )
+    format = serializers.ChoiceField(
+        choices=["auto", "bibtex", "csl-json", "ris"],
+        default="auto",
+        help_text="Format of `text`; 'auto' sniffs it.",
+    )
+    project = serializers.SlugField(
+        required=False, allow_blank=True, help_text="Optional project slug to link everything to."
+    )
+
+
+class ImportZoteroSerializer(serializers.Serializer):
+    project = serializers.SlugField(required=False, allow_blank=True)
+    base_url = serializers.URLField(
+        required=False,
+        allow_blank=True,
+        help_text="Zotero local API root (default http://127.0.0.1:23119).",
+    )
+
+
 class AddByDoiSerializer(serializers.Serializer):
     doi = serializers.CharField(help_text="DOI or arXiv ID, raw or as a URL.")
     project = serializers.SlugField(

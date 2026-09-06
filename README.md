@@ -24,14 +24,14 @@ milestones, add papers, fetch your saved prompts.
 ## What's inside
 
 - **Plans, not backlogs** — phases → milestones → optional tasks; progress rolls up visually; overdue is loud, everything else is calm
-- **Reference library** — add by DOI/arXiv (Crossref/OpenAlex metadata), BibTeX import/export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers
+- **Reference library** — add by DOI/arXiv (Crossref/OpenAlex metadata); **import from anywhere**: drop PDFs (the DOI is read off page one and metadata fetched), BibTeX, RIS, CSL-JSON, or pull your whole **Zotero** library in one click; BibTeX export, reading queue, auto-download of open-access PDFs, duplicate/retraction checkers
 - **Literature review matrix** — papers × themes grid with markdown export
 - **Notes & knowledge graph** — `[[wiki-links]]`, backlinks, typo-tolerant full-text search, related-paper suggestions (local TF-IDF, no API calls)
 - **Writing studio** — manuscript pipeline (idea → published), cite checker against your `.tex`, **server-side LaTeX compilation** (vendored Tectonic) with split-view preview
 - **Research tools** — hypothesis ledger with evidence balance, experiment log, dataset registry, decision log
 - **Automations** — deadline-reminder, retraction-watch, and citation-sync bots reporting to your inbox
 - **Local extras** — Piper text-to-speech ("read this abstract to me"), extractive tl;dr, keyword tag suggestions — all offline
-- **Claude/MCP integration** — 37 tools over the REST API; your AI assistant operates the same contract you do
+- **Claude/MCP integration** — 39 tools over the REST API; your AI assistant operates the same contract you do
 - **A pet owl** 🦉 — fed by finished research; never nags; sleeps when you rest
 
 ## Quick start (one command)
@@ -121,6 +121,7 @@ Tools — projects & plans: `list_projects`, `get_project_overview`, `get_plan`,
 Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,
 `set_reading_status`, `run_bib_check`, `get_review_matrix`, `get_synthesis_scaffold`.
+Library imports: `import_references` (BibTeX/CSL-JSON/RIS text), `import_from_zotero`.
 Notes, search & review: `add_note`, `quick_capture`, `search`, `get_weekly_review`,
 `list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,
 `list_manuscript_files`, `read_manuscript_file`, `write_manuscript_file`, `set_main_file`,

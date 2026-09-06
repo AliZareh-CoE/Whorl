@@ -45,6 +45,7 @@ THIRD_PARTY = [
     "markdown",
     "nh3",
     "corsheaders",
+    "pypdf",
 ]
 
 hiddenimports = []

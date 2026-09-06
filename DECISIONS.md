@@ -544,6 +544,32 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Library v2 begins: one import engine for every source (#293)
+
+**Decision.** The Library is the first feature area to be made best-in-field (owner: "one
+feature at a time… better than the profitable companies"). Slice 1 is getting papers IN from
+anywhere through one path: `literature/importers.py` parses BibTeX, CSL-JSON (Zotero's export
+and its local API), and RIS (EndNote/Mendeley/Web of Science) into the same metadata dicts, and
+dropped PDFs are read (pypdf, first 3 pages) for a DOI/arXiv id → real metadata fetched → file
+attached; PDFs without an id are kept as stubs titled from the PDF and flagged `needs_metadata`
+so nothing is ever lost. Everything dedupes by DOI, arXiv id, or normalised title + year
+(≥ 8 chars), across formats. Exposed as `POST /api/v1/references/import/` (multipart files +
+pasted text), `POST /api/v1/references/import-zotero/` (Zotero 7 local API, paginated, with an
+actionable error when Zotero is closed or its API is off), and MCP tools `import_references` /
+`import_from_zotero`. The old `services.import_bibtex` keeps its callers but new imports go
+through the shared dedupe path.
+
+**Why.** Every commercial library tool wins or loses on day one: can I bring my 400 papers in?
+Zotero users export CSL-JSON or run Zotero locally; Mendeley/EndNote users have RIS; everyone
+has a folder of PDFs. Dedupe across formats is what makes repeated imports safe.
+
+**Alternatives.** (a) Zotero web API with an API key — rejected for now: needs a key and a
+network; the local API is zero-config on the machine Atlas (desktop) runs on. (b) GROBID for PDF
+metadata — rejected: a 500 MB Java service; the DOI-on-page-one heuristic plus Crossref covers
+the vast majority, and stubs catch the rest. (c) Adding `pypdf` breaks the locked dependency list
+in CLAUDE.md §2 — accepted and logged: pure Python, tiny, and the frozen desktop build carries it
+(spec THIRD_PARTY updated).
+
 ### 2026-09-06 — "Observatory": a new visual identity, dark by default (owner-directed, #291)
 
 **Decision.** The owner rejected the calm-editorial look outright ("I still don't like the UI at
@@ -818,6 +844,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+294. Library v2 slice 2 — the workbench UI: three-pane Library (facets | list | detail), drop-anything import zone with per-file progress, keyboard j/k/enter/x, multi-select bulk actions (link to project, reading status, priority, delete), "find metadata" for needs_metadata stubs, sort/filters, load-more pagination. Backend: `/references/facets/`, list filters (year, has_pdf, entry_type, venue, sort), `/references/bulk/`.
+293. ~~Library v2 slice 1 — import engine (done 2026-09-06): CSL-JSON/RIS/BibTeX/PDF/Zotero-local through one dedupe path; import + import-zotero API; MCP tools. See the 2026-09-06 decision.~~
 292. Observatory, second pass: bespoke treatment for the pages a video lingers on — Project Overview (constellation of that project's references + notes as the header), the Plan (phases as an orbital timeline), the Library (cover-style reference cards), and the 3D graph page (Observatory palette for nodes/links, bloom). Also vendor 3d-force-graph so the graph works offline in the desktop app.
 291. ~~Observatory visual identity (done 2026-09-06): dark-by-default tokens re-skinning every page, aurora + star grain, glass panels, vendored Inter/Space Grotesk, constellation canvas on the dashboard hero and login, icon rail with ⌘K spotlight, spotlight command bar, orbit-ring progress, time-aware greeting. Plan API now returns project_name/project_color (the SPA plan page had an empty breadcrumb and an invisible progress bar). See the 2026-09-06 decision.~~
 289. ~~Desktop ↔ Claude Code, zero-config (done 2026-09-06): API key minted+persisted in the desktop data dir; `server.json` with the live URL; `atlas-mcp` (frozen MCP server) shipped in the installer and discovering both by itself; "Connect Claude Code" page with the exact `claude mcp add` line per install; friendly "is the Atlas app running?" tool error. See the 2026-09-06 decision.~~

@@ -763,3 +763,70 @@ class TestGenericQSearch:
         # ProjectViewSet declares no q_fields — ?q= must be a no-op, not an error
         data = client_logged_in.get("/api/v1/projects/?q=alpha").json()
         assert data["count"] >= 2
+
+
+class TestLibraryImport:
+    """Library v2: import endpoints (files/text + Zotero)."""
+
+    def test_import_pasted_csl_json_links_to_project(self, client, owner):
+        project = ProjectFactory()
+        data = client.post(
+            "/api/v1/references/import/",
+            {
+                "text": '[{"title": "Imported Paper Title", "DOI": "10.1000/imp.1", '
+                '"type": "article-journal", "issued": {"date-parts": [[2020]]}}]',
+                "project": project.slug,
+            },
+            content_type="application/json",
+            **HEADERS,
+        ).json()
+        assert (data["created"], data["existing"], data["failed"]) == (1, 0, 0)
+        assert data["results"][0]["source"] == "csl-json"
+        assert project.project_references.count() == 1
+
+    def test_import_files_multipart_mixed(self, client, owner, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        bib = SimpleUploadedFile("lib.bib", b"@article{k1, title={Bib Paper Title}, year={2019}}")
+        ris = SimpleUploadedFile(
+            "lib.ris", b"TY  - JOUR\nTI  - Ris Paper Title\nPY  - 2018\nER  -\n"
+        )
+        junk = SimpleUploadedFile("photo.png", b"\x89PNG")
+        data = client.post(
+            "/api/v1/references/import/", {"files": [bib, ris, junk]}, **HEADERS
+        ).json()
+        assert data["created"] == 2 and data["failed"] == 1
+        assert any("Can't tell" in r["error"] for r in data["results"])
+
+    def test_import_requires_something(self, client, owner):
+        response = client.post(
+            "/api/v1/references/import/", {}, content_type="application/json", **HEADERS
+        )
+        assert response.status_code == 400
+
+    def test_import_zotero_reports_when_zotero_is_closed(self, client, owner, monkeypatch):
+        from literature import importers
+
+        def boom(project, base_url):
+            raise importers.ZoteroUnavailable("Zotero isn't reachable")
+
+        monkeypatch.setattr(importers, "import_from_zotero", boom)
+        response = client.post(
+            "/api/v1/references/import-zotero/", {}, content_type="application/json", **HEADERS
+        )
+        assert response.status_code == 503
+        assert "Zotero" in response.json()["detail"]
+
+    def test_import_zotero_success(self, client, owner, monkeypatch):
+        from literature import importers
+
+        monkeypatch.setattr(
+            importers,
+            "import_from_zotero",
+            lambda project, base_url: importers.ImportSummary(
+                [importers.ImportResult("Z Paper", 1, True, "zotero")]
+            ),
+        )
+        data = client.post(
+            "/api/v1/references/import-zotero/", {}, content_type="application/json", **HEADERS
+        ).json()
+        assert data["created"] == 1 and data["results"][0]["source"] == "zotero"

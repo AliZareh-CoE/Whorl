@@ -20,6 +20,7 @@ dependencies = [
     "gunicorn>=23",
     "waitress>=3.0",
     "whitenoise>=6.8",
+    "pypdf>=6.17.0",
 ]
 
 [dependency-groups]
