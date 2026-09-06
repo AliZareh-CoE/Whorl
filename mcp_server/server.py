@@ -517,3 +517,17 @@ def log_reviews(manuscript_id: int, text: str, date: str = "", notes: str = "") 
 def get_response_progress(manuscript_id: int) -> dict | None:
     """How many reviewer points have a final (ticked) response in the newest response note."""
     return client.get_response_progress(manuscript_id)
+
+
+@mcp.tool()
+def get_manuscript_budget(manuscript_id: int) -> dict:
+    """How the manuscript sits against its venue limits: words, abstract words, figures, tables,
+    references and pages (after a compile), each as used / limit with an ok / near / over state."""
+    return client.get_manuscript_budget(manuscript_id)
+
+
+@mcp.tool()
+def set_venue_limits(manuscript_id: int, limits: dict) -> dict:
+    """Set the target venue's limits, e.g. {"words": 8000, "abstract_words": 250, "figures": 6,
+    "tables": 4, "references": 60, "pages": 12}; unknown keys are ignored."""
+    return client.set_venue_limits(manuscript_id, limits)

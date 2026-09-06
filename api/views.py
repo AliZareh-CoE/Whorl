@@ -1869,6 +1869,22 @@ class ManuscriptViewSet(AtlasViewSet):
         return Response(status=204)
 
     @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="{venue, limits, usage, items[{key,label,used,limit,ratio,state}], "
+                "over[], summary} — usage vs the venue limits (set via PATCH venue_limits)"
+            )
+        },
+        description="The venue budget: words, abstract words, figures, tables, references and "
+        "(after a compile) pages, each against the limit stored in `venue_limits`.",
+    )
+    @action(detail=True, methods=["get"])
+    def budget(self, request, pk=None):
+        from writing.budget import budget
+
+        return Response(budget(self.get_object()))
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Approx word/header/caption/math counts")},
         description="Approximate word count across the manuscript's text files (LaTeX detex).",
     )

@@ -690,6 +690,7 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "deadline",
             "abstract",
             "latex_source",
+            "venue_limits",
             "compile_status",
             "compile_diagnostics",
             "compiled_at",
@@ -699,6 +700,11 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["compile_status", "compile_diagnostics", "compiled_at"]
+
+    def validate_venue_limits(self, value):
+        from writing.budget import clean_limits
+
+        return clean_limits(value)
 
 
 class PromptSerializer(serializers.ModelSerializer):

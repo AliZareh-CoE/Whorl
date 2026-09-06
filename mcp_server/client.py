@@ -541,3 +541,13 @@ def log_reviews(manuscript_id: int, text: str, date: str = "", notes: str = ""):
 def get_response_progress(manuscript_id: int):
     """Ticked / total reviewer points in the newest response note (None when there is none)."""
     return _request("GET", f"/manuscripts/{manuscript_id}/response-progress/")["progress"]
+
+
+def get_manuscript_budget(manuscript_id: int):
+    """Usage vs venue limits (words, abstract, figures, tables, references, pages)."""
+    return _request("GET", f"/manuscripts/{manuscript_id}/budget/")
+
+
+def set_venue_limits(manuscript_id: int, limits: dict):
+    """Store the venue's limits on the manuscript, e.g. {"words": 8000, "figures": 6}."""
+    return _request("PATCH", f"/manuscripts/{manuscript_id}/", json={"venue_limits": limits})

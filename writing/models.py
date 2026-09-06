@@ -47,6 +47,9 @@ class Manuscript(TimeStampedModel):
     abstract = models.TextField(blank=True)
     repo_url = models.URLField(blank=True)
     latex_source = models.TextField(blank=True)  # edited in the in-browser LaTeX editor
+    # Writing v2 slice 3: the target venue's limits, e.g. {"words": 8000, "abstract_words": 250,
+    # "figures": 6, "references": 60, "pages": 12} — the studio shows usage against them
+    venue_limits = models.JSONField(default=dict, blank=True)
 
     class CompileStatus(models.TextChoices):
         IDLE = "idle", "Not compiled"

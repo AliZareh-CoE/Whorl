@@ -480,3 +480,10 @@ def test_reviews_client_calls(capture):
     except (KeyError, TypeError):
         pass  # the capture transport returns an empty body; the URL is what we check
     assert calls_url_has(capture, "/manuscripts/3/response-progress/")
+
+
+def test_budget_client_calls(capture):
+    client.get_manuscript_budget(3)
+    assert calls_url_has(capture, "/manuscripts/3/budget/")
+    client.set_venue_limits(3, {"words": 8000})
+    assert capture["method"] == "PATCH" and '"venue_limits":{"words":8000}' in capture["body"]

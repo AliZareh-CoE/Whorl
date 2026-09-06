@@ -5,14 +5,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Loader2, MessageSquareReply, Package, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Gauge, Loader2, MessageSquareReply, Package, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 
 type Event = { id: number; kind: string; date: string; notes: string };
 type MFile = { id: number; path: string; kind: string; is_main: boolean };
-type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; target_venue: string; deadline: string | null; abstract: string; compile_status: string; compiled_at: string | null; events: Event[]; files: MFile[] };
+type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; target_venue: string; deadline: string | null; abstract: string; compile_status: string; compiled_at: string | null; venue_limits: Record<string, number>; events: Event[]; files: MFile[] };
+type BudgetItem = { key: string; label: string; used: number | null; limit: number | null; ratio: number | null; state: "ok" | "near" | "over" | "unset" };
+type Budget = { venue: string; limits: Record<string, number>; usage: Record<string, number | null>; items: BudgetItem[]; over: string[]; summary: string };
 type Page<T> = { count: number; results: T[] };
 type BibRow = { link_id: number; reference_id: number; cite_key: string; bibtex_key: string; title: string; year: number | null; authors: string; venue: string };
 type CiteCheck = { cited: string[]; missing_from_bib: string[]; uncited_in_bib: string[]; matched: string[]; resolvable: Record<string, number>; tex_files: number };
@@ -148,6 +150,7 @@ export function ManuscriptDetail() {
         <div className="space-y-4">
           <AbstractCard m={m} onSave={(abstract) => patch.mutate({ abstract })} />
           <CompileCard m={m} />
+          <BudgetCard m={m} onLimits={(venue_limits) => patch.mutate({ venue_limits })} />
           <TimelineCard m={m} onChanged={invalidate} />
         </div>
         <div className="space-y-4">
@@ -334,6 +337,47 @@ function TimelineCard({ m, onChanged }: { m: Manuscript; onChanged: () => void }
         <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="notes (optional)" className="min-w-0 flex-1 rounded-md border border-stone-200 bg-white px-2 py-1 dark:border-stone-700 dark:bg-stone-800" aria-label="Event notes" />
         <button type="submit" disabled={add.isPending} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">{add.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Plus className="h-3 w-3" aria-hidden="true" />}Log</button>
       </form>
+    </section>
+  );
+}
+
+const BUDGET_KEYS: [string, string][] = [["words", "words"], ["abstract_words", "abstract"], ["figures", "figures"], ["tables", "tables"], ["references", "refs"], ["pages", "pages"]];
+
+function BudgetCard({ m, onLimits }: { m: Manuscript; onLimits: (limits: Record<string, number>) => void }) {
+  const budget = useQuery({ queryKey: ["budget", m.id, JSON.stringify(m.venue_limits)], queryFn: () => api<Budget>(`/manuscripts/${m.id}/budget/`) });
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  useEffect(() => { setDraft(Object.fromEntries(BUDGET_KEYS.map(([k]) => [k, m.venue_limits?.[k] ? String(m.venue_limits[k]) : ""]))); }, [m.venue_limits]);
+  const b = budget.data;
+  const tone = (st: string) => st === "over" ? "bg-red-500" : st === "near" ? "bg-amber-500" : "bg-emerald-500";
+  return (
+    <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 3 }} data-testid="budget-card">
+      <div className="mb-2 flex items-center gap-2">
+        <p className={`${railH} mb-0`}><Gauge className="mr-1 inline h-3 w-3" aria-hidden="true" />Venue budget</p>
+        {b && <span className={`text-[11px] ${b.over.length ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{b.summary}{m.target_venue && Object.keys(b.limits).length ? ` · ${m.target_venue}` : ""}</span>}
+        <button type="button" onClick={() => setEditing((v) => !v)} className="ml-auto text-[11px] text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300">{editing ? "done" : Object.keys(m.venue_limits ?? {}).length ? "edit limits" : "set limits"}</button>
+      </div>
+      {editing && (
+        <form onSubmit={(e) => { e.preventDefault(); const limits: Record<string, number> = {}; for (const [k] of BUDGET_KEYS) { const n = parseInt(draft[k] ?? "", 10); if (n > 0) limits[k] = n; } onLimits(limits); setEditing(false); }} className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-6" data-testid="limits-form">
+          {BUDGET_KEYS.map(([k, label]) => (
+            <label key={k} className="text-[10px] uppercase tracking-wider text-stone-400">{label}
+              <input value={draft[k] ?? ""} onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))} inputMode="numeric" placeholder="–" className="mt-0.5 w-full rounded-md border border-stone-200 bg-white px-1.5 py-1 text-sm normal-case tracking-normal text-stone-800 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label={`${label} limit`} />
+            </label>
+          ))}
+          <button type="submit" className="col-span-3 rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 sm:col-span-6">Save limits</button>
+        </form>
+      )}
+      {b && b.items.length === 0 && !editing && <p className="text-xs text-stone-400">Set the venue's limits (words, abstract, figures, tables, references, pages) to see live usage bars here.</p>}
+      {b && b.items.length > 0 && (
+        <ul className="space-y-1.5">
+          {b.items.map((i) => (
+            <li key={i.key} className="text-xs">
+              <div className="flex items-baseline justify-between"><span className="text-stone-600 dark:text-stone-300">{i.label}</span><span className={`tabular-nums ${i.state === "over" ? "font-medium text-red-600 dark:text-red-300" : i.state === "near" ? "text-amber-600 dark:text-amber-300" : "text-stone-400"}`}>{i.used ?? "–"}{i.limit ? ` / ${i.limit}` : ""}{i.state === "over" && i.used != null && i.limit ? ` · ${i.used - i.limit} over` : ""}</span></div>
+              {i.limit ? <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800"><div className={`h-1.5 rounded-full transition-[width] duration-500 ${tone(i.state)}`} style={{ width: `${Math.min(100, (i.ratio ?? 0) * 100)}%` }} /></div> : null}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

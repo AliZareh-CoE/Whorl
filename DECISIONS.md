@@ -544,6 +544,26 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Writing v2 slice 3: the venue budget (#329)
+
+**Decision.** `Manuscript.venue_limits` (JSON, migration writing 0012) stores the target venue's
+limits for words, abstract words, figures, tables, references and pages; `writing/budget.py`
+computes usage (LaTeX detex word count over the .tex files, abstract word count, `figure`/`table`
+environments, bibliography size, PDF pages after a compile via pypdf) and rates each against its
+limit: ok / near (≥ 90 %) / over, with a one-line summary. Limits are validated on the serializer
+(`clean_limits`: known keys, positive integers only). API `GET /manuscripts/{id}/budget/`; limits
+via the normal PATCH; MCP `get_manuscript_budget`, `set_venue_limits` (77 tools). UI: a Venue
+budget card in the studio with an inline six-field limits form and colour-coded bars.
+
+**Why.** "Am I over?" is the question asked ten times a day in the last week before a deadline;
+Overleaf answers it with a plugin and a guess. Keeping the limits on the manuscript makes the
+answer live everywhere — in the studio, from Claude, and later on the dashboard.
+
+**Alternatives considered.** A shared `Venue` table with known journals' limits — parked: a
+handful of numbers per manuscript is convention-over-configuration; a venue library can be built
+on top when there are enough manuscripts to share them. Page estimates without a compile —
+rejected: a number that is wrong is worse than "unknown until compiled".
+
 ### 2026-09-06 — Writing v2 slice 2: the reviewer-response tracker (#327)
 
 **Decision.** `writing/reviews.py` parses pasted reviews into points (reviewers split on
