@@ -544,6 +544,32 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-06 — Writing v2 slice 1: the manuscript studio (#325)
+
+**Decision.** The SPA manuscript page becomes the studio: everything about one paper on one screen,
+with the LaTeX editor one click away. New API on manuscripts: `bibliography` (GET rows with cite
+key / title / year / authors; POST adds a library paper, idempotent, with an optional cite-key
+override), `DELETE bibliography/{reference_id}`, `cite-check` (every `\cite`-family key across all
+.tex files — or `latex_source` — against the bibliography, plus `resolvable`: missing keys the
+library already knows, with ids), `bib` (text/x-bibtex download), `events` POST and
+`DELETE events/{id}`; manuscripts are creatable through the API. MCP `get_manuscript_bibliography`,
+`add_manuscript_reference`, `remove_manuscript_reference`, `manuscript_cite_check`,
+`add_submission_event` (73 tools). UI: board in the Observatory identity with a new-manuscript form
+and a "deadlines within two weeks" strip; studio with an editable title/venue/deadline header, a
+status pipeline (past steps ticked), abstract with autosave and word count, source & compile card
+(files, main file, compile, status pill, diagnostics, PDF link, approximate word/heading/caption
+counts), bibliography card (search the project's literature → Add, cite-key chips copy `\cite{}`,
+"cite all", .bib), cite-check card (missing keys with one-click add from the library, uncited
+entries), submission timeline with log/delete.
+
+**Why.** Overleaf edits; Paperpile cites; neither answers "is this paper's bibliography consistent
+with what I actually cite, and where is it in the pipeline?" The studio makes that the default view
+and keeps the classic editor for the source itself.
+
+**Alternatives considered.** Embedding the LaTeX editor island in the studio — parked: the editor
+is a full-height workspace with its own file tree; a link is honest for now. A separate events
+viewset — rejected: events belong to a manuscript and never need listing across manuscripts.
+
 ### 2026-09-06 — Notes v2 slice 3: templates and export with a bibliography (#323)
 
 **Decision.** `notes/templates.py` renders five templates from project data: *literature* (title

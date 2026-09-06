@@ -495,3 +495,36 @@ def create_note_from_template(project: str, kind: str, reference_id: int | None 
 def export_note(note_id: int, style: str = "apa"):
     """The note as Markdown with a formatted bibliography."""
     return _request("GET", f"/notes/{note_id}/export/", params={"style": style})
+
+
+def get_manuscript_bibliography(manuscript_id: int):
+    """The manuscript's bibliography rows (cite keys, titles)."""
+    return _request("GET", f"/manuscripts/{manuscript_id}/bibliography/")
+
+
+def add_manuscript_reference(manuscript_id: int, reference_id: int, cite_key_override: str = ""):
+    """Add a library paper to a manuscript's bibliography."""
+    payload = {"reference": reference_id}
+    if cite_key_override:
+        payload["cite_key_override"] = cite_key_override
+    return _request("POST", f"/manuscripts/{manuscript_id}/bibliography/", json=payload)
+
+
+def remove_manuscript_reference(manuscript_id: int, reference_id: int):
+    """Drop a paper from a manuscript's bibliography."""
+    _request("DELETE", f"/manuscripts/{manuscript_id}/bibliography/{reference_id}/")
+    return {"removed": reference_id}
+
+
+def manuscript_cite_check(manuscript_id: int):
+    """\\cite keys vs the bibliography, with resolvable missing keys."""
+    return _request("GET", f"/manuscripts/{manuscript_id}/cite-check/")
+
+
+def add_submission_event(manuscript_id: int, kind: str, date: str, notes: str = ""):
+    """Log a submission event on a manuscript."""
+    return _request(
+        "POST",
+        f"/manuscripts/{manuscript_id}/events/",
+        json={"kind": kind, "date": date, "notes": notes},
+    )

@@ -447,3 +447,22 @@ def test_note_template_and_export_client_calls(capture):
     assert "reference" not in capture["body"]
     client.export_note(4, style="ieee")
     assert calls_url_has(capture, "/notes/4/export/") and "style=ieee" in capture["url"]
+
+
+def test_manuscript_bibliography_client_calls(capture):
+    client.get_manuscript_bibliography(3)
+    assert calls_url_has(capture, "/manuscripts/3/bibliography/")
+    client.add_manuscript_reference(3, 9, cite_key_override="lavie10")
+    assert (
+        capture["method"] == "POST"
+        and '"reference":9' in capture["body"]
+        and "lavie10" in capture["body"]
+    )
+    client.remove_manuscript_reference(3, 9)
+    assert capture["method"] == "DELETE" and calls_url_has(
+        capture, "/manuscripts/3/bibliography/9/"
+    )
+    client.manuscript_cite_check(3)
+    assert calls_url_has(capture, "/manuscripts/3/cite-check/")
+    client.add_submission_event(3, "submitted", "2026-09-06", "to NeurIPS")
+    assert capture["method"] == "POST" and '"kind":"submitted"' in capture["body"]

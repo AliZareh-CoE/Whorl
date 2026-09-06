@@ -1629,6 +1629,29 @@ class ManuscriptFileViewSet(AtlasViewSet):
         return queryset
 
 
+def _bibliography_rows(manuscript) -> list[dict]:
+    rows = []
+    for link in manuscript.manuscriptreference_set.select_related("reference").order_by(
+        "reference__bibtex_key"
+    ):
+        ref = link.reference
+        rows.append(
+            {
+                "link_id": link.pk,
+                "reference_id": ref.pk,
+                "cite_key": link.cite_key,
+                "bibtex_key": ref.bibtex_key,
+                "title": ref.title,
+                "year": ref.year,
+                "authors": ", ".join(
+                    a.get("family") or a.get("given") or "" for a in (ref.authors or [])[:3]
+                ),
+                "venue": ref.venue,
+            }
+        )
+    return rows
+
+
 class ManuscriptViewSet(AtlasViewSet):
     queryset = Manuscript.objects.all()
     serializer_class = serializers.ManuscriptSerializer
@@ -1653,6 +1676,129 @@ class ManuscriptViewSet(AtlasViewSet):
         manuscript.save(update_fields=["compile_generation", "compile_status", "updated_at"])
         compile_manuscript_task(manuscript.pk, manuscript.compile_generation)
         return Response({"status": "running"}, status=202)
+
+    @extend_schema(
+        request=serializers.ManuscriptReferenceInSerializer,
+        responses={
+            200: inline_serializer(
+                "ManuscriptBibliographyEntry",
+                {
+                    "link_id": rf_serializers.IntegerField(),
+                    "reference_id": rf_serializers.IntegerField(),
+                    "cite_key": rf_serializers.CharField(),
+                    "bibtex_key": rf_serializers.CharField(),
+                    "title": rf_serializers.CharField(),
+                    "year": rf_serializers.IntegerField(allow_null=True),
+                    "authors": rf_serializers.CharField(),
+                    "venue": rf_serializers.CharField(),
+                },
+                many=True,
+            )
+        },
+        description="GET the manuscript's bibliography; POST {reference, cite_key_override?} adds "
+        "a library paper to it (idempotent).",
+    )
+    @action(detail=True, methods=["get", "post"])
+    def bibliography(self, request, pk=None):
+        from writing.models import ManuscriptReference
+
+        manuscript = self.get_object()
+        if request.method == "POST":
+            serializer = serializers.ManuscriptReferenceInSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            link, _ = ManuscriptReference.objects.get_or_create(
+                manuscript=manuscript, reference=serializer.validated_data["reference"]
+            )
+            override = serializer.validated_data.get("cite_key_override")
+            if override is not None and override != link.cite_key_override:
+                link.cite_key_override = override
+                link.save(update_fields=["cite_key_override"])
+        return Response(_bibliography_rows(manuscript))
+
+    @extend_schema(
+        request=None,
+        responses={204: None},
+        description="Remove a paper from the manuscript's bibliography (the paper stays in the "
+        "library).",
+    )
+    @action(detail=True, methods=["delete"], url_path=r"bibliography/(?P<reference_id>\d+)")
+    def remove_reference(self, request, pk=None, reference_id=None):
+        from writing.models import ManuscriptReference
+
+        ManuscriptReference.objects.filter(
+            manuscript=self.get_object(), reference_id=reference_id
+        ).delete()
+        return Response(status=204)
+
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                "CiteCheckResult",
+                {
+                    "cited": rf_serializers.ListField(child=rf_serializers.CharField()),
+                    "missing_from_bib": rf_serializers.ListField(child=rf_serializers.CharField()),
+                    "uncited_in_bib": rf_serializers.ListField(child=rf_serializers.CharField()),
+                    "matched": rf_serializers.ListField(child=rf_serializers.CharField()),
+                    "resolvable": rf_serializers.DictField(child=rf_serializers.IntegerField()),
+                    "tex_files": rf_serializers.IntegerField(),
+                },
+            )
+        },
+        description="\\cite keys in every .tex file (or latex_source) against the bibliography: "
+        "missing keys, uncited entries, and `resolvable` — missing keys that match a library "
+        "paper's bibtex_key, with its id, so they can be added in one call.",
+    )
+    @action(detail=True, methods=["get"], url_path="cite-check")
+    def cite_check(self, request, pk=None):
+        from writing.services import check_citations
+
+        manuscript = self.get_object()
+        files = list(manuscript.files.filter(kind="tex"))
+        tex = "\n".join(f.content for f in files) if files else manuscript.latex_source
+        result = check_citations(manuscript, tex)
+        resolvable = {
+            r.bibtex_key: r.pk
+            for r in Reference.objects.filter(bibtex_key__in=result["missing_from_bib"])
+        }
+        return Response({**result, "resolvable": resolvable, "tex_files": len(files)})
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description="BibTeX (text/x-bibtex)")},
+        description="The manuscript bibliography as a .bib file, cite-key overrides applied.",
+    )
+    @action(detail=True, methods=["get"])
+    def bib(self, request, pk=None):
+        from django.http import HttpResponse
+
+        from writing.services import export_manuscript_bib
+
+        manuscript = self.get_object()
+        response = HttpResponse(export_manuscript_bib(manuscript), content_type="text/x-bibtex")
+        response["Content-Disposition"] = f'attachment; filename="manuscript-{manuscript.pk}.bib"'
+        return response
+
+    @extend_schema(
+        request=serializers.SubmissionEventInSerializer,
+        responses={201: serializers.SubmissionEventSerializer},
+        description="Log a submission event (submitted, reviews received, accepted, …).",
+    )
+    @action(detail=True, methods=["post"])
+    def events(self, request, pk=None):
+        from writing.models import SubmissionEvent
+
+        manuscript = self.get_object()
+        serializer = serializers.SubmissionEventInSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        event = SubmissionEvent.objects.create(manuscript=manuscript, **serializer.validated_data)
+        return Response(serializers.SubmissionEventSerializer(event).data, status=201)
+
+    @extend_schema(request=None, responses={204: None}, description="Delete a submission event.")
+    @action(detail=True, methods=["delete"], url_path=r"events/(?P<event_id>\d+)")
+    def remove_event(self, request, pk=None, event_id=None):
+        from writing.models import SubmissionEvent
+
+        SubmissionEvent.objects.filter(manuscript=self.get_object(), pk=event_id).delete()
+        return Response(status=204)
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Approx word/header/caption/math counts")},

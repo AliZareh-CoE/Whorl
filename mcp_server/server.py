@@ -467,3 +467,39 @@ def export_note(note_id: int, style: str = "apa") -> dict:
     """The note as portable Markdown with a References section formatted in apa / mla / chicago /
     harvard / vancouver / ieee — paste it into a manuscript or send it to a colleague."""
     return client.export_note(note_id, style)
+
+
+@mcp.tool()
+def get_manuscript_bibliography(manuscript_id: int) -> list:
+    """The manuscript's bibliography: cite key, title, year, authors for each paper."""
+    return client.get_manuscript_bibliography(manuscript_id)
+
+
+@mcp.tool()
+def add_manuscript_reference(
+    manuscript_id: int, reference_id: int, cite_key_override: str = ""
+) -> list:
+    """Add a library paper to a manuscript's bibliography (optionally under a custom cite key).
+    Returns the updated bibliography."""
+    return client.add_manuscript_reference(manuscript_id, reference_id, cite_key_override)
+
+
+@mcp.tool()
+def remove_manuscript_reference(manuscript_id: int, reference_id: int) -> dict:
+    """Remove a paper from a manuscript's bibliography (it stays in the library)."""
+    return client.remove_manuscript_reference(manuscript_id, reference_id)
+
+
+@mcp.tool()
+def manuscript_cite_check(manuscript_id: int) -> dict:
+    """Check every \\cite key in the manuscript's .tex files against its bibliography: keys
+    missing from the bib (with `resolvable` ids when the library knows them), entries never cited,
+    and the matched ones."""
+    return client.manuscript_cite_check(manuscript_id)
+
+
+@mcp.tool()
+def add_submission_event(manuscript_id: int, kind: str, date: str, notes: str = "") -> dict:
+    """Log a submission event: submitted / desk_reject / reviews_received / revision_submitted /
+    accepted / rejected / published / note, with an ISO date."""
+    return client.add_submission_event(manuscript_id, kind, date, notes)

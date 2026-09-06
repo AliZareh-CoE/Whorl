@@ -348,6 +348,30 @@ class SavedViewSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "params", "position", "created_at", "updated_at"]
 
 
+class ManuscriptReferenceInSerializer(serializers.Serializer):
+    """Add a library paper to a manuscript's bibliography (Writing v2 slice 1)."""
+
+    reference = serializers.PrimaryKeyRelatedField(queryset=Reference.objects.all())
+    cite_key_override = serializers.CharField(required=False, allow_blank=True, max_length=120)
+
+
+class SubmissionEventInSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(
+        choices=[
+            "submitted",
+            "desk_reject",
+            "reviews_received",
+            "revision_submitted",
+            "accepted",
+            "rejected",
+            "published",
+            "note",
+        ]
+    )
+    date = serializers.DateField()
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
 class NoteFromTemplateSerializer(serializers.Serializer):
     """Create a note from a template (Notes v2 slice 3)."""
 
