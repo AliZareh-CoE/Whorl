@@ -38,6 +38,8 @@ class Pet(TimeStampedModel):
     name = models.CharField(max_length=40, default="Mochi")
     # Souls mode (owner, 2026-09-07): grim, dramatic tone — deaths, bonfires, bosses.
     souls_mode = models.BooleanField(default=False)
+    # #415: when the mode was last switched on — the souls-only trophies count from here
+    souls_since = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name

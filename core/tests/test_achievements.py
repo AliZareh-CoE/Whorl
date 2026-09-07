@@ -198,3 +198,73 @@ def test_batch_two_facts_exist(db):
         "midnight",
     ):
         assert key in facts, key
+
+
+def test_batch_three_seasonal_souls_and_platinum(db):
+    """#415: seasonal secrets read the calendar, souls trophies count only while the mode is
+    on, and the platinum is every other trophy."""
+    import datetime as dt
+
+    facts = ach._seasonal_facts(
+        {dt.date(2026, 1, 1), dt.date(2026, 2, 13), dt.date(2024, 2, 29), dt.date(2026, 12, 21)}
+    )
+    assert facts == {
+        "new_year": True,
+        "halloween": False,
+        "solstice": True,
+        "leap_day": True,
+        "friday_13": True,  # 2026-02-13 is a Friday
+    }
+    assert ach._seasonal_facts(set()) == {k: False for k in facts}
+    by_key = ach.BY_KEY
+    assert by_key["no_bonfire"].tier == "souls" and by_key["the_dark_soul"].hidden
+    assert by_key["platinum"] is ach.PLATINUM and ach.CATALOGUE[-1] is ach.PLATINUM
+    # souls_since: set when the mode goes on, cleared when it goes off
+    from core.models import Pet
+
+    ach.set_souls_mode(True)
+    pet = Pet.objects.get(pk=1)
+    assert pet.souls_since is not None
+    since = pet.souls_since
+    ach.set_souls_mode(True)
+    assert Pet.objects.get(pk=1).souls_since == since  # re-enabling keeps the original date
+    live = ach.gather_facts()
+    assert live["souls_on"] is True and live["souls_days"] == 0
+    ach.set_souls_mode(False)
+    assert Pet.objects.get(pk=1).souls_since is None
+    # the platinum counts the rest: with nothing done it is 0/N; when everything else is
+    # done it is N/N
+    rows = ach.evaluate(ach.gather_facts())
+    plat = next(r for r in rows if r["key"] == "platinum")
+    assert plat["progress"] == {
+        "current": 0,
+        "target": len(ach.CATALOGUE) - 1,
+        "percent": 0,
+    }
+    everything = {**ach.gather_facts(), **{k: 10**6 for k in _count_keys()}}
+    rows = ach.evaluate(everything)
+    unlocked_others = sum(1 for r in rows if r["unlocked"] and r["key"] != "platinum")
+    plat = next(r for r in rows if r["key"] == "platinum")
+    assert plat["progress"]["current"] == unlocked_others
+    assert plat["unlocked"] == (unlocked_others == len(ach.CATALOGUE) - 1)
+
+
+def _count_keys() -> set[str]:
+    """Every fact key any achievement reads as a number (found by probing the lambdas)."""
+    keys: set[str] = set()
+
+    class Probe(dict):
+        def get(self, key, default=None):
+            keys.add(key)
+            return 10**6
+
+        def __getitem__(self, key):
+            keys.add(key)
+            return 10**6
+
+    for a in ach.CATALOGUE:
+        try:
+            a.progress(Probe())
+        except Exception:  # noqa: BLE001 - a probe, not a contract
+            pass
+    return keys

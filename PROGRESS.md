@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Achievements batch three (2026-09-07, #415).** Five seasonal secrets, Embrace the dark + two souls-only (Pet.souls_since, core 0009), the Platinum computed from the rest (95 total). Tests: core/tests/test_achievements.py::test_batch_three_seasonal_souls_and_platinum.
+
 - **Studio comments (2026-09-07, #414).** `GET /manuscripts/{id}/comments/`, `DELETE /comments/{id}/`; Studio Comments tab (list/jump/delete, + line N, gutter click while open), `setCommentLines` marks per active file. Tests: writing/tests/test_studio_comments.py (2). Playwright: docs/screenshots/studio-comments.png.
 
 - **Writing progress (2026-09-07, #413).** `writing.WordCountSample` (0014), `writing/progress.py`, tex-save hook + word-count endpoint records, `GET /manuscripts/{id}/progress/`, serializer `progress` (14-day deltas), MCP `get_writing_progress` (93 tools), Studio "+n today · streak", Writing card sparkline, demo seeded. Tests: writing/tests/test_progress.py (3). Playwright: docs/screenshots/writing-progress.png, studio-words-today.png.

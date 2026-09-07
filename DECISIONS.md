@@ -497,8 +497,8 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     first-unlock timestamps, score + ranks (Undergrad → Ashen One), an Achievements page,
     a toast on fresh unlocks, `get_achievements` for Claude, and Souls mode: the companion
     speaks grimly, the ledger counts deaths / bonfires / bosses / souls, and the studio
-    flashes YOU DIED on a failed compile.~~ Remaining: seasonal/secret achievements, a
-    "platinum" for the whole ledger, souls-mode achievements that only count while it is on.
+    flashes YOU DIED on a failed compile.~~ ~~Seasonal secrets, souls-only trophies and the
+    Platinum (done 2026-09-07, #415: nine more, 95 in the ledger).~~
 
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Achievements batch three: the calendar, the dark, and the platinum (#415)
+
+**Decision.** Nine more trophies, all still read from real work. Five *seasonal secrets* (hidden until earned) read the activity calendar: New year, new hypothesis (Jan 1), Trick or treat (Oct 31), Solstice (Jun 21 or Dec 21), Leap of faith (Feb 29, steady tier), Friday the 13th. Three belong to Souls mode: Embrace the dark (switch it on), and two that only count while it is on — No bonfire (seven active days) and The Dark Soul (thirty, hidden) — backed by a new `Pet.souls_since` (core migration 0009) that `set_souls_mode` stamps when the mode goes on and clears when it goes off, so leaving and returning starts the count again. And the *Platinum*: every other achievement in the ledger, computed by `evaluate()` from the rest before its own row, listed last so `max_score` and the souls tier include it.
+
+**Why.** Owner idea #31's remaining line: seasonal/secret achievements, a platinum for the whole ledger, souls-mode achievements that only count while it is on. The calendar ones are the kind you find by accident, which is the point of hidden ones; the souls-only ones make the mode a commitment rather than a skin.
+
+**Alternatives rejected.** Counting souls days from the toggle's *first* use ever (a mode you switched off should not keep paying out); a platinum that excludes hidden trophies (then it is not the whole ledger); time-boxed seasonal events with a calendar of their own (a settings-shaped feature; a date check is enough).
 
 ### 2026-09-07 — Comments inside the Studio: line-anchored, in the gutter, in a panel (#414)
 

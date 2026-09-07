@@ -100,7 +100,9 @@ CATALOGUE: list[Achievement] = [
         "Triage ten captures and leave nothing in the inbox.",
         "fun",
         lambda f: (
-            min(f["captures_done"], 10) if f["captures_open"] == 0 else min(f["captures_done"], 9),
+            min(f.get("captures_done", 0), 10)
+            if f.get("captures_open", 0) == 0
+            else min(f.get("captures_done", 0), 9),
             10,
         ),
     ),
@@ -538,7 +540,81 @@ CATALOGUE: list[Achievement] = [
         lambda f: (min(f.get("compiles_failed", 0), f.get("compiles_ok", 0)), 20),
         hidden=True,
     ),
+    # batch three (2026-09-07, #415): seasonal secrets, souls-only trophies, the platinum --
+    Achievement(
+        "new_year_new_hypothesis",
+        "New year, new hypothesis",
+        "Do research on the first of January.",
+        "fun",
+        _flag("new_year"),
+        hidden=True,
+    ),
+    Achievement(
+        "trick_or_treat",
+        "Trick or treat",
+        "Something happened on the 31st of October.",
+        "fun",
+        _flag("halloween"),
+        hidden=True,
+    ),
+    Achievement(
+        "solstice",
+        "Solstice",
+        "Work on the longest or the shortest day of the year.",
+        "fun",
+        _flag("solstice"),
+        hidden=True,
+    ),
+    Achievement(
+        "leap_of_faith",
+        "Leap of faith",
+        "Do anything on the 29th of February.",
+        "steady",
+        _flag("leap_day"),
+        hidden=True,
+    ),
+    Achievement(
+        "friday_the_13th",
+        "Friday the 13th",
+        "Research on a Friday the 13th. Nothing went wrong. Probably.",
+        "fun",
+        _flag("friday_13"),
+        hidden=True,
+    ),
+    Achievement(
+        "embrace_the_dark",
+        "Embrace the dark",
+        "Switch Souls mode on.",
+        "fun",
+        _flag("souls_on"),
+    ),
+    Achievement(
+        "no_bonfire",
+        "No bonfire",
+        "Seven active days with Souls mode on — it only counts while it is on.",
+        "souls",
+        _count("souls_days", 7),
+    ),
+    Achievement(
+        "the_dark_soul",
+        "The Dark Soul",
+        "Thirty active days in Souls mode. You are the dark now.",
+        "souls",
+        _count("souls_days", 30),
+        hidden=True,
+    ),
 ]
+
+# The platinum: every other trophy in the ledger. Its progress is filled in by evaluate(),
+# which counts the rest first — it is listed so that max_score and the tier totals include it.
+PLATINUM = Achievement(
+    "platinum",
+    "Platinum",
+    "Every other achievement in the ledger.",
+    "souls",
+    lambda f: (f.get("_unlocked_others", 0), f.get("_total_others", 1)),
+)
+CATALOGUE.append(PLATINUM)
 BY_KEY = {a.key: a for a in CATALOGUE}
 
 
@@ -730,6 +806,25 @@ def gather_facts(
         "evidence_against": Evidence.objects.filter(direction="contradicts").count(),
         "lunch_break": any(12 <= h < 14 for h in hours),
         "midnight": any(h == 0 for h in hours),
+        # batch three (2026-09-07, #415): the calendar and the dark
+        **_seasonal_facts(days),
+        "souls_on": bool(pet and pet.souls_mode),
+        "souls_days": (
+            sum(1 for d in days if d >= pet.souls_since.date())
+            if pet and pet.souls_mode and pet.souls_since
+            else 0
+        ),
+    }
+
+
+def _seasonal_facts(days: set[datetime.date]) -> dict:
+    """Dates that only come round once a year (or four): did anything happen on them?"""
+    return {
+        "new_year": any(d.month == 1 and d.day == 1 for d in days),
+        "halloween": any(d.month == 10 and d.day == 31 for d in days),
+        "solstice": any((d.month, d.day) in ((6, 21), (12, 21)) for d in days),
+        "leap_day": any(d.month == 2 and d.day == 29 for d in days),
+        "friday_13": any(d.day == 13 and d.weekday() == 4 for d in days),
     }
 
 
@@ -739,10 +834,21 @@ def _subsequence(seq: list[str], pattern: list[str]) -> bool:
 
 
 # ----------------------------------------------------------------------------- evaluation
+def _done(a: Achievement, facts: dict) -> bool:
+    current, target = a.progress(facts)
+    return int(current) >= int(target)
+
+
 def evaluate(facts: dict) -> list[dict]:
     from core.models import AchievementUnlock
 
     known = dict(AchievementUnlock.objects.values_list("key", "unlocked_at"))
+    others = [a for a in CATALOGUE if a is not PLATINUM]
+    facts = {
+        **facts,
+        "_total_others": len(others),
+        "_unlocked_others": sum(1 for a in others if _done(a, facts)),
+    }
     rows = []
     for a in CATALOGUE:
         current, target = a.progress(facts)
@@ -837,8 +943,12 @@ def set_souls_mode(on: bool) -> bool:
     from core.models import Pet
 
     pet, _ = Pet.objects.get_or_create(pk=1, defaults={"name": "Mochi"})
+    if bool(on) and not pet.souls_mode:
+        pet.souls_since = timezone.now()  # #415: the dark counts from now
+    elif not on:
+        pet.souls_since = None
     pet.souls_mode = bool(on)
-    pet.save(update_fields=["souls_mode", "updated_at"])
+    pet.save(update_fields=["souls_mode", "souls_since", "updated_at"])
     cache.delete("atlas-pet-state")
     return pet.souls_mode
 
