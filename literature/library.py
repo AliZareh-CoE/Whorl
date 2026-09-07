@@ -156,7 +156,9 @@ def facets(qs: QuerySet) -> dict:
         "untagged": qs.filter(tags__isnull=True).count(),
         "duplicates": sum(len(g["members"]) for g in duplicate_groups(qs)),
         "tags": tags,
-        "views": list(SavedView.objects.values("id", "name", "params", "position")),
+        "views": list(
+            SavedView.objects.order_by("position", "id").values("id", "name", "params", "position")
+        ),
         "years": years,
         "entry_types": types,
         "venues": venues,

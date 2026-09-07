@@ -201,3 +201,34 @@ def test_tag_changes_move_the_reference_list_etag(client, owner, refs):
     client.delete(f"/api/v1/library-tags/{pilot.pk}/", **HEADERS)
     deleted = client.get("/api/v1/references/?sort=added", HTTP_IF_NONE_MATCH=etag, **HEADERS)
     assert deleted.status_code == 200 and all(r["tags"] == [] for r in deleted.json()["results"])
+
+
+def test_smart_views_reorder(client, owner):
+    ids = [
+        client.post(
+            "/api/v1/library-views/",
+            {"name": n, "params": {"tag": n}},
+            content_type="application/json",
+            **HEADERS,
+        ).json()["id"]
+        for n in ("a", "b", "c")
+    ]
+    a, b, c = ids
+    r = client.post(
+        "/api/v1/library-views/reorder/",
+        {"ids": [c, a]},
+        content_type="application/json",
+        **HEADERS,
+    )
+    assert r.status_code == 200 and r.json() == {"ordered": 2}
+    facets = library.facets(Reference.objects.all())
+    assert [v["name"] for v in facets["views"]] == ["c", "a", "b"]
+    bad = client.post(
+        "/api/v1/library-views/reorder/",
+        {"ids": [a, a]},
+        content_type="application/json",
+        **HEADERS,
+    )
+    assert bad.status_code == 400
+    src = open("frontend/src/app/pages/Library.tsx").read()
+    assert 'data-testid="smart-view"' in src and "/library-views/reorder/" in src

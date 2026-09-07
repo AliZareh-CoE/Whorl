@@ -1676,6 +1676,39 @@ class SavedViewViewSet(AtlasViewSet):
         top = SavedView.objects.aggregate(m=Max("position"))["m"] or 0
         serializer.save(position=top + 1)
 
+    @extend_schema(
+        request=inline_serializer(
+            "SavedViewReorder",
+            {"ids": rf_serializers.ListField(child=rf_serializers.IntegerField())},
+        ),
+        responses={200: OpenApiResponse(description="{ordered}")},
+        description="Set the rail order of the smart views: the given ids take positions 1..n; "
+        "the rest follow in their current order (drag-to-reorder, #400).",
+    )
+    @action(detail=False, methods=["post"], url_path="reorder")
+    def reorder(self, request):
+        from django.utils import timezone
+
+        ids = request.data.get("ids") if isinstance(request.data, dict) else None
+        if (
+            not isinstance(ids, list)
+            or not all(isinstance(i, int) for i in ids)
+            or len(set(ids)) != len(ids)
+        ):
+            raise rf_serializers.ValidationError({"ids": ["Send a list of distinct view ids."]})
+        known = set(SavedView.objects.filter(pk__in=ids).values_list("pk", flat=True))
+        if any(i not in known for i in ids):
+            raise rf_serializers.ValidationError({"ids": ["Unknown view id."]})
+        now = timezone.now()
+        position = 0
+        for view_id in ids:
+            position += 1
+            SavedView.objects.filter(pk=view_id).update(position=position, updated_at=now)
+        for view in SavedView.objects.exclude(pk__in=ids).order_by("position", "id"):
+            position += 1
+            SavedView.objects.filter(pk=view.pk).update(position=position, updated_at=now)
+        return Response({"ordered": len(ids)})
+
 
 class TodoItemViewSet(AtlasViewSet):
     """The owner's personal Today list (plain to-dos, not plan tasks)."""
@@ -2712,6 +2745,25 @@ class DiagnosticsAPIView(APIView):
         report = collect(check_network=request.query_params.get("network") == "1")
         report["text"] = as_text(report)
         return Response(report)
+
+
+class AccessEventsAPIView(APIView):
+    """The access log (#399): recent logins, lockouts and rejected API keys, with a summary."""
+
+    @extend_schema(
+        operation_id="v1_access_events",
+        description="Recent access events (logins, failed logins, lockouts, rejected API keys) "
+        "and a 7-day summary. ?limit=<n> (default 50, max 200).",
+        responses={200: None},
+    )
+    def get(self, request):
+        from core.access import recent, summary
+
+        try:
+            limit = max(1, min(200, int(request.query_params.get("limit", 50))))
+        except ValueError:
+            limit = 50
+        return Response({"events": recent(limit), "summary": summary()})
 
 
 class ClientErrorAPIView(APIView):

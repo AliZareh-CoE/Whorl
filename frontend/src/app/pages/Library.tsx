@@ -182,6 +182,13 @@ export default function Library() {
     mutationFn: (name: string) => api<SavedView>("/library-views/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, params: { ...effective, sort: filters.sort } }) }),
     onSuccess: (v) => { setViewName(null); queryClient.invalidateQueries({ queryKey: ["library-facets"] }); flash(`Saved view “${v.name}”.`); },
   });
+  // Drag to reorder the smart views (#400): the rail order is the SavedView position
+  const [viewDrag, setViewDrag] = useState<{ id: number; over: number | null } | null>(null);
+  const reorderViews = useMutation({
+    mutationFn: (ids: number[]) => api("/library-views/reorder/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["library-facets"] }),
+    onError: (e) => void errorDialog("Couldn't reorder the views", e),
+  });
   const deleteView = useMutation({
     mutationFn: (id: number) => api(`/library-views/${id}/`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["library-facets"] }),
@@ -480,8 +487,13 @@ export default function Library() {
                 {f.views.map((v) => {
                   const active = JSON.stringify({ ...EMPTY, ...v.params, q: (v.params.q ?? "") }) === JSON.stringify({ ...effective, sort: filters.sort });
                   return (
-                    <div key={v.id} className="group/view flex items-center">
-                      <button type="button" className={chip(active)} onClick={() => { setFilters({ ...EMPTY, ...v.params }); setQInput(v.params.q ?? ""); }}>
+                    <div key={v.id} className={`group/view relative flex items-center ${viewDrag?.id === v.id ? "opacity-40" : ""}`} draggable data-testid="smart-view"
+                         onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; setViewDrag({ id: v.id, over: null }); }}
+                         onDragOver={(e) => { if (!viewDrag) return; e.preventDefault(); if (viewDrag.over !== v.id) setViewDrag({ ...viewDrag, over: v.id }); }}
+                         onDrop={(e) => { e.preventDefault(); if (!viewDrag || viewDrag.id === v.id) { setViewDrag(null); return; } const ids = f.views.map((x) => x.id); const from = ids.indexOf(viewDrag.id); const to = ids.indexOf(v.id); ids.splice(from, 1); ids.splice(to, 0, viewDrag.id); reorderViews.mutate(ids); setViewDrag(null); }}
+                         onDragEnd={() => setViewDrag(null)}>
+                      {viewDrag?.over === v.id && viewDrag.id !== v.id && <span aria-hidden="true" className="pointer-events-none absolute left-1 right-1 top-0 h-0.5 rounded-full bg-indigo-500" />}
+                      <button type="button" className={chip(active)} onClick={() => { setFilters({ ...EMPTY, ...v.params }); setQInput(v.params.q ?? ""); }} title="Drag to reorder">
                         <span className="flex min-w-0 items-center gap-1.5"><Bookmark className="h-3 w-3 shrink-0 text-indigo-400" aria-hidden="true" /><span className="truncate">{v.name}</span></span>
                       </button>
                       <button type="button" onClick={() => deleteView.mutate(v.id)} className="ml-0.5 shrink-0 text-stone-300 opacity-0 hover:text-red-500 group-hover/view:opacity-100" aria-label={`Delete view ${v.name}`}><X className="h-3 w-3" aria-hidden="true" /></button>

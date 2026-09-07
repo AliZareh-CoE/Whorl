@@ -2,6 +2,10 @@
 
 ## Current Status
 
+- **Smart views drag-to-reorder (2026-09-07, #400).** `POST /library-views/reorder/`, facets ordered by position, draggable rail rows. Test in literature/tests/test_tags_views.py (+1).
+
+- **Access log (2026-09-07, #399).** `AccessEvent` (migration core.0007) fed by login/lockout/API-key hooks; `GET /api/v1/access-events/`; Diagnostics › Access + report line; excluded from the data version. Tests: core/tests/test_access_log.py (4).
+
 - **Overview themes (2026-09-07, #398).** `themes` on the overview API (keywords across papers/notes/decisions/questions, weighted by source count), chip row under the counts linking to search. Test in projects/tests/test_overview_v2.py (+1).
 
 - **Library cards view + toast position (2026-09-07, #397).** List/Cards toggle (remembered), cover-style cards with accent band and the same interactions; the unlock toast moved top-right so page flashes never sit under it. Playwright: toggled to cards, right-click menu on a card, screenshot (docs/screenshots/library-cards.png). Guard in test_tags_views.

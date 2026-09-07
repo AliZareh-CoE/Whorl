@@ -17,6 +17,7 @@ type Report = {
   engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; update_feed: Feed[];
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
   client_errors?: { at: string; where: string; url: string; version: string; errors: string[] }[];
+  access?: { summary: { days: number; counts: Record<string, number>; last_problem: { kind: string; at: string; address: string } | null } | null; events: { id: number; kind: string; label: string; address: string; user_agent: string; detail: string; at: string }[] };
 };
 
 const panel = "rise rounded-2xl border border-stone-200 bg-white/70 p-5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/60";
@@ -98,6 +99,28 @@ export default function Diagnostics() {
               {r.update_feed.map((f) => <Row key={f.url} label="Update feed" value={<><code className="text-xs">{f.url.replace("https://github.com/", "")}</code>{f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (private repository or missing feed)" : ""}</span>}</>} ok={f.status === null ? null : f.status === 200} />)}
             </dl>
           </section>
+          {r.access?.summary && (
+            <section className={`${panel} mt-5`} data-testid="access-log">
+              <p className={`${railH} mb-2`}>Access · last {r.access.summary.days} days</p>
+              <p className="mb-2 text-sm text-stone-600 dark:text-stone-300">
+                {r.access.summary.counts.login_ok ?? 0} logins · {r.access.summary.counts.login_failed ?? 0} failed · {r.access.summary.counts.login_locked ?? 0} lockouts · {r.access.summary.counts.api_key_rejected ?? 0} rejected API keys
+                {r.access.summary.last_problem && <span className="ml-2 text-amber-600 dark:text-amber-300">· last problem {r.access.summary.last_problem.at.replace("T", " ").slice(0, 16)} from {r.access.summary.last_problem.address || "?"}</span>}
+              </p>
+              {r.access.events.length > 0 ? (
+                <ul className="divide-y divide-stone-100 text-xs dark:divide-stone-800">
+                  {r.access.events.map((e) => (
+                    <li key={e.id} className="flex flex-wrap items-center gap-2 py-1.5">
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${e.kind === "login_ok" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}>{e.label}</span>
+                      <span className="font-mono text-stone-500">{e.at.replace("T", " ").slice(0, 16)}</span>
+                      <span className="text-stone-500">{e.address || "?"}</span>
+                      {e.detail && <span className="text-stone-400">{e.detail}</span>}
+                      <span className="ml-auto max-w-[24rem] truncate text-stone-400" title={e.user_agent}>{e.user_agent}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-xs text-stone-400">No events yet — logins and rejected keys appear here.</p>}
+            </section>
+          )}
           {r.client_errors && r.client_errors.length > 0 && (
             <section className={`${panel} mt-5`} data-testid="client-errors">
               <p className={`${railH} mb-2`}><AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-amber-500" aria-hidden="true" />Front-end errors · most recent first</p>
