@@ -19,6 +19,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.files import file_response
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
 from literature import services as literature_services
@@ -1064,7 +1065,7 @@ class DocumentViewSet(AtlasViewSet):
     )
     @action(detail=True, methods=["get"])
     def raw(self, request, pk=None):
-        from django.http import FileResponse, Http404
+        from django.http import Http404
 
         from documents.models import sniff_image_type
 
@@ -1087,14 +1088,11 @@ class DocumentViewSet(AtlasViewSet):
         if not confirmed:
             handle.close()
             raise Http404("Not inline-previewable.")
-        response = FileResponse(handle, content_type=content_type)
-        response["X-Content-Type-Options"] = "nosniff"
-        response["Content-Disposition"] = "inline"
-        # #254: uploaded files are immutable (edits create new files), so let the workspace
-        # PDF/image preview revalidate cheaply instead of re-downloading on every view — matching
-        # document_download / document_preview.
-        response["Cache-Control"] = "private, max-age=86400"
-        return response
+        # #254/#434: uploaded files are immutable (edits create new files) — one shared policy
+        # with document_download / document_preview: a day of caching, then a free 304.
+        return file_response(
+            request, doc.file, handle=handle, content_type=content_type, inline=True
+        )
 
 
 class ReferenceViewSet(AtlasViewSet):

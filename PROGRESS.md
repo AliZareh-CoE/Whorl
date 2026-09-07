@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Conditional files (2026-09-07, #434).** `core/files.py::file_response` (ETag mtime-size, Last-Modified, 304 on If-None-Match / If-Modified-Since, shared Cache-Control + nosniff) behind document_download, document_preview and DocumentViewSet.raw. Test: core/tests/test_conditional_files.py.
+
 - **Library ranges (2026-09-07, #433).** anchorRef + selectRange; shift-click / shift-x ranges, ⌘A selects the view. Test: literature/tests/test_selection_keys.py. Playwright: shift-click 1→4 = 4 selected, ⌘A = all, Esc = 0.
 
 - **⌘K creation verbs (2026-09-07, #432).** `paper:`/`doi:`/bare DOI or arXiv → by-doi (project-scoped); verbs Add a paper (`/library?add=1`), New note, New manuscript (`/writing?new=1`), New project; empty state `palette-empty`. Test: core/tests/test_palette_verbs.py. Playwright: docs/screenshots/palette-paper.png.
