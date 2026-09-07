@@ -11,15 +11,16 @@ import { ErrorState } from "../../components/ErrorState";
 import { Skeleton } from "../../components/Skeleton";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { Kebab, type MenuItem } from "../../components/Menu";
+import { Prose } from "../../components/Prose";
 
 type Evidence = { id: number; direction: "supports" | "contradicts" | "mixed"; summary: string; reference: number | null; reference_detail: { id: number; bibtex_key: string; title: string } | null; note: number | null; note_title: string; created_at: string };
 type Hypothesis = { id: number; statement: string; status: string; supports: number; contradicts: number; mixed: number; suggested_status: string | null; evidence: Evidence[] };
-type Experiment = { id: number; date: string; title: string; body: string; commit_url: string; commit_label: string; hypotheses: number[] };
+type Experiment = { id: number; date: string; title: string; body: string; body_html: string; commit_url: string; commit_label: string; hypotheses: number[] };
 type Dataset = { id: number; name: string; location: string; version: string; description: string };
 type Question = { id: number; question: string; status: string; phases: number[] };
 const Q_STATUSES = ["open", "partially_answered", "answered", "abandoned"];
 const qCls: Record<string, string> = { open: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200", partially_answered: "bg-amber-500/15 text-amber-700 dark:text-amber-300", answered: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", abandoned: "bg-stone-100 text-stone-400 line-through dark:bg-stone-800" };
-type Protocol = { id: number; title: string; body: string; version: number; is_current: boolean };
+type Protocol = { id: number; title: string; body: string; body_html: string; version: number; is_current: boolean };
 type Page<T> = { count: number; results: T[] };
 type Suggestion = { id: number; label: string; sublabel: string };
 
@@ -173,6 +174,7 @@ function EvidenceForm({ slug, busy, onSubmit }: { slug: string; busy: boolean; o
 }
 
 function ExperimentLog({ experiments, hypotheses, onAdd, onSave, onDelete, busy }: { experiments: Experiment[]; hypotheses: Hypothesis[]; onAdd: (body: Record<string, unknown>) => void; onSave: (id: number, body: Record<string, unknown>) => void; onDelete: (e: Experiment) => void; busy: boolean }) {
+  const [shown, setShown] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Experiment | null>(null);
   const [title, setTitle] = useState(""); const [body, setBody] = useState(""); const [picked, setPicked] = useState<number[]>([]);
@@ -198,7 +200,12 @@ function ExperimentLog({ experiments, hypotheses, onAdd, onSave, onDelete, busy 
         {experiments.map((e) => (
           <li key={e.id} className="group py-2 text-sm first:pt-0" data-testid="experiment">
             <div className="flex items-baseline gap-2"><span className="min-w-0 flex-1 truncate font-medium text-stone-800 dark:text-stone-100">{e.title}</span><span className="shrink-0 text-[11px] tabular-nums text-stone-400">{e.date}</span><Kebab items={itemsFor(e)} label={`Actions for ${e.title}`} className="-my-1 opacity-0 group-hover:opacity-100 focus:opacity-100" /></div>
-            {e.body && <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-stone-500 dark:text-stone-400">{e.body}</p>}
+            {e.body && (
+              // #407: the entry renders as markdown with mentions; click the preview to read it all
+              shown === e.id
+                ? <Prose html={e.body_html} className="mt-1 text-xs" testId="experiment-body" />
+                : <button type="button" onClick={() => setShown(e.id)} className="mt-0.5 block w-full text-left text-xs leading-relaxed text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200" title="Read the whole entry"><span className="line-clamp-2">{e.body.replace(/[*_`#>]+/g, "")}</span></button>
+            )}
             <p className="mt-0.5 flex flex-wrap gap-1 text-[10px] text-stone-400">{e.commit_url && <a href={e.commit_url} target="_blank" rel="noopener" className="font-mono text-indigo-600 hover:underline dark:text-indigo-300">⎇ {e.commit_label}</a>}{e.hypotheses.map((id) => { const h = hypotheses.find((x) => x.id === id); return h ? <span key={id} className="rounded-full bg-stone-100 px-1.5 py-px dark:bg-stone-800" title={h.statement}>H{id}</span> : null; })}</p>
           </li>
         ))}
@@ -252,7 +259,7 @@ function ProtocolPanel({ slug, protocols, onChange }: { slug: string; protocols:
               <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Protocol body" autoFocus />
               <button type="submit" disabled={busy} className="rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Save as v{open.version + 1}</button>
             </form>
-          ) : <pre className="whitespace-pre-wrap font-sans text-xs leading-5 text-stone-600 dark:text-stone-300">{open.body || "(empty)"}</pre>}
+          ) : open.body ? <Prose html={open.body_html} className="text-xs" testId="protocol-body" /> : <p className="text-xs text-stone-400">(empty)</p>}
         </div>
       )}
     </section>

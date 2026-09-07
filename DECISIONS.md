@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Mentions everywhere: one renderer for every markdown body (#407)
+
+**Decision.** `core/rendering.py` is the single markdown renderer: `resolve_mentions(body, project)` rewrites `[[Note Title]]` (resolved inside the project; globally only when the title is unique) and `@cite-key` into links, leaves unresolved mentions *visibly* in italics, and `render_body()` sanitises the result with nh3. The notes preview endpoint now calls it, and four serializers grew read-only companions: `context_html` / `decision_html` / `alternatives_html` on decisions, `body_html` on experiment entries and protocols, `text_html` on quick captures (with soft line breaks, because captures are jotted). The SPA shows them through one `<Prose>` component; the Decisions page clamps long records behind "Read the whole decision", the experiment log expands an entry on click, protocols render their steps, the Inbox renders captures. Internal links go through the existing SPA link interceptor, so a mention navigates without a reload. `core.mentions` is a project-less alias over the shared resolver.
+
+**Why.** Backlog #45: decisions and lab entries are written in markdown and cite notes and papers, but the SPA showed them as truncated plain text — `[[Load theory overview]]` was dead ink outside Notes. One resolver means a mention behaves the same on every surface, and one HTML field per body keeps the client dumb (no markdown library in the bundle).
+
+**Alternatives rejected.** Rendering markdown in the browser (a second sanitiser and a second mention resolver to keep in sync with the server's); a generic `/render/` endpoint the SPA calls per card (N requests per page for data the list already carries); leaving unresolved mentions as typed (the comments' old contract — the visible gap is the point, it says "this note does not exist yet").
+
 ### 2026-09-07 — A watched folder: drop a PDF on disk, it lands in the library (#406)
 
 **Decision.** `literature/watch.py` watches one folder: a daemon thread scans it every 15 s while enabled, imports each new PDF once (a ledger of path, size and mtime; a file still being written waits for the next scan) through the same pipeline as a drag-drop import, optionally filing it into a project; the config lives in `<data dir>/watch.json` and the desktop launcher resumes watching on boot. `GET/POST /api/v1/watch-folder/` and `POST …/scan/` drive it; the Library rail shows the folder, its state and the last scan, with *scan now*, *stop*, and — on the desktop — the OS folder picker (`pick_folder`).
@@ -2101,7 +2109,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 42. ~~Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass) — done 2026-09-07, #399 as Diagnostics › Access + /api/v1/access-events/~~
 43. ~~Prompt variable defaults — `{{name|default}}` syntax pre-fills the fill-in inputs, and last-used values are remembered per prompt in localStorage (idea added by cycle 36) — done 2026-09-07, #393~~
 44. Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)
-45. Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)
+45. ~~Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)~~ — shipped 2026-09-07 (#407: core/rendering, `*_html` fields, Prose component; protocols too)
 46. ~~Edge-swipe open (done 2026-06-11, cycle 48, UI/UX): touchstart within 24px of the left edge + >60px rightward swipe opens the drawer (window-level Alpine handlers); mid-screen swipes ignored — touch-verified at 420px.~~
 47. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
 48. Matrix gap column hints — show each theme's read-count in the review matrix header so gaps are visible there too, linking back to the gap-ordered queue (idea added by cycle 41)

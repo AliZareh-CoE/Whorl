@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ MENTIONS EVERYWHERE (2026-09-07, #407).** `core/rendering.py` (shared resolver + renderer; notes preview uses it), `*_html` companions on decisions / experiment entries / protocols / captures, `components/Prose.tsx`, Decisions clamp + expand, experiment entry expands, protocol body rendered, Inbox capture rendered; demo decision + entry carry mentions. Tests: core/tests/test_rendering.py (5), comments tests updated to the visible-gap contract. Playwright: mention in a decision → SPA navigation without reload (docs/screenshots/mentions-decisions.png, mentions-research.png).
+
 - **★ WATCHED FOLDER (2026-09-07, #406).** `literature/watch.py` (15 s poll, ledger, import pipeline, optional project), `GET/POST /api/v1/watch-folder/` + `/scan/`, desktop launcher resumes it, Rust `pick_folder`, Library rail block. Tests: literature/tests/test_watch.py (3). Playwright: set a folder → scan now → imported (docs/screenshots/watch-folder.png).
 
 - **AppImage retry (2026-09-07, #405) — red, reverted.** Run 126's Linux job: deb + rpm fine, AppImage `failed to run linuxdeploy`. Target removed again; #288 closed in DECISIONS. Same commit hardens `scripts/boot_check.py`: run 124's Windows job hung in `page.click` waiting for the post-login navigation (run 125 passed) — the click is now decoupled from the navigation (90 s `wait_for_url`, a login screenshot and the collected problems on failure).

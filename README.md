@@ -50,7 +50,7 @@ Claude Code can do all of it with you — 91 tools over the same API the UI uses
 - Discover from any paper (similar / cites / cited-by), citations in APA · MLA · Chicago · Harvard · Vancouver · IEEE, retraction and duplicate checkers.
 - Review matrix: an extraction table of papers × themes — click a cell, type the finding, add themes in place, copy as Markdown, draft a synthesis note; Claude fills cells from the PDFs through MCP.
 
-**Notes & graph** — `[[wiki-links]]` and Pandoc-style `@key` citations with autocomplete, live preview, autosave, backlinks and unlinked mentions.
+**Notes & graph** — `[[wiki-links]]` and Pandoc-style `@key` citations with autocomplete, live preview, autosave, backlinks and unlinked mentions. The same mentions work in decisions, experiment entries, protocols and captures — every markdown body renders through one resolver (`core/rendering.py`) and the API returns a rendered `*_html` companion next to the source.
 - Templates: a literature note built from any paper with its highlights, a daily note seeded with this week's focus, meeting, experiment. Export any note with a formatted bibliography.
 - 3D/2D knowledge graph (vendored, works offline): search-to-focus, kind and link filters, neighbourhood focus, hubs.
 

@@ -215,7 +215,8 @@ class Command(BaseCommand):
         DecisionRecord.objects.create(
             project=project,
             title="Use a dual-task paradigm instead of load manipulation within a single task",
-            context="Single-task load manipulations confound difficulty with load.",
+            context="Single-task load manipulations confound difficulty with load "
+            "(the argument in @lavie2010attention; see [[Load theory overview]]).",
             decision="Adopt the dual-task design with separate WM and attention components.",
             alternatives="Within-task load (rejected: confound); pupillometry only (rejected: cost).",
             decided_on=today - datetime.timedelta(days=70),
@@ -541,7 +542,8 @@ class Command(BaseCommand):
             title="Incentive manipulation dry run",
             defaults={
                 "date": today - datetime.timedelta(days=3),
-                "body": "Bonus structure explained; comprehension check passed by 9/9.",
+                "body": "Bonus structure explained; comprehension check passed by 9/9. "
+                "Follows the incentive framing in [[Strategic allocation hypothesis]].",
             },
         )[0].hypotheses.set([strategic_h, capacity_h])
         Dataset.objects.update_or_create(

@@ -144,10 +144,10 @@ class TestCommentMentions:
         from core.mentions import resolve_mentions
         from notes.tests.factories import NoteFactory
 
-        assert resolve_mentions("[[No Such Note]]") == "[[No Such Note]]"
+        assert resolve_mentions("[[No Such Note]]") == "*[[No Such Note]]*"  # #407: visible gap
         NoteFactory(title="Twin")
         NoteFactory(title="Twin")  # second project — ambiguous
-        assert resolve_mentions("[[Twin]]") == "[[Twin]]"
+        assert resolve_mentions("[[Twin]]") == "*[[Twin]]*"
 
     def test_cite_key_resolves_to_reference(self):
         from core.mentions import resolve_mentions
@@ -155,8 +155,8 @@ class TestCommentMentions:
 
         ref = ReferenceFactory(bibtex_key="lecun2015deep")
         out = resolve_mentions("ties into @lecun2015deep nicely")
-        assert out == f"ties into [@lecun2015deep]({ref.get_absolute_url()}) nicely"
-        assert resolve_mentions("@nobody2099nothing") == "@nobody2099nothing"
+        assert out == f'ties into [@lecun2015deep]({ref.get_absolute_url()} "{ref.title}") nicely'
+        assert resolve_mentions("@nobody2099nothing") == "*@nobody2099nothing*"
         assert resolve_mentions("mail me a@b") == "mail me a@b"  # not a mention
 
     def test_mentions_render_as_links_in_comment_thread(self, client_logged_in):

@@ -2,14 +2,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
+import { Prose } from "../../components/Prose";
 
-type Decision = { id: number; title: string; context: string; decision: string; alternatives: string; decided_on: string };
+type Decision = { id: number; title: string; context: string; decision: string; alternatives: string; context_html: string; decision_html: string; alternatives_html: string; decided_on: string };
+
+/** Long enough that the card clamps it and offers "Read the whole decision". */
+const isLong = (d: Decision) => (d.context + d.decision + d.alternatives).length > 420 || /\n\s*\n/.test(d.decision + d.context);
 type Page<T> = { count: number; results: T[] };
 
 const inputClass =
@@ -31,6 +35,8 @@ export default function Decisions() {
   const [alternatives, setAlternatives] = useState("");
   const [decidedOn, setDecidedOn] = useState(new Date().toISOString().slice(0, 10));
   const [editing, setEditing] = useState<Decision | null>(null);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const toggle = (id: number) => setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const menu = useMenu();
   const reset = () => { setTitle(""); setDecision(""); setContext(""); setAlternatives(""); setDecidedOn(new Date().toISOString().slice(0, 10)); setEditing(null); setFormOpen(false); };
   const startEdit = (d: Decision) => { setEditing(d); setTitle(d.title); setDecision(d.decision); setContext(d.context); setAlternatives(d.alternatives ?? ""); setDecidedOn(d.decided_on); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
@@ -170,14 +176,23 @@ export default function Decisions() {
                   <time className="shrink-0 font-mono text-xs text-stone-400 dark:text-stone-400">{fmtDate(d.decided_on)}</time>
                   <Kebab items={itemsFor(d)} label={`Actions for ${d.title}`} className="-my-1 opacity-0 group-hover:opacity-100 focus:opacity-100" />
                 </div>
-                {d.context && (
-                  <p className="mt-2 text-xs leading-relaxed text-stone-400 dark:text-stone-400">{d.context.slice(0, 240)}</p>
-                )}
-                {d.decision && (
-                  <p className="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">{d.decision.slice(0, 280)}</p>
-                )}
-                {d.alternatives && (
-                  <p className="mt-2 text-xs leading-relaxed text-stone-400 dark:text-stone-500"><span className="font-medium uppercase tracking-wide">Rejected · </span>{d.alternatives.slice(0, 200)}</p>
+                {/* #407: markdown with [[note]] / @cite-key mentions as links; long records clamp */}
+                <div className={`mt-2 space-y-2 ${isLong(d) && !expanded.has(d.id) ? "relative max-h-40 overflow-hidden" : ""}`} data-testid="decision-body" data-expanded={expanded.has(d.id) ? "1" : undefined}>
+                  <Prose html={d.context_html} className="text-xs text-stone-400 dark:text-stone-400" />
+                  <Prose html={d.decision_html} className="text-sm text-stone-600 dark:text-stone-300" />
+                  {d.alternatives && (
+                    <div className="text-xs text-stone-400 dark:text-stone-500">
+                      <span className="font-medium uppercase tracking-wide">Rejected</span>
+                      <Prose html={d.alternatives_html} className="text-xs" />
+                    </div>
+                  )}
+                  {isLong(d) && !expanded.has(d.id) && <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent dark:from-stone-900" />}
+                </div>
+                {isLong(d) && (
+                  <button type="button" onClick={() => toggle(d.id)} className="mt-1.5 inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-300" data-testid="decision-expand">
+                    <ChevronDown className={`h-3 w-3 transition-transform ${expanded.has(d.id) ? "rotate-180" : ""}`} aria-hidden="true" />
+                    {expanded.has(d.id) ? "Show less" : "Read the whole decision"}
+                  </button>
                 )}
               </article>
             </li>

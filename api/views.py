@@ -2250,43 +2250,12 @@ class NoteViewSet(AtlasViewSet):
     )
     @action(detail=False, methods=["post"])
     def preview(self, request):
-        import re
-
-        from core.templatetags.markdown_extras import markdownify
-        from notes.services import WIKI_LINK_RE
+        from core.rendering import render_body
         from projects.models import Project
 
         body = str(request.data.get("body", ""))[:50_000]
         project = Project.objects.filter(slug=request.data.get("project", "")).first()
-        if project:
-            by_title = {n.title.lower(): n for n in project.notes.all()}
-
-            def replace(match: re.Match) -> str:
-                title = match.group(1).strip()
-                target = by_title.get(title.lower())
-                if target:
-                    return f"[{title}]({target.get_absolute_url()})"
-                return f"*[[{title}]]*"
-
-            body = WIKI_LINK_RE.sub(replace, body)
-        # @cite-keys become links to the paper (Notes v2 slice 1)
-        from literature.models import Reference
-        from notes.services import CITE_RE, parse_cite_keys
-
-        keys = parse_cite_keys(body)
-        if keys:
-            refs = {r.bibtex_key.lower(): r for r in Reference.objects.filter(bibtex_key__in=keys)}
-
-            def cite(match: re.Match) -> str:
-                key = match.group(1).rstrip(".")
-                ref = refs.get(key.lower())
-                if ref:
-                    title = ref.title.replace('"', "'")
-                    return f'[@{key}]({ref.get_absolute_url()} "{title}")'
-                return f"*@{key}*"
-
-            body = CITE_RE.sub(cite, body)
-        return Response({"html": str(markdownify(body))})
+        return Response({"html": render_body(body, project)})
 
     def perform_create(self, serializer):
         note = serializer.save()

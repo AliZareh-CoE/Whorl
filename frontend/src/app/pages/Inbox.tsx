@@ -8,10 +8,11 @@ import { Link } from "react-router-dom";
 import { BookOpen, Check, FileText, Flag, Inbox as InboxIcon, ListChecks, Scale, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { ErrorState } from "../../components/ErrorState";
+import { Prose } from "../../components/Prose";
 import { Skeleton } from "../../components/Skeleton";
 
 type Hint = { suggested: "paper" | "note" | "todo" | "milestone" | "decision"; doi: string; arxiv_id: string; url: string; title: string };
-type Capture = { id: number; text: string; processed: boolean; project: string | null; hint: Hint; created_at: string };
+type Capture = { id: number; text: string; text_html: string; processed: boolean; project: string | null; hint: Hint; created_at: string };
 type Project = { name: string; slug: string; color: string };
 type Page<T> = { count: number; results: T[] };
 type Converted = { kind: string; id: number; title: string; app_url: string; created?: boolean };
@@ -136,7 +137,8 @@ function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismi
   if (c.hint.url && !c.hint.doi) chips.push("link");
   return (
     <li className={`${panel} rise p-3 transition-shadow ${active ? "ring-2 ring-indigo-500/60" : ""}`} style={{ ["--i" as string]: i + 1 }} data-testid="inbox-row" data-active={active ? "1" : undefined} onMouseEnter={onFocus}>
-      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-stone-800 dark:text-stone-100">{c.text}</p>
+      {/* #407: [[note]] and @cite-key mentions in a capture are links */}
+      <Prose html={c.text_html} className="break-words text-sm text-stone-800 dark:text-stone-100" testId="capture-text" />
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="text-stone-400">{ago(c.created_at)}</span>
         {chips.map((ch) => <span key={ch} className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-mono text-indigo-700 dark:text-indigo-200">{ch}</span>)}

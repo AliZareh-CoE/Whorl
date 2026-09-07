@@ -125,8 +125,28 @@ class ResearchQuestionSerializer(serializers.ModelSerializer):
         fields = ["id", "project", "question", "status", "phases", "created_at", "updated_at"]
 
 
-class DecisionRecordSerializer(serializers.ModelSerializer):
+class RenderedBodyMixin:
+    """`<field>_html` companions (#407): the markdown body rendered with [[note]] and
+    @cite-key mentions resolved, ready for the SPA to show. Read-only."""
+
+    rendered_fields: tuple[str, ...] = ()
+    soft_breaks = False
+
+    def _rendered(self, obj, field: str) -> str:
+        from core.rendering import render_body
+
+        return render_body(
+            getattr(obj, field, "") or "",
+            getattr(obj, "project", None),
+            soft_breaks=self.soft_breaks,
+        )
+
+
+class DecisionRecordSerializer(RenderedBodyMixin, serializers.ModelSerializer):
     project = ProjectSlugField()
+    context_html = serializers.SerializerMethodField()
+    decision_html = serializers.SerializerMethodField()
+    alternatives_html = serializers.SerializerMethodField()
 
     class Meta:
         model = DecisionRecord
@@ -137,10 +157,25 @@ class DecisionRecordSerializer(serializers.ModelSerializer):
             "context",
             "decision",
             "alternatives",
+            "context_html",
+            "decision_html",
+            "alternatives_html",
             "decided_on",
             "created_at",
             "updated_at",
         ]
+
+    @extend_schema_field(serializers.CharField())
+    def get_context_html(self, obj):
+        return self._rendered(obj, "context")
+
+    @extend_schema_field(serializers.CharField())
+    def get_decision_html(self, obj):
+        return self._rendered(obj, "decision")
+
+    @extend_schema_field(serializers.CharField())
+    def get_alternatives_html(self, obj):
+        return self._rendered(obj, "alternatives")
 
 
 class FolderSerializer(serializers.ModelSerializer):
@@ -338,13 +373,28 @@ class ProjectReferenceSerializer(serializers.ModelSerializer):
         ]
 
 
-class QuickCaptureSerializer(serializers.ModelSerializer):
+class QuickCaptureSerializer(RenderedBodyMixin, serializers.ModelSerializer):
     project = ProjectSlugField(required=False, allow_null=True)
     hint = serializers.SerializerMethodField()
+    text_html = serializers.SerializerMethodField()
+    soft_breaks = True  # captures are jotted, not typeset: every newline is a break
 
     class Meta:
         model = QuickCapture
-        fields = ["id", "text", "processed", "project", "hint", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "text",
+            "text_html",
+            "processed",
+            "project",
+            "hint",
+            "created_at",
+            "updated_at",
+        ]
+
+    @extend_schema_field(serializers.CharField())
+    def get_text_html(self, obj):
+        return self._rendered(obj, "text")
 
     @extend_schema_field(serializers.DictField())
     def get_hint(self, obj):
@@ -689,10 +739,16 @@ class HypothesisSerializer(serializers.ModelSerializer):
         return obj.suggested_status
 
 
-class ExperimentEntrySerializer(serializers.ModelSerializer):
+class ExperimentEntrySerializer(RenderedBodyMixin, serializers.ModelSerializer):
     project = ProjectSlugField()
     commit_label = serializers.CharField(read_only=True)
     protocol_label = serializers.SerializerMethodField()
+    body_html = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.CharField())
+    def get_body_html(self, obj):
+        return self._rendered(obj, "body")
+
     hypotheses = serializers.PrimaryKeyRelatedField(
         many=True,
         required=False,
@@ -709,6 +765,7 @@ class ExperimentEntrySerializer(serializers.ModelSerializer):
             "date",
             "title",
             "body",
+            "body_html",
             "commit_url",
             "commit_label",
             "protocol",
@@ -735,9 +792,14 @@ class DatasetSerializer(serializers.ModelSerializer):
         fields = ["id", "project", "name", "location", "version", "checksum", "description"]
 
 
-class ProtocolSerializer(serializers.ModelSerializer):
+class ProtocolSerializer(RenderedBodyMixin, serializers.ModelSerializer):
     project = ProjectSlugField()
     is_current = serializers.BooleanField(read_only=True)
+    body_html = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.CharField())
+    def get_body_html(self, obj):
+        return self._rendered(obj, "body")
 
     class Meta:
         from research.models import Protocol
@@ -748,6 +810,7 @@ class ProtocolSerializer(serializers.ModelSerializer):
             "project",
             "title",
             "body",
+            "body_html",
             "version",
             "parent",
             "is_current",
