@@ -174,7 +174,8 @@ export function ManuscriptDetail() {
     <div>
       <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400"><Link to="/writing" className="hover:underline">Writing</Link> / <Link to={`/projects/${m.project}`} className="hover:underline">{m.project_name}</Link> / {m.title}</nav>
       <div className="mb-2 flex flex-wrap items-center gap-3">
-        <input value={m.title} onChange={(e) => patch.mutate({ title: e.target.value })} className="font-display min-w-[18rem] flex-1 bg-transparent text-3xl font-bold tracking-tight text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Manuscript title" title={m.title} />
+        {/* a textarea that sizes to its content so a long title wraps instead of clipping (#420) */}
+        <textarea value={m.title} rows={1} onChange={(e) => patch.mutate({ title: e.target.value.replace(/\n/g, " ") })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLTextAreaElement).blur(); } }} className="font-display field-sizing-content min-w-[16rem] flex-1 resize-none bg-transparent text-3xl font-bold leading-tight tracking-tight text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Manuscript title" />
         <Link to={`/manuscripts/${m.id}/editor`} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Open the studio<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></Link>
         <Kebab label="Manuscript actions" items={[
           { label: "Shelve", onSelect: () => patch.mutate({ status: "shelved" }), disabled: m.status === "shelved" },
