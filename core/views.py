@@ -118,7 +118,19 @@ def spa_shell(request, rest=""):
 
     ensure_csrf_cookie: the shell has no form, but the SPA's writes need the token.
     """
-    return render(request, "spa.html")
+    import os
+
+    from django.conf import settings
+
+    data_dir = getattr(settings, "DATA_DIR", None)
+    return render(
+        request,
+        "spa.html",
+        {
+            "atlas_version": os.environ.get("ATLAS_VERSION", "dev"),
+            "server_log_path": str(data_dir / "atlas-server.log") if data_dir else "",
+        },
+    )
 
 
 def install_claude_skills(request):

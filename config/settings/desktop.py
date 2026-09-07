@@ -67,6 +67,11 @@ STORAGES = {
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
+# Static files are served from localhost and their names carry no content hash, so the web
+# view must revalidate them on every load: after an update a cached spa.js from the previous
+# build would import chunks that no longer match (#382). Revalidation on 127.0.0.1 is free.
+WHITENOISE_MAX_AGE = 0
+
 # No Redis in a single-user desktop build: run background jobs in-process, immediately.
 HUEY = {"huey_class": "huey.MemoryHuey", "name": "atlas", "immediate": True}
 

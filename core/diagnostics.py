@@ -11,6 +11,8 @@ from pathlib import Path
 
 from django.conf import settings
 
+from core import client_errors
+
 
 def _tail(path: Path, lines: int = 120) -> str:
     try:
@@ -97,6 +99,7 @@ def collect(check_network: bool = False) -> dict:
             else None
         ),
         "server_log": _tail(Path(data_dir) / "atlas-server.log") if data_dir else "",
+        "client_errors": client_errors.recent(),
     }
 
 
@@ -119,6 +122,13 @@ def as_text(report: dict) -> str:
     if report["last_failed_compile"]:
         f = report["last_failed_compile"]
         lines += ["", f"last failed compile: #{f['manuscript']} {f['title']} ({f['at']})", f["log"]]
+    if report.get("client_errors"):
+        lines += ["", "front-end errors (most recent first):"]
+        for entry in report["client_errors"]:
+            lines.append(
+                f"  {entry['at']} · {entry['where']} · {entry['url']} · {entry['version'] or 'dev'}"
+            )
+            lines += [f"    {e}" for e in entry["errors"]] or ["    (no message captured)"]
     if report["server_log"]:
         lines += ["", "server log (tail):", report["server_log"]]
     return "\n".join(lines)

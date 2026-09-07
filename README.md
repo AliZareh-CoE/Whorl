@@ -251,6 +251,17 @@ pieces, in order:
 secret. Rotating it means users must reinstall once, because the old public key no longer
 matches.
 
+### If the window is blank
+
+A blank window (only the background, no sidebar) means the app script did not run to the end.
+Since #382 it cannot stay silent: after a few seconds a panel says **"Atlas couldn't draw the
+app"** with the errors that were thrown, a Reload button, a link to the classic pages, and the
+path of the server log the report was also written to. A crash while drawing one page shows
+that page's error in place with the sidebar intact. Every report lands in `atlas-server.log`
+and under **Front-end errors** on `/diagnostics` — paste that section when reporting. The
+desktop also re-collects its static assets with `--clear` on every version change and serves
+them with revalidation, so an update can never leave the previous build's scripts behind.
+
 ## Backups
 
 Diagnostics (`/diagnostics`) also shows whether the **TeX bundle cache** is warm and has a

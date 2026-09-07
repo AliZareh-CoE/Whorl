@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "./Layout";
 import { DialogHost } from "../components/Dialog";
+import { ErrorBoundary, reportClientError } from "../components/ErrorBoundary";
 import { installDesktopContextMenuGuard } from "./external";
 
 // Route-level code splitting (Backlog #76): each page is its own chunk, fetched on
@@ -46,7 +47,14 @@ const queryClient = new QueryClient({
 
 installDesktopContextMenuGuard();
 
+// Anything thrown outside React's render (#382) — an event handler, a promise — is reported
+// too; the boot watchdog in spa.html covers the time before this script ran.
+window.addEventListener("error", (e) => reportClientError("window", [`${e.message} @ ${String(e.filename).replace(location.origin, "")}:${e.lineno}`]));
+window.addEventListener("unhandledrejection", (e) => { const r = e.reason as { stack?: string } | undefined; const text = r?.stack ? String(r.stack).split("\n").slice(0, 3).join(" · ") : String(r); if (text !== "Error: auth") reportClientError("promise", [text]); });
+(window as unknown as { __atlasMounted?: boolean }).__atlasMounted = true;
+
 createRoot(document.getElementById("root")!).render(
+  <ErrorBoundary scope="app">
   <QueryClientProvider client={queryClient}>
     <BrowserRouter basename="/">
       <Suspense fallback={<p className="p-8 text-sm text-stone-400">Loading…</p>}>
@@ -101,5 +109,6 @@ createRoot(document.getElementById("root")!).render(
       </Suspense>
       <DialogHost />
     </BrowserRouter>
-  </QueryClientProvider>,
+  </QueryClientProvider>
+  </ErrorBoundary>,
 );

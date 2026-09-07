@@ -43,7 +43,9 @@ can replace its files (`installer-hooks.nsh`).
    jobs run in-process; static files come from WhiteNoise.
 4. The window navigates to the app the moment the port answers. If the server exits or never
    binds, the window shows an **in-app diagnostic page** with the data folder path and the tail
-   of `atlas-server.log`, so a failure explains itself.
+   of `atlas-server.log`, so a failure explains itself. If the server is up but the app never
+   draws (a blank window), the page's own boot watchdog shows the thrown errors after a few
+   seconds and writes them to `atlas-server.log` (README › If the window is blank).
 5. Quitting the app stops the server. A second launch focuses the existing window instead of
    starting a second server on the same database.
 

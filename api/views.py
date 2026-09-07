@@ -2653,6 +2653,25 @@ class DiagnosticsAPIView(APIView):
         return Response(report)
 
 
+class ClientErrorAPIView(APIView):
+    """Front-end crash reports (#382): the SPA's boot watchdog, error boundary and global
+    error handlers post here; each lands in the server log and the Diagnostics report."""
+
+    @extend_schema(
+        operation_id="v1_client_error",
+        description="Record a front-end error report (where, url, errors[], version). "
+        "It is written to the server log and kept for the Diagnostics report.",
+        request=None,
+        responses={204: None},
+    )
+    def post(self, request):
+        from core.client_errors import record
+
+        payload = request.data if isinstance(request.data, dict) else {}
+        record(payload, user_agent=request.headers.get("User-Agent", ""))
+        return Response(status=204)
+
+
 class LatexWarmupAPIView(APIView):
     """Warm the LaTeX engine's bundle cache in the background (Diagnostics page)."""
 

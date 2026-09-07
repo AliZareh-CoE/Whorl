@@ -16,6 +16,7 @@ type Report = {
   version: string; desktop: boolean; platform: string; frozen: boolean; settings_module: string; data_dir: string | null; database: string;
   engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; update_feed: Feed[];
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
+  client_errors?: { at: string; where: string; url: string; version: string; errors: string[] }[];
 };
 
 const panel = "rise rounded-2xl border border-stone-200 bg-white/70 p-5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/60";
@@ -96,6 +97,19 @@ export default function Diagnostics() {
               {r.update_feed.map((f) => <Row key={f.url} label="Update feed" value={<><code className="text-xs">{f.url.replace("https://github.com/", "")}</code>{f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (private repository or missing feed)" : ""}</span>}</>} ok={f.status === null ? null : f.status === 200} />)}
             </dl>
           </section>
+          {r.client_errors && r.client_errors.length > 0 && (
+            <section className={`${panel} mt-5`} data-testid="client-errors">
+              <p className={`${railH} mb-2`}><AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-amber-500" aria-hidden="true" />Front-end errors · most recent first</p>
+              <ul className="space-y-2">
+                {r.client_errors.map((e, i) => (
+                  <li key={i} className="rounded-lg bg-stone-950 p-3 font-mono text-[11px] leading-4 text-stone-200">
+                    <p className="mb-1 text-stone-400">{e.at} · {e.where} · {e.url} · {e.version || "dev"}</p>
+                    <pre className="whitespace-pre-wrap break-words">{e.errors.join("\n") || "(no message captured)"}</pre>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {r.last_failed_compile && (
             <section className={`${panel} mt-5`} style={{ ["--i" as string]: 2 }} data-testid="diag-compile">
               <p className={`${railH} mb-2`}><AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-amber-500" aria-hidden="true" />Last failed compile · <Link to={`/manuscripts/${r.last_failed_compile.manuscript}/editor`} className="normal-case tracking-normal text-indigo-600 hover:underline dark:text-indigo-300">{r.last_failed_compile.title}</Link></p>

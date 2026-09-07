@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { Bot, CheckSquare, Command, FolderKanban, Inbox, LayoutDashboard, Library, Moon, PenLine, Plug, Search, Sparkles, Sun, TerminalSquare, Wand2 } from "lucide-react";
 import { api, csrfToken } from "./api";
 import { toSpaUrl } from "./links";
@@ -51,6 +52,7 @@ function openCommandBar() {
 /** SPA chrome mirroring the classic sidebar; unmigrated sections link to server pages. */
 export default function Layout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   // Intercept plain <a> clicks to classic URLs that have an SPA page — no full reloads
   // inside the app (owner feedback, cycle 69). True classic-only URLs still navigate.
@@ -226,7 +228,9 @@ export default function Layout() {
       </aside>
       <main className="ml-60 min-w-0 flex-1">
         <div className="mx-auto max-w-screen-2xl px-8 py-7">
-          <Outlet />
+          <ErrorBoundary scope="page" resetKey={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </main>
       <TerminalDock />

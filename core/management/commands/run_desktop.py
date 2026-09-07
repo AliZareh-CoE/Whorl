@@ -82,8 +82,12 @@ class Command(BaseCommand):
         if marker.exists() and marker.read_text(errors="ignore").strip() == version:
             self.stdout.write("Static assets already collected for this version.")
         else:
+            # --clear (#382): without it collectstatic keeps any collected file whose mtime is
+            # not older than the source's, and an installer that preserves build timestamps
+            # leaves the previous build's spa.js/chunks in place — a half-updated module graph
+            # that fails to evaluate, i.e. a blank window. A version change wipes the folder.
             self.stdout.write("Collecting static assets (first run for this version)…")
-            call_command("collectstatic", "--no-input", verbosity=1)
+            call_command("collectstatic", "--no-input", "--clear", verbosity=1)
             marker.parent.mkdir(parents=True, exist_ok=True)
             marker.write_text(version)
 
