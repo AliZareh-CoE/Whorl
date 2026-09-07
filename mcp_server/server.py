@@ -157,6 +157,28 @@ def read_manuscript_file(file_id: int) -> dict:
 
 
 @mcp.tool()
+def attach_manuscript_figure(manuscript_id: int, path: str, file_path: str) -> dict:
+    """Put a figure (or any binary: PNG, PDF, JPG, data) from this machine into the manuscript's
+    source tree — `file_path` is a local path, `path` where it lands in the manuscript (e.g.
+    figures/pilot.png). Replaces an existing asset at that path. Returns the file row plus an
+    `include` snippet (\\includegraphics) to paste into the .tex. Text files go through
+    write_manuscript_file instead."""
+    row = client.attach_manuscript_asset(manuscript_id, path, file_path)
+    stem = path.rsplit("/", 1)[-1]
+    row = dict(row) if isinstance(row, dict) else {"result": row}
+    row["include"] = (
+        "\\begin{figure}[t]\n  \\centering\n  \\includegraphics[width=\\linewidth]{"
+        + path
+        + "}\n  \\caption{"
+        + stem.rsplit(".", 1)[0].replace("-", " ").replace("_", " ")
+        + "}\n  \\label{fig:"
+        + stem.rsplit(".", 1)[0]
+        + "}\n\\end{figure}"
+    )
+    return row
+
+
+@mcp.tool()
 def write_manuscript_file(manuscript_id: int, path: str, content: str) -> dict:
     """Create or overwrite a manuscript source file at `path` (e.g. 'main.tex' or
     'sections/intro.tex') with `content`. Use this to edit the owner's LaTeX, then call

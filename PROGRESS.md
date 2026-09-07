@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **MCP figure upload (2026-09-07, #441).** `attach_manuscript_asset` (client, multipart) + `attach_manuscript_figure` tool (99 tools) with the figure snippet. Tests: mcp_server/tests/test_attach_figure.py (client kwargs, PATCH path, API multipart contract).
+
 - **Undo for triage (2026-09-07, #440).** `components/UndoToast.tsx` (showUndo/UndoHost in main.tsx); Inbox triage + dashboard TriageControls undo via PATCH processed:false. Test: core/tests/test_undo_triage.py. Playwright: dismiss → Undo → row back.
 
 - **Comments searchable + resolvable (2026-09-07, #439).** `Comment.resolved_at` (core 0012) + `target_route()`; PATCH /comments/{id}/; search kind `comment` (both paths, describe); Studio + Reference resolve toggles; gutter marks only for open. Tests: core/tests/test_comments_resolve_search.py.

@@ -4,6 +4,7 @@ Deliberately knows nothing about Django or the ORM — the API is the single con
 Configuration comes from ATLAS_API_URL and ATLAS_API_KEY environment variables.
 """
 
+import mimetypes
 import os
 from datetime import UTC, datetime
 
@@ -191,6 +192,27 @@ def write_manuscript_file(manuscript_id: int, path: str, content: str):
         "/manuscript-files/",
         json={"manuscript": manuscript_id, "path": path, "content": content},
     )
+
+
+def attach_manuscript_asset(manuscript_id: int, path: str, file_path: str):
+    """Upload a binary file (figure, PDF, data) from this machine into the manuscript's source
+    tree at `path` — replacing an asset that already sits at that path."""
+    if not os.path.isfile(file_path):
+        raise AtlasClientError(f"No such file on this machine: {file_path}")
+    listing = list_manuscript_files(manuscript_id)
+    results = listing["results"] if isinstance(listing, dict) and "results" in listing else listing
+    existing = next((f for f in results if f["path"] == path), None)
+    content_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+    with open(file_path, "rb") as handle:
+        files = {"asset": (os.path.basename(file_path), handle, content_type)}
+        if existing:
+            return _request("PATCH", f"/manuscript-files/{existing['id']}/", files=files)
+        return _request(
+            "POST",
+            "/manuscript-files/",
+            data={"manuscript": manuscript_id, "path": path, "kind": "asset"},
+            files=files,
+        )
 
 
 def set_main_file(file_id: int):

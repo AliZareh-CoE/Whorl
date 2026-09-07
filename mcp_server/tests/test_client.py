@@ -82,7 +82,7 @@ def test_no_django_imports():
         elif isinstance(node, ast.ImportFrom) and node.module:
             imported.add(node.module.split(".")[0])
     assert "django" not in imported
-    assert imported <= {"os", "datetime", "httpx"}
+    assert imported <= {"os", "datetime", "httpx", "mimetypes"}  # stdlib only, plus httpx
 
 
 class TestETagCache:

@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Claude can attach figures (#441)
+
+**Decision.** `attach_manuscript_figure(manuscript_id, path, file_path)` (99 tools): the MCP client reads a local file, guesses its type and sends it multipart to `/manuscript-files/` as an `asset` at `path` (PATCH when an asset already sits there); the tool answers with the file row and a ready `\begin{figure}…\includegraphics…\label{fig:…}` snippet. `write_manuscript_file` stays the text path.
+
+**Why.** Backlog #127: with `write_manuscript_file`, `draft_related_work` and the cite checker, a figure was the one thing Claude could not put into a paper end to end.
+
+**Alternatives rejected.** Base64 in a JSON tool argument (megabytes through the model's context for nothing — the file is on the same machine as the MCP server); a separate figures API (the manuscript-files endpoint already stores assets and the studio already lists them).
+
 ### 2026-09-07 — Undo for inline triage (#440)
 
 **Decision.** One global undo toast (`components/UndoToast.tsx`: `showUndo(message, undo)` + `UndoHost` mounted once in `main.tsx`, bottom-centre, six seconds, Esc dismisses, the newest replaces the last). Filing or dismissing a capture — from the Inbox (button or the `x`/`f` keys) or the dashboard's needs-attention row — shows "Filed under X — “…”" or "Dismissed — “…”" with **Undo**, which PATCHes the capture back to unprocessed with its previous project. Convert-to-object actions are not undoable this way (they created a paper, a note, a milestone — those have their own delete).
@@ -2477,7 +2485,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 130. ~~Resolve/strike line comments (done 2026-09-07, #439: `resolved_at`, PATCH, greyed rows, gutter marks only for open ones)~~ — original: let a line comment be marked resolved (greyed + dot hidden) so addressed feedback clears, like a review tool; the Comment model would need a resolved flag (idea added by cycle 117)
 129. Compile streak on the pet/timeline — a compiles-per-week sparkline (the data is now on the timeline) on the manuscript detail or as a Mochi reaction, turning the writing rhythm into a gentle signal (idea added by cycle 116)
 128. User-defined templates — let the owner save any manuscript's current files AS a reusable template (a thin ManuscriptTemplate model or just "duplicate manuscript"), beyond the 6 built-ins (idea added by cycle 115)
-127. MCP figure upload — write_manuscript_file is text-only; add an MCP tool to attach a figure (multipart to manuscript-files asset) so Claude can complete a paper end-to-end incl. plots (idea added by cycle 114)
+127. ~~MCP figure upload (done 2026-09-07, #441: `attach_manuscript_figure`, multipart asset + includegraphics snippet)~~ — original: write_manuscript_file is text-only; add an MCP tool to attach a figure (multipart to manuscript-files asset) so Claude can complete a paper end-to-end incl. plots (idea added by cycle 114)
 126. Abstract peek in the panel — expand a bibliography row in the research rail to read the full abstract inline (the context endpoint already sends a 280-char snippet; show it on click) without opening the reference page (idea added by cycle 113)
 125. Cite-check across files — the missing-citations check currently scans the active buffer only; aggregate unknown \cite keys across ALL tex files so a citation defined nowhere in a multi-file project is caught (idea added by cycle 112)
 124. Cite hint over MISSING papers — when \cite{} fragment matches nothing in the library, offer an "add by DOI…" inline action that reuses add_reference_by_doi, so writing never breaks to go hunt a paper (idea added by cycle 111, pairs with B2)

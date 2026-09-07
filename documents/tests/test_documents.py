@@ -490,7 +490,17 @@ class TestDocumentsIsland:
         islands = Path("static/js/islands")
         assert (islands / "documents-table.js").exists()
         assert (islands / "assistant.js").exists()
-        # React itself lives in the shared chunk both islands import (Vite 8 names it
-        # jsx-runtime-chunk.js; it was client-chunk.js under Vite 6 — see #159)
-        chunk = islands / "jsx-runtime-chunk.js"
-        assert chunk.exists() and chunk.stat().st_size > 100_000
+        # React itself lives in a shared chunk the islands import; its name follows the
+        # bundler's chunk graph (client-chunk.js under Vite 6, jsx-runtime-chunk.js under
+        # Vite 8, useMutation-chunk.js once react-dom's createPortal joined the graph — #440),
+        # so look for the runtime by size among the chunks documents-table.js pulls in.
+        import re
+
+        imported = set(
+            re.findall(r'from"\./([^"]+)"', (islands / "documents-table.js").read_text())
+        )
+        assert imported, "documents-table.js imports no shared chunk"
+        biggest = max(
+            (islands / name).stat().st_size for name in imported if (islands / name).exists()
+        )
+        assert biggest > 100_000, f"no React-sized chunk among {sorted(imported)}"
