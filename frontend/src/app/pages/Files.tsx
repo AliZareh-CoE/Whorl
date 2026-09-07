@@ -334,6 +334,9 @@ export default function Files() {
   }, []);
   const [dragging, setDragging] = useState(false);
   const [dropFolder, setDropFolder] = useState<number | null>(null);
+  // #410: a file row being dragged inside the tree (moves on drop); OS files still upload
+  const [dragDoc, setDragDoc] = useState<FileNode | null>(null);
+  const DOC_MIME = "application/x-atlas-doc";
   const upload = useMutation({
     mutationFn: ({ files, folder }: { files: FileList | File[]; folder: number | null }) => {
       const fd = new FormData();
@@ -565,10 +568,15 @@ export default function Files() {
       aria-selected={selected?.id === f.id}
       data-tree-focus={focusKey === `file${f.id}`}
       data-testid="tree-file"
+      data-dragging={dragDoc?.id === f.id ? "1" : undefined}
+      draggable={f.role !== "manuscript_source"}
+      title={f.role !== "manuscript_source" ? "Drag onto a folder to move it" : undefined}
+      onDragStart={(e) => { if (f.role === "manuscript_source") { e.preventDefault(); return; } e.dataTransfer.setData(DOC_MIME, String(f.id)); e.dataTransfer.effectAllowed = "move"; setDragDoc(f); }}
+      onDragEnd={() => { setDragDoc(null); setDropFolder(null); setDragging(false); }}
       onClick={() => { setSelected(f); setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); }}
       onContextMenu={(e) => { setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); menu.open(e, fileItems(f)); }}
       style={{ paddingLeft: depth * 14 + 8 }}
-      className={`group flex w-full cursor-pointer items-center gap-2 rounded py-1 pr-1 text-left text-sm hover:bg-stone-50 dark:hover:bg-stone-800 ${focusKey === `file${f.id}` ? "ring-1 ring-indigo-200" : ""} ${selected?.id === f.id ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300" : "text-stone-700 dark:text-stone-300"}`}
+      className={`group flex w-full cursor-pointer items-center gap-2 rounded py-1 pr-1 text-left text-sm hover:bg-stone-50 dark:hover:bg-stone-800 ${dragDoc?.id === f.id ? "opacity-40" : ""} ${focusKey === `file${f.id}` ? "ring-1 ring-indigo-200" : ""} ${selected?.id === f.id ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300" : "text-stone-700 dark:text-stone-300"}`}
     >
       <Icon kind={f.kind || "other"} name={f.name} />
       <span className="min-w-0 flex-1 truncate">{f.name}</span>
@@ -593,9 +601,15 @@ export default function Files() {
           data-testid="tree-folder"
           onClick={() => { setExpanded((e) => ({ ...e, [folder.id]: !e[folder.id] })); setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); }}
           onContextMenu={(e) => { setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); menu.open(e, folderItems(folder)); }}
-          onDragOver={(e) => { if (!isManuscriptFolder(folder)) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; setDropFolder(folder.id); } }}
+          onDragOver={(e) => { if (!isManuscriptFolder(folder)) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = dragDoc ? "move" : "copy"; setDropFolder(folder.id); } }}
           onDragLeave={() => setDropFolder((d) => (d === folder.id ? null : d))}
-          onDrop={(e) => { if (isManuscriptFolder(folder)) return; e.preventDefault(); e.stopPropagation(); setDragging(false); setDropFolder(null); if (e.dataTransfer.files.length) upload.mutate({ files: e.dataTransfer.files, folder: folder.id }); }}
+          onDrop={(e) => {
+            if (isManuscriptFolder(folder)) return;
+            e.preventDefault(); e.stopPropagation(); setDragging(false); setDropFolder(null);
+            const movedId = Number(e.dataTransfer.getData(DOC_MIME));
+            if (movedId) { setDragDoc(null); if (folderFiles[folder.id]?.some((x) => x.id === movedId)) return; moveDoc.mutate({ id: movedId, folder: folder.id }); return; }
+            if (e.dataTransfer.files.length) upload.mutate({ files: e.dataTransfer.files, folder: folder.id });
+          }}
           style={{ paddingLeft: depth * 14 + 8 }}
           className={`group flex w-full cursor-pointer items-center gap-2 rounded py-1 pr-1 text-left text-sm text-stone-700 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800 ${focusKey === `folder${folder.id}` ? "ring-1 ring-indigo-200" : ""} ${dropFolder === folder.id ? "bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-500/15" : ""}`}
         >
@@ -684,12 +698,14 @@ export default function Files() {
           aria-label="Project files"
           className={`relative col-span-1 max-h-[75vh] overflow-y-auto rounded border bg-white p-2 focus:outline-none dark:bg-stone-900 ${dragging ? "border-indigo-400 ring-2 ring-indigo-100" : "border-stone-200 dark:border-stone-800"}`}
           onContextMenu={(e) => menu.open(e, blankItems())}
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragOver={(e) => { e.preventDefault(); if (dragDoc) e.dataTransfer.dropEffect = "move"; setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={(e) => {
             e.preventDefault();
             setDragging(false);
             setDropFolder(null);
+            const movedId = Number(e.dataTransfer.getData(DOC_MIME));
+            if (movedId) { setDragDoc(null); if (!rootFiles.some((x) => x.id === movedId)) moveDoc.mutate({ id: movedId, folder: null }); return; }
             if (e.dataTransfer.files.length) upload.mutate({ files: e.dataTransfer.files, folder: null });
           }}
         >

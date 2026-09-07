@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Files drag-to-move (2026-09-07, #410).** File rows draggable (`application/x-atlas-doc`), folder rows + root accept and call `moveDoc`; manuscript sources/folders excluded. Guard: core/tests/test_polish.py::test_files_rows_drag_to_move. Playwright: root file → folder → root, folder ids verified through the API (docs/screenshots/files-drag-move.png).
+
 - **QueryBoundary (2026-09-07, #409).** `components/QueryBoundary.tsx` (`queryGate`, `QueryBoundary`); Reference, ReadingFlow, Automations, Graph, Prompts, Pet, Connect gated; Report + Diagnostics inline ErrorState. Guard: core/tests/test_query_boundary.py (every querying page has an error branch; allowlist for decorative queries). Playwright: API blocked → ErrorState with retry → recovers (docs/screenshots/query-gate-error.png).
 
 - **Matrix gap hints (2026-09-07, #408).** Theme rows carry `read`; the header shows "n read" (green complete / neutral link / amber nothing-read) linking to the queue's `?theme=` candidates. Test: literature/tests/test_matrix.py::test_theme_rows_carry_read_counts. Playwright: docs/screenshots/matrix-gap-hints.png.

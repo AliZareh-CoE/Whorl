@@ -109,7 +109,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     a clickable breadcrumb (root "Documents" → each ancestor → current), backed by a new
     Folder.ancestors property (walks the parent chain like .path, same query cost). Jump
     straight to any ancestor instead of going back to the tree. Live-verified on real data
-    (Data / Pilot); 2 tests.~~ Remaining: drag rows between folders.
+    (Data / Pilot); 2 tests.~~ ~~Drag rows between folders (done 2026-09-07, #410): file rows drag onto folders or the root through the existing move mutation.~~
 15. **Lightning-fast search with NLP.** ~~First slice (2026-06-11, cycle 19): pg_trgm
     extension + trigram typo-tolerance fallback; websearch query parsing ("quoted phrases",
     OR, -negation); as-you-type suggestion dropdown on the sidebar box (HTMX, 250 ms
@@ -552,6 +552,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Files: drag a file onto a folder to move it (#410)
+
+**Decision.** File rows in the Files explorer are `draggable`; the drag carries the document id under a private MIME type (`application/x-atlas-doc`), so folder rows and the tree's empty area — which already accept OS files for upload — tell the two apart: an Atlas row moves through the existing `PATCH /documents/{id}/ {folder}` mutation, an OS file uploads as before. Dropping on the folder the file is already in is a no-op; manuscript folders refuse drops as they did; manuscript source files are not draggable (the Studio owns them). The dragged row dims, the target folder rings, and the tree's border lights when the drop would go to the root.
+
+**Why.** Owner idea #14's last remaining line ("drag rows between folders"): the Files page had the drop zones and the move mutation, only the row → folder gesture was missing, and the Move-to dropdown in the detail pane is three clicks for something every file manager does in one.
+
+**Alternatives rejected.** A drag library (dnd-kit): the native API already drove the OS-file drops and the Today/smart-view reorders; multi-select drag: the explorer has no multi-select yet — when it does, the payload is a list.
 
 ### 2026-09-07 — One gate for page data: `queryGate` / `QueryBoundary` (#409)
 
