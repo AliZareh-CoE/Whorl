@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **MCP bots (2026-09-07, #417).** `list_bots`, `run_bot`, `toggle_bot` over the bots API (96 tools); README list + count. Tests: mcp_server/tests/test_docs.py.
+
 - **Markdown vault export (2026-09-07, #416).** `projects/vault.py`, `GET /projects/{slug}/vault/` (zip; `?documents=0`), overview kebab item + ⌘K verb. Tests: projects/tests/test_vault.py (3). Verified: the demo vault downloaded and listed.
 
 - **Achievements batch three (2026-09-07, #415).** Five seasonal secrets, Embrace the dark + two souls-only (Pet.souls_since, core 0009), the Platinum computed from the rest (95 total). Tests: core/tests/test_achievements.py::test_batch_three_seasonal_souls_and_platinum.

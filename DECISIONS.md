@@ -48,7 +48,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    bot (Crossref sweep → inbox flags). Bots report to the inbox; failures recorded, never
    crash the scheduler.~~ ~~Citation-sync bot + run history (2026-06-11, cycle 23): third
    bot refreshes OpenAlex edges for all active projects (verified live); BotRun model keeps
-   the last 20 runs per bot with ✓/✕ shown in a Run history panel.~~ ~~Inbox-triage suggester — `notes/capture.py::detect` suggests paper/todo/decision per capture and the Inbox pre-selects it (retired as done 2026-09-07).~~ Remaining: MCP-side bots.
+   the last 20 runs per bot with ✓/✕ shown in a Run history panel.~~ ~~Inbox-triage suggester — `notes/capture.py::detect` suggests paper/todo/decision per capture and the Inbox pre-selects it (retired as done 2026-09-07).~~ ~~MCP-side bots (done 2026-09-07, #417: list_bots / run_bot / toggle_bot).~~
 8. **Open-source readiness.** Goal: thousands of stars; brainstorm lives in `OPENSOURCE.md`.
    ~~First slice (2026-06-11, cycle 28): AGPL-3.0 LICENSE (decision logged), hero README
    (positioning line, screenshot grid from docs/screenshots/, feature list, comparison table
@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Bots from the MCP side (#417)
+
+**Decision.** Three thin tools over the existing bots API: `list_bots` (state, last result, recent runs), `run_bot(slug)` (run now, returns the result line) and `toggle_bot(slug)` (flip enabled). 96 tools. Nothing new server-side: the Automations page already spoke this contract.
+
+**Why.** Owner idea #7's last line ("MCP-side bots"): Claude could read the Inbox the bots fill but could not ask a bot to run — "check the deadlines before we plan the week" needed a browser. Now the bots are one tool call away, which is also how a Claude-driven routine would schedule them.
+
+**Alternatives rejected.** Bots implemented *inside* the MCP server (they would need the ORM the server deliberately has none of, and would stop running when Claude is not around); a `create_bot` tool (bots are code in `bots/registry.py`, not data).
 
 ### 2026-09-07 — A project as a Markdown vault (#416)
 

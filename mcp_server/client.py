@@ -365,6 +365,21 @@ def get_writing_progress(manuscript_id: int, days: int = 30):
     return _request("GET", f"/manuscripts/{manuscript_id}/progress/", params={"days": days})
 
 
+def list_bots():
+    """Every automation with its enabled state, last result and recent runs."""
+    return _request("GET", "/bots/")
+
+
+def run_bot(slug: str):
+    """Run one automation now; returns its result line."""
+    return _request("POST", f"/bots/{slug}/action/", json={"action": "run"})
+
+
+def toggle_bot(slug: str):
+    """Flip an automation between enabled and disabled; returns the new state."""
+    return _request("POST", f"/bots/{slug}/action/", json={"action": "toggle"})
+
+
 def reorder_todos(ids: list[int]):
     """The given ids take positions 1..n; the rest follow in their current order."""
     return _request("POST", "/todos/reorder/", json={"ids": ids})

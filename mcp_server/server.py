@@ -335,6 +335,26 @@ def get_writing_progress(manuscript_id: int, days: int = 30) -> dict:
 
 
 @mcp.tool()
+def list_bots() -> dict:
+    """The automations (deadline reminders, retraction watch, citation sync, …) with their
+    enabled state, last result and the last runs. Bots report to the Inbox."""
+    return client.list_bots()
+
+
+@mcp.tool()
+def run_bot(slug: str) -> dict:
+    """Run one automation right now (slug from list_bots) and return its result line —
+    e.g. run the deadline reminder before a planning conversation."""
+    return client.run_bot(slug)
+
+
+@mcp.tool()
+def toggle_bot(slug: str) -> dict:
+    """Enable or disable an automation (it flips); returns {"enabled": bool}."""
+    return client.toggle_bot(slug)
+
+
+@mcp.tool()
 def reorder_todos(ids: list[int]) -> dict:
     """Put the Today list in this order: the given item ids take the top positions in the
     order given; anything not listed keeps its relative order below them."""
