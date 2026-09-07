@@ -4,6 +4,8 @@
 
 - **⚠ OWNER REPORT (2026-09-07, later): the newest installer they can get still opens a dark, empty window.** The release feed tops out at 0.1.139 (built 05:17 UTC); every push since is unbuildable — desktop-release runs 140–165 fail in four seconds with `runner_id: 0` (no runner assigned: GitHub Actions spending limit / billing on the account — owner action). #451 makes the watchdog fire on "no painted text" (the mounted flag was set before React drew anything) and report in-flight requests. The other items in that batch (project CRUD, open from disk, missing PDF, icon, achievements) shipped in 0.1.11x–0.1.139; if they still show, the installed build is older than it looks — Diagnostics says the version.
 
+- **Library reading flow (2026-09-07, #450).** `GET /references/reading-flow/?<filters>` (link resolution), ReadingFlow library mode at `/library/read`, Library "Read these →". Test: literature/tests/test_library_read_flow.py.
+
 - **HTML sink guard (2026-09-07, #449).** core/tests/test_html_sinks.py: dangerouslySetInnerHTML only from `*html` fields, innerHTML only static, no |safe, mark_safe in one file.
 
 - **Abstract peek + hover prefetch (2026-09-07, #448).** `_bibliography_rows` abstract; BibPanel ▸ peek; Projects cards prefetch `["overview", slug]`. Test: writing/tests/test_bib_peek.py.

@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The reading flow runs over any Library view (#450)
+
+**Decision.** `GET /api/v1/references/reading-flow/?<library filters>` returns the flow's paper shape for whatever the Library workbench is showing (same params as the list: q, tag, view, year, project, reading status…); each paper names the project link the status applies through — the `project` filter's link, else the first unread link, else the first — and `id` is null when the paper sits in no project yet. `/library/read?<params>` opens the same reading flow page in library mode: statuses go through that link, "j" captures the note into the paper's project, Esc returns to the Library, and a paper with no project says so instead of pretending. The Library list header gets "Read these →" next to ".bib of this view".
+
+**Why.** Backlog #85: a smart view ("to-cite, 2024, no notes yet") is a reading list, and the flow was the only place where reading is actually pleasant — it lived behind one project's queue.
+
+**Alternatives rejected.** Auto-filing unfiled papers into a project to give them a status (the flow should not create links behind your back); a separate library-flow page (one page, two data sources).
+
 ### 2026-09-07 — The blank window, third pass: "mounted" now means painted (#451)
 
 **Owner report.** A dark, empty Atlas window again, on the newest installer they could download (the release feed carries 0.1.138/0.1.139, built at 05:06–05:17 UTC; nothing newer can be built — see CI below). No boot panel in the screenshot.
@@ -2494,7 +2502,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 82. ~~Coverage-gap → queue prefill (done 2026-06-11, cycle 94, UI/UX): thin themes in the nudge are clickable chips → `/queue?theme=X` shows unread candidates (theme words matched against title/abstract, already-marked excluded) via `theme_candidates` selector + `?theme=` on /api/v1/project-references/; quiet filter chip with Clear, NN/g-style filtered empty state; browser-verified.~~
 83. PROMOTE #77 to next-priority — the shared route manifest; cycle 74 hit the exact predicted drift (React route added, Django pattern forgotten, 404). Do it before more routes accrue (idea escalated by cycle 74)
 84. ~~Weekly research review (done 2026-06-11, cycles 84-85): data layer core/reviews.py + /api/v1/weekly-review/, then the SPA page at /review + /projects/:slug/review — a calm skimmable 'this week' digest (papers/notes/milestones/decisions/experiments, each linked), top-line summary, ◀▶ week-back nav, per-project + cross-project, sidebar 'Review' link. The self-build project's own review shows the loop's week.~~
-85. Reading-flow for the whole library — a 'read flow' over any filtered reference set, not just one project's queue (idea added by cycle 75)
+85. ~~Reading-flow for the whole library (done 2026-09-07, #450: `/library/read?<filters>` over `/references/reading-flow/`)~~ — original: a 'read flow' over any filtered reference set, not just one project's queue (idea added by cycle 75)
 86. Promote the route rule to docs — note the slash-less=SPA / trailing-slash=classic invariant in CONTRIBUTING so external contributors don't re-add per-route Django patterns (idea added by cycle 76)
 87. ~~Prefetch assistant index on mount (done 2026-06-11, cycle 78): Layout warms the ⌘K assistant-context query on app load, so even the very first ⌘K paints instantly.~~
 88. ~~tl;dr in reading-flow (done 2026-06-11, cycle 79): 's' summarizes the current paper's abstract inline during a read session; resets on next/prev, in the key legend. The focused session is now Listen + tl;dr + note + status, fully keyboard.~~

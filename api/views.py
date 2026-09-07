@@ -1622,6 +1622,54 @@ class ReferenceViewSet(AtlasViewSet):
         return Response(reading_notes(self.get_object()))
 
     @extend_schema(
+        responses={
+            200: OpenApiResponse(description="Reading-flow papers for a filtered library set")
+        },
+        description="#450: the reading flow over any Library filter (same query params as the "
+        "list — q, tag, view, year…, project, reading_status). Each paper carries the project "
+        "link the status applies through: the `project` filter's link, else the first unread "
+        "link, else the first link; `id` is null when the paper is in no project yet.",
+    )
+    @action(detail=False, methods=["get"], url_path="reading-flow")
+    def reading_flow(self, request):
+        from literature.library import filter_references
+
+        wanted = (request.query_params.get("project") or "").strip()
+        refs = filter_references(
+            Reference.objects.prefetch_related("project_links__project"), request.query_params
+        )[:200]
+        papers = []
+        for ref in refs:
+            links = list(ref.project_links.all())
+            link = None
+            if wanted:
+                link = next((x for x in links if x.project.slug == wanted), None)
+            if link is None:
+                link = next((x for x in links if x.reading_status in ("to_read", "skimmed")), None)
+            if link is None and links:
+                link = links[0]
+            papers.append(
+                {
+                    "id": link.pk if link else None,
+                    "project": link.project.slug if link else None,
+                    "reading_status": link.reading_status if link else "to_read",
+                    "priority": link.priority if link else "normal",
+                    "reference": {
+                        "id": ref.pk,
+                        "bibtex_key": ref.bibtex_key,
+                        "title": ref.title,
+                        "authors": ref.authors,
+                        "year": ref.year,
+                        "venue": ref.venue,
+                        "abstract": ref.abstract,
+                        "pdf": ref.pdf.url if ref.pdf else None,
+                        "doi": ref.doi,
+                    },
+                }
+            )
+        return Response({"papers": papers})
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Most similar library references with scores")},
         description="Related papers in the library (TF-IDF cosine over title/abstract/venue).",
     )

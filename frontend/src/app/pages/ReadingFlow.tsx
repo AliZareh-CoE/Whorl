@@ -4,14 +4,15 @@
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, csrfToken, petReact } from "../api";
 import { listenTo, type Listener } from "../listen";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { queryGate } from "../../components/QueryBoundary";
 
 type Paper = {
-  id: number;
+  id: number | null; // #450: null when the paper sits in no project yet (library mode)
+  project?: string | null;
   reading_status: string;
   priority: string;
   reference: {
@@ -38,6 +39,9 @@ function authorLine(a: Paper["reference"]["authors"]): string {
 export default function ReadingFlow() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  // #450: /library/read?<filters> runs the same flow over any Library view
+  const libraryMode = !slug;
+  const search = useLocation().search;
   const queryClient = useQueryClient();
   const [i, setI] = useState(0);
   const [done, setDone] = useState<Set<number>>(new Set());
@@ -50,8 +54,8 @@ export default function ReadingFlow() {
   const [tldr, setTldr] = useState<{ title: string; page: number | null; sentences: string[] }[] | null>(null);
 
   const flow = useQuery({
-    queryKey: ["reading-flow", slug],
-    queryFn: () => api<{ papers: Paper[] }>(`/projects/${slug}/reading-flow/`),
+    queryKey: ["reading-flow", slug ?? "library", search],
+    queryFn: () => api<{ papers: Paper[] }>(libraryMode ? `/references/reading-flow/${search}` : `/projects/${slug}/reading-flow/`),
   });
   const data = flow.data;
   const papers = data?.papers ?? [];
@@ -59,6 +63,7 @@ export default function ReadingFlow() {
 
   async function setStatus(status: string) {
     if (!paper) return;
+    if (paper.id === null) { setFlash("This paper is in no project yet — file it from the Library first."); setTimeout(() => setFlash(""), 2500); return; }
     await api(`/project-references/${paper.id}/`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -66,10 +71,11 @@ export default function ReadingFlow() {
     });
     setFlash(`Marked ${STATUS_LABEL[status]}`);
     setTimeout(() => setFlash(""), 1200);
-    queryClient.invalidateQueries({ queryKey: ["literature", slug] });
+    queryClient.invalidateQueries({ queryKey: ["literature", slug ?? paper.project] });
+    queryClient.invalidateQueries({ queryKey: ["references"] });
     if (status === "read" || status === "annotated") petReact("paper");
     if (status === "read" || status === "annotated") {
-      setDone((d) => new Set(d).add(paper.id));
+      setDone((d) => new Set(d).add(paper.id as number));
       next();
     }
   }
@@ -103,7 +109,7 @@ export default function ReadingFlow() {
     await api("/quick-capture/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: `[${paper.reference.bibtex_key}] ${noteText}`, project: slug }),
+      body: JSON.stringify({ text: `[${paper.reference.bibtex_key}] ${noteText}`, project: slug ?? paper.project ?? null }),
     });
     setNoteText(""); setNoteOpen(false);
     setFlash("Note captured");
@@ -116,7 +122,7 @@ export default function ReadingFlow() {
         if (e.key === "Escape") setNoteOpen(false);
         return;
       }
-      if (e.key === "Escape") { navigate(`/projects/${slug}/queue`); return; }
+      if (e.key === "Escape") { if (libraryMode) navigate("/library"); else navigate(`/projects/${slug}/queue`); return; }
       if (STATUS_KEYS[e.key]) { e.preventDefault(); setStatus(STATUS_KEYS[e.key]); }
       else if (e.key === "n" || e.key === "ArrowRight") next();
       else if (e.key === "p" || e.key === "ArrowLeft") prev();
@@ -160,7 +166,7 @@ export default function ReadingFlow() {
             : "Nothing left to read in this project. Link new references to build the queue back up."}
         </p>
         <Link
-          to={`/projects/${slug}/literature`}
+          to={libraryMode ? "/library" : `/projects/${slug}/literature`}
           className="inline-flex items-center gap-1.5 rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
           Back to literature
@@ -180,7 +186,7 @@ export default function ReadingFlow() {
         </span>
         <span className="flex items-center gap-3 text-stone-400">
           {flash && <span className="font-medium text-emerald-600">{flash}</span>}
-          <Link to={`/projects/${slug}/queue`} className="transition-colors hover:text-stone-600 dark:hover:text-stone-300">Esc to exit</Link>
+          <Link to={libraryMode ? "/library" : `/projects/${slug}/queue`} className="transition-colors hover:text-stone-600 dark:hover:text-stone-300">Esc to exit</Link>
         </span>
       </div>
       <div className="mb-6 h-1 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">

@@ -90,6 +90,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:slug/literature" element={<Literature />} />
           <Route path="projects/:slug/queue" element={<Literature queue />} />
           <Route path="projects/:slug/read" element={<ReadingFlow />} />
+          <Route path="library/read" element={<ReadingFlow />} />
           <Route path="projects/:slug/notes" element={<Notes />} />
           <Route path="projects/:slug/notes/new" element={<Notes />} />
           <Route path="projects/:slug/notes/:id" element={<Notes />} />
