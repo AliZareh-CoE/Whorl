@@ -9,14 +9,7 @@
  */
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { latex, latexCompletionSource } from "codemirror-lang-latex";
-import {
-  autocompletion,
-  closeBrackets,
-  closeBracketsKeymap,
-  completionKeymap,
-  type CompletionContext,
-  type CompletionResult,
-} from "@codemirror/autocomplete";
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, type CompletionContext, type CompletionResult, type Completion } from "@codemirror/autocomplete";
 import { type Diagnostic, linter, setDiagnostics } from "@codemirror/lint";
 import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from "@codemirror/search";
 import {
@@ -44,6 +37,9 @@ export type EditorCfg = {
   initialDoc?: string;
   initialFileId?: number; // the file id the initial doc belongs to (multi-file)
   citeLibraryUrl?: string; // B1: whole-library cite source + auto-link (Slice C)
+  // #445: when the typed \cite fragment matches nothing, the completion offers to add a paper;
+  // the host prompts for a DOI / arXiv id, adds + links it and calls `replace(key)`.
+  onAddPaper?: (fragment: string, replace: (key: string) => void) => void;
   csrfToken?: string;
   extensions?: Extension[]; // studio: theme, extra keymaps
   fillHost?: boolean; // studio: the host is a flex child — fill it instead of 72vh
@@ -122,6 +118,8 @@ function diagnosticsLinter() {
   return linter((view) => [...currentDiagnostics, ...citeCheckDiagnostics(view.state)]);
 }
 
+const looksLikePaperId = (s: string) => /^(10\.\d{4,9}\/\S+|(?:arxiv:)?\d{4}\.\d{4,5}(?:v\d+)?)$/i.test(s.trim());
+
 // B1: \cite{key} completes from the whole project library; accepting an unlinked paper
 // auto-creates the ManuscriptReference link.
 function citeCompletionSource(cfg: EditorCfg) {
@@ -136,23 +134,41 @@ function citeCompletionSource(cfg: EditorCfg) {
     const pool: CiteRow[] = citeLibrary.length
       ? citeLibrary
       : (cfg.citeKeys ?? []).map((k) => ({ key: k, linked: true }));
-    return {
-      from: context.pos - frag.length,
-      options: pool.map((c) => ({
-        label: c.key,
-        detail:
-          (c.linked ? "" : "+ ") +
-          [c.authors, c.year ? String(c.year) : "", c.title?.slice(0, 50)]
-            .filter(Boolean)
-            .join(" · "),
-        type: "variable",
+    // #445: filter here (key, title, authors) so an empty match can offer "add a paper"
+    const needle = frag.toLowerCase();
+    const hit = (c: CiteRow) =>
+      !needle ||
+      c.key.toLowerCase().includes(needle) ||
+      (c.title ?? "").toLowerCase().includes(needle) ||
+      (c.authors ?? "").toLowerCase().includes(needle);
+    const matched = pool.filter(hit);
+    const options: Completion[] = matched.map((c) => ({
+      label: c.key,
+      detail:
+        (c.linked ? "" : "+ ") +
+        [c.authors, c.year ? String(c.year) : "", c.title?.slice(0, 50)]
+          .filter(Boolean)
+          .join(" · "),
+      type: "variable",
+      apply: (view: EditorView, _c: unknown, from: number, to: number) => {
+        view.dispatch({ changes: { from, to, insert: c.key }, selection: { anchor: from + c.key.length } });
+        if (c.reference_id && !c.linked) autoLink(cfg, c.reference_id);
+      },
+    }));
+    if (cfg.onAddPaper && (matched.length === 0 || looksLikePaperId(frag))) {
+      options.push({
+        label: looksLikePaperId(frag) ? `Add ${frag} to the library` : "Add a paper by DOI or arXiv id…",
+        detail: matched.length === 0 ? "nothing in the library matches" : "fetch it, link it, cite it",
+        type: "keyword",
+        boost: -99,
         apply: (view: EditorView, _c: unknown, from: number, to: number) => {
-          view.dispatch({ changes: { from, to, insert: c.key }, selection: { anchor: from + c.key.length } });
-          if (c.reference_id && !c.linked) autoLink(cfg, c.reference_id);
+          cfg.onAddPaper?.(frag, (key) => {
+            view.dispatch({ changes: { from, to, insert: key }, selection: { anchor: from + key.length } });
+          });
         },
-      })),
-      validFor: /^[^},]*$/,
-    };
+      });
+    }
+    return { from: context.pos - frag.length, options, filter: false, validFor: /^[^},]*$/ };
   };
 }
 

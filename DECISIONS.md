@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The cite completion adds the paper you don't have yet (#445)
+
+**Decision.** The editor's `\cite{}` completion now filters the library itself (key, title, authors) and, when nothing matches — or the fragment *is* a DOI or arXiv id — ends the list with "Add a paper by DOI or arXiv id…" / "Add 10.…/… to the library". Accepting it asks for the id (skipped when the fragment already is one), adds the paper through `/references/by-doi/` into the project, links it to the manuscript's bibliography through the workbench `cite-library/` endpoint, replaces the fragment with the new key and reloads the completion pool. The amber cite-check diagnostic keeps pointing at the same door.
+
+**Why.** Backlog #124: writing breaks the moment you have to leave the editor to hunt a paper; the library-wide completion (B1) covered everything already in Atlas, and this covers the rest.
+
+**Alternatives rejected.** Searching Crossref by title from the fragment (a fuzzy guess inserted into a bibliography is how wrong citations happen; the DOI is exact); a separate "add paper" button in the studio rail (the moment of need is inside `\cite{}`).
+
 ### 2026-09-07 — The overview does not pay for the timeline's bodies (#444)
 
 **Decision.** `project_timeline(project, bodies=False)` skips the markdown rendering #443 introduced; the overview's week digest — which already builds the event stream to say "this week in the project" — uses it. The Timeline page and its API keep the bodies. Backlog #108 (a mini-timeline strip on the overview) is struck: the week digest *is* that strip.
@@ -2512,7 +2520,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 127. ~~MCP figure upload (done 2026-09-07, #441: `attach_manuscript_figure`, multipart asset + includegraphics snippet)~~ — original: write_manuscript_file is text-only; add an MCP tool to attach a figure (multipart to manuscript-files asset) so Claude can complete a paper end-to-end incl. plots (idea added by cycle 114)
 126. Abstract peek in the panel — expand a bibliography row in the research rail to read the full abstract inline (the context endpoint already sends a 280-char snippet; show it on click) without opening the reference page (idea added by cycle 113)
 125. ~~Cite-check across files (the cite checker reads every .tex file of the manuscript; swept 2026-09-07)~~ — original: the missing-citations check currently scans the active buffer only; aggregate unknown \cite keys across ALL tex files so a citation defined nowhere in a multi-file project is caught (idea added by cycle 112)
-124. Cite hint over MISSING papers — when \cite{} fragment matches nothing in the library, offer an "add by DOI…" inline action that reuses add_reference_by_doi, so writing never breaks to go hunt a paper (idea added by cycle 111, pairs with B2)
+124. ~~Cite hint over MISSING papers (done 2026-09-07, #445: the completion's last row adds, links and cites by DOI / arXiv id)~~ — original: when \cite{} fragment matches nothing in the library, offer an "add by DOI…" inline action that reuses add_reference_by_doi, so writing never breaks to go hunt a paper (idea added by cycle 111, pairs with B2)
 123. Containerized Tectonic compile (escalated by AUDIT #11) — promote Backlog #36: now that multi-file \input exists, run the compile in a throwaway container/namespace; --untrusted + path validation cover single-user but a container boundary is the real fix before any multi-user use (idea escalated by cycle 110)
 122. Revision retention policy surfacing — show "kept: all labeled + last 50 auto" somewhere in the History panel and let the user bump the auto-cap, so the trim behavior isn't a surprise (idea added by cycle 109)
 121. ~~Live word-count badge (the Studio status bar shows words and today's delta, #413; swept 2026-09-07)~~ — original: show the count passively in the status bar and refresh it on the autosave cycle (debounced) instead of only on button click, like Overleaf's always-visible count (idea added by cycle 108)

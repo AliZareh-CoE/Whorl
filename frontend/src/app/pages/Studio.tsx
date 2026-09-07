@@ -268,6 +268,21 @@ function StudioInner({ m }: { m: Manuscript }) {
       if (cancelled || !hostRef.current) return;
       const ad = mountEditor(hostRef.current, {
         initialDoc: data.content || "", initialFileId: mainId, citeLibraryUrl: `${base}cite-library/`, csrfToken: csrfToken(), fillHost: true,
+        // #445: a \cite fragment that matches nothing → add the paper without leaving the editor
+        onAddPaper: async (fragment, replace) => {
+          const looksLikeId = /^(10\.\d{4,9}\/\S+|(?:arxiv:)?\d{4}\.\d{4,5}(?:v\d+)?)$/i.test(fragment);
+          const doi = looksLikeId ? fragment : await promptDialog({ title: "Add a paper to cite", body: "Paste a DOI or an arXiv id. Atlas fetches the metadata, puts the paper in the library and this manuscript's bibliography, and cites it here.", label: "DOI or arXiv id", placeholder: "10.1038/… or 2301.00001", confirmLabel: "Add and cite" });
+          if (!doi?.trim()) return;
+          try {
+            const ref = await api<{ id: number; bibtex_key: string }>("/references/by-doi/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ doi: doi.trim(), project: m.project }) });
+            const linked = await wb<{ key: string }>(`${base}cite-library/`, { reference: String(ref.id) });
+            replace(linked.key || ref.bibtex_key);
+            adRef.current?.reloadCiteLibrary();
+            setFlash(`Added and cited ${linked.key || ref.bibtex_key}.`);
+          } catch (e) {
+            setFlash(`Could not add the paper — ${(e as Error).message}`);
+          }
+        },
         extensions: [
           studioTheme, studioHighlight,
           Prec.highest(keymap.of([
