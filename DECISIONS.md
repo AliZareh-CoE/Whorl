@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — ⌘K learns to make things: paper:, a bare DOI, and four creation verbs (#432)
+
+**Decision.** The demo GIF's own last frame showed the gap: "add paper" typed into the palette matched nothing. Now `paper: <DOI or arXiv id>` (also `doi:`, `p:`) adds the paper to the library — and to the project you are in — through `POST /references/by-doi/`, and a bare DOI, `doi.org` URL or arXiv id typed on its own does the same without a prefix. Four static verbs join the list: "Add a paper by DOI or arXiv id" (Library with the add box focused via `?add=1`), "New note in this project" (`/notes/new`), "New manuscript" (Writing with the title box focused via `?new=1`), "New project". When nothing matches, the palette says so and lists the prefixes instead of showing a blank panel.
+
+**Why.** "Ask Atlas anything" promised more than jumping; every first-class object should be creatable from the keyboard without knowing which page owns it. Product value 5 (machine-friendly) has a human cousin: the fastest path from thought to object.
+
+**Alternatives rejected.** Fuzzy-matching page *contents* for creation intents ("note about X" → a note titled X): too clever for a palette; the verbs are explicit and the Inbox already does smart triage. A DOI verb that fetches metadata before showing the row: the fetch is the action, not the preview.
+
 ### 2026-09-07 — Today items can carry a time; the sidebar nudges (#431)
 
 **Decision.** `TodoItem.due_at` (optional, UTC). The time is *parsed in the browser* (`frontend/src/app/dueTime.ts`): "call Sam at 3pm", "by 9:30", "@ 4pm", "at noon", "tomorrow at 9am" — am/pm or a colon is required, so "read at 3 papers" stays text; a time already an hour gone means tomorrow. The phrase is stripped from the text and `due_at` sent as ISO with the owner's offset. The Today page shows a time chip per row (quiet, amber within two hours, red once passed), the ⌘K `todo:` verb understands the same syntax, the dashboard's "On your list" rows show the time, and a **sidebar nudge** (`TodoNudge`, shares the `["todos"]` query, re-read every minute) surfaces the one item due within two hours or overdue by less than twelve. The Today header also counts what was carried over ("2 carried over from earlier days"). MCP `add_todo` takes `due_at` (ISO with offset). No reminders beyond the nudge: Atlas has no notification channel and does not want one (product value 4).
@@ -2288,7 +2296,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 31. ~~Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25) — done 2026-09-07, #396 (page-anchored bubbles + comment-on-this-page)~~
 32. ~~tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26) — done 2026-09-07, #395~~
 33. ~~SyncTeX-style jump (done 2026-09-07, #378: double-click the PDF → source, ⌘⇧J → PDF)~~
-34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
+34. ~~Animated demo GIF for the README (done 2026-09-07, #430: `scripts/demo_gif.py` → `docs/demo.gif`, `make demo-gif`)~~ — original idea: scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
 35. Slim the Docker image — multi-stage build, piper/onnx as optional extra (~800 MB → ~300 MB) (idea added by cycle 29)
 36. Containerized LaTeX compile — run Tectonic in a throwaway container/namespace to close the \input file-read residual risk if Atlas ever goes multi-user (idea added by cycle 30 audit)
 37. ~~Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31) — done 2026-09-07, #403~~

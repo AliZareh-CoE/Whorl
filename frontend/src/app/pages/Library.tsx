@@ -120,6 +120,8 @@ export default function Library() {
   const [lastImport, setLastImport] = useState<ImportSummary | null>(null);
   const [importError, setImportError] = useState("");
   const [doi, setDoi] = useState("");
+  const doiRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("add") !== null) doiRef.current?.focus(); }, []); // #432: ⌘K "Add a paper"
   const [doiError, setDoiError] = useState("");
   const [bulkProject, setBulkProject] = useState("");
   const [citeStyle, setCiteStyleState] = useState<string>(readStyle);
@@ -395,7 +397,7 @@ export default function Library() {
         <div className="flex flex-wrap items-center gap-2">
           <form className="flex items-start gap-1.5" onSubmit={(e) => { e.preventDefault(); if (doi.trim()) addByDoi.mutate(); }}>
             <div>
-              <input value={doi} onChange={(e) => setDoi(e.target.value)} placeholder="Add by DOI or arXiv…" className="w-56 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-indigo-500 focus:outline-none dark:border-stone-700 dark:bg-stone-800" />
+              <input ref={doiRef} value={doi} onChange={(e) => setDoi(e.target.value)} placeholder="Add by DOI or arXiv…" className="w-56 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-indigo-500 focus:outline-none dark:border-stone-700 dark:bg-stone-800" />
               {doiError && <p className="mt-1 text-xs text-red-500">{doiError}</p>}
             </div>
             <button type="submit" disabled={addByDoi.isPending} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">{addByDoi.isPending ? "…" : "Add"}</button>

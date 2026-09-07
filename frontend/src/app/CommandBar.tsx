@@ -162,8 +162,25 @@ export default function CommandBar() {
     try { await navigator.clipboard.writeText(text); } catch { throw new Error("The clipboard refused the text — export from the Library instead."); }
     return `Copied ${entries} BibTeX entr${entries === 1 ? "y" : "ies"}${scope === "project" && slug ? ` for ${slug}` : ""}`;
   }, [slug]);
+  // #432: creation verbs — "paper: <doi|arxiv>" adds to the library (and to the project you are
+  // in); a bare DOI or arXiv id typed into the bar does the same without the prefix.
+  const doPaper = useCallback(async (id: string) => {
+    const r = await api<{ id: number; title: string }>("/references/by-doi/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+      body: JSON.stringify(slug ? { doi: id, project: slug } : { doi: id }),
+    });
+    queryClient.invalidateQueries({ queryKey: ["references"] });
+    queryClient.invalidateQueries({ queryKey: ["library"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    return `Added: ${r.title.slice(0, 70)}${slug ? ` · ${slug}` : ""}`;
+  }, [queryClient, slug]);
   const verbs = useMemo(
     () => [
+      { label: "Add a paper by DOI or arXiv id", keys: "add paper reference doi arxiv import new library pdf", run: async () => { navigate("/library?add=1"); return "Library — paste the DOI or arXiv id"; } },
+      { label: slug ? "New note in this project" : "New note", keys: "new note write jot thought", run: async () => { navigate(slug ? `/projects/${slug}/notes/new` : "/projects"); return slug ? "A fresh note" : "Pick the project first"; } },
+      { label: "New manuscript", keys: "new manuscript draft paper write start writing", run: async () => { navigate("/writing?new=1"); return "Writing — give it a working title"; } },
+      { label: "New project", keys: "new project create start", run: async () => { navigate("/projects/new"); return "A new project"; } },
       { label: "Toggle dark mode", keys: "toggle dark light mode theme appearance color scheme", run: doToggleTheme },
       { label: "Toggle calm mode", keys: "toggle calm mode focus quiet hide stats dashboard", run: doToggleCalm },
       ...(slug ? [{ label: "Copy this project's .bib", keys: "copy bib bibtex bibliography project export cite", run: () => copyBib("project") }] : []),
@@ -185,6 +202,16 @@ export default function CommandBar() {
       const text = q.slice(q.indexOf(":") + 1).trim();
       return text
         ? [{ kind: "verb", label: `Capture “${text}”`, tag: "inbox", run: () => doCapture(text) }]
+        : [];
+    }
+    const paperId = (() => {
+      const low = q.toLowerCase();
+      const body = low.startsWith("paper:") || low.startsWith("doi:") || low.startsWith("p:") ? q.slice(q.indexOf(":") + 1).trim() : q;
+      return /^(?:https?:\/\/(?:dx\.)?doi\.org\/)?(10\.\d{4,9}\/\S+)$/i.exec(body)?.[1] ?? /^(?:arxiv:)?(\d{4}\.\d{4,5}(?:v\d+)?)$/i.exec(body)?.[1] ?? (low.startsWith("paper:") || low.startsWith("doi:") ? body : null);
+    })();
+    if (paperId !== null) {
+      return paperId
+        ? [{ kind: "verb", label: `Add paper ${paperId} to the library${slug ? ` · ${slug}` : ""}`, tag: "paper", run: () => doPaper(paperId) }]
         : [];
     }
     if (q.toLowerCase().startsWith("todo:") || q.toLowerCase().startsWith("t:")) {
@@ -221,7 +248,7 @@ export default function CommandBar() {
       .slice(0, 8)
       .map(({ c }) => ({ kind: "nav" as const, label: c.title, tag: c.type, url: c.url }));
     return [...verbRows, ...navRows];
-  }, [query, assistant, plan, doCapture, doTodo, verbs, slug]);
+  }, [query, assistant, plan, doCapture, doTodo, doPaper, verbs, slug]);
 
   useEffect(() => setActive(0), [query]);
 
@@ -269,7 +296,7 @@ export default function CommandBar() {
               else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
               else if (e.key === "Enter" && rows[active]) runRow(rows[active]);
             }}
-            placeholder="Jump anywhere — or  capture: idea   todo: task   done: milestone"
+            placeholder="Jump anywhere — or  capture: idea   todo: task   paper: DOI   done: milestone"
             aria-label="Command"
             className="w-full bg-transparent py-4 text-base text-stone-800 placeholder:text-stone-400 focus:outline-none dark:text-stone-100"
           />
@@ -278,6 +305,11 @@ export default function CommandBar() {
           <p className="border-b border-stone-100 dark:border-stone-800 bg-green-50 dark:bg-green-500/15 px-4 py-2 text-xs text-green-700 dark:text-green-300">{flash}</p>
         )}
 
+        {rows.length === 0 && query.trim() && !flash && (
+          <p className="px-4 py-3 text-xs text-stone-400 dark:text-stone-500" data-testid="palette-empty">
+            Nothing matches. Try a page name, or <i>capture:</i> a thought, <i>todo:</i> a task, <i>paper:</i> a DOI, <i>done:</i> a milestone.
+          </p>
+        )}
         {rows.length > 0 && (
           <ul role="listbox" className="max-h-72 overflow-y-auto p-1.5">
             {rows.map((row, i) => (
@@ -386,7 +418,7 @@ export default function CommandBar() {
             <kbd className="rounded border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-1 font-sans text-stone-500 dark:text-stone-400">esc</kbd>
             close
           </span>
-          <span className="ml-auto">capture: <i>text</i> · todo: <i>task</i> · done: <i>milestone</i></span>
+          <span className="ml-auto">capture: <i>text</i> · todo: <i>task</i> · paper: <i>DOI</i> · done: <i>milestone</i></span>
         </div>
       </div>
     </div>

@@ -69,6 +69,8 @@ export function WritingBoard() {
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["manuscripts"], queryFn: () => api<Page<Manuscript>>("/manuscripts/?page_size=200") });
   const projects = useQuery({ queryKey: ["projects-brief"], queryFn: () => api<Page<Project>>("/projects/?page_size=100") });
   const [title, setTitle] = useState("");
+  const titleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (!isLoading && new URLSearchParams(window.location.search).get("new") !== null) titleRef.current?.focus(); }, [isLoading]); // #432: ⌘K "New manuscript" — the form mounts after the list loads
   const [project, setProject] = useState("");
   const create = useMutation({
     mutationFn: () => api<Manuscript>("/manuscripts/", { method: "POST", headers: JSON_H, body: JSON.stringify({ project, title: title.trim(), status: "idea" }) }),
@@ -104,7 +106,7 @@ export function WritingBoard() {
       </div>
       <form onSubmit={(e) => { e.preventDefault(); if (title.trim() && project) create.mutate(); }} className={`${panel} hairline-gradient rise mb-4 flex flex-wrap items-center gap-2 p-2 pl-4`} data-testid="new-manuscript">
         <Plus className="h-4 w-4 shrink-0 text-indigo-400" aria-hidden="true" />
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="New manuscript — working title…" className="min-w-0 flex-1 bg-transparent py-2 text-base placeholder:text-stone-400 focus:outline-none dark:text-stone-100" aria-label="New manuscript title" />
+        <input ref={titleRef} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="New manuscript — working title…" className="min-w-0 flex-1 bg-transparent py-2 text-base placeholder:text-stone-400 focus:outline-none dark:text-stone-100" aria-label="New manuscript title" />
         <select value={project} onChange={(e) => setProject(e.target.value)} className="rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-800" aria-label="Project">
           {(projects.data?.results ?? []).map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
         </select>
