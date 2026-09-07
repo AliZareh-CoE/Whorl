@@ -551,6 +551,18 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The blank window, third pass: "mounted" now means painted (#451)
+
+**Owner report.** A dark, empty Atlas window again, on the newest installer they could download (the release feed carries 0.1.138/0.1.139, built at 05:06–05:17 UTC; nothing newer can be built — see CI below). No boot panel in the screenshot.
+
+**Finding.** `main.tsx` set `window.__atlasMounted = true` the moment the script *started*, so the watchdog in `spa.html` (#382) stood down before React had drawn anything: any failure after that line — a chunk import that hangs, a render that inserts an empty container and stalls — produced exactly the silent dark window the owner sees. The panel also skipped whenever `#root` had *any* child node, painted or not.
+
+**Decision.** The flag is set by a probe that waits for readable text inside `#root` (checked four times a second for up to a minute); the watchdog fires at eight seconds unless text is on screen, reports the in-flight requests (`performance` resource entries without a response) next to the errors, says plainly when "the app started but never drew anything", and withdraws by itself if the app paints later (a slow first launch). Both surfaces post the report to `/api/v1/client-errors/` as before, so the server log and Diagnostics carry it.
+
+**CI.** Every desktop-release run since 140 fails in four seconds with `runner_id: 0`, no steps and an empty check output — GitHub is not assigning runners to this account (the usual cause is the Actions spending limit or a failed payment; the API cannot show more). Until that is cleared on GitHub's side nothing after 0.1.139 can be built or shipped, including every fix listed in PROGRESS since then.
+
+**Alternatives rejected.** Building the Windows installer here (the frozen server needs a Windows build host); re-triggering runs (a 403 on rerun, and a fresh push is a run — all fail the same way).
+
 ### 2026-09-07 — One guard over every raw-HTML sink (#449)
 
 **Decision.** `core/tests/test_html_sinks.py` reads the SPA sources and the templates: every `dangerouslySetInnerHTML` must take a field named `…html` (server-rendered, nh3-sanitised — `Prose`, the citation HTML, the note preview) and never a concatenated or templated string; a raw `innerHTML =` may only clear a node or write a static literal (the gutter marker's SVG); templates carry no `|safe` or `autoescape off`; `mark_safe` exists in exactly one file, behind nh3. Backlog #152.

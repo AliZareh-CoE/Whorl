@@ -53,7 +53,21 @@ installDevtoolsShortcut();
 // too; the boot watchdog in spa.html covers the time before this script ran.
 window.addEventListener("error", (e) => reportClientError("window", [`${e.message} @ ${String(e.filename).replace(location.origin, "")}:${e.lineno}`]));
 window.addEventListener("unhandledrejection", (e) => { const r = e.reason as { stack?: string } | undefined; const text = r?.stack ? String(r.stack).split("\n").slice(0, 3).join(" · ") : String(r); if (text !== "Error: auth") reportClientError("promise", [text]); });
-(window as unknown as { __atlasMounted?: boolean }).__atlasMounted = true;
+// #451: "mounted" means *painted* — the flag flips only once the app has put readable text on
+// screen, so a render that inserts nodes and then stalls (a hanging chunk, a swallowed error)
+// still trips the boot watchdog in spa.html instead of leaving a silent dark window.
+(function markPainted() {
+  const started = performance.now();
+  const tick = () => {
+    const root = document.getElementById("root");
+    if (root && (root.textContent ?? "").trim().length > 20) {
+      (window as unknown as { __atlasMounted?: boolean }).__atlasMounted = true;
+      return;
+    }
+    if (performance.now() - started < 60_000) window.setTimeout(tick, 250);
+  };
+  window.setTimeout(tick, 0);
+})();
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary scope="app">

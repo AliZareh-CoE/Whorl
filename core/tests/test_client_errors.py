@@ -77,6 +77,20 @@ def test_error_boundary_wired_and_static_recollected_clean():
     main = (BASE / "frontend/src/app/main.tsx").read_text()
     layout = (BASE / "frontend/src/app/Layout.tsx").read_text()
     assert '<ErrorBoundary scope="app">' in main and "__atlasMounted = true" in main
+    # #451: the flag means *painted* — set by a probe that saw text, never eagerly at import
+    assert "function markPainted" in main and "textContent" in main
+    assert (
+        "\n(window as unknown as { __atlasMounted?: boolean }).__atlasMounted = true;\n" not in main
+    )
+    shell = (Path(settings.BASE_DIR) / "templates" / "spa.html").read_text()
+    for needle in (
+        "root.innerText",
+        "still waiting for:",
+        "never drew anything",
+        'getEntriesByType("resource")',
+        "clearInterval(undo)",
+    ):
+        assert needle in shell, needle
     assert '<ErrorBoundary scope="page" resetKey={location.pathname}>' in layout
     bundle = (BASE / "static/js/spa.js").read_text(errors="ignore")
     assert "render-failure" in bundle and "/client-errors/" in bundle
