@@ -209,7 +209,7 @@ It is machine-friendly too: `list_project_files`, `read_project_file`, `write_pr
 
 **Project templates** scaffold an organized layout on creation — pick *Empirical study*,
 *Theory / review paper*, *Software / dataset project*, or *Minimal* (literature/, data/,
-analysis/, manuscript/, notes/ ...), or **save any project's structure as your own template**.
+analysis/, manuscript/, notes/ ...), or **save any project's structure as your own template**. Since #438 a template is also a first **plan** (phases → milestones → tasks, with objectives), a couple of starter **research questions** and the **review-matrix themes** that fit the kind of project — laid down only where the project has none yet, and all editable afterwards.
 
 ### Desktop app (Tauri)
 

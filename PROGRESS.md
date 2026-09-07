@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Templates that plan (2026-09-07, #438).** `project_templates.py` plan/questions/themes per template; `instantiate_research_scaffold` (only when empty); template_list counts; NewProject card line `template-plan`. Tests: projects/tests/test_templates.py::TestResearchScaffold. Backlog #57/#58 struck.
+
 - **Matrix → Related work .tex (2026-09-07, #437).** `related_work_latex` + `POST /manuscripts/{id}/related-work/` (409 guard, bibliography links, input line); Matrix button + picker + done strip; MCP `draft_related_work` (98 tools). Tests: writing/tests/test_related_work.py. Playwright: docs/screenshots/matrix-related-work.png.
 
 - **Related on the Reference page + MCP (2026-09-07, #436).** Reference.tsx related-section over `/references/{id}/related/`; MCP `get_related_in_library` (97 tools); backlog #1/#3/#11 swept. Test: literature/tests/test_related_surface.py. Playwright: docs/screenshots/reference-related.png.

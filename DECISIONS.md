@@ -551,6 +551,16 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Templates that plan (#438)
+
+**Decision.** A built-in project template now carries three research-first parts beside its folders: a `plan` (a `plans.outline` Markdown outline — phases with objectives, milestones, a task or two), starter `questions` and review-matrix `themes`. `instantiate_template` lays each down only when the project has none of that kind, so re-applying a template, or applying it to a project that already has a plan, never duplicates. Empirical study: four phases / ten milestones / two questions / four themes (Theory, Method, Key finding, Limitation); Theory-review: scope → screening → synthesis → write-up with Claim / Evidence type / Population / Open problem; Software: design → build → evaluate → release; Minimal: one phase, one milestone. The New project cards state the counts; `/projects/templates/` carries them; `create_project(template=…)` over MCP gets the same.
+
+**Why.** "Plans over backlogs" — an empty project with nice folders is still an empty project. The first plan is the hardest to write and the most formulaic; the template's job is to hand the researcher a plan to edit, not a blank page.
+
+**Alternatives rejected.** Templates as DB rows the owner edits in the admin (they version with the code, like the writing gallery; a saved *snapshot* template already exists for the owner's own structures); applying the plan even when phases exist (would merge two plans — the outline endpoint is the deliberate way to rewrite one).
+
+**Dead-idea sweep.** #57 (search budget): measured today at 14 queries / 27 ms on the demo library for three queries, well under the 50 ms bar — struck. #58 (grove tooltips): the grove exists only in the classic dashboard template, which the SPA replaced — struck.
+
 ### 2026-09-07 — The matrix writes the Related-work section (#437)
 
 **Decision.** `POST /api/v1/manuscripts/{id}/related-work/` turns the project's review matrix into LaTeX (`literature/selectors.py::related_work_latex`): `\section{Related work}`, one `\subsection` per theme, every cell finding a sentence ending in `~\citep{key}`, papers marked without a finding gathered into one `\citep{a, b}`, empty themes and unthemed papers left as `%` comments (gaps to fill or drop), specials escaped. The section is saved as `sections/related-work.tex` in the manuscript's source tree (409 unless `overwrite`), every cited paper is added to the manuscript's bibliography so the cite checker passes, and the response carries the `\input{sections/related-work}` line. The Matrix page gets "Related work → .tex" (picks the manuscript when the project has several, confirms before replacing, shows a strip with a link into the studio); Claude gets `draft_related_work` (98 tools).
@@ -2359,8 +2369,8 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 54. ~~Last-Modified/If-Modified-Since on media downloads (done 2026-09-07, #434: `core/files.py::file_response` — ETag + Last-Modified + 304 on the three file views; `/media/` already had it via static.serve)~~ (idea added by cycle 47)
 55. ~~Pin a search (done 2026-09-07, #435: recents + ☆ pins on the SPA Search page, localStorage)~~ — original: star a recent search to keep it permanently at the top of the recents dropdown (idea added by cycle 48)
 56. Pet speech variety pack — seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)
-57. Search page budget — /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
-58. Tree tooltips — hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)
+57. ~~Search page budget (measured 2026-09-07: 14 queries / 27 ms for three demo queries — under the bar; struck)~~ — original: /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
+58. ~~Tree tooltips (the grove lives only in the classic dashboard, replaced by the SPA; struck 2026-09-07)~~ — original: hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)
 59. ~~[REV] Atlas Assistant panel (done 2026-06-11, cycle 55 — the first revolutionary cycle): ✨ Assistant on every page — Cmd/Ctrl-K (or sidebar button) opens a calm slide-over React island; fuzzy jump-to-anything command bar (local subsequence scoring over a server-built index of projects/notes/references/prompts/manuscripts/pages, ≤400 entries, 5 queries); page-aware quick actions; 'Ask Claude about this' composes a context-rich MCP prompt (object + suggested atlas tools) with one-click copy; recent-activity feed for the current object. Backend: core/assistant.py + GET /assistant/context/ (session-gated). Built with parallel agent workflows per owner suggestion. NO paid APIs.~~ (idea added by cycle 52)
 60. ~~Bulk-bar keyboard shortcuts (x and Esc earlier; shift-click / shift-x ranges and ⌘A done 2026-09-07, #433)~~ — original: x toggles selection on the focused row, shift-click selects ranges, Esc clears the selection (idea added by cycle 53)
 61. Island dev-mode — `vite dev` proxy so island development gets HMR against the running Django server (idea added by cycle 54)
