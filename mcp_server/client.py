@@ -350,6 +350,11 @@ def complete_todo(todo_id: int, done: bool = True):
     return _request("PATCH", f"/todos/{todo_id}/", json={"done": done})
 
 
+def get_reference_tldr(reference_id: int):
+    """Section-by-section summary of a paper (from its PDF text, else its abstract)."""
+    return _request("GET", f"/references/{reference_id}/tldr/")
+
+
 def reorder_todos(ids: list[int]):
     """The given ids take positions 1..n; the rest follow in their current order."""
     return _request("POST", "/todos/reorder/", json={"ids": ids})

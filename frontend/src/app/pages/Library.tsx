@@ -754,6 +754,7 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
         </form>
       </div>
       <FoundInPdf r={r} q={q} onFind={onFind} onIndexText={onIndexText} />
+      <TldrBlock r={r} onJump={onJump} onIndexText={onIndexText} />
       <HighlightsBlock r={r} highlights={highlights} onJump={onJump} onEdit={onEditHighlight} onRemove={onRemoveHighlight} onCopied={onCopied} />
       <ReadingNotesBlock notes={readingNotes} onSave={onSaveNotes} />
       <div className="mt-5">
@@ -830,6 +831,36 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
           </ul>
         ) : <p className="text-xs text-stone-400">{related.isLoading ? "Finding…" : "Nothing similar yet."}</p>}
       </div>
+    </div>
+  );
+}
+
+/** tl;dr per section (#395): the paper's headings, two key sentences each, page links. */
+function TldrBlock({ r, onJump, onIndexText }: { r: Ref; onJump: (page: number) => void; onIndexText: () => void }) {
+  const [open, setOpen] = useState(false);
+  const tldr = useQuery({ queryKey: ["tldr", r.id], queryFn: () => api<{ source: string; sections: { title: string; page: number | null; sentences: string[] }[]; reason?: string }>(`/references/${r.id}/tldr/`), enabled: open, staleTime: 10 * 60_000 });
+  return (
+    <div className="mt-5" data-testid="tldr-block">
+      <div className="flex items-center justify-between">
+        <p className={`${railH} mb-0`}><FileText className="mr-1 inline h-3 w-3" aria-hidden="true" />tl;dr</p>
+        {!open && <button type="button" onClick={() => setOpen(true)} className="text-[11px] text-indigo-500 hover:underline dark:text-indigo-300" data-testid="tldr-open">Summarise{r.text_status === "indexed" ? " the PDF" : r.abstract ? " the abstract" : ""}</button>}
+      </div>
+      {open && tldr.isLoading && <p className="mt-1 text-xs text-stone-400">Reading…</p>}
+      {open && tldr.data && tldr.data.sections.length === 0 && (
+        <p className="mt-1 text-xs text-stone-400">{tldr.data.reason ?? "Nothing to summarise."}{r.pdf && r.text_status !== "indexed" && <> <button type="button" onClick={onIndexText} className="text-indigo-500 hover:underline dark:text-indigo-300">Index the PDF text</button> first.</>}</p>
+      )}
+      {open && tldr.data && tldr.data.sections.length > 0 && (
+        <ol className="mt-1.5 space-y-2">
+          {tldr.data.sections.map((s, i) => (
+            <li key={i} className="text-xs leading-relaxed text-stone-600 dark:text-stone-300" data-testid="tldr-section">
+              <span className="font-medium text-stone-800 dark:text-stone-100">{s.title}</span>
+              {s.page && r.pdf && <button type="button" onClick={() => onJump(s.page as number)} className="ml-1.5 rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300" title="Open the PDF at this section">p.{s.page}</button>}
+              <span className="ml-1 text-stone-400">·</span> {s.sentences.join(" ")}
+            </li>
+          ))}
+          <li className="text-[10px] uppercase tracking-wide text-stone-400">{tldr.data.source === "pdf-text" ? "from the PDF text · extractive, local" : "from the abstract"}</li>
+        </ol>
+      )}
     </div>
   );
 }

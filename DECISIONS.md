@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — tl;dr of a paper, section by section (#395)
+
+**Decision.** `literature/tldr.py` finds the section headings in a paper's extracted text (known names such as Abstract/Methods/Results, or numbered short Title-Case lines; stops at the references), summarises each section with the local extractive summariser (two sentences), and records the page each section starts on. `GET /references/{id}/tldr/` serves it (falling back to the abstract, or saying why there is nothing), `get_reference_tldr` is the MCP tool (91), and the Library's detail pane has a *tl;dr* block that summarises on request with `p.N` buttons that open the PDF at the section.
+
+**Why.** Backlog idea #32: the question before reading a paper is "is it worth my hour?", and the extracted text was already there for search. Section-wise sentences answer it in twenty seconds without a model or a network call, and the page buttons make the summary a table of contents into the PDF.
+
+**Alternatives rejected.** An LLM summary (a network dependency and a cost for every paper; the extractive one is honest about being the paper's own sentences); summarising at import time (most papers are never opened — do it when asked, cache it in the browser for ten minutes).
+
 ### 2026-09-07 — Studio: the PDF follows the cursor (#394)
 
 **Decision.** An editor setting, *PDF follows the cursor*, turns SyncTeX forward sync (#378) continuous: whenever the cursor line changes, a debounced effect resolves the line to its PDF spot and scrolls the preview there with the usual marker; nothing happens for lines without a position, when the preview is closed, or before a compile. Off by default; ⌘⇧J keeps working either way.
@@ -1990,7 +1998,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 29. Dev-process note — runserver/worker restarts must use pkill -f "[m]anage.py ..." (bracket trick) or they kill their own shell; documented after the cycle-23 debugging (idea added by cycle 23)
 30. ~~Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24) — the split view shipped with the studio; sync scroll done 2026-09-07, #394~~
 31. Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25)
-32. tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26)
+32. ~~tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26) — done 2026-09-07, #395~~
 33. ~~SyncTeX-style jump (done 2026-09-07, #378: double-click the PDF → source, ⌘⇧J → PDF)~~
 34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
 35. Slim the Docker image — multi-stage build, piper/onnx as optional extra (~800 MB → ~300 MB) (idea added by cycle 29)

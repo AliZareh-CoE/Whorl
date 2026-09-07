@@ -310,6 +310,14 @@ def complete_todo(todo_id: int, done: bool = True) -> dict:
 
 
 @mcp.tool()
+def get_reference_tldr(reference_id: int) -> dict:
+    """tl;dr of a paper section by section: the headings found in its PDF text, each with
+    two key sentences and the page it starts on (falls back to the abstract). Local and
+    instant — read it before deciding whether to read the paper."""
+    return client.get_reference_tldr(reference_id)
+
+
+@mcp.tool()
 def reorder_todos(ids: list[int]) -> dict:
     """Put the Today list in this order: the given item ids take the top positions in the
     order given; anything not listed keeps its relative order below them."""

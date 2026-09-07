@@ -1434,6 +1434,27 @@ class ReferenceViewSet(AtlasViewSet):
         return Response(search_pages(self.get_object(), q))
 
     @extend_schema(
+        responses={
+            200: inline_serializer(
+                "ReferenceTldr",
+                {
+                    "source": rf_serializers.CharField(),
+                    "sections": rf_serializers.ListField(child=rf_serializers.DictField()),
+                    "reason": rf_serializers.CharField(required=False),
+                },
+            )
+        },
+        description="tl;dr of the paper, section by section (#395): headings found in the "
+        "extracted PDF text, each summarised extractively with the page it starts on; falls "
+        "back to the abstract. Local, no model.",
+    )
+    @action(detail=True, methods=["get"], url_path="tldr")
+    def tldr(self, request, pk=None):
+        from literature.tldr import tldr
+
+        return Response(tldr(self.get_object()))
+
+    @extend_schema(
         request=None,
         responses={
             200: inline_serializer(
