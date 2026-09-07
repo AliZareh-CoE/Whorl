@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Read this note to me (2026-09-07, #412).** `listen.ts::speakable` (markdown → speech text, checked in node), Notes editor listen/stop button with i/n progress, stops on note switch, errors in the toast. Guard: core/tests/test_polish.py::test_notes_read_aloud. Playwright: error path without a voice model (docs/screenshots/note-listen.png).
+
 - **Reference usage (2026-09-07, #411).** `literature/usage.py`, `GET /references/{id}/usage/`, MCP `get_reference_usage` (92 tools), Reference page "Where it appears" section. Tests: literature/tests/test_usage.py (2). Playwright: docs/screenshots/reference-usage.png.
 
 - **Files drag-to-move (2026-09-07, #410).** File rows draggable (`application/x-atlas-doc`), folder rows + root accept and call `moveDoc`; manuscript sources/folders excluded. Guard: core/tests/test_polish.py::test_files_rows_drag_to_move. Playwright: root file → folder → root, folder ids verified through the API (docs/screenshots/files-drag-move.png).

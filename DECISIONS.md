@@ -25,7 +25,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    restart/MCP reminders.~~ Remaining: CSP if ever public-facing.
 3. **Free local text-to-speech ("read this to me").** A strong free TTS engine (e.g. Piper)
     ~~SPA Listen (done 2026-06-11, cycle 74): /app/references/:id reader with a 🔊 Listen button on the abstract streaming real Piper TTS in-app; sets up the reading-flow [REV].~~
-   the owner can run locally; "Read aloud" on notes, abstracts, and (eventually) PDFs.
+   the owner can run locally; "Read aloud" on notes, abstracts, and (eventually) PDFs. ~~Notes (done 2026-09-07, #412): a listen button on the note editor, markdown stripped, chunked playback.~~
 4. **Auto-download article PDFs.** ~~Done (2026-06-10, cycle 7): arXiv direct + Unpaywall
    best-OA resolution in `literature/oa.py`; background huey fetch on every new reference
    (UI + API, `ATLAS_AUTO_FETCH_PDF` toggle), manual "Fetch open-access PDF" button on
@@ -552,6 +552,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Read this note to me (#412)
+
+**Decision.** The note editor's toolbar has a *listen* button: the title and body go through `speakable()` (a markdown stripper in `app/listen.ts` — `[[Note]]` and `@key` become their words, links their text, code blocks and images are skipped, headings/list markers/quotes/table rules go, each line ends as a sentence) and then through the same chunked, prefetched `listenTo` the abstract reader uses (#404), with an *i/n* progress in the button; switching notes or clicking again stops the voice; a missing voice model surfaces as the toast the export button already uses. No new endpoint: `/tts/` and the local Piper voice as before.
+
+**Why.** Owner idea #3 asked for read-aloud on notes, abstracts and PDFs; abstracts had it, PDFs have the section tl;dr, notes had nothing — and a note is the thing you most want read back while walking. Stripping markdown matters: a voice reading "open bracket open bracket" is worse than none.
+
+**Alternatives rejected.** Reading the rendered preview's `innerText` (the preview is a separate query and may lag the editor; the stripper works on what is being typed); a server-side `speakable` (the client has the text, and the chunker already lives there).
 
 ### 2026-09-07 — Where a paper appears: backlinks for references (#411)
 

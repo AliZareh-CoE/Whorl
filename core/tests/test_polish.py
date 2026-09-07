@@ -23,3 +23,13 @@ def test_files_rows_drag_to_move():
     assert files.count("e.dataTransfer.getData(DOC_MIME)") == 2  # folder rows + root
     assert "moveDoc.mutate({ id: movedId, folder: folder.id })" in files
     assert "moveDoc.mutate({ id: movedId, folder: null })" in files
+
+
+def test_notes_read_aloud():
+    """#412: the note editor reads the note through the chunked listener, markdown stripped."""
+    notes = (BASE / "frontend/src/app/pages/Notes.tsx").read_text()
+    assert 'data-testid="note-listen"' in notes and "listenTo(text, (index, total)" in notes
+    assert "speakable(`${title}. ${bodyRef.current}`)" in notes
+    assert "useEffect(() => stopListening, [id])" in notes  # switching notes stops the voice
+    listen = (BASE / "frontend/src/app/listen.ts").read_text()
+    assert "export function speakable(markdown: string): string" in listen

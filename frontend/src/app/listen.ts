@@ -32,6 +32,32 @@ export function chunkText(text: string, max = CHUNK_CHARS): string[] {
   return chunks;
 }
 
+/** Markdown → something a voice can read (#412): mentions become their words, links their
+ *  text, code and images are skipped, list markers and heading hashes go. */
+export function speakable(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/(^|[^\w@])@([A-Za-z][\w:.-]*\w)/g, "$1$2")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?/gm, "")
+    .replace(/^\s*>\s?/gm, "")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, "$1")
+    .replace(/^\s*[-*_]{3,}\s*$/gm, " ")
+    .replace(/^\s*\|?[\s|:-]+\|?\s*$/gm, " ")
+    .replace(/\|/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .split("\n").map((line) => line.trim()).filter(Boolean)
+    .map((line) => (/[.!?:;,]$/.test(line) ? line : `${line}.`))
+    .join(" ")
+    .replace(/\s+\./g, ".")
+    .replace(/\.{2,}/g, ".")
+    .trim();
+}
+
 async function synthesise(text: string, signal: AbortSignal): Promise<string> {
   const res = await fetch("/tts/", { method: "POST", headers: { "X-CSRFToken": csrfToken() }, body: new URLSearchParams({ text }), signal });
   if (!res.ok) {

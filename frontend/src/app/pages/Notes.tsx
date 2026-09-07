@@ -5,12 +5,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowUpRight, BookOpen, CalendarDays, FileDown, FlaskConical, Plus, Search, Sparkles, Trash2, Users } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarDays, FileDown, FlaskConical, Plus, Search, Sparkles, Square, Trash2, Users, Volume2 } from "lucide-react";
 import { api, petReact } from "../api";
 import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 import MarkdownEditor from "../notes/MarkdownEditor";
+import { listenTo, speakable, type Listener } from "../listen";
 
 type Backlink = { id: number; title: string };
 type RefSummary = { id: number; bibtex_key: string; title: string; year: number | null };
@@ -162,6 +163,21 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [exported, setExported] = useState("");
+  // #412: read this note to me — chunked, prefetched playback of the markdown-stripped body
+  const [listening, setListening] = useState<{ index: number; total: number } | null>(null);
+  const listenerRef = useRef<Listener | null>(null);
+  const stopListening = () => { listenerRef.current?.stop(); listenerRef.current = null; setListening(null); };
+  useEffect(() => stopListening, [id]);
+  const listen = async () => {
+    if (listenerRef.current) { stopListening(); return; }
+    const text = speakable(`${title}. ${bodyRef.current}`);
+    if (!text) return;
+    setListening({ index: 0, total: 0 });
+    const l = listenTo(text, (index, total) => setListening({ index, total }));
+    listenerRef.current = l;
+    try { await l.done; } catch (e) { setExported(String((e as Error).message ?? e)); setTimeout(() => setExported(""), 4000); }
+    finally { if (listenerRef.current === l) { listenerRef.current = null; setListening(null); } }
+  };
   useEffect(() => { if (note.data && !loaded) { setTitle(note.data.title); setBody(note.data.body); setLoaded(true); } }, [note.data, loaded]);
   const debouncedBody = useDebounced(body, 500);
   const preview = useQuery({
@@ -190,6 +206,10 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
         <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-2 text-[11px] text-stone-400 dark:border-stone-800">
           <span className="font-mono">[[</span><span>link a note</span><span className="font-mono">@</span><span>cite a paper</span><span>· ⌘S saves</span>
           <span className="ml-auto tabular-nums" data-testid="save-state">{save.isPending ? "saving…" : dirty ? "editing…" : savedAt ? "saved" : ""}</span>
+          <button type="button" onClick={() => void listen()} className={`inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300 ${listening ? "text-indigo-600 dark:text-indigo-300" : ""}`} title={listening ? "Stop reading" : "Read this note aloud (local voice)"} data-testid="note-listen" aria-pressed={!!listening}>
+            {listening ? <Square className="h-3.5 w-3.5" aria-hidden="true" /> : <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />}
+            {listening ? (listening.total ? `stop · ${Math.min(listening.index + 1, listening.total)}/${listening.total}` : "stop") : "listen"}
+          </button>
           <button type="button" onClick={async () => { const style = (() => { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } })(); const out = await api<{ markdown: string; references: number }>(`/notes/${id}/export/?style=${style}`); await navigator.clipboard?.writeText(out.markdown); setExported(`Copied as Markdown${out.references ? ` with ${out.references} reference${out.references === 1 ? "" : "s"} (${style.toUpperCase()})` : ""}.`); setTimeout(() => setExported(""), 3500); }} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy the note as Markdown with a formatted bibliography"><FileDown className="h-3.5 w-3.5" aria-hidden="true" />export</button>
           <button type="button" onClick={async () => { if (await confirmDialog({ title: `Delete “${title}”?`, body: "Links from other notes to it become plain text.", danger: true, confirmLabel: "Delete note" })) onDelete(); }} className="inline-flex items-center gap-1 hover:text-red-500" aria-label="Delete note"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
         </div>
