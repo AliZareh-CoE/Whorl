@@ -45,7 +45,7 @@ function csrfToken(): string {
 
 type SortKey = "title" | "folder" | "size" | "added";
 
-export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onDone }: Props) {
+export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onDone, filesUrl }: Props & { filesUrl?: string }) {
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("added");
   const [asc, setAsc] = useState(false);
@@ -379,12 +379,28 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                       ? `Nothing matches “${filter.trim()}”. Try a different title, folder, or tag.`
                       : "Upload a file into any folder to start filling this project's library."}
                   </p>
+                  {!filter.trim() && filesUrl && (
+                    <a href={filesUrl} className="mt-3 inline-block rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700" data-testid="documents-upload-cta">Upload in Files →</a>
+                  )}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      {/* #421 (backlog #178): a three-row table in a wide page leaves a lot of quiet space —
+          say what the page is for and offer the next step instead of leaving it blank */}
+      {!filter.trim() && documents.length > 0 && documents.length <= 3 && (
+        <div className="mt-4 rounded border border-dashed border-stone-200 px-4 py-5 text-center dark:border-stone-800" data-testid="documents-sparse">
+          <p className="text-sm text-stone-500 dark:text-stone-300">
+            {documents.length === 1 ? "One file so far." : `${documents.length} files so far.`} This page is the project's file cabinet: protocols, data notes, figures, drafts — anything worth finding again.
+          </p>
+          <p className="mt-2 text-xs text-stone-400">
+            {filesUrl ? <><a href={filesUrl} className="font-medium text-indigo-600 hover:underline dark:text-indigo-300">Upload or drop files in Files →</a> · </> : null}
+            PDFs of papers belong in the Library; tag files here so filters mean something.
+          </p>
+        </div>
+      )}
 
       {menu.element}
       {commentsDoc && (

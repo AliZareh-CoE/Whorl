@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The sparse documents table says what it is for (#421)
+
+**Decision.** With three files or fewer (and no filter), the Documents table gets a dashed footer: how many files there are, what the page is for (the project's file cabinet), a link to upload or drop files in Files, and the one rule people trip over (papers' PDFs live in the Library). The empty state gains the same "Upload in Files →" action. The table itself is unchanged; nothing collapses or scrolls.
+
+**Why.** Backlog #178: the wide layout made a three-row table look abandoned. Every empty state explains the page and offers the primary action (UI guideline); a *nearly* empty one deserves the same.
+
+**Alternatives rejected.** A max-height (hides rows that fit fine); onboarding cards with icons (clutter for a page whose value is the table).
+
 ### 2026-09-07 — Narrow-width audit: three sideways scrolls fixed (#420)
 
 **Decision.** A 900 px pass of `scripts/ui_audit.py` (light and dark) after today's slices found three pages scrolling sideways, none of them new code: the Documents table's `sr-only` header labels are absolutely positioned and escaped the `overflow-x-auto` scroller (the wrapper is now `relative`); the manuscript detail's two grid columns had `min-width: auto`, so a long cite key widened them past the track (`min-w-0`); the Literature header's link row was `shrink-0` and would not wrap (`flex-wrap`); and the manuscript title, an `<input>` that could only clip, is now a content-sized `<textarea>` (`field-sizing: content`, Enter blurs, newlines stripped) that wraps onto two lines instead of hiding the end of the title behind the studio button. The audit is clean at 900, 1280 light and 1280 dark desktop.
@@ -2137,7 +2145,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 186. #25 density sweep is COMPLETE across the main surfaces (overview, dashboard, plan, writing board, library, documents, reading queue, matrix, project literature) — next density-adjacent work should be the shared base list-page wrapper (#183) so future pages inherit the rhythm instead of re-applying it by hand (idea added during #182)
 182. ~~Project literature index density (done 2026-06-14): literature/project_literature.html widened to max-w-6xl + header mb-6→4; the filter bar / keyword cloud / link list were already tight. Live-verified 200 at width 1056, no JS errors, screenshot reviewed. The per-project Literature landing now matches the rest of the #25 sweep — density is consistent across every literature surface.~~
 179. ~~Reading-queue + review-matrix density (done 2026-06-13): reading_queue.html + matrix.html widened to max-w-6xl, order-filter/intro margins 6→4, matrix th/td py-2→1.5; finishes the #25 table/list sweep across literature (library #165, documents #171, queue + matrix #179). Both live-verified 200 at width 1056, no JS errors, matrix screenshot reviewed (calm, cohering with the icon nav).~~
-178. Documents-table empty/sparse state polish — with the wider layout a 3-row table leaves a lot of whitespace; a calmer empty-ish state or a max-height could tighten sparse projects (idea added during #171)
+178. ~~(Done 2026-09-07, #421: dashed sparse footer + upload CTA.)~~ Documents-table empty/sparse state polish — with the wider layout a 3-row table leaves a lot of whitespace; a calmer empty-ish state or a max-height could tighten sparse projects (idea added during #171)
 171. ~~Density pass on the documents/folder tables (done 2026-06-13): the per-project Documents page widened to max-w-6xl (block main_class), header mb-6→4, table header + every _doc_row.html cell py-2→1.5; the folder rail already used .card. Live-verified: 200, main width 1056, rows render, no JS errors, screenshot reviewed (cohering with the new sidebar + subnav icons). Completes the #25 table sweep alongside #165.~~
 191. Factor the "remember a whitelisted ?param in the session" pattern into a tiny helper (now used by #176 library sort and #190 literature order) so future persisted controls don't re-implement the get/restore dance (idea added during #190)
 190. ~~Persist the per-project literature order (done 2026-06-14): the order pill choice saves to session["literature_order"]; visiting the per-project Literature page with no ?sort= restores it (default "added"), mirroring #176's library sort. Test covers the round-trip; live-verified choosing Title persists across a bare revisit.~~

@@ -2,6 +2,10 @@
 
 ## Current Status
 
+- **Documents sparse state (2026-09-07, #421).** Dashed footer at ≤3 files with the page's purpose + Files link; empty-state upload CTA. Guard: core/tests/test_polish.py::test_documents_sparse_state. Playwright: docs/screenshots/documents-sparse.png.
+
+- **⚠ CI not starting (2026-09-07, from run 139 on).** Desktop-release jobs fail within 4 s with no runner and no steps (run 139: the post-build prune/mirror jobs; runs 140–141: every job). Nothing in the workflow changed since run 138 (green); the code is unaffected (full suite 1181 green locally). This is the signature of the GitHub Actions minutes/spending limit on a private repo — owner action: check Settings → Billing → Actions on GitHub; the loop keeps committing, and the next push after the limit is lifted will build.
+
 - **Narrow-width fixes (2026-09-07, #420).** 900 px audit: DocumentsTable scroller `relative`, manuscript columns `min-w-0`, Literature header `flex-wrap`. Audit clean at 900 dark / 1280 light desktop. Guard: core/tests/test_polish.py::test_narrow_width_overflow_fixes.
 
 - **Pet habit signals (2026-09-07, #419).** Streak, unusual-hour and words-today lines in `core/pet.py::_speech_candidates`. Tests: core/tests/test_pet.py::TestHabitSignals (2).

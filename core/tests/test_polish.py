@@ -45,3 +45,14 @@ def test_narrow_width_overflow_fixes():
     assert writing.count('className="min-w-0 space-y-4"') == 2
     lit = (BASE / "frontend/src/app/pages/Literature.tsx").read_text()
     assert 'className="mb-6 flex flex-wrap items-end justify-between gap-4"' in lit
+
+
+def test_documents_sparse_state():
+    """#421 (backlog #178): a near-empty documents table explains itself and offers the next step."""
+    table = (BASE / "frontend/src/components/DocumentsTable.tsx").read_text()
+    assert 'data-testid="documents-sparse"' in table and "documents.length <= 3" in table
+    assert 'data-testid="documents-upload-cta"' in table
+    assert (
+        "filesUrl={`/projects/${slug}/files`}"
+        in (BASE / "frontend/src/app/pages/Documents.tsx").read_text()
+    )

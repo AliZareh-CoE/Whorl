@@ -38,6 +38,7 @@ export default function Documents() {
       </div>
       <DocumentsTable
         {...data}
+        filesUrl={`/projects/${slug}/files`}
         onDone={() => queryClient.invalidateQueries({ queryKey: ["documents-table", slug] })}
       />
     </div>
