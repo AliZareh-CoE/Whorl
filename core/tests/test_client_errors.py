@@ -84,3 +84,30 @@ def test_error_boundary_wired_and_static_recollected_clean():
     assert '"collectstatic", "--no-input", "--clear"' in run_desktop
     desktop = (BASE / "config/settings/desktop.py").read_text()
     assert "WHITENOISE_MAX_AGE = 0" in desktop
+
+
+def test_desktop_inspector_is_wired():
+    """#389: the release build can open its web inspector on demand."""
+    cargo = (BASE / "desktop/Cargo.toml").read_text()
+    assert 'features = ["devtools"]' in cargo
+    main = (BASE / "desktop/src/main.rs").read_text()
+    assert "devtools::open_devtools" in main and "mod devtools;" in main
+    assert "open_devtools" in (BASE / "desktop/src/devtools.rs").read_text()
+    external = (BASE / "frontend/src/app/external.ts").read_text()
+    assert 'e.key === "F12"' in external and "installDevtoolsShortcut" in external
+    assert "installDevtoolsShortcut()" in (BASE / "frontend/src/app/main.tsx").read_text()
+    assert (
+        'data-testid="open-inspector"'
+        in (BASE / "frontend/src/app/pages/Diagnostics.tsx").read_text()
+    )
+    assert 'invoke("open_devtools")' in (BASE / "templates/spa.html").read_text()
+
+
+def test_ci_boots_the_app_against_the_frozen_server():
+    """#390: the release workflow draws the app in a browser on every platform it builds."""
+    workflow = (BASE / ".github/workflows/desktop-release.yml").read_text()
+    assert "scripts/boot_check.py http://127.0.0.1:8765" in workflow
+    assert "playwright install chromium" in workflow
+    assert "name: boot-check-${{ matrix.platform }}" in workflow
+    script = (BASE / "scripts/boot_check.py").read_text()
+    assert "boot-failure" in script and "render-failure" in script and "window.__TAURI__" in script

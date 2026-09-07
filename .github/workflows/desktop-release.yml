@@ -229,8 +229,23 @@ jobs:
           echo "$DIAG" | head -c 600; echo
           echo "$DIAG" | grep -q '"engine": *"[^"]*tectonic' || { echo "::error::bundled LaTeX engine not found by the frozen server"; cat "$ATLAS_DATA_DIR/atlas-server.log" || true; kill $SERVER || true; exit 1; }
           curl -sf -o /dev/null http://127.0.0.1:8765/static/js/spa.js || { echo "::error::SPA bundle not served"; kill $SERVER || true; exit 1; }
+          # Boot check (#390): a real browser logs in and draws the dashboard, projects, library
+          # and diagnostics pages against THIS platform's frozen server — a blank window or a
+          # crashed page fails the build here instead of on the owner's desk. Screenshots are
+          # uploaded as the boot-check artifact so the rendering can be looked at.
+          if [ "$RUNNER_OS" = "Linux" ]; then uv run --with playwright playwright install --with-deps chromium; else uv run --with playwright playwright install chromium; fi
+          uv run --with playwright python scripts/boot_check.py http://127.0.0.1:8765 "${{ runner.temp }}/boot-check" || { echo "::error::the app did not draw against the frozen server"; cat "$ATLAS_DATA_DIR/atlas-server.log" || true; kill $SERVER || true; exit 1; }
           kill $SERVER || true
           echo "frozen server smoke test passed"
+
+      - name: Upload the boot-check screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-check-${{ matrix.platform }}
+          path: ${{ runner.temp }}/boot-check/*.png
+          if-no-files-found: ignore
+          retention-days: 14
 
       # The desktop shell loads the bundled server (frontendDist is only a Tauri formality),
       # so there is no Node/Vite build step needed for the bundle.
