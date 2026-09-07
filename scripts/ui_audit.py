@@ -1,7 +1,7 @@
 """UI audit sweep (DECISIONS #346): screenshot every SPA route and flag horizontal overflow,
 sub-10 px text, empty bodies, console errors and unexpected redirects.
 
-    uv run python scripts/ui_audit.py <out_dir> <dark|light> <viewport width>
+    uv run python scripts/ui_audit.py <out_dir> <dark|light> <viewport width> [desktop]
 
 Needs a dev server on 127.0.0.1:8000 seeded with `seed_demo` (login atlas/atlas) and the
 Playwright Chromium at CHROME (override with the CHROME env var).
@@ -14,6 +14,13 @@ import sys
 from playwright.async_api import async_playwright
 
 OUT, THEME, WIDTH = sys.argv[1], sys.argv[2], int(sys.argv[3])
+# 4th arg "desktop": pretend to be the Tauri webview (window.__TAURI__ present, IPC refusing)
+# so desktop-only code paths run — the 2026-09-07 blank-dashboard bug only showed up there.
+DESKTOP = len(sys.argv) > 4 and sys.argv[4] == "desktop"
+TAURI_STUB = (
+    "window.__TAURI__ = { core: { invoke: () => Promise.reject(new Error('no ipc')) } };"
+    "window.__TAURI_INTERNALS__ = { invoke: () => Promise.reject(new Error('no ipc')), transformCallback: () => 0 };"
+)
 P = "attention-and-memory"
 PAGES = [
     "/",
@@ -58,6 +65,8 @@ async def main():
         )
         ctx = await b.new_context(viewport={"width": WIDTH, "height": 900})
         await ctx.add_init_script(f"try{{localStorage.setItem('theme','{THEME}')}}catch(e){{}}")
+        if DESKTOP:
+            await ctx.add_init_script(TAURI_STUB)
         page = await ctx.new_page()
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)[:160]))
