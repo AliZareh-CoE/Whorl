@@ -3,6 +3,7 @@ change stamps `updated_at` on the rows involved (Django's M2M writes never touch
 
 from __future__ import annotations
 
+from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.utils import timezone
 
@@ -35,8 +36,21 @@ def _touch(model, pks) -> None:
 
 
 def on_write(sender, **kwargs):
-    if _is_atlas_model(sender):
+    # the access log (#399) is bookkeeping about requests, not data the pages show
+    if _is_atlas_model(sender) and getattr(sender, "__name__", "") != "AccessEvent":
         bump_data_version()
+
+
+def on_login(sender, request, user, **kwargs):
+    from .access import record
+
+    record("login_ok", request, detail=getattr(user, "username", ""))
+
+
+def on_login_failed(sender, credentials, request, **kwargs):
+    from .access import record
+
+    record("login_failed", request, detail=str((credentials or {}).get("username", ""))[:60])
 
 
 def on_m2m(sender, instance, action, reverse, model, pk_set, **kwargs):
@@ -54,3 +68,5 @@ def connect() -> None:
     post_save.connect(on_write, dispatch_uid="atlas-version-save")
     post_delete.connect(on_write, dispatch_uid="atlas-version-delete")
     m2m_changed.connect(on_m2m, dispatch_uid="atlas-version-m2m")
+    user_logged_in.connect(on_login, dispatch_uid="atlas-access-login")
+    user_login_failed.connect(on_login_failed, dispatch_uid="atlas-access-login-failed")

@@ -86,3 +86,26 @@ class TodoItem(TimeStampedModel):
         self.done = done
         self.done_at = timezone.now() if done else None
         self.save(update_fields=["done", "done_at", "updated_at"])
+
+
+class AccessEvent(models.Model):
+    """Who touched the door (2026-09-07, #399 — backlog #42): logins, lockouts and rejected
+    API keys, kept to the last few hundred rows and shown on Diagnostics › Access."""
+
+    class Kind(models.TextChoices):
+        LOGIN_OK = "login_ok", "Login"
+        LOGIN_FAILED = "login_failed", "Failed login"
+        LOGIN_LOCKED = "login_locked", "Login locked out"
+        API_KEY_REJECTED = "api_key_rejected", "API key rejected"
+
+    kind = models.CharField(max_length=24, choices=Kind.choices)
+    address = models.CharField(max_length=64, blank=True)
+    user_agent = models.CharField(max_length=200, blank=True)
+    detail = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} from {self.address or '?'} at {self.created_at:%Y-%m-%d %H:%M}"

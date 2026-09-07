@@ -26,6 +26,9 @@ class ThrottledLoginView(auth_views.LoginView):
         failures = cache.get(_login_key(request), 0)
         if failures >= LOGIN_MAX_FAILURES:
             form = self.get_form()
+            from .access import record
+
+            record("login_locked", request)
             form.add_error(None, "Too many failed attempts. Try again in a few minutes.")
             return self.render_to_response(self.get_context_data(form=form), status=429)
         return super().post(request, *args, **kwargs)

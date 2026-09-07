@@ -14,6 +14,9 @@ class APIKeyAuthentication(BaseAuthentication):
             return None
         expected = settings.ATLAS_API_KEY
         if not expected or not constant_time_compare(key, expected):
+            from core.access import record
+
+            record("api_key_rejected", request, detail=request.path[:120])
             raise AuthenticationFailed("Invalid API key.")
         user = User.objects.filter(is_superuser=True).order_by("pk").first()
         if user is None:
@@ -34,6 +37,9 @@ class QueryKeyAuthentication(APIKeyAuthentication):
             return None
         expected = settings.ATLAS_API_KEY
         if not expected or not constant_time_compare(key, expected):
+            from core.access import record
+
+            record("api_key_rejected", request, detail=request.path[:120])
             raise AuthenticationFailed("Invalid API key.")
         user = User.objects.filter(is_superuser=True).order_by("pk").first()
         if user is None:

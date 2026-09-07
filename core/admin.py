@@ -19,3 +19,11 @@ class PetAdmin(admin.ModelAdmin):
 class AchievementUnlockAdmin(admin.ModelAdmin):
     list_display = ("key", "unlocked_at")
     ordering = ("-unlocked_at",)
+
+
+@admin.register(models.AccessEvent)
+class AccessEventAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "kind", "address", "detail", "user_agent")
+    list_filter = ("kind",)
+    search_fields = ("address", "detail", "user_agent")
+    readonly_fields = ("created_at",)

@@ -100,7 +100,17 @@ def collect(check_network: bool = False) -> dict:
         ),
         "server_log": _tail(Path(data_dir) / "atlas-server.log") if data_dir else "",
         "client_errors": client_errors.recent(),
+        "access": _access(),
     }
+
+
+def _access() -> dict:
+    try:
+        from core.access import recent, summary
+
+        return {"summary": summary(), "events": recent(12)}
+    except Exception:  # noqa: BLE001 - a missing table (pre-migration) must not break the page
+        return {"summary": None, "events": []}
 
 
 def as_text(report: dict) -> str:
@@ -122,6 +132,14 @@ def as_text(report: dict) -> str:
     if report["last_failed_compile"]:
         f = report["last_failed_compile"]
         lines += ["", f"last failed compile: #{f['manuscript']} {f['title']} ({f['at']})", f["log"]]
+    access = report.get("access") or {}
+    if access.get("summary"):
+        c = access["summary"]["counts"]
+        lines.append(
+            f"access ({access['summary']['days']} days): {c.get('login_ok', 0)} logins · "
+            f"{c.get('login_failed', 0)} failed · {c.get('login_locked', 0)} lockouts · "
+            f"{c.get('api_key_rejected', 0)} rejected API keys"
+        )
     if report.get("client_errors"):
         lines += ["", "front-end errors (most recent first):"]
         for entry in report["client_errors"]:

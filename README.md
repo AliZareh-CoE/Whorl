@@ -258,7 +258,9 @@ Since #382 it cannot stay silent: after a few seconds a panel says **"Atlas coul
 app"** with the errors that were thrown, a Reload button, a link to the classic pages, and the
 path of the server log the report was also written to. A crash while drawing one page shows
 that page's error in place with the sidebar intact. Every report lands in `atlas-server.log`
-and under **Front-end errors** on `/diagnostics` — paste that section when reporting. In the
+and under **Front-end errors** on `/diagnostics` — paste that section when reporting. Diagnostics also lists
+the **Access** log: logins, failed logins, lockouts and rejected API keys, so you can tell
+whether anyone else has tried the door. In the
 desktop app **F12** (or Ctrl+Shift+I, or the *Web inspector* button on Diagnostics and on the
 blank-window panel) opens the web view's own inspector, so the console is one key away. The
 desktop also re-collects its static assets with `--clear` on every version change and serves
