@@ -27,6 +27,10 @@ type Ref = {
 };
 type Highlight = { id: number; page: number | null; text: string; comment: string; color: string; project_name: string };
 type Citation = { style: string; label: string; text: string; html: string; intext: string };
+type UsageRow = { kind: string; id: number; title: string; project: string | null; project_name: string | null; how: string; url: string; detail: string };
+type Usage = { total: number; counts: Record<string, number>; rows: UsageRow[] };
+const USAGE_KIND: Record<string, string> = { manuscript: "Manuscripts", evidence: "Evidence", note: "Notes", decision: "Decisions", experiment: "Experiment log", protocol: "Protocols", capture: "Captures" };
+const HOW_CLS: Record<string, string> = { supports: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", contradicts: "bg-red-500/15 text-red-700 dark:text-red-300", mixed: "bg-amber-500/15 text-amber-700 dark:text-amber-300", bibliography: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200" };
 
 function authorLine(r: Ref): string {
   const names = (r.authors ?? []).map((a) => [a.given, a.family].filter(Boolean).join(" ")).filter(Boolean);
@@ -98,6 +102,8 @@ export default function Reference() {
     queryKey: ["comments", "reference", id],
     queryFn: () => api<{ comments: { id: number; body: string; created_at: string }[] }>(`/comments/reference/${id}/`),
   });
+  // #411: where this paper appears — backlinks for a reference
+  const usage = useQuery({ queryKey: ["usage", Number(id)], queryFn: () => api<Usage>(`/references/${id}/usage/`) });
   const [commentBody, setCommentBody] = useState("");
   const remove = useMutation({
     mutationFn: () => api(`/references/${id}/`, { method: "DELETE" }),
@@ -274,6 +280,33 @@ export default function Reference() {
           <a href={ref.pdf} target="_blank" rel="noreferrer" className="text-xs text-stone-400 hover:underline">open the file ↗</a>
         </section>
       )}
+
+      <section className="mb-4 rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900" data-testid="usage-section">
+        <h2 className="mb-1 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">
+          Where it appears {usage.data && usage.data.total > 0 && <span className="text-stone-300 dark:text-stone-400">{usage.data.total}</span>}
+        </h2>
+        {usage.data && usage.data.total === 0 && (
+          <p className="text-sm text-stone-400 dark:text-stone-400">Nowhere yet — cite it as <span className="font-mono">@{ref.bibtex_key}</span> in a note, a decision or a lab entry, add it to a manuscript's bibliography, or attach it as evidence, and it will be listed here.</p>
+        )}
+        {usage.data && usage.data.total > 0 && (
+          <div className="space-y-3">
+            {Object.entries(USAGE_KIND).filter(([kind]) => usage.data!.counts[kind]).map(([kind, label]) => (
+              <div key={kind}>
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-stone-400">{label} <span className="normal-case tracking-normal">{usage.data!.counts[kind]}</span></p>
+                <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+                  {usage.data!.rows.filter((r) => r.kind === kind).map((r) => (
+                    <li key={`${r.kind}-${r.id}`} className="flex items-baseline gap-2 py-1 text-sm" data-testid="usage-row">
+                      <Link to={r.url} className="min-w-0 flex-1 truncate text-stone-800 hover:text-indigo-600 dark:text-stone-100 dark:hover:text-indigo-300" title={r.detail || r.title}>{r.title}</Link>
+                      {r.project_name && <span className="shrink-0 truncate text-[11px] text-stone-400">{r.project_name}</span>}
+                      <span className={`shrink-0 rounded-full px-1.5 py-px text-[10px] ${HOW_CLS[r.how] ?? "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"}`}>{r.how}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
         <h2 className="mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">

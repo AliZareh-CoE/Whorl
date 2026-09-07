@@ -355,6 +355,11 @@ def get_reference_tldr(reference_id: int):
     return _request("GET", f"/references/{reference_id}/tldr/")
 
 
+def get_reference_usage(reference_id: int):
+    """Every note, decision, entry, protocol, capture, manuscript and evidence row that links to or cites the paper."""
+    return _request("GET", f"/references/{reference_id}/usage/")
+
+
 def reorder_todos(ids: list[int]):
     """The given ids take positions 1..n; the rest follow in their current order."""
     return _request("POST", "/todos/reorder/", json={"ids": ids})

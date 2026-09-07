@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Where a paper appears: backlinks for references (#411)
+
+**Decision.** `literature/usage.py::usage_of(reference)` collects every place a paper is used — notes that link it (the M2M) or cite it as `@key`, decisions / experiment entries / protocols / captures that mention `@key` (a whole-key match through the same `CITE_RE` the mention renderer uses, so `@lavie2010attentionb` is not `@lavie2010attention`), manuscripts whose bibliography carries it (with the cite key actually used), and evidence rows that point at it (with their direction). Served as `GET /api/v1/references/{id}/usage/` (grouped counts + rows with the SPA route to each), as the MCP tool `get_reference_usage` (92 tools), and on the Reference page as a "Where it appears" section between Highlights and Comments, manuscripts first because they are the costliest place to break. The empty state says how to make the paper appear somewhere.
+
+**Why.** Notes have had backlinks since Phase 3; papers had none, although they are the thing a researcher most often asks "where did I use this?" about — before deleting one, before merging duplicates, when writing the related-work section. #407 made mentions live everywhere; this is the reverse index.
+
+**Alternatives rejected.** Parsing `\cite{}` in manuscript `.tex` sources (a file read per manuscript per view; the bibliography membership is the contract the cite checker already enforces); a denormalised mention table maintained on save (more machinery for a per-page query that is a handful of `icontains` filters).
+
 ### 2026-09-07 — Files: drag a file onto a folder to move it (#410)
 
 **Decision.** File rows in the Files explorer are `draggable`; the drag carries the document id under a private MIME type (`application/x-atlas-doc`), so folder rows and the tree's empty area — which already accept OS files for upload — tell the two apart: an Atlas row moves through the existing `PATCH /documents/{id}/ {folder}` mutation, an OS file uploads as before. Dropping on the folder the file is already in is a no-op; manuscript folders refuse drops as they did; manuscript source files are not draggable (the Studio owns them). The dragged row dims, the target folder rings, and the tree's border lights when the drop would go to the root.

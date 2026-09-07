@@ -318,6 +318,15 @@ def get_reference_tldr(reference_id: int) -> dict:
 
 
 @mcp.tool()
+def get_reference_usage(reference_id: int) -> dict:
+    """Where this paper appears in Atlas: notes that link or cite it, decisions, experiment
+    entries, protocols and captures that mention @key, manuscripts whose bibliography carries
+    it, and evidence rows that point at it — grouped, with the route to each. Ask before
+    removing a paper, or to find where an argument was used."""
+    return client.get_reference_usage(reference_id)
+
+
+@mcp.tool()
 def reorder_todos(ids: list[int]) -> dict:
     """Put the Today list in this order: the given item ids take the top positions in the
     order given; anything not listed keeps its relative order below them."""

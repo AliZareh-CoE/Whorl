@@ -1449,6 +1449,20 @@ class ReferenceViewSet(AtlasViewSet):
         "extracted PDF text, each summarised extractively with the page it starts on; falls "
         "back to the abstract. Local, no model.",
     )
+    @extend_schema(
+        operation_id="v1_references_usage",
+        description="Where this paper appears (#411): notes that link or cite it, decisions, "
+        "experiment entries, protocols and captures that mention @key, manuscripts whose "
+        "bibliography carries it, and evidence rows that point at it — each with the route "
+        "to jump to.",
+        responses={200: None},
+    )
+    @action(detail=True, methods=["get"], url_path="usage")
+    def usage(self, request, pk=None):
+        from literature.usage import usage_of
+
+        return Response(usage_of(self.get_object()))
+
     @action(detail=True, methods=["get"], url_path="tldr")
     def tldr(self, request, pk=None):
         from literature.tldr import tldr
