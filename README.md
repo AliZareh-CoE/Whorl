@@ -43,7 +43,7 @@ Claude Code can do all of it with you — 91 tools over the same API the UI uses
 - Roadmap: phases as bars (windows inferred when undated), milestones as diamonds, drag or use the keyboard to reschedule; per-phase health (behind / on track / ahead / overdue) and a finish forecast from your pace.
 - "This week" strip, milestone drawer (notes, due date, tasks), phase objectives and research questions in place.
 
-**Library** — add by DOI / arXiv; drop a folder of PDFs (the DOI is read off page one), BibTeX, RIS, CSL-JSON, or pull Zotero; everything deduplicated. Tag papers from the detail pane; right-click a tag in the rail to give it a colour, rename or delete it — the colour follows the tag onto every row.
+**Library** — add by DOI / arXiv; drop a folder of PDFs (the DOI is read off page one), BibTeX, RIS, CSL-JSON, or pull Zotero; everything deduplicated. Or **watch a folder**: point the Library at your Downloads folder and every PDF saved there is imported on its own (Library rail › Watch folder). Tag papers from the detail pane; right-click a tag in the rail to give it a colour, rename or delete it — the colour follows the tag onto every row.
 - Facets, keyboard `j/k/x/o`, bulk file / mark / tag / export, saved smart views, duplicate merge that keeps every link.
 - Read and highlight without leaving the page; per-project reading notes; Find PDF (arXiv → Unpaywall).
 - Search inside your PDFs: every attached PDF is read into searchable text — hits name the page.

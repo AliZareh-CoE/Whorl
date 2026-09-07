@@ -85,3 +85,21 @@ mod tests {
         assert_eq!(base64(b"foobar"), "Zm9vYmFy");
     }
 }
+
+
+/// Pick a folder (#406: the watched PDF folder). Same off-main-thread dance as the file picker.
+#[tauri::command]
+pub async fn pick_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.dialog().file().pick_folder(move |picked| {
+        let _ = tx.send(picked);
+    });
+    let picked = tauri::async_runtime::spawn_blocking(move || rx.recv().ok().flatten())
+        .await
+        .map_err(|e| e.to_string())?;
+    let Some(folder) = picked else {
+        return Ok(None);
+    };
+    let path = folder.into_path().map_err(|e| e.to_string())?;
+    Ok(Some(path.display().to_string()))
+}

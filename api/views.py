@@ -2747,6 +2747,68 @@ class DiagnosticsAPIView(APIView):
         return Response(report)
 
 
+class WatchFolderAPIView(APIView):
+    """Watched folder (#406): a folder on this machine whose new PDFs land in the library."""
+
+    @extend_schema(
+        operation_id="v1_watch_folder",
+        description="The watched folder: dir, project, enabled, whether the watcher runs, the last scan.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from literature.watch import status
+
+        return Response(status())
+
+    @extend_schema(
+        operation_id="v1_watch_folder_set",
+        description="Set the watched folder: {dir, project (slug or null), enabled}. Starts or stops the watcher.",
+        request=inline_serializer(
+            "WatchFolderConfig",
+            {
+                "dir": rf_serializers.CharField(allow_blank=True),
+                "project": rf_serializers.CharField(
+                    required=False, allow_null=True, allow_blank=True
+                ),
+                "enabled": rf_serializers.BooleanField(required=False),
+            },
+        ),
+        responses={200: None},
+    )
+    def post(self, request):
+        from literature.watch import save_config, start_watcher, status, stop_watcher
+
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            config = save_config(
+                str(data.get("dir") or ""),
+                (data.get("project") or None) or None,
+                bool(data.get("enabled", True)),
+            )
+        except ValueError as exc:
+            raise rf_serializers.ValidationError({"dir": [str(exc)]}) from exc
+        if config["enabled"]:
+            start_watcher()
+        else:
+            stop_watcher()
+        return Response(status())
+
+
+class WatchFolderScanAPIView(APIView):
+    """Scan the watched folder now (#406)."""
+
+    @extend_schema(
+        operation_id="v1_watch_folder_scan",
+        description="Import the folder's new PDFs right now and return the scan summary.",
+        request=None,
+        responses={200: None},
+    )
+    def post(self, request):
+        from literature.watch import scan_once
+
+        return Response(scan_once())
+
+
 class FeedTokenAPIView(APIView):
     """The calendar feed token (#401): the read-only secret in the .ics subscription URL."""
 

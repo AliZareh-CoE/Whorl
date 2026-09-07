@@ -51,7 +51,7 @@ can replace its files (`installer-hooks.nsh`).
    starting a second server on the same database.
 
 The data folder holds everything: `atlas.sqlite3`, `media/`, `staticfiles/`, `secret_key`,
-`api_key`, `server.json` (the URL this launch is serving on), `atlas-server.log`. Back it up
+`api_key`, `server.json` (the URL this launch is serving on), `watch.json` (the watched PDF folder), `atlas-server.log`. Back it up
 to back up Atlas.
 
 ## Claude Code integration (`atlas-mcp`)

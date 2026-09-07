@@ -44,6 +44,17 @@ export function installExternalLinkHandler(): void {
   }, true);
 }
 
+/** Desktop only (#406): pick a folder with the OS dialog; null when cancelled or not on the desktop. */
+export async function pickFolder(): Promise<string | null> {
+  if (!isDesktop()) return null;
+  try {
+    const tauri = (await import("@tauri-apps/api")) as unknown as TauriApi;
+    return ((await tauri.core.invoke("pick_folder")) as string | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Desktop only (#389): open the shell's web inspector — a real console when a page misbehaves. */
 export async function openDevtools(): Promise<boolean> {
   if (!isDesktop()) return false;

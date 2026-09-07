@@ -141,6 +141,7 @@ fn main() {
             external::reveal_path,
             devtools::open_devtools,
             localfs::open_local_file,
+            localfs::pick_folder,
             updater::check_for_updates,
             updater::check_update,
             updater::install_update,

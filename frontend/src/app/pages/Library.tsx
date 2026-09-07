@@ -10,6 +10,7 @@ import {
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { useMenu, type MenuItem } from "../../components/Menu";
+import { isDesktop, pickFolder } from "../external";
 import PdfReader, { HL_COLORS, type Highlight } from "./library/PdfReader";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -512,6 +513,7 @@ export default function Library() {
                 ))}
                 {f.untagged > 0 && <button type="button" className={chip(filters.untagged === "true")} onClick={() => set({ untagged: filters.untagged ? "" : "true", tag: "" })}><span>Untagged</span><span className="tabular-nums text-stone-400">{f.untagged}</span></button>}
               </div>
+              <WatchFolderBlock projects={f.all_projects ?? []} onImported={() => { invalidate(); }} flash={flash} />
               <div className="mb-3">
                 <p className={railH}>Projects</p>
                 <button type="button" className={chip(filters.unfiled === "true")} onClick={() => set({ unfiled: filters.unfiled ? "" : "true", project: "" })}><span>Unfiled</span><span className="tabular-nums text-stone-400">{f.unfiled}</span></button>
@@ -1021,6 +1023,66 @@ function FoundInPdf({ r, q, onFind, onIndexText }: { r: Ref; q: string; onFind: 
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+
+/** Watched folder (#406): drop PDFs into one folder on disk and they land in the library. */
+function WatchFolderBlock({ projects, onImported, flash }: { projects: { slug: string; name: string }[]; onImported: () => void; flash: (msg: string) => void }) {
+  const queryClient = useQueryClient();
+  type Scan = { at: string; imported: number; existing: number; failed: number; seen: number; error?: string };
+  type Status = { dir: string; project: string | null; enabled: boolean; running: boolean; last_scan: string | null; last_result: Scan | null; last_import: Scan | null; interval: number };
+  const status = useQuery({ queryKey: ["watch-folder"], queryFn: () => api<Status>("/watch-folder/"), refetchInterval: (q) => (q.state.data?.enabled ? 20_000 : false) });
+  const [open, setOpen] = useState(false);
+  const [dir, setDir] = useState("");
+  const [project, setProject] = useState("");
+  const save = useMutation({
+    mutationFn: (body: { dir: string; project: string | null; enabled: boolean }) => api<Status>("/watch-folder/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    onSuccess: (st) => { queryClient.setQueryData(["watch-folder"], st); setOpen(false); flash(st.enabled ? `Watching ${st.dir}` : "Stopped watching"); },
+    onError: (e) => void errorDialog("Couldn't set the watched folder", e),
+  });
+  const scan = useMutation({
+    mutationFn: () => api<{ imported: number; existing: number; failed: number; seen: number; error?: string }>("/watch-folder/scan/", { method: "POST" }),
+    onSuccess: (r) => { queryClient.invalidateQueries({ queryKey: ["watch-folder"] }); if (r.imported) onImported(); flash(r.error ?? `Scanned: ${r.imported} new · ${r.existing} known · ${r.failed} failed`); },
+    onError: (e) => void errorDialog("Scan failed", e),
+  });
+  const st = status.data;
+  const begin = () => { setDir(st?.dir ?? ""); setProject(st?.project ?? ""); setOpen(true); };
+  const choose = async () => { const picked = await pickFolder(); if (picked) setDir(picked); };
+  return (
+    <div className="mb-3" data-testid="watch-folder">
+      <div className="mb-1 flex items-center justify-between">
+        <p className={`${railH} mb-0`}>Watch folder</p>
+        {st?.enabled && <button type="button" onClick={() => scan.mutate()} disabled={scan.isPending} className="text-[10px] text-indigo-500 hover:underline disabled:opacity-50" title="Import the folder's new PDFs now">scan now</button>}
+      </div>
+      {!open && (
+        st?.enabled ? (
+          <button type="button" onClick={begin} className="w-full rounded-md px-2 py-1 text-left text-[11px] text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800" title={st.dir}>
+            <span className="block truncate font-mono">{st.dir.split(/[\\/]/).filter(Boolean).slice(-2).join("/")}</span>
+            <span className="text-stone-400">{st.running ? "watching" : "paused"}{st.project ? ` · → ${st.project}` : ""}{st.last_import ? ` · ${st.last_import.imported} new at ${st.last_import.at.slice(11, 16)}` : st.last_result?.error ? ` · ${st.last_result.error}` : ""}</span>
+          </button>
+        ) : (
+          <button type="button" onClick={begin} className="px-2 text-[11px] text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300">Pick a folder — every PDF dropped there is imported.</button>
+        )
+      )}
+      {open && (
+        <form className="space-y-1.5 px-1" onSubmit={(e) => { e.preventDefault(); save.mutate({ dir, project: project || null, enabled: Boolean(dir.trim()) }); }}>
+          <div className="flex gap-1">
+            <input value={dir} onChange={(e) => setDir(e.target.value)} placeholder={isDesktop() ? "Choose a folder…" : "/path/to/folder"} className="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-1.5 py-1 font-mono text-[11px] dark:border-stone-700 dark:bg-stone-800" data-testid="watch-dir" />
+            {isDesktop() && <button type="button" onClick={() => void choose()} className="rounded-md border border-stone-300 px-1.5 text-[11px] dark:border-stone-700">…</button>}
+          </div>
+          <select value={project} onChange={(e) => setProject(e.target.value)} className="w-full rounded-md border border-stone-300 bg-white px-1.5 py-1 text-[11px] dark:border-stone-700 dark:bg-stone-800" aria-label="File into project">
+            <option value="">library only</option>
+            {projects.map((p) => <option key={p.slug} value={p.slug}>→ {p.name}</option>)}
+          </select>
+          <div className="flex items-center gap-2">
+            <button type="submit" disabled={save.isPending} className="rounded-md bg-indigo-600 px-2 py-1 text-[11px] text-white disabled:opacity-50">Watch</button>
+            {st?.enabled && <button type="button" onClick={() => save.mutate({ dir: "", project: null, enabled: false })} className="text-[11px] text-stone-400 hover:text-red-500">stop</button>}
+            <button type="button" onClick={() => setOpen(false)} className="ml-auto text-[11px] text-stone-400 hover:underline">cancel</button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

@@ -110,6 +110,11 @@ class Command(BaseCommand):
 
         host, port = options["host"], options["port"]
         write_server_info(settings.DATA_DIR, host, port)
+        # Watched folder (#406): resume watching on boot when the owner enabled it
+        from literature.watch import start_watcher
+
+        if start_watcher(settings.DATA_DIR):
+            self.stdout.write("Watching the PDF folder for new papers.")
         self.stdout.write(self.style.SUCCESS(f"Atlas is running → http://{host}:{port}"))
         # Eight threads: a PDF text extraction or a TTS render must not queue the clicks
         # behind it (the owner's log showed "Task queue depth" warnings with four). The
