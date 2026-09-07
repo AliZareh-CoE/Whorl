@@ -87,6 +87,8 @@ class Command(BaseCommand):
             self.stdout.write("Setup complete.")
             return
 
+        import logging
+
         from waitress import serve
 
         from config.wsgi import application
@@ -94,4 +96,8 @@ class Command(BaseCommand):
         host, port = options["host"], options["port"]
         write_server_info(settings.DATA_DIR, host, port)
         self.stdout.write(self.style.SUCCESS(f"Atlas is running → http://{host}:{port}"))
-        serve(application, host=host, port=port, threads=4)
+        # Eight threads: a PDF text extraction or a TTS render must not queue the clicks
+        # behind it (the owner's log showed "Task queue depth" warnings with four). The
+        # queue-depth notice itself is normal under a burst and only clutters Diagnostics.
+        logging.getLogger("waitress.queue").setLevel(logging.ERROR)
+        serve(application, host=host, port=port, threads=8)

@@ -295,3 +295,16 @@ def test_release_workflow_smoke_tests_the_frozen_server():
     assert workflow.index("Smoke-test the frozen server") < workflow.index(
         "Build and release the desktop app"
     )
+
+
+def test_app_icon_is_not_the_placeholder():
+    """Owner report 2026-09-07: the installed app had a flat square for an icon. The icons
+    are rendered by scripts/make_icon.py and regenerated with `tauri icon`."""
+    icons = DESKTOP / "icons"
+    assert (icons / "source.png").stat().st_size > 50_000  # a real drawing, not a flat fill
+    assert (icons / "icon.png").stat().st_size > 20_000
+    ico = (icons / "icon.ico").read_bytes()
+    assert ico[:4] == b"\x00\x00\x01\x00" and ico[4] >= 4  # several sizes inside
+    assert (DESKTOP.parent / "scripts" / "make_icon.py").exists()
+    cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
+    assert "icons/icon.ico" in cfg["bundle"]["icon"]

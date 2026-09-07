@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The app icon is rendered, not drawn (#373)
+
+**Decision.** `scripts/make_icon.py` renders the Observatory mark — a navy rounded square with an aurora glow, a tilted orbit ring and a bright star — as a 1024² PNG from signed-distance fields in pure Python (no Pillow, no ImageMagick, no design file to lose); `tauri icon` turns it into every platform size, committed under `desktop/icons/`. The desktop server runs eight waitress threads and no longer logs queue-depth notices.
+
+**Why.** The installed app showed the Tauri placeholder — a flat indigo square — which the owner rightly called "not a proper icon". A script keeps the mark reproducible and editable without a designer's tool, and the same identity carries into the product name work later (the mark is abstract on purpose: it survives a rename).
+
+**Alternatives rejected.** A hand-made PNG in the repo (unreproducible); an SVG through a rasteriser (none available in the build environment; the CI runners would need one too).
+
 ### 2026-09-07 — LaTeX warm-up: know the bundle cache is cold, fill it on purpose (#372)
 
 **Decision.** `writing/warmup.py` finds Tectonic's cache directory per platform, reports warm/cold + size, and can compile a small document that pulls the common packages (amsmath, graphicx, hyperref, natbib, booktabs, xcolor, geometry) on a daemon thread, with the state in the Django cache. Diagnostics shows a *TeX bundle* row with **Warm up now** and polls while it runs; the report text and `get_diagnostics` carry it.

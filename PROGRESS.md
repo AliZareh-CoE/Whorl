@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ APP ICON + server threads (2026-09-07, #373).** Owner: "the app doesn't have a proper desktop icon" — it was a flat indigo square. `scripts/make_icon.py` renders the Observatory mark (navy rounded square, aurora, orbit ring, star) in pure Python; `tauri icon` regenerated every size (.ico has 6 sizes, .icns, PNGs). Owner's pasted 0.1.86 report also showed waitress queue-depth warnings → 8 threads, notice silenced; the media 404 in it is #365 (fixed in ≥0.1.90). Scaffold test pins the icon.
+
 - **LaTeX warm-up, first-run card (2026-09-07, #372).** The empty-app Welcome panel offers "Prepare the LaTeX engine" (hidden once the cache is warm), polling while it runs; guard test in test_first_run.
 
 - **LaTeX warm-up (2026-09-07, #372).** Cache detection per platform, background warm-up compile, Diagnostics row + button + polling, report text. Playwright with the real engine: clicked Warm up → "warming up…" → "ready · last warm-up 3s" (docs/screenshots/latex-warmup.png). Tests: writing/tests/test_warmup.py (6).
