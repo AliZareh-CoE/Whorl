@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Read-aloud chunked + prefetched (2026-09-07, #404).** `app/listen.ts` (sentence chunks, next chunk fetched while one plays, stop aborts); reading flow + reference page use it. Chunker checked with node; guard in literature/tests/test_neighbours.py.
+
 - **Queue neighbours (2026-09-07, #403).** Row menu → "Similar in your library" panel (related endpoint, similarity %, + add here, explore beyond → Library lenses). Guard: literature/tests/test_neighbours.py.
 
 - **Polish batch (2026-09-07, #402).** Active nav icon takes the accent; Files typeahead miss → red shaking hint with "no match"; #163/#162 retired as moot. Guard: core/tests/test_polish.py.

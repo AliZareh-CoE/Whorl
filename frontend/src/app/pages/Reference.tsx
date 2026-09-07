@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Pencil, Trash2 } from "lucide-react";
+import { listenTo, type Listener } from "../listen";
 import { api, csrfToken } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
@@ -75,7 +76,7 @@ function EditReference({ r, onClose }: { r: Ref; onClose: () => void }) {
 
 export default function Reference() {
   const { id } = useParams();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const listenerRef = useRef<Listener | null>(null);
   const [listening, setListening] = useState(false);
   const [ttsError, setTtsError] = useState("");
   const [tldr, setTldr] = useState<string[] | null>(null);
@@ -120,31 +121,16 @@ export default function Reference() {
   });
 
   async function listen(text: string) {
-    if (listening) {
-      audioRef.current?.pause();
-      setListening(false);
-      return;
-    }
+    if (listening) { listenerRef.current?.stop(); listenerRef.current = null; setListening(false); return; }
     setTtsError("");
     setListening(true);
-    try {
-      const body = new URLSearchParams({ text });
-      const res = await fetch("/tts/", {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfToken() },
-        body,
-      });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Read-aloud unavailable.");
-      const blob = await res.blob();
-      const audio = new Audio(URL.createObjectURL(blob));
-      audioRef.current = audio;
-      audio.onended = () => setListening(false);
-      await audio.play();
-    } catch (e) {
-      setTtsError(String((e as Error).message ?? e));
-      setListening(false);
-    }
+    // #404: chunked, prefetched playback (see app/listen.ts)
+    const l = listenTo(text);
+    listenerRef.current = l;
+    try { await l.done; } catch (e) { setTtsError(String((e as Error).message ?? e)); }
+    finally { if (listenerRef.current === l) { listenerRef.current = null; setListening(false); } }
   }
+
 
   async function summarize(text: string) {
     if (tldr) { setTldr(null); return; }

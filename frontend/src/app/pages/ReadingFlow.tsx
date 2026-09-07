@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, csrfToken, petReact } from "../api";
+import { listenTo, type Listener } from "../listen";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 
 type Paper = {
@@ -42,7 +43,7 @@ export default function ReadingFlow() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [flash, setFlash] = useState("");
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const listenerRef = useRef<Listener | null>(null);
   const [listening, setListening] = useState(false);
   // tl;dr (#395): section-by-section from the PDF text when it is indexed, else the abstract
   const [tldr, setTldr] = useState<{ title: string; page: number | null; sentences: string[] }[] | null>(null);
@@ -85,21 +86,14 @@ export default function ReadingFlow() {
   }
 
   async function listen() {
-    if (listening) { audioRef.current?.pause(); setListening(false); return; }
+    if (listening) { listenerRef.current?.stop(); listenerRef.current = null; setListening(false); return; }
     if (!paper) return;
     setListening(true);
-    try {
-      const res = await fetch("/tts/", {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfToken() },
-        body: new URLSearchParams({ text: `${paper.reference.title}. ${paper.reference.abstract}` }),
-      });
-      if (!res.ok) throw new Error();
-      const audio = new Audio(URL.createObjectURL(await res.blob()));
-      audioRef.current = audio;
-      audio.onended = () => setListening(false);
-      await audio.play();
-    } catch { setListening(false); }
+    // #404: chunked, prefetched — the abstract starts within a sentence and reads without gaps
+    const l = listenTo(`${paper.reference.title}. ${paper.reference.abstract}`);
+    listenerRef.current = l;
+    try { await l.done; } catch (e) { setFlash(String((e as Error).message ?? "Read-aloud unavailable.")); }
+    finally { if (listenerRef.current === l) { listenerRef.current = null; setListening(false); } }
   }
 
   async function saveNote() {

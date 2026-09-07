@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Read-aloud: chunked and prefetched (#404)
+
+**Decision.** `app/listen.ts` splits the text into sentence-aware chunks of about 420 characters, synthesises the first, starts playing it, and fetches the next chunk while the current one plays; `stop()` aborts the fetch and the audio. The reading flow and the reference page use it; the pet's one-liners keep the plain call.
+
+**Why.** Backlog #38: a 3 000-character abstract meant waiting for the whole synthesis before the first word, and anything past the 5 000-character cap was silently cut. Chunking starts playback within a sentence and reads everything; prefetching removes the gap between chunks that a naive loop would leave.
+
+**Alternatives rejected.** Streaming WAV from the server (Piper synthesises sentence by sentence anyway, and a streaming response complicates the frozen server for the same result); a Web Audio scheduler (gapless to the millisecond, but far more code for spoken prose where a sentence boundary is a natural pause).
+
 ### 2026-09-07 — Reading queue: explore neighbours (#403)
 
 **Decision.** A queue (and literature) row's menu carries *Similar in your library*: a panel above the list shows the paper's nearest neighbours from `GET /references/{id}/related/` (the existing local similarity), each with its year, a similarity percentage, a link to the paper and a `+ add here` that files it into this project; *explore beyond* opens the Library detail with the OpenAlex lenses.
@@ -2068,7 +2076,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 35. Slim the Docker image — multi-stage build, piper/onnx as optional extra (~800 MB → ~300 MB) (idea added by cycle 29)
 36. Containerized LaTeX compile — run Tectonic in a throwaway container/namespace to close the \input file-read residual risk if Atlas ever goes multi-user (idea added by cycle 30 audit)
 37. ~~Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31) — done 2026-09-07, #403~~
-38. Listen prefetch — synthesize the next chunk while the current one plays to remove gaps (idea added by cycle 32)
+38. ~~Listen prefetch — synthesize the next chunk while the current one plays to remove gaps (idea added by cycle 32) — done 2026-09-07, #404 (chunked + prefetched)~~
 39. ~~Doctor on the Automations page — render the same checks in the UI with a stale-worker banner (idea added by cycle 33) — covered by the Diagnostics page (engine, jobs, feed, warm-up, access, front-end errors); swept 2026-09-07~~
 40. ~~Swipe + touch targets (done 2026-06-11, cycle 39, UI/UX): drawer closes on a >60px left swipe (Alpine touch handlers; short swipes ignored), milestone/task check-offs grew to 20/16px visuals with an invisible `after:-inset-2.5` pseudo-element giving ≈40×40px tap targets (+ shrink-0 so flex rows can't squeeze them); verified at 420px in a real touch browser.~~
 41. ~~Keyword cloud on the project overview card (idea added by cycle 35) — done 2026-09-07, #398 (a weighted chip row)~~
