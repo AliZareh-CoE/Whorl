@@ -11,7 +11,7 @@ import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 
-type Theme = { id: number; name: string; order: number; covered: number; total: number };
+type Theme = { id: number; name: string; order: number; covered: number; read: number; total: number };
 type Row = { link_id: number; reference_id: number; bibtex_key: string; title: string; year: number | null; authors: string; reading_status: string; has_pdf: boolean; cells: Record<string, { mark_id: number; note: string }>; covered: number };
 type Table = { project: string; themes: Theme[]; rows: Row[]; papers: number; unmarked: number };
 type Payload = { themes: string[]; papers: unknown[]; coverage: unknown; table: Table };
@@ -122,7 +122,7 @@ export default function Matrix() {
           <thead>
             <tr>
               <th className="sticky left-0 top-0 z-20 border-b border-r border-stone-200 bg-white px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:border-stone-800 dark:bg-stone-900">Paper</th>
-              {data.themes.map((t) => <ThemeHead key={t.id} t={t} onRename={(name) => renameTheme.mutate({ id: t.id, name })} onDelete={async () => { if (await confirmDialog({ title: `Delete the theme “${t.name}”?`, body: `Its ${t.covered} mark${t.covered === 1 ? "" : "s"} go with it.`, danger: true, confirmLabel: "Delete theme" })) deleteTheme.mutate(t.id); }} />)}
+              {data.themes.map((t) => <ThemeHead key={t.id} t={t} slug={slug!} onRename={(name) => renameTheme.mutate({ id: t.id, name })} onDelete={async () => { if (await confirmDialog({ title: `Delete the theme “${t.name}”?`, body: `Its ${t.covered} mark${t.covered === 1 ? "" : "s"} go with it.`, danger: true, confirmLabel: "Delete theme" })) deleteTheme.mutate(t.id); }} />)}
             </tr>
           </thead>
           <tbody>
@@ -158,7 +158,7 @@ export default function Matrix() {
   );
 }
 
-function ThemeHead({ t, onRename, onDelete }: { t: Theme; onRename: (name: string) => void; onDelete: () => void }) {
+function ThemeHead({ t, slug, onRename, onDelete }: { t: Theme; slug: string; onRename: (name: string) => void; onDelete: () => void }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(t.name);
   useEffect(() => setName(t.name), [t.name]);
@@ -174,7 +174,16 @@ function ThemeHead({ t, onRename, onDelete }: { t: Theme; onRename: (name: strin
         </div>
       )}
       <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800"><div className="h-1 rounded-full bg-indigo-500" style={{ width: `${pct}%` }} /></div>
-      <p className="mt-0.5 text-[10px] font-normal tabular-nums text-stone-400">{t.covered}/{t.total}</p>
+      <p className="mt-0.5 flex items-center gap-1.5 text-[10px] font-normal tabular-nums text-stone-400" data-testid="theme-gap" data-read={t.read}>
+        <span title={`${t.covered} of ${t.total} papers marked under this theme`}>{t.covered}/{t.total}</span>
+        {/* #408: the gap column hint — how many marked papers are actually read; under-read
+            themes link straight to the queue filtered to unread candidates for them */}
+        {t.covered > 0 && (
+          t.read < t.covered
+            ? <Link to={`/projects/${slug}/queue?theme=${encodeURIComponent(t.name)}`} className={`rounded-full px-1.5 py-px font-medium ${t.read === 0 ? "bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300" : "bg-stone-100 text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:hover:text-indigo-300"}`} title={t.read === 0 ? "Nothing read under this theme yet — open the queue for it" : `${t.covered - t.read} marked but unread — open the queue for this theme`} data-testid="theme-gap-link">{t.read} read →</Link>
+            : <span className="rounded-full bg-emerald-500/10 px-1.5 py-px text-emerald-700 dark:text-emerald-300" title="Every paper marked under this theme is read">{t.read} read</span>
+        )}
+      </p>
     </th>
   );
 }

@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Matrix gap hints (2026-09-07, #408).** Theme rows carry `read`; the header shows "n read" (green complete / neutral link / amber nothing-read) linking to the queue's `?theme=` candidates. Test: literature/tests/test_matrix.py::test_theme_rows_carry_read_counts. Playwright: docs/screenshots/matrix-gap-hints.png.
+
 - **★ MENTIONS EVERYWHERE (2026-09-07, #407).** `core/rendering.py` (shared resolver + renderer; notes preview uses it), `*_html` companions on decisions / experiment entries / protocols / captures, `components/Prose.tsx`, Decisions clamp + expand, experiment entry expands, protocol body rendered, Inbox capture rendered; demo decision + entry carry mentions. Tests: core/tests/test_rendering.py (5), comments tests updated to the visible-gap contract. Playwright: mention in a decision → SPA navigation without reload (docs/screenshots/mentions-decisions.png, mentions-research.png).
 
 - **★ WATCHED FOLDER (2026-09-07, #406).** `literature/watch.py` (15 s poll, ledger, import pipeline, optional project), `GET/POST /api/v1/watch-folder/` + `/scan/`, desktop launcher resumes it, Rust `pick_folder`, Library rail block. Tests: literature/tests/test_watch.py (3). Playwright: set a folder → scan now → imported (docs/screenshots/watch-folder.png).

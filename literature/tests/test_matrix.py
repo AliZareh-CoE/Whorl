@@ -130,3 +130,21 @@ def test_suggest_themes_ranks_recurring_phrases_and_skips_existing(client_logged
     assert top not in [s["name"] for s in suggest_themes(project)]
     data = client_logged_in.get(f"/api/v1/projects/{project.slug}/review-matrix/suggest/").json()
     assert "suggestions" in data and top not in [s["name"] for s in data["suggestions"]]
+
+
+def test_theme_rows_carry_read_counts(world):
+    """#408: the header shows how many marked papers are READ — the gap the queue fills."""
+    project, _, _ = world
+    theme = ReviewTheme.objects.create(project=project, name="Gap theme")
+    links = list(project.project_references.all())
+    assert len(links) >= 2
+    links[0].reading_status = "read"
+    links[0].save()
+    links[1].reading_status = "to_read"
+    links[1].save()
+    for link in links[:2]:
+        ReviewMark.objects.create(theme=theme, project_reference=link)
+    row = next(t for t in matrix.matrix(project)["themes"] if t["id"] == theme.pk)
+    assert row["covered"] == 2 and row["read"] == 1 and row["total"] == len(links)
+    src = open("frontend/src/app/pages/Matrix.tsx").read()
+    assert 'data-testid="theme-gap-link"' in src and "queue?theme=" in src

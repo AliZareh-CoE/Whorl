@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The matrix header says how much of each theme is actually read (#408)
+
+**Decision.** Every theme row of the review-matrix table carries `read` (marked papers whose reading status is READ or ANNOTATED, via the same `theme_read_counts` the gap-ordered queue uses) next to `covered`/`total`. The column header shows "n read": green when every marked paper is read, a neutral chip linking to `/queue?theme=<name>` when some are unread, and an amber chip when nothing under the theme has been read yet. The queue's existing `?theme=` filter (unread candidates for a theme) is the landing page.
+
+**Why.** Backlog #48: coverage ("how many papers mention this theme") and reading ("how many of those I have read") are different questions, and the matrix only answered the first. The gap-ordered queue knew the second but the number was invisible where the themes live.
+
+**Alternatives rejected.** A separate "gaps" panel above the table (one more block to scan; the header is where the eye already is); sorting columns by gap (reorders the table under the reader — the number is enough).
+
 ### 2026-09-07 — Mentions everywhere: one renderer for every markdown body (#407)
 
 **Decision.** `core/rendering.py` is the single markdown renderer: `resolve_mentions(body, project)` rewrites `[[Note Title]]` (resolved inside the project; globally only when the title is unique) and `@cite-key` into links, leaves unresolved mentions *visibly* in italics, and `render_body()` sanitises the result with nh3. The notes preview endpoint now calls it, and four serializers grew read-only companions: `context_html` / `decision_html` / `alternatives_html` on decisions, `body_html` on experiment entries and protocols, `text_html` on quick captures (with soft line breaks, because captures are jotted). The SPA shows them through one `<Prose>` component; the Decisions page clamps long records behind "Read the whole decision", the experiment log expands an entry on click, protocols render their steps, the Inbox renders captures. Internal links go through the existing SPA link interceptor, so a mention navigates without a reload. `core.mentions` is a project-less alias over the shared resolver.
@@ -2112,7 +2120,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 45. ~~Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)~~ — shipped 2026-09-07 (#407: core/rendering, `*_html` fields, Prose component; protocols too)
 46. ~~Edge-swipe open (done 2026-06-11, cycle 48, UI/UX): touchstart within 24px of the left edge + >60px rightward swipe opens the drawer (window-level Alpine handlers); mid-screen swipes ignored — touch-verified at 420px.~~
 47. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
-48. Matrix gap column hints — show each theme's read-count in the review matrix header so gaps are visible there too, linking back to the gap-ordered queue (idea added by cycle 41)
+48. ~~Matrix gap column hints — show each theme's read-count in the review matrix header so gaps are visible there too, linking back to the gap-ordered queue (idea added by cycle 41)~~ — shipped 2026-09-07 (#408)
 49. More pet reactions — a sparkle on phase completion and a brief "om nom" when a reference is marked read, all through the same HX-Trigger pattern (idea added by cycle 42)
 50. Grove seasons — paused projects show bare autumn trees and archived ones fade out, so the grove reflects the whole portfolio at a glance (idea added by cycle 43)
 51. Template lint pass — a tiny pytest that walks every template and asserts title/breadcrumbs blocks contain no `<script>` (the cycle-44 corruption class), plus django-template syntax check via the loader (idea added by cycle 44)

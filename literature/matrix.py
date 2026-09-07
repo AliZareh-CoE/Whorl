@@ -104,12 +104,18 @@ def matrix(project) -> dict:
             }
         )
     total = len(links)
+    # #408 (backlog #48): how many of a theme's marked papers are actually READ — the gap
+    # the reading queue's ?theme= filter exists to fill, now visible in the column header.
+    from literature.selectors import theme_read_counts
+
+    read_counts = theme_read_counts(project) if themes else {}
     theme_rows = [
         {
             "id": t.pk,
             "name": t.name,
             "order": t.order,
             "covered": sum(1 for r in rows if str(t.pk) in r["cells"]),
+            "read": read_counts.get(t.pk, 0),
             "total": total,
         }
         for t in themes
