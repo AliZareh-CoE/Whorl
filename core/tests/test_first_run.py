@@ -73,3 +73,11 @@ def test_seed_demo_includes_an_image_figure():
     assert fig is not None and fig.folder.name == "Figures" and fig.file.size > 200
     page = fig.file.open("rb").read(8)
     assert page == b"\x89PNG\r\n\x1a\n"
+
+
+def test_welcome_offers_the_latex_warm_up():
+    """#372: the empty-app welcome panel can prefetch the TeX bundle on purpose."""
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parents[2] / "frontend/src/app/pages/Dashboard.tsx").read_text()
+    assert "warm-latex-card" in src and '"/diagnostics/warm-latex/"' in src

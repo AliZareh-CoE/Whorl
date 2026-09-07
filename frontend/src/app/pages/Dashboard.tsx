@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CalendarClock, Check, Command, FolderPlus, Loader2, Plug, Sparkles, Wand2 } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, Command, FileText, FolderPlus, Loader2, Plug, Sparkles, Wand2 } from "lucide-react";
 import { api } from "../api";
 import { toggleCalm, useCalm } from "../calm";
 import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
@@ -162,6 +162,10 @@ export default function Dashboard() {
 
   const attention = data.attention;
   const firstRun = demo.data?.projects === 0;
+  // first run on the desktop: offer to fetch the TeX bundle now rather than behind the first compile (#372)
+  type Warm = { state: string; warm: boolean; size_mb: number };
+  const warmState = useQuery({ queryKey: ["latex-warm"], queryFn: () => api<Warm>("/diagnostics/warm-latex/"), enabled: firstRun, refetchInterval: (q) => (q.state.data?.state === "running" ? 3000 : false) });
+  const warmUp = useMutation({ mutationFn: () => api<Warm>("/diagnostics/warm-latex/", { method: "POST" }), onSuccess: () => qcAll.invalidateQueries({ queryKey: ["latex-warm"] }) });
   const needs = attention.overdue.length + attention.deadlines.length + attention.inbox.length;
   const anchors = data.active.map((p) => ({ label: p.name, color: p.color, weight: 0.35 + p.percent / 150 }));
 
@@ -221,10 +225,17 @@ export default function Dashboard() {
         <section className={`${panel} rise mb-5 border-indigo-200 dark:border-indigo-500/40`} style={{ ["--i" as string]: 1 }} data-testid="welcome">
           <h2 className={h2}>Welcome — Atlas is empty</h2>
           <p className="mb-4 max-w-2xl text-sm text-stone-600 dark:text-stone-300">Everything here lives inside a project: its plan, papers, notes, manuscripts and decisions. Start with one of these.</p>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <Link to="/projects/new" className="group rounded-xl border border-stone-200 p-4 transition-colors hover:border-indigo-400 dark:border-stone-700"><FolderPlus className="mb-2 h-5 w-5 text-indigo-500" aria-hidden="true" /><p className="font-medium">Create your first project</p><p className="mt-1 text-xs text-stone-500">Pick a scaffold — empirical study, review paper, software — or start blank.</p></Link>
             <button type="button" onClick={() => loadDemo.mutate()} disabled={loadDemo.isPending} className="rounded-xl border border-stone-200 p-4 text-left transition-colors hover:border-indigo-400 disabled:opacity-60 dark:border-stone-700" data-testid="load-demo">{loadDemo.isPending ? <Loader2 className="mb-2 h-5 w-5 animate-spin text-indigo-500" aria-hidden="true" /> : <Wand2 className="mb-2 h-5 w-5 text-indigo-500" aria-hidden="true" />}<p className="font-medium">{loadDemo.isPending ? "Loading the demo…" : "Load the demo project"}</p><p className="mt-1 text-xs text-stone-500">A realistic attention-and-memory study with a plan, 20+ papers, notes, a manuscript and a hypothesis ledger — explore every page, delete it later.</p></button>
             <Link to="/connect" className="group rounded-xl border border-stone-200 p-4 transition-colors hover:border-indigo-400 dark:border-stone-700"><Plug className="mb-2 h-5 w-5 text-indigo-500" aria-hidden="true" /><p className="font-medium">Connect Claude Code</p><p className="mt-1 text-xs text-stone-500">One command registers Atlas as an MCP server; four skills teach Claude the workflows.</p></Link>
+            {warmState.data && !warmState.data.warm && (
+              <button type="button" onClick={() => warmUp.mutate()} disabled={warmUp.isPending || warmState.data.state === "running"} className="rounded-xl border border-stone-200 p-4 text-left transition-colors hover:border-indigo-400 disabled:opacity-60 dark:border-stone-700" data-testid="warm-latex-card">
+                {warmState.data.state === "running" ? <Loader2 className="mb-2 h-5 w-5 animate-spin text-indigo-500" aria-hidden="true" /> : <FileText className="mb-2 h-5 w-5 text-indigo-500" aria-hidden="true" />}
+                <p className="font-medium">{warmState.data.state === "running" ? "Preparing the LaTeX engine…" : "Prepare the LaTeX engine"}</p>
+                <p className="mt-1 text-xs text-stone-500">{warmState.data.state === "running" ? "Downloading the TeX packages a paper needs. Keep working; this runs in the background." : "Downloads the TeX packages once (a few hundred MB) so your first compile takes seconds, not minutes."}</p>
+              </button>
+            )}
           </div>
         </section>
       )}

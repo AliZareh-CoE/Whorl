@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **LaTeX warm-up, first-run card (2026-09-07, #372).** The empty-app Welcome panel offers "Prepare the LaTeX engine" (hidden once the cache is warm), polling while it runs; guard test in test_first_run.
+
 - **LaTeX warm-up (2026-09-07, #372).** Cache detection per platform, background warm-up compile, Diagnostics row + button + polling, report text. Playwright with the real engine: clicked Warm up → "warming up…" → "ready · last warm-up 3s" (docs/screenshots/latex-warmup.png). Tests: writing/tests/test_warmup.py (6).
 
 - **⌘K: `todo:` + recent jumps (2026-09-06, #371).** Playwright: `todo: PW palette item` created a project-scoped Today item; jumping to the Library then reopening showed it under Recent jumps (docs/screenshots/palette-jumps.png). Guard test in core/tests/test_today.py.
