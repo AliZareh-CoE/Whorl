@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Chevrons on the Studio's split gutters (#458)
+
+**Decision.** Each Split.js divider in the Studio carries a small chevron: the one between the sidebar and the editor collapses the sidebar, the one between the editor and the PDF collapses the preview — the same toggles as ⌘B / ⌘\ and the header buttons, reachable where the hand already is when resizing. The chevron shows on hover of the gutter and does not interfere with dragging (it is a button inside the gutter, with its own click).
+
+**Why.** Backlog #138 — Overleaf's thin-panel arrows are the gesture people reach for; the header icons are three inches away from the divider.
+
+**Alternatives rejected.** Split.js `collapse(i)` (leaves a zero-width pane the layout must special-case; hiding the pane is what the toggles already do).
+
 ### 2026-09-07 — Two small ones: theme candidates everywhere, section copy on Review (#457)
 
 **Decision.** (a) Every theme header in the review matrix now carries a "candidates →" link (shown on hover) to the queue pre-filtered to unread papers that look relevant to it — the gap nudge kept that door for under-read themes only (backlog #105). (b) Each section of the weekly Review has its own ⧉ copy that puts just that section on the clipboard as Markdown, next to the whole-week copy (backlog #99).
@@ -2591,7 +2599,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 144. ~~Remember the last-picked layout name (done 2026-06-12, cycle 139, UI/UX, shipped with #147): atlas-editor-layout sticks on preset click and an indigo stroke-SVG check renders beside the active preset; ANY divergence — manual preview toggle, rail collapse, divider drag — clears it (applyingPreset flag keeps init restore + preset application from self-clearing). 9-check battery ALL PASS incl. reload persistence and drag-clears.~~
 140. ~~Layout presets menu (done 2026-06-12, cycle 133, UI/UX): View menu gains a Layout section — ✍ Drafting (editor only, full width), ⇆ Reviewing (editor + PDF 50/50), ▦ Submitting (files + editor + PDF) — one-shot presets that seed the per-layout split keys and drive the same setSidebar/setPreview machinery as manual toggles. Fixed two latent bugs en route: the editor column never grew when it was the only pane (no flex-grow once Split.js is out of the picture), and a collapsed preview never survived reload (the init else-branch skipped hiding the pane). 8-check browser battery ALL PASS incl. reload persistence.~~
 139. ~~Keyboard shortcuts in the menus (⌘↵ compiles since the studio; the ⌘⇧P palette shows every binding next to its action, 2026-09-07, #447)~~ — original: show the binding next to each menu item (Ctrl-F is there; add Ctrl-S save, Ctrl-Enter compile?) and actually bind compile to Ctrl-Enter like Overleaf (idea added by cycle 128)
-138. Click-collapse chevrons on the split gutters — Overleaf's thin-panel collapse/restore arrows on the Split.js dividers (Split.js .collapse(i) exists); pairs with the layout menu (idea added by cycle 127)
+138. ~~Click-collapse chevrons on the split gutters (done 2026-09-07, #458)~~ — original: Overleaf's thin-panel collapse/restore arrows on the Split.js dividers (Split.js .collapse(i) exists); pairs with the layout menu (idea added by cycle 127)
 145. ~~Probe for 404s in the browser batteries (done 2026-06-12, cycle 136, shipped with #143): editor_smoke.py check 1 now fails on any >=400 response during mount (favicon tolerated) and prints the offending URLs — the class of bug that hid the Vite modulePreload 404 is now CI-visible.~~
 137. ~~Slim the CM6 bundle (done 2026-06-12, cycle 134, tech improvement): the vim keymap is now a dynamic import — first-paint editor payload drops 208→172KB gz (-17%), with vim's 39KB gz fetched only when the keybinding is selected (named chunks: latex-editor-core-chunk/vim-keymap-chunk). Found and fixed a latent bug en route: Vite's modulePreload helper built URLs against the site base instead of /static/js/, firing a 404 per dynamic import — disabled the polyfill, native import() resolves module-relative. 9-check vim-lazy battery + SPA route check + editor smoke ALL PASS.~~
 136. ~~Pet voice (the sidebar bubble's 🔊 speaks the line through /tts/; swept 2026-09-07)~~ — original (Owner idea #29): 🔊 on the pet speaks its line via the existing Piper /tts/ endpoint; optional spoken reaction in the hop moment behind a remembered mute toggle (idea added by cycle 122)

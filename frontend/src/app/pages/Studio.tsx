@@ -443,7 +443,26 @@ function StudioInner({ m }: { m: Manuscript }) {
     const ids = [sidebarOpen ? "#studio-side" : null, "#studio-editor", previewOpen ? "#studio-preview" : null].filter(Boolean) as string[];
     if (ids.length < 2) return;
     const sizes = ids.length === 3 ? [17, 45, 38] : sidebarOpen ? [22, 78] : [55, 45];
-    const split = Split(ids, { sizes, minSize: ids.map((x) => (x === "#studio-editor" ? 320 : 180)), gutterSize: 5, gutter: () => { const g = document.createElement("div"); g.className = "studio-gutter"; return g; } });
+    const split = Split(ids, {
+      sizes,
+      minSize: ids.map((x) => (x === "#studio-editor" ? 320 : 180)),
+      gutterSize: 5,
+      gutter: (index) => {
+        const g = document.createElement("div"); g.className = "studio-gutter";
+        // #458 (backlog #138): a chevron on the divider collapses the pane beside it — the
+        // same toggles as ⌘B / ⌘\, where the hand already is when resizing
+        const leftIsSidebar = sidebarOpen && index === 1;
+        const btn = document.createElement("button");
+        btn.type = "button"; btn.className = "studio-gutter-btn"; btn.setAttribute("data-testid", "gutter-collapse");
+        btn.title = leftIsSidebar ? "Collapse the sidebar (⌘B)" : "Collapse the PDF preview (⌘\\)";
+        btn.setAttribute("aria-label", leftIsSidebar ? "Collapse the sidebar" : "Collapse the PDF preview");
+        btn.textContent = leftIsSidebar ? "‹" : "›";
+        btn.addEventListener("mousedown", (e) => e.stopPropagation()); // not a drag
+        btn.addEventListener("click", (e) => { e.stopPropagation(); if (leftIsSidebar) setSidebarOpen(false); else setPreviewOpen(false); });
+        g.appendChild(btn);
+        return g;
+      },
+    });
     return () => split.destroy();
   }, [ready, sidebarOpen, previewOpen]);
 
