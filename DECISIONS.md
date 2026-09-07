@@ -137,8 +137,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     staggered tapered branches with foliage tufts at their tips, 3-depth-layer canopy
     (back/mid/front opacities) densifying with progress, soft ground mound + roots from 45%,
     white-and-gold blossoms at 100%; everything interpolates with percent; verified across
-    all 8 stages in a rendered strip + on overview/grove.~~ Remaining: gentle CSS sway on
-    bloom, seasonal variants (pairs with Backlog #50 grove seasons).
+    all 8 stages in a rendered strip + on overview/grove.~~ ~~Sway/seasonal variants — retired 2026-09-07: the tree was a classic-UI illustration; the SPA's Observatory identity replaced it with the constellation (#385) and the orbit (#392).~~
 
 18. **Bulk actions + modals everywhere (owner, 2026-06-11).** Two parts: (a) **bulk
     actions for everything** — multi-select with checkboxes and act-on-many (move/tag/
@@ -552,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — The app knows when it was last backed up (#424)
+
+**Decision.** Every download of `/api/v1/backup.zip` writes a `core.BackupRecord` (size, media count, database kind; migration 0010). `core/backups.py::backup_status()` says when the last one was and whether that is *stale* — no backup within 14 days, or never — but only once there is data worth keeping (at least one project). It appears in three places: the Diagnostics header ("last backup 3 d ago", amber when stale, in the copyable report too), the dashboard's Needs-attention block as a calm amber row with the download link (the all-clear card yields to it), and `get_diagnostics` for Claude.
+
+**Why.** A single-user desktop app is one disk failure away from losing a year of notes, and the backup button only helps if you remember it. A dated nudge is the smallest thing that makes people remember, and it never pops up, mails, or blocks.
+
+**Alternatives rejected.** Automatic scheduled backups to a folder (a settings screen and a place to put them — later, if the owner asks); counting restores or Vault exports as backups (a vault is an export of one project, not the database).
 
 ### 2026-09-07 — A bar on the run chart opens the Inbox filtered to that run (#423)
 

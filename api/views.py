@@ -2533,6 +2533,7 @@ class DashboardAPIView(APIView):
     def get(self, request):
         from django.urls import reverse
 
+        from core.backups import backup_status
         from core.dashboard import dashboard_context, project_health, week_everywhere
         from core.models import TodoItem
 
@@ -2586,6 +2587,7 @@ class DashboardAPIView(APIView):
                         for ms in attention["deadlines"]
                     ],
                     "inbox": [{"id": q.id, "text": q.text} for q in attention["inbox"]],
+                    "backup": backup_status(),  # #424: a calm nudge when it has been a while
                 },
                 "active": [
                     {
@@ -2741,11 +2743,18 @@ class BackupView(APIView):
         from django.http import HttpResponse
 
         from core.backup import build_backup
+        from core.models import BackupRecord
 
         buf = io.BytesIO()
-        build_backup(buf)
+        manifest = build_backup(buf)
+        data = buf.getvalue()
+        BackupRecord.objects.create(  # #424: the app remembers when it was last backed up
+            size_bytes=len(data),
+            media_files=manifest.get("media_files", 0),
+            database=manifest.get("database", ""),
+        )
         stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
-        response = HttpResponse(buf.getvalue(), content_type="application/zip")
+        response = HttpResponse(data, content_type="application/zip")
         response["Content-Disposition"] = f'attachment; filename="atlas-backup-{stamp}.zip"'
         response["Cache-Control"] = "no-store"
         return response

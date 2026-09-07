@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Backup awareness (2026-09-07, #424).** `core.BackupRecord` (0010) written by the backup view; `core/backups.py`; diagnostics `backups` + text line; dashboard attention row; Diagnostics header line. Tests: core/tests/test_backup_awareness.py (2).
+
 - **Clickable run bars (2026-09-07, #423).** `QuickCapture.bot_run` (notes migration), run context in `bots/registry.py`, run ids in `/bots/`, `?run=` on `/quick-capture/`, Inbox banner, Automations bars as links. Tests: bots/tests/test_bots.py::TestRunLinks (2). Playwright: docs/screenshots/inbox-run-filter.png.
 
 - **Template lint (2026-09-07, #422).** core/tests/test_template_lint.py: every template compiles; title/breadcrumb blocks carry no script/style.

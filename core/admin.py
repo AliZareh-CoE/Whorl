@@ -33,3 +33,12 @@ class AccessEventAdmin(admin.ModelAdmin):
 class FeedTokenAdmin(admin.ModelAdmin):
     list_display = ("created_at",)
     readonly_fields = ("token", "created_at")
+
+
+from core.models import BackupRecord  # noqa: E402
+
+
+@admin.register(BackupRecord)
+class BackupRecordAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "size_bytes", "media_files", "database")
+    ordering = ("-created_at",)

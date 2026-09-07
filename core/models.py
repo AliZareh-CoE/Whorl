@@ -148,3 +148,19 @@ class FeedToken(models.Model):
             return False
         row = cls.objects.order_by("-created_at", "-id").first()
         return bool(row) and constant_time_compare(candidate, row.token)
+
+
+class BackupRecord(models.Model):
+    """One row per backup downloaded (#424) — so the app can say when the last one was and
+    nudge, calmly, when it has been a while."""
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    size_bytes = models.PositiveBigIntegerField(default=0)
+    media_files = models.PositiveIntegerField(default=0)
+    database = models.CharField(max_length=20, blank=True)  # sqlite / json
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"backup {self.created_at:%Y-%m-%d %H:%M} ({self.size_bytes} B)"

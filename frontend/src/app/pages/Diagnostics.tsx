@@ -17,6 +17,7 @@ type Report = {
   version: string; desktop: boolean; platform: string; frozen: boolean; settings_module: string; data_dir: string | null; database: string;
   engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; update_feed: Feed[];
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
+  backups?: { last: { at: string; days_ago: number; size_bytes: number } | null; stale: boolean; has_data: boolean; stale_after_days: number };
   client_errors?: { at: string; where: string; url: string; version: string; errors: string[] }[];
   access?: { summary: { days: number; counts: Record<string, number>; last_problem: { kind: string; at: string; address: string } | null } | null; events: { id: number; kind: string; label: string; address: string; user_agent: string; detail: string; at: string }[] };
 };
@@ -69,6 +70,12 @@ export default function Diagnostics() {
         <div className="flex items-center gap-2">
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-900"><input type="checkbox" checked={network} onChange={(e) => setNetwork(e.target.checked)} className="accent-indigo-600" /><Globe className="h-4 w-4 text-stone-400" aria-hidden="true" />Probe the update feed</label>
           <a href="/api/v1/backup.zip" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-200" title="Download everything — database and files — as one zip. Restore notes are inside." data-testid="backup-link"><Download className="h-4 w-4" aria-hidden="true" />Download a backup</a>
+          {/* #424: when the last backup was — amber once it is older than the threshold */}
+          {r?.backups && (
+            <span className={`text-xs ${r.backups.stale ? "text-amber-600 dark:text-amber-300" : "text-stone-400"}`} data-testid="last-backup" data-stale={r.backups.stale ? "1" : undefined}>
+              {r.backups.last ? `last backup ${r.backups.last.days_ago === 0 ? "today" : `${r.backups.last.days_ago} d ago`}` : "no backup yet"}
+            </span>
+          )}
           <button type="button" onClick={() => void copy()} disabled={!r} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50" data-testid="copy-report">{copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}{copied ? "Copied" : "Copy report"}</button>
           {isDesktop() && <button type="button" onClick={() => void openDevtools()} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-200" title="Open the web inspector (also F12 or Ctrl+Shift+I) — the console shows what a page threw" data-testid="open-inspector"><Stethoscope className="h-4 w-4" aria-hidden="true" />Web inspector</button>}
         </div>

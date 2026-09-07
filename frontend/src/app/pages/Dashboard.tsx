@@ -14,6 +14,7 @@ type Attention = {
   overdue: { title: string; due_date: string; project: string; url: string }[];
   deadlines: { title: string; deadline: string; days_to_deadline: number; project: string; url: string }[];
   inbox: { id: number; text: string }[];
+  backup?: { last: { at: string; days_ago: number } | null; stale: boolean; has_data: boolean; stale_after_days: number };
 };
 
 type WeekItem = { kind: "milestone" | "task"; id: number; title: string; due_date: string; days: number; project: string; project_name: string; color: string; phase: string };
@@ -176,7 +177,8 @@ export default function Dashboard() {
   if (error || !data) return <ErrorState message="Couldn't load the dashboard." onRetry={() => refetch()} />;
 
   const attention = data.attention;
-  const needs = attention.overdue.length + attention.deadlines.length + attention.inbox.length;
+  const backupStale = !!attention.backup?.stale;
+  const needs = attention.overdue.length + attention.deadlines.length + attention.inbox.length + (backupStale ? 1 : 0);
   const anchors = data.active.map((p) => ({ label: p.name, color: p.color, weight: 0.35 + p.percent / 150 }));
 
   return (
@@ -264,7 +266,7 @@ export default function Dashboard() {
       )}
 
       {/* the answer first ([REV] cycle 145 → SPA #156): what needs me today */}
-      {attention.empty ? (
+      {attention.empty && !backupStale ? (
         <div className="rise mb-5 rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-4 text-sm text-stone-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300" style={{ ["--i" as string]: 1 }}>
           All clear — nothing overdue, no deadlines inside two weeks, inbox triaged.
         </div>
@@ -288,6 +290,16 @@ export default function Dashboard() {
                 </span>
               </li>
             ))}
+            {/* #424: a calm nudge when the last backup is old or there has never been one */}
+            {backupStale && attention.backup && (
+              <li className="flex items-baseline gap-2" data-testid="attention-backup">
+                <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-300">backup</span>
+                <span className="min-w-0 flex-1 truncate text-stone-600 dark:text-stone-300">
+                  {attention.backup.last ? `Last backup ${attention.backup.last.days_ago} days ago.` : "No backup yet."} Everything lives in one file — worth keeping a copy somewhere else.
+                </span>
+                <a href="/api/v1/backup.zip" className="shrink-0 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-300">Download a backup →</a>
+              </li>
+            )}
             {attention.inbox.map((q) => (
               <li key={`q${q.id}`} className="flex items-baseline gap-2">
                 <span className="shrink-0 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-300">inbox</span>

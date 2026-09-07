@@ -12,6 +12,7 @@ from pathlib import Path
 from django.conf import settings
 
 from core import client_errors
+from core.backups import backup_status
 
 
 def _tail(path: Path, lines: int = 120) -> str:
@@ -101,6 +102,7 @@ def collect(check_network: bool = False) -> dict:
         "server_log": _tail(Path(data_dir) / "atlas-server.log") if data_dir else "",
         "client_errors": client_errors.recent(),
         "access": _access(),
+        "backups": backup_status(),  # #424
     }
 
 
@@ -132,6 +134,14 @@ def as_text(report: dict) -> str:
     if report["last_failed_compile"]:
         f = report["last_failed_compile"]
         lines += ["", f"last failed compile: #{f['manuscript']} {f['title']} ({f['at']})", f["log"]]
+    backups = report.get("backups") or {}
+    if backups:
+        last = backups.get("last")
+        lines.append(
+            "last backup: "
+            + (f"{last['at']} ({last['days_ago']} days ago)" if last else "never")
+            + (" — STALE" if backups.get("stale") else "")
+        )
     access = report.get("access") or {}
     if access.get("summary"):
         c = access["summary"]["counts"]
