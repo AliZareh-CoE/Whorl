@@ -2985,6 +2985,50 @@ class BackupView(APIView):
         return response
 
 
+class SnapshotsAPIView(APIView):
+    """Automatic snapshots (#462): the zips Atlas keeps in the data folder on its own."""
+
+    @extend_schema(
+        operation_id="v1_snapshots",
+        description="Automatic snapshot status: the backups folder, how many are kept, the "
+        "newest one, whether the desktop scheduler is running, the last failure — plus the "
+        "list of snapshot files on disk (newest first).",
+        responses={200: None},
+    )
+    def get(self, request):
+        from core.snapshots import list_snapshots, snapshot_status
+
+        status = snapshot_status()
+        status["files"] = [
+            {**row, "created_at": row["created_at"].isoformat()} for row in list_snapshots()
+        ]
+        return Response(status)
+
+    @extend_schema(
+        operation_id="v1_snapshot_now",
+        description="Write a snapshot now (database + media as one zip in the backups folder) "
+        "and rotate the old ones. Answers the file written and the names removed.",
+        request=None,
+        responses={201: None},
+    )
+    def post(self, request):
+        from core.snapshots import snapshot_status, take_snapshot
+
+        try:
+            result = take_snapshot(kind="manual")
+        except OSError as exc:
+            return Response({"detail": f"Couldn't write the snapshot: {exc}"}, status=507)
+        return Response(
+            {
+                "path": result["path"],
+                "size_bytes": result["size_bytes"],
+                "removed": result["removed"],
+                "status": snapshot_status(),
+            },
+            status=201,
+        )
+
+
 class RestoreAPIView(APIView):
     """Restore from a backup zip (2026-09-07, #376): staged now, applied at the next launch."""
 

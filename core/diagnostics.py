@@ -103,7 +103,17 @@ def collect(check_network: bool = False) -> dict:
         "client_errors": client_errors.recent(),
         "access": _access(),
         "backups": backup_status(),  # #424
+        "snapshots": _snapshots(),  # #462
     }
+
+
+def _snapshots() -> dict | None:
+    try:
+        from core.snapshots import snapshot_status
+
+        return snapshot_status()
+    except Exception:  # noqa: BLE001 - an unreadable folder must not break the page
+        return None
 
 
 def _access() -> dict:
@@ -141,6 +151,19 @@ def as_text(report: dict) -> str:
             "last backup: "
             + (f"{last['at']} ({last['days_ago']} days ago)" if last else "never")
             + (" — STALE" if backups.get("stale") else "")
+        )
+    snaps = report.get("snapshots") or {}
+    if snaps:
+        last = snaps.get("last")
+        lines.append(
+            f"snapshots: {snaps['count']} kept in {snaps['dir']} · last "
+            + (f"{last['at']} ({last['hours_ago']} h ago)" if last else "none")
+            + (f" · scheduler {'on' if snaps.get('scheduler') else 'off'}")
+            + (
+                f" · LAST FAILED: {snaps['last_error']['detail']}"
+                if snaps.get("last_error")
+                else ""
+            )
         )
     access = report.get("access") or {}
     if access.get("summary"):

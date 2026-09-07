@@ -186,6 +186,9 @@ class BackupRecord(models.Model):
     size_bytes = models.PositiveBigIntegerField(default=0)
     media_files = models.PositiveIntegerField(default=0)
     database = models.CharField(max_length=20, blank=True)  # sqlite / json
+    # #462: a download ("manual") or an automatic snapshot written into the data folder
+    kind = models.CharField(max_length=10, default="manual")
+    path = models.CharField(max_length=500, blank=True)  # where a snapshot landed
 
     class Meta:
         ordering = ["-created_at"]

@@ -4,10 +4,10 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Check, CheckCircle2, Copy, Download, Globe, Loader2, RotateCcw, Stethoscope, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, Camera, Check, CheckCircle2, Copy, Download, FolderOpen, Globe, Loader2, RotateCcw, Stethoscope, Upload, XCircle } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
-import { isDesktop, openDevtools } from "../external";
+import { isDesktop, openDevtools, revealPath } from "../external";
 import { ErrorState } from "../../components/ErrorState";
 
 type Feed = { url: string; status: number | string | null };
@@ -18,6 +18,8 @@ type Report = {
   engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; update_feed: Feed[];
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
   backups?: { last: { at: string; days_ago: number; size_bytes: number } | null; stale: boolean; has_data: boolean; stale_after_days: number };
+  // #462: the zips Atlas keeps on its own in <data dir>/backups
+  snapshots?: { dir: string; keep: number; every_hours: number; count: number; total_bytes: number; last: { name: string; path: string; size_bytes: number; at: string; hours_ago: number } | null; scheduler: boolean; last_error: { at: string; detail: string } | null } | null;
   client_errors?: { at: string; where: string; url: string; version: string; errors: string[] }[];
   access?: { summary: { days: number; counts: Record<string, number>; last_problem: { kind: string; at: string; address: string } | null } | null; events: { id: number; kind: string; label: string; address: string; user_agent: string; detail: string; at: string }[] };
 };
@@ -55,6 +57,12 @@ export default function Diagnostics() {
     if (!file) return;
     if (await confirmDialog({ title: "Restore this backup?", danger: true, confirmLabel: "Stage the restore", body: <>“{file.name}” replaces <b>everything</b> — the database and every file — at the next launch of Atlas. The current data is kept next to it in the data folder, so this can be undone by hand. Nothing changes until you restart.</> })) stage.mutate(file);
   };
+  // #462: a snapshot on demand — the same zip the daily scheduler writes
+  const snapshot = useMutation({
+    mutationFn: () => api<{ path: string; size_bytes: number; removed: string[] }>("/snapshots/", { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["diagnostics"] }),
+    onError: (e) => void errorDialog("Couldn't write the snapshot", e),
+  });
   const restartApp = async () => { try { const t = (await import("@tauri-apps/api")) as unknown as { core: { invoke: (c: string) => Promise<unknown> } }; await t.core.invoke("restart_app"); } catch (e) { void errorDialog("Couldn't restart", e); } };
   useEffect(() => { if (!running) return; const t = window.setInterval(() => qc.invalidateQueries({ queryKey: ["diagnostics"] }), 3000); return () => window.clearInterval(t); }, [running, qc]);
   const copy = async () => { if (!r) return; try { await navigator.clipboard.writeText(r.text); setCopied(true); window.setTimeout(() => setCopied(false), 2000); } catch { /* blocked */ } };
@@ -169,6 +177,29 @@ export default function Diagnostics() {
             )}
             {restore.data?.last_result && <p className={`mt-2 text-xs ${restore.data.last_result.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-300"}`} data-testid="restore-result">Last restore ({new Date(restore.data.last_result.applied_at).toLocaleString()}): {restore.data.last_result.detail}{restore.data.last_result.ok ? ` Previous data kept in ${restore.data.last_result.kept_previous_in}.` : ""}</p>}
           </section>
+          {r.snapshots && (
+            <section className={`${panel} mt-5`} style={{ ["--i" as string]: 2.7 }} data-testid="snapshots" data-count={r.snapshots.count}>
+              <p className={`${railH} mb-2`}><Camera className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />Automatic snapshots</p>
+              <p className="text-sm text-stone-600 dark:text-stone-300">
+                {r.desktop || r.snapshots.scheduler
+                  ? <>Atlas writes a backup zip into its data folder once every {r.snapshots.every_hours} hours while it runs and keeps the last {r.snapshots.keep}.</>
+                  : <>A server install writes these from cron: <code className="text-xs">manage.py snapshot --if-due</code> keeps the last {r.snapshots.keep}, one a day.</>}
+                {" "}Nothing to remember — the newest one is always there.
+              </p>
+              <dl className="mt-2 divide-y divide-stone-100 dark:divide-stone-800">
+                <Row label="Folder" value={<span className="flex flex-wrap items-center gap-2"><code className="text-xs">{r.snapshots.dir}</code>{isDesktop() && r.snapshots.count > 0 && <button type="button" onClick={() => { revealPath(r.snapshots!.last!.path).catch((e) => void errorDialog("Couldn't show the folder", e)); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-xs text-stone-700 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-200" data-testid="snapshot-reveal"><FolderOpen className="h-3 w-3" aria-hidden="true" />Show in folder</button>}</span>} />
+                <Row label="Newest" ok={r.snapshots.last_error ? false : r.snapshots.last ? true : null} value={
+                  <span className="flex flex-wrap items-center gap-2" data-testid="snapshot-last">
+                    <span>{r.snapshots.last ? `${r.snapshots.last.name} · ${(r.snapshots.last.size_bytes / 1048576).toFixed(1)} MB · ${r.snapshots.last.hours_ago === 0 ? "less than an hour ago" : `${r.snapshots.last.hours_ago} h ago`}` : r.snapshots.scheduler ? "none yet — the first one is written a minute or two after launch" : "none yet"}</span>
+                    <button type="button" onClick={() => snapshot.mutate()} disabled={snapshot.isPending} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-xs text-stone-700 hover:border-indigo-400 disabled:opacity-50 dark:border-stone-700 dark:text-stone-200" data-testid="snapshot-now">{snapshot.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Camera className="h-3 w-3" aria-hidden="true" />}Snapshot now</button>
+                    {snapshot.data && <span className="text-xs text-emerald-600 dark:text-emerald-400" data-testid="snapshot-written">written{snapshot.data.removed.length ? ` · ${snapshot.data.removed.length} old removed` : ""}</span>}
+                  </span>
+                } />
+                <Row label="Kept" value={`${r.snapshots.count} of ${r.snapshots.keep} · ${(r.snapshots.total_bytes / 1048576).toFixed(1)} MB in total`} />
+                {r.snapshots.last_error && <Row label="Last failure" ok={false} value={<span className="text-red-600 dark:text-red-300" data-testid="snapshot-error">{r.snapshots.last_error.detail} ({new Date(r.snapshots.last_error.at).toLocaleString()})</span>} />}
+              </dl>
+            </section>
+          )}
           <section className={`${panel} mt-5`} style={{ ["--i" as string]: 3 }}>
             <p className={`${railH} mb-2`}>Server log · last lines</p>
             {r.server_log ? <pre className="max-h-80 overflow-auto rounded-lg bg-stone-950 p-3 font-mono text-[11px] leading-4 text-stone-200">{r.server_log}</pre> : <p className="text-sm text-stone-500">No server log here — the desktop app writes one to its data folder; a development server logs to the terminal.</p>}

@@ -40,5 +40,5 @@ from core.models import BackupRecord  # noqa: E402
 
 @admin.register(BackupRecord)
 class BackupRecordAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "size_bytes", "media_files", "database")
+    list_display = ("created_at", "kind", "size_bytes", "media_files", "database", "path")
     ordering = ("-created_at",)

@@ -115,6 +115,11 @@ class Command(BaseCommand):
 
         if start_watcher(settings.DATA_DIR):
             self.stdout.write("Watching the PDF folder for new papers.")
+        # Automatic snapshots (#462): a backup zip a day into <data dir>/backups, last 7 kept
+        from core.snapshots import snapshot_dir, start_scheduler
+
+        if start_scheduler():
+            self.stdout.write(f"Daily snapshots go to {snapshot_dir()}.")
         self.stdout.write(self.style.SUCCESS(f"Atlas is running → http://{host}:{port}"))
         # Eight threads: a PDF text extraction or a TTS render must not queue the clicks
         # behind it (the owner's log showed "Task queue depth" warnings with four). The

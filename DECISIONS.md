@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The backup you never have to remember (#462)
+
+**Decision.** `core/snapshots.py`: `take_snapshot` writes the one-file backup (`core/backup.py`) into `<data dir>/backups/atlas-snapshot-<stamp>.zip` — under a `.partial` name first, renamed when complete — records a `BackupRecord(kind="auto", path=…)` (core 0013 adds `kind` and `path`) and prunes to the newest `KEEP = 7`. `due()` is true when there is at least one project and the newest snapshot on disk is 24 h old or missing; `run_if_due()` swallows a failure into `last_error` for Diagnostics instead of raising. The desktop starts one daemon thread at boot (`start_scheduler`: first check 90 s after launch, then hourly); a server install runs `manage.py snapshot --if-due` from cron. `GET/POST /api/v1/snapshots/` reads the status and takes one; the diagnostics report carries a `snapshots` block (JSON and the paste-me text); the Diagnostics page gets an *Automatic snapshots* section with the folder, the newest file, kept/total, *Snapshot now* and (desktop) *Show in folder*. `ATLAS_SNAPSHOT_DIR` moves the folder; `backups/` is gitignored for source checkouts. A snapshot counts as a backup for the #424 "last backup" nudge — it is one, on disk.
+
+**Why.** The one-file backup only existed when the owner thought of it; a research tool that keeps a thesis's data must keep it without being asked. Seven daily zips in the data folder survive a bad restore, a wrong delete and an update gone wrong, and cost megabytes.
+
+**Alternatives rejected.** A huey periodic task (the desktop runs huey immediate — periodic tasks never fire there); snapshot at launch only (an app left open for a week would never snapshot); Time-Machine-style incremental copies (the zip is small and a whole-file copy is what a person can actually restore); a setting for the interval and count (convention: a day, seven — `--keep` on the command for servers).
+
 ### 2026-09-07 — The hatch is a moment (#461)
 
 **Decision.** The creature remembers the stage it last drew (`localStorage` `atlas-pet-stage`). When the stage it is asked to draw is *later* than that one, it plays a transition once: the egg shakes and cracks for a second and a half, then the new creature pops in with a little overshoot; then it stores the new stage. Later stage crossings (hatchling → scholar → sage) play the pop without the egg. Same drawing, same CSS variables; two keyframes in `app.css`. Reduced-motion users get the swap without the shake.

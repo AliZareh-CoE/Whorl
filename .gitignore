@@ -23,3 +23,6 @@ desktop/server/dist/atlas-server/*
 desktop/server/dist/atlas-mcp/*
 !desktop/server/dist/atlas-mcp/.gitkeep
 dump.rdb
+
+# #462: local automatic snapshots (a source checkout writes them next to media/)
+backups/

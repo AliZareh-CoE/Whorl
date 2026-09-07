@@ -302,4 +302,28 @@ key); *rotate* next to it retires every URL copied so far.
 
 ## Backups
 
+**One file.** `GET /api/v1/backup.zip` — or *Download a backup* on `/diagnostics` and the ⌘K verb —
+is everything Atlas knows as one zip: a consistent copy of the database (the SQLite file itself
+on the desktop, a JSON dump on a server install) plus the media folder, with restore notes
+inside. Diagnostics says when the last one was and the dashboard nudges, calmly, once it is
+two weeks old. **Restore** from `/diagnostics` › *Restore from a backup*: the zip is staged and
+applied at the next launch, before the database opens; the previous data is kept next to it. A
+server install runs `manage.py restore_backup backup.zip` while stopped.
+
+**Automatic snapshots.** The backup you never have to remember: while the desktop app runs it
+writes the same zip into `<data folder>/backups/` once every 24 hours (the first one a couple
+of minutes after launch, never on an empty install) and keeps the last seven, oldest dropped.
+The *Automatic snapshots* section on Diagnostics shows the folder, the newest file, how many
+are kept and the last failure if one happened; *Snapshot now* writes one on demand and *Show
+in folder* opens it in the file manager. The zip is written under a temporary name and renamed
+when complete, so a crash mid-write never leaves a half zip that looks like a backup. A server
+install gets the same from cron:
+
+```
+0 3 * * * cd /srv/atlas && uv run python manage.py snapshot --if-due
+```
+
+`ATLAS_SNAPSHOT_DIR` moves the folder (a second disk, a synced folder); `--keep N` changes the
+rotation; `GET/POST /api/v1/snapshots/` reads the status and takes one.
+
 A project can also leave as a **Markdown vault** — `GET /api/v1/projects/{slug}/vault/` (or the overview menu / ⌘K "Export this project as a Markdown vault"): notes with their `[[links]]`, decisions, the plan outline, `references.bib`, research, protocols, manuscript sources and documents as a folder of files that opens in Obsidian or any editor.
