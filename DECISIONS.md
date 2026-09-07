@@ -48,8 +48,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    bot (Crossref sweep → inbox flags). Bots report to the inbox; failures recorded, never
    crash the scheduler.~~ ~~Citation-sync bot + run history (2026-06-11, cycle 23): third
    bot refreshes OpenAlex edges for all active projects (verified live); BotRun model keeps
-   the last 20 runs per bot with ✓/✕ shown in a Run history panel.~~ Remaining: inbox-triage
-   suggester, MCP-side bots.
+   the last 20 runs per bot with ✓/✕ shown in a Run history panel.~~ ~~Inbox-triage suggester — `notes/capture.py::detect` suggests paper/todo/decision per capture and the Inbox pre-selects it (retired as done 2026-09-07).~~ Remaining: MCP-side bots.
 8. **Open-source readiness.** Goal: thousands of stars; brainstorm lives in `OPENSOURCE.md`.
    ~~First slice (2026-06-11, cycle 28): AGPL-3.0 LICENSE (decision logged), hero README
    (positioning line, screenshot grid from docs/screenshots/, feature list, comparison table
@@ -67,7 +66,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    ~~Split-view preview (2026-06-11, cycle 27 UI/UX): toggleable PDF pane beside the
    source (preference remembered), compile-status polling endpoint, pane auto-opens on
    Compile, ✓/⏳/✕ status with failure log inline; verified with a real Tectonic compile.~~
-   Remaining: snippets, section outline.
+   ~~Snippets and the section outline — both live in the Studio (2026-09-06 rebuild: activity-bar Outline panel, snippet completions in the shared editor core).~~
 10. **Commenting / annotations.** ~~First slice (2026-06-11, cycle 14): generic `Comment`
     model (contenttypes) with markdown bodies; comment threads live on note, reference, and
     manuscript pages via one `_comments.html` include; kind allowlist guards the endpoint.~~
@@ -76,8 +75,8 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     pin to it, clicking one scrolls back to its page; page badges on detail threads; the
     `next` redirect is validated local-only (open-redirect guard + tests).~~
     ~~Comments on documents (2026-06-11, cycle 96): modal thread + live counts on every
-    documents-table row, SPA and classic island both.~~ Remaining: comments on folders;
-    selection-anchored PDF comments; LaTeX line-anchored comments in the editor.
+    documents-table row, SPA and classic island both.~~ ~~LaTeX line-anchored comments in the editor (done 2026-09-07, #414: Studio Comments panel, gutter marks, line-number click).~~ Remaining: comments on folders;
+    selection-anchored PDF comments.
 11. **Better papers & literature reviews.** Continuous improvement; NO paid LLM APIs —
     local NLP or the owner's Claude subscription via MCP only. ~~First slice (2026-06-11,
     cycle 15): reading queue shows per-paper theme coverage badges (n/N themes); review
@@ -552,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Comments inside the Studio: line-anchored, in the gutter, in a panel (#414)
+
+**Decision.** The Studio gets a *Comments* panel in its activity bar: every comment across the manuscript's source files (`GET /manuscripts/{id}/comments/`, newest first, with file path and line), a click jumps to the file and line, hover shows *delete* (`DELETE /comments/{id}/`), and "+ line N" comments on the line under the cursor. While the panel is open, a click on a line number comments on that line — closed, line numbers behave as line numbers. Commented lines carry the chat-bubble mark in the editor's comment gutter (the `setCommentLines` hook the shared editor core has had since Slice B; the marks follow the active file). The prompt is the in-app multiline dialog.
+
+**Why.** Owner idea #10's last line ("LaTeX line-anchored comments in the editor"): the API, the model anchor and the gutter existed; the Studio rebuild never wired them, so the only way to leave a note on a line was `% TODO`. Overleaf's comments are the feature people miss most when they leave it.
+
+**Alternatives rejected.** Comments on selections with text anchors (the anchor drifts as the text changes; a line is honest and the body can quote); always-on gutter click (line numbers are for selecting lines — the panel-open condition keeps that); a per-file fetch (one manuscript-wide request keeps the panel complete when the open file is not the commented one).
 
 ### 2026-09-07 — Writing progress: words per day, today's delta, the streak (#413)
 

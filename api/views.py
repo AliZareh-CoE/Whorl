@@ -2222,6 +2222,41 @@ class ManuscriptViewSet(AtlasViewSet):
         return Response(counts)
 
     @extend_schema(
+        operation_id="v1_manuscripts_comments",
+        description="Every line-anchored comment across the manuscript's source files (#414): "
+        "file id + path, line (null = general), body, created_at — newest first.",
+        responses={200: None},
+    )
+    @action(detail=True, methods=["get"], url_path="comments")
+    def comments(self, request, pk=None):
+        from django.contrib.contenttypes.models import ContentType
+
+        from core.models import Comment
+        from writing.models import ManuscriptFile
+
+        manuscript = self.get_object()
+        files = {f.pk: f.path for f in manuscript.files.exclude(kind="asset")}
+        ct = ContentType.objects.get_for_model(ManuscriptFile)
+        rows = Comment.objects.filter(content_type=ct, object_id__in=files.keys()).order_by(
+            "-created_at"
+        )
+        return Response(
+            {
+                "comments": [
+                    {
+                        "id": c.pk,
+                        "file": c.object_id,
+                        "path": files[c.object_id],
+                        "line": c.page,
+                        "body": c.body,
+                        "created_at": c.created_at.isoformat(),
+                    }
+                    for c in rows
+                ]
+            }
+        )
+
+    @extend_schema(
         operation_id="v1_manuscripts_progress",
         description="Writing progress (#413): words per day for the last 30 days with deltas, "
         "today's delta, this week's total, the streak of consecutive writing days and the "
@@ -3096,6 +3131,19 @@ class CommentsAPIView(APIView):
             },
             status=201,
         )
+
+
+class CommentDeleteAPIView(APIView):
+    """Remove one comment (#414): the Studio's comment panel and the reader use it."""
+
+    @extend_schema(description="Delete a comment by id.", responses={204: None})
+    def delete(self, request, pk):
+        from core.models import Comment
+
+        deleted, _ = Comment.objects.filter(pk=pk).delete()
+        if not deleted:
+            return Response({"detail": "No such comment."}, status=404)
+        return Response(status=204)
 
 
 class WeeklyReviewAPIView(APIView):

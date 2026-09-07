@@ -52,6 +52,7 @@ urlpatterns = [
     path("v1/search/", views.SearchAPIView.as_view(), name="search"),
     path("v1/dashboard/", views.DashboardAPIView.as_view(), name="dashboard"),
     path("v1/weekly-review/", views.WeeklyReviewAPIView.as_view(), name="weekly_review"),
+    path("v1/comments/<int:pk>/", views.CommentDeleteAPIView.as_view(), name="comment_delete"),
     path(
         "v1/comments/<slug:kind>/<int:object_id>/",
         views.CommentsAPIView.as_view(),

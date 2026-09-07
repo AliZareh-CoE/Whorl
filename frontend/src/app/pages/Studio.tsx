@@ -14,7 +14,7 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import {
   AlertTriangle, ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, Download, FileText, FolderOpen, History, ListTree,
-  ImagePlus, Loader2, Minus, Package, PanelLeft, PanelRight, Play, Plus, RefreshCw, Search, Settings2, TerminalSquare, Trash2, Upload, X,
+  ImagePlus, Loader2, MessageSquare, Minus, Package, PanelLeft, PanelRight, Play, Plus, RefreshCw, Search, Settings2, TerminalSquare, Trash2, Upload, X,
   Crosshair,
 } from "lucide-react";
 import { mountEditor, Split, type EditorAdapter } from "../../editor";
@@ -48,7 +48,8 @@ type Hl = { id: number; reference: number; page: number | null; text: string; co
 type Revision = { id: number; label: string; labeled: boolean; created_at: string; files: string[] };
 type WordCount = { words: number; headers?: number; captions?: number; math?: number; today_delta?: number; streak?: number; week_delta?: number };
 type Settings = { keymap: "default" | "vim"; fontSize: number; spellcheck: boolean; autoCompile: boolean; followCursor: boolean };
-type Tab = "files" | "outline" | "bib" | "history";
+type Tab = "files" | "outline" | "bib" | "history" | "comments";
+type StudioComment = { id: number; file: number; path: string; line: number | null; body: string; created_at: string };
 
 const SETTINGS_KEY = "atlas-studio-settings";
 const HEADING_RE = /\\(part|chapter|section|subsection|subsubsection|paragraph)\*?\{([^}]*)\}/;
@@ -156,6 +157,18 @@ function StudioInner({ m }: { m: Manuscript }) {
   const [previewOpen, setPreviewOpen] = useState(true);
   const [problemsOpen, setProblemsOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("files");
+  const tabRef = useRef<Tab>("files"); tabRef.current = tab;
+  // #414: line-anchored comments across the manuscript's files — marks in the gutter of the
+  // active file, a panel to read/jump/delete, and "comment on line N"
+  const [comments, setComments] = useState<StudioComment[]>([]);
+  const loadComments = useCallback(() => api<{ comments: StudioComment[] }>(`/manuscripts/${m.id}/comments/`).then((r) => setComments(r.comments)).catch(() => {}), [m.id]);
+  const addComment = useCallback(async (fid: number, line: number | null) => {
+    const body = await promptDialog({ title: line ? `Comment on line ${line}` : "Comment on this file", body: "For your future self or a co-author: what needs doing here?", placeholder: "e.g. tighten this paragraph; cite Lavie 2010", multiline: true, confirmLabel: "Add comment" });
+    if (!body?.trim()) return;
+    await api(`/comments/manuscript_file/${fid}/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: body.trim(), line }) });
+    await loadComments(); setTab("comments"); setFlash(line ? `Comment on line ${line} added.` : "Comment added.");
+  }, [loadComments]);
+  const deleteComment = useCallback(async (c: StudioComment) => { await api(`/comments/${c.id}/`, { method: "DELETE" }); await loadComments(); }, [loadComments]);
   const [outline, setOutline] = useState<{ line: number; depth: number; title: string }[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [ln, setLn] = useState(1);
@@ -243,6 +256,7 @@ function StudioInner({ m }: { m: Manuscript }) {
     ad.focus();
   }, [base, recomputeOutline, pushDiagnostics]);
   const compileRefState = useRef(compile); compileRefState.current = compile;
+  const addCommentRef = useRef(addComment); addCommentRef.current = addComment;
 
   // --- mount the editor once the main file is known ---------------------------------
   useEffect(() => {
@@ -275,9 +289,18 @@ function StudioInner({ m }: { m: Manuscript }) {
       });
       setActiveId(mainId); setTabs([mainId]); setReady(true); recomputeOutline(); ad.focus();
       void recomputeTodos();
+      // a click on the line-number gutter comments on that line — only while the Comments
+      // panel is open, so plain line selection stays plain
+      ad.onGutterClick((line) => { if (tabRef.current === "comments") void addCommentRef.current(ad.activeFile(), line); });
+      void loadComments();
     })();
     return () => { cancelled = true; };
   }, [base, mainId, saveFile, recomputeOutline, recomputeTodos]);
+
+  useEffect(() => {
+    const ad = adRef.current; if (!ad || !ready) return;
+    ad.setCommentLines(comments.filter((c) => c.file === activeId && c.line).map((c) => c.line as number));
+  }, [comments, activeId, ready]);
 
   // deep link from the Library: /manuscripts/:id/editor?quote=<highlight id> inserts that passage
   const [params, setParams] = useSearchParams();
@@ -458,8 +481,12 @@ function StudioInner({ m }: { m: Manuscript }) {
         {sidebarOpen && (
           <aside id="studio-side" className="flex min-w-0 flex-col border-r" style={{ borderColor: "var(--studio-line)", background: "var(--studio-panel)" }}>
             <nav className="flex shrink-0 border-b text-[11px]" style={{ borderColor: "var(--studio-line)" }} aria-label="Studio panels">
-              {([["files", FolderOpen, "Files"], ["outline", ListTree, todos.length ? `Outline · ${todos.length}` : "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
-                <button key={key} type="button" onClick={() => setTab(key)} className={`flex flex-1 items-center justify-center gap-1 py-2 transition-colors ${tab === key ? "border-b-2 border-indigo-400 st-fg" : "st-dim st-hover-fg"}`} title={label} aria-label={label}><Icon className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden xl:inline">{label}</span></button>
+              {([["files", FolderOpen, "Files"], ["outline", ListTree, todos.length ? `Outline · ${todos.length}` : "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"], ["comments", MessageSquare, comments.length ? `Comments · ${comments.length}` : "Comments"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
+                <button key={key} type="button" onClick={() => setTab(key)} className={`relative flex min-w-0 flex-1 items-center justify-center gap-1 py-2 transition-colors ${tab === key ? "border-b-2 border-indigo-400 st-fg" : "st-dim st-hover-fg"}`} title={label} aria-label={label} data-testid={`studio-tab-${key}`}>
+                  <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  {/* five tabs share ~240 px: icons only, the count as a badge (#414) */}
+                  {label.includes(" · ") && <span className="rounded-full bg-indigo-500/20 px-1 text-[9px] font-semibold tabular-nums text-indigo-200">{label.split(" · ")[1]}</span>}
+                </button>
               ))}
             </nav>
             <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -501,6 +528,24 @@ function StudioInner({ m }: { m: Manuscript }) {
                 </div>
               )}
               {tab === "bib" && <BibPanel m={m} base={base} onInsert={(key) => { adRef.current?.insertAtCursor(`\\cite{${key}}`); }} onQuote={(latex) => { adRef.current?.insertAtCursor(latex); setFlash("Quote inserted."); }} onLinked={() => adRef.current?.reloadCiteLibrary()} />}
+              {tab === "comments" && (
+                <div data-testid="studio-comments">
+                  <div className="mb-1 flex items-center justify-between px-1 text-[10px] uppercase tracking-wider st-dim"><span>Comments</span><button type="button" onClick={() => void addComment(activeId, ln)} className="st-hover-fg normal-case tracking-normal" title="Comment on the line under the cursor" data-testid="comment-on-line">+ line {ln}</button></div>
+                  <p className="mb-2 px-1 text-[10px] leading-4 st-dim">Click a line number to comment on that line. Marks show in the gutter of the open file.</p>
+                  {comments.length === 0 && <p className="px-1 text-xs st-dim">No comments yet.</p>}
+                  <ul className="space-y-1">
+                    {comments.map((c) => (
+                      <li key={c.id} className="group rounded px-1 py-1 text-xs st-text hover:bg-indigo-500/10" data-testid="studio-comment">
+                        <button type="button" onClick={async () => { if (c.file !== activeId) await openFile(c.file); if (c.line) adRef.current?.gotoLine(c.line); }} className="block w-full text-left" title="Jump to it">
+                          <span className="block whitespace-pre-wrap">{c.body}</span>
+                          <span className="mt-0.5 block text-[10px] st-dim">{c.path.replace(/^.*\//, "")}{c.line ? `:${c.line}` : ""} · {c.created_at.slice(0, 10)}</span>
+                        </button>
+                        <button type="button" onClick={() => void deleteComment(c)} className="mt-0.5 hidden text-[10px] st-dim hover:text-red-400 group-hover:inline" aria-label="Delete comment">delete</button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {tab === "history" && <HistoryPanel base={base} onRestored={async () => { loaded.current.clear(); const ad = adRef.current; if (ad) { for (const fid of tabs) { const data = await wb<{ content?: string }>(`${base}files/${fid}/`); ad.setFileValue(fid, data.content || ""); loaded.current.add(fid); } } setFlash("Version restored."); recomputeOutline(); }} />}
             </div>
           </aside>

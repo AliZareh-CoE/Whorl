@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Studio comments (2026-09-07, #414).** `GET /manuscripts/{id}/comments/`, `DELETE /comments/{id}/`; Studio Comments tab (list/jump/delete, + line N, gutter click while open), `setCommentLines` marks per active file. Tests: writing/tests/test_studio_comments.py (2). Playwright: docs/screenshots/studio-comments.png.
+
 - **Writing progress (2026-09-07, #413).** `writing.WordCountSample` (0014), `writing/progress.py`, tex-save hook + word-count endpoint records, `GET /manuscripts/{id}/progress/`, serializer `progress` (14-day deltas), MCP `get_writing_progress` (93 tools), Studio "+n today · streak", Writing card sparkline, demo seeded. Tests: writing/tests/test_progress.py (3). Playwright: docs/screenshots/writing-progress.png, studio-words-today.png.
 
 - **Read this note to me (2026-09-07, #412).** `listen.ts::speakable` (markdown → speech text, checked in node), Notes editor listen/stop button with i/n progress, stops on note switch, errors in the toast. Guard: core/tests/test_polish.py::test_notes_read_aloud. Playwright: error path without a voice model (docs/screenshots/note-listen.png).
