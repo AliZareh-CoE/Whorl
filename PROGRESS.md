@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Today due times (2026-09-07, #431).** `TodoItem.due_at` (core 0011), browser parser `dueTime.ts` (Today input/edit, ⌘K todo:), due chips, carried-over count, `TodoNudge` in the sidebar, dashboard hero times, MCP `add_todo(due_at)`. Tests: core/tests/test_due_times.py (API, MCP client, node-run parser, TSX needles). Playwright: docs/screenshots/today-due.png.
+
 - **Demo GIF (2026-09-07, #430).** `scripts/demo_gif.py` (11 captioned keyframes, compile-first studio, toast hidden) → `docs/demo.gif` 3.0 MB, README embed, `make demo-gif`. Test: core/tests/test_demo_gif.py.
 
 - **Plan drag (2026-09-07, #429).** `POST /projects/{slug}/phases/reorder/`; Plan.tsx phase handle + milestone rows draggable, cards as drop targets, optimistic. Test: plans/tests/test_plans.py::test_phase_reorder_and_milestone_move. Playwright (real mouse drag, both directions, ring on the target): docs/screenshots/plan-drag.png.

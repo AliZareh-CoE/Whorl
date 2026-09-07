@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, CalendarClock, Check, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Sparkles, Trophy, Wand2 } from "lucide-react";
 import { confirmDialog } from "../../components/Dialog";
 import { api } from "../api";
+import { dueState, formatDue } from "../dueTime";
 import { toggleCalm, useCalm } from "../calm";
 import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -22,7 +23,7 @@ type Dash = {
   stats: Record<string, number>;
   inbox_count: number;
   todos_open: number;
-  todos: { id: number; text: string; project: string | null }[];
+  todos: { id: number; text: string; due_at?: string | null; project: string | null }[];
   week: { today: string; week_ends: string; overdue: WeekItem[]; due_this_week: WeekItem[] };
   heatmap: { date: string; count: number; level: number }[][];
   attention: Attention;
@@ -225,6 +226,7 @@ export default function Dashboard() {
                   <li key={t.id} className="group flex items-center gap-2 text-sm text-stone-700 dark:text-stone-200">
                     <button type="button" onClick={() => tick.mutate(t.id)} className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-stone-300 text-transparent transition-colors hover:border-indigo-400 hover:text-indigo-500 dark:border-stone-600" aria-label={`Done: ${t.text}`} title="Tick it off"><Check className="h-3 w-3" aria-hidden="true" /></button>
                     <span className="min-w-0 truncate">{t.text}</span>
+                    {t.due_at && <span className={`shrink-0 text-[11px] tabular-nums ${dueState(t.due_at) === "overdue" ? "text-red-500" : dueState(t.due_at) === "soon" ? "text-amber-600 dark:text-amber-300" : "text-stone-400"}`} data-testid="hero-due">· {formatDue(t.due_at)}</span>}
                     {t.project && <span className="shrink-0 text-[11px] text-stone-400">· {t.project}</span>}
                   </li>
                 ))}

@@ -300,9 +300,11 @@ def list_todos(include_done: bool = False) -> dict:
 
 
 @mcp.tool()
-def add_todo(text: str, project: str = "") -> dict:
-    """Put something on the owner's Today list (optionally tagged with a project slug)."""
-    return client.add_todo(text, project or None)
+def add_todo(text: str, project: str = "", due_at: str = "") -> dict:
+    """Put something on the owner's Today list (optionally tagged with a project slug).
+    `due_at` is an optional ISO-8601 datetime with offset (e.g. 2026-09-07T15:00:00+02:00) —
+    the sidebar nudges the owner when it comes within two hours."""
+    return client.add_todo(text, project or None, due_at or None)
 
 
 @mcp.tool()

@@ -2590,6 +2590,7 @@ class DashboardAPIView(APIView):
                     {
                         "id": t.id,
                         "text": t.text,
+                        "due_at": t.due_at,  # #431
                         "project": t.project.slug if t.project_id else None,
                     }
                     for t in TodoItem.objects.filter(done=False)

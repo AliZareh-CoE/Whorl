@@ -424,6 +424,7 @@ class TodoItemSerializer(serializers.ModelSerializer):
             "done",
             "done_at",
             "position",
+            "due_at",
             "project",
             "created_at",
             "updated_at",

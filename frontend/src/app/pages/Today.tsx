@@ -5,10 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Pencil, Plus, Sparkles, Trash2, GripVertical } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { dueState, formatDue, parseDue, relativeDue } from "../dueTime";
 import { ErrorState } from "../../components/ErrorState";
 import { Skeleton } from "../../components/Skeleton";
 
-type Todo = { id: number; text: string; done: boolean; done_at: string | null; position: number; project: string | null; created_at: string };
+type Todo = { id: number; text: string; done: boolean; done_at: string | null; position: number; due_at: string | null; project: string | null; created_at: string };
 type Page<T> = { count: number; results: T[] };
 
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
@@ -20,7 +21,7 @@ export default function Today() {
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["todos"], queryFn: () => api<Page<Todo>>("/todos/?page_size=200") });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["todos"] });
   const add = useMutation({
-    mutationFn: (t: string) => api<Todo>("/todos/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: t }) }),
+    mutationFn: (t: string) => api<Todo>("/todos/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parseDue(t)) }), // #431: "at 3pm" → due_at
     onSuccess: () => { setText(""); refresh(); inputRef.current?.focus(); },
   });
   const toggle = useMutation({
@@ -35,7 +36,7 @@ export default function Today() {
     onSettled: refresh,
   });
   const remove = useMutation({ mutationFn: (id: number) => api(`/todos/${id}/`, { method: "DELETE" }), onSuccess: refresh });
-  const edit = useMutation({ mutationFn: ({ id, text: t }: { id: number; text: string }) => api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: t }) }), onSuccess: refresh });
+  const edit = useMutation({ mutationFn: ({ id, text: t }: { id: number; text: string }) => { const p = parseDue(t); return api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p.due_at ? p : { text: p.text }) }); }, onSuccess: refresh });
   // Reorder (#383): one call carries the whole open-list order — the keyboard (⌥↑/↓) and a
   // drag both go through it, with the list updated optimistically so nothing jumps back.
   const reorder = useMutation({
@@ -71,6 +72,7 @@ export default function Today() {
   const open = items.filter((t) => !t.done);
   const done = items.filter((t) => t.done);
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const carried = open.filter((t) => age(t.created_at)).length; // #431: "2 carried over"
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -99,6 +101,7 @@ export default function Today() {
           Today{" "}
           <span className="text-gradient">{open.length === 0 ? "· all clear" : `· ${open.length} to do`}</span>
         </h1>
+        {carried > 0 && <p className="mt-1 text-xs text-stone-400" data-testid="carried-over">{carried} carried over from earlier days.</p>}
       </div>
 
       <form
@@ -110,7 +113,7 @@ export default function Today() {
           ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="What needs doing? Press Enter."
+          placeholder="What needs doing? “at 3pm” or “tomorrow 9am” sets a time."
           maxLength={300}
           className="min-w-0 flex-1 bg-transparent py-2 text-base placeholder:text-stone-400 focus:outline-none dark:text-stone-100"
         />
@@ -150,7 +153,7 @@ export default function Today() {
           </ul>
         </section>
       )}
-      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · ⌥↑/↓ or drag reorders · n new. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
+      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · ⌥↑/↓ or drag reorders · n new · “at 3pm” sets a time. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
     </div>
   );
 }
@@ -161,6 +164,13 @@ function age(iso: string): string | null {
   if (days === 1) return "since yesterday";
   if (days < 7) return `since ${new Date(iso).toLocaleDateString(undefined, { weekday: "short" })}`;
   return `${days} days old`;
+}
+
+/** #431: the time chip — quiet when far off, amber within two hours, red once it has passed. */
+function DueChip({ iso }: { iso: string }) {
+  const state = dueState(iso);
+  const cls = state === "overdue" ? "bg-red-500/10 text-red-600 dark:text-red-300" : state === "soon" ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-300";
+  return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] tabular-nums ${cls}`} data-testid="due-chip" data-state={state} title={relativeDue(iso)}>{formatDue(iso)}{state === "overdue" ? " · overdue" : state === "soon" ? ` · ${relativeDue(iso)}` : ""}</span>;
 }
 
 type DragProps = { dragging: boolean; over: "before" | "after" | null; onStart: (e: React.DragEvent<HTMLLIElement>) => void; onOver: (e: React.DragEvent<HTMLLIElement>) => void; onDrop: (e: React.DragEvent<HTMLLIElement>) => void; onEnd: () => void };
@@ -190,6 +200,7 @@ function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove, 
         <span onDoubleClick={t.done ? undefined : onEdit} className={`min-w-0 flex-1 text-base transition-colors ${t.done ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-100"}`}>{t.text}</span>
       )}
       {old && <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300" title="Carried over from an earlier day">{old}</span>}
+      {!t.done && t.due_at && <DueChip iso={t.due_at} />}
       {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
       {!t.done && !editing && <button type="button" onClick={onEdit} aria-label="Edit" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></button>}
       <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>

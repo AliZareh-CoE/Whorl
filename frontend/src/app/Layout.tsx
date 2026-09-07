@@ -10,6 +10,7 @@ import TerminalDock, { openTerminal } from "./TerminalDock";
 import { installExternalLinkHandler } from "./external";
 import { Creature, type Reaction } from "./pet/Creature";
 import { UpdaterButton } from "./UpdaterButton";
+import { TodoNudge } from "./TodoNudge";
 import { Trophy } from "lucide-react";
 import { installShortcutsKey } from "./shortcuts";
 
@@ -182,6 +183,7 @@ export default function Layout() {
           <NavLink to="/search" className={navCls}><Search className={iconCls} aria-hidden="true" />Search</NavLink>
         </nav>
         <div className="mt-auto border-t border-stone-100 px-1 pt-4 text-xs text-stone-400 dark:border-stone-800">
+          <TodoNudge />
           {pet && (
             <NavLink to="/pet" title={`${pet.name} is ${pet.mood} — open its page`} className="group mb-3 block">
               <span

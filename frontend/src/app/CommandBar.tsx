@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, csrfToken, petReact } from "./api";
+import { parseDue } from "./dueTime";
 import { toggleCalm } from "./calm";
 import { toSpaUrl } from "./links";
 import { isDesktop, openDevtools } from "./external";
@@ -128,11 +129,12 @@ export default function CommandBar() {
   }, [queryClient, slug]);
 
   // backlog #300: "todo: buy the cheaper eye-tracker" → the Today list, scoped to the project you are in
-  const doTodo = useCallback(async (text: string) => {
+  const doTodo = useCallback(async (raw: string) => {
+    const { text, due_at } = parseDue(raw); // #431: "todo: call Sam at 3pm" carries the time
     await api("/todos/", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
-      body: JSON.stringify({ text, project: slug ?? null }),
+      body: JSON.stringify({ text, due_at, project: slug ?? null }),
     });
     queryClient.invalidateQueries({ queryKey: ["todos"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });

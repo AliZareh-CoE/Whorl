@@ -339,10 +339,12 @@ def list_todos(include_done: bool = False):
     return _request("GET", "/todos/", params=params)
 
 
-def add_todo(text: str, project: str | None = None):
+def add_todo(text: str, project: str | None = None, due_at: str | None = None):
     payload = {"text": text}
     if project:
         payload["project"] = project
+    if due_at:
+        payload["due_at"] = due_at
     return _request("POST", "/todos/", json=payload)
 
 

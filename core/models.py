@@ -68,6 +68,8 @@ class TodoItem(TimeStampedModel):
     done = models.BooleanField(default=False)
     done_at = models.DateTimeField(null=True, blank=True)
     position = models.PositiveIntegerField(default=0)
+    # #431: an optional time ("call Sam at 3pm") — the sidebar nudges when it comes close
+    due_at = models.DateTimeField(null=True, blank=True)
     project = models.ForeignKey(
         "projects.Project",
         null=True,
