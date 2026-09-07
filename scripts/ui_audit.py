@@ -44,9 +44,13 @@ PAGES = [
     f"/projects/{P}/graph",
     "/automations",
     "/library",
-    "/references/1",
+    "/references/{ref}",
     "/writing",
-    "/manuscripts/2",
+    "/manuscripts/{ms}",
+    "/manuscripts/{ms}/editor",
+    "/achievements",
+    "/connect",
+    "/diagnostics",
     "/inbox",
     "/today",
     "/prompts",
@@ -82,8 +86,15 @@ async def main():
         await page.fill("input[name=username]", "atlas")
         await page.fill("input[name=password]", "atlas")
         await page.click("button[type=submit]")
+        # real ids: the demo is re-seeded now and then, so ids drift
+        ids = await page.evaluate(
+            """async () => ({
+              ref: (await (await fetch('/api/v1/references/?page_size=1&ordering=id')).json()).results[0]?.id ?? 1,
+              ms: (await (await fetch('/api/v1/manuscripts/?page_size=1')).json()).results[0]?.id ?? 1,
+            })"""
+        )
         report = []
-        for path in PAGES:
+        for path in [p.format(**ids) for p in PAGES]:
             errors.clear()
             try:
                 await page.goto("http://127.0.0.1:8000" + path, timeout=20000)

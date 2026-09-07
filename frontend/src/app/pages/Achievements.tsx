@@ -71,7 +71,7 @@ export default function Achievements() {
           <ul className="grid gap-3 sm:grid-cols-2" data-testid="achievement-grid">
             {rows.map((a) => { const m = TIER_META[a.tier]; const Icon = a.unlocked ? Check : a.hidden ? Lock : m.icon; const fresh = d.recent_unlocks.includes(a.key); return (
               <li key={a.key} className={`relative rounded-xl border p-3 transition-colors ${a.unlocked ? (a.tier === "souls" ? "border-red-400/60 bg-red-500/10" : "border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10") : "border-stone-100 dark:border-stone-800"} ${a.hidden && !a.unlocked ? "opacity-60" : ""}`} data-testid="achievement" data-tier={a.tier} data-unlocked={a.unlocked}>
-                {fresh && <span className="absolute -right-1.5 -top-1.5 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white shadow">new</span>}
+                {fresh && <span className="absolute -right-1.5 -top-1.5 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow">new</span>}
                 <div className="flex items-start gap-2">
                   <span className={`mt-0.5 shrink-0 ${a.unlocked ? (a.tier === "souls" ? "text-red-500" : "text-amber-500") : "text-stone-300"}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
                   <div className="min-w-0 flex-1">
