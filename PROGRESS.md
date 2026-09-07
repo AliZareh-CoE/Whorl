@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Studio actions palette (2026-09-07, #447).** `ActionPalette` on ⌘⇧P with bindings; shortcuts sheet row. Test: writing/tests/test_action_palette.py. Playwright: ⌘⇧P → rows → Enter toggles the preview.
+
 - **Duplicate manuscript (2026-09-07, #446).** `duplicate_manuscript` service + `POST /manuscripts/{id}/duplicate/`; Writing card menu; MCP tool (100 tools). Tests: writing/tests/test_duplicate.py. Playwright: card menu → prompt → copy opens with 2 files.
 
 - **Cite hint for missing papers (2026-09-07, #445).** editor/index.ts self-filtered cite options + add-paper row (`onAddPaper`); Studio prompts, adds by DOI into the project, links via cite-library/, replaces the fragment, reloads. Test: writing/tests/test_cite_hint.py. Playwright: the add row appears for `\cite{zzz`.

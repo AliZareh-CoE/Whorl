@@ -174,6 +174,7 @@ function StudioInner({ m }: { m: Manuscript }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [ln, setLn] = useState(1);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false); // #447: ⌘⇧P actions palette
 
   const [compile, setCompile] = useState<Compile>({ status: m.compile_status, diagnostics: [], compiled_at: m.compiled_at, pdf_url: null, log: "" });
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -427,6 +428,7 @@ function StudioInner({ m }: { m: Manuscript }) {
       else if (k === "\\") { e.preventDefault(); setPreviewOpen((v) => !v); }
       else if (k === "j") { e.preventDefault(); setProblemsOpen((v) => !v); }
       else if (k === "p" && !e.shiftKey) { e.preventDefault(); setQuickOpen(true); }
+      else if (k === "p" && e.shiftKey) { e.preventDefault(); setActionsOpen(true); }
     };
     window.addEventListener("keydown", onKey, true); return () => window.removeEventListener("keydown", onKey, true);
   }, []);
@@ -458,6 +460,25 @@ function StudioInner({ m }: { m: Manuscript }) {
   const warnings = compile.diagnostics.length - errors;
   const running = compile.status === "running";
   const textFiles = files.filter((f) => f.kind !== "asset");
+
+  // #447 (backlog #119): every editor action with its binding, for the ⌘⇧P palette
+  const MOD = navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl";
+  const studioActions: StudioAction[] = [
+    { label: "Save", keys: `${MOD} S`, run: () => saveNowRef.current() },
+    { label: "Compile", keys: `${MOD} ↵`, run: () => { void doCompile(); } },
+    { label: "Locate the cursor in the PDF", keys: `${MOD} ⇧ J`, run: () => locateInPdf() },
+    { label: "Quick open a file or section", keys: `${MOD} P`, run: () => setQuickOpen(true) },
+    { label: `${sidebarOpen ? "Hide" : "Show"} the sidebar`, keys: `${MOD} B`, run: () => setSidebarOpen((v) => !v) },
+    { label: `${previewOpen ? "Hide" : "Show"} the PDF preview`, keys: `${MOD} \\`, run: () => setPreviewOpen((v) => !v) },
+    { label: `${problemsOpen ? "Hide" : "Show"} the problems panel`, keys: `${MOD} J`, run: () => setProblemsOpen((v) => !v) },
+    { label: "New file…", run: () => { void newFile(); } },
+    { label: "Download the submission .zip", hint: "arXiv-ready source + .bib + .bbl", run: () => window.location.assign(`${base}submission.zip`) },
+    ...(([["files", "Files"], ["outline", "Outline"], ["bib", "Bibliography"], ["history", "History"], ["comments", "Comments"]] as [Tab, string][]).map(([key, name]) => ({ label: `Go to ${name}`, hint: "sidebar panel", run: () => { setSidebarOpen(true); setTab(key); } }))),
+    { label: "Editor settings", run: () => setSettingsOpen(true) },
+    { label: `Keymap: ${settings.keymap === "vim" ? "default" : "vim"}`, hint: `now ${settings.keymap}`, run: () => setSettings((st) => ({ ...st, keymap: st.keymap === "vim" ? "default" : "vim" })) },
+    { label: `Compile on save: ${settings.autoCompile ? "off" : "on"}`, run: () => setSettings((st) => ({ ...st, autoCompile: !st.autoCompile })) },
+    { label: `PDF follows the cursor: ${settings.followCursor ? "off" : "on"}`, run: () => setSettings((st) => ({ ...st, followCursor: !st.followCursor })) },
+  ];
 
   return (
     <div className="studio fixed inset-0 flex flex-col" data-testid="studio">
@@ -618,6 +639,7 @@ function StudioInner({ m }: { m: Manuscript }) {
           <p className={`font-display text-6xl font-bold tracking-[0.3em] drop-shadow-[0_0_30px_rgba(0,0,0,0.9)] ${banner === "died" ? "text-red-600" : "text-amber-400"}`}>{banner === "died" ? "YOU DIED" : "BONFIRE LIT"}</p>
         </div>
       )}
+      {actionsOpen && <ActionPalette actions={studioActions} onClose={() => setActionsOpen(false)} />}
       {quickOpen && <QuickOpen files={textFiles} outline={outline} onClose={() => setQuickOpen(false)} onPick={(pick) => { setQuickOpen(false); if (pick.kind === "file") void openFile(pick.id); else adRef.current?.gotoLine(pick.line); }} />}
     </div>
   );
@@ -712,6 +734,37 @@ function HistoryPanel({ base, onRestored }: { base: string; onRestored: () => Pr
           <pre className="min-h-0 flex-1 overflow-auto p-4 font-mono text-[11px] leading-5 st-text">{diff === null ? "Loading diff…" : diff.length === 0 ? "Identical to the current text." : diff.map((d) => `--- ${d.path}\n${d.diff}`).join("\n\n").split("\n").map((line, i) => <span key={i} className={line.startsWith("+") && !line.startsWith("+++") ? "text-emerald-300" : line.startsWith("-") && !line.startsWith("---") ? "text-red-300" : line.startsWith("@@") ? "text-indigo-300" : ""}>{line}{"\n"}</span>)}</pre>
         </div>
       )}
+    </div>
+  );
+}
+
+type StudioAction = { label: string; keys?: string; hint?: string; run: () => void };
+
+/** #447: the ⌘⇧P actions palette — every editor action with its binding; same chrome as quick-open. */
+function ActionPalette({ actions, onClose }: { actions: StudioAction[]; onClose: () => void }) {
+  const [q, setQ] = useState("");
+  const [active, setActive] = useState(0);
+  const rows = useMemo(() => { const needle = q.trim().toLowerCase(); return needle ? actions.filter((a) => `${a.label} ${a.hint ?? ""}`.toLowerCase().includes(needle)) : actions; }, [actions, q]);
+  useEffect(() => setActive(0), [q]);
+  const pick = (a: StudioAction) => { onClose(); a.run(); };
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24" onClick={onClose} role="presentation">
+      <div className="w-full max-w-lg overflow-hidden rounded-xl border shadow-2xl" style={{ borderColor: "var(--studio-line)", background: "var(--studio-panel)" }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Editor actions" data-testid="action-palette">
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") onClose(); else if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, rows.length - 1)); } else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); } else if (e.key === "Enter" && rows[active]) { e.preventDefault(); pick(rows[active]); } }} placeholder="Editor action…  (save, compile, keymap, bibliography)" className="w-full border-b bg-transparent px-4 py-3 text-sm outline-none st-text" style={{ borderColor: "var(--studio-line)" }} aria-label="Editor actions" />
+        <ul className="max-h-80 overflow-y-auto py-1 text-xs">
+          {rows.length === 0 && <li className="px-4 py-3 st-dim">No such action.</li>}
+          {rows.map((a, i) => (
+            <li key={a.label}>
+              <button type="button" onMouseEnter={() => setActive(i)} onClick={() => pick(a)} className={`flex w-full items-center gap-3 px-4 py-1.5 text-left ${i === active ? "bg-indigo-500/20 st-fg" : "st-text"}`} data-testid="action-row">
+                <span className="min-w-0 flex-1 truncate">{a.label}</span>
+                {a.hint && <span className="shrink-0 truncate st-dim">{a.hint}</span>}
+                {a.keys && <kbd className="shrink-0 rounded border px-1.5 py-0.5 font-sans text-[10px] st-dim" style={{ borderColor: "var(--studio-line)" }}>{a.keys}</kbd>}
+              </button>
+            </li>
+          ))}
+        </ul>
+        <p className="border-t px-4 py-1.5 text-[10px] st-dim" style={{ borderColor: "var(--studio-line)" }}>↑↓ move · ↵ run · esc close</p>
+      </div>
     </div>
   );
 }
