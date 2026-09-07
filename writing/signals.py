@@ -17,7 +17,7 @@ def _resync(manuscript):
 
     root, main_node = resync_manuscript_tree(manuscript, Folder=Folder, Document=Document)
     # keep the FKs current without retriggering Manuscript.save's alias sync
-    type(manuscript).objects.filter(pk=manuscript.pk).update(
+    type(manuscript).objects.filter(pk=manuscript.pk).update(  # etag: ok (runs on its save)
         root_folder=root, main_file_node=main_node
     )
 

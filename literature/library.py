@@ -9,6 +9,7 @@ import re
 
 import httpx
 from django.db.models import Count, Exists, OuterRef, Q, QuerySet
+from django.utils import timezone
 
 from projects.models import Project
 
@@ -507,7 +508,9 @@ def merge_references(keep_id: int, merge_ids: list[int]) -> dict:
                     mref.reference = keep
                     mref.save(update_fields=["reference"])
                     moved["manuscripts"] += 1
-            moved["evidence"] += Evidence.objects.filter(reference=other).update(reference=keep)
+            moved["evidence"] += Evidence.objects.filter(reference=other).update(
+                reference=keep, updated_at=timezone.now()
+            )
             for edge in CitationEdge.objects.filter(citing=other):
                 if (
                     edge.cited_id == keep.pk
@@ -529,7 +532,7 @@ def merge_references(keep_id: int, merge_ids: list[int]) -> dict:
                     edge.save(update_fields=["cited"])
                     moved["citations"] += 1
             moved["comments"] += Comment.objects.filter(content_type=ct, object_id=other.pk).update(
-                object_id=keep.pk
+                object_id=keep.pk, updated_at=timezone.now()
             )
             if not keep.pdf and other.pdf:
                 keep.pdf = other.pdf
@@ -556,7 +559,9 @@ def merge_references(keep_id: int, merge_ids: list[int]) -> dict:
             }
             # release the unique DOI (and the PDF file) from the merged record BEFORE the kept
             # one saves them, or the DOI unique constraint fires
-            Reference.objects.filter(pk=other.pk).update(doi=None, pdf="")
+            Reference.objects.filter(pk=other.pk).update(
+                doi=None, pdf=""
+            )  # etag: ok (deleted next)
             keep.save()
             other.delete()
     return {"kept": keep.pk, "merged": merged_ids, "moved": moved}

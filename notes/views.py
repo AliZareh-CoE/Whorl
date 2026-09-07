@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, UpdateView
 
@@ -168,11 +169,11 @@ def inbox_bulk(request):
     if not count:
         messages.error(request, "Nothing selected.")
     elif action == "dismiss":
-        captures.update(processed=True)
+        captures.update(processed=True, updated_at=timezone.now())
         messages.success(request, f"Dismissed {count} item(s).")
     elif action == "assign":
         project = get_object_or_404(Project, slug=request.POST.get("project"))
-        captures.update(project=project, processed=True)
+        captures.update(project=project, processed=True, updated_at=timezone.now())
         messages.success(request, f"Filed {count} item(s) to {project.name}.")
     else:
         messages.error(request, "Unknown bulk action.")

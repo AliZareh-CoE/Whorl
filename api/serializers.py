@@ -813,7 +813,11 @@ class ManuscriptFileSerializer(serializers.ModelSerializer):
 
         if validated_data.get("is_main") and not instance.is_main:
             with transaction.atomic():
-                instance.manuscript.files.filter(is_main=True).update(is_main=False)
+                from django.utils import timezone
+
+                instance.manuscript.files.filter(is_main=True).update(
+                    is_main=False, updated_at=timezone.now()
+                )
                 return super().update(instance, validated_data)
         return super().update(instance, validated_data)
 

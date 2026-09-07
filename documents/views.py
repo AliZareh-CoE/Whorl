@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, UpdateView
 
@@ -367,7 +368,7 @@ def bulk_action(request, slug):
         folder = None
         if request.POST.get("folder"):
             folder = get_object_or_404(project.folders, pk=request.POST["folder"])
-        documents.update(folder=folder)
+        documents.update(folder=folder, updated_at=timezone.now())
         messages.success(
             request, f"Moved {count} document(s) to {folder.name if folder else 'the root'}."
         )

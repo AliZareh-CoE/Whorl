@@ -60,9 +60,11 @@ def add_highlight(
     if project is not None and mirror_to_note:
         add_highlight_note(reference, project, text, page)
     # a highlighted paper is at least skimmed everywhere it is filed
+    from django.utils import timezone
+
     ProjectReference.objects.filter(
         reference=reference, reading_status=ProjectReference.ReadingStatus.TO_READ
-    ).update(reading_status=ProjectReference.ReadingStatus.SKIMMED)
+    ).update(reading_status=ProjectReference.ReadingStatus.SKIMMED, updated_at=timezone.now())
     return highlight
 
 

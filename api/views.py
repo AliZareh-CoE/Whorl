@@ -83,7 +83,9 @@ class AtlasViewSet(viewsets.ModelViewSet):
             )
         except Exception:
             return None
-        raw = f"{self.request.get_full_path()}|{agg['n']}|{agg['latest']}"
+        from core.versioning import data_version
+
+        raw = f"{self.request.get_full_path()}|{agg['n']}|{agg['latest']}|{data_version()}"
         return f'W/"{hashlib.md5(raw.encode()).hexdigest()}"'
 
     def _conditional(self, request, etag, render):
@@ -103,9 +105,11 @@ class AtlasViewSet(viewsets.ModelViewSet):
         )
 
     def retrieve(self, request, *args, **kwargs):
+        from core.versioning import data_version
+
         obj = self.get_object()
         updated = getattr(obj, "updated_at", None)
-        etag = f'W/"{obj.pk}-{updated.timestamp()}"' if updated else None
+        etag = f'W/"{obj.pk}-{updated.timestamp()}-{data_version()}"' if updated else None
         return self._conditional(
             request, etag, lambda: super(AtlasViewSet, self).retrieve(request, *args, **kwargs)
         )
