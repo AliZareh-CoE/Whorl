@@ -324,6 +324,13 @@ function StudioInner({ m }: { m: Manuscript }) {
 
   // deep link from the Library: /manuscripts/:id/editor?quote=<highlight id> inserts that passage
   const [params, setParams] = useSearchParams();
+  // #467: ?panel=<tab> opens the sidebar on that tab (the manuscript page links to pre-flight)
+  useEffect(() => {
+    const p = params.get("panel");
+    if (!p || !["files", "outline", "bib", "history", "comments", "preflight"].includes(p)) return;
+    setSidebarOpen(true); setTab(p as Tab);
+    params.delete("panel"); setParams(params, { replace: true });
+  }, [params, setParams]);
   useEffect(() => {
     const qid = params.get("quote"); if (!ready || !qid) return;
     (async () => {

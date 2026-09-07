@@ -16,6 +16,9 @@ type Event = { id: number; kind: string; date: string; notes: string };
 type MFile = { id: number; path: string; kind: string; is_main: boolean };
 type Progress = { today_delta: number; week_delta: number; streak: number; words: number; samples: number[]; compiles?: { per_day: { date: string; compiles: number }[]; today: number; week: number } };
 type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; target_venue: string; deadline: string | null; abstract: string; progress?: Progress; compile_status: string; compiled_at: string | null; venue_limits: Record<string, number>; events: Event[]; files: MFile[] };
+// #467: the pre-flight summary where the status is changed (the Studio has the full panel)
+type PreflightRow = { key: string; label: string; state: "ok" | "warn" | "fail" | "skip"; detail: string };
+type Preflight = { ready: boolean; fails: number; warns: number; summary: string; checks: PreflightRow[] };
 type BudgetItem = { key: string; label: string; used: number | null; limit: number | null; ratio: number | null; state: "ok" | "near" | "over" | "unset" };
 type Budget = { venue: string; limits: Record<string, number>; usage: Record<string, number | null>; items: BudgetItem[]; over: string[]; summary: string };
 type Page<T> = { count: number; results: T[] };
@@ -219,6 +222,7 @@ export function ManuscriptDetail() {
         <div className="min-w-0 space-y-4">
           <AbstractCard m={m} onSave={(abstract) => patch.mutate({ abstract })} />
           <CompileCard m={m} />
+          <PreflightCard m={m} />
           <BudgetCard m={m} onLimits={(venue_limits) => patch.mutate({ venue_limits })} />
           <TimelineCard m={m} onChanged={invalidate} />
         </div>
@@ -411,6 +415,39 @@ function TimelineCard({ m, onChanged }: { m: Manuscript; onChanged: () => void }
 }
 
 const BUDGET_KEYS: [string, string][] = [["words", "words"], ["abstract_words", "abstract"], ["figures", "figures"], ["tables", "tables"], ["references", "refs"], ["pages", "pages"]];
+
+/** #467: "Ready to submit?" on the manuscript page — the pre-flight summary with only the rows
+ *  that need a look; the Studio's Pre-flight tab carries every row and the fixes. */
+function PreflightCard({ m }: { m: Manuscript }) {
+  const q = useQuery({ queryKey: ["preflight", m.id, m.compile_status, m.compiled_at, m.venue_limits, m.deadline, m.target_venue, m.abstract], queryFn: () => api<Preflight>(`/manuscripts/${m.id}/preflight/`) });
+  const r = q.data;
+  const rows = r ? r.checks.filter((c) => c.state === "fail" || c.state === "warn") : [];
+  const tone = !r ? "" : !r.ready ? "bg-red-500/10 text-red-700 dark:text-red-300" : r.warns ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  return (
+    <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 2.5 }} data-testid="preflight-card" data-ready={r ? (r.ready ? "1" : "0") : undefined}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <p className={`${railH} mb-0`}><Check className="mr-1 inline h-3 w-3" aria-hidden="true" />Ready to submit?</p>
+        {r && <span className={`rounded-full px-2 py-0.5 text-xs ${tone}`} data-testid="preflight-pill">{r.summary}</span>}
+        <span className="ml-auto flex items-center gap-2 text-[11px]">
+          <button type="button" onClick={() => void q.refetch()} className="text-stone-400 hover:text-indigo-500" title="Run the checks again">{q.isFetching ? "checking…" : "Run again"}</button>
+          <Link to={`/manuscripts/${m.id}/editor?panel=preflight`} className="text-indigo-600 hover:underline dark:text-indigo-300" data-testid="preflight-open">Every check in the Studio →</Link>
+        </span>
+      </div>
+      {q.isError && <p className="text-xs text-red-500">Couldn't run the checks.</p>}
+      {r && rows.length === 0 && <p className="text-xs text-stone-400">Nothing to fix: the PDF is current, every cite key resolves, the limits hold, no markers are left.</p>}
+      {rows.length > 0 && (
+        <ul className="space-y-1 text-xs">
+          {rows.map((c) => (
+            <li key={c.key} className="flex items-start gap-2" data-testid="preflight-row" data-state={c.state}>
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${c.state === "fail" ? "bg-red-400" : "bg-amber-400"}`} aria-hidden="true" />
+              <span className="min-w-0"><span className="text-stone-700 dark:text-stone-200">{c.label}</span> <span className="text-stone-400">— {c.detail}</span></span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 function BudgetCard({ m, onLimits }: { m: Manuscript; onLimits: (limits: Record<string, number>) => void }) {
   const budget = useQuery({ queryKey: ["budget", m.id, JSON.stringify(m.venue_limits)], queryFn: () => api<Budget>(`/manuscripts/${m.id}/budget/`) });

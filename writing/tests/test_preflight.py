@@ -143,3 +143,13 @@ def test_studio_has_the_panel_and_the_action():
         "Pre-flight check",
     ):
         assert needle in tsx, needle
+
+
+def test_manuscript_page_has_the_readiness_card_and_the_studio_opens_the_panel():
+    """#467: the summary lives where the status is changed; the Studio honours ?panel=."""
+    from pathlib import Path
+
+    writing = Path("frontend/src/app/pages/Writing.tsx").read_text()
+    assert 'data-testid="preflight-card"' in writing and "/editor?panel=preflight" in writing
+    studio = Path("frontend/src/app/pages/Studio.tsx").read_text()
+    assert 'params.get("panel")' in studio
