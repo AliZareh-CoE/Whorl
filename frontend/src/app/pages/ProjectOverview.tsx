@@ -134,6 +134,7 @@ export default function ProjectOverview() {
               <button type="button" onClick={() => setSettingsOpen((v) => !v)} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors ${settingsOpen ? "border-indigo-300 text-indigo-700 dark:border-indigo-500/50 dark:text-indigo-200" : "border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-800 dark:border-stone-700 dark:text-stone-400 dark:hover:text-stone-100"}`} data-testid="project-settings-toggle" aria-expanded={settingsOpen}><Settings2 className="h-3.5 w-3.5" aria-hidden="true" />Settings</button>
               <Kebab label="Project actions" items={[
                 { label: settingsOpen ? "Close settings" : "Edit project…", icon: <Settings2 className="h-3.5 w-3.5" />, onSelect: () => setSettingsOpen((v) => !v) },
+                { label: "Export as Markdown vault", icon: <FileText className="h-3.5 w-3.5" />, onSelect: () => { window.location.assign(`/api/v1/projects/${project.slug}/vault/`); } },
                 { label: actions.archived ? "Unarchive" : "Archive project", icon: actions.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />, onSelect: actions.toggleArchive },
                 "-",
                 { label: "Delete project…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: () => void actions.confirmDelete() },

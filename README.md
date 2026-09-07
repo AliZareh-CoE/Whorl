@@ -272,47 +272,4 @@ key); *rotate* next to it retires every URL copied so far.
 
 ## Backups
 
-Diagnostics (`/diagnostics`) also shows whether the **TeX bundle cache** is warm and has a
-**Warm up now** button: Tectonic downloads a few hundred MB of packages on its first compile,
-so do it once, on purpose, instead of behind a spinner. The same page has **Download a backup**: one zip with a consistent copy of the
-database, every uploaded file, a manifest and restore notes (`GET /api/v1/backup.zip`). **Restore**
-from the same page: choose a backup zip, it is staged and applied at the next launch — before the
-database opens — with the previous data kept next to it (`manage.py restore_backup <zip>` does the
-same for a stopped server). On the
-desktop, restoring is: quit Atlas, copy `atlas.sqlite3` and `media/` back into the data folder
-(shown on the same page), start Atlas.
-
-## How Atlas compares
-
-| | Atlas | Zotero | Notion | Overleaf |
-|---|---|---|---|---|
-| Research project plans | ✅ phases/milestones | — | manual | — |
-| Reference manager + DOI import | ✅ | ✅ | — | — |
-| Knowledge graph of citations & notes | ✅ 3D, offline | — | — | — |
-| Notes that cite papers (`@key`) | ✅ | partial | — | — |
-| Reviewer-response tracker, venue budget | ✅ | — | — | — |
-| LaTeX editing + compile | ✅ Tectonic | — | — | ✅ |
-| Cite checker against your bib | ✅ | — | — | partial |
-| Self-hosted, your data | ✅ | ✅ | — | — |
-| AI collaborator via MCP | ✅ | — | — | — |
-
-## Development
-
-```bash
-make test     # pytest -q (900+ tests)
-make lint     # ruff check + ruff format --check
-make doctor   # health check: db, migrations, redis, worker freshness, optional components
-make worker   # (re)start the background worker — it does NOT hot-reload after code changes
-make css-watch
-```
-
-Something behaving oddly after an update? `make doctor` diagnoses the usual suspects,
-including a worker still running stale code.
-
-See **CONTRIBUTING.md** for conventions. Architecture and decision history live in
-`CLAUDE.md`, `DECISIONS.md`, `PROGRESS.md`, and `AUDITS.md` — the project's entire build,
-including its security audits, is documented in-repo.
-
-## License
-
-[AGPL-3.0](LICENSE) — free to self-host, modify, and share; improvements stay open.
+A project can also leave as a **Markdown vault** — `GET /api/v1/projects/{slug}/vault/` (or the overview menu / ⌘K "Export this project as a Markdown vault"): notes with their `[[links]]`, decisions, the plan outline, `references.bib`, research, protocols, manuscript sources and documents as a folder of files that opens in Obsidian or any editor.

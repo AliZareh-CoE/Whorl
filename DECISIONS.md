@@ -552,6 +552,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — A project as a Markdown vault (#416)
+
+**Decision.** `GET /api/v1/projects/{slug}/vault/` streams a zip that is the whole project as text: `README.md` (description + front matter), `plan.md` (the same outline the Plan page round-trips), `questions.md`, `notes/<title>.md` (bodies as written — `[[wiki-links]]` and `@keys` intact — with the linked references as front matter), `decisions/<date> <title>.md`, `references.bib` + `literature.md` (a reading-status table and per-paper notes), `research/hypotheses.md` (with evidence and its citations), `research/experiments/`, `research/datasets.md`, `protocols/<title> v<n>.md`, `manuscripts/<title>/` (README with status + timeline, then the source tree) and `documents/<folders>/` (the uploaded files; `?documents=0` leaves them out). Titles become file names without punctuation; collisions get `(2)`. A manifest (`atlas-vault.json`) sits at the root. The overview kebab and the ⌘K palette ("Export this project as a Markdown vault") download it.
+
+**Why.** No lock-in is a product value the backup only half-honours: a SQLite file is *yours* but not *readable*. A folder of Markdown opens in Obsidian, in a text editor, in git — and because the notes keep their links and cite keys, the vault is a working knowledge base, not a print-out.
+
+**Alternatives rejected.** Obsidian-specific extras (`.obsidian/` config, callouts) — the plain files open there already and the dialect would leak into every other reader; an import path back (the vault is an export; the API and the backup remain the way in); one giant Markdown file (loses the folder-as-place structure the app is built on).
+
 ### 2026-09-07 — Achievements batch three: the calendar, the dark, and the platinum (#415)
 
 **Decision.** Nine more trophies, all still read from real work. Five *seasonal secrets* (hidden until earned) read the activity calendar: New year, new hypothesis (Jan 1), Trick or treat (Oct 31), Solstice (Jun 21 or Dec 21), Leap of faith (Feb 29, steady tier), Friday the 13th. Three belong to Souls mode: Embrace the dark (switch it on), and two that only count while it is on — No bonfire (seven active days) and The Dark Soul (thirty, hidden) — backed by a new `Pet.souls_since` (core migration 0009) that `set_souls_mode` stamps when the mode goes on and clears when it goes off, so leaving and returning starts the count again. And the *Platinum*: every other achievement in the ledger, computed by `evaluate()` from the rest before its own row, listed last so `max_score` and the souls tier include it.

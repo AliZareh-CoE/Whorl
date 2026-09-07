@@ -164,6 +164,7 @@ export default function CommandBar() {
       { label: "Toggle dark mode", keys: "toggle dark light mode theme appearance color scheme", run: doToggleTheme },
       { label: "Toggle calm mode", keys: "toggle calm mode focus quiet hide stats dashboard", run: doToggleCalm },
       ...(slug ? [{ label: "Copy this project's .bib", keys: "copy bib bibtex bibliography project export cite", run: () => copyBib("project") }] : []),
+      ...(slug ? [{ label: "Export this project as a Markdown vault", keys: "export project markdown vault zip obsidian notes decisions plan bib", run: async () => { window.location.assign(`/api/v1/projects/${slug}/vault/`); return "Vault download started"; } }] : []),
       { label: slug ? "Copy the whole library as .bib" : "Copy the library as .bib", keys: "copy library bib bibtex bibliography export all", run: () => copyBib("library") },
       { label: "Go to this week's review", keys: "go to weekly review week reflect", run: async () => { navigate("/review"); return "This week's review"; } },
       { label: "New quick capture", keys: "new quick capture inbox note idea jot", run: async () => { navigate("/inbox"); return "Inbox — type the thought"; } },

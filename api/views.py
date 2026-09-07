@@ -664,6 +664,29 @@ class ProjectViewSet(AtlasViewSet):
         responses={200: OpenApiResponse(description="Themes × papers with marks and notes")},
         description="The literature review matrix: which paper covers which theme.",
     )
+    @extend_schema(
+        operation_id="v1_projects_vault",
+        description="The project as a Markdown vault (#416): a zip of notes (with their "
+        "[[wiki-links]]), decisions, the plan outline, the literature list + references.bib, "
+        "hypotheses/experiments/datasets/protocols, manuscript source trees and the uploaded "
+        "documents. Opens in Obsidian or any editor. ?documents=0 skips the uploaded files.",
+        responses={200: OpenApiResponse(description="application/zip")},
+    )
+    @action(detail=True, methods=["get"], url_path="vault")
+    def vault(self, request, slug=None):
+        from django.http import HttpResponse
+
+        from projects.vault import vault_bytes
+
+        project = self.get_object()
+        data, manifest = vault_bytes(
+            project, include_documents=request.query_params.get("documents", "1") != "0"
+        )
+        response = HttpResponse(data, content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="{project.slug}-vault.zip"'
+        response["X-Atlas-Vault-Files"] = str(manifest["files"])
+        return response
+
     @action(detail=True, methods=["get"], url_path="review-matrix")
     def review_matrix(self, request, slug=None):
         from literature.models import ReviewMark
