@@ -557,6 +557,8 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 **Why.** The one-file backup only existed when the owner thought of it; a research tool that keeps a thesis's data must keep it without being asked. Seven daily zips in the data folder survive a bad restore, a wrong delete and an update gone wrong, and cost megabytes.
 
+**Follow-on (#463, same day).** The snapshots on disk are listed in the Diagnostics section, each with *Restore…*: `POST /api/v1/restore/ {"snapshot": "<name>"}` stages that file (matched by name against the folder listing — a path never reaches the filesystem) exactly like an upload, so the existing staged-restore flow (confirm, restart, previous data kept) applies. Buttons disable while a restore is staged.
+
 **Alternatives rejected.** A huey periodic task (the desktop runs huey immediate — periodic tasks never fire there); snapshot at launch only (an app left open for a week would never snapshot); Time-Machine-style incremental copies (the zip is small and a whole-file copy is what a person can actually restore); a setting for the interval and count (convention: a day, seven — `--keep` on the command for servers).
 
 ### 2026-09-07 — The hatch is a moment (#461)

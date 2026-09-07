@@ -3046,9 +3046,10 @@ class RestoreAPIView(APIView):
 
     @extend_schema(
         operation_id="v1_restore_stage",
-        description="Upload a backup zip (multipart `file`) to stage it. The desktop app "
-        "applies it at the next launch (Diagnostics offers the restart); a server runs "
-        "`manage.py restore_backup` while stopped.",
+        description="Upload a backup zip (multipart `file`) to stage it, or name one of the "
+        'automatic snapshots on disk (`{"snapshot": "atlas-snapshot-….zip"}`, see '
+        "/snapshots/). The desktop app applies it at the next launch (Diagnostics offers the "
+        "restart); a server runs `manage.py restore_backup` while stopped.",
         request=None,
         responses={202: None, 400: None},
     )
@@ -3056,8 +3057,25 @@ class RestoreAPIView(APIView):
         from core.backup import RestoreError, stage_restore
 
         uploaded = request.FILES.get("file")
+        name = request.data.get("snapshot") if hasattr(request.data, "get") else None
+        if uploaded is None and name:
+            # #463: restore one of the automatic snapshots on disk — by name, never by path
+            from core.snapshots import list_snapshots
+
+            match = next((row for row in list_snapshots() if row["name"] == name), None)
+            if match is None:
+                return Response({"detail": "No snapshot by that name."}, status=404)
+            with open(match["path"], "rb") as fh:
+                try:
+                    manifest = stage_restore(fh)
+                except RestoreError as exc:
+                    return Response({"detail": str(exc)}, status=400)
+            manifest["snapshot"] = name
+            return Response({"staged": manifest}, status=202)
         if uploaded is None:
-            return Response({"detail": "Attach the backup zip as `file`."}, status=400)
+            return Response(
+                {"detail": "Attach the backup zip as `file`, or name a `snapshot`."}, status=400
+            )
         try:
             manifest = stage_restore(uploaded)
         except RestoreError as exc:

@@ -314,8 +314,9 @@ server install runs `manage.py restore_backup backup.zip` while stopped.
 writes the same zip into `<data folder>/backups/` once every 24 hours (the first one a couple
 of minutes after launch, never on an empty install) and keeps the last seven, oldest dropped.
 The *Automatic snapshots* section on Diagnostics shows the folder, the newest file, how many
-are kept and the last failure if one happened; *Snapshot now* writes one on demand and *Show
-in folder* opens it in the file manager. The zip is written under a temporary name and renamed
+are kept and the last failure if one happened; *Snapshot now* writes one on demand, *Show
+in folder* opens it in the file manager, and each listed snapshot has *Restore…* — the same
+staged restore as an uploaded zip, applied at the next launch. The zip is written under a temporary name and renamed
 when complete, so a crash mid-write never leaves a half zip that looks like a backup. A server
 install gets the same from cron:
 

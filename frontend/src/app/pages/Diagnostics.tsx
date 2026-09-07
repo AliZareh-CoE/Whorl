@@ -60,9 +60,19 @@ export default function Diagnostics() {
   // #462: a snapshot on demand — the same zip the daily scheduler writes
   const snapshot = useMutation({
     mutationFn: () => api<{ path: string; size_bytes: number; removed: string[] }>("/snapshots/", { method: "POST" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["diagnostics"] }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["diagnostics"] }); void qc.invalidateQueries({ queryKey: ["snapshots"] }); },
     onError: (e) => void errorDialog("Couldn't write the snapshot", e),
   });
+  // #463: the snapshots on disk, each restorable with one click (staged like an upload)
+  const snapFiles = useQuery({ queryKey: ["snapshots"], queryFn: () => api<{ files: { name: string; size_bytes: number; created_at: string }[] }>("/snapshots/"), enabled: Boolean(r?.snapshots) });
+  const restoreSnapshot = useMutation({
+    mutationFn: (name: string) => api("/restore/", { method: "POST", body: JSON.stringify({ snapshot: name }), headers: { "Content-Type": "application/json" } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["restore"] }),
+    onError: (e) => void errorDialog("That snapshot can't be restored", e),
+  });
+  const pickSnapshot = async (name: string, at: string) => {
+    if (await confirmDialog({ title: "Restore this snapshot?", danger: true, confirmLabel: "Stage the restore", body: <>The snapshot from <b>{new Date(at).toLocaleString()}</b> replaces <b>everything</b> — the database and every file — at the next launch of Atlas. The current data is kept next to it in the data folder. Nothing changes until you restart.</> })) restoreSnapshot.mutate(name);
+  };
   const restartApp = async () => { try { const t = (await import("@tauri-apps/api")) as unknown as { core: { invoke: (c: string) => Promise<unknown> } }; await t.core.invoke("restart_app"); } catch (e) { void errorDialog("Couldn't restart", e); } };
   useEffect(() => { if (!running) return; const t = window.setInterval(() => qc.invalidateQueries({ queryKey: ["diagnostics"] }), 3000); return () => window.clearInterval(t); }, [running, qc]);
   const copy = async () => { if (!r) return; try { await navigator.clipboard.writeText(r.text); setCopied(true); window.setTimeout(() => setCopied(false), 2000); } catch { /* blocked */ } };
@@ -198,6 +208,17 @@ export default function Diagnostics() {
                 <Row label="Kept" value={`${r.snapshots.count} of ${r.snapshots.keep} · ${(r.snapshots.total_bytes / 1048576).toFixed(1)} MB in total`} />
                 {r.snapshots.last_error && <Row label="Last failure" ok={false} value={<span className="text-red-600 dark:text-red-300" data-testid="snapshot-error">{r.snapshots.last_error.detail} ({new Date(r.snapshots.last_error.at).toLocaleString()})</span>} />}
               </dl>
+              {snapFiles.data && snapFiles.data.files.length > 0 && (
+                <ul className="mt-3 divide-y divide-stone-100 rounded-xl border border-stone-200 text-sm dark:divide-stone-800 dark:border-stone-800" data-testid="snapshot-files">
+                  {snapFiles.data.files.map((f) => (
+                    <li key={f.name} className="flex flex-wrap items-center gap-3 px-3 py-1.5">
+                      <code className="text-xs">{f.name}</code>
+                      <span className="text-xs text-stone-400">{(f.size_bytes / 1048576).toFixed(1)} MB · {new Date(f.created_at).toLocaleString()}</span>
+                      <button type="button" onClick={() => void pickSnapshot(f.name, f.created_at)} disabled={restoreSnapshot.isPending || Boolean(restore.data?.pending)} className="ml-auto inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-xs text-stone-700 hover:border-amber-400 disabled:opacity-50 dark:border-stone-700 dark:text-stone-200" title="Stage this snapshot as the restore applied at the next launch" data-testid="snapshot-restore"><RotateCcw className="h-3 w-3" aria-hidden="true" />Restore…</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
           <section className={`${panel} mt-5`} style={{ ["--i" as string]: 3 }}>

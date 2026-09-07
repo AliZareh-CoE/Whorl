@@ -4,6 +4,7 @@ import datetime
 import io
 import os
 import zipfile
+from pathlib import Path
 
 import pytest
 from django.core.management import call_command
@@ -136,3 +137,26 @@ def test_diagnostics_page_shows_the_section():
     tsx = Path("frontend/src/app/pages/Diagnostics.tsx").read_text()
     for needle in ('data-testid="snapshots"', 'data-testid="snapshot-now"', "/snapshots/"):
         assert needle in tsx
+
+
+def test_restore_from_a_snapshot_by_name(client_logged_in, snapshot_home, settings, tmp_path):
+    """#463: one of the zips on disk can be staged as the restore — by name, never by path."""
+    settings.DATA_DIR = tmp_path / "data"
+    ProjectFactory()
+    name = client_logged_in.post("/api/v1/snapshots/").json()["path"].rsplit("/", 1)[1]
+    missing = client_logged_in.post(
+        "/api/v1/restore/", {"snapshot": "nope.zip"}, content_type="application/json"
+    )
+    assert missing.status_code == 404
+    sneaky = client_logged_in.post(
+        "/api/v1/restore/", {"snapshot": f"../{name}"}, content_type="application/json"
+    )
+    assert sneaky.status_code == 404
+    staged = client_logged_in.post(
+        "/api/v1/restore/", {"snapshot": name}, content_type="application/json"
+    )
+    assert staged.status_code == 202 and staged.json()["staged"]["snapshot"] == name
+    assert client_logged_in.get("/api/v1/restore/").json()["pending"]["staged_at"]
+    assert (tmp_path / "data" / "restore-pending.zip").exists()
+    tsx = Path("frontend/src/app/pages/Diagnostics.tsx").read_text()
+    assert 'data-testid="snapshot-restore"' in tsx and "{ snapshot: name }" in tsx
