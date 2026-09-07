@@ -551,6 +551,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — No installer? Run it from source (#454)
+
+**Decision.** `make standalone` (PowerShell: `$env:DJANGO_SETTINGS_MODULE = "config.settings.desktop"; uv run python manage.py run_desktop`) runs exactly what the desktop shell runs — the SQLite, Docker-less, Node-less server — from a checkout, and any browser at 127.0.0.1:8000 is the app; `ATLAS_DATA_DIR` can point at the desktop app's data folder so both see the same projects. Documented at the top of the README and in the desktop README, verified on a fresh data dir (login answers after five seconds), guarded by a docs test.
+
+**Why.** With GitHub not assigning build runners, the owner has no way to get the fixes since 0.1.139 — except the source. This path existed in the code (the shell has always called `run_desktop`) and nowhere in the docs.
+
 ### 2026-09-07 — One rule for archive member names (#453)
 
 **Decision.** `core/archives.py::safe_archive_name(name)` normalises backslashes and `./`, and refuses absolute paths, drive letters, `..` segments, control characters and empty names. The three archive writers — the submission zip, the Markdown vault and the backup — go through it; a guard test asserts they keep doing so, and the submission zip is tested against a row injected past validation.

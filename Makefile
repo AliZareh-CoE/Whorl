@@ -54,6 +54,9 @@ audit:  ## run the security probe sweep (every-10-cycles audit helper)
 	@bash scripts/audit.sh
 
 # Atlas desktop shell (Owner #30 slice 3) — requires Rust + tauri-cli (see desktop/README.md)
+standalone:  ## run Atlas from source the way the desktop app does — SQLite, no Docker, no Node
+	DJANGO_SETTINGS_MODULE=config.settings.desktop uv run python manage.py run_desktop
+
 desktop:
 	cd desktop && cargo tauri dev
 

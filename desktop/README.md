@@ -75,6 +75,13 @@ over discovery, and `ATLAS_DATA_DIR` points it at a non-default data folder.
 Both binaries are frozen with PyInstaller (`atlas_server.spec`, `atlas_mcp.spec`) — see
 `make desktop-server`.
 
+## No build at all: the server from source
+
+Everything the shell shows is served by `manage.py run_desktop`. From a checkout, `uv sync`
+then `make standalone` (PowerShell: `$env:DJANGO_SETTINGS_MODULE = "config.settings.desktop";
+uv run python manage.py run_desktop`) runs it against the same SQLite data folder the app uses
+when `ATLAS_DATA_DIR` points there, and any browser at http://127.0.0.1:8000 is the app.
+
 ## Build it yourself
 
 ### One-time setup

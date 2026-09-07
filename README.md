@@ -21,6 +21,28 @@ Claude Code can do all of it with you — 100 tools over the same API the UI use
 
 <sup>The tour is scripted — `make demo-gif` re-shoots it against the seeded demo (`scripts/demo_gif.py`).</sup>
 
+## No installer? Run it from source in two commands
+
+The desktop app is a shell around the same server; when a build is not available (or an
+installed one misbehaves) run that server yourself — SQLite, no Docker, no Node:
+
+```bash
+uv sync                # once; needs Python 3.12+ and uv (https://docs.astral.sh/uv/)
+make standalone        # → http://127.0.0.1:8000  · login atlas / atlas
+```
+
+On Windows PowerShell the second line is:
+
+```powershell
+$env:DJANGO_SETTINGS_MODULE = "config.settings.desktop"; uv run python manage.py run_desktop
+```
+
+Data lives in `~/.atlas` (set `ATLAS_DATA_DIR` to use the desktop app's folder instead, e.g.
+`%APPDATA%\com.atlas.research` on Windows, so both see the same projects). `ATLAS_PORT`
+picks another port. Claude Code connects to this server exactly as to the desktop one — see
+*Claude / MCP* below; the API key is `ATLAS_API_KEY` if you set it, else the one written to
+`<data dir>/api_key`.
+
 ## Screens
 
 | | |
