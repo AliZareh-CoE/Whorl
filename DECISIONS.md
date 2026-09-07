@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Library: Find PDF from the row menu, with a result pill (#386)
+
+**Decision.** The row's right-click menu carries **Find PDF** (disabled with a "needs a DOI" hint when the paper has neither DOI nor arXiv id, "PDF attached" when it already has one). While the lookup runs the row shows a "looking…" pill; afterwards a paper that still has no PDF shows a quiet "no PDF found" pill whose tooltip carries the server's outcome (`extra.oa_pdf`, written by `fetch_and_attach_pdf`) and the hint to retry.
+
+**Why.** The lookup existed only in the detail pane and left no trace on a miss, so the same paper got tried again and again. A pill per row answers "did I already look?" at a glance without a new field — the outcome was already stored.
+
+**Alternatives rejected.** A "last checked" facet in the rail (a filter for a state you mostly want to see inline); auto-retrying misses on a schedule (network calls the owner did not ask for).
+
 ### 2026-09-07 — The last CDN loads are vendored: htmx and Alpine (#385)
 
 **Decision.** `templates/base.html` loads htmx 2.0.4 and Alpine 3.14.9 from `static/vendor/` instead of unpkg; `core/tests/test_no_cdn.py` fails on any unpkg/jsdelivr/cdnjs/esm.sh URL in the templates or the SPA sources, and checks the two files are present.
@@ -1714,7 +1722,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
-306. Library v2 slice 7 candidates: inline PDF preview pane in the workbench (needs pdf.js vendored for offline desktop); per-reference reading notes + highlights surfaced in the detail pane; "Find PDF" per row with a status pill; drag-to-reorder for smart views.
+306. Library v2 slice 7 candidates: inline PDF preview pane in the workbench (needs pdf.js vendored for offline desktop); per-reference reading notes + highlights surfaced in the detail pane; ~~"Find PDF" per row with a status pill (done 2026-09-07, #386)~~; drag-to-reorder for smart views.
 305. ~~Library v2 slice 6 (done 2026-09-06): duplicate clusters with a suggested keep, relation-preserving merge, Duplicates mode in the workbench, API + MCP. See the 2026-09-06 decision.~~
 304. ~~Updater polish (done 2026-09-06, #370: progress events + bar, release notes confirm, 6-hourly re-check)~~ — original note: download progress in the sidebar control (the install closure has a chunk callback), release notes from latest.json shown before installing, a "check on a schedule" while the app is open (currently once per launch).
 303. ~~In-app updates live (done 2026-09-06): keypair generated (public key committed, private key handed to the owner for the TAURI_SIGNING_PRIVATE_KEY secret), sign-when-secret CI logic, preview release published as a prerelease with asset pruning, silent launch check + one-click install + restart in the sidebar. See the 2026-09-06 decision.~~

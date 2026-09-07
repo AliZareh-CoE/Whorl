@@ -160,10 +160,15 @@ export default function Library() {
     onSuccess: (n, vars) => { petReact("note"); navigate(`/projects/${vars.project}/notes/${n.id}`); },
     onError: () => flash("Could not create the note."),
   });
+  // Find PDF (#386): per row from the menu, with a "looking…" pill while it runs and a quiet
+  // "no PDF found" pill afterwards (the outcome is kept in extra.oa_pdf by the server).
+  const [pdfLookups, setPdfLookups] = useState<Set<number>>(new Set());
   const fetchPdf = useMutation({
     mutationFn: (id: number) => api<{ outcome: string; attached: boolean; pdf: string | null }>(`/references/${id}/fetch-pdf/`, { method: "POST" }),
+    onMutate: (id) => setPdfLookups((s) => new Set(s).add(id)),
     onSuccess: (out) => { invalidate(); flash(out.outcome); },
     onError: () => flash("The PDF lookup failed."),
+    onSettled: (_o, _e, id) => setPdfLookups((s) => { const n = new Set(s); n.delete(id); return n; }),
   });
   const merge = useMutation({
     mutationFn: (body: { keep: number; merge: number[] }) => api<{ kept: number; merged: number[] }>("/references/merge/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
@@ -260,6 +265,7 @@ export default function Library() {
     { label: "Reference page", icon: <ExternalLink className="h-3.5 w-3.5" />, onSelect: () => navigate(`/references/${r.id}`) },
     "-",
     { label: "Find metadata", icon: <Sparkles className="h-3.5 w-3.5" />, onSelect: () => findMeta.mutate(r.id) },
+    { label: r.pdf ? "PDF attached" : pdfLookups.has(r.id) ? "Looking for a PDF…" : "Find PDF", icon: <FileDown className="h-3.5 w-3.5" />, disabled: Boolean(r.pdf) || pdfLookups.has(r.id) || !(r.doi || r.arxiv_id), hint: !r.pdf && !(r.doi || r.arxiv_id) ? "needs a DOI" : undefined, onSelect: () => fetchPdf.mutate(r.id) },
     { label: "Copy \\cite{key}", icon: <Copy className="h-3.5 w-3.5" />, onSelect: () => void navigator.clipboard?.writeText(`\\cite{${r.bibtex_key}}`) },
     "-",
     { label: "Delete from library…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete “${r.title.slice(0, 70)}${r.title.length > 70 ? "…" : ""}”?`, body: "Its project links, highlights and PDF go too.", danger: true, confirmLabel: "Delete" })) bulk.mutate({ ids: [r.id], action: "delete" }); } },
@@ -626,6 +632,8 @@ export default function Library() {
                     {r.tags.slice(0, 3).map((t) => <TagChip key={t} name={t} color={tagColors[t]} className="text-[10px]" />)}
                     {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
                     {r.pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">PDF</span>}
+                    {!r.pdf && pdfLookups.has(r.id) && <span data-testid="pdf-looking" className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-500 dark:text-indigo-300"><Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" />looking…</span>}
+                    {!r.pdf && !pdfLookups.has(r.id) && typeof r.extra?.oa_pdf === "string" && <span data-testid="pdf-miss" title={`${r.extra.oa_pdf} Right-click → Find PDF to try again.`} className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-400 dark:bg-stone-800 dark:text-stone-500">no PDF found</span>}
                     {r.pdf_match && <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-200" title="Your search matched inside the PDF text"><Search className="mr-0.5 inline h-2.5 w-2.5" aria-hidden="true" />in PDF</span>}
                     {r.citation_count != null && r.citation_count > 0 && <span className="text-[10px] tabular-nums text-stone-400">{r.citation_count} cit.</span>}
                   </div>

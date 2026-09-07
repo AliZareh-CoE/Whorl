@@ -137,6 +137,10 @@ def test_ui_wiring():
         "tagItems(t)",
         "function TagChip",
         "/library-tags/${id}/",
+        # #386: Find PDF per row + result pills
+        '"Find PDF"',
+        'data-testid="pdf-miss"',
+        'data-testid="pdf-looking"',
     ):
         assert needle in src, needle
     chunks = " ".join(

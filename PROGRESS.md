@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Library Find PDF per row (2026-09-07, #386).** Row menu item (disabled with "needs a DOI"), "looking…" pill during the lookup, "no PDF found" pill with the outcome afterwards. Playwright: fetched for "Deep learning" → miss pill with the outcome tooltip; no-DOI rows show the disabled item (docs/screenshots/library-find-pdf.png). Guard extended in test_tags_views. Full suite after #384: 1124 passed, 1 skipped.
+
 - **htmx + Alpine vendored (2026-09-07, #385).** The classic shell's last CDN loads now come from static/vendor; guard core/tests/test_no_cdn.py (2). The desktop draws every page offline.
 
 - **ETag honesty (2026-09-07, #384).** Data version bumped by save/delete/M2M signals and folded into every ETag; M2M changes stamp updated_at on both sides; five bare `update()` sites fixed; AST guard `core/tests/test_etag_honesty.py` (4 tests) fails on the next bare `update()`. Full suite re-run after the signal change (see below).
