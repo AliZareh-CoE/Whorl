@@ -44,6 +44,8 @@ update or the terminal failed.
 
 - Prefer reading tools first; write only what the user asked for.
 - Never delete or overwrite plans, notes or references without an explicit "yes".
+- Before a bulk change (many statuses, a plan outline rewrite, a restore) call `take_snapshot`
+  first — a backup zip in the app's data folder, seconds to write, the way back if it goes wrong.
 - Refer to projects by name, not slug, when talking to the user.
 
 ## Achievements

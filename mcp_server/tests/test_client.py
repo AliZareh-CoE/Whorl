@@ -545,3 +545,11 @@ def test_theme_suggestions_and_diagnostics_client_calls(capture):
 def test_get_achievements(capture):
     client.get_achievements()
     assert capture["url"].endswith("/achievements/")
+
+
+def test_take_snapshot_client_calls(capture):
+    """#464: list_only reads the status; the default writes a snapshot (POST)."""
+    client.take_snapshot(list_only=True)
+    assert capture["url"].endswith("/snapshots/") and capture["method"] == "GET"
+    client.take_snapshot()
+    assert capture["url"].endswith("/snapshots/") and capture["method"] == "POST"

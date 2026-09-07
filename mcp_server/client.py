@@ -732,3 +732,10 @@ def get_diagnostics(network: bool = False):
 def get_achievements():
     """The achievements ledger: tiers, progress, score, rank, next-up, souls counters."""
     return _request("GET", "/achievements/")
+
+
+def take_snapshot(list_only: bool = False):
+    """#464: the automatic-snapshot status (and files), or write a new snapshot now."""
+    if list_only:
+        return _request("GET", "/snapshots/")
+    return _request("POST", "/snapshots/")

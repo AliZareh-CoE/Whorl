@@ -735,6 +735,18 @@ def get_diagnostics(network: bool = False) -> dict:
 
 
 @mcp.tool()
+def take_snapshot(list_only: bool = False) -> dict:
+    """Back Atlas up before a big change: writes a snapshot zip (database + every file) into
+    the app's backups folder and rotates the old ones — the same daily automatic snapshot,
+    on demand. Returns the file written, what was removed and the folder status. With
+    list_only=true it only reports the status: folder, how many are kept, the newest one,
+    whether the desktop scheduler runs, the last failure, and the files on disk. Do this
+    first when a request will delete or rewrite many things (bulk status changes, a plan
+    outline rewrite, a restore)."""
+    return client.take_snapshot(list_only=list_only)
+
+
+@mcp.tool()
 def get_achievements() -> dict:
     """The research achievements ledger (fun / steady / hard / souls tiers): every achievement
     with progress toward it and when it unlocked, the score and rank, the five closest to
