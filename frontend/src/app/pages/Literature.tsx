@@ -185,8 +185,8 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
         <span className="px-1.5 text-stone-300 dark:text-stone-400">/</span>
         <span className="text-stone-700 dark:text-stone-300">{queue ? "Queue" : "Literature"}</span>
       </nav>
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <div>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">{queue ? "Reading queue" : "Literature"}</h1>
           <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
             {queue
@@ -194,7 +194,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
               : `${rows.length} ${rows.length === 1 ? "paper" : "papers"} linked to this project`}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
           <Link to={queue ? `/projects/${slug}/literature` : `/projects/${slug}/queue`}
                 className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline">
             {queue ? "All papers" : "Reading queue"}

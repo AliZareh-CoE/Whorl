@@ -174,7 +174,7 @@ export function ManuscriptDetail() {
     <div>
       <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400"><Link to="/writing" className="hover:underline">Writing</Link> / <Link to={`/projects/${m.project}`} className="hover:underline">{m.project_name}</Link> / {m.title}</nav>
       <div className="mb-2 flex flex-wrap items-center gap-3">
-        <input value={m.title} onChange={(e) => patch.mutate({ title: e.target.value })} className="font-display min-w-0 flex-1 bg-transparent text-3xl font-bold tracking-tight text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Manuscript title" />
+        <input value={m.title} onChange={(e) => patch.mutate({ title: e.target.value })} className="font-display min-w-[18rem] flex-1 bg-transparent text-3xl font-bold tracking-tight text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Manuscript title" title={m.title} />
         <Link to={`/manuscripts/${m.id}/editor`} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Open the studio<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></Link>
         <Kebab label="Manuscript actions" items={[
           { label: "Shelve", onSelect: () => patch.mutate({ status: "shelved" }), disabled: m.status === "shelved" },
@@ -194,13 +194,15 @@ export function ManuscriptDetail() {
         ))}
       </ol>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="space-y-4">
+        {/* min-w-0: a grid item's min-width is auto, so a long cite key or URL would widen the
+            column past the track and scroll the page sideways at narrow widths (#420) */}
+        <div className="min-w-0 space-y-4">
           <AbstractCard m={m} onSave={(abstract) => patch.mutate({ abstract })} />
           <CompileCard m={m} />
           <BudgetCard m={m} onLimits={(venue_limits) => patch.mutate({ venue_limits })} />
           <TimelineCard m={m} onChanged={invalidate} />
         </div>
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <BibliographyCard m={m} onCopied={flash} />
           <CiteCheckCard m={m} onChanged={() => queryClient.invalidateQueries({ queryKey: ["bibliography", id] })} />
         </div>

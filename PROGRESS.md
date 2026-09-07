@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Narrow-width fixes (2026-09-07, #420).** 900 px audit: DocumentsTable scroller `relative`, manuscript columns `min-w-0`, Literature header `flex-wrap`. Audit clean at 900 dark / 1280 light desktop. Guard: core/tests/test_polish.py::test_narrow_width_overflow_fixes.
+
 - **Pet habit signals (2026-09-07, #419).** Streak, unusual-hour and words-today lines in `core/pet.py::_speech_candidates`. Tests: core/tests/test_pet.py::TestHabitSignals (2).
 
 - **Words written this month (2026-09-07, #418).** `core/dashboard.py::words_written_since`, `stats.words_written`, Dashboard six-cell stat row (→ /writing). Test: writing/tests/test_progress.py::test_dashboard_words_written_this_month.

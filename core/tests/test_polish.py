@@ -33,3 +33,15 @@ def test_notes_read_aloud():
     assert "useEffect(() => stopListening, [id])" in notes  # switching notes stops the voice
     listen = (BASE / "frontend/src/app/listen.ts").read_text()
     assert "export function speakable(markdown: string): string" in listen
+
+
+def test_narrow_width_overflow_fixes():
+    """#420: the 900 px audit found three sideways scrolls; these are the fixes."""
+    assert (
+        'className="relative overflow-x-auto"'
+        in (BASE / "frontend/src/components/DocumentsTable.tsx").read_text()
+    )
+    writing = (BASE / "frontend/src/app/pages/Writing.tsx").read_text()
+    assert writing.count('className="min-w-0 space-y-4"') == 2
+    lit = (BASE / "frontend/src/app/pages/Literature.tsx").read_text()
+    assert 'className="mb-6 flex flex-wrap items-end justify-between gap-4"' in lit

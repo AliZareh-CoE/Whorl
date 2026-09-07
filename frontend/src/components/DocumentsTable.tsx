@@ -240,7 +240,9 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      {/* relative: the header's sr-only labels are absolutely positioned and would otherwise
+          escape the scroller and widen the page at narrow widths (#420) */}
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-stone-200 text-left text-[11px] uppercase tracking-wide text-stone-400 dark:border-stone-800">

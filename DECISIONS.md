@@ -126,8 +126,8 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     weekly reading streak, active phase progress, time-of-day fallback; hour-stable pick;
     speech bubble on /pet/ and italic line in the sidebar widget; browser-verified with a
     real data-driven line.~~ ~~Blink (the Creature blinks and breathes since the pet overhaul); habit
-    signals (done 2026-09-07, #419: streak days, "not your usual hour", words written today).~~
-    Remaining: speech on hop.
+    signals (done 2026-09-07, #419: streak days, "not your usual hour", words written today);
+    speech on hop (the sidebar shows the reaction line with the hop since the Buddy-style pass).~~
 17. **Professional tree illustration with more growth phases (owner, 2026-06-11; UI idea).**
     Redraw the project tree as a more polished, professional SVG illustration with more
     distinct phases than the current five — richer trunk/branch structure, layered foliage,
@@ -552,6 +552,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Narrow-width audit: three sideways scrolls fixed (#420)
+
+**Decision.** A 900 px pass of `scripts/ui_audit.py` (light and dark) after today's slices found three pages scrolling sideways, none of them new code: the Documents table's `sr-only` header labels are absolutely positioned and escaped the `overflow-x-auto` scroller (the wrapper is now `relative`); the manuscript detail's two grid columns had `min-width: auto`, so a long cite key widened them past the track (`min-w-0`); the Literature header's link row was `shrink-0` and would not wrap (`flex-wrap`); and the manuscript title input, which cannot wrap, now claims a row of its own below 18 rem instead of being clipped by the studio button. The audit is clean at 900, 1280 light and 1280 dark desktop.
+
+**Why.** UI guideline: wide content scrolls inside its own container, the page never scrolls horizontally. The desktop window is often narrower than a browser tab.
+
+**Alternatives rejected.** Hiding the sr-only labels at narrow widths (they are the accessible names of the action columns); a horizontal-scroll wrapper around the manuscript columns (the content wraps fine once the column is allowed to be narrow).
 
 ### 2026-09-07 — Mochi notices habits: the streak, the hour, the writing (#419)
 
