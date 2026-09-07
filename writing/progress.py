@@ -78,5 +78,42 @@ def progress(manuscript, days: int = 30) -> dict:
         "streak": streak,
         "best_day": best if best and best["delta"] > 0 else None,
         "days_with_writing": sum(1 for s in samples if s["delta"] > 0),
+        "compiles": compile_rhythm(manuscript, 14),  # #460
         "samples": samples,
     }
+
+
+def compile_rhythm(manuscript, days: int = 14) -> dict:
+    """#460 (backlog #129): compiles per day over the last ``days`` days, from the revision
+    snapshots every successful compile leaves behind (labeled ones included — they are
+    compiles too). Trimmed automatic snapshots beyond the manuscript's cap fall out of the
+    window naturally, which is why the window is two weeks."""
+    from writing.models import ManuscriptRevision
+
+    today = timezone.localdate()
+    since = today - dt.timedelta(days=days - 1)
+    counts: dict[str, int] = {}
+    for stamp in ManuscriptRevision.objects.filter(
+        manuscript=manuscript, created_at__date__gte=since
+    ).values_list("created_at", flat=True):
+        key = timezone.localtime(stamp).date().isoformat()
+        counts[key] = counts.get(key, 0) + 1
+    per_day = [
+        {"date": (since + dt.timedelta(days=i)).isoformat(), "compiles": 0} for i in range(days)
+    ]
+    for row in per_day:
+        row["compiles"] = counts.get(row["date"], 0)
+    week_start = today - dt.timedelta(days=6)
+    return {
+        "per_day": per_day,
+        "today": counts.get(today.isoformat(), 0),
+        "week": sum(r["compiles"] for r in per_day if r["date"] >= week_start.isoformat()),
+        "total": sum(counts.values()),
+    }
+
+
+def compiles_since(start: dt.date) -> int:
+    """Successful compiles across every manuscript since ``start`` (for the pet's line)."""
+    from writing.models import ManuscriptRevision
+
+    return ManuscriptRevision.objects.filter(created_at__date__gte=start).count()

@@ -14,7 +14,7 @@ import { ErrorState } from "../../components/ErrorState";
 
 type Event = { id: number; kind: string; date: string; notes: string };
 type MFile = { id: number; path: string; kind: string; is_main: boolean };
-type Progress = { today_delta: number; week_delta: number; streak: number; words: number; samples: number[] };
+type Progress = { today_delta: number; week_delta: number; streak: number; words: number; samples: number[]; compiles?: { per_day: { date: string; compiles: number }[]; today: number; week: number } };
 type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; target_venue: string; deadline: string | null; abstract: string; progress?: Progress; compile_status: string; compiled_at: string | null; venue_limits: Record<string, number>; events: Event[]; files: MFile[] };
 type BudgetItem = { key: string; label: string; used: number | null; limit: number | null; ratio: number | null; state: "ok" | "near" | "over" | "unset" };
 type Budget = { venue: string; limits: Record<string, number>; usage: Record<string, number | null>; items: BudgetItem[]; over: string[]; summary: string };
@@ -44,6 +44,15 @@ function ProgressSpark({ progress }: { progress: Progress }) {
       </span>
       <span className={progress.today_delta > 0 ? "text-emerald-600 dark:text-emerald-300" : ""}>{progress.today_delta > 0 ? "+" : ""}{progress.today_delta.toLocaleString()} today</span>
       {progress.streak > 1 && <span>· {progress.streak}-day streak</span>}
+      {/* #460: the compile rhythm — one dot per day, lit when the PDF was rebuilt */}
+      {progress.compiles && progress.compiles.week > 0 && (
+        <span className="ml-1 flex items-center gap-1" data-testid="compile-dots" title={`${progress.compiles.week} compile${progress.compiles.week === 1 ? "" : "s"} this week`}>
+          <span className="flex items-center gap-px" aria-hidden="true">
+            {progress.compiles.per_day.slice(-7).map((d) => <span key={d.date} className={`h-1.5 w-1.5 rounded-full ${d.compiles > 0 ? "bg-rose-400/80" : "bg-stone-200 dark:bg-stone-700"}`} />)}
+          </span>
+          <span>· {progress.compiles.week} compile{progress.compiles.week === 1 ? "" : "s"}</span>
+        </span>
+      )}
     </p>
   );
 }

@@ -909,6 +909,7 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "streak": summary["streak"],
             "words": summary["words"],
             "samples": [s["delta"] for s in summary["samples"]],
+            "compiles": summary["compiles"],  # #460: per-day compiles, today, week
         }
 
     project = ProjectSlugField()

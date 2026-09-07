@@ -46,7 +46,7 @@ type BibRow = { link_id: number; reference_id: number; cite_key: string; bibtex_
 type Candidate = { reference_id: number; key: string; title: string; authors: string; year: number | null; linked: boolean };
 type Hl = { id: number; reference: number; page: number | null; text: string; comment: string; color: string };
 type Revision = { id: number; label: string; labeled: boolean; created_at: string; files: string[] };
-type WordCount = { words: number; headers?: number; captions?: number; math?: number; today_delta?: number; streak?: number; week_delta?: number };
+type WordCount = { words: number; headers?: number; captions?: number; math?: number; today_delta?: number; streak?: number; week_delta?: number; compiles_today?: number };
 type Settings = { keymap: "default" | "vim"; fontSize: number; spellcheck: boolean; autoCompile: boolean; followCursor: boolean };
 type Tab = "files" | "outline" | "bib" | "history" | "comments";
 type StudioComment = { id: number; file: number; path: string; line: number | null; body: string; created_at: string; resolved_at?: string | null };
@@ -650,6 +650,9 @@ function StudioInner({ m }: { m: Manuscript }) {
           <span className={words.today_delta > 0 ? "text-emerald-400" : words.today_delta < 0 ? "text-amber-400" : ""} title={`${(words.week_delta ?? 0).toLocaleString()} words this week${words.streak ? ` · ${words.streak}-day streak` : ""}`} data-testid="words-today">
             {words.today_delta > 0 ? "+" : ""}{words.today_delta.toLocaleString()} today{words.streak && words.streak > 1 ? ` · ${words.streak}d streak` : ""}
           </span>
+        )}
+        {words && (words.compiles_today ?? 0) > 0 && (
+          <span title="Successful compiles today" data-testid="compiles-today">· {words.compiles_today} compile{words.compiles_today === 1 ? "" : "s"} today</span>
         )}
         {missingCites > 0 && <span className="text-amber-400">{missingCites} cite key{missingCites === 1 ? "" : "s"} not in the bibliography</span>}
         <span className={`ml-auto ${compile.status === "ok" ? "text-emerald-400" : compile.status === "failed" ? "text-red-400" : running ? "text-indigo-300" : ""}`}>{running ? "compiling" : compile.status === "ok" ? `compiled ${compile.compiled_at ? new Date(compile.compiled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}` : compile.status === "failed" ? "compile failed" : "not compiled"}</span>

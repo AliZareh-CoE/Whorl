@@ -139,6 +139,16 @@ def _speech_candidates(now) -> list[str]:
         lines.append(f"+{words_today:,} words on the paper today. A real session.")
     elif words_today > 0:
         lines.append(f"+{words_today} words today. The pen is moving.")
+    # #460: the compile rhythm — a PDF that keeps being rebuilt is a paper being finished
+    from writing.progress import compiles_since
+
+    compiles_week = compiles_since(today - datetime.timedelta(days=6))
+    if compiles_week >= 10:
+        lines.append(
+            f"{compiles_week} compiles this week. That paper is being built, not just written."
+        )
+    elif compiles_week >= 3:
+        lines.append(f"{compiles_week} compiles this week. The PDF is alive.")
 
     hour = now.hour
     if hour < 6:

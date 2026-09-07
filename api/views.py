@@ -2362,6 +2362,7 @@ class ManuscriptViewSet(AtlasViewSet):
         summary = progress(manuscript, days=7)
         counts.update(
             today_delta=summary["today_delta"],
+            compiles_today=summary["compiles"]["today"],  # #460
             streak=summary["streak"],
             week_delta=summary["week_delta"],
         )
