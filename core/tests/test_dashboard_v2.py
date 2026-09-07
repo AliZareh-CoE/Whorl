@@ -62,5 +62,6 @@ def test_project_health_and_dashboard_api(client, settings, django_user_model):
     out = client.get("/api/v1/dashboard/", HTTP_X_API_KEY="k").json()
     assert {"week", "todos_open", "heatmap"} <= set(out)
     assert out["todos_open"] == 1 and out["active"][0]["health"]["state"] == health["deep"]["state"]
+    assert [t["text"] for t in out["todos"]] == ["write intro"]  # #300: the open ones, in order
     assert len(out["heatmap"]) >= 26 and {"date", "count", "level"} <= set(out["heatmap"][0][0])
     assert out["week"]["overdue"] == [] and isinstance(out["week"]["due_this_week"], list)

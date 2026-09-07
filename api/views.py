@@ -2360,6 +2360,17 @@ class DashboardAPIView(APIView):
                 # Dashboard v2 slice 1: this week everywhere, per-project health, heatmap, today
                 "week": week_everywhere(),
                 "todos_open": TodoItem.objects.filter(done=False).count(),
+                # backlog #300: the top of the Today list, tickable from the hero
+                "todos": [
+                    {
+                        "id": t.id,
+                        "text": t.text,
+                        "project": t.project.slug if t.project_id else None,
+                    }
+                    for t in TodoItem.objects.filter(done=False)
+                    .select_related("project")
+                    .order_by("position", "id")[:4]
+                ],
                 "heatmap": [
                     [
                         {"date": c["date"].isoformat(), "count": c["count"], "level": c["level"]}

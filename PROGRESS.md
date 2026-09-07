@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Hero to-dos + rank chip (2026-09-07, #380).** Dashboard API `todos` (top 4 open), tick in place, "n more" link; rank/score chip → /achievements. Test in test_dashboard_v2; Playwright ticked an item from the hero (docs/screenshots/hero-todos.png).
+
 - **Audit in desktop mode (2026-09-07).** `scripts/ui_audit.py … desktop` injects a `window.__TAURI__` stub so desktop-only paths run in the sweep; run before every desktop-facing commit from now on.
 
 - **★ HOTFIX — BLANK APP (2026-09-07, #379).** Owner: "the new update isn't even showing anything" (screenshot: bare aurora). Cause: warm-up hooks below the dashboard's early returns → React #310. Fixed Dashboard + a latent Today case; `core/tests/test_hook_order.py` walks every component for hooks after early returns. Verified: SPA boots with a `window.__TAURI__` stub (root mounts, sidebar renders). Builds 0.1.99–0.1.104 are affected; the next build carries the fix.

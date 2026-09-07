@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CalendarClock, Check, Command, FileText, FolderPlus, Loader2, Plug, Sparkles, Wand2 } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Sparkles, Trophy, Wand2 } from "lucide-react";
 import { api } from "../api";
 import { toggleCalm, useCalm } from "../calm";
 import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
@@ -20,6 +20,7 @@ type Dash = {
   stats: Record<string, number>;
   inbox_count: number;
   todos_open: number;
+  todos: { id: number; text: string; project: string | null }[];
   week: { today: string; week_ends: string; overdue: WeekItem[]; due_this_week: WeekItem[] };
   heatmap: { date: string; count: number; level: number }[][];
   attention: Attention;
@@ -141,6 +142,12 @@ export default function Dashboard() {
   const qcAll = useQueryClient();
   const loadDemo = useMutation({ mutationFn: () => api<{ project: string }>("/demo/", { method: "POST" }), onSuccess: () => { void qcAll.invalidateQueries(); } });
   const firstRun = demo.data?.projects === 0;
+  // backlog #300: tick a to-do from the hero; the rank chip reads the (cached) pet state
+  const tick = useMutation({
+    mutationFn: (id: number) => api(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: true }) }),
+    onSuccess: () => { qcAll.invalidateQueries({ queryKey: ["dashboard"] }); qcAll.invalidateQueries({ queryKey: ["todos"] }); },
+  });
+  const petQ = useQuery({ queryKey: ["pet"], queryFn: () => api<{ rank?: { name: string }; achievement_score?: number; souls_mode?: boolean }>("/pet/"), staleTime: 300_000 });
   // first run on the desktop: offer to fetch the TeX bundle now rather than behind the first compile (#372).
   // These hooks live ABOVE the loading/error returns on purpose — a hook below an early return
   // changes the hook count between renders and blanks the whole page (React #310, 2026-09-07).
@@ -207,7 +214,20 @@ export default function Dashboard() {
             </h1>
             <p className="mt-3 text-sm text-stone-500 dark:text-stone-300">
               {data.active.length} active project{data.active.length === 1 ? "" : "s"} · {data.milestones.length} upcoming milestone{data.milestones.length === 1 ? "" : "s"} · {data.inbox_count} in the inbox
+              {petQ.data?.rank && <Link to="/achievements" className={`ml-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${petQ.data.souls_mode ? "border-red-500/50 text-red-600 hover:bg-red-500/10 dark:text-red-300" : "border-amber-300/60 text-amber-700 hover:bg-amber-500/10 dark:border-amber-500/40 dark:text-amber-300"}`} title="Your achievements" data-testid="rank-chip"><Trophy className="h-3 w-3" aria-hidden="true" />{petQ.data.rank.name} · {petQ.data.achievement_score ?? 0} pts</Link>}
             </p>
+            {data.todos.length > 0 && (
+              <ul className="mt-4 space-y-1" data-testid="hero-todos" aria-label="On your list">
+                {data.todos.map((t) => (
+                  <li key={t.id} className="group flex items-center gap-2 text-sm text-stone-700 dark:text-stone-200">
+                    <button type="button" onClick={() => tick.mutate(t.id)} className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-stone-300 text-transparent transition-colors hover:border-indigo-400 hover:text-indigo-500 dark:border-stone-600" aria-label={`Done: ${t.text}`} title="Tick it off"><Check className="h-3 w-3" aria-hidden="true" /></button>
+                    <span className="min-w-0 truncate">{t.text}</span>
+                    {t.project && <span className="shrink-0 text-[11px] text-stone-400">· {t.project}</span>}
+                  </li>
+                ))}
+                {data.todos_open > data.todos.length && <li className="text-xs text-stone-400"><Link to="/today" className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300"><ListChecks className="h-3 w-3" aria-hidden="true" />{data.todos_open - data.todos.length} more on today's list</Link></li>}
+              </ul>
+            )}
             <button
               type="button"
               onClick={openCommandBar}

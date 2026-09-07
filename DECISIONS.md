@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The dashboard hero carries the top of your list and your rank (#380)
+
+**Decision.** `GET /api/v1/dashboard/` now includes `todos` (the first four open Today items in list order); the hero renders them with a tick box that completes in place and a "n more on today's list" link. A small chip next to the counts shows the achievement rank and score (red in souls mode) and opens the ledger.
+
+**Why.** The dashboard answers "what should I work on today?"; the Today list *is* that answer for the small stuff, and it lived one click away. The rank chip is the only place the achievements surface outside their own pages — one glance, never a nag.
+
+**Alternatives rejected.** A whole Today panel on the dashboard (duplicates the page); pushing the rank into the sidebar pet widget (already the busiest 60 px in the app).
+
 ### 2026-09-07 — Hotfix: a hook below an early return blanked the app; a static rules-of-hooks guard (#379)
 
 **Decision.** The dashboard's warm-up hooks (#372) were added below the loading/error returns; once data arrived the hook count changed, React threw #310 and every page mounted under the dashboard route went blank — the owner's "the new update isn't even showing anything" (builds 0.1.99–0.1.104). Both offenders (Dashboard, and a latent one on Today) are fixed, and `core/tests/test_hook_order.py` now walks every component and fails on any hook call after a top-level early return, since the repo has no eslint.
@@ -1672,7 +1680,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 303. ~~In-app updates live (done 2026-09-06): keypair generated (public key committed, private key handed to the owner for the TAURI_SIGNING_PRIVATE_KEY secret), sign-when-secret CI logic, preview release published as a prerelease with asset pruning, silent launch check + one-click install + restart in the sidebar. See the 2026-09-06 decision.~~
 302. Library, remaining vs. Paperpile/Zotero after slice 5: duplicate merge (keep links/PDF/tags), inline PDF preview pane in the workbench, tag colours in the UI (model has the field), drag-to-reorder smart views, per-reference notes surfaced in the detail pane.
 301. ~~Library v2 slice 5 (done 2026-09-06): LibraryTag + SavedView, rail sections (Smart views with "+ save", Tags with Untagged), bulk/detail tag editing, API + MCP. See the 2026-09-06 decision.~~
-300. Today list, later (⌘K `todo:` verb done 2026-09-06, #371): drag-to-reorder, a compact widget on the dashboard hero ("3 on your list"), ~~a ⌘K verb "Add to my list"~~, optional due times with a gentle nudge in the sidebar, carry-over count ("2 from yesterday").
+300. Today list, later (⌘K `todo:` verb done 2026-09-06, #371; hero widget done 2026-09-07, #380): drag-to-reorder, ~~a compact widget on the dashboard hero ("3 on your list")~~, ~~a ⌘K verb "Add to my list"~~, optional due times with a gentle nudge in the sidebar, carry-over count ("2 from yesterday").
 299. ~~Today list (done 2026-09-06, owner request): core.TodoItem + /today page + sidebar entry + /api/v1/todos/ + MCP list/add/complete. See the 2026-09-06 decision.~~
 298. Citations, later: a CSL-engine backend (citeproc-py) behind the same cite()/bibliography() contract for the long tail of styles; a "Cite" button on the Reference page and the PDF reader; citation export as RTF/Word-ready HTML.
 297. ~~Library v2 slice 4 (done 2026-09-06): formatted citations in six styles + in-text forms + bibliographies; cite endpoints; MCP format_citations; Cite block in the detail pane and Copy citations in the bulk bar; volume/issue/pages carried from Crossref/OpenAlex. See the 2026-09-06 decision.~~
