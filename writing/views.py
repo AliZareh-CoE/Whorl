@@ -464,7 +464,13 @@ def manuscript_revisions(request, slug, pk):
         }
         for r in manuscript.revisions.all()[:200]
     ]
-    return JsonResponse({"revisions": revisions})
+    # #456: say what the trim keeps, so a vanished automatic snapshot is no surprise
+    retention = {
+        "keep": manuscript.auto_revisions_keep,
+        "labeled": manuscript.revisions.exclude(label="").count(),
+        "auto": manuscript.revisions.filter(label="").count(),
+    }
+    return JsonResponse({"revisions": revisions, "retention": retention})
 
 
 def revision_diff(request, slug, pk, rev_pk):

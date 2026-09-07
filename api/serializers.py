@@ -931,6 +931,7 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "abstract",
             "latex_source",
             "venue_limits",
+            "auto_revisions_keep",
             "compile_status",
             "compile_diagnostics",
             "compiled_at",
@@ -941,6 +942,11 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["compile_status", "compile_diagnostics", "compiled_at"]
+
+    def validate_auto_revisions_keep(self, value):
+        if value < 1 or value > 500:
+            raise serializers.ValidationError("Keep between 1 and 500 automatic revisions.")
+        return value
 
     def validate_venue_limits(self, value):
         from writing.budget import clean_limits

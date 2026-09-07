@@ -69,6 +69,8 @@ class Manuscript(TimeStampedModel):
     # is not compiled twice (a save-triggered compile racing a click, a Recompile on nothing)
     compile_source_hash = models.CharField(max_length=64, blank=True)
     compiled_source_hash = models.CharField(max_length=64, blank=True)
+    # #456: how many automatic (unlabeled) revisions the trim keeps; labeled ones always stay
+    auto_revisions_keep = models.PositiveIntegerField(default=50)
     compile_diagnostics = models.JSONField(default=list, blank=True)  # parsed from the log
     compile_generation = models.PositiveIntegerField(default=0)  # bumped per queue; stale drops
     compiled_at = models.DateTimeField(null=True, blank=True)
@@ -254,9 +256,10 @@ def snapshot_manuscript(manuscript, label: str = "") -> "ManuscriptRevision":
     else:
         files = {"main.tex": manuscript.latex_source}
     revision = ManuscriptRevision.objects.create(manuscript=manuscript, label=label, files=files)
-    # trim: keep all labeled + the most recent 50 automatic
+    # trim: keep all labeled + the most recent N automatic (N per manuscript, #456)
+    keep = max(1, int(manuscript.auto_revisions_keep or 50))
     auto = manuscript.revisions.filter(label="").order_by("-created_at")
-    stale_ids = list(auto.values_list("pk", flat=True)[50:])
+    stale_ids = list(auto.values_list("pk", flat=True)[keep:])
     if stale_ids:
         ManuscriptRevision.objects.filter(pk__in=stale_ids).delete()
     return revision

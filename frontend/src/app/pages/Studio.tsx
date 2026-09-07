@@ -588,7 +588,7 @@ function StudioInner({ m }: { m: Manuscript }) {
                   </ul>
                 </div>
               )}
-              {tab === "history" && <HistoryPanel base={base} onRestored={async () => { loaded.current.clear(); const ad = adRef.current; if (ad) { for (const fid of tabs) { const data = await wb<{ content?: string }>(`${base}files/${fid}/`); ad.setFileValue(fid, data.content || ""); loaded.current.add(fid); } } setFlash("Version restored."); recomputeOutline(); }} />}
+              {tab === "history" && <HistoryPanel base={base} manuscriptId={m.id} onRestored={async () => { loaded.current.clear(); const ad = adRef.current; if (ad) { for (const fid of tabs) { const data = await wb<{ content?: string }>(`${base}files/${fid}/`); ad.setFileValue(fid, data.content || ""); loaded.current.add(fid); } } setFlash("Version restored."); recomputeOutline(); }} />}
             </div>
           </aside>
         )}
@@ -723,8 +723,18 @@ function PaperHighlights({ referenceId, citeKey, onQuote }: { referenceId: numbe
   );
 }
 
-function HistoryPanel({ base, onRestored }: { base: string; onRestored: () => Promise<void> }) {
-  const revs = useQuery({ queryKey: ["revisions", base], queryFn: () => wb<{ revisions: Revision[] }>(`${base}revisions/`) });
+function HistoryPanel({ base, manuscriptId, onRestored }: { base: string; manuscriptId: number; onRestored: () => Promise<void> }) {
+  const revs = useQuery({ queryKey: ["revisions", base], queryFn: () => wb<{ revisions: Revision[]; retention?: { keep: number; labeled: number; auto: number } }>(`${base}revisions/`) });
+  // #456: the trim rule, stated — and changeable — where the snapshots are
+  const retention = revs.data?.retention;
+  const changeKeep = async () => {
+    const raw = await promptDialog({ title: "Automatic revisions to keep", body: "Every successful compile snapshots the source. Labeled versions are always kept; automatic ones beyond this number are trimmed, oldest first.", label: "Keep the last", initial: String(retention?.keep ?? 50), confirmLabel: "Save" });
+    if (raw === null) return;
+    const n = Math.max(1, Math.min(500, Math.round(Number(raw))));
+    if (!Number.isFinite(n)) return;
+    await api(`/manuscripts/${manuscriptId}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auto_revisions_keep: n }) });
+    await revs.refetch();
+  };
   const [open, setOpen] = useState<Revision | null>(null);
   const [diff, setDiff] = useState<{ path: string; diff: string }[] | null>(null);
   const show = async (r: Revision) => { setOpen(r); setDiff(null); const d = await wb<{ diffs: { path: string; diff: string }[] }>(`${base}revisions/${r.id}/diff/`); setDiff(d.diffs); };
@@ -733,7 +743,12 @@ function HistoryPanel({ base, onRestored }: { base: string; onRestored: () => Pr
   return (
     <div>
       <div className="mb-1 flex items-center justify-between px-1 text-[10px] uppercase tracking-wider st-dim"><span>History</span><button type="button" onClick={() => void snapshot()} className="normal-case tracking-normal text-indigo-300 hover:underline">+ snapshot</button></div>
-      <p className="mb-2 px-1 text-[10px] leading-4 st-dim">Every successful compile snapshots the source. Label a version to keep it findable.</p>
+      <p className="mb-1 px-1 text-[10px] leading-4 st-dim">Every successful compile snapshots the source. Label a version to keep it findable.</p>
+      {retention && (
+        <p className="mb-2 px-1 text-[10px] leading-4 st-dim" data-testid="revision-retention">
+          Kept: all {retention.labeled} labeled + the last <button type="button" onClick={() => void changeKeep()} className="underline decoration-dotted st-hover-fg" title="Change how many automatic revisions are kept" data-testid="retention-keep">{retention.keep}</button> automatic ({retention.auto} now).
+        </p>
+      )}
       <ul>{(revs.data?.revisions ?? []).map((r) => <li key={r.id}><button type="button" onClick={() => void show(r)} className={`${sideItem} ${open?.id === r.id ? "bg-indigo-500/15 st-fg" : "st-text"}`}><span className="min-w-0 flex-1 truncate">{r.labeled ? r.label : "auto"}</span><span className="shrink-0 text-[10px] st-dim">{new Date(r.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span></button></li>)}{revs.data && revs.data.revisions.length === 0 && <li className="px-2 text-xs st-dim">No versions yet — compile once.</li>}</ul>
       {open && (
         <div className="fixed inset-x-8 inset-y-12 z-40 flex flex-col rounded-xl border shadow-2xl" style={{ borderColor: "var(--studio-line)", background: "var(--studio-panel)" }} role="dialog" aria-label="Version diff">

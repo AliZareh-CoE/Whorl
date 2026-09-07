@@ -551,6 +551,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The revision trim says what it keeps (#456)
+
+**Decision.** Every successful compile snapshots the source; the trim kept "all labeled + the last 50 automatic" silently. The History panel now states it — "Kept: all 2 labeled + the last 50 automatic (37 now)" — and the number is a control: click, enter a new cap (1–500), saved per manuscript (`auto_revisions_keep`, writing 0017, on the manuscript API too). The workbench revisions endpoint carries a `retention` block.
+
+**Why.** Backlog #122: a vanished automatic snapshot looked like data loss. A rule you can read and change is not a surprise.
+
 ### 2026-09-07 — Identical source is not compiled twice (#455)
 
 **Decision.** `writing/compile.py::source_hash` digests everything a compile reads — every text file's path and content, every asset's path and size, and the bibliography Atlas would generate when the tree ships no `references.bib`. The compile action stores it on the manuscript (`compile_source_hash`, writing 0016) when it queues; a successful compile stamps it as `compiled_source_hash`. A request whose digest matches a *running* compile answers 202 `{deduped: true}` without a second build; one whose digest matches the last *successful* compile (with a PDF on file) answers 200 `{unchanged: true}` and the studio says "Up to date — nothing changed since the last compile." `force` (body or query, and `compile_manuscript(force=True)` over MCP) compiles anyway — after installing the engine, say.
@@ -2598,7 +2604,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 125. ~~Cite-check across files (the cite checker reads every .tex file of the manuscript; swept 2026-09-07)~~ — original: the missing-citations check currently scans the active buffer only; aggregate unknown \cite keys across ALL tex files so a citation defined nowhere in a multi-file project is caught (idea added by cycle 112)
 124. ~~Cite hint over MISSING papers (done 2026-09-07, #445: the completion's last row adds, links and cites by DOI / arXiv id)~~ — original: when \cite{} fragment matches nothing in the library, offer an "add by DOI…" inline action that reuses add_reference_by_doi, so writing never breaks to go hunt a paper (idea added by cycle 111, pairs with B2)
 123. Containerized Tectonic compile (escalated by AUDIT #11) — promote Backlog #36: now that multi-file \input exists, run the compile in a throwaway container/namespace; --untrusted + path validation cover single-user but a container boundary is the real fix before any multi-user use (idea escalated by cycle 110)
-122. Revision retention policy surfacing — show "kept: all labeled + last 50 auto" somewhere in the History panel and let the user bump the auto-cap, so the trim behavior isn't a surprise (idea added by cycle 109)
+122. ~~Revision retention policy surfacing (done 2026-09-07, #456)~~ — original: show "kept: all labeled + last 50 auto" somewhere in the History panel and let the user bump the auto-cap, so the trim behavior isn't a surprise (idea added by cycle 109)
 121. ~~Live word-count badge (the Studio status bar shows words and today's delta, #413; swept 2026-09-07)~~ — original: show the count passively in the status bar and refresh it on the autosave cycle (debounced) instead of only on button click, like Overleaf's always-visible count (idea added by cycle 108)
 120. Classic-page density — the classic base.html still defaults to max-w-5xl; sweep the remaining classic-only pages (editor done) once the SPA density work lands, or accelerate their SPA migration (idea added by cycle 107)
 119. ~~Editor command palette (done 2026-09-07, #447: ⌘⇧P actions palette with bindings)~~ — original: a small Ctrl/Cmd-P over editor actions (compile, find, toggle preview, new file, change keymap) so power users skip the mouse; pairs with the settings popover (idea added by cycle 106)
