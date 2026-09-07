@@ -551,6 +551,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Two small ones: theme candidates everywhere, section copy on Review (#457)
+
+**Decision.** (a) Every theme header in the review matrix now carries a "candidates →" link (shown on hover) to the queue pre-filtered to unread papers that look relevant to it — the gap nudge kept that door for under-read themes only (backlog #105). (b) Each section of the weekly Review has its own ⧉ copy that puts just that section on the clipboard as Markdown, next to the whole-week copy (backlog #99).
+
 ### 2026-09-07 — The revision trim says what it keeps (#456)
 
 **Decision.** Every successful compile snapshots the source; the trim kept "all labeled + the last 50 automatic" silently. The History panel now states it — "Kept: all 2 labeled + the last 50 automatic (37 now)" — and the number is a control: click, enter a new cap (1–500), saved per manuscript (`auto_revisions_keep`, writing 0017, on the manuscript API too). The workbench revisions endpoint carries a `retention` block.
@@ -2550,13 +2554,13 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 96. ~~Review copy-as-markdown (done 2026-06-11, cycle 88): a 'Copy week' button on the Review page emits clean markdown (sectioned by papers/milestones/notes/decisions/experiments) for pasting into a lab journal or a Claude session.~~
 97. ~~MCP weekly_review tool (done 2026-06-11, cycle 87): get_weekly_review(project, weeks_back) exposed over the MCP server (client fn + tool); Claude can pull 'what did I do this week' in chat. Verified live (30 milestones for self-build). Client stays pure httpx.~~
 98. ~~MCP get_synthesis_scaffold (done 2026-06-11, cycle 93): read-only GET /projects/{slug}/synthesis/ (distinct from the note-creating POST) + MCP client fn + tool, so Claude can pull the theme-organized review scaffold to draft a section in chat — creates no note. Client stays pure httpx.~~
-99. Per-section copy — small copy buttons on each Review section (e.g. just the milestones) for finer-grained pasting (idea added by cycle 88)
+99. ~~Per-section copy (done 2026-09-07, #457)~~ — original: small copy buttons on each Review section (e.g. just the milestones) for finer-grained pasting (idea added by cycle 88)
 100. ~~Generic list-create+search mixin (done 2026-06-11, cycle 98, tech improvement): AtlasViewSet gains `q_fields` (?q= icontains-OR search) and `bulk_create` (JSON-list POST) knobs; milestones/tasks/prompts overrides collapsed to two-line declarations; notes, decisions, research questions, hypotheses, and datasets opted into ?q= for free; live-verified on notes and decisions; 3 new tests incl. ?q= no-op without q_fields.~~
 101. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
 102. ~~CI workflow (done 2026-06-11, cycle 92): .github/workflows/ci.yml runs ruff check+format, pytest (postgres service), frontend tsc, and a committed-assets-not-stale check on every push/PR — the loop's hand-run gate now guards contributions. README CI badge.~~
 103. ~~CI make-audit job (done 2026-06-11, cycle 99, tech improvement): second CI job (postgres service, uv sync, migrate, runserver with a 30s readiness loop) runs `make audit` on every PR; audit.sh now prefers $ATLAS_API_KEY over .env so CI needs no dotfile; verified locally via the exact env-var-only path.~~
 104. ~~Duplicate of #95 — shipped together in cycle 95.~~
-105. Theme chips beyond the gap nudge — make every theme in the review matrix header link to its candidate queue, not just thin ones, so the prefilter is discoverable from the matrix too (idea added by cycle 94)
+105. ~~Theme chips beyond the gap nudge (done 2026-09-07, #457)~~ — original: make every theme in the review matrix header link to its candidate queue, not just thin ones, so the prefilter is discoverable from the matrix too (idea added by cycle 94)
 106. Design-notes file — a docs/DESIGN.md capturing the HIG-derived rules now binding (clarity/deference/depth, filtered-empty-state pattern, chip vocabulary) so every future UI slice starts from the same language (idea added by cycle 94, from the new owner design-research rule)
 107. ~~Timeline event detail expand (done 2026-09-07, #443)~~ — original: click a dot to expand the event in place (decision context, experiment body, note preview) without leaving the page (idea added by cycle 95)
 108. ~~Timeline on the overview (the week digest on the overview lists the week's events and links to the timeline; swept 2026-09-07, #444)~~ — original: a 5-event mini-timeline strip on the project overview linking to the full page (idea added by cycle 95)

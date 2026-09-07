@@ -219,6 +219,8 @@ function ThemeHead({ t, slug, onRename, onDelete }: { t: Theme; slug: string; on
             ? <Link to={`/projects/${slug}/queue?theme=${encodeURIComponent(t.name)}`} className={`rounded-full px-1.5 py-px font-medium ${t.read === 0 ? "bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300" : "bg-stone-100 text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:hover:text-indigo-300"}`} title={t.read === 0 ? "Nothing read under this theme yet — open the queue for it" : `${t.covered - t.read} marked but unread — open the queue for this theme`} data-testid="theme-gap-link">{t.read} read →</Link>
             : <span className="rounded-full bg-emerald-500/10 px-1.5 py-px text-emerald-700 dark:text-emerald-300" title="Every paper marked under this theme is read">{t.read} read</span>
         )}
+        {/* #457 (backlog #105): every theme reaches its candidate queue, not just the thin ones */}
+        <Link to={`/projects/${slug}/queue?theme=${encodeURIComponent(t.name)}`} className="ml-auto opacity-0 transition-opacity hover:text-indigo-600 group-hover/th:opacity-100 dark:hover:text-indigo-300" title={`Unread papers that look relevant to “${t.name}”`} aria-label={`Candidates for ${t.name}`} data-testid="theme-queue">candidates →</Link>
       </p>
     </th>
   );

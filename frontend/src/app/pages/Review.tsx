@@ -21,14 +21,24 @@ type Review = {
   experiments: { title: string; date: string; project: string; project_slug: string }[];
 };
 
-function Section<T>({ title, items, render, empty }: {
-  title: string; items: T[]; render: (x: T) => React.ReactNode; empty: string;
+function Section<T>({ title, items, render, empty, line }: {
+  title: string; items: T[]; render: (x: T) => React.ReactNode; empty: string; line?: (x: T) => string;
 }) {
+  // #457 (backlog #99): copy just this section as Markdown — finer than the whole week
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    if (!line) return;
+    await navigator.clipboard.writeText([`## ${title}`, ...items.map((x) => `- ${line(x)}`)].join("\n"));
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
+  };
   return (
-    <section className="rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
+    <section className="group/sec rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
       <h2 className="mb-3 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400">
         {title}
         {items.length > 0 && <span className="text-stone-300 dark:text-stone-400">{items.length}</span>}
+        {line && items.length > 0 && (
+          <button type="button" onClick={() => void copy()} className="ml-auto text-[10px] normal-case tracking-normal text-stone-300 opacity-0 transition-opacity hover:text-indigo-600 group-hover/sec:opacity-100 focus:opacity-100 dark:hover:text-indigo-300" title={`Copy “${title}” as Markdown`} data-testid="section-copy">{copied ? "✓ copied" : "⧉ copy"}</button>
+        )}
       </h2>
       {items.length === 0 ? (
         <p className="text-sm text-stone-400">{empty}</p>
@@ -110,7 +120,7 @@ export default function Review() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4">
-          <Section title="Papers read" items={data.papers_read} empty="No papers marked read."
+          <Section title="Papers read" items={data.papers_read} empty="No papers marked read." line={(p) => `${p.title} (${p.key})`}
             render={(p) => (
               <Link to={`/references/${p.reference_id}`} className="flex items-baseline gap-2 hover:text-indigo-700 dark:hover:text-indigo-300">
                 <span className="rounded bg-stone-100 px-1 py-0.5 font-mono text-[10px] text-stone-500 dark:bg-stone-800 dark:text-stone-300">{p.key}</span>
@@ -118,7 +128,7 @@ export default function Review() {
                 {!slug && <span className="shrink-0 text-xs text-stone-400">{p.project}</span>}
               </Link>
             )} />
-          <Section title="Milestones completed" items={data.milestones_done} empty="No milestones checked off."
+          <Section title="Milestones completed" items={data.milestones_done} empty="No milestones checked off." line={(m) => m.title}
             render={(m) => (
               <div className="flex items-baseline gap-2">
                 <span aria-hidden="true">✓</span>
@@ -126,14 +136,14 @@ export default function Review() {
                 {!slug && <Link to={`/projects/${m.project_slug}`} className="shrink-0 text-xs text-stone-400 hover:text-indigo-700 dark:hover:text-indigo-300">{m.project}</Link>}
               </div>
             )} />
-          <Section title="Notes written" items={data.notes_written} empty="No new notes."
+          <Section title="Notes written" items={data.notes_written} empty="No new notes." line={(n) => n.title}
             render={(n) => (
               <Link to={`/projects/${n.project_slug}/notes/${n.id}`} className="flex items-baseline gap-2 hover:text-indigo-700 dark:hover:text-indigo-300">
                 <span className="min-w-0 flex-1 truncate">{n.title}</span>
                 {!slug && <span className="shrink-0 text-xs text-stone-400">{n.project}</span>}
               </Link>
             )} />
-          <Section title="Decisions" items={data.decisions} empty="No decisions recorded."
+          <Section title="Decisions" items={data.decisions} empty="No decisions recorded." line={(x) => x.title}
             render={(d) => (
               <div className="flex items-baseline gap-2">
                 <span className="min-w-0 flex-1 truncate">{d.title}</span>
@@ -141,7 +151,7 @@ export default function Review() {
               </div>
             )} />
           {data.experiments.length > 0 && (
-            <Section title="Experiments" items={data.experiments} empty=""
+            <Section title="Experiments" items={data.experiments} empty="" line={(e) => `${e.title} (${e.date})`}
               render={(e) => (
                 <div className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 truncate">{e.title}</span>
