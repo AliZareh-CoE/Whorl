@@ -2,7 +2,7 @@
 
 ## Current Status
 
-- **tl;dr per section (2026-09-07, #395).** Heading detection over the extracted PDF text, two sentences per section, page starts; `GET /references/{id}/tldr/`, MCP `get_reference_tldr` (91 tools), detail-pane block with p.N jumps. Tests: literature/tests/test_tldr.py (4).
+- **tl;dr per section (2026-09-07, #395).** The reading flow's `s` key now uses the same section tl;dr (PDF text first, abstract as fallback). Heading detection over the extracted PDF text, two sentences per section, page starts; `GET /references/{id}/tldr/`, MCP `get_reference_tldr` (91 tools), detail-pane block with p.N jumps. Tests: literature/tests/test_tldr.py (4).
 
 - **Studio follow-cursor sync (2026-09-07, #394).** Setting "PDF follows the cursor" → debounced forward SyncTeX on every cursor line change. Guard in writing/tests/test_synctex.py.
 

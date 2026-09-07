@@ -61,3 +61,15 @@ def test_tldr_endpoint(client, settings, django_user_model):
     ref = Reference.objects.create(title="T", bibtex_key="t", abstract="One. Two. Three.")
     data = client.get(f"/api/v1/references/{ref.pk}/tldr/", HTTP_X_API_KEY="k").json()
     assert data["source"] == "abstract" and data["sections"][0]["title"] == "Abstract"
+
+
+def test_ui_uses_the_section_tldr():
+    from pathlib import Path
+
+    from django.conf import settings
+
+    base = Path(settings.BASE_DIR)
+    library = (base / "frontend/src/app/pages/Library.tsx").read_text()
+    flow = (base / "frontend/src/app/pages/ReadingFlow.tsx").read_text()
+    assert 'data-testid="tldr-block"' in library and "/tldr/`" in library
+    assert 'data-testid="flow-tldr"' in flow and "/tldr/`" in flow

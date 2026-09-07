@@ -44,7 +44,8 @@ export default function ReadingFlow() {
   const [flash, setFlash] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [listening, setListening] = useState(false);
-  const [tldr, setTldr] = useState<string[] | null>(null);
+  // tl;dr (#395): section-by-section from the PDF text when it is indexed, else the abstract
+  const [tldr, setTldr] = useState<{ title: string; page: number | null; sentences: string[] }[] | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["reading-flow", slug],
@@ -75,12 +76,12 @@ export default function ReadingFlow() {
   async function summarize() {
     if (!paper) return;
     if (tldr) { setTldr(null); return; }
-    const res = await fetch("/summarize/", {
-      method: "POST",
-      headers: { "X-CSRFToken": csrfToken(), "X-SPA": "1" },
-      body: new URLSearchParams({ text: paper.reference.abstract }),
-    });
-    setTldr((await res.json()).sentences ?? []);
+    try {
+      const out = await api<{ source: string; sections: { title: string; page: number | null; sentences: string[] }[]; reason?: string }>(`/references/${paper.reference.id}/tldr/`);
+      setTldr(out.sections.length ? out.sections : [{ title: "Nothing to summarise", page: null, sentences: [out.reason ?? "No abstract and no PDF text on file."] }]);
+    } catch {
+      setFlash("Couldn't summarise this paper.");
+    }
   }
 
   async function listen() {
@@ -125,7 +126,7 @@ export default function ReadingFlow() {
       else if (e.key === "p" || e.key === "ArrowLeft") prev();
       else if (e.key === "j") { e.preventDefault(); setNoteOpen(true); }
       else if (e.key === "l") listen();
-      else if (e.key === "s" && paper.reference.abstract) { e.preventDefault(); summarize(); }
+      else if (e.key === "s") { e.preventDefault(); summarize(); }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -207,9 +208,15 @@ export default function ReadingFlow() {
           {r.doi && <a href={`https://doi.org/${r.doi}`} className="font-medium text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">DOI ↗</a>}
         </div>
         {tldr && (
-          <ul className="mb-4 list-disc space-y-1.5 rounded border border-stone-100 bg-stone-50 p-4 pl-8 text-sm leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300">
-            {tldr.map((s, i) => <li key={i}>{s}</li>)}
-          </ul>
+          <ol className="mb-4 space-y-2 rounded border border-stone-100 bg-stone-50 p-4 text-sm leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300" data-testid="flow-tldr">
+            {tldr.map((s, i) => (
+              <li key={i}>
+                <span className="font-medium text-stone-800 dark:text-stone-100">{s.title}</span>
+                {s.page && <span className="ml-1.5 rounded-full bg-stone-200 px-1.5 py-0.5 text-[10px] text-stone-500 dark:bg-stone-700 dark:text-stone-300">p.{s.page}</span>}
+                <span className="ml-1 text-stone-400">·</span> {s.sentences.join(" ")}
+              </li>
+            ))}
+          </ol>
         )}
         {r.abstract
           ? <p className="max-w-prose text-[15px] leading-7 text-stone-700 dark:text-stone-300">{r.abstract}</p>
