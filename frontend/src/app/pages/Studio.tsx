@@ -15,7 +15,7 @@ import { tags as t } from "@lezer/highlight";
 import {
   AlertTriangle, ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, Download, FileText, FolderOpen, History, ListTree,
   ImagePlus, Loader2, MessageSquare, Minus, Package, PanelLeft, PanelRight, Play, Plus, RefreshCw, Search, Settings2, TerminalSquare, Trash2, Upload, X,
-  Crosshair,
+  Crosshair, ClipboardCheck,
 } from "lucide-react";
 import { mountEditor, Split, type EditorAdapter } from "../../editor";
 import { api, csrfToken } from "../api";
@@ -48,7 +48,10 @@ type Hl = { id: number; reference: number; page: number | null; text: string; co
 type Revision = { id: number; label: string; labeled: boolean; created_at: string; files: string[] };
 type WordCount = { words: number; headers?: number; captions?: number; math?: number; today_delta?: number; streak?: number; week_delta?: number; compiles_today?: number };
 type Settings = { keymap: "default" | "vim"; fontSize: number; spellcheck: boolean; autoCompile: boolean; followCursor: boolean };
-type Tab = "files" | "outline" | "bib" | "history" | "comments";
+type Tab = "files" | "outline" | "bib" | "history" | "comments" | "preflight";
+// #466: one readiness check — state, a one-line detail and where to fix it
+type PreflightCheck = { key: string; label: string; state: "ok" | "warn" | "fail" | "skip"; detail: string; fix?: { kind: "compile" | "problems" | "settings" | "budget" } | { kind: "tab"; tab: Tab } | { kind: "line"; path: string; line: number } };
+type Preflight = { ready: boolean; fails: number; warns: number; summary: string; network: boolean; checked_at: string; checks: PreflightCheck[] };
 type StudioComment = { id: number; file: number; path: string; line: number | null; body: string; created_at: string; resolved_at?: string | null };
 
 const SETTINGS_KEY = "atlas-studio-settings";
@@ -496,7 +499,8 @@ function StudioInner({ m }: { m: Manuscript }) {
     { label: `${problemsOpen ? "Hide" : "Show"} the problems panel`, keys: `${MOD} J`, run: () => setProblemsOpen((v) => !v) },
     { label: "New file…", run: () => { void newFile(); } },
     { label: "Download the submission .zip", hint: "arXiv-ready source + .bib + .bbl", run: () => window.location.assign(`${base}submission.zip`) },
-    ...(([["files", "Files"], ["outline", "Outline"], ["bib", "Bibliography"], ["history", "History"], ["comments", "Comments"]] as [Tab, string][]).map(([key, name]) => ({ label: `Go to ${name}`, hint: "sidebar panel", run: () => { setSidebarOpen(true); setTab(key); } }))),
+    ...(([["files", "Files"], ["outline", "Outline"], ["bib", "Bibliography"], ["history", "History"], ["comments", "Comments"], ["preflight", "Pre-flight"]] as [Tab, string][]).map(([key, name]) => ({ label: `Go to ${name}`, hint: "sidebar panel", run: () => { setSidebarOpen(true); setTab(key); } }))),
+    { label: "Pre-flight check", hint: "is this paper ready to submit?", run: () => { setSidebarOpen(true); setTab("preflight"); } },
     { label: "Editor settings", run: () => setSettingsOpen(true) },
     { label: `Keymap: ${settings.keymap === "vim" ? "default" : "vim"}`, hint: `now ${settings.keymap}`, run: () => setSettings((st) => ({ ...st, keymap: st.keymap === "vim" ? "default" : "vim" })) },
     { label: `Compile on save: ${settings.autoCompile ? "off" : "on"}`, run: () => setSettings((st) => ({ ...st, autoCompile: !st.autoCompile })) },
@@ -541,7 +545,7 @@ function StudioInner({ m }: { m: Manuscript }) {
         {sidebarOpen && (
           <aside id="studio-side" className="flex min-w-0 flex-col border-r" style={{ borderColor: "var(--studio-line)", background: "var(--studio-panel)" }}>
             <nav className="flex shrink-0 border-b text-[11px]" style={{ borderColor: "var(--studio-line)" }} aria-label="Studio panels">
-              {([["files", FolderOpen, "Files"], ["outline", ListTree, todos.length ? `Outline · ${todos.length}` : "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"], ["comments", MessageSquare, comments.length ? `Comments · ${comments.length}` : "Comments"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
+              {([["files", FolderOpen, "Files"], ["outline", ListTree, todos.length ? `Outline · ${todos.length}` : "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"], ["comments", MessageSquare, comments.length ? `Comments · ${comments.length}` : "Comments"], ["preflight", ClipboardCheck, "Pre-flight"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
                 <button key={key} type="button" onClick={() => setTab(key)} className={`relative flex min-w-0 flex-1 items-center justify-center gap-1 py-2 transition-colors ${tab === key ? "border-b-2 border-indigo-400 st-fg" : "st-dim st-hover-fg"}`} title={label} aria-label={label} data-testid={`studio-tab-${key}`}>
                   <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   {/* five tabs share ~240 px: icons only, the count as a badge (#414) */}
@@ -607,6 +611,7 @@ function StudioInner({ m }: { m: Manuscript }) {
                   </ul>
                 </div>
               )}
+              {tab === "preflight" && <PreflightPanel manuscriptId={m.id} onCompile={() => { void doCompile(); }} onProblems={() => setProblemsOpen(true)} onTab={(t) => setTab(t)} onLine={async (path, line) => { const target = files.find((f) => f.path === path); if (target && target.id !== activeId) await openFile(target.id); adRef.current?.gotoLine(line); adRef.current?.focus(); }} />}
               {tab === "history" && <HistoryPanel base={base} manuscriptId={m.id} onRestored={async () => { loaded.current.clear(); const ad = adRef.current; if (ad) { for (const fid of tabs) { const data = await wb<{ content?: string }>(`${base}files/${fid}/`); ad.setFileValue(fid, data.content || ""); loaded.current.add(fid); } } setFlash("Version restored."); recomputeOutline(); }} />}
             </div>
           </aside>
@@ -777,6 +782,48 @@ function HistoryPanel({ base, manuscriptId, onRestored }: { base: string; manusc
           <div className="flex items-center gap-2 border-b px-4 py-2 text-xs" style={{ borderColor: "var(--studio-line)" }}><History className="h-3.5 w-3.5 st-muted" aria-hidden="true" /><span className="st-fg">{open.labeled ? open.label : "auto snapshot"}</span><span className="st-dim">{new Date(open.created_at).toLocaleString()}</span><button type="button" onClick={() => void restore()} className="ml-auto rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-500">Restore this version</button><button type="button" onClick={() => setOpen(null)} className={iconBtn} aria-label="Close"><X className="h-3.5 w-3.5" aria-hidden="true" /></button></div>
           <pre className="min-h-0 flex-1 overflow-auto p-4 font-mono text-[11px] leading-5 st-text">{diff === null ? "Loading diff…" : diff.length === 0 ? "Identical to the current text." : diff.map((d) => `--- ${d.path}\n${d.diff}`).join("\n\n").split("\n").map((line, i) => <span key={i} className={line.startsWith("+") && !line.startsWith("+++") ? "text-emerald-300" : line.startsWith("-") && !line.startsWith("---") ? "text-red-300" : line.startsWith("@@") ? "text-indigo-300" : ""}>{line}{"\n"}</span>)}</pre>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** #466: the submission pre-flight — every readiness check from real data, each with a way to
+ *  the fix. Runs when the panel opens; "Run again" after fixing; the network row set is opt-in. */
+function PreflightPanel({ manuscriptId, onCompile, onProblems, onTab, onLine }: { manuscriptId: number; onCompile: () => void; onProblems: () => void; onTab: (t: Tab) => void; onLine: (path: string, line: number) => Promise<void> }) {
+  const [network, setNetwork] = useState(false);
+  const q = useQuery({ queryKey: ["preflight", manuscriptId, network], queryFn: () => api<Preflight>(`/manuscripts/${manuscriptId}/preflight/${network ? "?network=1" : ""}`), staleTime: 0 });
+  const r = q.data;
+  const dot = (state: PreflightCheck["state"]) => state === "ok" ? "bg-emerald-400" : state === "warn" ? "bg-amber-400" : state === "fail" ? "bg-red-400" : "bg-stone-500/60";
+  const fixLabel = (fix: NonNullable<PreflightCheck["fix"]>) => fix.kind === "compile" ? "Compile" : fix.kind === "problems" ? "Problems" : fix.kind === "settings" ? "Manuscript settings" : fix.kind === "budget" ? "Budget" : fix.kind === "tab" ? (fix.tab === "bib" ? "Bibliography" : fix.tab) : fix.kind === "line" ? `${fix.path.replace(/^.*\//, "")}:${fix.line}` : "Fix";
+  const runFix = (fix: NonNullable<PreflightCheck["fix"]>) => { if (fix.kind === "compile") onCompile(); else if (fix.kind === "problems") onProblems(); else if (fix.kind === "tab") onTab(fix.tab); else if (fix.kind === "line") void onLine(fix.path, fix.line); };
+  return (
+    <div data-testid="studio-preflight" data-ready={r ? (r.ready ? "1" : "0") : undefined}>
+      <div className="mb-1 flex items-center justify-between px-1 text-[10px] uppercase tracking-wider st-dim"><span>Pre-flight</span><button type="button" onClick={() => void q.refetch()} className="normal-case tracking-normal text-indigo-300 hover:underline" data-testid="preflight-run">{q.isFetching ? "checking…" : "Run again"}</button></div>
+      <p className="mb-2 px-1 text-[10px] leading-4 st-dim">Every check reads the real state — the PDF, the compile log, the bibliography, the sources. Red blocks a submission; amber is yours to judge.</p>
+      {q.isError && <p className="px-1 text-xs text-red-300">Couldn't run the checks.</p>}
+      {r && (
+        <>
+          <p className={`mx-1 mb-2 rounded-md px-2 py-1.5 text-xs font-medium ${r.ready ? (r.warns ? "bg-amber-500/10 text-amber-200" : "bg-emerald-500/10 text-emerald-200") : "bg-red-500/10 text-red-200"}`} data-testid="preflight-summary">{r.summary}</p>
+          <ul className="space-y-0.5">
+            {r.checks.map((c) => (
+              <li key={c.key} className="rounded px-1 py-1 text-xs" data-testid="preflight-check" data-key={c.key} data-state={c.state}>
+                <div className="flex items-start gap-2">
+                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dot(c.state)}`} aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <span className={`block ${c.state === "skip" ? "st-dim" : "st-fg"}`}>{c.label}</span>
+                    <span className="block text-[11px] leading-4 st-dim">{c.detail}</span>
+                    {c.fix && c.state !== "ok" && c.state !== "skip" && (
+                      c.fix.kind === "settings" || c.fix.kind === "budget"
+                        ? <Link to={`/manuscripts/${manuscriptId}`} className="mt-0.5 inline-block text-[10px] text-indigo-300 hover:underline" data-testid="preflight-fix">{fixLabel(c.fix)} →</Link>
+                        : <button type="button" onClick={() => runFix(c.fix!)} className="mt-0.5 text-[10px] text-indigo-300 hover:underline" data-testid="preflight-fix">{fixLabel(c.fix)} →</button>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <label className="mt-2 flex cursor-pointer items-center gap-1.5 px-1 text-[10px] st-dim"><input type="checkbox" checked={network} onChange={(e) => setNetwork(e.target.checked)} className="accent-indigo-500" data-testid="preflight-network" />Also resolve DOIs and check retractions (slow)</label>
+        </>
       )}
     </div>
   );

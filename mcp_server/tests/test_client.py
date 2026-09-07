@@ -553,3 +553,11 @@ def test_take_snapshot_client_calls(capture):
     assert capture["url"].endswith("/snapshots/") and capture["method"] == "GET"
     client.take_snapshot()
     assert capture["url"].endswith("/snapshots/") and capture["method"] == "POST"
+
+
+def test_preflight_client_call(capture):
+    """#466: the readiness checks, with the network flag only when asked."""
+    client.preflight_manuscript(4)
+    assert capture["url"].endswith("/manuscripts/4/preflight/")
+    client.preflight_manuscript(4, network=True)
+    assert capture["url"].endswith("/manuscripts/4/preflight/?network=1")

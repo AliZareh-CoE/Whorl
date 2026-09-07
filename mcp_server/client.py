@@ -632,6 +632,15 @@ def get_response_progress(manuscript_id: int):
     return _request("GET", f"/manuscripts/{manuscript_id}/response-progress/")["progress"]
 
 
+def preflight_manuscript(manuscript_id: int, network: bool = False):
+    """#466: the submission readiness checks, ok/warn/fail/skip each, `ready` overall."""
+    return _request(
+        "GET",
+        f"/manuscripts/{manuscript_id}/preflight/",
+        params={"network": "1"} if network else None,
+    )
+
+
 def get_manuscript_budget(manuscript_id: int):
     """Usage vs venue limits (words, abstract, figures, tables, references, pages)."""
     return _request("GET", f"/manuscripts/{manuscript_id}/budget/")

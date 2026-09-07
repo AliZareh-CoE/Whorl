@@ -2339,6 +2339,29 @@ class ManuscriptViewSet(AtlasViewSet):
         description="The venue budget: words, abstract words, figures, tables, references and "
         "(after a compile) pages, each against the limit stored in `venue_limits`.",
     )
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "network",
+                str,
+                description="1 to also resolve DOIs and check retractions (slow, needs network)",
+            )
+        ],
+        responses={200: None},
+        description="Submission pre-flight (#466): every readiness check from real data — "
+        "compiled PDF up to date, compile errors, undefined references, cite keys vs the "
+        "bibliography, bibliography hygiene, venue limits, figure files, leftover TODO markers, "
+        "the .bbl for arXiv, venue/deadline/abstract — each ok/warn/fail/skip with a detail and "
+        "a fix pointer. `ready` is true when nothing fails.",
+    )
+    @action(detail=True, methods=["get"])
+    def preflight(self, request, pk=None):
+        from writing.preflight import preflight
+
+        return Response(
+            preflight(self.get_object(), network=request.query_params.get("network") == "1")
+        )
+
     @action(detail=True, methods=["get"])
     def budget(self, request, pk=None):
         from writing.budget import budget

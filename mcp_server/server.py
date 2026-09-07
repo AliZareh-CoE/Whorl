@@ -628,6 +628,19 @@ def get_response_progress(manuscript_id: int) -> dict | None:
 
 
 @mcp.tool()
+def preflight_manuscript(manuscript_id: int, network: bool = False) -> dict:
+    """Is this paper ready to submit? Every readiness check from real data: the compiled PDF
+    is up to date with the source, no compile errors, no undefined citations/references, every
+    \cite key is in the bibliography (and nothing unused), bibliography hygiene (missing
+    fields, duplicates), the venue limits, every \includegraphics path resolves to a file,
+    no TODO/FIXME/\todo/?? left in the text, a .bbl kept for arXiv, and venue/deadline/abstract
+    set. Each check answers ok / warn / fail / skip with a one-line detail and a fix pointer;
+    `ready` is true when nothing fails. network=true also resolves DOIs and checks retractions
+    (slow). Run it before "submit", then fix the fails in order."""
+    return client.preflight_manuscript(manuscript_id, network=network)
+
+
+@mcp.tool()
 def get_manuscript_budget(manuscript_id: int) -> dict:
     """How the manuscript sits against its venue limits: words, abstract words, figures, tables,
     references and pages (after a compile), each as used / limit with an ok / near / over state."""
