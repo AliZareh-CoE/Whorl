@@ -8,13 +8,15 @@ like the methods/history section of a paper.
 NOTE_PREVIEW = 1500
 
 
-def project_timeline(project) -> list[dict]:
+def project_timeline(project, *, bodies: bool = True) -> list[dict]:
     """Every dated event in the project's life, newest first.
 
     Each event: {date, kind, label, detail, url, body_html}. URLs are SPA paths so the
     timeline page can deep-link every object; `body_html` (#443) is the event's own text —
     a decision's context / decision / alternatives, an entry's body, a note's opening, a
     milestone's notes — rendered like everywhere else, empty when the object has none.
+    Callers that only need the stream (the overview's week digest) pass `bodies=False`
+    and skip the markdown rendering entirely.
     """
     from core.rendering import render_body
 
@@ -22,6 +24,8 @@ def project_timeline(project) -> list[dict]:
     slug = project.slug
 
     def html(text: str) -> str:
+        if not bodies:
+            return ""
         text = (text or "").strip()
         return render_body(text, project) if text else ""
 

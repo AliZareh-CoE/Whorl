@@ -64,3 +64,26 @@ def test_api_and_page_wiring(client, settings, django_user_model):
         "aria-expanded",
     ):
         assert needle in src, needle
+
+
+def test_bodies_can_be_skipped_and_the_overview_digest_skips_them(monkeypatch):
+    """#444: the overview's week digest must not render every timeline body."""
+    from core import timeline as timeline_mod
+    from projects import overview as overview_mod
+
+    project = ProjectFactory()
+    DecisionRecord.objects.create(
+        project=project, title="D", decision="Yes.", decided_on=date.today()
+    )
+    Note.objects.create(project=project, title="N", body="body")
+    lean = project_timeline(project, bodies=False)
+    assert lean and all(e["body_html"] == "" for e in lean)
+    calls = []
+    import core.rendering as rendering
+
+    monkeypatch.setattr(rendering, "render_body", lambda *a, **k: calls.append(1) or "<p>x</p>")
+    timeline_mod.project_timeline(project)  # bodies on → renders
+    assert calls
+    calls.clear()
+    overview_mod.week_digest(project)
+    assert calls == []

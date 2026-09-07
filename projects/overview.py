@@ -27,7 +27,9 @@ def week_digest(project, today: date | None = None, days: int = 7) -> dict:
 
     today = today or timezone.localdate()
     since = (today - timedelta(days=days)).isoformat()
-    events = [e for e in project_timeline(project) if e["date"] >= since]
+    # bodies=False (#444): the digest lists events; rendering every body here made the
+    # overview pay for the whole timeline's markdown
+    events = [e for e in project_timeline(project, bodies=False) if e["date"] >= since]
     counts = Counter(e["kind"] for e in events)
     return {
         "since": since,

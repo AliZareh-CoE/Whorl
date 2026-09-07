@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Timeline bodies opt-out (2026-09-07, #444).** `project_timeline(bodies=False)` for the overview's week digest (no markdown rendering on the overview). Test: core/tests/test_timeline_bodies.py::test_bodies_can_be_skipped_and_the_overview_digest_skips_them. #108 struck.
+
 - **Timeline expand (2026-09-07, #443).** `core/timeline.py` events carry `body_html` (decision, experiment, note, milestone notes, manuscript event notes); Timeline.tsx chevron expands a Prose block. Test: core/tests/test_timeline_bodies.py. Playwright: docs/screenshots/timeline-expand.png. Sweep: #69/#70/#110/#114/#121/#125/#136 struck.
 
 - **.bbl in the submission zip (2026-09-07, #442).** compile `--keep-intermediates` → `Manuscript.compiled_bbl` (writing 0015); submission.zip ships `<main>.bbl`. Tests: writing/tests/test_bbl.py. Live: demo compile → zip lists main.bbl.

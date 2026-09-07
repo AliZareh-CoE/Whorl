@@ -551,6 +551,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The overview does not pay for the timeline's bodies (#444)
+
+**Decision.** `project_timeline(project, bodies=False)` skips the markdown rendering #443 introduced; the overview's week digest — which already builds the event stream to say "this week in the project" — uses it. The Timeline page and its API keep the bodies. Backlog #108 (a mini-timeline strip on the overview) is struck: the week digest *is* that strip.
+
+**Why.** Owner idea #1, performance, is never one slice: #443 quietly made every overview render every decision, note and entry body in the project. Caught the same day by reading the callers.
+
 ### 2026-09-07 — Timeline events open in place (#443)
 
 **Decision.** Every timeline event that has a body now carries it as rendered HTML (`body_html`, through `core.rendering.render_body` — markdown, `[[links]]` and `@keys` resolved like everywhere else): a decision's context, decision and alternatives; an experiment entry's body; a note's text (first 1,500 characters); a milestone's notes; a manuscript event's notes. On the Timeline page a chevron on such rows expands the body under the event without leaving the page; the label still links to the object.
@@ -2463,7 +2469,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 105. Theme chips beyond the gap nudge — make every theme in the review matrix header link to its candidate queue, not just thin ones, so the prefilter is discoverable from the matrix too (idea added by cycle 94)
 106. Design-notes file — a docs/DESIGN.md capturing the HIG-derived rules now binding (clarity/deference/depth, filtered-empty-state pattern, chip vocabulary) so every future UI slice starts from the same language (idea added by cycle 94, from the new owner design-research rule)
 107. ~~Timeline event detail expand (done 2026-09-07, #443)~~ — original: click a dot to expand the event in place (decision context, experiment body, note preview) without leaving the page (idea added by cycle 95)
-108. Timeline on the overview — a 5-event mini-timeline strip on the project overview linking to the full page (idea added by cycle 95)
+108. ~~Timeline on the overview (the week digest on the overview lists the week's events and links to the timeline; swept 2026-09-07, #444)~~ — original: a 5-event mini-timeline strip on the project overview linking to the full page (idea added by cycle 95)
 109. ~~Comment threads from search (done 2026-09-07, #439: `comment` kind on both search paths, routes to the note / paper / editor)~~ — original: comments are invisible to global search; index comment bodies (FTS) so "where did I write that remark?" resolves (idea added by cycle 96)
 110. ~~Pet hatching & species (done 2026-09-07, #427)~~ — original: a one-time hatch moment (deterministic from the install, Buddy-style) choosing among a few species/looks, with a tiny shiny chance; pairs with #49/#56 (idea added by cycle 97)
 111. Document the ?q= convention in the API schema — a reusable OpenApiParameter on every q_fields viewset so MCP/scripts discover searchability from /api/docs/ (idea added by cycle 98)
