@@ -8,6 +8,7 @@ import { AlertTriangle, Check, CheckCircle2, Copy, Download, Globe, Loader2, Rot
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { isDesktop, openDevtools } from "../external";
+import { ErrorState } from "../../components/ErrorState";
 
 type Feed = { url: string; status: number | string | null };
 type RestoreState = { pending: { created_at?: string; staged_at: string | null; media_files: number; has_sqlite: boolean; has_json: boolean; size_bytes: number } | null; last_result: { ok: boolean; detail: string; applied_at: string; kept_previous_in: string } | null; data_dir: string };
@@ -73,6 +74,7 @@ export default function Diagnostics() {
         </div>
       </div>
       {q.isLoading && <p className="flex items-center gap-2 text-sm text-stone-400"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Collecting…</p>}
+      {q.isError && <ErrorState message="Couldn't collect the diagnostics." onRetry={() => void q.refetch()} />}
       {r && (
         <>
           <section className={panel} style={{ ["--i" as string]: 1 }} data-testid="diag-summary">

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Crosshair, ExternalLink, RefreshCw, Search, X } from "lucide-react";
 import { api, csrfToken } from "../api";
+import { queryGate } from "../../components/QueryBoundary";
 
 type Node = { id: string; type: "reference" | "note"; label: string; title: string; group: string; size: number; url?: string; app_url?: string; year?: number | null; venue?: string; citations?: number | null; authors?: string; has_pdf?: boolean; highlights?: number; words?: number; updated_at?: string; degree: number };
 type Edge = { source: string | { id: string }; target: string | { id: string }; kind: string };
@@ -45,7 +46,8 @@ export default function Graph() {
   const [ready, setReady] = useState(false);
   useEffect(() => { try { localStorage.setItem("atlas-graph-mode", mode); } catch { /* private mode */ } }, [mode]);
 
-  const { data } = useQuery({ queryKey: ["graph", slug], queryFn: () => api<GraphData>(`/projects/${slug}/graph/`) });
+  const graph = useQuery({ queryKey: ["graph", slug], queryFn: () => api<GraphData>(`/projects/${slug}/graph/`) });
+  const data = graph.data;
 
   // neighbours index
   const neighbours = useMemo(() => {
@@ -127,6 +129,9 @@ export default function Graph() {
   const stats = data?.stats;
   const selNeighbours = selected ? [...(neighbours.get(selected.id) ?? [])].map((id) => data?.nodes.find((n) => n.id === id)).filter(Boolean) as Node[] : [];
 
+  // #409: a failed graph fetch shows an error with retry instead of an empty canvas
+  const gate = queryGate(graph, { message: "Couldn't load the graph." });
+  if (gate) return gate;
   return (
     <div>
       <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400"><Link to="/projects" className="hover:underline">Projects</Link> / <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Graph</nav>

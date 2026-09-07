@@ -6,6 +6,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
+import { queryGate } from "../../components/QueryBoundary";
 
 type Prompt = { id: number; title: string; body: string; tags: string };
 type Page<T> = { count: number; results: T[] };
@@ -97,10 +98,11 @@ const field = "w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-
 
 export default function Prompts() {
   const [query, setQuery] = useState("");
-  const { data, isLoading } = useQuery({
+  const promptsQuery = useQuery({
     queryKey: ["prompts"],
     queryFn: () => api<Page<Prompt>>("/prompts/"),
   });
+  const data = promptsQuery.data;
   const queryClient = useQueryClient();
   const menu = useMenu();
   const [formOpen, setFormOpen] = useState(false);
@@ -120,7 +122,8 @@ export default function Prompts() {
     { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete “${p.title}”?`, danger: true, confirmLabel: "Delete prompt" })) remove.mutate(p.id); } },
   ];
 
-  if (isLoading) return <p className="text-sm text-stone-400">Loading prompts…</p>;
+  const gate = queryGate(promptsQuery, { message: "Couldn't load the prompts.", skeleton: <p className="text-sm text-stone-400">Loading prompts…</p> });
+  if (gate) return gate;
   const needle = query.trim().toLowerCase();
   const all = data?.results ?? [];
   const rows = all.filter(

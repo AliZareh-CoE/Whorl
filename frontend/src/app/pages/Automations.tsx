@@ -1,6 +1,7 @@
 /** Bots with run-history charts (SPA slice 10). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { queryGate } from "../../components/QueryBoundary";
 
 type Run = { ok: boolean; count: number | null; started_at: string };
 type Bot = { slug: string; name: string; description: string; enabled: boolean; last_result: string; runs: Run[] };
@@ -37,10 +38,11 @@ function StatusChip({ enabled }: { enabled: boolean }) {
 
 export default function Automations() {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const botsQuery = useQuery({
     queryKey: ["bots"],
     queryFn: () => api<{ bots: Bot[] }>("/bots/"),
   });
+  const data = botsQuery.data;
   const act = useMutation({
     mutationFn: ({ slug, action }: { slug: string; action: "toggle" | "run" }) =>
       api(`/bots/${slug}/action/`, {
@@ -51,7 +53,8 @@ export default function Automations() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["bots"] }),
   });
 
-  if (isLoading) return <p className="text-sm text-stone-400">Loading bots…</p>;
+  const gate = queryGate(botsQuery, { message: "Couldn't load the automations.", skeleton: <p className="text-sm text-stone-400">Loading bots…</p> });
+  if (gate) return gate;
   const bots = data?.bots ?? [];
   return (
     <div>

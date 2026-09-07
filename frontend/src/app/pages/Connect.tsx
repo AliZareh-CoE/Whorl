@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CheckCircle2, Copy, Eye, EyeOff, ExternalLink, Loader2, Plug, Sparkles, Stethoscope, TerminalSquare, XCircle, Zap } from "lucide-react";
 import { api } from "../api";
 import { openTerminal } from "../TerminalDock";
+import { queryGate } from "../../components/QueryBoundary";
 
 type CheckRow = { key: string; label: string; ok: boolean; detail: string; fix: string };
 type TestResult = { ok: boolean; checks: CheckRow[]; command: string };
@@ -35,8 +36,8 @@ export default function Connect() {
   // backlog #290: run the four checks server-side — the MCP command Claude Code would launch really runs
   const test = useMutation({ mutationFn: () => api<TestResult>("/connect/test/", { method: "POST" }) });
   const c = q.data;
-  if (q.isLoading) return <p className="text-sm text-stone-400">Loading…</p>;
-  if (!c) return <p className="text-sm text-red-500">Could not load the connection details.</p>;
+  const gate = queryGate(q, { message: "Could not load the connection details.", skeleton: <p className="text-sm text-stone-400">Loading…</p> });
+  if (gate || !c) return gate;
   const installed = c.skills.filter((s) => s.up_to_date).length;
 
   return (

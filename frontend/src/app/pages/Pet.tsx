@@ -8,6 +8,7 @@ import { Award, BookOpen, Brain, Check, Flame, Lock, Pencil, Skull, Sparkles, Ta
 import { Link } from "react-router-dom";
 import { api, csrfToken } from "../api";
 import { Creature, type Reaction } from "../pet/Creature";
+import { queryGate } from "../../components/QueryBoundary";
 
 type Achievement = { key: string; title: string; description: string; unlocked: boolean; tier: string; points: number; hidden: boolean; progress: { current: number; target: number; percent: number } };
 type PetState = {
@@ -53,8 +54,8 @@ export default function PetPage() {
     try { const res = await fetch("/tts/", { method: "POST", headers: { "X-CSRFToken": csrfToken() }, body: new URLSearchParams({ text: line }), credentials: "same-origin" }); if (!res.ok) throw new Error(); const audio = new Audio(URL.createObjectURL(await res.blob())); audio.addEventListener("ended", () => setSpeaking(false)); audio.addEventListener("error", () => setSpeaking(false)); await audio.play(); } catch { setSpeaking(false); }
   };
 
-  if (pet.isLoading) return <p className="text-sm text-stone-400">Waking Mochi…</p>;
-  if (!p) return <p className="text-sm text-red-500">Mochi is unreachable.</p>;
+  const gate = queryGate(pet, { message: "Mochi is unreachable.", skeleton: <p className="text-sm text-stone-400">Waking Mochi…</p> });
+  if (gate || !p) return gate;
   const progress = p.next_stage_points ? Math.min(100, Math.round(((p.lifetime_points - p.stage_floor) / (p.next_stage_points - p.stage_floor)) * 100)) : 100;
   const unlocked = p.achievements.filter((a) => a.unlocked).length;
 

@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, csrfToken, petReact } from "../api";
 import { listenTo, type Listener } from "../listen";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
+import { queryGate } from "../../components/QueryBoundary";
 
 type Paper = {
   id: number;
@@ -48,10 +49,11 @@ export default function ReadingFlow() {
   // tl;dr (#395): section-by-section from the PDF text when it is indexed, else the abstract
   const [tldr, setTldr] = useState<{ title: string; page: number | null; sentences: string[] }[] | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const flow = useQuery({
     queryKey: ["reading-flow", slug],
     queryFn: () => api<{ papers: Paper[] }>(`/projects/${slug}/reading-flow/`),
   });
+  const data = flow.data;
   const papers = data?.papers ?? [];
   const paper = papers[i];
 
@@ -126,8 +128,10 @@ export default function ReadingFlow() {
     return () => document.removeEventListener("keydown", onKey);
   });
 
-  if (isLoading)
-    return (
+  // #409: skeleton while loading, ErrorState with retry when the fetch fails
+  const gate = queryGate(flow, {
+    message: "Couldn't load the reading flow.",
+    skeleton: (
       <div role="status" aria-label="Loading" className="mx-auto max-w-3xl px-4">
         <div className="mb-3 flex items-center justify-between">
           <Skeleton className="h-3 w-32" />
@@ -141,7 +145,9 @@ export default function ReadingFlow() {
           <SkeletonLines lines={5} />
         </article>
       </div>
-    );
+    ),
+  });
+  if (gate) return gate;
 
   if (!paper) {
     return (

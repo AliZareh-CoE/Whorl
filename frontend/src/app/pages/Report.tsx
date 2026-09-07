@@ -8,6 +8,7 @@ import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, Copy, Globe, Loader2, Merge, ShieldAlert, XCircle } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog } from "../../components/Dialog";
+import { ErrorState } from "../../components/ErrorState";
 
 type Finding = { level: string; message: string; reference_ids: number[] };
 type Report = { network_checks_included: boolean; findings: Record<string, Finding[]> };
@@ -50,6 +51,7 @@ export default function Report() {
       </div>
 
       {report.isLoading && <p className="flex items-center gap-2 text-sm text-stone-400"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{network ? "Asking doi.org and Crossref about every DOI…" : "Checking the library…"}</p>}
+      {report.isError && <ErrorState message="Couldn't run the bib report." onRetry={() => void report.refetch()} />}
       {report.error && <p className="text-sm text-red-500">The report could not be built.</p>}
 
       {report.data && (

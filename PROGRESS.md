@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **QueryBoundary (2026-09-07, #409).** `components/QueryBoundary.tsx` (`queryGate`, `QueryBoundary`); Reference, ReadingFlow, Automations, Graph, Prompts, Pet, Connect gated; Report + Diagnostics inline ErrorState. Guard: core/tests/test_query_boundary.py (every querying page has an error branch; allowlist for decorative queries). Playwright: API blocked → ErrorState with retry → recovers (docs/screenshots/query-gate-error.png).
+
 - **Matrix gap hints (2026-09-07, #408).** Theme rows carry `read`; the header shows "n read" (green complete / neutral link / amber nothing-read) linking to the queue's `?theme=` candidates. Test: literature/tests/test_matrix.py::test_theme_rows_carry_read_counts. Playwright: docs/screenshots/matrix-gap-hints.png.
 
 - **★ MENTIONS EVERYWHERE (2026-09-07, #407).** `core/rendering.py` (shared resolver + renderer; notes preview uses it), `*_html` companions on decisions / experiment entries / protocols / captures, `components/Prose.tsx`, Decisions clamp + expand, experiment entry expands, protocol body rendered, Inbox capture rendered; demo decision + entry carry mentions. Tests: core/tests/test_rendering.py (5), comments tests updated to the visible-gap contract. Playwright: mention in a decision → SPA navigation without reload (docs/screenshots/mentions-decisions.png, mentions-research.png).

@@ -8,6 +8,7 @@ import { api, csrfToken } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { Kebab } from "../../components/Menu";
+import { queryGate } from "../../components/QueryBoundary";
 
 type Ref = {
   id: number;
@@ -85,10 +86,11 @@ export default function Reference() {
   const navigate = useNavigate();
 
   const queryClient = useQueryClient();
-  const { data: ref, isLoading } = useQuery({
+  const refQuery = useQuery({
     queryKey: ["reference", id],
     queryFn: () => api<Ref>(`/references/${id}/`),
   });
+  const ref = refQuery.data;
   const { data: highlights } = useQuery({ queryKey: ["highlights", Number(id)], queryFn: () => api<{ results: Highlight[] }>(`/highlights/?reference=${id}&page_size=200`).then((p) => p.results) });
   const citeStyle = (() => { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } })();
   const { data: citation } = useQuery({ queryKey: ["cite", Number(id), citeStyle], queryFn: () => api<Citation>(`/references/${id}/cite/?style=${citeStyle}`) });
@@ -147,8 +149,10 @@ export default function Reference() {
     }
   }
 
-  if (isLoading || !ref)
-    return (
+  // #409: one gate — skeleton while loading, ErrorState (with retry) when the fetch fails
+  const gate = queryGate(refQuery, {
+    message: "Couldn't load this reference.",
+    skeleton: (
       <div role="status" aria-label="Loading" className="max-w-3xl space-y-4">
         <Skeleton className="h-4 w-40" />
         <section className="rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
@@ -161,7 +165,9 @@ export default function Reference() {
           <SkeletonLines lines={4} />
         </section>
       </div>
-    );
+    ),
+  });
+  if (gate || !ref) return gate;
 
   return (
     <div className="max-w-3xl">
