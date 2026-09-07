@@ -340,23 +340,36 @@ export default function Library() {
     return () => { window.removeEventListener("dragenter", enter); window.removeEventListener("dragleave", leave); window.removeEventListener("dragover", over); window.removeEventListener("drop", drop); };
   }, [importFiles]);
 
-  // keyboard: j/k move · enter open · x select · o pdf · esc clear
+  // keyboard: j/k move · enter open · x select · X / shift-click range · ⌘A all · o pdf · esc clear
   const toggleSelect = useCallback((id: number) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }), []);
+  // #433 (backlog #60): ranges — the last row you toggled is the anchor; shift-click or shift-x
+  // selects everything between it and the row you are on; ⌘A/Ctrl+A selects the whole view.
+  const anchorRef = useRef<number | null>(null);
+  const selectRange = useCallback((to: number) => {
+    const from = anchorRef.current ?? to;
+    const [a, b] = from <= to ? [from, to] : [to, from];
+    setSelected((s) => { const n = new Set(s); rows.slice(a, b + 1).forEach((r) => n.add(r.id)); return n; });
+  }, [rows]);
+  const onCheck = useCallback((i: number, id: number, shift: boolean) => { if (shift) selectRange(i); else { anchorRef.current = i; toggleSelect(id); } }, [selectRange, toggleSelect]);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement).tagName;
-      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag) || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLInputElement;
+      const typing = el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el.tagName === "INPUT" && el.type !== "checkbox") || el.isContentEditable;
+      if (typing || e.altKey) return; // a focused checkbox still answers to j/k, x, Esc
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && rows.length && !readerId) { e.preventDefault(); setSelected(new Set(rows.map((r) => r.id))); return; }
+      if (e.metaKey || e.ctrlKey) return;
       if (!rows.length) return;
       if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => Math.min(rows.length - 1, c + 1)); }
       else if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); setCursor((c) => Math.max(0, c - 1)); }
       else if (e.key === "Enter") { setDetailId(rows[cursor]?.id ?? null); }
-      else if (e.key === "x") { const id = rows[cursor]?.id; if (id) toggleSelect(id); }
+      else if (e.key === "X") { selectRange(cursor); }
+      else if (e.key === "x") { const id = rows[cursor]?.id; if (id) { anchorRef.current = cursor; toggleSelect(id); } }
       else if (e.key === "o") { const r = rows[cursor]; if (r?.pdf) openReader(r); }
       else if (e.key === "Escape") { if (readerId) setReaderId(null); else { setSelected(new Set()); setDetailId(null); } }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [rows, cursor, readerId, toggleSelect]);
+  }, [rows, cursor, readerId, toggleSelect, selectRange]);
   useEffect(() => { listRef.current?.querySelector<HTMLElement>(`[data-row="${cursor}"]`)?.scrollIntoView({ block: "nearest" }); }, [cursor]);
   useEffect(() => { setCursor(0); }, [effective]);
 
@@ -645,7 +658,7 @@ export default function Library() {
             ))}
             {activeChips.length > 0 && <button type="button" onClick={() => setFilters({ ...EMPTY, sort: filters.sort })} className="text-stone-400 hover:underline">clear</button>}
             <a href={`/api/v1/references/export/?${toQuery(effective, 1)}`} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Open everything in this view as a .bib file"><FileDown className="h-3 w-3" aria-hidden="true" />.bib of this view</a>
-            <span className="hidden text-stone-400 lg:inline">· j/k move · enter open · x select · o pdf</span>
+            <span className="hidden text-stone-400 lg:inline">· j/k move · enter open · x select · shift-x / shift-click range · ⌘A all · o pdf</span>
             <span className="ml-1 inline-flex overflow-hidden rounded-md border border-stone-200 dark:border-stone-700" role="tablist" aria-label="Library view">
               <button type="button" role="tab" aria-selected={view === "list"} onClick={() => switchView("list")} className={`px-1.5 py-0.5 ${view === "list" ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-200" : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"}`} title="List" data-testid="view-list"><LayoutList className="h-3.5 w-3.5" aria-hidden="true" /></button>
               <button type="button" role="tab" aria-selected={view === "cards"} onClick={() => switchView("cards")} className={`px-1.5 py-0.5 ${view === "cards" ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-200" : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"}`} title="Cards" data-testid="view-cards"><LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" /></button>
@@ -665,7 +678,7 @@ export default function Library() {
                     <div className="h-1.5 w-full" style={{ background: r.pdf ? band : `${band}66` }} aria-hidden="true" />
                     <div className="flex flex-1 flex-col gap-1.5 p-3">
                       <div className="flex items-start gap-2">
-                        <input type="checkbox" checked={selected.has(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSelect(r.id)} className="mt-1 accent-indigo-500" aria-label={`Select ${r.title}`} />
+                        <input type="checkbox" checked={selected.has(r.id)} onClick={(e) => e.stopPropagation()} onChange={(e) => onCheck(i, r.id, (e.nativeEvent as MouseEvent).shiftKey)} className="mt-1 accent-indigo-500" aria-label={`Select ${r.title}`} />
                         <p className="line-clamp-3 text-sm font-medium leading-snug text-stone-900 dark:text-stone-100">{r.title}</p>
                       </div>
                       <p className="line-clamp-1 text-xs text-stone-500 dark:text-stone-400">{authorsLine(r, 4) || (needs ? "from a PDF · no metadata yet" : "no authors")}</p>
@@ -684,7 +697,7 @@ export default function Library() {
               }
               return (
                 <div key={r.id} data-row={i} data-testid="library-row" onClick={() => { setCursor(i); setDetailId(r.id); }} onContextMenu={(e) => { setCursor(i); menu.open(e, rowItems(r)); }} className={`group flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors ${detailId === r.id ? "bg-indigo-50 dark:bg-indigo-500/10" : active ? "bg-stone-50 dark:bg-stone-800/60" : "hover:bg-stone-50 dark:hover:bg-stone-800/40"}`}>
-                  <input type="checkbox" checked={selected.has(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSelect(r.id)} className="mt-1 accent-indigo-500" aria-label={`Select ${r.title}`} />
+                  <input type="checkbox" checked={selected.has(r.id)} onClick={(e) => e.stopPropagation()} onChange={(e) => onCheck(i, r.id, (e.nativeEvent as MouseEvent).shiftKey)} className="mt-1 accent-indigo-500" aria-label={`Select ${r.title}`} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">{r.title}</p>
                     <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-stone-400 dark:text-stone-400">

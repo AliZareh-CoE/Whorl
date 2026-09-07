@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Library ranges (2026-09-07, #433).** anchorRef + selectRange; shift-click / shift-x ranges, ⌘A selects the view. Test: literature/tests/test_selection_keys.py. Playwright: shift-click 1→4 = 4 selected, ⌘A = all, Esc = 0.
+
 - **⌘K creation verbs (2026-09-07, #432).** `paper:`/`doi:`/bare DOI or arXiv → by-doi (project-scoped); verbs Add a paper (`/library?add=1`), New note, New manuscript (`/writing?new=1`), New project; empty state `palette-empty`. Test: core/tests/test_palette_verbs.py. Playwright: docs/screenshots/palette-paper.png.
 
 - **Today due times (2026-09-07, #431).** `TodoItem.due_at` (core 0011), browser parser `dueTime.ts` (Today input/edit, ⌘K todo:), due chips, carried-over count, `TodoNudge` in the sidebar, dashboard hero times, MCP `add_todo(due_at)`. Tests: core/tests/test_due_times.py (API, MCP client, node-run parser, TSX needles). Playwright: docs/screenshots/today-due.png.

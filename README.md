@@ -49,7 +49,7 @@ Claude Code can do all of it with you — 96 tools over the same API the UI uses
 - Rearrange by hand: drag a phase by its number onto another card to reorder, drag a milestone row onto a different phase to move it there (`POST /api/v1/projects/{slug}/phases/reorder/`).
 
 **Library** — add by DOI / arXiv; drop a folder of PDFs (the DOI is read off page one), BibTeX, RIS, CSL-JSON, or pull Zotero; everything deduplicated. Or **watch a folder**: point the Library at your Downloads folder and every PDF saved there is imported on its own (Library rail › Watch folder). Tag papers from the detail pane; right-click a tag in the rail to give it a colour, rename or delete it — the colour follows the tag onto every row.
-- Facets, keyboard `j/k/x/o`, bulk file / mark / tag / export, saved smart views, duplicate merge that keeps every link.
+- Facets, keyboard `j/k/x/o` (shift-click or shift-x selects a range, ⌘A the whole view), bulk file / mark / tag / export, saved smart views, duplicate merge that keeps every link.
 - Read and highlight without leaving the page; per-project reading notes; Find PDF (arXiv → Unpaywall).
 - Search inside your PDFs: every attached PDF is read into searchable text — hits name the page.
 - Discover from any paper (similar / cites / cited-by), citations in APA · MLA · Chicago · Harvard · Vancouver · IEEE, retraction and duplicate checkers.

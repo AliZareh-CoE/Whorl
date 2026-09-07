@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Library selection ergonomics: ranges and select-all (#433)
+
+**Decision.** The last row you toggled (by checkbox or `x`) is the anchor; **shift-click** a checkbox or press **shift-x** on the row under the cursor to select everything between the anchor and it; **⌘A / Ctrl+A** (outside a text field) selects the whole view; Esc still clears. The hint line in the list header says so.
+
+**Why.** Backlog #60's last open pieces. Bulk actions (link, tag, status, fetch PDFs, cite, export) were already there; selecting forty papers one checkbox at a time was the tax on using them.
+
+**Alternatives rejected.** Drag-to-select (a marquee over a virtual list fights scrolling); "select all matching the filter, beyond the page" (the bulk endpoints take ids, and acting on rows you have not seen is how libraries get mangled).
+
 ### 2026-09-07 — ⌘K learns to make things: paper:, a bare DOI, and four creation verbs (#432)
 
 **Decision.** The demo GIF's own last frame showed the gap: "add paper" typed into the palette matched nothing. Now `paper: <DOI or arXiv id>` (also `doi:`, `p:`) adds the paper to the library — and to the project you are in — through `POST /references/by-doi/`, and a bare DOI, `doi.org` URL or arXiv id typed on its own does the same without a prefix. Four static verbs join the list: "Add a paper by DOI or arXiv id" (Library with the add box focused via `?add=1`), "New note in this project" (`/notes/new`), "New manuscript" (Writing with the title box focused via `?new=1`), "New project". When nothing matches, the palette says so and lists the prefixes instead of showing a blank panel.
@@ -2322,7 +2330,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 57. Search page budget — /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
 58. Tree tooltips — hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)
 59. ~~[REV] Atlas Assistant panel (done 2026-06-11, cycle 55 — the first revolutionary cycle): ✨ Assistant on every page — Cmd/Ctrl-K (or sidebar button) opens a calm slide-over React island; fuzzy jump-to-anything command bar (local subsequence scoring over a server-built index of projects/notes/references/prompts/manuscripts/pages, ≤400 entries, 5 queries); page-aware quick actions; 'Ask Claude about this' composes a context-rich MCP prompt (object + suggested atlas tools) with one-click copy; recent-activity feed for the current object. Backend: core/assistant.py + GET /assistant/context/ (session-gated). Built with parallel agent workflows per owner suggestion. NO paid APIs.~~ (idea added by cycle 52)
-60. Bulk-bar keyboard shortcuts — x toggles selection on the focused row, shift-click selects ranges, Esc clears the selection (idea added by cycle 53)
+60. ~~Bulk-bar keyboard shortcuts (x and Esc earlier; shift-click / shift-x ranges and ⌘A done 2026-09-07, #433)~~ — original: x toggles selection on the focused row, shift-click selects ranges, Esc clears the selection (idea added by cycle 53)
 61. Island dev-mode — `vite dev` proxy so island development gets HMR against the running Django server (idea added by cycle 54)
 62. [REV] Synthesis studio — select N papers from the matrix and get a structured literature-synthesis scaffold (themes × claims × evidence table prefilled from reading notes + keywords, exportable to a manuscript section) — candidate for the next revolutionary cycle at 65 (idea added by cycle 55)
 63. Assistant actions that act — POST quick actions in the panel (complete milestone, set reading status) with optimistic UI, reusing the bulk endpoints pattern (idea added by cycle 55)
