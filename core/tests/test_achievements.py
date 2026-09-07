@@ -157,3 +157,44 @@ def test_recent_unlocks_window(client_logged_in):
     ProjectFactory().notes.create(title="n", body="")
     ledger = client_logged_in.get("/api/v1/achievements/").json()
     assert "first_light" not in ledger["recent_unlocks"]  # old sighting, not new
+
+
+def test_batch_two_progress_functions():
+    """#388: the new combined-progress achievements read the facts they claim to."""
+    by_key = {a.key: a for a in ach.CATALOGUE}
+    assert len(ach.CATALOGUE) >= 85 and len(by_key) == len(ach.CATALOGUE)  # unique keys
+    facts = {
+        "evidence_for": 12,
+        "evidence_against": 4,
+        "rejections": 40,
+        "contradicted": 50,
+        "compiles_failed": 30,
+        "compiles_ok": 5,
+    }
+    assert by_key["balanced_ledger"].progress(facts) == (4, 10)
+    assert by_key["died_a_hundred"].progress(facts) == (120, 100)
+    assert by_key["estus"].progress(facts) == (5, 20)
+    assert by_key["anniversary"].hidden and by_key["dragonslayer"].tier == "souls"
+
+
+def test_batch_two_facts_exist(db):
+    facts = ach.gather_facts()
+    for key in (
+        "coloured_tags",
+        "pdfs",
+        "dois",
+        "comments",
+        "documents",
+        "projects",
+        "saved_views",
+        "max_files_on_manuscript",
+        "days_active",
+        "first_day_age",
+        "todos_done_today",
+        "commented_highlights",
+        "evidence_for",
+        "evidence_against",
+        "lunch_break",
+        "midnight",
+    ):
+        assert key in facts, key

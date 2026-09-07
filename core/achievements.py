@@ -367,6 +367,177 @@ CATALOGUE: list[Achievement] = [
         _count("shelved", 3),
         hidden=True,
     ),
+    # batch two (2026-09-07, #388) — fun ------------------------------------------------
+    Achievement(
+        "colour_coded",
+        "Colour coded",
+        "Give three library tags a colour.",
+        "fun",
+        _count("coloured_tags", 3),
+    ),
+    Achievement(
+        "lunch_break",
+        "Working lunch",
+        "Log something between noon and two.",
+        "fun",
+        _flag("lunch_break"),
+    ),
+    Achievement(
+        "midnight_oil",
+        "Midnight oil",
+        "Log something in the midnight hour.",
+        "fun",
+        _flag("midnight"),
+    ),
+    Achievement(
+        "collector", "Collector", "Attach 25 PDFs in the library.", "fun", _count("pdfs", 25)
+    ),
+    Achievement("doi_hunter", "DOI hunter", "Fifty papers with a DOI.", "fun", _count("dois", 50)),
+    Achievement(
+        "second_opinion", "Second opinion", "Leave ten comments.", "fun", _count("comments", 10)
+    ),
+    Achievement(
+        "pack_rat",
+        "Pack rat",
+        "A hundred documents in the workspace.",
+        "fun",
+        _count("documents", 100),
+    ),
+    Achievement(
+        "many_files",
+        "Many hands",
+        "A manuscript with four or more source files.",
+        "fun",
+        _count("max_files_on_manuscript", 4),
+    ),
+    Achievement(
+        "smart_views",
+        "Smart views",
+        "Save three views in the Library rail.",
+        "fun",
+        _count("saved_views", 3),
+    ),
+    Achievement(
+        "second_project",
+        "Second project",
+        "Run two projects at once.",
+        "fun",
+        _count("projects", 2),
+    ),
+    Achievement(
+        "done_today",
+        "Good day",
+        "Tick five to-dos in one day.",
+        "fun",
+        _count("todos_done_today", 5),
+    ),
+    Achievement(
+        "anniversary",
+        "Anniversary",
+        "A year since your first entry.",
+        "fun",
+        _count("first_day_age", 365),
+        hidden=True,
+    ),
+    # steady --------------------------------------------------------------------------
+    Achievement("fortnight", "Fortnight", "A 14-day streak.", "steady", _count("streak", 14)),
+    Achievement(
+        "forty_days", "Forty days", "Forty active days.", "steady", _count("days_active", 40)
+    ),
+    Achievement(
+        "margin_notes",
+        "Margin notes",
+        "Fifty highlights with a comment.",
+        "steady",
+        _count("commented_highlights", 50),
+    ),
+    Achievement(
+        "balanced_ledger",
+        "Balanced ledger",
+        "Ten pieces of evidence for and ten against.",
+        "steady",
+        lambda f: (min(f.get("evidence_for", 0), f.get("evidence_against", 0)), 10),
+    ),
+    Achievement(
+        "five_projects",
+        "Five projects",
+        "Five projects in the workspace.",
+        "steady",
+        _count("projects", 5),
+    ),
+    Achievement(
+        "librarian", "Librarian", "250 papers in the library.", "steady", _count("papers", 250)
+    ),
+    Achievement(
+        "ten_phases", "Ten phases", "Finish ten phases.", "steady", _count("phases_done", 10)
+    ),
+    # hard ----------------------------------------------------------------------------
+    Achievement("quarter_streak", "A quarter", "A 90-day streak.", "hard", _count("streak", 90)),
+    Achievement(
+        "year_active",
+        "Two hundred days",
+        "Two hundred active days.",
+        "hard",
+        _count("days_active", 200),
+    ),
+    Achievement(
+        "five_hundred_highlights",
+        "Five hundred",
+        "Five hundred highlights.",
+        "hard",
+        _count("highlights", 500),
+    ),
+    Achievement(
+        "ten_manuscripts",
+        "Ten manuscripts",
+        "Ten manuscripts on the board.",
+        "hard",
+        _count("manuscripts", 10),
+    ),
+    Achievement(
+        "three_complete",
+        "Three complete",
+        "Three projects marked complete.",
+        "hard",
+        _count("projects_complete", 3),
+    ),
+    # souls ---------------------------------------------------------------------------
+    Achievement(
+        "died_a_hundred",
+        "Died a hundred times",
+        "A hundred deaths — rejections, contradictions, failed compiles.",
+        "souls",
+        lambda f: (
+            f.get("rejections", 0) + f.get("contradicted", 0) + f.get("compiles_failed", 0),
+            100,
+        ),
+    ),
+    Achievement(
+        "kindled",
+        "Kindled",
+        "Fifty bonfires lit (milestones done).",
+        "souls",
+        _count("milestones", 50),
+    ),
+    Achievement(
+        "invaded", "Invaded", "Five rejections and still here.", "souls", _count("rejections", 5)
+    ),
+    Achievement(
+        "dragonslayer",
+        "Dragonslayer",
+        "Three acceptances.",
+        "souls",
+        _count("accepted", 3),
+        hidden=True,
+    ),
+    Achievement(
+        "estus",
+        "Estus",
+        "Twenty failed compiles and twenty good ones — you drank and went on.",
+        "souls",
+        lambda f: (min(f.get("compiles_failed", 0), f.get("compiles_ok", 0)), 20),
+        hidden=True,
+    ),
 ]
 BY_KEY = {a.key: a for a in CATALOGUE}
 
@@ -417,16 +588,23 @@ def gather_facts(
 ) -> dict:
     from django.db.models import Count
 
-    from core.models import Pet, TodoItem
+    from core.models import Comment, Pet, TodoItem
     from core.pet import _activity_days, _activity_points, pet_stats, streak_days
     from documents.models import Document, Folder
-    from literature.models import CitationEdge, Highlight, LibraryTag, ProjectReference, Reference
+    from literature.models import (
+        CitationEdge,
+        Highlight,
+        LibraryTag,
+        ProjectReference,
+        Reference,
+        SavedView,
+    )
     from notes.models import Note, NoteLink, QuickCapture
     from plans.models import Milestone, Phase, ResearchQuestion
     from projects.models import DecisionRecord, Project
     from prompts.models import Prompt
     from research.models import Dataset, Evidence, ExperimentEntry, Hypothesis, Protocol
-    from writing.models import Manuscript, ManuscriptRevision, SubmissionEvent
+    from writing.models import Manuscript, ManuscriptFile, ManuscriptRevision, SubmissionEvent
 
     stats = stats or pet_stats()
     days = _activity_days(limit=400)
@@ -445,6 +623,11 @@ def gather_facts(
     )
     per_manuscript = (
         ManuscriptRevision.objects.values("manuscript")
+        .annotate(n=Count("id"))
+        .values_list("n", flat=True)
+    )
+    files_per_manuscript = (
+        ManuscriptFile.objects.values("manuscript")
         .annotate(n=Count("id"))
         .values_list("n", flat=True)
     )
@@ -528,6 +711,25 @@ def gather_facts(
         "projects_complete": Project.objects.filter(status="complete").count(),
         "projects_with_3_done": sum(1 for n in done_per_project if n >= 3),
         "returned_after_gap": _returned_after_gap(days),
+        # batch two (2026-09-07, #388)
+        "coloured_tags": LibraryTag.objects.exclude(color="").count(),
+        "pdfs": Reference.objects.exclude(pdf="").exclude(pdf__isnull=True).count(),
+        "dois": Reference.objects.exclude(doi__isnull=True).exclude(doi="").count(),
+        "comments": Comment.objects.count(),
+        "documents": Document.objects.count(),
+        "projects": Project.objects.count(),
+        "saved_views": SavedView.objects.count(),
+        "max_files_on_manuscript": max(files_per_manuscript, default=0),
+        "days_active": len(days),
+        "first_day_age": (timezone.localdate() - min(days)).days if days else 0,
+        "todos_done_today": TodoItem.objects.filter(
+            done=True, done_at__date=timezone.localdate()
+        ).count(),
+        "commented_highlights": Highlight.objects.exclude(comment="").count(),
+        "evidence_for": Evidence.objects.filter(direction="supports").count(),
+        "evidence_against": Evidence.objects.filter(direction="contradicts").count(),
+        "lunch_break": any(12 <= h < 14 for h in hours),
+        "midnight": any(h == 0 for h in hours),
     }
 
 

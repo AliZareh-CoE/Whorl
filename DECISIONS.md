@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Achievements, batch two (#388)
+
+**Decision.** Twenty-nine more achievements (86 in all): twelve fun (colour-coded tags, a working lunch, midnight oil, 25 PDFs, 50 DOIs, ten comments, a hundred documents, a four-file manuscript, three smart views, a second project, five to-dos in a day, a hidden anniversary), seven steady (a fortnight streak, forty active days, fifty commented highlights, a balanced evidence ledger, five projects, 250 papers, ten phases), five hard (a 90-day streak, two hundred active days, five hundred highlights, ten manuscripts, three complete projects) and five souls (a hundred deaths, fifty bonfires, five rejections, a hidden Dragonslayer for three acceptances, a hidden Estus for twenty failed and twenty good compiles). Sixteen new facts feed them, all counts on data that already exists.
+
+**Why.** The owner asked for "a lot" and for hard ones; the first batch covered the obvious milestones, this one covers habits (streaks, active days, the hour of the day), the library's hygiene (colours, DOIs, PDFs), and the writing grind — the places a researcher actually spends the year. Souls-tier entries stay grim and honest: deaths are rejections, contradictions and failed compiles.
+
+**Alternatives rejected.** Achievements for opening pages or clicking buttons (cheap, unearned, and they would need tracking that does not exist); weekly "seasonal" resets (a ledger should never take anything away).
+
 ### 2026-09-07 — Observatory second pass: the project's constellation under the overview header (#387)
 
 **Decision.** `Constellation.tsx` draws the project's papers and notes as a 132 px sky under the overview header: nodes and links from `GET /projects/{slug}/graph/` (capped at 320 nodes by degree), a small in-file layout (sideways-only 1/d repulsion, a home height per star, loose link springs, soft walls — a full n² force layout piles a short band onto its edges), stars tinted with the project accent (unread ones fainter, notes teal), a slow drift and twinkle that stop under `prefers-reduced-motion` or a hidden tab, hover for the title, click to open the paper or note, and a caption with counts and a link to the graph page. Nothing renders when the project has fewer than two nodes.
