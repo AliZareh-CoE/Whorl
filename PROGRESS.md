@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Pet species (2026-09-07, #427).** `pet_species` (4 plumages + golden 1/64), `species` in pet state, CSS palettes `.mochi-species-*`, Creature `species` prop, pet page line, hatchling blurb. Tests: core/tests/test_pet.py::TestSpecies. Playwright: docs/screenshots/pet-species.png.
+
 - **Performance pass (2026-09-07, #426).** Probe of 20 endpoints; references list 36→7 queries (`prefetch_related("tags")`); budget test core/tests/test_query_budgets.py::TestApiBudgets. Warm dashboard 23 q / 25 ms; overview 51 q / 60 ms (flat).
 
 - **Shortcuts sheet (2026-09-07, #425).** `app/shortcuts.tsx` (`?` key, ⌘K verb), five groups. Guard: core/tests/test_polish.py::test_shortcuts_sheet. Playwright: docs/screenshots/shortcuts-sheet.png.

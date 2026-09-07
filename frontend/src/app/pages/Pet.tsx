@@ -13,6 +13,7 @@ import { queryGate } from "../../components/QueryBoundary";
 type Achievement = { key: string; title: string; description: string; unlocked: boolean; tier: string; points: number; hidden: boolean; progress: { current: number; target: number; percent: number } };
 type PetState = {
   name: string; stage: string; stage_blurb: string; mood: string; mood_blurb: string; speech: string; speech_lines: string[];
+  species?: { key: string; name: string; blurb: string; shiny: boolean };
   reactions: Record<string, string>; stats: Record<string, number>; dominant_stat: string; weekly_points: number; lifetime_points: number;
   to_next_stage: number | null; next_stage_name: string | null; stage_floor: number; next_stage_points: number | null; streak_days: number;
   achievements: Achievement[]; achievement_score: number; rank: { name: string; next: string | null; next_at: number | null }; souls_mode: boolean; souls: { deaths: number; bonfires: number; bosses: number; souls: number }; recent_unlocks: string[]; points_legend: { action: string; points: number }[]; stages: { points: number; name: string; blurb: string }[];
@@ -67,7 +68,7 @@ export default function PetPage() {
         <div className="flex flex-col items-center gap-8 md:flex-row md:items-center">
           <div className="relative shrink-0">
             <div className="absolute inset-0 -m-6 rounded-full bg-gradient-to-b from-indigo-500/10 to-transparent" aria-hidden="true" />
-            <Creature stage={p.stage} mood={p.mood} size={200} reaction={reaction} onClick={poke} className="relative" />
+            <Creature stage={p.stage} mood={p.mood} species={p.species?.key} size={200} reaction={reaction} onClick={poke} className="relative" />
           </div>
           <div className="min-w-0 flex-1 text-center md:text-left">
             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
@@ -81,7 +82,7 @@ export default function PetPage() {
                 <h1 className="text-gradient text-4xl font-semibold tracking-tight">{p.name}<button type="button" onClick={() => { setName(p.name); setEditing(true); }} className="ml-2 inline-flex align-middle text-stone-400 hover:text-indigo-500" aria-label="Rename"><Pencil className="h-4 w-4" aria-hidden="true" /></button></h1>
               )}
             </div>
-            <p className="mt-1 text-sm text-stone-500">the {p.stage} · {p.mood}</p>
+            <p className="mt-1 text-sm text-stone-500" data-testid="pet-species">{p.species && p.stage !== "egg" ? <><span title={p.species.blurb}>{p.species.shiny ? "✦ a shiny " : "a "}{p.species.name}</span> · </> : null}the {p.stage} · {p.mood}</p>
             <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-100" data-testid="pet-line">
               <span key={line} className="pet-bubble inline">{line}</span>
               <button type="button" onClick={() => void speak()} disabled={speaking} className="ml-2 inline-flex align-middle text-indigo-400 hover:text-indigo-600 disabled:opacity-40" title="Hear it (local voice)" aria-label="Hear it"><Volume2 className="h-3.5 w-3.5" aria-hidden="true" /></button>

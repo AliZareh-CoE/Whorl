@@ -507,6 +507,12 @@
   transform-origin: 50% 95%;
   user-select: none;
 }
+/* #427: species — one palette per install, chosen at hatch (core/pet.py::pet_species) */
+.mochi.mochi-species-snowy { --mochi-body: #e6ebf2; --mochi-hi: #ffffff; --mochi-belly: #f7f9fc; --mochi-line: #7d8794; }
+.mochi.mochi-species-barn { --mochi-body: #e9c98f; --mochi-hi: #fff2d6; --mochi-belly: #fbf6ea; --mochi-line: #9c7a45; }
+.mochi.mochi-species-dusk { --mochi-body: #6b6a8f; --mochi-hi: #a39fd0; --mochi-belly: #d9d6ee; --mochi-line: #3d3a5c; --mochi-accent: #c4b5fd; }
+.mochi.mochi-species-golden { --mochi-body: #f3b52a; --mochi-hi: #fff0a8; --mochi-belly: #fff5cf; --mochi-line: #a1650c; --mochi-accent: #b45309; }
+.mochi-species-golden .mochi-svg { filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.55)); }
 .mochi-egg { --mochi-body: #f6efdd; --mochi-hi: #fffaf0; --mochi-line: #cbbb95; }
 .mochi-scholar { --mochi-body: #c9a26b; --mochi-hi: #f0d9a8; --mochi-line: #8b6a3c; }
 .mochi-sage { --mochi-body: #9b7d55; --mochi-hi: #d9bf8f; --mochi-line: #5f4a2c; --mochi-accent: #818cf8; }

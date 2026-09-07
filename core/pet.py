@@ -19,6 +19,27 @@ STAGES = [
     (120, "sage", "🦉✨", "A sage. It has watched whole phases complete."),
 ]
 
+# #427 (backlog #110): the plumage is decided once per install, from the Pet row's identity —
+# a Buddy-style hatch that is yours and stays yours. One in sixty-four is golden.
+SPECIES = [
+    ("tawny", "tawny owl", "warm brown with a cream belly — the classic study companion"),
+    ("snowy", "snowy owl", "white as a blank page, grey-flecked"),
+    ("barn", "barn owl", "pale gold with a heart-shaped face"),
+    ("dusk", "dusk owl", "slate and violet — reads best after dark"),
+]
+GOLDEN = ("golden", "golden owl", "✦ shiny — one hatch in sixty-four comes out gold")
+
+
+def pet_species(pet) -> dict:
+    import hashlib
+
+    seed = f"{pet.pk}:{pet.created_at.isoformat() if pet.created_at else ''}"
+    digest = hashlib.sha256(seed.encode()).digest()
+    shiny = digest[0] % 64 == 0
+    key, name, blurb = GOLDEN if shiny else SPECIES[digest[1] % len(SPECIES)]
+    return {"key": key, "name": name, "blurb": blurb, "shiny": shiny}
+
+
 MOODS = [
     (0, "sleeping", "zzz… it rests while you rest"),
     (1, "content", "quietly pleased with this week's progress"),
@@ -318,6 +339,7 @@ def pet_state() -> dict:
     from core.models import Pet
 
     pet, _ = Pet.objects.get_or_create(pk=1, defaults={"name": "Mochi"})
+    species = pet_species(pet)
     lifetime = _activity_points()
     weekly = _activity_points(since=timezone.now() - WEEK)
 
@@ -363,7 +385,12 @@ def pet_state() -> dict:
         "dominant_stat": dominant,
         "stage": stage[1],
         "emoji": stage[2],
-        "stage_blurb": stage[3],
+        "stage_blurb": (
+            f"Hatched — a {species['name']}! Fed by your first finished work."
+            if stage[1] == "hatchling"
+            else stage[3]
+        ),
+        "species": species,
         "mood": mood[1],
         "mood_blurb": mood[2],
         "weekly_points": weekly,

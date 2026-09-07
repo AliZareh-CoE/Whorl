@@ -185,3 +185,33 @@ class TestHabitSignals:
         # activity at this hour makes it usual: the line goes away
         self._note_at(project, now - dt.timedelta(days=3), "now-ish")
         assert not any("Not your usual hour" in line for line in _speech_candidates(now))
+
+
+class TestSpecies:
+    """#427: the plumage is decided once per install and shows up in the state."""
+
+    def test_species_is_deterministic_and_named(self):
+        from core.models import Pet
+        from core.pet import GOLDEN, SPECIES, pet_species, pet_state
+
+        pet, _ = Pet.objects.get_or_create(pk=1, defaults={"name": "Mochi"})
+        first = pet_species(pet)
+        assert first == pet_species(Pet.objects.get(pk=1))
+        assert first["key"] in {k for k, *_ in SPECIES} | {GOLDEN[0]}
+        assert first["shiny"] == (first["key"] == "golden")
+        state = pet_state()
+        assert state["species"] == first
+        # every seed lands on a real species; the golden one is rare but reachable
+        import datetime as dt
+
+        from django.utils import timezone
+
+        class Fake:
+            def __init__(self, pk, created_at):
+                self.pk, self.created_at = pk, created_at
+
+        keys = {
+            pet_species(Fake(i, timezone.now() + dt.timedelta(seconds=i)))["key"]
+            for i in range(400)
+        }
+        assert {k for k, *_ in SPECIES} <= keys and "golden" in keys

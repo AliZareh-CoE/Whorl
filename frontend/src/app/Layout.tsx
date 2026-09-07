@@ -99,6 +99,7 @@ export default function Layout() {
         recent_unlocks?: string[];
         achievements?: { key: string; title: string; tier: string }[];
         souls_mode?: boolean;
+        species?: { key: string; name: string; shiny: boolean };
       }>("/pet/"),
     staleTime: 300_000,
   });
@@ -203,7 +204,7 @@ export default function Layout() {
                 </button>
               </span>
               <span className="flex items-center gap-2 rounded-lg border border-stone-100 bg-stone-50 px-2 py-1.5 group-hover:border-stone-200 dark:border-stone-800 dark:bg-stone-950/40 dark:group-hover:border-stone-700">
-                <Creature stage={pet.stage} mood={pet.mood} size={44} reaction={petMove} onClick={() => { setPetMove(null); window.setTimeout(() => setPetMove("love"), 10); }} />
+                <Creature stage={pet.stage} mood={pet.mood} species={pet.species?.key} size={44} reaction={petMove} onClick={() => { setPetMove(null); window.setTimeout(() => setPetMove("love"), 10); }} />
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-stone-600 dark:text-stone-200">{pet.name}</span>
                   <span className="block truncate text-[10px] text-stone-400">

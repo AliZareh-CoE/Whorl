@@ -285,8 +285,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     reading, FOCUS from milestones, CURIOSITY from notes+comments, GRIT from experiments+
     submissions, 0–10 curve) with a dominant-trait bar panel on /pet/ and a trait line in
     the speech pool. No nagging kept; 5-min cache kept. Browser-verified: bubble rotation,
-    milestone→"A milestone falls! *happy hop*", personality panel.~~ Remaining: species/
-    hatching/rarity moment (idea #110).
+    milestone→"A milestone falls! *happy hop*", personality panel.~~ ~~Species / hatching / rarity (done 2026-09-07, #427: four plumages + a 1-in-64 golden, decided per install).~~
 
 24. **LaTeX: Overleaf parity, then beyond (owner, 2026-06-11, during cycle 100).** "this
     latex feature that we have is too stupid! still overleaf is better! we need to first
@@ -551,6 +550,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Mochi has a species (#427)
+
+**Decision.** `core/pet.py::pet_species` hashes the Pet row's identity (pk + created_at) once: four plumages — tawny, snowy, barn, dusk — and one in sixty-four hatches golden (shiny, with a soft glow). The species rides in the pet state (`species: {key, name, blurb, shiny}`), the hatchling blurb names it ("Hatched — a barn owl!"), the pet page says "a snowy owl · the scholar · thriving" (eggs keep the secret), and the Creature takes a `species` prop that maps to a CSS class overriding the five `--mochi-*` palette variables — no new artwork, the same layered SVG in a different coat.
+
+**Why.** Backlog #110 / owner idea #23's last line: a Buddy-style hatch moment with species and rarity. Deterministic from the install means it is *your* owl on every device that restores your backup; a colour-variable palette makes it a twelve-line change with no drift from the animations.
+
+**Alternatives rejected.** Random at first sight with the result stored (a new field for something a hash gives for free); distinct body shapes per species (artwork and animation debt for a delight feature); a re-roll button (rarity means nothing if you can re-roll).
 
 ### 2026-09-07 — Performance pass: the references list stops asking for tags one row at a time (#426)
 

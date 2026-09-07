@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Reaction = "hop" | "celebrate" | "love" | "nom" | "think";
 
-export function Creature({ stage, mood, size = 48, reaction, onClick, className = "" }: { stage: string; mood: string; size?: number; reaction?: Reaction | null; onClick?: () => void; className?: string }) {
+export function Creature({ stage, mood, size = 48, reaction, onClick, className = "", species }: { stage: string; mood: string; size?: number; reaction?: Reaction | null; onClick?: () => void; className?: string; species?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const idle = useRef<number | null>(null);
   const lastMove = useRef(0);
@@ -62,7 +62,7 @@ export function Creature({ stage, mood, size = 48, reaction, onClick, className 
   const happy = mood === "happy" || mood === "thriving";
 
   return (
-    <span ref={ref} onClick={onClick} className={`mochi mochi-${stage} mochi-${mood} ${onClick ? "cursor-pointer" : ""} ${className}`} style={{ width: size, height: size }} role={onClick ? "button" : "img"} aria-label={`Mochi the ${stage}, ${mood}`} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}>
+    <span ref={ref} onClick={onClick} className={`mochi mochi-${stage} mochi-${mood} ${species ? `mochi-species-${species}` : ""} ${onClick ? "cursor-pointer" : ""} ${className}`} style={{ width: size, height: size }} role={onClick ? "button" : "img"} aria-label={`Mochi the ${stage}, ${mood}`} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}>
       {particles && (
         <span className="mochi-particles" aria-hidden="true">
           {particles.items.map((p, i) => <i key={`${particles.id}-${i}`} className={particles.kind === "love" ? "mochi-heart" : "mochi-confetti"} style={{ ["--tx" as string]: `${p.x}px`, ["--ty" as string]: `${p.y}px`, ["--delay" as string]: `${p.d}s`, ["--rot" as string]: `${p.r}deg`, ["--hue" as string]: `${(i * 47) % 360}` }} />)}
