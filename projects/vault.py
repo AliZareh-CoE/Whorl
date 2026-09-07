@@ -15,6 +15,8 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+from core.archives import safe_archive_name
+
 
 def _slug(text: str, fallback: str = "untitled") -> str:
     out = re.sub(r"[^\w\s.-]", "", str(text or "")).strip()
@@ -58,6 +60,8 @@ def build_vault(project, stream, *, include_documents: bool = True) -> dict:
     written: set[str] = set()
 
     def unique(path: str) -> str:
+        # #453: one guard for every archive member name Atlas writes
+        path = safe_archive_name(path) or "unnamed"
         base, n = path, 2
         while path in written:
             stem, dot, ext = base.rpartition(".")

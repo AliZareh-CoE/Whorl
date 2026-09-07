@@ -16,6 +16,8 @@ from pathlib import Path
 
 from django.conf import settings
 
+from core.archives import safe_archive_name
+
 
 def _sqlite_path() -> Path | None:
     db = settings.DATABASES["default"]
@@ -70,7 +72,10 @@ def build_backup(stream) -> dict:
             zf.writestr("database.json", _dump_json())
         if media_root.exists():
             for file in sorted(p for p in media_root.rglob("*") if p.is_file()):
-                zf.write(file, f"media/{file.relative_to(media_root).as_posix()}")
+                name = safe_archive_name(f"media/{file.relative_to(media_root).as_posix()}")
+                if name is None:  # #453: never write a member that unzips outside media/
+                    continue
+                zf.write(file, name)
                 manifest["media_files"] += 1
         zf.writestr("MANIFEST.json", json.dumps(manifest, indent=1))
         zf.writestr(

@@ -4,6 +4,8 @@
 
 - **⚠ OWNER REPORT (2026-09-07, later): the newest installer they can get still opens a dark, empty window.** The release feed tops out at 0.1.139 (built 05:17 UTC); every push since is unbuildable — desktop-release runs 140–165 fail in four seconds with `runner_id: 0` (no runner assigned: GitHub Actions spending limit / billing on the account — owner action). #451 makes the watchdog fire on "no painted text" (the mounted flag was set before React drew anything) and report in-flight requests. The other items in that batch (project CRUD, open from disk, missing PDF, icon, achievements) shipped in 0.1.11x–0.1.139; if they still show, the installed build is older than it looks — Diagnostics says the version.
 
+- **Archive name guard (2026-09-07, #453).** `core/archives.py` behind the submission zip, vault and backup. Test: core/tests/test_archives.py.
+
 - **Studio PDF text layer (2026-09-07, #452).** `.studio-page` wrap + pdf.js TextLayer per page; lookups moved to the wrap. Test: writing/tests/test_studio_textlayer.py. Playwright: textLayer spans present, selection returns text.
 
 - **Library reading flow (2026-09-07, #450).** `GET /references/reading-flow/?<filters>` (link resolution), ReadingFlow library mode at `/library/read`, Library "Read these →". Test: literature/tests/test_library_read_flow.py.

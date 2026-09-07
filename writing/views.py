@@ -241,10 +241,7 @@ def export_submission_zip(request, slug, pk):
 
     manuscript, _ = _workbench_objects(slug, pk)
 
-    def _safe(path: str) -> bool:
-        # AUDIT #12: zip entries derive from validated paths, but defend in depth against
-        # a row injected past validation — never emit a traversal/absolute archive name.
-        return not (path.startswith("/") or path.startswith("\\") or ".." in path.split("/"))
+    from core.archives import is_safe_archive_name as _safe  # #453: one guard for every archive
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:

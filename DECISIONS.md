@@ -551,6 +551,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — One rule for archive member names (#453)
+
+**Decision.** `core/archives.py::safe_archive_name(name)` normalises backslashes and `./`, and refuses absolute paths, drive letters, `..` segments, control characters and empty names. The three archive writers — the submission zip, the Markdown vault and the backup — go through it; a guard test asserts they keep doing so, and the submission zip is tested against a row injected past validation.
+
+**Why.** Backlog #133 (from audit #12): the traversal guard lived inside one view; the vault and the backup came later and re-derived their own safety by construction. One helper, one test, no drift.
+
 ### 2026-09-07 — The Studio's PDF preview has a text layer (#452)
 
 **Decision.** Each preview page is now a positioned wrap holding the canvas and a pdf.js `TextLayer` (the same class and `.textLayer` CSS the literature reader uses), so the compiled PDF's text can be selected and copied straight from the studio; page tracking, "go to page" and SyncTeX's forward marker read the wrap instead of the canvas, and the double-click-to-source binding moved onto the wrap so the text layer cannot swallow it. A page without text still renders.
@@ -2567,7 +2573,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 136. ~~Pet voice (the sidebar bubble's 🔊 speaks the line through /tts/; swept 2026-09-07)~~ — original (Owner idea #29): 🔊 on the pet speaks its line via the existing Piper /tts/ endpoint; optional spoken reaction in the hop moment behind a remembered mute toggle (idea added by cycle 122)
 135. CM6 migration sub-epic — execute docs/plans/2026-06-11-cm6-oss-migration.md slices A/B/C; closes #114 (offline editor) and deletes the hand-rolled snippet walker + hints (idea added by cycle 121, from the OSS plan)
 134. OSS-replacement audit pass — a dedicated cycle that inventories Atlas's hand-rolled pieces (CM5 snippet walker, planned drag-resize, detex word count, difflib usage, the pet animation) and swaps in mature libraries where they're clearly better (Owner idea #28); pairs with the CM6 evaluation (idea added by cycle 120)
-133. Sanitize zip member names centrally — the submission-zip traversal guard is local to the view; a shared safe_archive_name() helper would cover any future zip/tar export (idea added by cycle 120, from AUDIT #12)
+133. ~~Sanitize zip member names centrally (done 2026-09-07, #453: `core/archives.py`)~~ — original: the submission-zip traversal guard is local to the view; a shared safe_archive_name() helper would cover any future zip/tar export (idea added by cycle 120, from AUDIT #12)
 132. Pet hatch animation — when the pet crosses a stage threshold (egg→hatchling etc.), play a one-time SVG transition (shell crack/burst) instead of just swapping the drawing (idea added by cycle 119)
 131. ~~Include the .bbl in the submission zip (done 2026-09-07, #442: `--keep-intermediates`, `compiled_bbl`, `<main>.bbl` in submission.zip)~~ — original: persist the compiled .bbl (compile with --keep-intermediates and store it on the manuscript) so the arXiv package includes it for venues that don't run BibTeX (idea added by cycle 118)
 130. ~~Resolve/strike line comments (done 2026-09-07, #439: `resolved_at`, PATCH, greyed rows, gutter marks only for open ones)~~ — original: let a line comment be marked resolved (greyed + dot hidden) so addressed feedback clears, like a review tool; the Comment model would need a resolved flag (idea added by cycle 117)
