@@ -56,3 +56,14 @@ def test_documents_sparse_state():
         "filesUrl={`/projects/${slug}/files`}"
         in (BASE / "frontend/src/app/pages/Documents.tsx").read_text()
     )
+
+
+def test_shortcuts_sheet():
+    """#425: ? opens the cheat sheet; the palette has the verb; text fields are exempt."""
+    sheet = (BASE / "frontend/src/app/shortcuts.tsx").read_text()
+    assert (
+        'data-testid="shortcuts-sheet"' in sheet and "export function installShortcutsKey" in sheet
+    )
+    assert 'el.closest(".cm-editor")' in sheet  # typing ? in the editor never opens it
+    assert "installShortcutsKey();" in (BASE / "frontend/src/app/Layout.tsx").read_text()
+    assert 'label: "Keyboard shortcuts"' in (BASE / "frontend/src/app/CommandBar.tsx").read_text()

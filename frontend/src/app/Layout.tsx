@@ -11,6 +11,7 @@ import { installExternalLinkHandler } from "./external";
 import { Creature, type Reaction } from "./pet/Creature";
 import { UpdaterButton } from "./UpdaterButton";
 import { Trophy } from "lucide-react";
+import { installShortcutsKey } from "./shortcuts";
 
 /** Achievement toast (owner, 2026-09-07): a fresh unlock is announced once per browser. */
 function UnlockToast({ unlocks, titles, grim }: { unlocks: string[]; titles: Record<string, { title: string; tier: string }>; grim: boolean }) {
@@ -83,6 +84,7 @@ export default function Layout() {
     return () => document.removeEventListener("click", onClick);
   }, [navigate]);
   useEffect(() => { installExternalLinkHandler(); }, []);
+  useEffect(() => { installShortcutsKey(); }, []); // #425: ? opens the cheat sheet
   const { data: pet } = useQuery({
     queryKey: ["pet"],
     queryFn: () =>

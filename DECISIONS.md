@@ -552,6 +552,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — A keyboard cheat sheet on `?` (#425)
+
+**Decision.** `app/shortcuts.tsx` holds the one list of shortcuts the app answers to — everywhere (⌘K, ?, the inspector on the desktop), Inbox (j/k, ↵, 1–5, x), Notes (⌘S, `[[`, `@`), Studio (⌘S, ⌘↩, ⌘⇧J, ⌘B, ⌘\, ⌘J, ⌘P), Reader — rendered as a two-column card through the in-app notice dialog. `?` opens it anywhere except inside inputs, textareas, selects, contenteditable and the CodeMirror editor; "Keyboard shortcuts" is a ⌘K verb. The modifier label follows the platform (⌘ / Ctrl).
+
+**Why.** The shortcuts existed in five places and were documented in none of them; a cheat sheet is how every keyboard-first tool makes them discoverable, and `?` is the convention.
+
+**Alternatives rejected.** Deriving the list from the code (the bindings live in CodeMirror keymaps, React handlers and a palette — a hand-kept list with a guard test is honest and cheap); a dedicated page (a card that closes with Esc is what you want mid-task).
+
 ### 2026-09-07 — The app knows when it was last backed up (#424)
 
 **Decision.** Every download of `/api/v1/backup.zip` writes a `core.BackupRecord` (size, media count, database kind; migration 0010). `core/backups.py::backup_status()` says when the last one was and whether that is *stale* — no backup within 14 days, or never — but only once there is data worth keeping (at least one project). It appears in three places: the Diagnostics header ("last backup 3 d ago", amber when stale, in the copyable report too), the dashboard's Needs-attention block as a calm amber row with the download link (the all-clear card yields to it), and `get_diagnostics` for Claude.

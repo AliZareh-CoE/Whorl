@@ -10,6 +10,7 @@ import { api, csrfToken, petReact } from "./api";
 import { toggleCalm } from "./calm";
 import { toSpaUrl } from "./links";
 import { isDesktop, openDevtools } from "./external";
+import { showShortcuts } from "./shortcuts";
 
 type Command = { title: string; type: string; url: string };
 type Action = { label: string; url: string };
@@ -169,6 +170,7 @@ export default function CommandBar() {
       { label: "Go to this week's review", keys: "go to weekly review week reflect", run: async () => { navigate("/review"); return "This week's review"; } },
       { label: "New quick capture", keys: "new quick capture inbox note idea jot", run: async () => { navigate("/inbox"); return "Inbox — type the thought"; } },
       { label: "Warm up the LaTeX engine", keys: "warm up latex tex engine bundle prefetch tectonic", run: async () => { await api("/diagnostics/warm-latex/", { method: "POST" }); return "Warming up the TeX bundle in the background"; } },
+      { label: "Keyboard shortcuts", keys: "keyboard shortcuts keys help cheat sheet hotkeys", run: async () => { void showShortcuts(); return "Shortcuts"; } },
       { label: "Download a backup", keys: "download backup zip export everything", run: async () => { window.location.assign("/api/v1/backup.zip"); return "Backup download started"; } },
       ...(isDesktop() ? [{ label: "Open the web inspector", keys: "open web inspector devtools console debug f12", run: async () => { await openDevtools(); return "Inspector opened"; } }] : []),
     ],
