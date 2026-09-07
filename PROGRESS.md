@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ RESTORE FROM A BACKUP (2026-09-07, #376).** Staged upload (validated), applied at the next desktop launch before the DB opens with the previous data kept beside it; Diagnostics section (restart / cancel / last result); `manage.py restore_backup`. Playwright: uploaded a real backup of the dev app → staged card with counts → cancelled (docs/screenshots/restore-staged.png). Tests: core/tests/test_backup.py (+4).
+
 - **Release notes from commits (2026-09-07, #375).** The desktop-preview release body (and so the updater's notes dialog) now lists the last feat/fix/perf commit subjects; checkout fetches 40 commits for it. Scaffold test pins it.
 
 - **★ ACHIEVEMENTS + SOULS MODE (2026-09-07, #374).** 57 achievements / 4 tiers / 8 hidden, progress + first-unlock timestamps, score & ranks, `/achievements` page, unlock toast, `get_achievements` (89 tools), Souls mode (grim speech, deaths/bonfires/bosses/souls, studio YOU DIED flash). Playwright: 57 cards, 8 unlocked on the demo, toast "First light", souls toggle → counters, pet page souls line (docs/screenshots/achievements.png, achievements-souls.png, pet-souls.png). Tests: core/tests/test_achievements.py (9), MCP client test; migration core.0006.

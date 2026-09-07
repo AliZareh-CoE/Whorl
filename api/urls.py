@@ -65,6 +65,7 @@ urlpatterns = [
     path("v1/diagnostics/warm-latex/", views.LatexWarmupAPIView.as_view(), name="latex_warmup"),
     path("v1/calendar.ics", views.CalendarFeedView.as_view(), name="calendar_ics"),
     path("v1/backup.zip", views.BackupView.as_view(), name="backup_zip"),
+    path("v1/restore/", views.RestoreAPIView.as_view(), name="restore"),
     path("v1/connect/skills/", views.ConnectSkillsAPIView.as_view(), name="connect_skills"),
     path("v1/connect/test/", views.ConnectTestAPIView.as_view(), name="connect_test"),
     path("v1/bots/", views.BotsAPIView.as_view(), name="bots"),

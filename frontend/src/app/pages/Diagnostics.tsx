@@ -4,10 +4,13 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Check, CheckCircle2, Copy, Download, Globe, Loader2, Stethoscope, XCircle } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Copy, Download, Globe, Loader2, RotateCcw, Stethoscope, Upload, XCircle } from "lucide-react";
 import { api } from "../api";
+import { confirmDialog, errorDialog } from "../../components/Dialog";
+import { isDesktop } from "../external";
 
 type Feed = { url: string; status: number | string | null };
+type RestoreState = { pending: { created_at?: string; staged_at: string | null; media_files: number; has_sqlite: boolean; has_json: boolean; size_bytes: number } | null; last_result: { ok: boolean; detail: string; applied_at: string; kept_previous_in: string } | null; data_dir: string };
 type Latex = { state: "idle" | "running" | "ok" | "failed" | "unknown"; log: string; seconds: number | null; dir: string; warm: boolean; size_mb: number };
 type Report = {
   version: string; desktop: boolean; platform: string; frozen: boolean; settings_module: string; data_dir: string | null; database: string;
@@ -36,6 +39,19 @@ export default function Diagnostics() {
   const qc = useQueryClient();
   const warm = useMutation({ mutationFn: () => api<Latex>("/diagnostics/warm-latex/", { method: "POST" }), onSuccess: () => qc.invalidateQueries({ queryKey: ["diagnostics"] }) });
   const running = r?.latex.state === "running";
+  // Restore from a backup (#376): staged now, applied at the next launch before the database opens
+  const restore = useQuery({ queryKey: ["restore"], queryFn: () => api<RestoreState>("/restore/") });
+  const stage = useMutation({
+    mutationFn: async (file: File) => { const fd = new FormData(); fd.append("file", file); return api<{ staged: unknown }>("/restore/", { method: "POST", body: fd }); },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["restore"] }),
+    onError: (e) => void errorDialog("That backup can't be restored", e),
+  });
+  const cancelRestore = useMutation({ mutationFn: () => api("/restore/", { method: "DELETE" }), onSuccess: () => qc.invalidateQueries({ queryKey: ["restore"] }) });
+  const pickBackup = async (file: File | undefined) => {
+    if (!file) return;
+    if (await confirmDialog({ title: "Restore this backup?", danger: true, confirmLabel: "Stage the restore", body: <>“{file.name}” replaces <b>everything</b> — the database and every file — at the next launch of Atlas. The current data is kept next to it in the data folder, so this can be undone by hand. Nothing changes until you restart.</> })) stage.mutate(file);
+  };
+  const restartApp = async () => { try { const t = (await import("@tauri-apps/api")) as unknown as { core: { invoke: (c: string) => Promise<unknown> } }; await t.core.invoke("restart_app"); } catch (e) { void errorDialog("Couldn't restart", e); } };
   useEffect(() => { if (!running) return; const t = window.setInterval(() => qc.invalidateQueries({ queryKey: ["diagnostics"] }), 3000); return () => window.clearInterval(t); }, [running, qc]);
   const copy = async () => { if (!r) return; try { await navigator.clipboard.writeText(r.text); setCopied(true); window.setTimeout(() => setCopied(false), 2000); } catch { /* blocked */ } };
 
@@ -86,6 +102,26 @@ export default function Diagnostics() {
               <pre className="max-h-64 overflow-auto rounded-lg bg-stone-950 p-3 font-mono text-[11px] leading-4 text-stone-200">{r.last_failed_compile.log || "(no log captured)"}</pre>
             </section>
           )}
+          <section className={`${panel} mt-5`} style={{ ["--i" as string]: 2.5 }} data-testid="restore">
+            <p className={`${railH} mb-2`}><RotateCcw className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />Restore from a backup</p>
+            {restore.data?.pending ? (
+              <div className="rounded-xl border border-amber-300/60 bg-amber-50/60 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-500/10" data-testid="restore-pending">
+                <p className="font-medium text-amber-900 dark:text-amber-100">A restore is staged{restore.data.pending.created_at ? ` — backup from ${new Date(restore.data.pending.created_at).toLocaleString()}` : ""}.</p>
+                <p className="mt-1 text-xs text-amber-800/80 dark:text-amber-200/80">{restore.data.pending.has_sqlite ? "Database file" : "JSON dump"} · {restore.data.pending.media_files} media file{restore.data.pending.media_files === 1 ? "" : "s"} · {(restore.data.pending.size_bytes / 1048576).toFixed(1)} MB. It is applied the next time Atlas starts, before the database opens; the current data is kept in the data folder.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {isDesktop() ? <button type="button" onClick={() => void restartApp()} className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700" data-testid="restore-restart">Restart Atlas and restore now</button> : <span className="text-xs text-stone-500">Restart the server to apply it (a Docker/server install: <code>manage.py restore_backup</code> while stopped).</span>}
+                  <button type="button" onClick={() => cancelRestore.mutate()} className="rounded-md border border-stone-300 px-3 py-1.5 text-xs text-stone-700 hover:border-red-400 dark:border-stone-700 dark:text-stone-200" data-testid="restore-cancel">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <label className="flex cursor-pointer flex-wrap items-center gap-3 rounded-xl border border-dashed border-stone-300 p-3 text-sm text-stone-600 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-300">
+                <Upload className="h-4 w-4 text-stone-400" aria-hidden="true" />
+                <span className="min-w-0 flex-1">Choose an Atlas backup zip (from <b>Download a backup</b>) to put everything back the way it was. {stage.isPending && <span className="text-indigo-500">Uploading…</span>}</span>
+                <input type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => { void pickBackup(e.target.files?.[0]); e.target.value = ""; }} data-testid="restore-file" />
+              </label>
+            )}
+            {restore.data?.last_result && <p className={`mt-2 text-xs ${restore.data.last_result.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-300"}`} data-testid="restore-result">Last restore ({new Date(restore.data.last_result.applied_at).toLocaleString()}): {restore.data.last_result.detail}{restore.data.last_result.ok ? ` Previous data kept in ${restore.data.last_result.kept_previous_in}.` : ""}</p>}
+          </section>
           <section className={`${panel} mt-5`} style={{ ["--i" as string]: 3 }}>
             <p className={`${railH} mb-2`}>Server log · last lines</p>
             {r.server_log ? <pre className="max-h-80 overflow-auto rounded-lg bg-stone-950 p-3 font-mono text-[11px] leading-4 text-stone-200">{r.server_log}</pre> : <p className="text-sm text-stone-500">No server log here — the desktop app writes one to its data folder; a development server logs to the terminal.</p>}

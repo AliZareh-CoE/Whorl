@@ -63,6 +63,17 @@ class Command(BaseCommand):
         # silent black box (#241), and skip the slow static re-collect on later launches of the
         # SAME build — keyed on ATLAS_VERSION (set by the Tauri shell from the app version), so an
         # app update still re-collects.
+        # A staged restore (Diagnostics › Restore from a backup, #376) is applied now, before
+        # the database is opened: the SQLite file and media folder are swapped, the previous
+        # ones kept next to them.
+        from core.backup import apply_pending_restore
+
+        restored = apply_pending_restore(settings.DATA_DIR)
+        if restored:
+            self.stdout.write(
+                ("Restored: " if restored["ok"] else "Restore FAILED: ") + restored["detail"]
+            )
+
         self.stdout.write("Preparing the database…")
         call_command("migrate", "--no-input", verbosity=1)
 

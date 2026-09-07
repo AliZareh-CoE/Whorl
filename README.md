@@ -256,7 +256,10 @@ matches.
 Diagnostics (`/diagnostics`) also shows whether the **TeX bundle cache** is warm and has a
 **Warm up now** button: Tectonic downloads a few hundred MB of packages on its first compile,
 so do it once, on purpose, instead of behind a spinner. The same page has **Download a backup**: one zip with a consistent copy of the
-database, every uploaded file, a manifest and restore notes (`GET /api/v1/backup.zip`). On the
+database, every uploaded file, a manifest and restore notes (`GET /api/v1/backup.zip`). **Restore**
+from the same page: choose a backup zip, it is staged and applied at the next launch — before the
+database opens — with the previous data kept next to it (`manage.py restore_backup <zip>` does the
+same for a stopped server). On the
 desktop, restoring is: quit Atlas, copy `atlas.sqlite3` and `media/` back into the data folder
 (shown on the same page), start Atlas.
 

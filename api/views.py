@@ -2542,6 +2542,53 @@ class BackupView(APIView):
         return response
 
 
+class RestoreAPIView(APIView):
+    """Restore from a backup zip (2026-09-07, #376): staged now, applied at the next launch."""
+
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    @extend_schema(
+        operation_id="v1_restore_status",
+        description="The staged restore (if any) and the last restore's outcome.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from core.backup import restore_status
+
+        return Response(restore_status())
+
+    @extend_schema(
+        operation_id="v1_restore_stage",
+        description="Upload a backup zip (multipart `file`) to stage it. The desktop app "
+        "applies it at the next launch (Diagnostics offers the restart); a server runs "
+        "`manage.py restore_backup` while stopped.",
+        request=None,
+        responses={202: None, 400: None},
+    )
+    def post(self, request):
+        from core.backup import RestoreError, stage_restore
+
+        uploaded = request.FILES.get("file")
+        if uploaded is None:
+            return Response({"detail": "Attach the backup zip as `file`."}, status=400)
+        try:
+            manifest = stage_restore(uploaded)
+        except RestoreError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response({"staged": manifest}, status=202)
+
+    @extend_schema(
+        operation_id="v1_restore_cancel",
+        description="Discard the staged restore.",
+        responses={204: None},
+    )
+    def delete(self, request):
+        from core.backup import cancel_restore
+
+        cancel_restore()
+        return Response(status=204)
+
+
 class DiagnosticsAPIView(APIView):
     """Why didn't it work? Version, paths, engine, update feed, last compile failure, log tail."""
 

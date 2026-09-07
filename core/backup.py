@@ -98,3 +98,160 @@ def _sqlite_bytes(path: Path) -> bytes:
         return tmp_path.read_bytes()
     finally:
         tmp_path.unlink(missing_ok=True)
+
+
+# ----------------------------------------------------------------------------- restore
+# Restore (2026-09-07, #376): a backup zip is *staged* while Atlas runs and *applied* at the
+# next launch, before the database is opened — the only moment the SQLite file and the media
+# folder can be swapped safely. The previous data is kept next to it as `restore-backup-<ts>/`.
+PENDING_NAME = "restore-pending.zip"
+RESULT_NAME = "restore-result.json"
+REQUIRED_ONE_OF = ("atlas.sqlite3", "database.json")
+
+
+class RestoreError(ValueError):
+    pass
+
+
+def inspect_backup(path: Path) -> dict:
+    """Validate a backup zip and return its manifest (+ what it carries)."""
+    if not zipfile.is_zipfile(path):
+        raise RestoreError("That file is not a zip archive.")
+    with zipfile.ZipFile(path) as zf:
+        names = set(zf.namelist())
+        if "MANIFEST.json" not in names:
+            raise RestoreError("No MANIFEST.json inside — this is not an Atlas backup.")
+        if not any(n in names for n in REQUIRED_ONE_OF):
+            raise RestoreError("The backup holds neither atlas.sqlite3 nor database.json.")
+        for name in names:
+            if name.startswith("/") or ".." in Path(name).parts:
+                raise RestoreError(f"Unsafe path inside the archive: {name}")
+        try:
+            manifest = json.loads(zf.read("MANIFEST.json"))
+        except ValueError as exc:
+            raise RestoreError("MANIFEST.json is not valid JSON.") from exc
+        manifest["has_sqlite"] = "atlas.sqlite3" in names
+        manifest["has_json"] = "database.json" in names
+        manifest["media_files"] = sum(
+            1 for n in names if n.startswith("media/") and not n.endswith("/")
+        )
+        manifest["size_bytes"] = path.stat().st_size
+    return manifest
+
+
+def _data_dir() -> Path:
+    data_dir = getattr(settings, "DATA_DIR", None)
+    return Path(data_dir) if data_dir else Path(settings.MEDIA_ROOT).parent
+
+
+def stage_restore(uploaded, data_dir: Path | None = None) -> dict:
+    """Save the uploaded zip as the pending restore (validated first)."""
+    data_dir = data_dir or _data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    target = data_dir / PENDING_NAME
+    tmp = target.with_suffix(".part")
+    with open(tmp, "wb") as out:
+        for chunk in (
+            uploaded.chunks()
+            if hasattr(uploaded, "chunks")
+            else iter(lambda: uploaded.read(1 << 20), b"")
+        ):
+            out.write(chunk)
+    try:
+        manifest = inspect_backup(tmp)
+    except RestoreError:
+        tmp.unlink(missing_ok=True)
+        raise
+    tmp.replace(target)
+    manifest["staged_at"] = datetime.now(UTC).isoformat()
+    (data_dir / "restore-pending.json").write_text(json.dumps(manifest, indent=1))
+    return manifest
+
+
+def cancel_restore(data_dir: Path | None = None) -> bool:
+    data_dir = data_dir or _data_dir()
+    existed = (data_dir / PENDING_NAME).exists()
+    (data_dir / PENDING_NAME).unlink(missing_ok=True)
+    (data_dir / "restore-pending.json").unlink(missing_ok=True)
+    return existed
+
+
+def restore_status(data_dir: Path | None = None) -> dict:
+    data_dir = data_dir or _data_dir()
+    pending = None
+    if (data_dir / PENDING_NAME).exists():
+        try:
+            pending = json.loads((data_dir / "restore-pending.json").read_text())
+        except (OSError, ValueError):
+            pending = {"staged_at": None}
+    result = None
+    if (data_dir / RESULT_NAME).exists():
+        try:
+            result = json.loads((data_dir / RESULT_NAME).read_text())
+        except (OSError, ValueError):
+            result = None
+    return {"pending": pending, "last_result": result, "data_dir": str(data_dir)}
+
+
+def apply_pending_restore(
+    data_dir: Path | None = None, db_path: Path | None = None, media_root: Path | None = None
+) -> dict | None:
+    """Swap the database file and media folder for the staged backup's. Call BEFORE the
+    database is opened (the desktop launcher does, right before `migrate`). Returns the
+    result written to restore-result.json, or None when nothing was staged."""
+    import shutil
+
+    data_dir = data_dir or _data_dir()
+    pending = data_dir / PENDING_NAME
+    if not pending.exists():
+        return None
+    db_path = db_path or _sqlite_path()
+    media_root = Path(media_root or settings.MEDIA_ROOT)
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    keep = data_dir / f"restore-backup-{stamp}"
+    result = {
+        "applied_at": datetime.now(UTC).isoformat(),
+        "kept_previous_in": str(keep),
+        "ok": False,
+        "detail": "",
+    }
+    try:
+        manifest = inspect_backup(pending)
+        keep.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(pending) as zf:
+            if manifest["has_sqlite"] and db_path:
+                # the previous database (and its WAL/journal) moves aside; the copy comes in
+                for suffix in ("", "-wal", "-shm", "-journal"):
+                    old = Path(str(db_path) + suffix)
+                    if old.exists():
+                        shutil.move(str(old), str(keep / old.name))
+                with zf.open("atlas.sqlite3") as src, open(db_path, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+                result["database"] = "sqlite file replaced"
+            elif manifest["has_json"]:
+                # no file to swap: leave database.json next to the result for `loaddata`
+                (data_dir / "restore-database.json").write_bytes(zf.read("database.json"))
+                result["database"] = (
+                    "database.json extracted — run manage.py loaddata restore-database.json"
+                )
+            if media_root.exists():
+                shutil.move(str(media_root), str(keep / "media"))
+            media_root.mkdir(parents=True, exist_ok=True)
+            count = 0
+            for name in zf.namelist():
+                if name.startswith("media/") and not name.endswith("/"):
+                    target = media_root / Path(name).relative_to("media")
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(name) as src, open(target, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    count += 1
+            result["media_files"] = count
+        result["ok"] = True
+        result["detail"] = f"Restored the backup from {manifest.get('created_at', 'unknown date')}."
+    except Exception as exc:  # noqa: BLE001 - the launch must go on; the result says why
+        result["detail"] = f"Restore failed: {exc}"
+    finally:
+        pending.unlink(missing_ok=True)
+        (data_dir / "restore-pending.json").unlink(missing_ok=True)
+        (data_dir / RESULT_NAME).write_text(json.dumps(result, indent=1))
+    return result

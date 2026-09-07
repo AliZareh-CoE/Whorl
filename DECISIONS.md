@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Restore from a backup is staged, then applied at launch (#376)
+
+**Decision.** A backup zip uploaded on Diagnostics (`POST /api/v1/restore/`) is validated (manifest, a database inside, no path traversal) and saved as `restore-pending.zip` in the data folder; the desktop launcher applies it at the next start, *before* `migrate` opens the database: the SQLite file (with its WAL/journal) and the media folder move to `restore-backup-<timestamp>/`, the backup's copies come in, and `restore-result.json` records the outcome, which Diagnostics shows. The page offers "Restart Atlas and restore now" on the desktop and "Cancel". `manage.py restore_backup <zip>` stages + applies for servers (JSON backups extract `restore-database.json` for `loaddata`).
+
+**Why.** A backup nobody can restore is a screenshot. Swapping a live SQLite file under an open Django connection is not safe, and the desktop has exactly one moment when nothing is open — launch. Keeping the previous data beside the restored one makes the operation reversible by hand.
+
+**Alternatives rejected.** Restoring in-process by closing connections (waitress threads may hold others; a half-restore is worse than none); `loaddata` into the live database (merges by primary key — surprising duplicates and dangling files).
+
 ### 2026-09-07 — Achievements: a derived ledger with a souls tier (#374)
 
 **Decision.** `core/achievements.py` holds a catalogue of 57 achievements as predicates over one `facts` dict gathered from the database (papers, notes, milestones, submissions, hypotheses, streaks, activity hours…), each with a progress (current/target) and a tier: fun (5 pts, several hidden), steady (10), hard (25), souls (50 — "You died", "Git gud", "Boss slain: Reviewer 2", "No-hit run", "Bonfire lit", "Hollowed, returned", "Praise the sun", "New game+", "The abyss"). Only the first-unlock moment is stored (`AchievementUnlock`); everything else is recomputed and cached with the pet state. Score → rank (Undergrad … Ashen One). `/achievements` page with tier filters and the five closest; toast on a fresh unlock; `GET /api/v1/achievements/`; MCP `get_achievements` (89 tools). **Souls mode** is a stored flag on the pet: same facts, grim lines ("{deaths} deaths. Each one taught you something. Rise."), counters, and a YOU DIED / BONFIRE LIT flash in the studio.
