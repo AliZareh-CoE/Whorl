@@ -12,6 +12,7 @@ Every object lives in exactly one project (a slug like `attention-and-memory`).
 
 1. `get_dashboard` — active projects with health, this week's overdue and due items
    everywhere, open todos, the inbox count.
+   If the user names what comes first, `reorder_todos` with the ids in that order.
 2. `get_week_focus` for the one or two projects that are *behind* or have deadlines
    inside seven days.
 3. Propose **at most three** things for today, each tied to a milestone, manuscript

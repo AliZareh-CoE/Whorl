@@ -152,3 +152,22 @@ def test_reorder_sets_positions_and_keeps_the_rest_behind(client, owner):
         ).status_code
         == 400
     )
+
+
+def test_palette_carries_the_safe_verbs():
+    """#391 (backlog #279): the repeatable, side-effect-light actions live in ⌘K."""
+    from pathlib import Path
+
+    from django.conf import settings
+
+    src = (Path(settings.BASE_DIR) / "frontend/src/app/CommandBar.tsx").read_text()
+    for label in (
+        "Copy this project's .bib",
+        "Go to this week's review",
+        "New quick capture",
+        "Warm up the LaTeX engine",
+        "Download a backup",
+        "Open the web inspector",
+    ):
+        assert label in src, label
+    assert "/api/v1/references/export/?project=" in src

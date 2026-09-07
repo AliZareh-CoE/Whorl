@@ -9,6 +9,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api, csrfToken, petReact } from "./api";
 import { toggleCalm } from "./calm";
 import { toSpaUrl } from "./links";
+import { isDesktop, openDevtools } from "./external";
 
 type Command = { title: string; type: string; url: string };
 type Action = { label: string; url: string };
@@ -148,12 +149,29 @@ export default function CommandBar() {
 
   // Static verbs the palette can run directly (not navigation). Discoverable by typing
   // "dark"/"theme"/"calm" etc. — surfacing the #273 theme + #274 calm toggles in ⌘K.
+  // backlog #279 (2026-09-07, #391): the safe, repeatable actions — nothing here destroys anything.
+  const copyBib = useCallback(async (scope: "project" | "library") => {
+    const url = scope === "project" && slug ? `/api/v1/references/export/?project=${slug}` : "/api/v1/references/export/";
+    const response = await fetch(url, { credentials: "same-origin" });
+    if (!response.ok) throw new Error(`${response.status} exporting the bibliography`);
+    const text = await response.text();
+    const entries = (text.match(/^@\w+\{/gm) ?? []).length;
+    try { await navigator.clipboard.writeText(text); } catch { throw new Error("The clipboard refused the text — export from the Library instead."); }
+    return `Copied ${entries} BibTeX entr${entries === 1 ? "y" : "ies"}${scope === "project" && slug ? ` for ${slug}` : ""}`;
+  }, [slug]);
   const verbs = useMemo(
     () => [
       { label: "Toggle dark mode", keys: "toggle dark light mode theme appearance color scheme", run: doToggleTheme },
       { label: "Toggle calm mode", keys: "toggle calm mode focus quiet hide stats dashboard", run: doToggleCalm },
+      ...(slug ? [{ label: "Copy this project's .bib", keys: "copy bib bibtex bibliography project export cite", run: () => copyBib("project") }] : []),
+      { label: slug ? "Copy the whole library as .bib" : "Copy the library as .bib", keys: "copy library bib bibtex bibliography export all", run: () => copyBib("library") },
+      { label: "Go to this week's review", keys: "go to weekly review week reflect", run: async () => { navigate("/review"); return "This week's review"; } },
+      { label: "New quick capture", keys: "new quick capture inbox note idea jot", run: async () => { navigate("/inbox"); return "Inbox — type the thought"; } },
+      { label: "Warm up the LaTeX engine", keys: "warm up latex tex engine bundle prefetch tectonic", run: async () => { await api("/diagnostics/warm-latex/", { method: "POST" }); return "Warming up the TeX bundle in the background"; } },
+      { label: "Download a backup", keys: "download backup zip export everything", run: async () => { window.location.assign("/api/v1/backup.zip"); return "Backup download started"; } },
+      ...(isDesktop() ? [{ label: "Open the web inspector", keys: "open web inspector devtools console debug f12", run: async () => { await openDevtools(); return "Inspector opened"; } }] : []),
     ],
-    [doToggleTheme, doToggleCalm],
+    [doToggleTheme, doToggleCalm, copyBib, slug, navigate],
   );
 
   const rows: Row[] = useMemo(() => {
