@@ -308,3 +308,11 @@ def test_app_icon_is_not_the_placeholder():
     assert (DESKTOP.parent / "scripts" / "make_icon.py").exists()
     cfg = json.loads((DESKTOP / "tauri.conf.json").read_text())
     assert "icons/icon.ico" in cfg["bundle"]["icon"]
+
+
+def test_release_notes_come_from_commits():
+    """#370/#375: the updater's release notes are the recent feat/fix subjects, not a slogan."""
+    workflow = (DESKTOP.parent / ".github" / "workflows" / "desktop-release.yml").read_text()
+    assert "Write release notes" in workflow
+    assert "releaseBody: ${{ steps.notes.outputs.body }}" in workflow
+    assert "fetch-depth: 40" in workflow  # a shallow clone has no history to list

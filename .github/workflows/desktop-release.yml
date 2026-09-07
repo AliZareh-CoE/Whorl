@@ -57,6 +57,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 40  # the release notes list the last commits
 
       - name: Stamp a unique build version
         shell: bash
@@ -78,6 +80,23 @@ jobs:
       # In-app updates (owner, 2026-09-06): updater artifacts (.sig + latest.json) are signed
       # with the private key held ONLY in the TAURI_SIGNING_PRIVATE_KEY secret. Flip the flag
       # on when the secret is present so builds stay green before the secret exists.
+      - name: Write release notes
+        id: notes
+        shell: bash
+        run: |
+          # The updater shows these before installing (#370): what changed, from the feat/fix
+          # commit subjects since the previous build, newest first. Static text told the
+          # owner nothing.
+          VER="0.1.${{ github.run_number }}"
+          {
+            echo "body<<NOTES_EOF"
+            echo "Atlas desktop $VER — ready-to-install builds. Pick the file for your OS below; installed apps update themselves from this release."
+            echo
+            echo "What changed recently:"
+            git log --no-merges --format='%s' -n 40 | grep -E '^(feat|fix|perf)' | head -12 | sed 's/^/- /'
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Enable signed updater artifacts when the signing key is configured
         if: env.HAS_SIGNING_KEY == 'true'
         env:
@@ -229,7 +248,7 @@ jobs:
           # stable place to download the latest installers.
           tagName: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'desktop-preview' }}
           releaseName: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'Atlas desktop preview' }}
-          releaseBody: "Ready-to-install Atlas desktop builds. Pick the file for your OS below. Installed apps update themselves from this release."
+          releaseBody: ${{ steps.notes.outputs.body }}
           # Published (not draft) so the in-app updater can fetch latest.json + installers;
           # marked prerelease so it never shadows a tagged v* release as "latest".
           releaseDraft: ${{ startsWith(github.ref, 'refs/tags/') }}
