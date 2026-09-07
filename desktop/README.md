@@ -21,7 +21,7 @@ dispatch from the Actions tab publishes under that tag instead.
 
 Pick the file for your OS from the release's assets:
 
-- **Linux** — `.deb` (Debian/Ubuntu), `.rpm` (Fedora) or the portable `.AppImage` (make it executable and run it; since #405).
+- **Linux** — `.deb` (Debian/Ubuntu) or `.rpm` (Fedora).
 - **Windows** — the `-setup.exe` (NSIS) or the `.msi`. Windows Smart App Control / SmartScreen
   warns about unsigned installers; the build is unsigned until a code-signing certificate is
   added (see "Not yet" below).
@@ -161,5 +161,5 @@ versions (assets sharing the current version stamp — the other platform's — 
   developer account; without it Windows shows the unknown-publisher warning.
 - **macOS installers** — Tauri and PyInstaller both support it; the release matrix currently
   builds Linux + Windows only. Add a `macos-latest` entry to the matrix to get a `.dmg`.
-- **AppImage** — dropped because linuxdeploy could not relink the bundled native libraries;
-  `.deb`/`.rpm` cover Linux.
+- **AppImage** — tried twice (#210f, #405); linuxdeploy fails to relink the bundled native
+  libraries (Postgres's, then PyInstaller's). `.deb`/`.rpm` cover Linux.

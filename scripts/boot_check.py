@@ -59,7 +59,19 @@ async def main() -> int:
         await page.goto(f"{BASE}/login/", timeout=60000)
         await page.fill("input[name=username]", USER)
         await page.fill("input[name=password]", PASSWORD)
-        await page.click("button[type=submit]")
+        # Run 124 (Windows) hung inside page.click: Playwright waits for the post-login
+        # navigation to reach "load", and a slow first SPA load on the frozen server blew the
+        # 30 s default. Don't couple the click to the navigation — submit, then wait for the
+        # session cookie / URL change on our own terms, and keep going with evidence if not.
+        await page.click("button[type=submit]", no_wait_after=True)
+        try:
+            await page.wait_for_url(lambda u: not u.rstrip("/").endswith("/login"), timeout=90000)
+        except Exception as exc:  # noqa: BLE001 - reported, the page loop shows the rest
+            await page.screenshot(path=str(OUT / "boot-check-login.png"))
+            print(f"login did not leave /login/ in 90 s: {str(exc)[:200]}; problems so far:")
+            for line in problems:
+                print("    " + line)
+            failures.append("/login/")
         await page.wait_for_timeout(500)
         for path in PAGES:
             problems.clear()

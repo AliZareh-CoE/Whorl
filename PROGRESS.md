@@ -4,7 +4,7 @@
 
 - **★ WATCHED FOLDER (2026-09-07, #406).** `literature/watch.py` (15 s poll, ledger, import pipeline, optional project), `GET/POST /api/v1/watch-folder/` + `/scan/`, desktop launcher resumes it, Rust `pick_folder`, Library rail block. Tests: literature/tests/test_watch.py (3). Playwright: set a folder → scan now → imported (docs/screenshots/watch-folder.png).
 
-- **AppImage retry (2026-09-07, #405).** `appimage` added to the Linux bundle targets — the next release run's Linux job is the verdict; revert if red.
+- **AppImage retry (2026-09-07, #405) — red, reverted.** Run 126's Linux job: deb + rpm fine, AppImage `failed to run linuxdeploy`. Target removed again; #288 closed in DECISIONS. Same commit hardens `scripts/boot_check.py`: run 124's Windows job hung in `page.click` waiting for the post-login navigation (run 125 passed) — the click is now decoupled from the navigation (90 s `wait_for_url`, a login screenshot and the collected problems on failure).
 
 - **Read-aloud chunked + prefetched (2026-09-07, #404).** `app/listen.ts` (sentence chunks, next chunk fetched while one plays, stop aborts); reading flow + reference page use it. Chunker checked with node; guard in literature/tests/test_neighbours.py.
 
