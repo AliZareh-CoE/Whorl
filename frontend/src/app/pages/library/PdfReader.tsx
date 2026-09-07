@@ -3,7 +3,7 @@
  *  Saved highlights are painted back onto the text layer by matching their text on the page. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Highlighter, Loader2, Minus, Plus, Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Highlighter, Loader2, MessageSquare, Minus, Plus, Search, X } from "lucide-react";
 import { api } from "../../api";
 
 export type Highlight = {
@@ -43,6 +43,9 @@ type Props = {
   onClose: () => void;
   jump: { page: number; nonce: number } | null;
   fullReaderHref: string;
+  /** Comment markers in the margin (#396): one bubble per comment anchored to a page. */
+  comments?: { id: number; body: string; page: number | null }[];
+  onComment?: (page: number) => void;
 };
 
 const WORKER = "/static/vendor/pdfjs/pdf.worker.min.mjs";
@@ -72,7 +75,7 @@ export function paintHighlights(layer: HTMLElement, marks: Highlight[], find = "
   }
 }
 
-export default function PdfReader({ refId, initialFind = "", pdfUrl, title, highlights, projects, project, onProject, onSave, onClose, jump, fullReaderHref }: Props) {
+export default function PdfReader({ refId, initialFind = "", pdfUrl, title, highlights, projects, project, onProject, onSave, onClose, jump, fullReaderHref, comments = [], onComment }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const [findInput, setFindInput] = useState(initialFind);
   const [find, setFind] = useState(initialFind);
@@ -262,9 +265,26 @@ export default function PdfReader({ refId, initialFind = "", pdfUrl, title, high
         {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">{error}</p>}
         {!error && numPages === 0 && <p className="flex items-center gap-1.5 text-xs text-stone-400"><Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />Rendering…</p>}
         <div className="mx-auto space-y-4">
-          {Array.from({ length: numPages }, (_, i) => (
-            <div key={i + 1} data-page={i + 1} className="pdf-page" style={{ width: `${612 * scale}px`, height: `${792 * scale}px` }} />
-          ))}
+          {Array.from({ length: numPages }, (_, i) => {
+            const onPage = comments.filter((c) => c.page === i + 1);
+            return (
+              <div key={i + 1} className="pdf-page-row group/page" style={{ width: `${612 * scale}px` }}>
+                <div data-page={i + 1} className="pdf-page" style={{ width: `${612 * scale}px`, height: `${792 * scale}px` }} />
+                <div className="pdf-margin" aria-label={`Comments on page ${i + 1}`}>
+                  {onPage.map((c, k) => (
+                    <button key={c.id} type="button" className="pdf-margin-marker" title={c.body} data-testid="comment-marker" style={{ top: `${14 + k * 26}px` }} onClick={() => onComment?.(i + 1)}>
+                      <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  ))}
+                  {onComment && (
+                    <button type="button" className="pdf-margin-add opacity-0 group-hover/page:opacity-100 focus:opacity-100" title={`Comment on page ${i + 1}`} data-testid="comment-add" style={{ top: `${14 + onPage.length * 26}px` }} onClick={() => onComment(i + 1)}>
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
         {popover && (
           <div className="absolute z-20 -translate-x-1/2 -translate-y-full rounded-full border border-stone-200 bg-white px-1.5 py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900" style={{ left: popover.x, top: popover.y }} role="toolbar" aria-label="Save highlight">

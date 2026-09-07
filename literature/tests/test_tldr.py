@@ -73,3 +73,17 @@ def test_ui_uses_the_section_tldr():
     flow = (base / "frontend/src/app/pages/ReadingFlow.tsx").read_text()
     assert 'data-testid="tldr-block"' in library and "/tldr/`" in library
     assert 'data-testid="flow-tldr"' in flow and "/tldr/`" in flow
+
+
+def test_reader_has_margin_comment_markers():
+    """#396: comments anchored to a page show as bubbles in the reader's margin."""
+    from pathlib import Path
+
+    from django.conf import settings
+
+    base = Path(settings.BASE_DIR)
+    reader = (base / "frontend/src/app/pages/library/PdfReader.tsx").read_text()
+    library = (base / "frontend/src/app/pages/Library.tsx").read_text()
+    assert 'data-testid="comment-marker"' in reader and 'data-testid="comment-add"' in reader
+    assert "comments={(readerComments.data?.comments ?? [])" in library and "line: page" in library
+    assert ".pdf-margin-marker" in (base / "assets/css/app.css").read_text()

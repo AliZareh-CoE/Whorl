@@ -196,6 +196,19 @@ export default function Library() {
   });
   const rows = useMemo(() => list.data?.pages.flatMap((p) => p.results) ?? [], [list.data]);
   const reader = useMemo(() => rows.find((r) => r.id === readerId) ?? null, [rows, readerId]);
+  // Comment markers in the reader's margin (#396): the paper's comments, anchored by page
+  const readerComments = useQuery({ queryKey: ["comments", "reference", String(readerId)], queryFn: () => api<{ comments: { id: number; body: string; line: number | null }[] }>(`/comments/reference/${readerId}/`), enabled: readerId !== null });
+  const addPageComment = useMutation({
+    mutationFn: ({ id, body, page }: { id: number; body: string; page: number }) => api(`/comments/reference/${id}/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body, line: page }) }),
+    onSuccess: (_o, vars) => { queryClient.invalidateQueries({ queryKey: ["comments", "reference", String(vars.id)] }); flash(`Comment saved on p.${vars.page}`); },
+    onError: (e) => void errorDialog("Couldn't save the comment", e),
+  });
+  const commentOnPage = async (page: number) => {
+    if (!reader) return;
+    const existing = (readerComments.data?.comments ?? []).filter((c) => c.line === page);
+    const body = await promptDialog({ title: `Comment on page ${page}`, multiline: true, placeholder: "A thought, a caveat, a to-do for this page…", confirmLabel: "Save comment", body: existing.length ? <ul className="mb-2 max-h-40 space-y-1 overflow-auto text-xs text-stone-500">{existing.map((c) => <li key={c.id}>· {c.body}</li>)}</ul> : undefined });
+    if (body && body.trim()) addPageComment.mutate({ id: reader.id, body: body.trim(), page });
+  };
   // deep link: /library?q=<key>&read=<id> opens the reader on that paper once the rows arrive
   const readParam = useRef<number | null>((() => { try { const v = new URLSearchParams(window.location.search).get("read"); return v ? Number(v) : null; } catch { return null; } })());
   useEffect(() => {
@@ -554,6 +567,8 @@ export default function Library() {
             onClose={() => setReaderId(null)}
             jump={jump}
             fullReaderHref={`/library/${reader.id}/read/`}
+            comments={(readerComments.data?.comments ?? []).map((c) => ({ id: c.id, body: c.body, page: c.line }))}
+            onComment={(page) => void commentOnPage(page)}
           />
         ) : dupMode ? (
           <section className={`${panel} rise flex min-h-[60vh] flex-col overflow-hidden`} style={{ ["--i" as string]: 1 }}>

@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Reader: comment markers in the margin, comment on this page (#396)
+
+**Decision.** Each rendered page in the Library reader carries a gutter on its right: one speech-bubble marker per comment anchored to that page (the comment text on hover), and a `+` that appears on hover to comment on that page — a prompt dialog that lists the page's existing comments and posts the new one with `line = page` to the existing comments endpoint. The Library loads a paper's comments only while its reader is open.
+
+**Why.** Backlog idea #31: comments already had a page anchor but only the reference page listed them, away from the page they were about. Marginalia belong in the margin; the reader is where the thought occurs.
+
+**Alternatives rejected.** Anchoring comments to a rectangle like highlights (a highlight with a comment already does that — this is for the page-level thought); an inline comment editor in the gutter (the dialog keeps the page uncluttered and reuses the one dialog system).
+
 ### 2026-09-07 — tl;dr of a paper, section by section (#395)
 
 **Decision.** `literature/tldr.py` finds the section headings in a paper's extracted text (known names such as Abstract/Methods/Results, or numbered short Title-Case lines; stops at the references), summarises each section with the local extractive summariser (two sentences), and records the page each section starts on. `GET /references/{id}/tldr/` serves it (falling back to the abstract, or saying why there is nothing), `get_reference_tldr` is the MCP tool (91), and the Library's detail pane has a *tl;dr* block that summarises on request with `p.N` buttons that open the PDF at the section.
@@ -1997,7 +2005,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 28. Loop-resilience note — chain notifications can drop and watchdog monitors expire at 30 min; watchdog is now re-armed every cycle (lesson from the cycle-21→22 stall)
 29. Dev-process note — runserver/worker restarts must use pkill -f "[m]anage.py ..." (bracket trick) or they kill their own shell; documented after the cycle-23 debugging (idea added by cycle 23)
 30. ~~Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24) — the split view shipped with the studio; sync scroll done 2026-09-07, #394~~
-31. Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25)
+31. ~~Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25) — done 2026-09-07, #396 (page-anchored bubbles + comment-on-this-page)~~
 32. ~~tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26) — done 2026-09-07, #395~~
 33. ~~SyncTeX-style jump (done 2026-09-07, #378: double-click the PDF → source, ⌘⇧J → PDF)~~
 34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)

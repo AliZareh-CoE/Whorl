@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Reader margin comments (2026-09-07, #396).** Bubble per page-anchored comment in a gutter beside each page, `+` on hover to comment on the page (prompt lists existing ones). Playwright: added a comment from the margin → marker with the text as tooltip (docs/screenshots/reader-margin-comments.png). Guard in literature/tests/test_tldr.py.
+
 - **tl;dr per section (2026-09-07, #395).** The reading flow's `s` key now uses the same section tl;dr (PDF text first, abstract as fallback). Heading detection over the extracted PDF text, two sentences per section, page starts; `GET /references/{id}/tldr/`, MCP `get_reference_tldr` (91 tools), detail-pane block with p.N jumps. Tests: literature/tests/test_tldr.py (4).
 
 - **Studio follow-cursor sync (2026-09-07, #394).** Setting "PDF follows the cursor" → debounced forward SyncTeX on every cursor line change. Guard in writing/tests/test_synctex.py.
