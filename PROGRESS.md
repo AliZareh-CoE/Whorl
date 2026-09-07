@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **AppImage retry (2026-09-07, #405).** `appimage` added to the Linux bundle targets — the next release run's Linux job is the verdict; revert if red.
+
 - **Read-aloud chunked + prefetched (2026-09-07, #404).** `app/listen.ts` (sentence chunks, next chunk fetched while one plays, stop aborts); reading flow + reference page use it. Chunker checked with node; guard in literature/tests/test_neighbours.py.
 
 - **Queue neighbours (2026-09-07, #403).** Row menu → "Similar in your library" panel (related endpoint, similarity %, + add here, explore beyond → Library lenses). Guard: literature/tests/test_neighbours.py.

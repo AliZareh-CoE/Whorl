@@ -21,7 +21,7 @@ dispatch from the Actions tab publishes under that tag instead.
 
 Pick the file for your OS from the release's assets:
 
-- **Linux** — `.deb` (Debian/Ubuntu) or `.rpm` (Fedora). AppImage is not built.
+- **Linux** — `.deb` (Debian/Ubuntu), `.rpm` (Fedora) or the portable `.AppImage` (make it executable and run it; since #405).
 - **Windows** — the `-setup.exe` (NSIS) or the `.msi`. Windows Smart App Control / SmartScreen
   warns about unsigned installers; the build is unsigned until a code-signing certificate is
   added (see "Not yet" below).
