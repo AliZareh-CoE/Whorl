@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CalendarClock, Check, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Sparkles, Trophy, Wand2 } from "lucide-react";
+import { confirmDialog } from "../../components/Dialog";
 import { api } from "../api";
 import { toggleCalm, useCalm } from "../calm";
 import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
@@ -456,20 +457,27 @@ function Heatmap({ weeks }: { weeks: Dash["heatmap"] }) {
   );
 }
 
-/** Backlog #9: one click copies the .ics subscription URL (it carries the API key). */
+/** Backlog #9: one click copies the .ics subscription URL. Since #401 the URL carries a
+ *  read-only feed token (not the API key); "rotate" invalidates every URL copied so far. */
 function CalendarSubscribe() {
-  const [state, setState] = useState<"idle" | "copied" | "error">("idle");
+  const [state, setState] = useState<"idle" | "copied" | "error" | "rotated">("idle");
   const copy = async () => {
     try {
-      const c = await api<{ api_url: string; api_key: string; api_key_configured: boolean }>("/connect/");
-      if (!c.api_key_configured) { setState("error"); return; }
-      await navigator.clipboard.writeText(`${c.api_url}/api/v1/calendar.ics?key=${encodeURIComponent(c.api_key)}`);
+      const t = await api<{ token: string; url: string }>("/feed-token/");
+      await navigator.clipboard.writeText(t.url);
       setState("copied"); window.setTimeout(() => setState("idle"), 3000);
     } catch { setState("error"); }
   };
+  const rotate = async () => {
+    if (!(await confirmDialog({ title: "Rotate the calendar token?", body: "Every calendar subscription copied so far stops updating; copy the new URL afterwards.", confirmLabel: "Rotate" }))) return;
+    try { await api("/feed-token/", { method: "POST" }); setState("rotated"); window.setTimeout(() => setState("idle"), 3000); } catch { setState("error"); }
+  };
   return (
-    <button type="button" onClick={() => void copy()} className="mb-3 inline-flex items-center gap-1 text-[11px] text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy a calendar subscription URL (milestones + manuscript deadlines). Paste it into Google Calendar / Outlook / Apple Calendar under 'subscribe by URL'. The URL contains your API key." data-testid="calendar-subscribe">
-      <CalendarClock className="h-3 w-3" aria-hidden="true" />{state === "copied" ? "URL copied — subscribe in your calendar" : state === "error" ? "no API key configured" : "subscribe (.ics)"}
+    <span className="mb-3 inline-flex items-center gap-2 text-[11px] text-stone-400">
+    <button type="button" onClick={() => void rotate()} className="hover:text-indigo-600 dark:hover:text-indigo-300" title="Rotate the feed token — old subscription URLs stop working" data-testid="feed-rotate">rotate</button>
+    <button type="button" onClick={() => void copy()} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy a calendar subscription URL (milestones + manuscript deadlines). Paste it into Google Calendar / Outlook / Apple Calendar under 'subscribe by URL'. The URL contains your API key." data-testid="calendar-subscribe">
+      <CalendarClock className="h-3 w-3" aria-hidden="true" />{state === "copied" ? "URL copied — subscribe in your calendar" : state === "rotated" ? "token rotated — copy the new URL" : state === "error" ? "couldn't get the feed URL" : "subscribe (.ics)"}
     </button>
+    </span>
   );
 }

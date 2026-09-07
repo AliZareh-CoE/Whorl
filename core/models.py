@@ -109,3 +109,40 @@ class AccessEvent(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()} from {self.address or '?'} at {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class FeedToken(models.Model):
+    """The read-only token calendar apps use in the .ics URL (2026-09-07, #401 — backlog
+    #253). One row; rotating it makes every previously copied URL stop working. The API key
+    stays out of URLs that calendar services store on their servers."""
+
+    token = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"feed token from {self.created_at:%Y-%m-%d}"
+
+    @classmethod
+    def current(cls) -> str:
+        import secrets
+
+        row = cls.objects.order_by("-created_at", "-id").first()
+        if row is None:
+            row = cls.objects.create(token=secrets.token_urlsafe(24))
+        return row.token
+
+    @classmethod
+    def rotate(cls) -> str:
+        import secrets
+
+        cls.objects.all().delete()
+        return cls.objects.create(token=secrets.token_urlsafe(24)).token
+
+    @classmethod
+    def matches(cls, candidate: str) -> bool:
+        from django.utils.crypto import constant_time_compare
+
+        if not candidate:
+            return False
+        row = cls.objects.order_by("-created_at", "-id").first()
+        return bool(row) and constant_time_compare(candidate, row.token)

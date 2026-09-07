@@ -2747,6 +2747,37 @@ class DiagnosticsAPIView(APIView):
         return Response(report)
 
 
+class FeedTokenAPIView(APIView):
+    """The calendar feed token (#401): the read-only secret in the .ics subscription URL."""
+
+    @extend_schema(
+        operation_id="v1_feed_token",
+        description="The current calendar feed token and the subscription URL that carries it.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from core.models import FeedToken
+
+        token = FeedToken.current()
+        base = f"{request.scheme}://{request.get_host()}".rstrip("/")
+        return Response({"token": token, "url": f"{base}/api/v1/calendar.ics?key={token}"})
+
+    @extend_schema(
+        operation_id="v1_feed_token_rotate",
+        description="Rotate the calendar feed token: every URL copied before stops working.",
+        request=None,
+        responses={200: None},
+    )
+    def post(self, request):
+        from core.models import FeedToken
+
+        token = FeedToken.rotate()
+        base = f"{request.scheme}://{request.get_host()}".rstrip("/")
+        return Response(
+            {"token": token, "url": f"{base}/api/v1/calendar.ics?key={token}", "rotated": True}
+        )
+
+
 class AccessEventsAPIView(APIView):
     """The access log (#399): recent logins, lockouts and rejected API keys, with a summary."""
 

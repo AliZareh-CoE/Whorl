@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Calendar feed token (2026-09-07, #401).** `FeedToken` (migration core.0008), `GET/POST /api/v1/feed-token/`, the `?key=` authenticator takes the feed token for the feed only; the Dashboard copies the token URL and can rotate it. Test in core/tests/test_calendar.py (+1).
+
 - **Smart views drag-to-reorder (2026-09-07, #400).** `POST /library-views/reorder/`, facets ordered by position, draggable rail rows. Test in literature/tests/test_tags_views.py (+1).
 
 - **Access log (2026-09-07, #399).** `AccessEvent` (migration core.0007) fed by login/lockout/API-key hooks; `GET /api/v1/access-events/`; Diagnostics › Access + report line; excluded from the data version. Tests: core/tests/test_access_log.py (4).

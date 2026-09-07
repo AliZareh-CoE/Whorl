@@ -29,14 +29,17 @@ class APIKeyAuthentication(BaseAuthentication):
 
 class QueryKeyAuthentication(APIKeyAuthentication):
     """`?key=` variant for feeds that calendar apps fetch without headers (calendar.ics only).
-    The URL therefore carries the API key — the Dashboard says so when it hands it out."""
+    Since #401 the Dashboard hands out a read-only *feed token* for that URL; the API key is
+    still accepted so URLs copied earlier keep working until the owner rotates the key."""
 
     def authenticate(self, request):
         key = request.query_params.get("key")
         if not key:
             return None
+        from core.models import FeedToken
+
         expected = settings.ATLAS_API_KEY
-        if not expected or not constant_time_compare(key, expected):
+        if not FeedToken.matches(key) and not (expected and constant_time_compare(key, expected)):
             from core.access import record
 
             record("api_key_rejected", request, detail=request.path[:120])

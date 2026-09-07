@@ -27,3 +27,9 @@ class AccessEventAdmin(admin.ModelAdmin):
     list_filter = ("kind",)
     search_fields = ("address", "detail", "user_agent")
     readonly_fields = ("created_at",)
+
+
+@admin.register(models.FeedToken)
+class FeedTokenAdmin(admin.ModelAdmin):
+    list_display = ("created_at",)
+    readonly_fields = ("token", "created_at")

@@ -266,6 +266,9 @@ blank-window panel) opens the web view's own inspector, so the console is one ke
 desktop also re-collects its static assets with `--clear` on every version change and serves
 them with revalidation, so an update can never leave the previous build's scripts behind.
 
+The calendar subscription URL on the Dashboard carries a **read-only feed token** (not the API
+key); *rotate* next to it retires every URL copied so far.
+
 ## Backups
 
 Diagnostics (`/diagnostics`) also shows whether the **TeX bundle cache** is warm and has a
