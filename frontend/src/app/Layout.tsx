@@ -29,7 +29,7 @@ function UnlockToast({ unlocks, titles, grim }: { unlocks: string[]; titles: Rec
   if (!shown) return null;
   const meta = titles[shown];
   return (
-    <NavLink to="/achievements" onClick={() => setShown(null)} className={`rise fixed bottom-5 right-5 z-40 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur ${grim || meta?.tier === "souls" ? "border-red-500/50 bg-stone-950/95 text-red-100" : "border-amber-300/60 bg-white/95 text-stone-800 dark:border-amber-500/40 dark:bg-stone-900/95 dark:text-stone-100"}`} role="status" data-testid="unlock-toast">
+    <NavLink to="/achievements" onClick={() => setShown(null)} className={`rise fixed right-5 top-5 z-40 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur ${grim || meta?.tier === "souls" ? "border-red-500/50 bg-stone-950/95 text-red-100" : "border-amber-300/60 bg-white/95 text-stone-800 dark:border-amber-500/40 dark:bg-stone-900/95 dark:text-stone-100"}`} role="status" data-testid="unlock-toast">
       <Trophy className={`h-5 w-5 ${grim || meta?.tier === "souls" ? "text-red-400" : "text-amber-500"}`} aria-hidden="true" />
       <span><span className="block text-[10px] font-semibold uppercase tracking-wider opacity-70">{grim || meta?.tier === "souls" ? "Achievement earned" : "Achievement unlocked"}</span><span className="font-medium">{meta?.title ?? shown}</span></span>
     </NavLink>

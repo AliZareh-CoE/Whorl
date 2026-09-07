@@ -141,6 +141,9 @@ def test_ui_wiring():
         '"Find PDF"',
         'data-testid="pdf-miss"',
         'data-testid="pdf-looking"',
+        # #397: cards view
+        'data-testid="library-card"',
+        "atlas-library-view",
     ):
         assert needle in src, needle
     chunks = " ".join(

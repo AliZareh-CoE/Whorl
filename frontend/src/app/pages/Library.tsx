@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, Pencil, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Pencil, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
@@ -125,6 +125,9 @@ export default function Library() {
   const [viewName, setViewName] = useState<string | null>(null);
   const [dupMode, setDupMode] = useState(false);
   const [readerId, setReaderId] = useState<number | null>(null);
+  // Cards view (#397, Observatory): the same rows as cover-style cards; remembered per browser
+  const [view, setView] = useState<"list" | "cards">(() => { try { return localStorage.getItem("atlas-library-view") === "cards" ? "cards" : "list"; } catch { return "list"; } });
+  const switchView = (v: "list" | "cards") => { setView(v); try { localStorage.setItem("atlas-library-view", v); } catch { /* private mode */ } };
   const [hlProject, setHlProject] = useState("");
   const [jump, setJump] = useState<{ page: number; nonce: number } | null>(null);
   const [readerFind, setReaderFind] = useState("");
@@ -627,12 +630,42 @@ export default function Library() {
             {activeChips.length > 0 && <button type="button" onClick={() => setFilters({ ...EMPTY, sort: filters.sort })} className="text-stone-400 hover:underline">clear</button>}
             <a href={`/api/v1/references/export/?${toQuery(effective, 1)}`} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Open everything in this view as a .bib file"><FileDown className="h-3 w-3" aria-hidden="true" />.bib of this view</a>
             <span className="hidden text-stone-400 lg:inline">· j/k move · enter open · x select · o pdf</span>
+            <span className="ml-1 inline-flex overflow-hidden rounded-md border border-stone-200 dark:border-stone-700" role="tablist" aria-label="Library view">
+              <button type="button" role="tab" aria-selected={view === "list"} onClick={() => switchView("list")} className={`px-1.5 py-0.5 ${view === "list" ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-200" : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"}`} title="List" data-testid="view-list"><LayoutList className="h-3.5 w-3.5" aria-hidden="true" /></button>
+              <button type="button" role="tab" aria-selected={view === "cards"} onClick={() => switchView("cards")} className={`px-1.5 py-0.5 ${view === "cards" ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-200" : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"}`} title="Cards" data-testid="view-cards"><LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" /></button>
+            </span>
           </div>
-          <div ref={listRef} className="flex-1 divide-y divide-stone-100 overflow-auto dark:divide-stone-800">
+          <div ref={listRef} className={`flex-1 overflow-auto ${view === "cards" ? "grid auto-rows-max grid-cols-1 gap-3 p-3 sm:grid-cols-2 2xl:grid-cols-3" : "divide-y divide-stone-100 dark:divide-stone-800"}`}>
             {list.isLoading && Array.from({ length: 8 }).map((_, i) => <div key={i} className="px-4 py-3"><Skeleton className="mb-1.5 h-4 w-2/3" /><Skeleton className="h-3 w-1/3" /></div>)}
             {rows.map((r, i) => {
               const needs = Boolean(r.extra?.needs_metadata);
               const active = i === cursor;
+              if (view === "cards") {
+                const status = r.projects[0]?.reading_status;
+                const band = r.projects[0]?.color || "#7c6cff";
+                return (
+                  <div key={r.id} data-row={i} data-testid="library-card" onClick={() => { setCursor(i); setDetailId(r.id); }} onContextMenu={(e) => { setCursor(i); menu.open(e, rowItems(r)); }}
+                       className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-white transition-colors dark:bg-stone-900 ${detailId === r.id ? "border-indigo-400 shadow-[0_0_0_1px_rgba(124,108,255,0.4)]" : active ? "border-stone-300 dark:border-stone-600" : "border-stone-200 hover:border-stone-300 dark:border-stone-800 dark:hover:border-stone-700"}`}>
+                    <div className="h-1.5 w-full" style={{ background: r.pdf ? band : `${band}66` }} aria-hidden="true" />
+                    <div className="flex flex-1 flex-col gap-1.5 p-3">
+                      <div className="flex items-start gap-2">
+                        <input type="checkbox" checked={selected.has(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSelect(r.id)} className="mt-1 accent-indigo-500" aria-label={`Select ${r.title}`} />
+                        <p className="line-clamp-3 text-sm font-medium leading-snug text-stone-900 dark:text-stone-100">{r.title}</p>
+                      </div>
+                      <p className="line-clamp-1 text-xs text-stone-500 dark:text-stone-400">{authorsLine(r, 4) || (needs ? "from a PDF · no metadata yet" : "no authors")}</p>
+                      <p className="mt-auto flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-stone-400">
+                        {r.year && <span className="font-mono">{r.year}</span>}
+                        {r.venue && <span className="truncate italic">{r.venue}</span>}
+                        {status && <span className="rounded-full bg-stone-100 px-1.5 py-0.5 dark:bg-stone-800">{STATUS_LABEL[status] ?? status}</span>}
+                        {r.pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-medium text-indigo-600 dark:text-indigo-300">PDF</span>}
+                        {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
+                        {r.tags.slice(0, 3).map((t) => <TagChip key={t} name={t} color={tagColors[t]} />)}
+                        {r.citation_count != null && r.citation_count > 0 && <span className="ml-auto tabular-nums">{r.citation_count} cit.</span>}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <div key={r.id} data-row={i} data-testid="library-row" onClick={() => { setCursor(i); setDetailId(r.id); }} onContextMenu={(e) => { setCursor(i); menu.open(e, rowItems(r)); }} className={`group flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors ${detailId === r.id ? "bg-indigo-50 dark:bg-indigo-500/10" : active ? "bg-stone-50 dark:bg-stone-800/60" : "hover:bg-stone-50 dark:hover:bg-stone-800/40"}`}>
                   <input type="checkbox" checked={selected.has(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSelect(r.id)} className="mt-1 accent-indigo-500" aria-label={`Select ${r.title}`} />
