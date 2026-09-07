@@ -12,6 +12,7 @@ import { ErrorState } from "../../components/ErrorState";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { Kebab } from "../../components/Menu";
 import Focus, { type FocusData } from "./plan/Focus";
+import Constellation from "./project/Constellation";
 
 type Overview = {
   health: { state: string; label: string; forecast_end: string | null; start: string; end: string } | null;
@@ -144,6 +145,7 @@ export default function ProjectOverview() {
           </nav>
         </div>
       </header>
+      <Constellation slug={project.slug} accent={accent} />
       {settingsOpen && <ProjectSettings project={project} onClose={() => setSettingsOpen(false)} />}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

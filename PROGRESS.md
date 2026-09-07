@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ CONSTELLATION HEADER (2026-09-07, #387).** The overview draws the project's papers + notes + links as a drifting sky (canvas, in-file layout, accent-tinted, hover title, click opens, caption + graph link, reduced-motion aware). Playwright in both themes: hover tooltip, click → /references/20, no console errors (docs/screenshots/overview-constellation.png, -light.png). Guard: core/tests/test_constellation.py.
+
 - **Library Find PDF per row (2026-09-07, #386).** Row menu item (disabled with "needs a DOI"), "looking…" pill during the lookup, "no PDF found" pill with the outcome afterwards. Playwright: fetched for "Deep learning" → miss pill with the outcome tooltip; no-DOI rows show the disabled item (docs/screenshots/library-find-pdf.png). Guard extended in test_tags_views. Full suite after #384: 1124 passed, 1 skipped.
 
 - **htmx + Alpine vendored (2026-09-07, #385).** The classic shell's last CDN loads now come from static/vendor; guard core/tests/test_no_cdn.py (2). The desktop draws every page offline.
