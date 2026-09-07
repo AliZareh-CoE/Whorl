@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **HTML sink guard (2026-09-07, #449).** core/tests/test_html_sinks.py: dangerouslySetInnerHTML only from `*html` fields, innerHTML only static, no |safe, mark_safe in one file.
+
 - **Abstract peek + hover prefetch (2026-09-07, #448).** `_bibliography_rows` abstract; BibPanel ▸ peek; Projects cards prefetch `["overview", slug]`. Test: writing/tests/test_bib_peek.py.
 
 - **Studio actions palette (2026-09-07, #447).** `ActionPalette` on ⌘⇧P with bindings; shortcuts sheet row. Test: writing/tests/test_action_palette.py. Playwright: ⌘⇧P → rows → Enter toggles the preview.
