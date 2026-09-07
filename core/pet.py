@@ -100,6 +100,25 @@ def _speech_candidates(now) -> list[str]:
         done, total = phase.milestone_counts
         lines.append(f"“{phase.name}” is moving — {done}/{total} milestones.")
 
+    # #419: habit signals — the streak, the usual hours, today's writing
+    days = _activity_days(limit=120)
+    streak = streak_days(days, today)
+    if streak >= 7:
+        lines.append(f"{streak} days in a row. That's a habit now, not luck.")
+    elif streak >= 3:
+        lines.append(f"{streak} days running. The streak is yours to keep — or not.")
+    from core.achievements import _hours_and_weekdays
+    from core.dashboard import words_written_since
+
+    usual_hours, _ = _hours_and_weekdays()
+    if len(usual_hours) >= 3 and now.hour not in usual_hours:
+        lines.append("Not your usual hour. Curious what brought you here.")
+    words_today = words_written_since(today)
+    if words_today >= 500:
+        lines.append(f"+{words_today:,} words on the paper today. A real session.")
+    elif words_today > 0:
+        lines.append(f"+{words_today} words today. The pen is moving.")
+
     hour = now.hour
     if hour < 6:
         lines.append("Up before the birds. I'll keep watch.")

@@ -135,3 +135,53 @@ class TestBuddyPersonality:
         assert _level(99) == 9
         assert _level(100) == 10
         assert _level(10_000) == 10
+
+
+class TestHabitSignals:
+    """#419: streak, unusual hour and today's writing show up in Mochi's lines."""
+
+    def _note_at(self, project, when, title):
+        from notes.models import Note
+
+        note = Note.objects.create(project=project, title=title, body="x")
+        Note.objects.filter(pk=note.pk).update(created_at=when, updated_at=when)
+        return note
+
+    def test_streak_and_words_lines(self):
+        import datetime as dt
+
+        from django.utils import timezone
+
+        from core.pet import _speech_candidates
+        from projects.tests.factories import ProjectFactory
+        from writing.models import Manuscript
+        from writing.progress import record_words
+
+        project = ProjectFactory()
+        now = timezone.localtime()
+        for i in range(4):
+            self._note_at(project, now - dt.timedelta(days=i), f"day {i}")
+        ms = Manuscript.objects.create(project=project, title="Paper")
+        record_words(ms, 100, now.date() - dt.timedelta(days=1))
+        record_words(ms, 340, now.date())
+        lines = _speech_candidates(now)
+        assert any("days running" in line for line in lines)
+        assert any("+240 words today" in line for line in lines)
+
+    def test_unusual_hour_line(self):
+        import datetime as dt
+
+        from django.utils import timezone
+
+        from core.pet import _speech_candidates
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        now = timezone.localtime()
+        for offset in (5, 6, 7):  # three usual hours, none of them now
+            when = (now - dt.timedelta(days=10)).replace(hour=(now.hour + offset) % 24)
+            self._note_at(project, when, f"note {offset}")
+        assert any("Not your usual hour" in line for line in _speech_candidates(now))
+        # activity at this hour makes it usual: the line goes away
+        self._note_at(project, now - dt.timedelta(days=3), "now-ish")
+        assert not any("Not your usual hour" in line for line in _speech_candidates(now))

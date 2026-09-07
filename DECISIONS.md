@@ -125,8 +125,9 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     resumes) + `pet_speech()` — context lines from overdue/done milestones, today's notes,
     weekly reading streak, active phase progress, time-of-day fallback; hour-stable pick;
     speech bubble on /pet/ and italic line in the sidebar widget; browser-verified with a
-    real data-driven line.~~ Remaining: occasional blink/tilt, more habit signals (streak
-    days, usual working hours), speech on hop.
+    real data-driven line.~~ ~~Blink (the Creature blinks and breathes since the pet overhaul); habit
+    signals (done 2026-09-07, #419: streak days, "not your usual hour", words written today).~~
+    Remaining: speech on hop.
 17. **Professional tree illustration with more growth phases (owner, 2026-06-11; UI idea).**
     Redraw the project tree as a more polished, professional SVG illustration with more
     distinct phases than the current five — richer trunk/branch structure, layered foliage,
@@ -551,6 +552,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Mochi notices habits: the streak, the hour, the writing (#419)
+
+**Decision.** Three more observation lines in `_speech_candidates`, all from data already kept: the activity streak ("4 days running…", "12 days in a row — a habit now, not luck" from seven), the hour ("Not your usual hour. Curious what brought you here." when at least three usual working hours are known and this is not one of them, from the same hours set the achievements read), and today's writing ("+240 words today. The pen is moving.", "+1,200 words … A real session." from five hundred, from the #413 samples). The tone stays observational — no nagging, no "you should".
+
+**Why.** Owner idea #16's remaining line: more habit signals. The pet is the one voice in the app allowed to comment on *how* you work; these three are the facts a good lab-mate would notice.
+
+**Alternatives rejected.** A line for a broken streak ("you missed yesterday") — that is nagging, and the product value says never; time-of-day *suggestions* ("you work best in the morning") — an inference the data cannot support.
 
 ### 2026-09-07 — "Words written this month" on the dashboard (#418)
 
