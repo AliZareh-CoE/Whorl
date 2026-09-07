@@ -1,16 +1,17 @@
 /* Diagnostics (2026-09-06): the page to open when something on the desktop "didn't work".
  * Version, paths, the LaTeX engine, the update feed (probed on request), the last compile
  * failure and the server log tail — and one button that copies it all as text. */
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { AlertTriangle, Check, CheckCircle2, Copy, Download, Globe, Loader2, Stethoscope, XCircle } from "lucide-react";
 import { api } from "../api";
 
 type Feed = { url: string; status: number | string | null };
+type Latex = { state: "idle" | "running" | "ok" | "failed" | "unknown"; log: string; seconds: number | null; dir: string; warm: boolean; size_mb: number };
 type Report = {
   version: string; desktop: boolean; platform: string; frozen: boolean; settings_module: string; data_dir: string | null; database: string;
-  engine: string | null; jobs: string; api_key_configured: boolean; update_feed: Feed[];
+  engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; update_feed: Feed[];
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
 };
 
@@ -31,6 +32,11 @@ export default function Diagnostics() {
   const [copied, setCopied] = useState(false);
   const q = useQuery({ queryKey: ["diagnostics", network], queryFn: () => api<Report>(`/diagnostics/${network ? "?network=1" : ""}`) });
   const r = q.data;
+  // LaTeX warm-up (2026-09-06): the first compile downloads the TeX bundle; do it here, on purpose
+  const qc = useQueryClient();
+  const warm = useMutation({ mutationFn: () => api<Latex>("/diagnostics/warm-latex/", { method: "POST" }), onSuccess: () => qc.invalidateQueries({ queryKey: ["diagnostics"] }) });
+  const running = r?.latex.state === "running";
+  useEffect(() => { if (!running) return; const t = window.setInterval(() => qc.invalidateQueries({ queryKey: ["diagnostics"] }), 3000); return () => window.clearInterval(t); }, [running, qc]);
   const copy = async () => { if (!r) return; try { await navigator.clipboard.writeText(r.text); setCopied(true); window.setTimeout(() => setCopied(false), 2000); } catch { /* blocked */ } };
 
   return (
@@ -58,6 +64,17 @@ export default function Diagnostics() {
               <Row label="Data folder" value={<code className="text-xs">{r.data_dir ?? "—"}</code>} />
               <Row label="Database" value={<code className="text-xs">{r.database}</code>} />
               <Row label="LaTeX engine" value={r.engine ? <code className="text-xs">{r.engine}</code> : "not found — compiles will fail"} ok={Boolean(r.engine)} />
+              {r.engine && (
+                <Row label="TeX bundle" ok={r.latex.warm ? true : r.latex.state === "failed" ? false : null} value={
+                  <span className="flex flex-wrap items-center gap-2" data-testid="latex-warmup">
+                    <span>{r.latex.warm ? `warm · ${r.latex.size_mb} MB cached` : "cold — the first compile downloads a few hundred MB and can take minutes"}</span>
+                    {r.latex.state === "running" ? <span className="inline-flex items-center gap-1 text-xs text-indigo-500"><Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />warming up…</span>
+                      : <button type="button" onClick={() => warm.mutate()} disabled={warm.isPending} className="rounded-md border border-stone-300 px-2 py-0.5 text-xs text-stone-700 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-200" data-testid="warm-latex">{r.latex.warm ? "Warm up again" : "Warm up now"}</button>}
+                    {r.latex.state === "ok" && r.latex.seconds != null && <span className="text-xs text-emerald-600 dark:text-emerald-400">ready · last warm-up {r.latex.seconds}s</span>}
+                    {r.latex.state === "failed" && <span className="text-xs text-red-600 dark:text-red-300" title={r.latex.log}>warm-up failed — {r.latex.log.split("\n").slice(-1)[0]?.slice(0, 120)}</span>}
+                  </span>
+                } />
+              )}
               <Row label="Background jobs" value={r.jobs} />
               <Row label="API key" value={r.api_key_configured ? "configured" : "missing — the API and Claude cannot connect"} ok={r.api_key_configured} />
               {r.update_feed.map((f) => <Row key={f.url} label="Update feed" value={<><code className="text-xs">{f.url.replace("https://github.com/", "")}</code>{f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (private repository or missing feed)" : ""}</span>}</>} ok={f.status === null ? null : f.status === 200} />)}

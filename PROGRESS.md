@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **LaTeX warm-up (2026-09-07, #372).** Cache detection per platform, background warm-up compile, Diagnostics row + button + polling, report text. Playwright with the real engine: clicked Warm up → "warming up…" → "ready · last warm-up 3s" (docs/screenshots/latex-warmup.png). Tests: writing/tests/test_warmup.py (6).
+
 - **⌘K: `todo:` + recent jumps (2026-09-06, #371).** Playwright: `todo: PW palette item` created a project-scoped Today item; jumping to the Library then reopening showed it under Recent jumps (docs/screenshots/palette-jumps.png). Guard test in core/tests/test_today.py.
 
 - **Updater polish (2026-09-06, #370).** Progress events + bar, release-notes confirm, 6-hourly re-check; cargo tests green; scaffold test pins the wiring. Unverifiable here (needs the public feed); the code paths are the plugin's documented callbacks.

@@ -2537,6 +2537,32 @@ class DiagnosticsAPIView(APIView):
         return Response(report)
 
 
+class LatexWarmupAPIView(APIView):
+    """Warm the LaTeX engine's bundle cache in the background (Diagnostics page)."""
+
+    @extend_schema(
+        operation_id="v1_latex_warmup_status",
+        description="Engine cache state and the last warm-up outcome.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from writing.warmup import status
+
+        return Response(status())
+
+    @extend_schema(
+        operation_id="v1_latex_warmup",
+        description="Start a background warm-up compile that downloads the common TeX packages "
+        "so the first real compile is fast. Poll GET for progress.",
+        request=None,
+        responses={202: None},
+    )
+    def post(self, request):
+        from writing.warmup import start_warm_up
+
+        return Response(start_warm_up(), status=202)
+
+
 class ConnectAPIView(APIView):
     """Connect Claude Code (SPA page): the exact `claude mcp add` line for this install, the
     MCP JSON for other clients, and the shipped skills with their install state."""

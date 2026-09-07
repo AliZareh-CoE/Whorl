@@ -42,6 +42,24 @@ def update_feed_status(check_network: bool = False) -> list[dict]:
     return rows
 
 
+def _latex_state() -> dict:
+    """Engine cache + warm-up state (writing/warmup.py); never lets a cache-dir error break
+    the report."""
+    try:
+        from writing.warmup import status
+
+        return status()
+    except Exception as exc:  # pragma: no cover - defensive
+        return {
+            "state": "unknown",
+            "log": str(exc),
+            "warm": False,
+            "dir": "",
+            "size_mb": 0,
+            "seconds": None,
+        }
+
+
 def collect(check_network: bool = False) -> dict:
     from writing.compile import tectonic_path
     from writing.models import Manuscript
@@ -64,6 +82,7 @@ def collect(check_network: bool = False) -> dict:
         "data_dir": str(data_dir) if data_dir else None,
         "database": db.get("ENGINE", "").rsplit(".", 1)[-1] + " · " + str(db.get("NAME", "")),
         "engine": str(engine) if engine else None,
+        "latex": _latex_state(),
         "jobs": "in-process (immediate)" if settings.HUEY.get("immediate") else "worker (huey)",
         "api_key_configured": bool(settings.ATLAS_API_KEY),
         "update_feed": update_feed_status(check_network),
@@ -89,6 +108,8 @@ def as_text(report: dict) -> str:
         f"data dir: {report['data_dir']}",
         f"database: {report['database']}",
         f"LaTeX engine: {report['engine'] or 'NOT FOUND'}",
+        f"TeX bundle cache: {'warm' if report['latex']['warm'] else 'cold'} "
+        f"({report['latex']['size_mb']} MB at {report['latex']['dir']}) · warm-up {report['latex']['state']}",
         f"jobs: {report['jobs']} · API key configured: {report['api_key_configured']}",
     ]
     for row in report["update_feed"]:

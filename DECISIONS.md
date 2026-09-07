@@ -544,6 +544,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — LaTeX warm-up: know the bundle cache is cold, fill it on purpose (#372)
+
+**Decision.** `writing/warmup.py` finds Tectonic's cache directory per platform, reports warm/cold + size, and can compile a small document that pulls the common packages (amsmath, graphicx, hyperref, natbib, booktabs, xcolor, geometry) on a daemon thread, with the state in the Django cache. Diagnostics shows a *TeX bundle* row with **Warm up now** and polls while it runs; the report text and `get_diagnostics` carry it.
+
+**Why.** The owner's "latex didn't compile" was, in part, a first compile silently downloading the bundle for minutes. A cold cache is now a visible fact with a button, not a surprise behind "Compiling…".
+
+**Alternatives rejected.** Shipping the bundle in the installer (hundreds of MB for packages most papers never use); warming automatically on first launch (an unasked-for download on a metered connection).
+
 ### 2026-09-06 — ⌘K: `todo:` verb and recent jumps (#371)
 
 **Decision.** The palette understands `todo: <text>` (also `t:`) and adds it to the Today list, tagged with the project you are in; navigations made through the palette are remembered per browser (`atlas-recent-jumps`, six entries) and shown as "Recent jumps" above the server's "Recently edited" list when the query is empty.
