@@ -22,6 +22,8 @@ class Comment(TimeStampedModel):
     target = GenericForeignKey("content_type", "object_id")
     body = models.TextField()  # markdown
     page = models.PositiveIntegerField(null=True, blank=True)  # PDF page anchor (reader)
+    # #439: addressed feedback clears — resolved comments stay (searchable) but go quiet
+    resolved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["created_at"]
@@ -29,6 +31,30 @@ class Comment(TimeStampedModel):
 
     def __str__(self):
         return self.body[:60]
+
+    @property
+    def resolved(self) -> bool:
+        return self.resolved_at is not None
+
+    def target_route(self):
+        """(app_url, project) for the object this comment sits on — None when unknown."""
+        model = self.content_type.model
+        target = self.target
+        if target is None:
+            return None, None
+        if model == "note":
+            return f"/projects/{target.project.slug}/notes/{target.pk}", target.project
+        if model == "reference":
+            return f"/references/{target.pk}", None
+        if model == "manuscriptfile":
+            manuscript = target.manuscript
+            return f"/manuscripts/{manuscript.pk}/editor", manuscript.project
+        if model == "manuscript":
+            return f"/manuscripts/{target.pk}", target.project
+        if model == "document":
+            return f"/projects/{target.project.slug}/documents", target.project
+        project = getattr(target, "project", None)
+        return None, project
 
 
 class Pet(TimeStampedModel):

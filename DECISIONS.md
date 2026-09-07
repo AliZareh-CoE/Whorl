@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Comments are searchable and can be resolved (#439)
+
+**Decision.** `Comment.resolved_at` (core 0012). `PATCH /api/v1/comments/{id}/ {resolved}` resolves or reopens; the list endpoints carry `resolved_at`. In the Studio a resolved line comment greys out, drops its gutter mark and offers "reopen"; the Reference page's comments get the same toggle. Global search gains the `comment` kind on both paths — the snippet is the remark, the row says what it sits on (note title, paper, manuscript file and line) and whether it is open or resolved, and opens the note, the paper, or the manuscript editor. `Comment.target_route()` is the one place that knows where a comment lives.
+
+**Why.** Backlog #109 ("where did I write that remark?" — comments were the last first-class text search could not see) and #130 (addressed feedback should clear, like a review tool, without deleting the record of what was said).
+
+**Alternatives rejected.** Deleting instead of resolving (loses the trail; a resolved comment still answers "what did I decide about that paragraph?"); a separate comments page (search already is that page); a `resolved` boolean (the timestamp says when, for free).
+
 ### 2026-09-07 — Templates that plan (#438)
 
 **Decision.** A built-in project template now carries three research-first parts beside its folders: a `plan` (a `plans.outline` Markdown outline — phases with objectives, milestones, a task or two), starter `questions` and review-matrix `themes`. `instantiate_template` lays each down only when the project has none of that kind, so re-applying a template, or applying it to a project that already has a plan, never duplicates. Empirical study: four phases / ten milestones / two questions / four themes (Theory, Method, Key finding, Limitation); Theory-review: scope → screening → synthesis → write-up with Claim / Evidence type / Population / Open problem; Software: design → build → evaluate → release; Minimal: one phase, one milestone. The New project cards state the counts; `/projects/templates/` carries them; `create_project(template=…)` over MCP gets the same.
@@ -2422,7 +2430,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 106. Design-notes file — a docs/DESIGN.md capturing the HIG-derived rules now binding (clarity/deference/depth, filtered-empty-state pattern, chip vocabulary) so every future UI slice starts from the same language (idea added by cycle 94, from the new owner design-research rule)
 107. Timeline event detail expand — click a dot to expand the event in place (decision context, experiment body, note preview) without leaving the page (idea added by cycle 95)
 108. Timeline on the overview — a 5-event mini-timeline strip on the project overview linking to the full page (idea added by cycle 95)
-109. Comment threads from search — comments are invisible to global search; index comment bodies (FTS) so "where did I write that remark?" resolves (idea added by cycle 96)
+109. ~~Comment threads from search (done 2026-09-07, #439: `comment` kind on both search paths, routes to the note / paper / editor)~~ — original: comments are invisible to global search; index comment bodies (FTS) so "where did I write that remark?" resolves (idea added by cycle 96)
 110. Pet hatching & species — a one-time hatch moment (deterministic from the install, Buddy-style) choosing among a few species/looks, with a tiny shiny chance; pairs with #49/#56 (idea added by cycle 97)
 111. Document the ?q= convention in the API schema — a reusable OpenApiParameter on every q_fields viewset so MCP/scripts discover searchability from /api/docs/ (idea added by cycle 98)
 112. CI audit artifacts — upload /tmp/server.log and the sweep output as workflow artifacts on failure so red audit jobs are debuggable without rerunning (idea added by cycle 99)
@@ -2458,7 +2466,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 133. Sanitize zip member names centrally — the submission-zip traversal guard is local to the view; a shared safe_archive_name() helper would cover any future zip/tar export (idea added by cycle 120, from AUDIT #12)
 132. Pet hatch animation — when the pet crosses a stage threshold (egg→hatchling etc.), play a one-time SVG transition (shell crack/burst) instead of just swapping the drawing (idea added by cycle 119)
 131. Include the .bbl in the submission zip — persist the compiled .bbl (compile with --keep-intermediates and store it on the manuscript) so the arXiv package includes it for venues that don't run BibTeX (idea added by cycle 118)
-130. Resolve/strike line comments — let a line comment be marked resolved (greyed + dot hidden) so addressed feedback clears, like a review tool; the Comment model would need a resolved flag (idea added by cycle 117)
+130. ~~Resolve/strike line comments (done 2026-09-07, #439: `resolved_at`, PATCH, greyed rows, gutter marks only for open ones)~~ — original: let a line comment be marked resolved (greyed + dot hidden) so addressed feedback clears, like a review tool; the Comment model would need a resolved flag (idea added by cycle 117)
 129. Compile streak on the pet/timeline — a compiles-per-week sparkline (the data is now on the timeline) on the manuscript detail or as a Mochi reaction, turning the writing rhythm into a gentle signal (idea added by cycle 116)
 128. User-defined templates — let the owner save any manuscript's current files AS a reusable template (a thin ManuscriptTemplate model or just "duplicate manuscript"), beyond the 6 built-ins (idea added by cycle 115)
 127. MCP figure upload — write_manuscript_file is text-only; add an MCP tool to attach a figure (multipart to manuscript-files asset) so Claude can complete a paper end-to-end incl. plots (idea added by cycle 114)

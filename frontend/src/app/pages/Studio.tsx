@@ -49,7 +49,7 @@ type Revision = { id: number; label: string; labeled: boolean; created_at: strin
 type WordCount = { words: number; headers?: number; captions?: number; math?: number; today_delta?: number; streak?: number; week_delta?: number };
 type Settings = { keymap: "default" | "vim"; fontSize: number; spellcheck: boolean; autoCompile: boolean; followCursor: boolean };
 type Tab = "files" | "outline" | "bib" | "history" | "comments";
-type StudioComment = { id: number; file: number; path: string; line: number | null; body: string; created_at: string };
+type StudioComment = { id: number; file: number; path: string; line: number | null; body: string; created_at: string; resolved_at?: string | null };
 
 const SETTINGS_KEY = "atlas-studio-settings";
 const HEADING_RE = /\\(part|chapter|section|subsection|subsubsection|paragraph)\*?\{([^}]*)\}/;
@@ -169,6 +169,7 @@ function StudioInner({ m }: { m: Manuscript }) {
     await loadComments(); setTab("comments"); setFlash(line ? `Comment on line ${line} added.` : "Comment added.");
   }, [loadComments]);
   const deleteComment = useCallback(async (c: StudioComment) => { await api(`/comments/${c.id}/`, { method: "DELETE" }); await loadComments(); }, [loadComments]);
+  const resolveComment = useCallback(async (c: StudioComment) => { await api(`/comments/${c.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resolved: !c.resolved_at }) }); await loadComments(); }, [loadComments]); // #439
   const [outline, setOutline] = useState<{ line: number; depth: number; title: string }[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [ln, setLn] = useState(1);
@@ -299,7 +300,7 @@ function StudioInner({ m }: { m: Manuscript }) {
 
   useEffect(() => {
     const ad = adRef.current; if (!ad || !ready) return;
-    ad.setCommentLines(comments.filter((c) => c.file === activeId && c.line).map((c) => c.line as number));
+    ad.setCommentLines(comments.filter((c) => c.file === activeId && c.line && !c.resolved_at).map((c) => c.line as number)); // #439: only open comments mark the gutter
   }, [comments, activeId, ready]);
 
   // deep link from the Library: /manuscripts/:id/editor?quote=<highlight id> inserts that passage
@@ -535,11 +536,12 @@ function StudioInner({ m }: { m: Manuscript }) {
                   {comments.length === 0 && <p className="px-1 text-xs st-dim">No comments yet.</p>}
                   <ul className="space-y-1">
                     {comments.map((c) => (
-                      <li key={c.id} className="group rounded px-1 py-1 text-xs st-text hover:bg-indigo-500/10" data-testid="studio-comment">
+                      <li key={c.id} className={`group rounded px-1 py-1 text-xs st-text hover:bg-indigo-500/10 ${c.resolved_at ? "opacity-50" : ""}`} data-testid="studio-comment" data-resolved={c.resolved_at ? "1" : undefined}>
                         <button type="button" onClick={async () => { if (c.file !== activeId) await openFile(c.file); if (c.line) adRef.current?.gotoLine(c.line); }} className="block w-full text-left" title="Jump to it">
                           <span className="block whitespace-pre-wrap">{c.body}</span>
                           <span className="mt-0.5 block text-[10px] st-dim">{c.path.replace(/^.*\//, "")}{c.line ? `:${c.line}` : ""} · {c.created_at.slice(0, 10)}</span>
                         </button>
+                        <button type="button" onClick={() => void resolveComment(c)} className="mt-0.5 mr-2 text-[10px] st-dim hover:text-emerald-400" aria-label={c.resolved_at ? "Reopen comment" : "Resolve comment"} data-testid="comment-resolve">{c.resolved_at ? "reopen" : "resolve"}</button>
                         <button type="button" onClick={() => void deleteComment(c)} className="mt-0.5 hidden text-[10px] st-dim hover:text-red-400 group-hover:inline" aria-label="Delete comment">delete</button>
                       </li>
                     ))}

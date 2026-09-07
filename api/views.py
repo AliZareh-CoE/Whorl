@@ -2377,6 +2377,7 @@ class ManuscriptViewSet(AtlasViewSet):
                         "line": c.page,
                         "body": c.body,
                         "created_at": c.created_at.isoformat(),
+                        "resolved_at": c.resolved_at.isoformat() if c.resolved_at else None,
                     }
                     for c in rows
                 ]
@@ -3244,6 +3245,7 @@ class CommentsAPIView(APIView):
                         "body": c.body,
                         "line": c.page,  # page doubles as the editor line anchor (B6)
                         "created_at": c.created_at.isoformat(),
+                        "resolved_at": c.resolved_at.isoformat() if c.resolved_at else None,
                     }
                     for c in comments_for(target)
                 ]
@@ -3285,7 +3287,35 @@ class CommentsAPIView(APIView):
 
 
 class CommentDeleteAPIView(APIView):
-    """Remove one comment (#414): the Studio's comment panel and the reader use it."""
+    """Remove one comment (#414) — or, since #439, resolve / reopen it with PATCH."""
+
+    @extend_schema(
+        description="Resolve or reopen a comment (#439): {resolved: true|false}. Resolved "
+        "comments stay (and stay searchable) but drop out of the editor gutter.",
+        request=inline_serializer(
+            "CommentResolveRequest", {"resolved": rf_serializers.BooleanField()}
+        ),
+        responses={200: None},
+    )
+    def patch(self, request, pk):
+        from django.utils import timezone
+
+        from core.models import Comment
+
+        comment = Comment.objects.filter(pk=pk).first()
+        if comment is None:
+            return Response({"detail": "No such comment."}, status=404)
+        resolved = request.data.get("resolved")
+        if not isinstance(resolved, bool):
+            return Response({"detail": "Send {resolved: true|false}."}, status=400)
+        comment.resolved_at = timezone.now() if resolved else None
+        comment.save(update_fields=["resolved_at", "updated_at"])
+        return Response(
+            {
+                "id": comment.pk,
+                "resolved_at": comment.resolved_at.isoformat() if comment.resolved_at else None,
+            }
+        )
 
     @extend_schema(description="Delete a comment by id.", responses={204: None})
     def delete(self, request, pk):

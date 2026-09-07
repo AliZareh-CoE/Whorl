@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Comments searchable + resolvable (2026-09-07, #439).** `Comment.resolved_at` (core 0012) + `target_route()`; PATCH /comments/{id}/; search kind `comment` (both paths, describe); Studio + Reference resolve toggles; gutter marks only for open. Tests: core/tests/test_comments_resolve_search.py.
+
 - **Templates that plan (2026-09-07, #438).** `project_templates.py` plan/questions/themes per template; `instantiate_research_scaffold` (only when empty); template_list counts; NewProject card line `template-plan`. Tests: projects/tests/test_templates.py::TestResearchScaffold. Backlog #57/#58 struck.
 
 - **Matrix → Related work .tex (2026-09-07, #437).** `related_work_latex` + `POST /manuscripts/{id}/related-work/` (409 guard, bibliography links, input line); Matrix button + picker + done strip; MCP `draft_related_work` (98 tools). Tests: writing/tests/test_related_work.py. Playwright: docs/screenshots/matrix-related-work.png.

@@ -11,6 +11,7 @@ from django.contrib.postgres.search import (
     TrigramSimilarity,
 )
 
+from core.models import Comment
 from documents.models import Document
 from literature.models import Reference
 from notes.models import Note, QuickCapture
@@ -149,6 +150,13 @@ _SEARCH_SPECS = [
         ["text"],
         lambda o: o.project,
     ),
+    # #439: "where did I write that remark?" — comments on notes, papers, manuscript files…
+    (
+        "comment",
+        lambda: Comment.objects.select_related("content_type"),
+        ["body"],
+        lambda o: o.target_route()[1],
+    ),
 ]
 
 
@@ -285,6 +293,11 @@ def search_all(text: str) -> list[dict]:
     ):
         results.append({"type": "capture", "object": capture, "project": capture.project})
 
+    for comment in _ranked(
+        Comment.objects.select_related("content_type"), SearchVector("body", weight="A"), query
+    ):
+        results.append({"type": "comment", "object": comment, "project": comment.target_route()[1]})
+
     if not results:
         results = _trigram_fallback(text.strip())
 
@@ -383,6 +396,19 @@ def describe(result: dict, q: str) -> dict:
             snippet=excerpt(obj.text, q),
             app_url="/inbox",
             meta="filed" if obj.processed else "in the inbox",
+        )
+    elif kind == "comment":
+        url, _ = obj.target_route()
+        target = obj.target
+        on = getattr(target, "title", None) or getattr(target, "path", None) or str(target or "")
+        where = f"on {on[:60]}" if on else ""
+        if obj.content_type.model == "manuscriptfile" and obj.page:
+            where += f" line {obj.page}"
+        out.update(
+            snippet=excerpt(obj.body, q),
+            app_url=url,
+            meta="resolved" if obj.resolved_at else "open",
+            where=where,
         )
     elif kind in ("hypothesis", "experiment", "dataset", "question"):
         body = (

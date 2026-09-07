@@ -100,12 +100,16 @@ export default function Reference() {
   const { data: citation } = useQuery({ queryKey: ["cite", Number(id), citeStyle], queryFn: () => api<Citation>(`/references/${id}/cite/?style=${citeStyle}`) });
   const { data: commentData } = useQuery({
     queryKey: ["comments", "reference", id],
-    queryFn: () => api<{ comments: { id: number; body: string; created_at: string }[] }>(`/comments/reference/${id}/`),
+    queryFn: () => api<{ comments: { id: number; body: string; created_at: string; resolved_at?: string | null }[] }>(`/comments/reference/${id}/`),
   });
   // #411: where this paper appears — backlinks for a reference
   const usage = useQuery({ queryKey: ["usage", Number(id)], queryFn: () => api<Usage>(`/references/${id}/usage/`) });
   // #436: the same local TF-IDF neighbours the Library rail shows — here too, where a paper is read about
   const related = useQuery({ queryKey: ["related", Number(id)], queryFn: () => api<{ id: number; bibtex_key: string; title: string; year: number | null; score: number }[]>(`/references/${id}/related/`) });
+  const resolveComment = useMutation({ // #439
+    mutationFn: ({ id, resolved }: { id: number; resolved: boolean }) => api(`/comments/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resolved }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["comments", "reference", id] }),
+  });
   const [commentBody, setCommentBody] = useState("");
   const remove = useMutation({
     mutationFn: () => api(`/references/${id}/`, { method: "DELETE" }),
@@ -333,9 +337,13 @@ export default function Reference() {
         {commentData && commentData.comments.length > 0 ? (
           <ul className="mb-4 space-y-3">
             {commentData.comments.map((c) => (
-              <li key={c.id} className="border-l-2 border-stone-200 pl-3 text-sm dark:border-stone-800">
+              <li key={c.id} className={`border-l-2 pl-3 text-sm ${c.resolved_at ? "border-emerald-300 opacity-60 dark:border-emerald-700" : "border-stone-200 dark:border-stone-800"}`} data-testid="reference-comment" data-resolved={c.resolved_at ? "1" : undefined}>
                 <p className="whitespace-pre-wrap text-stone-700 dark:text-stone-300">{c.body}</p>
-                <p className="mt-0.5 text-xs text-stone-400 dark:text-stone-400">{c.created_at.slice(0, 16).replace("T", " ")}</p>
+                <p className="mt-0.5 flex items-center gap-2 text-xs text-stone-400 dark:text-stone-400">
+                  <span>{c.created_at.slice(0, 16).replace("T", " ")}</span>
+                  {c.resolved_at && <span className="text-emerald-600 dark:text-emerald-400">resolved</span>}
+                  <button type="button" onClick={() => resolveComment.mutate({ id: c.id, resolved: !c.resolved_at })} className="hover:text-emerald-600 hover:underline dark:hover:text-emerald-400" data-testid="comment-resolve">{c.resolved_at ? "reopen" : "resolve"}</button>
+                </p>
               </li>
             ))}
           </ul>
