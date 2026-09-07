@@ -5,15 +5,25 @@ experiments, documents, manuscript events, hypotheses — so a project's history
 like the methods/history section of a paper.
 """
 
+NOTE_PREVIEW = 1500
+
 
 def project_timeline(project) -> list[dict]:
     """Every dated event in the project's life, newest first.
 
-    Each event: {date, kind, label, detail, url}. URLs are SPA paths so the
-    timeline page can deep-link every object.
+    Each event: {date, kind, label, detail, url, body_html}. URLs are SPA paths so the
+    timeline page can deep-link every object; `body_html` (#443) is the event's own text —
+    a decision's context / decision / alternatives, an entry's body, a note's opening, a
+    milestone's notes — rendered like everywhere else, empty when the object has none.
     """
+    from core.rendering import render_body
+
     events: list[dict] = []
     slug = project.slug
+
+    def html(text: str) -> str:
+        text = (text or "").strip()
+        return render_body(text, project) if text else ""
 
     for phase in project.phases.prefetch_related("milestones").all():
         for milestone in phase.milestones.all():
@@ -25,6 +35,7 @@ def project_timeline(project) -> list[dict]:
                         "label": milestone.title,
                         "detail": phase.name,
                         "url": f"/projects/{slug}/plan",
+                        "body_html": html(milestone.notes),
                     }
                 )
 
@@ -63,6 +74,9 @@ def project_timeline(project) -> list[dict]:
                 "label": note.title,
                 "detail": "",
                 "url": f"/projects/{slug}/notes/{note.pk}",
+                "body_html": html(
+                    note.body[:NOTE_PREVIEW] + ("\n\n…" if len(note.body) > NOTE_PREVIEW else "")
+                ),
             }
         )
 
@@ -74,6 +88,19 @@ def project_timeline(project) -> list[dict]:
                 "label": decision.title,
                 "detail": "",
                 "url": f"/projects/{slug}/decisions",
+                "body_html": html(
+                    "\n\n".join(
+                        part
+                        for part in (
+                            f"**Context.** {decision.context}" if decision.context else "",
+                            f"**Decision.** {decision.decision}" if decision.decision else "",
+                            f"**Alternatives.** {decision.alternatives}"
+                            if decision.alternatives
+                            else "",
+                        )
+                        if part
+                    )
+                ),
             }
         )
 
@@ -85,6 +112,7 @@ def project_timeline(project) -> list[dict]:
                 "label": entry.title,
                 "detail": "",
                 "url": f"/projects/{slug}/research",
+                "body_html": html(entry.body),
             }
         )
 
@@ -119,6 +147,7 @@ def project_timeline(project) -> list[dict]:
                     "label": f"{manuscript.title} — {event.get_kind_display()}",
                     "detail": event.notes[:120],
                     "url": f"/manuscripts/{manuscript.pk}",
+                    "body_html": html(event.notes) if len(event.notes) > 120 else "",
                 }
             )
         # writing history (beyond-Overleaf B5): the latest successful compile + labeled
@@ -145,6 +174,8 @@ def project_timeline(project) -> list[dict]:
                     }
                 )
 
+    for event in events:
+        event.setdefault("body_html", "")
     events.sort(key=lambda e: e["date"], reverse=True)
     return events
 

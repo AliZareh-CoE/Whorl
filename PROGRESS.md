@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Timeline expand (2026-09-07, #443).** `core/timeline.py` events carry `body_html` (decision, experiment, note, milestone notes, manuscript event notes); Timeline.tsx chevron expands a Prose block. Test: core/tests/test_timeline_bodies.py. Playwright: docs/screenshots/timeline-expand.png. Sweep: #69/#70/#110/#114/#121/#125/#136 struck.
+
 - **.bbl in the submission zip (2026-09-07, #442).** compile `--keep-intermediates` → `Manuscript.compiled_bbl` (writing 0015); submission.zip ships `<main>.bbl`. Tests: writing/tests/test_bbl.py. Live: demo compile → zip lists main.bbl.
 
 - **MCP figure upload (2026-09-07, #441).** `attach_manuscript_asset` (client, multipart) + `attach_manuscript_figure` tool (99 tools) with the figure snippet. Tests: mcp_server/tests/test_attach_figure.py (client kwargs, PATCH path, API multipart contract).
