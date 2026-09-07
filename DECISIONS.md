@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Duplicate a manuscript (#446)
+
+**Decision.** `writing/services.py::duplicate_manuscript` and `POST /api/v1/manuscripts/{id}/duplicate/ {title?, project?, bibliography?}`: a fresh manuscript in idea status with every source file (text and assets, each asset with its own copy of the bytes), the venue limits, the venue and abstract, and — unless asked otherwise — the bibliography links with their cite-key overrides. Compile state, revisions, comments and submission events stay with the original; the tree mirror runs for the copy like for any new manuscript. The Writing board's card menu gets "Duplicate…" (a title prompt, then straight to the copy); Claude gets `duplicate_manuscript` (100 tools).
+
+**Why.** Backlog #128: researchers reuse their own LaTeX skeleton — the class, the macros, the section layout, half the bibliography — far more than any gallery template. "Duplicate" is the user-defined template with no template model to maintain.
+
+**Alternatives rejected.** A `ManuscriptTemplate` model with a save-as flow (a second thing to name, list and delete; a copy of the last paper is what people actually want); copying revisions and events (history belongs to the paper it happened to).
+
 ### 2026-09-07 — The cite completion adds the paper you don't have yet (#445)
 
 **Decision.** The editor's `\cite{}` completion now filters the library itself (key, title, authors) and, when nothing matches — or the fragment *is* a DOI or arXiv id — ends the list with "Add a paper by DOI or arXiv id…" / "Add 10.…/… to the library". Accepting it asks for the id (skipped when the fragment already is one), adds the paper through `/references/by-doi/` into the project, links it to the manuscript's bibliography through the workbench `cite-library/` endpoint, replaces the fragment with the new key and reloads the completion pool. The amber cite-check diagnostic keeps pointing at the same door.
@@ -2516,7 +2524,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 131. ~~Include the .bbl in the submission zip (done 2026-09-07, #442: `--keep-intermediates`, `compiled_bbl`, `<main>.bbl` in submission.zip)~~ — original: persist the compiled .bbl (compile with --keep-intermediates and store it on the manuscript) so the arXiv package includes it for venues that don't run BibTeX (idea added by cycle 118)
 130. ~~Resolve/strike line comments (done 2026-09-07, #439: `resolved_at`, PATCH, greyed rows, gutter marks only for open ones)~~ — original: let a line comment be marked resolved (greyed + dot hidden) so addressed feedback clears, like a review tool; the Comment model would need a resolved flag (idea added by cycle 117)
 129. Compile streak on the pet/timeline — a compiles-per-week sparkline (the data is now on the timeline) on the manuscript detail or as a Mochi reaction, turning the writing rhythm into a gentle signal (idea added by cycle 116)
-128. User-defined templates — let the owner save any manuscript's current files AS a reusable template (a thin ManuscriptTemplate model or just "duplicate manuscript"), beyond the 6 built-ins (idea added by cycle 115)
+128. ~~User-defined templates (done 2026-09-07, #446 as "Duplicate…": sources, assets, limits and bibliography links into a fresh manuscript; API + MCP)~~ — original: let the owner save any manuscript's current files AS a reusable template (a thin ManuscriptTemplate model or just "duplicate manuscript"), beyond the 6 built-ins (idea added by cycle 115)
 127. ~~MCP figure upload (done 2026-09-07, #441: `attach_manuscript_figure`, multipart asset + includegraphics snippet)~~ — original: write_manuscript_file is text-only; add an MCP tool to attach a figure (multipart to manuscript-files asset) so Claude can complete a paper end-to-end incl. plots (idea added by cycle 114)
 126. Abstract peek in the panel — expand a bibliography row in the research rail to read the full abstract inline (the context endpoint already sends a 280-char snippet; show it on click) without opening the reference page (idea added by cycle 113)
 125. ~~Cite-check across files (the cite checker reads every .tex file of the manuscript; swept 2026-09-07)~~ — original: the missing-citations check currently scans the active buffer only; aggregate unknown \cite keys across ALL tex files so a citation defined nowhere in a multi-file project is caught (idea added by cycle 112)

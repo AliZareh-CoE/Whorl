@@ -389,6 +389,21 @@ def get_reference_usage(reference_id: int):
     return _request("GET", f"/references/{reference_id}/usage/")
 
 
+def duplicate_manuscript(
+    manuscript_id: int,
+    title: str | None = None,
+    project: str | None = None,
+    bibliography: bool = True,
+):
+    """A fresh manuscript from an existing one: sources, assets, venue limits and bibliography links."""
+    payload = {"bibliography": bibliography}
+    if title:
+        payload["title"] = title
+    if project:
+        payload["project"] = project
+    return _request("POST", f"/manuscripts/{manuscript_id}/duplicate/", json=payload)
+
+
 def draft_related_work(manuscript_id: int, path: str | None = None, overwrite: bool = False):
     """Write a Related-work .tex section drafted from the project's review matrix into the manuscript."""
     payload = {"overwrite": overwrite}

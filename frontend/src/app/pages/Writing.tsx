@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Gauge, Loader2, MessageSquareReply, Package, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
-import { confirmDialog, errorDialog } from "../../components/Dialog";
+import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -89,6 +89,14 @@ export function WritingBoard() {
       "-",
       { label: next && next !== "shelved" ? `Move to ${COLUMNS[i + 1][1]}` : "Move forward", disabled: !next || next === "shelved", onSelect: () => { if (next) patchOne.mutate({ id: m.id, status: next }); } },
       { label: "Shelve", disabled: m.status === "shelved", onSelect: () => patchOne.mutate({ id: m.id, status: "shelved" }) },
+      { label: "Duplicate…", icon: <Copy className="h-3.5 w-3.5" />, onSelect: async () => {
+        // #446: a fresh manuscript from this one — sources, assets, limits, bibliography links
+        const title = await promptDialog({ title: `Duplicate “${m.title}”`, body: "Every source file and asset, the venue limits and the bibliography links go into a new manuscript in idea status. Compile state, versions and comments stay here.", label: "Title of the copy", initial: `Copy of ${m.title}`, confirmLabel: "Duplicate" });
+        if (!title?.trim()) return;
+        const copy = await api<{ id: number }>(`/manuscripts/${m.id}/duplicate/`, { method: "POST", headers: JSON_H, body: JSON.stringify({ title: title.trim() }) });
+        queryClient.invalidateQueries({ queryKey: ["manuscripts"] });
+        navigate(`/manuscripts/${copy.id}`);
+      } },
       "-",
       { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete “${m.title}”?`, body: "Its LaTeX source, revisions, bibliography links and submission timeline go with it.", danger: true, confirmLabel: "Delete manuscript", verify: m.title })) removeOne.mutate(m.id); } },
     ];

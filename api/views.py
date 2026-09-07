@@ -2284,6 +2284,41 @@ class ManuscriptViewSet(AtlasViewSet):
 
     @extend_schema(
         request=inline_serializer(
+            "ManuscriptDuplicate",
+            {
+                "title": rf_serializers.CharField(required=False),
+                "project": rf_serializers.CharField(required=False),
+                "bibliography": rf_serializers.BooleanField(required=False),
+            },
+        ),
+        responses={201: serializers.ManuscriptSerializer},
+        description="Duplicate this manuscript (#446): every source file and asset, the venue "
+        "limits and (unless bibliography=false) the bibliography links go into a fresh "
+        "manuscript in idea status — in the same project, or in `project` (a slug). Compile "
+        "state, revisions, comments and submission events stay with the original.",
+    )
+    @action(detail=True, methods=["post"], url_path="duplicate")
+    def duplicate(self, request, pk=None):
+        from projects.models import Project
+        from writing.services import duplicate_manuscript
+
+        source = self.get_object()
+        data = request.data if isinstance(request.data, dict) else {}
+        target = None
+        if data.get("project"):
+            target = Project.objects.filter(slug=data["project"]).first()
+            if target is None:
+                raise rf_serializers.ValidationError({"project": ["No project with that slug."]})
+        copy = duplicate_manuscript(
+            source,
+            title=str(data.get("title") or "").strip(),
+            project=target,
+            bibliography=data.get("bibliography", True) is not False,
+        )
+        return Response(self.get_serializer(copy).data, status=201)
+
+    @extend_schema(
+        request=inline_serializer(
             "RelatedWorkDraft",
             {
                 "path": rf_serializers.CharField(required=False),

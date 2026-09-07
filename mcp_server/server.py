@@ -362,6 +362,17 @@ def get_reference_usage(reference_id: int) -> dict:
 
 
 @mcp.tool()
+def duplicate_manuscript(
+    manuscript_id: int, title: str = "", project: str = "", bibliography: bool = True
+) -> dict:
+    """Start a new paper from an existing one: copies every source file and asset, the venue
+    limits and (by default) the bibliography links into a fresh manuscript in idea status —
+    the way researchers reuse their LaTeX skeleton. `project` (a slug) puts the copy in another
+    project. Compile state, revisions, comments and submission events stay with the original."""
+    return client.duplicate_manuscript(manuscript_id, title or None, project or None, bibliography)
+
+
+@mcp.tool()
 def draft_related_work(manuscript_id: int, path: str = "", overwrite: bool = False) -> dict:
     """Draft a LaTeX `Related work` section from the project's review matrix and save it as
     `sections/related-work.tex` (or `path`) in the manuscript's source tree: one subsection per

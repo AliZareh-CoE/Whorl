@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Duplicate manuscript (2026-09-07, #446).** `duplicate_manuscript` service + `POST /manuscripts/{id}/duplicate/`; Writing card menu; MCP tool (100 tools). Tests: writing/tests/test_duplicate.py. Playwright: card menu → prompt → copy opens with 2 files.
+
 - **Cite hint for missing papers (2026-09-07, #445).** editor/index.ts self-filtered cite options + add-paper row (`onAddPaper`); Studio prompts, adds by DOI into the project, links via cite-library/, replaces the fragment, reloads. Test: writing/tests/test_cite_hint.py. Playwright: the add row appears for `\cite{zzz`.
 
 - **Timeline bodies opt-out (2026-09-07, #444).** `project_timeline(bodies=False)` for the overview's week digest (no markdown rendering on the overview). Test: core/tests/test_timeline_bodies.py::test_bodies_can_be_skipped_and_the_overview_digest_skips_them. #108 struck.
