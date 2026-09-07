@@ -553,6 +553,22 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The last CDN loads are vendored: htmx and Alpine (#385)
+
+**Decision.** `templates/base.html` loads htmx 2.0.4 and Alpine 3.14.9 from `static/vendor/` instead of unpkg; `core/tests/test_no_cdn.py` fails on any unpkg/jsdelivr/cdnjs/esm.sh URL in the templates or the SPA sources, and checks the two files are present.
+
+**Why.** The desktop app must work with no internet. The graph libraries and pdf.js were vendored earlier for the same reason; these two were the last runtime loads from the network, and every classic page (login included) pulled them. 95 KB of static beats a page that half-works offline.
+
+**Alternatives rejected.** Keeping the CDN with a local fallback (`onerror` swap — two code paths for one file); an npm build for the classic shell (the SPA already has one, the classic pages do not need it).
+
+### 2026-09-07 — ETag honesty: a data version in every ETag, M2M writes touch updated_at, and a guard on bare update() (#384)
+
+**Decision.** Three layers. (1) `core/versioning.py` keeps a process-wide data version in the cache; `core/signals.py` bumps it on every save, delete and M2M change of an Atlas model, and every list/detail ETag in `AtlasViewSet` folds it in. (2) The same M2M receiver stamps `updated_at` on the instance and on the related rows, since Django's `add/remove/set/clear` never touch it. (3) `core/tests/test_etag_honesty.py` walks the app code with `ast` and fails on any queryset `.update(...)` that neither passes `updated_at` nor carries an `# etag: ok` reason; the sites it found (a highlight marking papers skimmed, moving documents, inbox bulk triage, merge bookkeeping, the main-file switch) now stamp `updated_at`, and two lines that run right before a delete or a save are marked.
+
+**Why.** The stale-304 bug shipped twice in one day (#381 tags, #383 reorder) and the survey found five more places waiting to do it. `updated_at` stays the primary signal (it is exact across processes), the version closes the gaps in-process (which is the whole desktop), and the guard stops the next one at test time rather than in the owner's hands.
+
+**Alternatives rejected.** Dropping ETags from the API (MCP polling and the SPA's cache would pay every time); computing ETags from the serialised body (a full render per request just to say 304); a Django middleware that clears the browser cache on writes (cannot see M2M or `update()` either).
+
 ### 2026-09-07 — Today list: drag to reorder through one endpoint (#383)
 
 **Decision.** `POST /api/v1/todos/reorder/ {"ids": [...]}` sets the whole order — the given ids take positions 1..n, everything else follows in its current order — and bumps `updated_at` so the list ETag moves. The Today page drags rows by a grip that appears on hover (HTML5 drag & drop, an insertion line above/below the target, optimistic update), and the existing ⌥↑/↓ keyboard reorder now goes through the same call instead of two swapped PATCHes. `reorder_todos` is the MCP tool (90 tools).

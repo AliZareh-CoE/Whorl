@@ -21,8 +21,9 @@
     })();
   </script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
-  <script src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js" defer></script>
+  {# vendored (#385): the desktop must work offline — htmx 2.0.4 and Alpine 3.14.9 from static/vendor #}
+  <script src="{% static 'vendor/htmx/htmx.min.js' %}" defer></script>
+  <script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
 </head>
 <body class="h-full bg-stone-50 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:text-white">

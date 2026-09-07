@@ -2,6 +2,10 @@
 
 ## Current Status
 
+- **htmx + Alpine vendored (2026-09-07, #385).** The classic shell's last CDN loads now come from static/vendor; guard core/tests/test_no_cdn.py (2). The desktop draws every page offline.
+
+- **ETag honesty (2026-09-07, #384).** Data version bumped by save/delete/M2M signals and folded into every ETag; M2M changes stamp updated_at on both sides; five bare `update()` sites fixed; AST guard `core/tests/test_etag_honesty.py` (4 tests) fails on the next bare `update()`. Full suite re-run after the signal change (see below).
+
 - **Today drag-to-reorder (2026-09-07, #383).** Grip on hover, insertion line, optimistic order; `POST /todos/reorder/` (full order, bumps updated_at → ETag moves), keyboard reorder uses it too; `reorder_todos` MCP tool (90). Playwright: dragged the third item above the first → page and API agree (docs/screenshots/today-drag.png). Tests: core/tests/test_today.py (+1, wiring extended).
 
 - **★ BLANK WINDOW, SECOND REPORT (2026-09-07, #382).** Owner: 0.1.106 (with the #379 hotfix) is still blank. Reproduced nothing: the SPA boots under the desktop settings (SQLite, DEBUG off, empty + seeded) and under a fresh PyInstaller freeze with a Tauri stub. Shipped the two things that hold regardless: (1) a boot watchdog in spa.html + `ErrorBoundary` (app + page scope) + global handlers, all posting to `POST /api/v1/client-errors/` → server log + Diagnostics "Front-end errors"; (2) `collectstatic --clear` on a version change and `WHITENOISE_MAX_AGE = 0` on the desktop, so an upgraded install can never serve a half-updated chunk set. Playwright: aborted spa.js → panel with "the app script failed to load" (docs/screenshots/boot-failure.png); a throwing Dashboard chunk → page boundary with the sidebar intact, recovered on navigation (render-failure.png); both on Diagnostics (diagnostics-client-errors.png). Tests: core/tests/test_client_errors.py (4). **Next report from the owner should carry the panel's text or the Diagnostics "Front-end errors" section.**
