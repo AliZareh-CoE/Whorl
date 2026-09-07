@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The Studio's PDF preview has a text layer (#452)
+
+**Decision.** Each preview page is now a positioned wrap holding the canvas and a pdf.js `TextLayer` (the same class and `.textLayer` CSS the literature reader uses), so the compiled PDF's text can be selected and copied straight from the studio; page tracking, "go to page" and SyncTeX's forward marker read the wrap instead of the canvas, and the double-click-to-source binding moved onto the wrap so the text layer cannot swallow it. A page without text still renders.
+
+**Why.** Backlog #116 — proofreading means copying a sentence out of the PDF into a note, a message or a search, and the preview was a picture.
+
+**Alternatives rejected.** Rendering via pdf.js's full viewer (its chrome and CSS fight the studio's); a copy-page-text button (selection is the universal gesture).
+
 ### 2026-09-07 — The reading flow runs over any Library view (#450)
 
 **Decision.** `GET /api/v1/references/reading-flow/?<library filters>` returns the flow's paper shape for whatever the Library workbench is showing (same params as the list: q, tag, view, year, project, reading status…); each paper names the project link the status applies through — the `project` filter's link, else the first unread link, else the first — and `id` is null when the paper sits in no project yet. `/library/read?<params>` opens the same reading flow page in library mode: statuses go through that link, "j" captures the note into the paper's project, Esc returns to the Library, and a paper with no project says so instead of pretending. The Library list header gets "Read these →" next to ".bib of this view".
@@ -2533,7 +2541,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 113. API timing smoke in CI — extend the audit job with a best-of-5 latency check on 3 hot endpoints against the 50ms bar, so regressions like the cycle-100 N+1 surface in PRs not audits (idea added by cycle 100)
 114. ~~Vendor CodeMirror locally (the CM6 editor is bundled; no CDN reference remains in templates or the SPA; swept 2026-09-07)~~ — original: the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
 115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
-116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+116. ~~PDF text layer in the editor preview (done 2026-09-07, #452)~~ — original: add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
 149. ~~Pet voice personality — mood layer (done 2026-06-13): MOOD_VOICES in core/tts.py sets loudness/liveliness from the pet's weekly mood (sleeping 0.6 → thriving 1.0 + extra noise_w) on top of the stage's pace/timbre (volume-only so they compose); read_aloud passes both stage+mood; real WAVs verified distinct per mood; 4 tests incl. MOODS↔MOOD_VOICES sync + compose.~~
 142. ~~Pet voice personality (done 2026-06-12, cycle 138, Owner #29 follow-on): STAGE_VOICES in core/tts.py shapes Piper delivery per growth stage — egg murmurs slow+soft (length 1.25, noise 0.45), hatchling peeps fast (0.8, lively phoneme timing), scholar is the voice as trained, sage is slow+measured (1.18) — and read_aloud derives the stage server-side from pet_state(). Real-voice durations verified distinct (1.94s/2.25s/2.59s for the same sentence); live endpoint 200 audio/wav; 4 new tests incl. a STAGES↔STAGE_VOICES sync guard.~~
 148. Icon sweep for the rest of the app — the editor chrome now speaks one stroke-SVG language; the classic sidebar/pages still mix glyphs (✨ Assistant, ⌘K, section headers); a templatetag or include for the icon set would let every surface share it (idea added by cycle 137)

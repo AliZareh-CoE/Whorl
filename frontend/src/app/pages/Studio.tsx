@@ -799,6 +799,7 @@ function PdfPane({ id, url, status, log, compiledAt, locate, onLocate }: { id: s
   const [error, setError] = useState("");
   const [rendering, setRendering] = useState(false);
   const docRef = useRef<{ numPages: number; getPage: (n: number) => Promise<unknown> } | null>(null);
+  const libRef = useRef<Record<string, unknown> | null>(null); // #452: pdf.js module, for the text layer
 
   useEffect(() => {
     if (!url) return;
@@ -808,6 +809,7 @@ function PdfPane({ id, url, status, log, compiledAt, locate, onLocate }: { id: s
         setError(""); setRendering(true);
         const lib = (await import(/* @vite-ignore */ PDFJS)) as Record<string, unknown>;
         (lib.GlobalWorkerOptions as { workerSrc: string }).workerSrc = PDFJS_WORKER;
+        libRef.current = lib;
         const doc = await (lib.getDocument as (u: string) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<unknown> }> })(url).promise;
         if (cancelled) return;
         docRef.current = doc; setNumPages(doc.numPages);
@@ -825,16 +827,25 @@ function PdfPane({ id, url, status, log, compiledAt, locate, onLocate }: { id: s
       const width = (scroll.current?.clientWidth ?? 700) - 32;
       for (let n = 1; n <= Math.min(numPages, 60); n++) {
         if (cancelled) return;
-        const p = (await doc.getPage(n)) as { getViewport: (o: { scale: number }) => { width: number; height: number }; render: (o: { canvasContext: CanvasRenderingContext2D | null; viewport: unknown }) => { promise: Promise<void> } };
+        const p = (await doc.getPage(n)) as { getViewport: (o: { scale: number }) => { width: number; height: number }; render: (o: { canvasContext: CanvasRenderingContext2D | null; viewport: unknown }) => { promise: Promise<void> }; streamTextContent: () => unknown };
         const base = p.getViewport({ scale: 1 });
         const scale = zoom === "fit" ? width / base.width : zoom;
         const viewport = p.getViewport({ scale });
+        // #452: a positioned wrap holds the canvas and a pdf.js text layer, so the preview's
+        // text can be selected and copied like the reader's; page lookups use the wrap.
+        const wrap = document.createElement("div");
+        wrap.className = "studio-page"; wrap.dataset.page = String(n); wrap.dataset.scale = String(scale);
+        wrap.style.position = "relative"; wrap.style.width = `${viewport.width}px`; wrap.style.height = `${viewport.height}px`;
+        wrap.title = "Double-click to jump to the source line";
+        wrap.addEventListener("dblclick", (ev) => { const r = wrap.getBoundingClientRect(); const sc = Number(wrap.dataset.scale) || 1; onLocateRef.current?.(n, (ev.clientX - r.left) / sc, (ev.clientY - r.top) / sc); });
         const canvas = document.createElement("canvas");
-        canvas.width = viewport.width; canvas.height = viewport.height; canvas.className = "studio-page"; canvas.dataset.page = String(n); canvas.dataset.scale = String(scale);
-        canvas.title = "Double-click to jump to the source line";
-        canvas.addEventListener("dblclick", (ev) => { const r = canvas.getBoundingClientRect(); const sc = Number(canvas.dataset.scale) || 1; onLocateRef.current?.(n, (ev.clientX - r.left) / sc, (ev.clientY - r.top) / sc); });
-        host.appendChild(canvas);
+        canvas.width = viewport.width; canvas.height = viewport.height; canvas.style.display = "block";
+        wrap.appendChild(canvas);
+        const textDiv = document.createElement("div"); textDiv.className = "textLayer"; wrap.appendChild(textDiv);
+        host.appendChild(wrap);
         await p.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+        const TextLayer = libRef.current?.TextLayer as (new (o: unknown) => { render: () => Promise<void> }) | undefined;
+        if (TextLayer && !cancelled) { try { await new TextLayer({ textContentSource: p.streamTextContent(), container: textDiv, viewport }).render(); } catch { /* a page without text is still a page */ } }
       }
     })();
     return () => { cancelled = true; };
@@ -842,15 +853,15 @@ function PdfPane({ id, url, status, log, compiledAt, locate, onLocate }: { id: s
 
   useEffect(() => {
     const el = scroll.current; if (!el) return;
-    const onScroll = () => { const canvases = el.querySelectorAll<HTMLCanvasElement>("canvas.studio-page"); const mid = el.scrollTop + el.clientHeight / 3; let cur = 1; canvases.forEach((c) => { if (c.offsetTop <= mid) cur = Number(c.dataset.page); }); setPage(cur); };
+    const onScroll = () => { const pages = el.querySelectorAll<HTMLElement>(".studio-page"); const mid = el.scrollTop + el.clientHeight / 3; let cur = 1; pages.forEach((c) => { if (c.offsetTop <= mid) cur = Number(c.dataset.page); }); setPage(cur); };
     el.addEventListener("scroll", onScroll, { passive: true }); return () => el.removeEventListener("scroll", onScroll);
   }, [numPages]);
 
-  const go = (n: number) => { const c = scroll.current?.querySelector<HTMLCanvasElement>(`canvas[data-page="${n}"]`); if (c && scroll.current) scroll.current.scrollTo({ top: c.offsetTop - 8, behavior: "smooth" }); };
+  const go = (n: number) => { const c = scroll.current?.querySelector<HTMLElement>(`.studio-page[data-page="${n}"]`); if (c && scroll.current) scroll.current.scrollTo({ top: c.offsetTop - 8, behavior: "smooth" }); };
   // forward sync: scroll to the page and draw a bar where the line sits for a moment
   useEffect(() => {
     if (!locate) return;
-    const c = scroll.current?.querySelector<HTMLCanvasElement>(`canvas[data-page="${locate.page}"]`);
+    const c = scroll.current?.querySelector<HTMLElement>(`.studio-page[data-page="${locate.page}"]`);
     if (!c || !scroll.current) return;
     const sc = Number(c.dataset.scale) || 1;
     const top = c.offsetTop + locate.y * sc;
