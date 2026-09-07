@@ -95,6 +95,8 @@ def test_frontend_wiring():
     assert 'to="/today"' in (base / "frontend" / "src" / "app" / "Layout.tsx").read_text()
     page = (base / "frontend" / "src" / "app" / "pages" / "Today.tsx").read_text()
     assert "/todos/clear-done/" in page and "What needs doing?" in page
+    # drag-to-reorder (#383): rows are draggable and the full order goes to one endpoint
+    assert "/todos/reorder/" in page and "draggable" in page and "drag-handle" in page
     chunks = " ".join(
         p.read_text(errors="ignore") for p in (base / "static" / "js" / "islands").glob("Today*.js")
     )
@@ -114,3 +116,39 @@ def test_palette_offers_todo_verb_and_recent_jumps():
     assert 'startsWith("todo:")' in src
     assert 'api("/todos/"' in src and "project: slug ?? null" in src
     assert "atlas-recent-jumps" in src and "pushJump(" in src
+
+
+def test_reorder_sets_positions_and_keeps_the_rest_behind(client, owner):
+    ids = []
+    for text in ("a", "b", "c", "d"):
+        ids.append(
+            client.post(
+                "/api/v1/todos/", {"text": text}, content_type="application/json", **HEADERS
+            ).json()["id"]
+        )
+    a, b, c, d = ids
+    etag = client.get("/api/v1/todos/", **HEADERS)["ETag"]
+    r = client.post(
+        "/api/v1/todos/reorder/", {"ids": [c, a]}, content_type="application/json", **HEADERS
+    )
+    assert r.status_code == 200 and r.json() == {"ordered": 2}
+    listed = client.get("/api/v1/todos/", HTTP_IF_NONE_MATCH=etag, **HEADERS)
+    assert listed.status_code == 200, "the reorder must move the list ETag (no stale 304)"
+    order = [t["text"] for t in listed.json()["results"]]
+    assert order == ["c", "a", "b", "d"]
+    positions = list(TodoItem.objects.order_by("position").values_list("position", flat=True))
+    assert positions == [1, 2, 3, 4]
+    bad = client.post(
+        "/api/v1/todos/reorder/", {"ids": [a, 9999]}, content_type="application/json", **HEADERS
+    )
+    assert bad.status_code == 400 and "9999" in bad.json()["ids"][0]
+    dup = client.post(
+        "/api/v1/todos/reorder/", {"ids": [a, a]}, content_type="application/json", **HEADERS
+    )
+    assert dup.status_code == 400
+    assert (
+        client.post(
+            "/api/v1/todos/reorder/", {"ids": "a"}, content_type="application/json", **HEADERS
+        ).status_code
+        == 400
+    )

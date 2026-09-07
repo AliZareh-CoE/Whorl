@@ -310,6 +310,13 @@ def complete_todo(todo_id: int, done: bool = True) -> dict:
 
 
 @mcp.tool()
+def reorder_todos(ids: list[int]) -> dict:
+    """Put the Today list in this order: the given item ids take the top positions in the
+    order given; anything not listed keeps its relative order below them."""
+    return client.reorder_todos(ids)
+
+
+@mcp.tool()
 def list_library_tags() -> dict:
     """Library tags (global labels on references) with how many papers carry each."""
     return client.list_library_tags()

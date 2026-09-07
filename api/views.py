@@ -1690,6 +1690,41 @@ class TodoItemViewSet(AtlasViewSet):
         deleted, _ = TodoItem.objects.filter(done=True).delete()
         return Response({"deleted": deleted})
 
+    @extend_schema(
+        request=inline_serializer(
+            "TodoReorder",
+            {"ids": rf_serializers.ListField(child=rf_serializers.IntegerField())},
+        ),
+        responses={200: OpenApiResponse(description="{ordered}")},
+        description="Set the list order: the given item ids take positions 1..n in that "
+        "order; items not listed keep their relative order after them (drag-to-reorder, #383).",
+    )
+    @action(detail=False, methods=["post"], url_path="reorder")
+    def reorder(self, request):
+        ids = request.data.get("ids") if isinstance(request.data, dict) else None
+        if not isinstance(ids, list) or not all(isinstance(i, int) for i in ids):
+            raise rf_serializers.ValidationError({"ids": ["Send a list of item ids."]})
+        if len(set(ids)) != len(ids):
+            raise rf_serializers.ValidationError({"ids": ["An id appears twice."]})
+        known = set(TodoItem.objects.filter(pk__in=ids).values_list("pk", flat=True))
+        missing = [i for i in ids if i not in known]
+        if missing:
+            raise rf_serializers.ValidationError({"ids": [f"Unknown item id(s): {missing}"]})
+        from django.utils import timezone
+
+        # updated_at moves too: the list ETag is built from it, and a bare update() would
+        # leave the SPA reading the old order back out of the browser cache (see #381).
+        now = timezone.now()
+        position = 0
+        for item_id in ids:
+            position += 1
+            TodoItem.objects.filter(pk=item_id).update(position=position, updated_at=now)
+        rest = TodoItem.objects.exclude(pk__in=ids).order_by("position", "id")
+        for item in rest:
+            position += 1
+            TodoItem.objects.filter(pk=item.pk).update(position=position, updated_at=now)
+        return Response({"ordered": len(ids)})
+
 
 class QuickCaptureViewSet(AtlasViewSet):
     queryset = QuickCapture.objects.all()

@@ -2,7 +2,7 @@
  *  one click to tick. Nothing is lost overnight: open items simply stay. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Check, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, Sparkles, Trash2, GripVertical } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { ErrorState } from "../../components/ErrorState";
@@ -36,16 +36,31 @@ export default function Today() {
   });
   const remove = useMutation({ mutationFn: (id: number) => api(`/todos/${id}/`, { method: "DELETE" }), onSuccess: refresh });
   const edit = useMutation({ mutationFn: ({ id, text: t }: { id: number; text: string }) => api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: t }) }), onSuccess: refresh });
+  // Reorder (#383): one call carries the whole open-list order — the keyboard (⌥↑/↓) and a
+  // drag both go through it, with the list updated optimistically so nothing jumps back.
   const reorder = useMutation({
-    mutationFn: async ({ a, b }: { a: Todo; b: Todo }) => {
-      // swap positions (ties broken by giving the mover a fresh slot)
-      const pa = a.position === b.position ? b.position + 1 : b.position;
-      const pb = a.position === b.position ? a.position : a.position;
-      await api(`/todos/${a.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ position: pa }) });
-      await api(`/todos/${b.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ position: pb }) });
+    mutationFn: (ids: number[]) => api("/todos/reorder/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) }),
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: ["todos"] });
+      const prev = queryClient.getQueryData<Page<Todo>>(["todos"]);
+      if (prev) {
+        const rank = new Map(ids.map((id, i) => [id, i + 1]));
+        const results = [...prev.results].map((t) => ({ ...t, position: rank.get(t.id) ?? t.position + ids.length })).sort((x, y) => Number(x.done) - Number(y.done) || x.position - y.position || x.id - y.id);
+        queryClient.setQueryData<Page<Todo>>(["todos"], { ...prev, results });
+      }
+      return { prev };
     },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) queryClient.setQueryData(["todos"], ctx.prev); },
     onSettled: refresh,
   });
+  const moveOpen = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= open.length || to >= open.length) return;
+    const ids = open.map((t) => t.id);
+    const [id] = ids.splice(from, 1);
+    ids.splice(to, 0, id);
+    reorder.mutate(ids);
+  };
+  const [drag, setDrag] = useState<{ id: number; over: number | null; after: boolean }>({ id: -1, over: null, after: false });
   const [cursor, setCursor] = useState(0);
   const [editing, setEditing] = useState<number | null>(null);
   const clearDone = useMutation({ mutationFn: () => api("/todos/clear-done/", { method: "POST" }), onSuccess: refresh });
@@ -61,8 +76,8 @@ export default function Today() {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || editing !== null) return;
       const t = open[cursor];
-      if (e.key === "j" || e.key === "ArrowDown") { if (e.altKey && t && cursor < open.length - 1) { e.preventDefault(); reorder.mutate({ a: t, b: open[cursor + 1] }); setCursor((i) => i + 1); return; } e.preventDefault(); setCursor((i) => Math.min(open.length - 1, i + 1)); }
-      else if (e.key === "k" || e.key === "ArrowUp") { if (e.altKey && t && cursor > 0) { e.preventDefault(); reorder.mutate({ a: t, b: open[cursor - 1] }); setCursor((i) => i - 1); return; } e.preventDefault(); setCursor((i) => Math.max(0, i - 1)); }
+      if (e.key === "j" || e.key === "ArrowDown") { if (e.altKey && t && cursor < open.length - 1) { e.preventDefault(); moveOpen(cursor, cursor + 1); setCursor((i) => i + 1); return; } e.preventDefault(); setCursor((i) => Math.min(open.length - 1, i + 1)); }
+      else if (e.key === "k" || e.key === "ArrowUp") { if (e.altKey && t && cursor > 0) { e.preventDefault(); moveOpen(cursor, cursor - 1); setCursor((i) => i - 1); return; } e.preventDefault(); setCursor((i) => Math.max(0, i - 1)); }
       else if (!t) return;
       else if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggle.mutate({ id: t.id, done: true }); }
       else if (e.key === "e") { e.preventDefault(); setEditing(t.id); }
@@ -112,7 +127,15 @@ export default function Today() {
           </div>
         )}
         <ul className="divide-y divide-stone-100 dark:divide-stone-800">
-          {open.map((t, i) => <Row key={t.id} t={t} active={i === cursor} editing={editing === t.id} onFocus={() => setCursor(i)} onEdit={() => setEditing(t.id)} onSave={(text) => { setEditing(null); if (text.trim() && text.trim() !== t.text) edit.mutate({ id: t.id, text: text.trim() }); }} onToggle={() => toggle.mutate({ id: t.id, done: true })} onRemove={() => remove.mutate(t.id)} />)}
+          {open.map((t, i) => <Row key={t.id} t={t} active={i === cursor} editing={editing === t.id} onFocus={() => setCursor(i)} onEdit={() => setEditing(t.id)} onSave={(text) => { setEditing(null); if (text.trim() && text.trim() !== t.text) edit.mutate({ id: t.id, text: text.trim() }); }} onToggle={() => toggle.mutate({ id: t.id, done: true })} onRemove={() => remove.mutate(t.id)}
+            drag={{
+              dragging: drag.id === t.id,
+              over: drag.over === i ? (drag.after ? "after" : "before") : null,
+              onStart: (e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(t.id)); setDrag({ id: t.id, over: null, after: false }); },
+              onOver: (e) => { if (drag.id < 0) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; const r = e.currentTarget.getBoundingClientRect(); const after = e.clientY > r.top + r.height / 2; if (drag.over !== i || drag.after !== after) setDrag((d) => ({ ...d, over: i, after })); },
+              onDrop: (e) => { e.preventDefault(); const from = open.findIndex((o) => o.id === drag.id); if (from < 0) return; let to = i + (drag.after ? 1 : 0); if (from < to) to -= 1; moveOpen(from, to); setCursor(to); setDrag({ id: -1, over: null, after: false }); },
+              onEnd: () => setDrag({ id: -1, over: null, after: false }),
+            }} />)}
         </ul>
       </section>
 
@@ -127,7 +150,7 @@ export default function Today() {
           </ul>
         </section>
       )}
-      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · ⌥↑/↓ reorders · n new. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
+      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · ⌥↑/↓ or drag reorders · n new. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
     </div>
   );
 }
@@ -140,12 +163,17 @@ function age(iso: string): string | null {
   return `${days} days old`;
 }
 
-function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove }: { t: Todo; active: boolean; editing: boolean; onFocus: () => void; onEdit: () => void; onSave: (text: string) => void; onToggle: () => void; onRemove: () => void }) {
+type DragProps = { dragging: boolean; over: "before" | "after" | null; onStart: (e: React.DragEvent<HTMLLIElement>) => void; onOver: (e: React.DragEvent<HTMLLIElement>) => void; onDrop: (e: React.DragEvent<HTMLLIElement>) => void; onEnd: () => void };
+
+function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove, drag }: { t: Todo; active: boolean; editing: boolean; onFocus: () => void; onEdit: () => void; onSave: (text: string) => void; onToggle: () => void; onRemove: () => void; drag?: DragProps }) {
   const [draft, setDraft] = useState(t.text);
   useEffect(() => { if (editing) setDraft(t.text); }, [editing, t.text]);
   const old = t.done ? null : age(t.created_at);
   return (
-    <li className={`group flex items-center gap-3 px-4 py-3 transition-colors ${active ? "bg-indigo-500/5 dark:bg-indigo-500/10" : ""}`} onMouseEnter={onFocus} data-active={active ? "1" : undefined}>
+    <li className={`group relative flex items-center gap-3 px-4 py-3 transition-colors ${active ? "bg-indigo-500/5 dark:bg-indigo-500/10" : ""} ${drag?.dragging ? "opacity-40" : ""}`} onMouseEnter={onFocus} data-active={active ? "1" : undefined} data-testid="todo-row"
+        draggable={drag ? !editing : undefined} onDragStart={drag?.onStart} onDragOver={drag?.onOver} onDrop={drag?.onDrop} onDragEnd={drag?.onEnd}>
+      {drag?.over && <span aria-hidden="true" className={`pointer-events-none absolute left-3 right-3 h-0.5 rounded-full bg-indigo-500 ${drag.over === "before" ? "top-0" : "bottom-0"}`} />}
+      {drag && <span data-testid="drag-handle" title="Drag to reorder" className="-ml-1 shrink-0 cursor-grab text-stone-300 opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing dark:text-stone-600"><GripVertical className="h-4 w-4" aria-hidden="true" /></span>}
       <button
         type="button"
         onClick={onToggle}

@@ -350,6 +350,11 @@ def complete_todo(todo_id: int, done: bool = True):
     return _request("PATCH", f"/todos/{todo_id}/", json={"done": done})
 
 
+def reorder_todos(ids: list[int]):
+    """The given ids take positions 1..n; the rest follow in their current order."""
+    return _request("POST", "/todos/reorder/", json={"ids": ids})
+
+
 def list_library_tags():
     """Library tags with usage counts."""
     return _request("GET", "/library-tags/")
