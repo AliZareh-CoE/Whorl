@@ -35,6 +35,9 @@ type Tab = "files" | "outline" | "bib" | "history";
 const SETTINGS_KEY = "atlas-studio-settings";
 const HEADING_RE = /\\(part|chapter|section|subsection|subsubsection|paragraph)\*?\{([^}]*)\}/;
 const DEPTH: Record<string, number> = { part: 0, chapter: 0, section: 0, subsection: 1, subsubsection: 2, paragraph: 3 };
+// To-do markers (2026-09-07, #377): `% TODO …`, `% FIXME …`, `\todo{…}` anywhere in the sources
+const TODO_RE = /%\s*(TODO|FIXME|XXX|HACK)\b[:\s-]*(.*)|\\todo(?:\[[^\]]*\])?\{([^}]*)\}/;
+type Todo = { fid: number; path: string; line: number; kind: string; text: string };
 const PDFJS = "/static/vendor/pdfjs/pdf.min.mjs";
 const PDFJS_WORKER = "/static/vendor/pdfjs/pdf.worker.min.mjs";
 
@@ -136,6 +139,7 @@ function StudioInner({ m }: { m: Manuscript }) {
   const [problemsOpen, setProblemsOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("files");
   const [outline, setOutline] = useState<{ line: number; depth: number; title: string }[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [ln, setLn] = useState(1);
   const [quickOpen, setQuickOpen] = useState(false);
 
@@ -186,6 +190,19 @@ function StudioInner({ m }: { m: Manuscript }) {
     setOutline(rows);
   }, []);
 
+  // every text file, loaded into the editor's state map once so the scan sees them all
+  const recomputeTodos = useCallback(async () => {
+    const ad = adRef.current; if (!ad) return;
+    const rows: Todo[] = [];
+    for (const f of filesRef.current.filter((x) => x.kind !== "asset")) {
+      let text: string;
+      if (loaded.current.has(f.id)) text = ad.fileValue(f.id);
+      else { try { const data = await wb<{ content?: string }>(`${base}files/${f.id}/`); text = data.content || ""; ad.setFileValue(f.id, text); loaded.current.add(f.id); } catch { continue; } }
+      text.split("\n").forEach((line, i) => { const mm = TODO_RE.exec(line); if (mm) rows.push({ fid: f.id, path: f.path, line: i + 1, kind: (mm[1] || "TODO").toUpperCase(), text: (mm[2] ?? mm[3] ?? "").trim() }); });
+    }
+    setTodos(rows);
+  }, [base]);
+
   const pushDiagnostics = useCallback((diags: Diag[], fid: number) => {
     const ad = adRef.current; if (!ad) return;
     const path = filesRef.current.find((f) => f.id === fid)?.path ?? "main.tex";
@@ -233,12 +250,13 @@ function StudioInner({ m }: { m: Manuscript }) {
         markDirty(fid, true); gen.current.set(fid, (gen.current.get(fid) || 0) + 1);
         setSaveStatus("Unsaved changes");
         window.clearTimeout(timers.current.get(fid)); timers.current.set(fid, window.setTimeout(() => saveFile(fid), 1500));
-        window.clearTimeout(outlineTimer); outlineTimer = window.setTimeout(recomputeOutline, 500);
+        window.clearTimeout(outlineTimer); outlineTimer = window.setTimeout(() => { recomputeOutline(); void recomputeTodos(); }, 500);
       });
       setActiveId(mainId); setTabs([mainId]); setReady(true); recomputeOutline(); ad.focus();
+      void recomputeTodos();
     })();
     return () => { cancelled = true; };
-  }, [base, mainId, saveFile, recomputeOutline]);
+  }, [base, mainId, saveFile, recomputeOutline, recomputeTodos]);
 
   // deep link from the Library: /manuscripts/:id/editor?quote=<highlight id> inserts that passage
   const [params, setParams] = useSearchParams();
@@ -383,7 +401,7 @@ function StudioInner({ m }: { m: Manuscript }) {
         {sidebarOpen && (
           <aside id="studio-side" className="flex min-w-0 flex-col border-r" style={{ borderColor: "var(--studio-line)", background: "var(--studio-panel)" }}>
             <nav className="flex shrink-0 border-b text-[11px]" style={{ borderColor: "var(--studio-line)" }} aria-label="Studio panels">
-              {([["files", FolderOpen, "Files"], ["outline", ListTree, "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
+              {([["files", FolderOpen, "Files"], ["outline", ListTree, todos.length ? `Outline · ${todos.length} to-do${todos.length === 1 ? "" : "s"}` : "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
                 <button key={key} type="button" onClick={() => setTab(key)} className={`flex flex-1 items-center justify-center gap-1 py-2 transition-colors ${tab === key ? "border-b-2 border-indigo-400 st-fg" : "st-dim st-hover-fg"}`} title={label} aria-label={label}><Icon className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden xl:inline">{label}</span></button>
               ))}
             </nav>
@@ -413,6 +431,16 @@ function StudioInner({ m }: { m: Manuscript }) {
                   <p className="mb-1 px-1 text-[10px] uppercase tracking-wider st-dim">Outline · {pathOf(activeId)}</p>
                   {outline.length === 0 && <p className="px-1 text-xs st-dim">No \section yet — the outline fills in as you write.</p>}
                   <ul>{outline.map((o) => <li key={o.line}><button type="button" onClick={() => adRef.current?.gotoLine(o.line)} className={`${sideItem} st-text`} style={{ paddingLeft: 8 + o.depth * 12 }} title={`line ${o.line}`}><span className="truncate">{o.title}</span></button></li>)}</ul>
+                  <p className="mb-1 mt-4 flex items-center justify-between px-1 text-[10px] uppercase tracking-wider st-dim"><span>To-do · all files</span><span className="normal-case tracking-normal">{todos.length}</span></p>
+                  {todos.length === 0 ? <p className="px-1 text-xs st-dim">None. Leave <code className="st-badge rounded px-1">% TODO …</code> or <code className="st-badge rounded px-1">\todo{"{…}"}</code> in the source and it shows up here.</p> : (
+                    <ul data-testid="studio-todos">{todos.map((t) => (
+                      <li key={`${t.fid}-${t.line}`}><button type="button" onClick={async () => { if (t.fid !== activeId) await openFile(t.fid); adRef.current?.gotoLine(t.line); }} className={`${sideItem} st-text`} title={`${t.path}:${t.line}`}>
+                        <span className={`shrink-0 rounded px-1 text-[9px] font-semibold ${t.kind === "FIXME" || t.kind === "XXX" ? "bg-red-500/20 text-red-300" : "bg-amber-500/20 text-amber-300"}`}>{t.kind}</span>
+                        <span className="min-w-0 flex-1 truncate">{t.text || "(no text)"}</span>
+                        <span className="shrink-0 text-[10px] st-dim">{t.path.replace(/^.*\//, "")}:{t.line}</span>
+                      </button></li>
+                    ))}</ul>
+                  )}
                 </div>
               )}
               {tab === "bib" && <BibPanel m={m} base={base} onInsert={(key) => { adRef.current?.insertAtCursor(`\\cite{${key}}`); }} onQuote={(latex) => { adRef.current?.insertAtCursor(latex); setFlash("Quote inserted."); }} onLinked={() => adRef.current?.reloadCiteLibrary()} />}

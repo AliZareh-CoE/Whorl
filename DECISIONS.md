@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Studio to-do panel (#377)
+
+**Decision.** The studio's Outline tab lists every `% TODO …`, `% FIXME …`, `% XXX`, `% HACK` and `\todo{…}` marker across all source files (each loaded once into the editor's state map), with click-to-line across files and a count in the tab label. The demo manuscript ships two markers.
+
+**Why.** Owner idea #9 ("better than Overleaf") — a writer's own reminders live in the source; every editor that people love surfaces them. Comments are the Overleaf feature for teams; for one researcher the marker list is the honest equivalent.
+
+**Alternatives rejected.** A separate Tasks tab (one more tab for a list that belongs beside the outline); parsing only the open file (the whole point is "what is left, anywhere").
+
 ### 2026-09-07 — Restore from a backup is staged, then applied at launch (#376)
 
 **Decision.** A backup zip uploaded on Diagnostics (`POST /api/v1/restore/`) is validated (manifest, a database inside, no path traversal) and saved as `restore-pending.zip` in the data folder; the desktop launcher applies it at the next start, *before* `migrate` opens the database: the SQLite file (with its WAL/journal) and the media folder move to `restore-backup-<timestamp>/`, the backup's copies come in, and `restore-result.json` records the outcome, which Diagnostics shows. The page offers "Restart Atlas and restore now" on the desktop and "Cancel". `manage.py restore_backup <zip>` stages + applies for servers (JSON backups extract `restore-database.json` for `loaddata`).

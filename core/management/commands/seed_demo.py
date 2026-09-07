@@ -650,6 +650,7 @@ different predictions when incentives change mid-block.
 \\input{{sections/method}}
 
 \\section{{Results}}
+% TODO Replace the pilot numbers with the full-sample results (n = 80).
 Mean sensitivity by condition is summarised in Table~\\ref{{tab:dprime}}.
 
 \\begin{{table}}[h]
@@ -684,6 +685,7 @@ strategic allocation, with the residual cost as an upper bound on the structural
 """
     method_src = """\\section{Method}
 \\subsection{Participants}
+% FIXME The power analysis R2 asked for is still missing here.
 Twelve pilot participants (target $n = 80$ after the power analysis requested by R2).
 
 \\subsection{Design}
