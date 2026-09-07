@@ -409,6 +409,7 @@ class ProjectViewSet(AtlasViewSet):
                 "questions": overview_extras.open_questions(project),
                 "manuscripts": overview_extras.manuscripts_glance(project),
                 "hypotheses": overview_extras.hypotheses_summary(project),
+                "themes": overview_extras.themes(project),
             }
         )
 

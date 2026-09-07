@@ -71,3 +71,32 @@ def test_hypotheses_summary_and_overview_api(client, settings, django_user_model
     out = client.get("/api/v1/projects/deep/overview/", HTTP_X_API_KEY="k").json()
     assert {"week_digest", "questions", "manuscripts", "hypotheses"} <= set(out)
     assert out["hypotheses"]["total"] == 2 and out["week_digest"]["total"] >= 0
+
+
+@pytest.mark.django_db
+def test_themes_weights_phrases_by_how_many_sources_carry_them(client, settings, django_user_model):
+    from literature.models import ProjectReference, Reference
+    from notes.models import Note
+    from projects import overview
+    from projects.models import Project
+
+    project = Project.objects.create(name="Attention", slug="attention")
+    for i in range(3):
+        ref = Reference.objects.create(
+            title=f"Perceptual load and selective attention {i}",
+            bibtex_key=f"load{i}",
+            abstract="Perceptual load determines selective attention under distraction.",
+        )
+        ProjectReference.objects.create(project=project, reference=ref)
+    Note.objects.create(
+        project=project, title="Perceptual load overview", body="Notes on perceptual load."
+    )
+    rows = overview.themes(project)
+    assert rows and rows[0]["label"].startswith("perceptual load") and rows[0]["weight"] >= 4
+    assert all(set(r) == {"label", "weight"} for r in rows)
+    settings.ATLAS_API_KEY = "k"
+    django_user_model.objects.create_superuser("owner", password="pw")
+    data = client.get("/api/v1/projects/attention/overview/", HTTP_X_API_KEY="k").json()
+    assert data["themes"][0]["label"] == rows[0]["label"]
+    empty = Project.objects.create(name="Empty", slug="empty")
+    assert overview.themes(empty) == []

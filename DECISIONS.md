@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Overview themes (#398)
+
+**Decision.** The overview API carries `themes`: the salient phrases across the project's papers (titles and abstracts), notes, decisions and questions, extracted locally with `core.keywords` and weighted by how many of those sources mention each phrase. The overview shows them as a chip row under the counts, sized by weight; each chip searches the project for the phrase.
+
+**Why.** Backlog #41: "what is this project about, in its own words" was nowhere on the page a visitor lands on. Ten phrases the material itself keeps using are a better answer than a description someone wrote in week one — and they change as the reading changes.
+
+**Alternatives rejected.** A word cloud proper (random sizes and angles say less than a sorted row); topic modelling (a dependency and a fit step for a single-user tool; the RAKE-style extractor already existed for the matrix).
+
 ### 2026-09-07 — Library cards view; the unlock toast moves to the top-right (#397)
 
 **Decision.** The Library list gains a *Cards* view (toggle in the list header, remembered per browser): cover-style cards with a colour band (the first project's accent, solid when a PDF is attached), the title, authors, year, venue, the reading status, the PDF/metadata pills and coloured tags; the same cursor, selection, keyboard and right-click behaviour as the rows, so nothing is lost by switching. The achievement toast now appears top-right, since every page's flash lives bottom-right and the two overlapped.
@@ -2023,7 +2031,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 38. Listen prefetch — synthesize the next chunk while the current one plays to remove gaps (idea added by cycle 32)
 39. Doctor on the Automations page — render the same checks in the UI with a stale-worker banner (idea added by cycle 33)
 40. ~~Swipe + touch targets (done 2026-06-11, cycle 39, UI/UX): drawer closes on a >60px left swipe (Alpine touch handlers; short swipes ignored), milestone/task check-offs grew to 20/16px visuals with an invisible `after:-inset-2.5` pseudo-element giving ≈40×40px tap targets (+ shrink-0 so flex rows can't squeeze them); verified at 420px in a real touch browser.~~
-41. Keyword cloud on the project overview card (idea added by cycle 35)
+41. ~~Keyword cloud on the project overview card (idea added by cycle 35) — done 2026-09-07, #398 (a weighted chip row)~~
 42. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
 43. ~~Prompt variable defaults — `{{name|default}}` syntax pre-fills the fill-in inputs, and last-used values are remembered per prompt in localStorage (idea added by cycle 36) — done 2026-09-07, #393~~
 44. Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)

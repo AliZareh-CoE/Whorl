@@ -24,6 +24,7 @@ type Overview = {
   counts: Record<string, number>;
   recent_documents: { id: number; title: string; added: string; url: string }[];
   recent_decisions: { id: number; title: string; decided_on: string }[];
+  themes?: { label: string; weight: number }[];
   week_digest: { since: string; total: number; counts: { kind: string; label: string; count: number }[]; items: { date: string; kind: string; label: string; detail: string; url: string }[] };
   questions: { id: number; question: string; status: string; phases: string[] }[];
   manuscripts: { id: number; title: string; status: string; deadline: string | null; days: number | null; target_venue: string; over: string[] }[];
@@ -199,6 +200,19 @@ export default function ProjectOverview() {
           </Link>
         ))}
       </div>
+
+      {data.themes && data.themes.length > 0 && (
+        <p className="mt-3 flex flex-wrap items-center gap-1.5" data-testid="themes" aria-label="Themes across this project">
+          <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Themes</span>
+          {data.themes.map((t) => (
+            <Link key={t.label} to={`/search?q=${encodeURIComponent(t.label)}`} title={`${t.weight} source${t.weight === 1 ? "" : "s"} mention this — search for it`}
+                  className="rounded-full border border-stone-200 bg-white px-2 py-0.5 text-xs text-stone-600 transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-indigo-300"
+                  style={{ fontSize: `${Math.min(15, 11 + t.weight)}px`, opacity: 0.7 + Math.min(0.3, t.weight * 0.06) }}>
+              {t.label}
+            </Link>
+          ))}
+        </p>
+      )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 8 }}>

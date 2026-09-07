@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Overview themes (2026-09-07, #398).** `themes` on the overview API (keywords across papers/notes/decisions/questions, weighted by source count), chip row under the counts linking to search. Test in projects/tests/test_overview_v2.py (+1).
+
 - **Library cards view + toast position (2026-09-07, #397).** List/Cards toggle (remembered), cover-style cards with accent band and the same interactions; the unlock toast moved top-right so page flashes never sit under it. Playwright: toggled to cards, right-click menu on a card, screenshot (docs/screenshots/library-cards.png). Guard in test_tags_views.
 
 - **Reader margin comments (2026-09-07, #396).** Bubble per page-anchored comment in a gutter beside each page, `+` on hover to comment on the page (prompt lists existing ones). Playwright: added a comment from the margin → marker with the text as tooltip (docs/screenshots/reader-margin-comments.png). Guard in literature/tests/test_tldr.py.
