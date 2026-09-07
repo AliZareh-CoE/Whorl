@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Template lint (2026-09-07, #422).** core/tests/test_template_lint.py: every template compiles; title/breadcrumb blocks carry no script/style.
+
 - **Documents sparse state (2026-09-07, #421).** Dashed footer at ≤3 files with the page's purpose + Files link; empty-state upload CTA. Guard: core/tests/test_polish.py::test_documents_sparse_state. Playwright: docs/screenshots/documents-sparse.png.
 
 - **⚠ CI not starting (2026-09-07, from run 139 on).** Desktop-release jobs fail within 4 s with no runner and no steps (run 139: the post-build prune/mirror jobs; runs 140–141: every job). Nothing in the workflow changed since run 138 (green); the code is unaffected (full suite 1181 green locally). This is the signature of the GitHub Actions minutes/spending limit on a private repo — owner action: check Settings → Billing → Actions on GitHub; the loop keeps committing, and the next push after the limit is lifted will build.

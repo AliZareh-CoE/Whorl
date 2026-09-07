@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Template lint: every template parses, chrome blocks stay clean (#422)
+
+**Decision.** `core/tests/test_template_lint.py` walks every `.html` under `templates/` and each app's `templates/`, compiles it through the Django engine (a broken tag fails the build with the file name) and asserts that `{% block title %}` and `{% block breadcrumbs %}` contain no `<script>` or `<style>`. One parametrised test per template, so the failure names the file.
+
+**Why.** Backlog #51: the cycle-44 corruption (a script pasted into a title block) took every page down at once and was only caught by eye. The classic templates are fewer now that the SPA is the front door, but the login page, the spa shell and the admin-side pages still go through them.
+
+**Alternatives rejected.** A full render of each template (needs a context per template; parsing catches the syntax class, the smoke tests cover rendering); djlint as a dependency (a linter for a shrinking template tree).
+
 ### 2026-09-07 — The sparse documents table says what it is for (#421)
 
 **Decision.** With three files or fewer (and no filter), the Documents table gets a dashed footer: how many files there are, what the page is for (the project's file cabinet), a link to upload or drop files in Files, and the one rule people trip over (papers' PDFs live in the Library). The empty state gains the same "Upload in Files →" action. The table itself is unchanged; nothing collapses or scrolls.
@@ -2227,7 +2235,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 48. ~~Matrix gap column hints — show each theme's read-count in the review matrix header so gaps are visible there too, linking back to the gap-ordered queue (idea added by cycle 41)~~ — shipped 2026-09-07 (#408)
 49. ~~More pet reactions — a sparkle on phase completion and a brief "om nom" when a reference is marked read, all through the same HX-Trigger pattern (idea added by cycle 42)~~ — already true in the SPA (`petReact("milestone")` on check-off, `petReact("paper")` on read; retired 2026-09-07)
 50. ~~Grove seasons — paused projects show bare autumn trees and archived ones fade out, so the grove reflects the whole portfolio at a glance (idea added by cycle 43)~~ — dead: the grove was a classic-UI widget the SPA never carried; the Projects page folds archived work instead (retired 2026-09-07)
-51. Template lint pass — a tiny pytest that walks every template and asserts title/breadcrumbs blocks contain no `<script>` (the cycle-44 corruption class), plus django-template syntax check via the loader (idea added by cycle 44)
+51. ~~(Done 2026-09-07, #422: core/tests/test_template_lint.py.)~~ Template lint pass — a tiny pytest that walks every template and asserts title/breadcrumbs blocks contain no `<script>` (the cycle-44 corruption class), plus django-template syntax check via the loader (idea added by cycle 44)
 52. ~~Recent searches (done 2026-06-11, cycle 48, UI/UX): submits store the query in localStorage (5 max, deduped); focusing the empty box lists them as a keyboard-navigable listbox (queries rendered via textContent), Enter re-runs the search — browser-verified.~~
 53. Trigram index for the literature `?kw=` filter — reference.abstract icontains scans could use a GIN trgm index too once libraries grow past a few thousand rows (idea added by cycle 46)
 54. Last-Modified/If-Modified-Since on media downloads (PDFs, documents) so re-reads are free (split from old #27) (idea added by cycle 47)
