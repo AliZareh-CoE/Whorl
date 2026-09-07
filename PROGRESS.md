@@ -4,6 +4,8 @@
 
 - **⚠ OWNER REPORT (2026-09-07, later): the newest installer they can get still opens a dark, empty window.** The release feed tops out at 0.1.139 (built 05:17 UTC); every push since is unbuildable — desktop-release runs 140–165 fail in four seconds with `runner_id: 0` (no runner assigned: GitHub Actions spending limit / billing on the account — owner action). #451 makes the watchdog fire on "no painted text" (the mounted flag was set before React drew anything) and report in-flight requests. The other items in that batch (project CRUD, open from disk, missing PDF, icon, achievements) shipped in 0.1.11x–0.1.139; if they still show, the installed build is older than it looks — Diagnostics says the version.
 
+- **Context-aware completions (2026-09-07, #459).** `editor/context.ts` (enclosingEnvironment, boostFor) + `contextAwareLatex` wrapper. Tests: writing/tests/test_context_completions.py (node-run).
+
 - **Gutter chevrons (2026-09-07, #458).** Split gutter builder adds a collapse button per divider (sidebar / preview). Test: writing/tests/test_gutter_chevrons.py.
 
 - **Theme candidates + section copy (2026-09-07, #457).** Matrix `theme-queue` link on every theme; Review `section-copy` per section. Test: core/tests/test_polish_457.py.

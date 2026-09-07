@@ -9,7 +9,8 @@
  */
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { latex, latexCompletionSource } from "codemirror-lang-latex";
-import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, type CompletionContext, type CompletionResult, type Completion } from "@codemirror/autocomplete";
+import { boostFor, enclosingEnvironment } from "./context";
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, type CompletionContext, type CompletionResult, type Completion, type CompletionSource } from "@codemirror/autocomplete";
 import { type Diagnostic, linter, setDiagnostics } from "@codemirror/lint";
 import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from "@codemirror/search";
 import {
@@ -116,6 +117,24 @@ const commentMarkField = StateField.define<RangeSet<GutterMarker>>({
 let currentDiagnostics: Diagnostic[] = []; // compile diagnostics (pushed on poll)
 function diagnosticsLinter() {
   return linter((view) => [...currentDiagnostics, ...citeCheckDiagnostics(view.state)]);
+}
+
+// #459 (backlog #117): the library's LaTeX completions, re-ranked by the enclosing environment —
+// \item first in a list, \includegraphics in a figure, \hline in a table, \label in math.
+function contextAwareLatex(base: CompletionSource): CompletionSource {
+  return async (context: CompletionContext) => {
+    const result = await base(context);
+    if (!result || !("options" in result)) return result;
+    const env = enclosingEnvironment(context.state.sliceDoc(0, context.pos));
+    if (!env) return result;
+    return {
+      ...result,
+      options: result.options.map((o) => {
+        const bonus = boostFor(env, o.label);
+        return bonus ? { ...o, boost: Math.min(99, (o.boost ?? 0) + bonus) } : o;
+      }),
+    };
+  };
 }
 
 const looksLikePaperId = (s: string) => /^(10\.\d{4,9}\/\S+|(?:arxiv:)?\d{4}\.\d{4,5}(?:v\d+)?)$/i.test(s.trim());
@@ -282,7 +301,7 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
       // library's built-in command/env/math source (rule #28: borrow the source, add cite).
       latex({ enableAutocomplete: false, autoCloseTags: true, enableTooltips: true }),
       autocompletion({
-        override: [citeCompletionSource(cfg), latexCompletionSource(true)],
+        override: [citeCompletionSource(cfg), contextAwareLatex(latexCompletionSource(true))],
       }),
       diagnosticsLinter(),
       search(),

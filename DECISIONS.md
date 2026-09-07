@@ -551,6 +551,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Completions know which environment they are in (#459)
+
+**Decision.** `frontend/src/editor/context.ts` scans the text before the cursor for the innermost unclosed `\begin{…}` and hands out ranking bonuses: `\item` first inside itemize / enumerate / description; `\includegraphics`, `\caption`, `\centering`, `\label` inside figure / table; `\hline`, `\multicolumn`, the booktabs rules inside tabular; `\label`, `\nonumber`, `\frac` inside equation / align. A wrapper around the language package's completion source applies them as CodeMirror `boost`s; nothing is added or removed, only reordered. Pure functions, tested under node.
+
+**Why.** Backlog #117 — Overleaf's usage data shows these commands dominate their environments; typing `\i` inside a list should offer `\item` before `\includegraphics`.
+
 ### 2026-09-07 — Chevrons on the Studio's split gutters (#458)
 
 **Decision.** Each Split.js divider in the Studio carries a small chevron: the one between the sidebar and the editor collapses the sidebar, the one between the editor and the PDF collapses the preview — the same toggles as ⌘B / ⌘\ and the header buttons, reachable where the hand already is when resizing. The chevron shows on hover of the gutter and does not interfere with dragging (it is a button inside the gutter, with its own click).
@@ -2621,4 +2627,4 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 120. Classic-page density — the classic base.html still defaults to max-w-5xl; sweep the remaining classic-only pages (editor done) once the SPA density work lands, or accelerate their SPA migration (idea added by cycle 107)
 119. ~~Editor command palette (done 2026-09-07, #447: ⌘⇧P actions palette with bindings)~~ — original: a small Ctrl/Cmd-P over editor actions (compile, find, toggle preview, new file, change keymap) so power users skip the mouse; pairs with the settings popover (idea added by cycle 106)
 118. Density pass infrastructure — a shared dense-table CSS utility + tighter card padding tokens so the Owner-idea-#25 width/density work is consistent across pages instead of per-page tweaks (idea added by cycle 105)
-117. Context-aware completions — rank \item first inside itemize/enumerate and \includegraphics inside figure (Overleaf's frequency data shows these dominate their environments); needs a tiny enclosing-environment scanner (idea added by cycle 104)
+117. ~~Context-aware completions (done 2026-09-07, #459: `editor/context.ts` scanner + boosts)~~ — original: rank \item first inside itemize/enumerate and \includegraphics inside figure (Overleaf's frequency data shows these dominate their environments); needs a tiny enclosing-environment scanner (idea added by cycle 104)
