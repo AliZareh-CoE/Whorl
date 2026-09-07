@@ -114,3 +114,41 @@ class TestPromptVariables:
         content = response.content.decode()
         assert "Fill in before copying" in content
         assert 'data-var-name="paper"' in content
+
+
+def test_variables_carry_defaults_and_render(db):
+    from prompts.models import Prompt, render_prompt
+
+    prompt = Prompt.objects.create(
+        title="Cover letter",
+        body="Dear {{editor|Editor}}, our paper for {{venue}} ({{venue|Nature}}) by {{author}}.",
+    )
+    assert prompt.variables == [
+        {"name": "editor", "default": "Editor"},
+        {"name": "venue", "default": "Nature"},
+        {"name": "author", "default": ""},
+    ]
+    assert prompt.variable_names == ["editor", "venue", "author"]
+    assert render_prompt(prompt.body, {"author": "Ali"}) == (
+        "Dear Editor, our paper for Nature (Nature) by Ali."
+    )
+    assert render_prompt(prompt.body) == "Dear Editor, our paper for Nature (Nature) by {{author}}."
+
+
+def test_api_exposes_variables(client, settings, django_user_model):
+    from prompts.models import Prompt
+
+    settings.ATLAS_API_KEY = "k"
+    django_user_model.objects.create_superuser("owner", password="pw")
+    prompt = Prompt.objects.create(title="T", body="Hi {{name|there}}")
+    data = client.get(f"/api/v1/prompts/{prompt.pk}/", HTTP_X_API_KEY="k").json()
+    assert data["variables"] == [{"name": "name", "default": "there"}]
+
+
+def test_gallery_wiring_for_defaults():
+    from pathlib import Path
+
+    from django.conf import settings
+
+    src = (Path(settings.BASE_DIR) / "frontend/src/app/pages/Prompts.tsx").read_text()
+    assert "atlas-prompt-values:" in src and "|default" in src and "v.default" in src

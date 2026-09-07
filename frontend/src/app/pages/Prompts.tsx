@@ -10,29 +10,44 @@ import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 type Prompt = { id: number; title: string; body: string; tags: string };
 type Page<T> = { count: number; results: T[] };
 
-const VAR_RE = /\{\{\s*([a-zA-Z0-9_ -]{1,40}?)\s*\}\}/g;
+// {{name}} or {{name|default}} (#393): the default fills in unless the user types a value
+const VAR_RE = /\{\{\s*([a-zA-Z0-9_ -]{1,40}?)\s*(?:\|([^}]{0,200}?))?\s*\}\}/g;
+type Variable = { name: string; default: string };
+const STORE = "atlas-prompt-values:";
+function loadValues(id: number): Record<string, string> {
+  try { return JSON.parse(localStorage.getItem(STORE + id) || "{}") as Record<string, string>; } catch { return {}; }
+}
+function saveValues(id: number, values: Record<string, string>) {
+  try { localStorage.setItem(STORE + id, JSON.stringify(values)); } catch { /* private mode */ }
+}
 
-function variableNames(body: string): string[] {
-  const seen: string[] = [];
+function variables(body: string): Variable[] {
+  const seen: Variable[] = [];
   for (const match of body.matchAll(VAR_RE)) {
     const name = match[1].trim();
-    if (name && !seen.includes(name)) seen.push(name);
+    const def = (match[2] ?? "").trim();
+    if (!name) continue;
+    const existing = seen.find((v) => v.name === name);
+    if (!existing) seen.push({ name, default: def });
+    else if (def && !existing.default) existing.default = def;
   }
   return seen;
 }
 
 function PromptCard({ prompt, items, onContextMenu }: { prompt: Prompt; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void }) {
-  const vars = variableNames(prompt.body);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const vars = variables(prompt.body);
+  const [values, setValues] = useState<Record<string, string>>(() => loadValues(prompt.id)); // last-used values, per prompt (#393)
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    let text = prompt.body;
-    for (const [name, value] of Object.entries(values)) {
-      if (!value.trim()) continue;
-      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      text = text.replace(new RegExp(`\\{\\{\\s*${esc}\\s*\\}\\}`, "g"), value.trim());
-    }
+    // the typed value, else the {{name|default}}, else the placeholder stays visible
+    const text = prompt.body.replace(VAR_RE, (_m, rawName: string, rawDefault?: string) => {
+      const name = rawName.trim();
+      const typed = (values[name] ?? "").trim();
+      const def = vars.find((v) => v.name === name)?.default || (rawDefault ?? "").trim();
+      return typed || def || `{{${name}}}`;
+    });
+    saveValues(prompt.id, values);
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -59,11 +74,11 @@ function PromptCard({ prompt, items, onContextMenu }: { prompt: Prompt; items: M
         <div className="border-t border-stone-100 px-5 py-3 dark:border-stone-800">
           <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-stone-400">Fill in before copying</p>
           <div className="flex flex-wrap gap-2.5">
-            {vars.map((name) => (
-              <label key={name} className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
-                {name}
-                <input value={values[name] ?? ""} placeholder={name}
-                       onChange={(e) => setValues({ ...values, [name]: e.target.value })}
+            {vars.map((v) => (
+              <label key={v.name} className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
+                {v.name}
+                <input value={values[v.name] ?? ""} placeholder={v.default || v.name} title={v.default ? `Default: ${v.default}` : undefined} data-testid="prompt-var"
+                       onChange={(e) => setValues({ ...values, [v.name]: e.target.value })}
                        className="w-28 rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-700 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300" />
               </label>
             ))}

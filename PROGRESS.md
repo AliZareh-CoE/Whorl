@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Prompt defaults + remembered fill-ins (2026-09-07, #393).** `{{name|default}}` parsed on both sides, `variables` on the API, `render_prompt()`; the gallery shows defaults as placeholders and remembers typed values per prompt. Tests +3 in prompts/tests.
+
 - **★ PLAN ORBIT (2026-09-07, #392).** Phases as arcs (status colours, the current one glowing with its progress), milestones as moons (done / overdue), counts under each arc, click → the phase card. Playwright both themes: 4 phases, 9 moons, no errors (docs/screenshots/plan-orbit.png, -light.png). Guard in core/tests/test_constellation.py.
 
 - **⌘K safe verbs (2026-09-07, #391).** Copy project / library .bib to the clipboard, this week's review, quick capture, LaTeX warm-up, backup download, web inspector (desktop). Playwright: "bib" → Enter → "Copied N BibTeX entries" with the clipboard holding the export (docs/screenshots/palette-verbs.png). Guard in core/tests/test_today.py.

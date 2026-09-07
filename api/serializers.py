@@ -868,8 +868,11 @@ class ManuscriptSerializer(serializers.ModelSerializer):
 
 
 class PromptSerializer(serializers.ModelSerializer):
+    # #393: the placeholders with their defaults, so MCP clients can fill a prompt correctly
+    variables = serializers.ListField(child=serializers.DictField(), read_only=True)
+
     class Meta:
         from prompts.models import Prompt
 
         model = Prompt
-        fields = ["id", "title", "body", "tags", "created_at", "updated_at"]
+        fields = ["id", "title", "body", "tags", "variables", "created_at", "updated_at"]

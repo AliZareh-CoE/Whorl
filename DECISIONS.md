@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Prompts: `{{name|default}}` and remembered fill-ins (#393)
+
+**Decision.** A placeholder may carry a default after a pipe — `{{venue|NeurIPS}}` — which fills in unless the user types something; the first occurrence that carries a default speaks for every occurrence of that name. `Prompt.variables` (name + default) is on the API, `render_prompt()` applies value → default → the bare placeholder left visible, and the gallery shows the default as the input's placeholder. The values typed for a prompt are remembered per prompt in the browser (`atlas-prompt-values:<id>`) and come back next time.
+
+**Why.** Backlog #43: most fill-ins have a usual answer (the venue, the advisor's name, the model), and retyping them every copy is friction that the prompt itself can carry. Remembering the last values is the same idea for the ones that vary slowly.
+
+**Alternatives rejected.** Storing last-used values server-side (a browser convenience, not data); Jinja-style templating in prompts (a whole language for what is one pipe).
+
 ### 2026-09-07 — Observatory second pass: the plan as an orbit (#392)
 
 **Decision.** Under the Plan header (cards mode), one SVG strip draws the phases as arcs of an orbit, each sized by its milestone count: a done phase is a solid line in the accent, the phase in progress glows and fills to its progress, a blocked one is amber, a not-started one dashed and dim. Every milestone is a moon on its arc — filled when done, ringed red when overdue — with the title on hover, and each phase shows its `done/total` under the arc. Clicking an arc scrolls to that phase's card. No request: it renders the plan the page already holds.
@@ -1985,7 +1993,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 40. ~~Swipe + touch targets (done 2026-06-11, cycle 39, UI/UX): drawer closes on a >60px left swipe (Alpine touch handlers; short swipes ignored), milestone/task check-offs grew to 20/16px visuals with an invisible `after:-inset-2.5` pseudo-element giving ≈40×40px tap targets (+ shrink-0 so flex rows can't squeeze them); verified at 420px in a real touch browser.~~
 41. Keyword cloud on the project overview card (idea added by cycle 35)
 42. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
-43. Prompt variable defaults — `{{name|default}}` syntax pre-fills the fill-in inputs, and last-used values are remembered per prompt in localStorage (idea added by cycle 36)
+43. ~~Prompt variable defaults — `{{name|default}}` syntax pre-fills the fill-in inputs, and last-used values are remembered per prompt in localStorage (idea added by cycle 36) — done 2026-09-07, #393~~
 44. Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)
 45. Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)
 46. ~~Edge-swipe open (done 2026-06-11, cycle 48, UI/UX): touchstart within 24px of the left edge + >60px rightward swipe opens the drawer (window-level Alpine handlers); mid-screen swipes ignored — touch-verified at 420px.~~
