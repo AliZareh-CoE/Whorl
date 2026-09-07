@@ -28,6 +28,7 @@ RESULT_FIELDS = [
     "compiled_pdf",
     "compiled_at",
     "synctex",
+    "compiled_bbl",
     "updated_at",
 ]
 
@@ -151,7 +152,15 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
             if sys.platform == "win32":  # no console window flashing behind the app
                 run_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             proc = subprocess.run(
-                [str(engine), "--untrusted", "--synctex", "--chatter", "minimal", main_path],
+                [
+                    str(engine),
+                    "--untrusted",
+                    "--synctex",
+                    "--keep-intermediates",  # #442: the .bbl for the submission package
+                    "--chatter",
+                    "minimal",
+                    main_path,
+                ],
                 cwd=work,
                 capture_output=True,
                 text=True,
@@ -171,6 +180,12 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
                 manuscript.compile_status = Manuscript.CompileStatus.OK
                 manuscript.compiled_at = timezone.now()
                 manuscript.synctex = _synctex_map(work, main_path)
+                bbl_path = (work / main_path).with_suffix(".bbl")
+                manuscript.compiled_bbl = (
+                    bbl_path.read_text(encoding="utf-8", errors="replace")
+                    if bbl_path.exists()
+                    else ""
+                )
             else:
                 manuscript.compile_status = Manuscript.CompileStatus.FAILED
                 manuscript.synctex = {}

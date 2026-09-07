@@ -265,6 +265,12 @@ def export_submission_zip(request, slug, pk):
             bib = export_manuscript_bib(manuscript)
             if bib:
                 zf.writestr("references.bib", bib)
+        # #442: arXiv runs no BibTeX — ship the .bbl the last compile produced, named after the
+        # main file, unless the tree already carries one
+        if manuscript.compiled_bbl and not any(f.path.endswith(".bbl") for f in files):
+            main = next((f for f in files if f.is_main), None)
+            stem = (main.path if main else "main.tex").rsplit(".", 1)[0]
+            zf.writestr(f"{stem}.bbl", manuscript.compiled_bbl)
     buffer.seek(0)
     slug_name = "".join(c if c.isalnum() else "-" for c in manuscript.title.lower())[:60].strip("-")
     response = HttpResponse(buffer.getvalue(), content_type="application/zip")
