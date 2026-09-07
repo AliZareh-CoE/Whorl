@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Undo for triage (2026-09-07, #440).** `components/UndoToast.tsx` (showUndo/UndoHost in main.tsx); Inbox triage + dashboard TriageControls undo via PATCH processed:false. Test: core/tests/test_undo_triage.py. Playwright: dismiss → Undo → row back.
+
 - **Comments searchable + resolvable (2026-09-07, #439).** `Comment.resolved_at` (core 0012) + `target_route()`; PATCH /comments/{id}/; search kind `comment` (both paths, describe); Studio + Reference resolve toggles; gutter marks only for open. Tests: core/tests/test_comments_resolve_search.py.
 
 - **Templates that plan (2026-09-07, #438).** `project_templates.py` plan/questions/themes per template; `instantiate_research_scaffold` (only when empty); template_list counts; NewProject card line `template-plan`. Tests: projects/tests/test_templates.py::TestResearchScaffold. Backlog #57/#58 struck.

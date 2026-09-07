@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "./Layout";
 import { DialogHost } from "../components/Dialog";
+import { UndoHost } from "../components/UndoToast";
 import { ErrorBoundary, reportClientError } from "../components/ErrorBoundary";
 import { installDesktopContextMenuGuard, installDevtoolsShortcut } from "./external";
 
@@ -109,6 +110,7 @@ createRoot(document.getElementById("root")!).render(
       </Routes>
       </Suspense>
       <DialogHost />
+      <UndoHost />
     </BrowserRouter>
   </QueryClientProvider>
   </ErrorBoundary>,

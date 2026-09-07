@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, CalendarClock, Check, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Sparkles, Trophy, Wand2 } from "lucide-react";
 import { confirmDialog } from "../../components/Dialog";
 import { api } from "../api";
+import { showUndo } from "../../components/UndoToast";
 import { dueState, formatDue } from "../dueTime";
 import { toggleCalm, useCalm } from "../calm";
 import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
@@ -57,9 +58,10 @@ function openCommandBar() {
 }
 
 /** Inline triage on an attention inbox row (#157): file to a project or dismiss. */
-function TriageControls({ id, projects }: { id: number; projects: { slug: string; name: string }[] }) {
+function TriageControls({ id, text, projects }: { id: number; text?: string; projects: { slug: string; name: string }[] }) {
   const queryClient = useQueryClient();
   const [slug, setSlug] = useState(projects[0]?.slug ?? "");
+  const refresh = () => { queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["inbox"] }); };
   const triage = useMutation({
     mutationFn: (body: { processed: boolean; project?: string }) =>
       api(`/quick-capture/${id}/`, {
@@ -67,7 +69,15 @@ function TriageControls({ id, projects }: { id: number; projects: { slug: string
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+    onSuccess: (_out, body) => {
+      refresh();
+      // #440: undo puts the capture back in the inbox
+      const label = body.project ? `Filed under ${projects.find((p) => p.slug === body.project)?.name ?? body.project}` : "Dismissed";
+      showUndo(`${label}${text ? ` — “${text.slice(0, 50)}”` : ""}`, async () => {
+        await api(`/quick-capture/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ processed: false, project: null }) });
+        refresh();
+      });
+    },
   });
   return (
     <span className="flex shrink-0 items-center gap-1">
@@ -306,7 +316,7 @@ export default function Dashboard() {
               <li key={`q${q.id}`} className="flex items-baseline gap-2">
                 <span className="shrink-0 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-300">inbox</span>
                 <span className="min-w-0 flex-1 truncate text-stone-600 dark:text-stone-300">{q.text}</span>
-                <TriageControls id={q.id} projects={data.active} />
+                <TriageControls id={q.id} text={q.text} projects={data.active} />
                 <Link to="/inbox" className="shrink-0 text-xs text-stone-400 hover:underline dark:text-stone-400" title="Open the full inbox">all →</Link>
               </li>
             ))}

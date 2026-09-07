@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { BookOpen, Check, FileText, Flag, Inbox as InboxIcon, ListChecks, Scale, X } from "lucide-react";
 import { api, petReact } from "../api";
+import { showUndo } from "../../components/UndoToast";
 import { ErrorState } from "../../components/ErrorState";
 import { Prose } from "../../components/Prose";
 import { Skeleton } from "../../components/Skeleton";
@@ -44,7 +45,19 @@ export default function Inbox() {
   });
   const triage = useMutation({
     mutationFn: ({ id, project }: { id: number; project?: string }) => api(`/quick-capture/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(project ? { processed: true, project } : { processed: true }) }),
-    onMutate: ({ id }) => { queryClient.setQueryData<Page<Capture>>(["inbox", runFilter], (old) => old ? { ...old, results: old.results.map((c) => (c.id === id ? { ...c, processed: true } : c)) } : old); },
+    onMutate: ({ id }) => {
+      const before = queryClient.getQueryData<Page<Capture>>(["inbox", runFilter])?.results.find((c) => c.id === id);
+      queryClient.setQueryData<Page<Capture>>(["inbox", runFilter], (old) => old ? { ...old, results: old.results.map((c) => (c.id === id ? { ...c, processed: true } : c)) } : old);
+      return { before };
+    },
+    onSuccess: (_out, { id, project }, ctx) => {
+      // #440: the row vanished — six seconds to take it back (processed off, project restored)
+      const label = project ? `Filed under ${projects?.results.find((p) => p.slug === project)?.name ?? project}` : "Dismissed";
+      showUndo(`${label} — “${(ctx?.before?.text ?? "").slice(0, 50)}”`, async () => {
+        await api(`/quick-capture/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ processed: false, project: ctx?.before?.project ?? null }) });
+        refresh();
+      });
+    },
     onSettled: refresh,
   });
   const convert = useMutation({
