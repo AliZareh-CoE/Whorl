@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Check, Copy, FileText, Plus, Search, Sparkles, X } from "lucide-react";
+import { Check, Copy, FileText, PenLine, Plus, Search, Sparkles, X } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
@@ -57,6 +57,27 @@ export default function Matrix() {
   const addTheme = useMutation({ mutationFn: (name: string) => api(`/projects/${slug}/review-matrix/themes/`, { method: "POST", headers: JSON_H, body: JSON.stringify({ name }) }), onSuccess: () => { setNewTheme(""); refresh(); } });
   const renameTheme = useMutation({ mutationFn: ({ id, name }: { id: number; name: string }) => api(`/projects/${slug}/review-matrix/themes/${id}/`, { method: "PATCH", headers: JSON_H, body: JSON.stringify({ name }) }), onSuccess: refresh });
   const deleteTheme = useMutation({ mutationFn: (id: number) => api(`/projects/${slug}/review-matrix/themes/${id}/`, { method: "DELETE" }), onSuccess: refresh });
+  // #437 (backlog #62): the matrix becomes a LaTeX Related-work section in a manuscript of this
+  // project — one subsection per theme, every cell finding a sentence ending in \citep{key}.
+  const manuscripts = useQuery({ queryKey: ["manuscripts", slug], queryFn: () => api<{ results: { id: number; title: string }[] }>(`/manuscripts/?project=${slug}&page_size=50`) });
+  const [pickMs, setPickMs] = useState(false);
+  type Drafted = { id: number; path: string; cited: number; linked_new: number; input_line: string };
+  const [draftDone, setDraftDone] = useState<Drafted | null>(null);
+  const draftInto = async (id: number, overwrite = false): Promise<Drafted | null> => {
+    const res = await fetch(`/api/v1/manuscripts/${id}/related-work/`, { method: "POST", headers: { ...JSON_H, "X-CSRFToken": csrfToken() }, credentials: "same-origin", body: JSON.stringify(overwrite ? { overwrite: true } : {}) });
+    if (res.status === 409) {
+      const ok = await confirmDialog({ title: "Replace the existing draft?", body: "sections/related-work.tex already exists in this manuscript. Replacing it drops any edits you made there.", confirmLabel: "Replace" });
+      return ok ? draftInto(id, true) : null;
+    }
+    if (!res.ok) throw new Error(String(res.status));
+    const body = (await res.json()) as Omit<Drafted, "id">;
+    return { id, ...body };
+  };
+  const toManuscript = useMutation({
+    mutationFn: ({ id }: { id: number }) => draftInto(id),
+    onSuccess: (out) => { setPickMs(false); if (out) { petReact("note"); setDraftDone(out); } },
+    onError: () => flash("Could not draft the section."),
+  });
   const synth = useMutation({
     mutationFn: async () => { const res = await fetch(`/projects/${slug}/literature/synthesis/`, { method: "POST", headers: { "X-CSRFToken": csrfToken(), "X-SPA": "1" }, credentials: "same-origin" }); if (!res.ok) throw new Error(String(res.status)); return (await res.json()) as { note_id: number }; },
     onSuccess: (out) => { petReact("note"); navigate(`/projects/${slug}/notes/${out.note_id}`); },
@@ -90,9 +111,24 @@ export default function Matrix() {
           <button type="button" onClick={() => void copyMarkdown()} className="inline-flex items-center gap-1 rounded-lg border border-stone-300 px-2.5 py-1.5 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"><Copy className="h-3.5 w-3.5" aria-hidden="true" />Copy as Markdown</button>
           <button type="button" onClick={() => { const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`; const head = ["key", "title", "year", ...data.themes.map((t) => t.name)].map(esc).join(","); const body = data.rows.map((r) => [r.bibtex_key, r.title, r.year ?? "", ...data.themes.map((t) => { const c = r.cells[String(t.id)]; return c ? (c.note || "x") : ""; })].map(esc).join(",")).join("\n"); const blob = new Blob([`${head}\n${body}\n`], { type: "text/csv" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${slug}-review-matrix.csv`; a.click(); URL.revokeObjectURL(a.href); flash("CSV downloaded — opens in Excel or R."); }} className="inline-flex items-center gap-1 rounded-lg border border-stone-300 px-2.5 py-1.5 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Papers × themes as a spreadsheet"><FileText className="h-3.5 w-3.5" aria-hidden="true" />CSV</button>
           <a href={`/api/v1/projects/${slug}/review-matrix/markdown/`} className="inline-flex items-center gap-1 rounded-lg border border-stone-300 px-2.5 py-1.5 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"><FileText className="h-3.5 w-3.5" aria-hidden="true" />.md</a>
+          <span className="relative">
+            <button type="button" data-testid="to-manuscript" disabled={toManuscript.isPending || data.themes.length === 0} onClick={() => { const ms = manuscripts.data?.results ?? []; if (ms.length === 0) flash("No manuscript in this project yet — start one under Writing."); else if (ms.length === 1) toManuscript.mutate({ id: ms[0].id }); else setPickMs((v) => !v); }} className="inline-flex items-center gap-1 rounded-lg border border-stone-300 px-2.5 py-1.5 text-stone-600 hover:border-indigo-300 disabled:opacity-40 dark:border-stone-700 dark:text-stone-300" title="Draft a LaTeX Related-work section from this matrix into a manuscript"><PenLine className="h-3.5 w-3.5" aria-hidden="true" />Related work → .tex</button>
+            {pickMs && (
+              <ul className="absolute right-0 z-20 mt-1 w-64 overflow-hidden rounded-lg border border-stone-200 bg-white py-1 text-left shadow-lg dark:border-stone-700 dark:bg-stone-900" data-testid="manuscript-picker">
+                {(manuscripts.data?.results ?? []).map((m) => <li key={m.id}><button type="button" onClick={() => toManuscript.mutate({ id: m.id })} className="block w-full truncate px-3 py-1.5 text-left text-xs text-stone-700 hover:bg-indigo-50 dark:text-stone-200 dark:hover:bg-indigo-500/15">{m.title}</button></li>)}
+              </ul>
+            )}
+          </span>
           <button type="button" onClick={() => synth.mutate()} disabled={synth.isPending || data.themes.length === 0} className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-40" title="Create a synthesis note organised by theme from the marked papers"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" />Draft synthesis note</button>
         </span>
       </div>
+      {draftDone && (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-emerald-300/60 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-500/40 dark:text-emerald-200" data-testid="related-work-done">
+          <span><span className="font-medium">{draftDone.path}</span> written · {draftDone.cited} paper{draftDone.cited === 1 ? "" : "s"} cited{draftDone.linked_new ? ` · ${draftDone.linked_new} added to the bibliography` : ""} · paste <code className="rounded bg-emerald-500/15 px-1">{draftDone.input_line}</code> into main.tex</span>
+          <Link to={`/manuscripts/${draftDone.id}/editor`} className="ml-auto font-medium hover:underline">Open in the studio →</Link>
+          <button type="button" onClick={() => setDraftDone(null)} aria-label="Dismiss" className="opacity-60 hover:opacity-100"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>
+        </div>
+      )}
       <div className={`${panel} rise mb-3 flex flex-wrap items-center gap-3 px-3 py-2 text-xs`} style={{ ["--i" as string]: 0 }}>
         <label className="relative"><Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" aria-hidden="true" /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter papers…" className="w-56 rounded-lg border border-stone-200 bg-white py-1.5 pl-7 pr-2 placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800" aria-label="Filter papers" /></label>
         <label className="flex items-center gap-1.5 text-stone-500"><input type="checkbox" checked={onlyUnmarked} onChange={(e) => setOnlyUnmarked(e.target.checked)} className="accent-indigo-500" />only untouched papers</label>

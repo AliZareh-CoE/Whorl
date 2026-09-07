@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Matrix → Related work .tex (2026-09-07, #437).** `related_work_latex` + `POST /manuscripts/{id}/related-work/` (409 guard, bibliography links, input line); Matrix button + picker + done strip; MCP `draft_related_work` (98 tools). Tests: writing/tests/test_related_work.py. Playwright: docs/screenshots/matrix-related-work.png.
+
 - **Related on the Reference page + MCP (2026-09-07, #436).** Reference.tsx related-section over `/references/{id}/related/`; MCP `get_related_in_library` (97 tools); backlog #1/#3/#11 swept. Test: literature/tests/test_related_surface.py. Playwright: docs/screenshots/reference-related.png.
 
 - **Search recents + pins (2026-09-07, #435).** Search.tsx localStorage recents (8, only searches with results) and ☆ pins; chips when the box is empty. Test: core/tests/test_search_recents.py. Playwright: docs/screenshots/search-pins.png.

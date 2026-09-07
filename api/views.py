@@ -2283,6 +2283,72 @@ class ManuscriptViewSet(AtlasViewSet):
         return Response(counts)
 
     @extend_schema(
+        request=inline_serializer(
+            "RelatedWorkDraft",
+            {
+                "path": rf_serializers.CharField(required=False),
+                "overwrite": rf_serializers.BooleanField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(
+                description="{path, file_id, themes, cited, linked_new, input_line, tex}"
+            )
+        },
+        description="Draft a LaTeX `Related work` section from the project's review matrix (#437): "
+        "one subsection per theme, each cell finding a sentence ending in \\citep{key}, written to "
+        "`sections/related-work.tex` (or `path`) in this manuscript's source tree; every cited paper "
+        "is added to the manuscript's bibliography. Refuses to replace an existing file unless "
+        "`overwrite` is true.",
+    )
+    @action(detail=True, methods=["post"], url_path="related-work")
+    def related_work(self, request, pk=None):
+        from literature.selectors import related_work_latex
+        from writing.models import ManuscriptFile, ManuscriptReference
+
+        manuscript = self.get_object()
+        data = request.data if isinstance(request.data, dict) else {}
+        path = (data.get("path") or "sections/related-work.tex").strip().lstrip("/")
+        if not path.endswith(".tex"):
+            raise rf_serializers.ValidationError({"path": ["Must end in .tex."]})
+        overwrite = bool(data.get("overwrite"))
+        existing = ManuscriptFile.objects.filter(manuscript=manuscript, path=path).first()
+        if existing is not None and not overwrite:
+            return Response(
+                {
+                    "detail": f"{path} already exists — send overwrite=true to replace it.",
+                    "path": path,
+                },
+                status=409,
+            )
+        tex, cited = related_work_latex(manuscript.project, manuscript)
+        linked_new = 0
+        for ref in cited:
+            _, created = ManuscriptReference.objects.get_or_create(
+                manuscript=manuscript, reference=ref
+            )
+            linked_new += int(created)
+        if existing is None:
+            existing = ManuscriptFile.objects.create(
+                manuscript=manuscript, path=path, content=tex, kind="tex"
+            )
+        else:
+            existing.content = tex
+            existing.save(update_fields=["content", "updated_at"])
+        _touch_manuscript(manuscript)
+        return Response(
+            {
+                "path": path,
+                "file_id": existing.pk,
+                "themes": manuscript.project.review_themes.count(),
+                "cited": len(cited),
+                "linked_new": linked_new,
+                "input_line": "\\input{" + path[:-4] + "}",
+                "tex": tex,
+            }
+        )
+
+    @extend_schema(
         operation_id="v1_manuscripts_comments",
         description="Every line-anchored comment across the manuscript's source files (#414): "
         "file id + path, line (null = general), body, created_at — newest first.",

@@ -340,6 +340,17 @@ def get_reference_usage(reference_id: int) -> dict:
 
 
 @mcp.tool()
+def draft_related_work(manuscript_id: int, path: str = "", overwrite: bool = False) -> dict:
+    """Draft a LaTeX `Related work` section from the project's review matrix and save it as
+    `sections/related-work.tex` (or `path`) in the manuscript's source tree: one subsection per
+    theme, each matrix cell finding a sentence ending in \\citep{key}, papers without a finding
+    gathered into one citation, gaps left as comments. Every cited paper is added to the
+    manuscript's bibliography, so the cite checker passes. Returns the \\input line to paste
+    into main.tex and the LaTeX itself. Set overwrite=True to replace an existing draft."""
+    return client.draft_related_work(manuscript_id, path or None, overwrite)
+
+
+@mcp.tool()
 def get_writing_progress(manuscript_id: int, days: int = 30) -> dict:
     """Writing progress for a manuscript: words per day over the last `days`, today's delta,
     this week's total, the streak of consecutive writing days and the best day. Use it to

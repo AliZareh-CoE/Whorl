@@ -367,6 +367,14 @@ def get_reference_usage(reference_id: int):
     return _request("GET", f"/references/{reference_id}/usage/")
 
 
+def draft_related_work(manuscript_id: int, path: str | None = None, overwrite: bool = False):
+    """Write a Related-work .tex section drafted from the project's review matrix into the manuscript."""
+    payload = {"overwrite": overwrite}
+    if path:
+        payload["path"] = path
+    return _request("POST", f"/manuscripts/{manuscript_id}/related-work/", json=payload)
+
+
 def get_writing_progress(manuscript_id: int, days: int = 30):
     """Words per day, today's delta, the streak and the best day for a manuscript."""
     return _request("GET", f"/manuscripts/{manuscript_id}/progress/", params={"days": days})
