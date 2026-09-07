@@ -10,7 +10,7 @@ import { AlertTriangle } from "lucide-react";
 
 type ConfirmOpts = { title: string; body?: React.ReactNode; confirmLabel?: string; cancelLabel?: string; danger?: boolean; verify?: string };
 type PromptOpts = { title: string; body?: React.ReactNode; label?: string; initial?: string; placeholder?: string; multiline?: boolean; confirmLabel?: string; validate?: (v: string) => string | null };
-type NoticeOpts = { title: string; body?: React.ReactNode; okLabel?: string };
+type NoticeOpts = { title: string; body?: React.ReactNode; okLabel?: string; wide?: boolean };
 type Request =
   | { kind: "confirm"; opts: ConfirmOpts; resolve: (v: boolean) => void }
   | { kind: "prompt"; opts: PromptOpts; resolve: (v: string | null) => void }
@@ -77,7 +77,7 @@ function Sheet({ req, onDone }: { req: Request; onDone: () => void }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-stone-950/45 p-4 backdrop-blur-[2px]" onMouseDown={(e) => { if (e.target === e.currentTarget) cancel(); }} role="presentation">
       <form role="dialog" aria-modal="true" aria-labelledby="atlas-dialog-title" data-testid={`dialog-${req.kind}`} onSubmit={(e) => { e.preventDefault(); ok(); }}
-        className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-5 shadow-2xl dark:border-stone-700 dark:bg-stone-900">
+        className={`w-full ${req.kind === "notice" && (req.opts as NoticeOpts).wide ? "max-w-3xl" : "max-w-md"} rounded-2xl border border-stone-200 bg-white p-5 shadow-2xl dark:border-stone-700 dark:bg-stone-900`}>
         <h2 id="atlas-dialog-title" className="flex items-center gap-2 text-base font-semibold text-stone-900 dark:text-stone-100">
           {danger && <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden="true" />}{req.opts.title}
         </h2>

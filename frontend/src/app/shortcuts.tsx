@@ -22,8 +22,9 @@ export function showShortcuts(): Promise<void> {
   return noticeDialog({
     title: "Keyboard shortcuts",
     okLabel: "Got it",
+    wide: true,
     body: (
-      <div className="grid gap-4 text-sm sm:grid-cols-2" data-testid="shortcuts-sheet">
+      <div className="grid gap-x-8 gap-y-5 text-sm sm:grid-cols-2" data-testid="shortcuts-sheet">
         {groups.map((g) => (
           <section key={g.title}>
             <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-stone-400">{g.title}</h3>
