@@ -44,6 +44,27 @@ export function installExternalLinkHandler(): void {
   }, true);
 }
 
+/** Desktop only (#389): open the shell's web inspector — a real console when a page misbehaves. */
+export async function openDevtools(): Promise<boolean> {
+  if (!isDesktop()) return false;
+  try {
+    const tauri = (await import("@tauri-apps/api")) as unknown as TauriApi;
+    await tauri.core.invoke("open_devtools");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Install once (desktop only): F12 or Ctrl/⌘+Shift+I opens the inspector. */
+export function installDevtoolsShortcut(): void {
+  if (!isDesktop() || (window as unknown as { __atlasDevtools?: boolean }).__atlasDevtools) return;
+  (window as unknown as { __atlasDevtools?: boolean }).__atlasDevtools = true;
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "F12" || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "I" || e.key === "i"))) { e.preventDefault(); void openDevtools(); }
+  });
+}
+
 /** Install once (desktop only): swallow the webview's own right-click menu ("Reload", "Back",
  * "Inspect"…) everywhere except text fields, so a right-click on a row shows Atlas's menu and a
  * right-click on empty space shows nothing — never the browser's. */

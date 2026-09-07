@@ -8,6 +8,7 @@
 
 mod localfs;
 mod server;
+mod devtools;
 mod external;
 mod terminal;
 mod updater;
@@ -138,6 +139,7 @@ fn main() {
             external::open_external,
             external::open_path,
             external::reveal_path,
+            devtools::open_devtools,
             localfs::open_local_file,
             updater::check_for_updates,
             updater::check_update,

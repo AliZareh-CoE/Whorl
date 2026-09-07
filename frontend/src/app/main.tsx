@@ -5,7 +5,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "./Layout";
 import { DialogHost } from "../components/Dialog";
 import { ErrorBoundary, reportClientError } from "../components/ErrorBoundary";
-import { installDesktopContextMenuGuard } from "./external";
+import { installDesktopContextMenuGuard, installDevtoolsShortcut } from "./external";
 
 // Route-level code splitting (Backlog #76): each page is its own chunk, fetched on
 // first visit — spa.js carries only the shell, router, and query client.
@@ -46,6 +46,7 @@ const queryClient = new QueryClient({
 });
 
 installDesktopContextMenuGuard();
+installDevtoolsShortcut();
 
 // Anything thrown outside React's render (#382) — an event handler, a promise — is reported
 // too; the boot watchdog in spa.html covers the time before this script ran.

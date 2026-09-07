@@ -70,6 +70,11 @@
         var classic = el("a", "Open the classic pages", "padding:.45rem .9rem;border-radius:.5rem;border:1px solid #d6d3d1;color:#1c1917;text-decoration:none");
         classic.href = "/classic/";
         row.appendChild(reload); row.appendChild(copy); row.appendChild(classic);
+        if (window.__TAURI__ && window.__TAURI__.core) {
+          var inspect = el("button", "Open the inspector", "padding:.45rem .9rem;border-radius:.5rem;border:1px solid #d6d3d1;background:#fff;color:#1c1917;cursor:pointer");
+          inspect.onclick = function () { try { window.__TAURI__.core.invoke("open_devtools"); } catch (e) {} };
+          row.appendChild(inspect);
+        }
         box.appendChild(row);
         var meta = "Atlas " + (html.getAttribute("data-version") || "dev");
         var logPath = html.getAttribute("data-server-log");

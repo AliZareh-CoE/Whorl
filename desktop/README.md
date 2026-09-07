@@ -45,7 +45,8 @@ can replace its files (`installer-hooks.nsh`).
    binds, the window shows an **in-app diagnostic page** with the data folder path and the tail
    of `atlas-server.log`, so a failure explains itself. If the server is up but the app never
    draws (a blank window), the page's own boot watchdog shows the thrown errors after a few
-   seconds and writes them to `atlas-server.log` (README › If the window is blank).
+   seconds and writes them to `atlas-server.log` (README › If the window is blank). F12 or
+   Ctrl+Shift+I opens the web inspector in the release build (Tauri's `devtools` feature).
 5. Quitting the app stops the server. A second launch focuses the existing window instead of
    starting a second server on the same database.
 

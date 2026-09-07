@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, Check, CheckCircle2, Copy, Download, Globe, Loader2, RotateCcw, Stethoscope, Upload, XCircle } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
-import { isDesktop } from "../external";
+import { isDesktop, openDevtools } from "../external";
 
 type Feed = { url: string; status: number | string | null };
 type RestoreState = { pending: { created_at?: string; staged_at: string | null; media_files: number; has_sqlite: boolean; has_json: boolean; size_bytes: number } | null; last_result: { ok: boolean; detail: string; applied_at: string; kept_previous_in: string } | null; data_dir: string };
@@ -68,6 +68,7 @@ export default function Diagnostics() {
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-900"><input type="checkbox" checked={network} onChange={(e) => setNetwork(e.target.checked)} className="accent-indigo-600" /><Globe className="h-4 w-4 text-stone-400" aria-hidden="true" />Probe the update feed</label>
           <a href="/api/v1/backup.zip" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-200" title="Download everything — database and files — as one zip. Restore notes are inside." data-testid="backup-link"><Download className="h-4 w-4" aria-hidden="true" />Download a backup</a>
           <button type="button" onClick={() => void copy()} disabled={!r} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50" data-testid="copy-report">{copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}{copied ? "Copied" : "Copy report"}</button>
+          {isDesktop() && <button type="button" onClick={() => void openDevtools()} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-200" title="Open the web inspector (also F12 or Ctrl+Shift+I) — the console shows what a page threw" data-testid="open-inspector"><Stethoscope className="h-4 w-4" aria-hidden="true" />Web inspector</button>}
         </div>
       </div>
       {q.isLoading && <p className="flex items-center gap-2 text-sm text-stone-400"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Collecting…</p>}

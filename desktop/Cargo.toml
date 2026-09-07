@@ -10,7 +10,9 @@ license = "AGPL-3.0"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# devtools (#389): the release build can open the web inspector on demand (F12 / Diagnostics)
+# — a console for the owner when a page misbehaves, without a debug build.
+tauri = { version = "2", features = ["devtools"] }
 portable-pty = "0.8"
 tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
