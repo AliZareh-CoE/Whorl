@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Writing progress: words per day, today's delta, the streak (#413)
+
+**Decision.** `writing.WordCountSample` keeps one word count per manuscript per day (migration 0014), written whenever a `.tex` file is saved (the last save of the day wins) and whenever the word count is asked for (opening the Studio logs a baseline). `writing/progress.py` turns the samples into deltas — days without a sample carry the previous count forward with a zero delta — plus today's delta, this week's added words, the streak of consecutive writing days ending today or yesterday, and the best day. Surfaces: the word-count endpoint now also answers `today_delta`/`streak`/`week_delta` and the Studio status bar shows "+212 today · 3d streak"; every manuscript carries a 14-day `progress` in its API row and the Writing board draws it as a tiny bar sparkline with the delta beside it; `GET /manuscripts/{id}/progress/?days=` and the MCP tool `get_writing_progress` (93 tools) give the whole series. The demo manuscript is seeded with a fortnight of writing.
+
+**Why.** The Studio counted words but the count had no memory: "how is the paper going?" needs yesterday's number too. A daily sample is the smallest thing that answers it, and it feeds the same places a writer looks (the status bar while writing, the board when choosing what to write).
+
+**Alternatives rejected.** Deriving progress from manuscript revisions (`ManuscriptRevision` keeps content, but not every save makes a revision and counting each one on read is O(revisions)); per-save samples (a row per autosave — the daily grain is what the questions are asked at); a target-words goal with a ring (venue limits already exist as `venue_limits`; goals are a settings screen in disguise).
+
 ### 2026-09-07 — Read this note to me (#412)
 
 **Decision.** The note editor's toolbar has a *listen* button: the title and body go through `speakable()` (a markdown stripper in `app/listen.ts` — `[[Note]]` and `@key` become their words, links their text, code blocks and images are skipped, headings/list markers/quotes/table rules go, each line ends as a sentence) and then through the same chunked, prefetched `listenTo` the abstract reader uses (#404), with an *i/n* progress in the button; switching notes or clicking again stops the voice; a missing voice model surfaces as the toast the export button already uses. No new endpoint: `/tts/` and the local Piper voice as before.

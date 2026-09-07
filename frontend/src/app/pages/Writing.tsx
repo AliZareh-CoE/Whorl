@@ -14,7 +14,8 @@ import { ErrorState } from "../../components/ErrorState";
 
 type Event = { id: number; kind: string; date: string; notes: string };
 type MFile = { id: number; path: string; kind: string; is_main: boolean };
-type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; target_venue: string; deadline: string | null; abstract: string; compile_status: string; compiled_at: string | null; venue_limits: Record<string, number>; events: Event[]; files: MFile[] };
+type Progress = { today_delta: number; week_delta: number; streak: number; words: number; samples: number[] };
+type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; target_venue: string; deadline: string | null; abstract: string; progress?: Progress; compile_status: string; compiled_at: string | null; venue_limits: Record<string, number>; events: Event[]; files: MFile[] };
 type BudgetItem = { key: string; label: string; used: number | null; limit: number | null; ratio: number | null; state: "ok" | "near" | "over" | "unset" };
 type Budget = { venue: string; limits: Record<string, number>; usage: Record<string, number | null>; items: BudgetItem[]; over: string[]; summary: string };
 type Page<T> = { count: number; results: T[] };
@@ -31,6 +32,21 @@ const EVENT_KINDS: [string, string][] = [["submitted", "Submitted"], ["desk_reje
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
 const railH = "mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:text-stone-500";
 const JSON_H = { "Content-Type": "application/json" };
+
+/** #413: fourteen days of writing as tiny bars — a day's added words, the best day full height —
+ *  with today's delta and the streak beside it. Days that removed words show as a dim stub. */
+function ProgressSpark({ progress }: { progress: Progress }) {
+  const top = Math.max(...progress.samples.map((d) => Math.max(d, 0)), 1);
+  return (
+    <p className="mt-2 flex items-end gap-2 text-[11px] text-stone-400" data-testid="progress-spark" title={`${progress.words.toLocaleString()} words · ${progress.week_delta.toLocaleString()} this week`}>
+      <span className="flex h-4 items-end gap-px" aria-hidden="true">
+        {progress.samples.map((d, i) => <span key={i} className={`w-1 rounded-sm ${d > 0 ? "bg-indigo-400/80" : "bg-stone-200 dark:bg-stone-700"}`} style={{ height: d > 0 ? `${Math.max(15, Math.round((100 * d) / top))}%` : "2px" }} />)}
+      </span>
+      <span className={progress.today_delta > 0 ? "text-emerald-600 dark:text-emerald-300" : ""}>{progress.today_delta > 0 ? "+" : ""}{progress.today_delta.toLocaleString()} today</span>
+      {progress.streak > 1 && <span>· {progress.streak}-day streak</span>}
+    </p>
+  );
+}
 
 function daysUntil(deadline: string | null): number | null {
   if (!deadline) return null;
@@ -119,6 +135,7 @@ export function WritingBoard() {
                       <span className="flex items-start gap-2"><span className="min-w-0 flex-1 font-medium text-stone-900 dark:text-stone-100">{m.title}</span><Kebab items={cardItems(m)} label={`Actions for ${m.title}`} className="-mr-1 -mt-1 opacity-0 group-hover:opacity-100 focus:opacity-100" /></span>
                       <p className="mt-1 text-xs text-stone-400">{m.project_name}{m.target_venue ? ` · ${m.target_venue}` : ""}</p>
                       {dl && <p className={`mt-1.5 text-xs ${dl.urgent ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{dl.text}</p>}
+                      {m.progress && m.progress.words > 0 && <ProgressSpark progress={m.progress} />}
                     </Link>
                   ); })}
                 </div>

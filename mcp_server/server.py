@@ -327,6 +327,14 @@ def get_reference_usage(reference_id: int) -> dict:
 
 
 @mcp.tool()
+def get_writing_progress(manuscript_id: int, days: int = 30) -> dict:
+    """Writing progress for a manuscript: words per day over the last `days`, today's delta,
+    this week's total, the streak of consecutive writing days and the best day. Use it to
+    answer "how is the paper going?" with numbers."""
+    return client.get_writing_progress(manuscript_id, days)
+
+
+@mcp.tool()
 def reorder_todos(ids: list[int]) -> dict:
     """Put the Today list in this order: the given item ids take the top positions in the
     order given; anything not listed keeps its relative order below them."""

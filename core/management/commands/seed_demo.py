@@ -486,6 +486,19 @@ class Command(BaseCommand):
         for reference in corpus_refs[:6]:
             ManuscriptReference.objects.get_or_create(manuscript=manuscript, reference=reference)
         _seed_manuscript_source(manuscript)
+        # #413: a fortnight of writing — the sparkline and the streak have something to show
+        from writing.models import WordCountSample
+        from writing.progress import manuscript_words
+
+        final_words = manuscript_words(manuscript)
+        for days_ago, share in enumerate(
+            (1.0, 0.94, 0.94, 0.9, 0.85, 0.85, 0.78, 0.7, 0.7, 0.64, 0.6, 0.52, 0.5, 0.45)
+        ):
+            WordCountSample.objects.update_or_create(
+                manuscript=manuscript,
+                date=today - datetime.timedelta(days=days_ago),
+                defaults={"words": int(final_words * share)},
+            )
         for kind, days_ago, note in [
             (SubmissionEvent.Kind.SUBMITTED, 95, "Initial submission."),
             (SubmissionEvent.Kind.REVIEWS_RECEIVED, 40, "R2 wants a power analysis."),

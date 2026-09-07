@@ -360,6 +360,11 @@ def get_reference_usage(reference_id: int):
     return _request("GET", f"/references/{reference_id}/usage/")
 
 
+def get_writing_progress(manuscript_id: int, days: int = 30):
+    """Words per day, today's delta, the streak and the best day for a manuscript."""
+    return _request("GET", f"/manuscripts/{manuscript_id}/progress/", params={"days": days})
+
+
 def reorder_todos(ids: list[int]):
     """The given ids take positions 1..n; the rest follow in their current order."""
     return _request("POST", "/todos/reorder/", json={"ids": ids})

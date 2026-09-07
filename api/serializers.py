@@ -894,6 +894,22 @@ class ManuscriptFileSummarySerializer(serializers.ModelSerializer):
 
 
 class ManuscriptSerializer(serializers.ModelSerializer):
+    progress = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.DictField())
+    def get_progress(self, obj):
+        """#413: the last 14 days of word samples (sparkline), today's delta and the streak."""
+        from writing.progress import progress
+
+        summary = progress(obj, days=14)
+        return {
+            "today_delta": summary["today_delta"],
+            "week_delta": summary["week_delta"],
+            "streak": summary["streak"],
+            "words": summary["words"],
+            "samples": [s["delta"] for s in summary["samples"]],
+        }
+
     project = ProjectSlugField()
     events = SubmissionEventSerializer(many=True, read_only=True)
     project_name = serializers.CharField(source="project.name", read_only=True)
@@ -919,6 +935,7 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "compiled_at",
             "events",
             "files",
+            "progress",
             "created_at",
             "updated_at",
         ]

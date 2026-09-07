@@ -211,6 +211,10 @@ class ManuscriptFile(TimeStampedModel):
             Manuscript.objects.filter(pk=self.manuscript_id).update(
                 latex_source=self.content, updated_at=timezone.now()
             )
+        if self.kind == self.Kind.TEX:
+            from writing.progress import record_words  # #413: today's word sample
+
+            record_words(self.manuscript)
 
 
 class ManuscriptRevision(TimeStampedModel):
@@ -292,3 +296,24 @@ class SubmissionEvent(TimeStampedModel):
 
     def __str__(self):
         return f"{self.manuscript.title[:30]}: {self.kind} on {self.date}"
+
+
+class WordCountSample(models.Model):
+    """One word count per manuscript per day (#413): the writing log behind "+212 today",
+    the streak and the sparkline. Written whenever a .tex file is saved or the word count is
+    asked for; the last value of the day wins."""
+
+    manuscript = models.ForeignKey(
+        Manuscript, on_delete=models.CASCADE, related_name="word_samples"
+    )
+    date = models.DateField()
+    words = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["date"]
+        constraints = [
+            models.UniqueConstraint(fields=["manuscript", "date"], name="one_word_sample_per_day")
+        ]
+
+    def __str__(self):
+        return f"{self.manuscript_id} {self.date}: {self.words}"

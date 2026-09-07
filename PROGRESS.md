@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Writing progress (2026-09-07, #413).** `writing.WordCountSample` (0014), `writing/progress.py`, tex-save hook + word-count endpoint records, `GET /manuscripts/{id}/progress/`, serializer `progress` (14-day deltas), MCP `get_writing_progress` (93 tools), Studio "+n today · streak", Writing card sparkline, demo seeded. Tests: writing/tests/test_progress.py (3). Playwright: docs/screenshots/writing-progress.png, studio-words-today.png.
+
 - **Read this note to me (2026-09-07, #412).** `listen.ts::speakable` (markdown → speech text, checked in node), Notes editor listen/stop button with i/n progress, stops on note switch, errors in the toast. Guard: core/tests/test_polish.py::test_notes_read_aloud. Playwright: error path without a voice model (docs/screenshots/note-listen.png).
 
 - **Reference usage (2026-09-07, #411).** `literature/usage.py`, `GET /references/{id}/usage/`, MCP `get_reference_usage` (92 tools), Reference page "Where it appears" section. Tests: literature/tests/test_usage.py (2). Playwright: docs/screenshots/reference-usage.png.

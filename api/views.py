@@ -1975,7 +1975,7 @@ def _bibliography_rows(manuscript) -> list[dict]:
 
 
 class ManuscriptViewSet(AtlasViewSet):
-    queryset = Manuscript.objects.all()
+    queryset = Manuscript.objects.all().prefetch_related("word_samples")
     serializer_class = serializers.ManuscriptSerializer
     project_filter = "project__slug"
     q_fields = ("title",)
@@ -2205,12 +2205,35 @@ class ManuscriptViewSet(AtlasViewSet):
     )
     @action(detail=True, methods=["get"], url_path="word-count")
     def word_count(self, request, pk=None):
+        from writing.progress import progress, record_words
         from writing.wordcount import word_count as count
 
         manuscript = self.get_object()
         files = manuscript.files.filter(kind="tex")
         source = "\n".join(f.content for f in files) if files.exists() else manuscript.latex_source
-        return Response(count(source))
+        counts = count(source)
+        record_words(manuscript, counts["words"])  # #413: opening the Studio logs today
+        summary = progress(manuscript, days=7)
+        counts.update(
+            today_delta=summary["today_delta"],
+            streak=summary["streak"],
+            week_delta=summary["week_delta"],
+        )
+        return Response(counts)
+
+    @extend_schema(
+        operation_id="v1_manuscripts_progress",
+        description="Writing progress (#413): words per day for the last 30 days with deltas, "
+        "today's delta, this week's total, the streak of consecutive writing days and the "
+        "best day.",
+        responses={200: None},
+    )
+    @action(detail=True, methods=["get"], url_path="progress")
+    def writing_progress(self, request, pk=None):
+        from writing.progress import progress
+
+        days = min(max(int(request.query_params.get("days", 30) or 30), 7), 365)
+        return Response(progress(self.get_object(), days=days))
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Compile status, diagnostics, pdf url")},

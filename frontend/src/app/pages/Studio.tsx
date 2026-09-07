@@ -46,7 +46,7 @@ type BibRow = { link_id: number; reference_id: number; cite_key: string; bibtex_
 type Candidate = { reference_id: number; key: string; title: string; authors: string; year: number | null; linked: boolean };
 type Hl = { id: number; reference: number; page: number | null; text: string; comment: string; color: string };
 type Revision = { id: number; label: string; labeled: boolean; created_at: string; files: string[] };
-type WordCount = { words: number; headers?: number; captions?: number; math?: number };
+type WordCount = { words: number; headers?: number; captions?: number; math?: number; today_delta?: number; streak?: number; week_delta?: number };
 type Settings = { keymap: "default" | "vim"; fontSize: number; spellcheck: boolean; autoCompile: boolean; followCursor: boolean };
 type Tab = "files" | "outline" | "bib" | "history";
 
@@ -539,6 +539,12 @@ function StudioInner({ m }: { m: Manuscript }) {
         <span>Ln {ln}</span>
         <span>{pathOf(activeId)}</span>
         {words && <span title={`headers ${words.headers ?? 0} · captions ${words.captions ?? 0} · math ${words.math ?? 0}`}>{words.words.toLocaleString()} words</span>}
+        {/* #413: today's delta and the streak, from the daily word samples */}
+        {words && typeof words.today_delta === "number" && (
+          <span className={words.today_delta > 0 ? "text-emerald-400" : words.today_delta < 0 ? "text-amber-400" : ""} title={`${(words.week_delta ?? 0).toLocaleString()} words this week${words.streak ? ` · ${words.streak}-day streak` : ""}`} data-testid="words-today">
+            {words.today_delta > 0 ? "+" : ""}{words.today_delta.toLocaleString()} today{words.streak && words.streak > 1 ? ` · ${words.streak}d streak` : ""}
+          </span>
+        )}
         {missingCites > 0 && <span className="text-amber-400">{missingCites} cite key{missingCites === 1 ? "" : "s"} not in the bibliography</span>}
         <span className={`ml-auto ${compile.status === "ok" ? "text-emerald-400" : compile.status === "failed" ? "text-red-400" : running ? "text-indigo-300" : ""}`}>{running ? "compiling" : compile.status === "ok" ? `compiled ${compile.compiled_at ? new Date(compile.compiled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}` : compile.status === "failed" ? "compile failed" : "not compiled"}</span>
         <span>{settings.keymap === "vim" ? "VIM" : "LaTeX"}</span>
