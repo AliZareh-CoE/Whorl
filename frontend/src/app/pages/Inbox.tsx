@@ -66,7 +66,7 @@ export default function Inbox() {
     </div>
   ) : null;
   const projectRows = projects?.results ?? [];
-  return <InboxBody runBanner={runBanner} open={open} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} toast={toast} />;
+  return <InboxBody runBanner={runBanner} openCount={stillOpen} open={open} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} toast={toast} />;
 }
 
 /* Keyboard triage (Inbox v2 slice 2): j/k or arrows move the cursor, Enter takes the
@@ -74,7 +74,7 @@ export default function Inbox() {
    inbox without touching the mouse. Keys are ignored while typing in the capture box. */
 const KEY_TARGETS = ["paper", "todo", "note", "milestone", "decision"] as const;
 
-function InboxBody({ open, projectRows, text, setText, capture, convert, triage, toast, runBanner }: { runBanner?: ReactNode; open: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
+function InboxBody({ open, projectRows, text, setText, capture, convert, triage, toast, runBanner, openCount }: { runBanner?: ReactNode; openCount?: number; open: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
   const [cursor, setCursor] = useState(0);
   const [legend, setLegend] = useState(false);
   const projectFor = (c: Capture) => c.project ?? projectRows[0]?.slug ?? undefined;
@@ -100,7 +100,7 @@ function InboxBody({ open, projectRows, text, setText, capture, convert, triage,
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-4">
-        <h1 className="font-display text-3xl font-bold tracking-tight dark:text-stone-100">Inbox <span className="text-gradient">{open.length === 0 ? "· zero" : `· ${open.length} to triage`}</span></h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight dark:text-stone-100">Inbox <span className="text-gradient">{(openCount ?? open.length) === 0 ? "· zero" : `· ${openCount ?? open.length} to triage`}</span></h1>
         <p className="mt-0.5 text-sm text-stone-400">Get it out of your head now. Atlas reads DOIs, "todo:", "idea:", "decision:" and "milestone:" and files each into the right place with one click.</p>
       </div>
       <form onSubmit={(e) => { e.preventDefault(); if (text.trim()) capture.mutate(); }} className={`${panel} hairline-gradient rise mb-6 p-2 pl-4`} data-testid="capture-form">
