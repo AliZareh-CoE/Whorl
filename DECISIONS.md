@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Hotfix: a hook below an early return blanked the app; a static rules-of-hooks guard (#379)
+
+**Decision.** The dashboard's warm-up hooks (#372) were added below the loading/error returns; once data arrived the hook count changed, React threw #310 and every page mounted under the dashboard route went blank — the owner's "the new update isn't even showing anything" (builds 0.1.99–0.1.104). Both offenders (Dashboard, and a latent one on Today) are fixed, and `core/tests/test_hook_order.py` now walks every component and fails on any hook call after a top-level early return, since the repo has no eslint.
+
+**Why.** The UI audit passed the night before because the bug landed after it ran, and the desktop stub was the first thing to load `/` afterwards. A static guard costs nothing and catches the whole class; it is the cheapest possible replacement for `eslint-plugin-react-hooks` without adding Node tooling to CI.
+
+**Alternatives rejected.** Adding eslint to the build (a Node toolchain in CI for one rule); an error boundary that hides the blank page (it would show a message, but the page would still be broken).
+
 ### 2026-09-07 — SyncTeX in the studio (#378)
 
 **Decision.** Tectonic runs with `--synctex`; `writing/synctex.py` folds the `.synctex.gz` records into one rectangle per (page, file, line) in PDF points, stored as `Manuscript.synctex` on a good compile (cleared on failure) and served by `GET /manuscripts/{id}/synctex/`. In the studio, **Locate** (⌘⇧J) scrolls the PDF to the cursor's line and flashes a bar there; **double-click** anywhere in the PDF opens the matching file and line. The inverse lookup prefers the smallest box containing the point (page and paragraph boxes contain everything).

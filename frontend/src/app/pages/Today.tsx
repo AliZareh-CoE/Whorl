@@ -52,7 +52,6 @@ export default function Today() {
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  if (error) return <ErrorState message="Couldn't load your list." onRetry={() => refetch()} />;
   const items = data?.results ?? [];
   const open = items.filter((t) => !t.done);
   const done = items.filter((t) => t.done);
@@ -74,6 +73,8 @@ export default function Today() {
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, cursor, editing]);
+  // the error return sits BELOW every hook on purpose (React #310 otherwise — see test_hook_order)
+  if (error) return <ErrorState message="Couldn't load your list." onRetry={() => refetch()} />;
 
   return (
     <div className="mx-auto max-w-2xl">

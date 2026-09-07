@@ -140,6 +140,13 @@ export default function Dashboard() {
   const demo = useQuery({ queryKey: ["demo-status"], queryFn: () => api<{ projects: number }>("/demo/") });
   const qcAll = useQueryClient();
   const loadDemo = useMutation({ mutationFn: () => api<{ project: string }>("/demo/", { method: "POST" }), onSuccess: () => { void qcAll.invalidateQueries(); } });
+  const firstRun = demo.data?.projects === 0;
+  // first run on the desktop: offer to fetch the TeX bundle now rather than behind the first compile (#372).
+  // These hooks live ABOVE the loading/error returns on purpose — a hook below an early return
+  // changes the hook count between renders and blanks the whole page (React #310, 2026-09-07).
+  type Warm = { state: string; warm: boolean; size_mb: number };
+  const warmState = useQuery({ queryKey: ["latex-warm"], queryFn: () => api<Warm>("/diagnostics/warm-latex/"), enabled: firstRun, refetchInterval: (q) => (q.state.data?.state === "running" ? 3000 : false) });
+  const warmUp = useMutation({ mutationFn: () => api<Warm>("/diagnostics/warm-latex/", { method: "POST" }), onSuccess: () => qcAll.invalidateQueries({ queryKey: ["latex-warm"] }) });
 
   if (isLoading)
     return (
@@ -161,11 +168,6 @@ export default function Dashboard() {
   if (error || !data) return <ErrorState message="Couldn't load the dashboard." onRetry={() => refetch()} />;
 
   const attention = data.attention;
-  const firstRun = demo.data?.projects === 0;
-  // first run on the desktop: offer to fetch the TeX bundle now rather than behind the first compile (#372)
-  type Warm = { state: string; warm: boolean; size_mb: number };
-  const warmState = useQuery({ queryKey: ["latex-warm"], queryFn: () => api<Warm>("/diagnostics/warm-latex/"), enabled: firstRun, refetchInterval: (q) => (q.state.data?.state === "running" ? 3000 : false) });
-  const warmUp = useMutation({ mutationFn: () => api<Warm>("/diagnostics/warm-latex/", { method: "POST" }), onSuccess: () => qcAll.invalidateQueries({ queryKey: ["latex-warm"] }) });
   const needs = attention.overdue.length + attention.deadlines.length + attention.inbox.length;
   const anchors = data.active.map((p) => ({ label: p.name, color: p.color, weight: 0.35 + p.percent / 150 }));
 
