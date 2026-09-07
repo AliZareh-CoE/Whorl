@@ -357,6 +357,11 @@ def get_reference_tldr(reference_id: int):
     return _request("GET", f"/references/{reference_id}/tldr/")
 
 
+def get_related_in_library(reference_id: int):
+    """The library's most similar papers to this one — local TF-IDF over title + abstract."""
+    return _request("GET", f"/references/{reference_id}/related/")
+
+
 def get_reference_usage(reference_id: int):
     """Every note, decision, entry, protocol, capture, manuscript and evidence row that links to or cites the paper."""
     return _request("GET", f"/references/{reference_id}/usage/")

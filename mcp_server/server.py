@@ -322,6 +322,15 @@ def get_reference_tldr(reference_id: int) -> dict:
 
 
 @mcp.tool()
+def get_related_in_library(reference_id: int) -> list:
+    """Papers already in the library that are most similar to this one (TF-IDF cosine over
+    title and abstract, computed locally — no network). Each row: id, bibtex_key, title, year,
+    score. Use it to suggest what else to read or cite before reaching for discover_related,
+    which goes to OpenAlex for papers the library does not have."""
+    return client.get_related_in_library(reference_id)
+
+
+@mcp.tool()
 def get_reference_usage(reference_id: int) -> dict:
     """Where this paper appears in Atlas: notes that link or cite it, decisions, experiment
     entries, protocols and captures that mention @key, manuscripts whose bibliography carries

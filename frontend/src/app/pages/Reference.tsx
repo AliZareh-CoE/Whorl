@@ -104,6 +104,8 @@ export default function Reference() {
   });
   // #411: where this paper appears — backlinks for a reference
   const usage = useQuery({ queryKey: ["usage", Number(id)], queryFn: () => api<Usage>(`/references/${id}/usage/`) });
+  // #436: the same local TF-IDF neighbours the Library rail shows — here too, where a paper is read about
+  const related = useQuery({ queryKey: ["related", Number(id)], queryFn: () => api<{ id: number; bibtex_key: string; title: string; year: number | null; score: number }[]>(`/references/${id}/related/`) });
   const [commentBody, setCommentBody] = useState("");
   const remove = useMutation({
     mutationFn: () => api(`/references/${id}/`, { method: "DELETE" }),
@@ -281,6 +283,22 @@ export default function Reference() {
         </section>
       )}
 
+      {related.data && related.data.length > 0 && (
+        <section className="mb-4 rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900" data-testid="related-section">
+          <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Related in your library</h2>
+          <p className="mb-2 text-xs text-stone-400">By title and abstract, computed here — nothing leaves the machine.</p>
+          <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+            {related.data.map((r) => (
+              <li key={r.id} className="flex items-baseline gap-2 py-1 text-sm" data-testid="related-row">
+                <Link to={`/references/${r.id}`} className="min-w-0 flex-1 truncate text-stone-800 hover:text-indigo-600 dark:text-stone-100 dark:hover:text-indigo-300">{r.title}</Link>
+                <span className="shrink-0 font-mono text-[11px] text-stone-400">{r.bibtex_key}</span>
+                {r.year && <span className="shrink-0 text-[11px] text-stone-400">{r.year}</span>}
+                <span className="shrink-0 rounded-full bg-indigo-500/10 px-1.5 py-px text-[10px] text-indigo-600 dark:text-indigo-300" title="cosine similarity">{Math.round(r.score * 100)}%</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section className="mb-4 rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900" data-testid="usage-section">
         <h2 className="mb-1 flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">
           Where it appears {usage.data && usage.data.total > 0 && <span className="text-stone-300 dark:text-stone-400">{usage.data.total}</span>}
