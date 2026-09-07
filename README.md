@@ -42,6 +42,7 @@ Claude Code can do all of it with you — 96 tools over the same API the UI uses
 - Write the whole plan as a Markdown outline (`# phase [status] (start → end)`, `- [ ] milestone (due …)`, indented tasks) with a live dry-run of what a save creates, renames and deletes; Claude edits the same outline.
 - Roadmap: phases as bars (windows inferred when undated), milestones as diamonds, drag or use the keyboard to reschedule; per-phase health (behind / on track / ahead / overdue) and a finish forecast from your pace.
 - "This week" strip, milestone drawer (notes, due date, tasks), phase objectives and research questions in place.
+- Rearrange by hand: drag a phase by its number onto another card to reorder, drag a milestone row onto a different phase to move it there (`POST /api/v1/projects/{slug}/phases/reorder/`).
 
 **Library** — add by DOI / arXiv; drop a folder of PDFs (the DOI is read off page one), BibTeX, RIS, CSL-JSON, or pull Zotero; everything deduplicated. Or **watch a folder**: point the Library at your Downloads folder and every PDF saved there is imported on its own (Library rail › Watch folder). Tag papers from the detail pane; right-click a tag in the rail to give it a colour, rename or delete it — the colour follows the tag onto every row.
 - Facets, keyboard `j/k/x/o`, bulk file / mark / tag / export, saved smart views, duplicate merge that keeps every link.

@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Plan drag (2026-09-07, #429).** `POST /projects/{slug}/phases/reorder/`; Plan.tsx phase handle + milestone rows draggable, cards as drop targets, optimistic. Test: plans/tests/test_plans.py::test_phase_reorder_and_milestone_move. Playwright (real mouse drag, both directions, ring on the target): docs/screenshots/plan-drag.png.
+
 - **Search coverage (2026-09-07, #428).** Protocols, datasets, captures in both search paths + describe(); SPA labels. Tests: core/tests/test_search.py::test_finds_protocols_datasets_captures (both paths).
 
 - **Pet species (2026-09-07, #427).** `pet_species` (4 plumages + golden 1/64), `species` in pet state, CSS palettes `.mochi-species-*`, Creature `species` prop, pet page line, hatchling blurb. Tests: core/tests/test_pet.py::TestSpecies. Playwright: docs/screenshots/pet-species.png.

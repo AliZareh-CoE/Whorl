@@ -101,6 +101,23 @@ export default function Plan() {
     onSettled: invalidate,
   });
   // CRUD sweep 2026-09-06: phases can be added, renamed and deleted here, not only via the outline
+  // #429: drag a phase to reorder; drag a milestone onto another phase to move it
+  const reorderPhases = useMutation({
+    mutationFn: (ids: number[]) => api(`/projects/${slug}/phases/reorder/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) }),
+    onMutate: (ids) => patchPlan((plan) => { const by = new Map(plan.phases.map((p) => [p.id, p])); const ordered = ids.map((id) => by.get(id)!).filter(Boolean); return { ...plan, phases: ordered.map((p, i) => ({ ...p, order: i + 1 })) }; }),
+    onSettled: invalidate,
+  });
+  const moveMilestone = useMutation({
+    mutationFn: ({ id, phase }: { id: number; phase: number }) => api(`/milestones/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phase }) }),
+    onMutate: ({ id, phase }) => patchPlan((plan) => { const m = plan.phases.flatMap((p) => p.milestones).find((x) => x.id === id); if (!m) return plan; return { ...plan, phases: plan.phases.map((p) => ({ ...p, milestones: p.id === phase ? [...p.milestones.filter((x) => x.id !== id), m] : p.milestones.filter((x) => x.id !== id) })) }; }),
+    onSettled: invalidate,
+  });
+  const dropPhaseBefore = (dragged: number, target: number) => {
+    if (!data || dragged === target) return;
+    const ids = data.phases.map((p) => p.id).filter((id) => id !== dragged);
+    ids.splice(ids.indexOf(target), 0, dragged);
+    reorderPhases.mutate(ids);
+  };
   const addPhase = useMutation({
     mutationFn: (name: string) => api(`/phases/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project: slug, name, order: (data?.phases.reduce((n, p) => Math.max(n, p.order), 0) ?? 0) + 1 }) }),
     onSuccess: invalidate,
@@ -189,7 +206,7 @@ export default function Plan() {
           <Orbit phases={data.phases} accent={accent} onOpen={(id) => document.getElementById(`phase-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} />
           <Focus slug={slug!} onChanged={invalidate} />
           {data.phases.map((phase, pi) => (
-            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onRename={async () => { const name = await promptDialog({ title: "Rename phase", label: "Name", initial: phase.name, validate: (v) => (v.trim() ? null : "Name the phase.") }); if (name && name.trim() !== phase.name) renamePhase.mutate({ id: phase.id, name: name.trim() }); }} onDelete={async () => { const n = phase.milestones.length; if (await confirmDialog({ title: `Delete the phase “${phase.name}”?`, body: n ? `Its ${n} milestone${n === 1 ? "" : "s"} and their tasks go with it.` : "The phase has no milestones.", danger: true, confirmLabel: "Delete phase" })) deletePhase.mutate(phase.id); }} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
+            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} onDropPhase={(dragged) => dropPhaseBefore(dragged, phase.id)} onDropMilestone={(id) => moveMilestone.mutate({ id, phase: phase.id })} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onRename={async () => { const name = await promptDialog({ title: "Rename phase", label: "Name", initial: phase.name, validate: (v) => (v.trim() ? null : "Name the phase.") }); if (name && name.trim() !== phase.name) renamePhase.mutate({ id: phase.id, name: name.trim() }); }} onDelete={async () => { const n = phase.milestones.length; if (await confirmDialog({ title: `Delete the phase “${phase.name}”?`, body: n ? `Its ${n} milestone${n === 1 ? "" : "s"} and their tasks go with it.` : "The phase has no milestones.", danger: true, confirmLabel: "Delete phase" })) deletePhase.mutate(phase.id); }} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
           ))}
           <button type="button" onClick={() => void askAddPhase()} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-stone-300 px-3 py-2 text-sm text-stone-500 hover:border-indigo-400 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-indigo-300" data-testid="add-phase"><Plus className="h-4 w-4" aria-hidden="true" />Add a phase</button>
         </div>
@@ -209,7 +226,7 @@ export default function Plan() {
   );
 }
 
-function PhaseCard({ phase, index, accent, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen, allQuestions, onPatchPhase, onRename, onDelete, onAttachQuestion }: { onRename: () => void; onDelete: () => void; phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void; allQuestions: Question[]; onPatchPhase: (body: { objective?: string; target_start?: string | null; target_end?: string | null }) => void; onAttachQuestion: (question: number, attach: boolean) => void }) {
+function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen, allQuestions, onPatchPhase, onRename, onDelete, onAttachQuestion }: { onRename: () => void; onDelete: () => void; onDropPhase: (draggedPhaseId: number) => void; onDropMilestone: (milestoneId: number) => void; phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void; allQuestions: Question[]; onPatchPhase: (body: { objective?: string; target_start?: string | null; target_end?: string | null }) => void; onAttachQuestion: (question: number, attach: boolean) => void }) {
   const [draft, setDraft] = useState("");
   const [taskFor, setTaskFor] = useState<number | null>(null);
   const [taskDraft, setTaskDraft] = useState("");
@@ -219,10 +236,17 @@ function PhaseCard({ phase, index, accent, onToggleMilestone, onToggleTask, onCy
   const done = phase.milestones.filter((m) => m.completed_at).length;
   const dates = phase.target_start || phase.target_end ? `${phase.target_start ?? "…"} → ${phase.target_end ?? "…"}` : "";
   const unattached = allQuestions.filter((q) => !phase.questions.some((x) => x.id === q.id));
+  const [over, setOver] = useState<"phase" | "milestone" | null>(null);
+  const PHASE_MIME = "application/x-atlas-phase", MS_MIME = "application/x-atlas-milestone";
+  const kindOf = (dt: DataTransfer) => (dt.types.includes(PHASE_MIME) ? "phase" : dt.types.includes(MS_MIME) ? "milestone" : null);
   return (
-    <section id={`phase-${phase.id}`} className={`${panel} rise scroll-mt-4 p-5`} style={{ ["--i" as string]: index }} data-testid="phase-card">
+    <section id={`phase-${phase.id}`} className={`${panel} rise scroll-mt-4 p-5 transition-shadow ${over === "phase" ? "ring-2 ring-indigo-400" : over === "milestone" ? "ring-2 ring-emerald-400" : ""}`} style={{ ["--i" as string]: index }} data-testid="phase-card"
+      onDragOver={(e) => { const k = kindOf(e.dataTransfer); if (!k) return; if (k === "phase" && Number(e.dataTransfer.getData(PHASE_MIME)) === phase.id) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOver(k); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null); }}
+      onDrop={(e) => { const k = kindOf(e.dataTransfer); setOver(null); if (!k) return; e.preventDefault(); if (k === "phase") { const id = Number(e.dataTransfer.getData(PHASE_MIME)); if (id && id !== phase.id) onDropPhase(id); } else { const id = Number(e.dataTransfer.getData(MS_MIME)); if (id && !phase.milestones.some((m) => m.id === id)) onDropMilestone(id); } }}>
       <div className="mb-3 flex items-baseline gap-3">
-        <span className="font-display text-2xl font-bold leading-none text-stone-300 dark:text-stone-600">{String(phase.order).padStart(2, "0")}</span>
+        {/* #429: the number is the drag handle — drop on another phase card to reorder */}
+        <span draggable onDragStart={(e) => { e.dataTransfer.setData(PHASE_MIME, String(phase.id)); e.dataTransfer.effectAllowed = "move"; }} className="font-display cursor-grab select-none text-2xl font-bold leading-none text-stone-300 active:cursor-grabbing dark:text-stone-600" title="Drag to reorder phases" data-testid="phase-handle">{String(phase.order).padStart(2, "0")}</span>
         <h2 className="font-display min-w-0 flex-1 text-lg font-semibold text-stone-900 dark:text-stone-100">{phase.name}</h2>
         <label className="hidden shrink-0 items-center gap-1 text-[11px] text-stone-400 sm:flex" title="Target window">
           <input type="date" value={phase.target_start ?? ""} onChange={(e) => onPatchPhase({ target_start: e.target.value || null })} className="w-[7.5rem] rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-stone-400 hover:border-stone-300 focus:border-indigo-400 focus:outline-none dark:hover:border-stone-700" aria-label={`${phase.name} start`} />
@@ -264,7 +288,7 @@ function PhaseCard({ phase, index, accent, onToggleMilestone, onToggleTask, onCy
         {phase.milestones.map((m) => {
           const isOverdue = m.overdue && !m.completed_at;
           return (
-            <li key={m.id} className="group py-2.5">
+            <li key={m.id} className="group py-2.5" draggable onDragStart={(e) => { e.dataTransfer.setData(MS_MIME, String(m.id)); e.dataTransfer.effectAllowed = "move"; e.stopPropagation(); }} title="Drag onto another phase to move this milestone" data-testid="milestone-row">
               <div className="flex items-center gap-3">
                 <button type="button" aria-label="Toggle milestone" onClick={() => onToggleMilestone(m)} className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs transition-all after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${m.completed_at ? "border-indigo-500 bg-indigo-500 text-white shadow-[0_0_12px_rgb(99_102_241/.6)]" : "border-stone-300 bg-white text-transparent hover:border-indigo-400 dark:border-stone-600 dark:bg-stone-900 dark:hover:border-indigo-400"}`}><Check className="h-3 w-3" aria-hidden="true" /></button>
                 <button type="button" onClick={() => onOpen(m.id)} className={`min-w-0 flex-1 truncate text-left text-sm hover:text-indigo-700 dark:hover:text-indigo-300 ${m.completed_at ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-200"}`} title="Open: notes, due date, tasks">{m.title}{m.notes ? <span className="ml-1.5 align-middle text-[10px] text-stone-400">notes</span> : null}</button>

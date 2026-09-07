@@ -219,3 +219,41 @@ class TestModalForms:
         content = response.content.decode()
         assert content.count('hx-target="#modal-slot"') >= 3
         assert 'id="modal-slot"' in content
+
+
+def test_phase_reorder_and_milestone_move(client, settings, django_user_model):
+    """#429: drag a phase to reorder it; drag a milestone onto another phase to move it."""
+    from plans.models import Milestone, Phase
+    from projects.tests.factories import ProjectFactory
+
+    settings.ATLAS_API_KEY = "k"
+    django_user_model.objects.create_superuser("owner", password="pw")
+    headers = {"HTTP_X_API_KEY": "k"}
+    project = ProjectFactory(slug="deep")
+    a, b, c = (
+        Phase.objects.create(project=project, name=n, order=i) for i, n in enumerate("ABC", 1)
+    )
+    other = Phase.objects.create(project=ProjectFactory(slug="other"), name="X", order=1)
+    r = client.post(
+        f"/api/v1/projects/{project.slug}/phases/reorder/",
+        {"ids": [c.pk, a.pk]},
+        content_type="application/json",
+        **headers,
+    )
+    assert r.status_code == 200 and r.json() == {"ordered": 2}
+    assert list(project.phases.order_by("order").values_list("name", flat=True)) == ["C", "A", "B"]
+    bad = client.post(
+        f"/api/v1/projects/{project.slug}/phases/reorder/",
+        {"ids": [other.pk]},
+        content_type="application/json",
+        **headers,
+    )
+    assert bad.status_code == 400
+    m = Milestone.objects.create(phase=a, title="Pilot")
+    moved = client.patch(
+        f"/api/v1/milestones/{m.pk}/", {"phase": c.pk}, content_type="application/json", **headers
+    )
+    assert moved.status_code == 200 and Milestone.objects.get(pk=m.pk).phase_id == c.pk
+    src = open("frontend/src/app/pages/Plan.tsx").read()
+    assert "application/x-atlas-phase" in src and "application/x-atlas-milestone" in src
+    assert "/phases/reorder/" in src

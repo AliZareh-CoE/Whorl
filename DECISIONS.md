@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The plan moves under the mouse: drag phases, drag milestones between phases (#429)
+
+**Decision.** The phase number on each card is a drag handle: drop it on another card and the phase takes that card's place (`POST /api/v1/projects/{slug}/phases/reorder/ {ids}` writes `order` 1..n and `updated_at`, mirroring the to-do and smart-view reorders; unlisted phases keep their relative order after). Milestone rows are draggable too: dropping one on a different phase card moves it there (`PATCH /milestones/{id}/ {phase}`). Both are optimistic in the SPA and settle from the server. Cards ring indigo for a phase drop, emerald for a milestone drop; the two payloads use private MIME types so a card knows which it is being offered.
+
+**Why.** A plan is written, then rearranged — "the pilot belongs in phase two after all" was a delete-and-retype. Plans over backlogs means rearranging must be as cheap as thinking it.
+
+**Alternatives rejected.** Reordering milestones within a phase (they order by due date, which is the honest order); a dnd library (the native API already runs the other three drag surfaces); dragging tasks between milestones (rare; the task is one line to retype).
+
 ### 2026-09-07 — Global search reaches protocols, datasets and captures (#428)
 
 **Decision.** Three object kinds were searchable nowhere: protocols (title + body), datasets (name, location, description — the FTS path had skipped them) and inbox captures (text; project may be null). Both search paths — Postgres FTS and the SQLite `icontains` fallback the desktop uses — now cover them, `describe()` gives each a snippet and a route (research page; the Inbox with the capture id), and the SPA groups them under Protocols, Datasets and Captures.

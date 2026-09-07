@@ -665,6 +665,43 @@ class ProjectViewSet(AtlasViewSet):
         description="The literature review matrix: which paper covers which theme.",
     )
     @extend_schema(
+        operation_id="v1_projects_phases_reorder",
+        request=inline_serializer(
+            "PhaseReorderRequest",
+            {"ids": rf_serializers.ListField(child=rf_serializers.IntegerField())},
+        ),
+        responses={200: OpenApiResponse(description="{ordered: n}")},
+        description="Put the project's phases in this order (#429): the given phase ids take "
+        "positions 1..n in the order given; any phase not listed keeps its relative order after "
+        "them.",
+    )
+    @action(detail=True, methods=["post"], url_path="phases/reorder")
+    def reorder_phases(self, request, slug=None):
+        from django.utils import timezone
+
+        project = self.get_object()
+        ids = request.data.get("ids") if isinstance(request.data, dict) else None
+        if not isinstance(ids, list) or not all(isinstance(i, int) for i in ids):
+            raise rf_serializers.ValidationError({"ids": ["Send a list of phase ids."]})
+        if len(set(ids)) != len(ids):
+            raise rf_serializers.ValidationError({"ids": ["An id appears twice."]})
+        known = set(project.phases.values_list("pk", flat=True))
+        unknown = [i for i in ids if i not in known]
+        if unknown:
+            raise rf_serializers.ValidationError(
+                {"ids": [f"Not this project's phase(s): {unknown}"]}
+            )
+        now = timezone.now()
+        position = 0
+        for phase_id in ids:
+            position += 1
+            Phase.objects.filter(pk=phase_id).update(order=position, updated_at=now)
+        for phase in project.phases.exclude(pk__in=ids).order_by("order", "pk"):
+            position += 1
+            Phase.objects.filter(pk=phase.pk).update(order=position, updated_at=now)
+        return Response({"ordered": len(ids)})
+
+    @extend_schema(
         operation_id="v1_projects_vault",
         description="The project as a Markdown vault (#416): a zip of notes (with their "
         "[[wiki-links]]), decisions, the plan outline, the literature list + references.bib, "
