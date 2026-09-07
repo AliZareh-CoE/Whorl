@@ -42,7 +42,9 @@ def list_documents(project: str) -> dict:
 
 @mcp.tool()
 def search(query: str) -> dict:
-    """Full-text search across projects, references, notes, documents, decisions, and plans."""
+    """Full-text search across projects, references (title, abstract, PDF text), notes,
+    documents, decisions, plans, hypotheses, experiments, protocols, datasets and inbox
+    captures — each hit with a snippet and the route to open it."""
     return client.search(query)
 
 

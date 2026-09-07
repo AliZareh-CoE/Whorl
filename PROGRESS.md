@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Search coverage (2026-09-07, #428).** Protocols, datasets, captures in both search paths + describe(); SPA labels. Tests: core/tests/test_search.py::test_finds_protocols_datasets_captures (both paths).
+
 - **Pet species (2026-09-07, #427).** `pet_species` (4 plumages + golden 1/64), `species` in pet state, CSS palettes `.mochi-species-*`, Creature `species` prop, pet page line, hatchling blurb. Tests: core/tests/test_pet.py::TestSpecies. Playwright: docs/screenshots/pet-species.png.
 
 - **Performance pass (2026-09-07, #426).** Probe of 20 endpoints; references list 36→7 queries (`prefetch_related("tags")`); budget test core/tests/test_query_budgets.py::TestApiBudgets. Warm dashboard 23 q / 25 ms; overview 51 q / 60 ms (flat).

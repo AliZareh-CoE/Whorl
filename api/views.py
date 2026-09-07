@@ -2497,7 +2497,8 @@ class SearchAPIView(APIView):
             )
         },
         description="Global full-text search across projects, references (title, abstract and "
-        "PDF text), notes, documents, decisions, plans, and research objects.",
+        "PDF text), notes, documents, decisions, plans, hypotheses, experiments, questions, "
+        "protocols, datasets and inbox captures.",
     )
     def get(self, request):
         from core.search import describe, search_all

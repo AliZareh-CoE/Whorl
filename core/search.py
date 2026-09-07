@@ -13,10 +13,10 @@ from django.contrib.postgres.search import (
 
 from documents.models import Document
 from literature.models import Reference
-from notes.models import Note
+from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion
 from projects.models import DecisionRecord, Project
-from research.models import ExperimentEntry, Hypothesis
+from research.models import Dataset, ExperimentEntry, Hypothesis, Protocol
 from writing.models import Manuscript
 
 LIMIT_PER_TYPE = 10
@@ -128,6 +128,25 @@ _SEARCH_SPECS = [
         "experiment",
         lambda: ExperimentEntry.objects.select_related("project"),
         ["title", "body"],
+        lambda o: o.project,
+    ),
+    # #428: the three kinds search had skipped
+    (
+        "dataset",
+        lambda: Dataset.objects.select_related("project"),
+        ["name", "location", "description"],
+        lambda o: o.project,
+    ),
+    (
+        "protocol",
+        lambda: Protocol.objects.select_related("project"),
+        ["title", "body"],
+        lambda o: o.project,
+    ),
+    (
+        "capture",
+        lambda: QuickCapture.objects.select_related("project"),
+        ["text"],
         lambda o: o.project,
     ),
 ]
@@ -246,6 +265,26 @@ def search_all(text: str) -> list[dict]:
     ):
         results.append({"type": "experiment", "object": experiment, "project": experiment.project})
 
+    # #428: datasets, protocols and inbox captures
+    for dataset in _ranked(
+        Dataset.objects.select_related("project"),
+        SearchVector("name", weight="A") + SearchVector("location") + SearchVector("description"),
+        query,
+    ):
+        results.append({"type": "dataset", "object": dataset, "project": dataset.project})
+
+    for protocol in _ranked(
+        Protocol.objects.select_related("project"),
+        SearchVector("title", weight="A") + SearchVector("body"),
+        query,
+    ):
+        results.append({"type": "protocol", "object": protocol, "project": protocol.project})
+
+    for capture in _ranked(
+        QuickCapture.objects.select_related("project"), SearchVector("text", weight="A"), query
+    ):
+        results.append({"type": "capture", "object": capture, "project": capture.project})
+
     if not results:
         results = _trigram_fallback(text.strip())
 
@@ -332,6 +371,18 @@ def describe(result: dict, q: str) -> dict:
             snippet=excerpt(obj.abstract, q),
             app_url=f"/manuscripts/{obj.pk}",
             meta=obj.status.replace("_", " "),
+        )
+    elif kind == "protocol":
+        out.update(
+            snippet=excerpt(obj.body, q),
+            app_url=f"/projects/{slug}/research",
+            meta=f"v{obj.version}" + ("" if obj.is_current else " (superseded)"),
+        )
+    elif kind == "capture":
+        out.update(
+            snippet=excerpt(obj.text, q),
+            app_url="/inbox",
+            meta="filed" if obj.processed else "in the inbox",
         )
     elif kind in ("hypothesis", "experiment", "dataset", "question"):
         body = (

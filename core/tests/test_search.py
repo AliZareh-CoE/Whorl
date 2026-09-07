@@ -87,3 +87,42 @@ class TestSearch:
     def test_no_results_message(self, client_logged_in):
         response = client_logged_in.get(reverse("core:search"), {"q": "xyzzyplugh"})
         assert b"No results" in response.content
+
+
+class TestCoverage428:
+    """#428: protocols, datasets and captures are searchable on both paths."""
+
+    def _seed(self):
+        from notes.models import QuickCapture
+        from research.models import Dataset, Protocol
+
+        project = ProjectFactory(name="Tide pools")
+        Protocol.objects.create(
+            project=project, title="Anemone handling", body="gloves, ten minutes"
+        )
+        Dataset.objects.create(project=project, name="anemone-counts", location="/data/anemone")
+        QuickCapture.objects.create(text="ask about the anemone permit")
+        return project
+
+    def test_icontains_path(self):
+        from core.search import _icontains_search, describe
+
+        self._seed()
+        rows = {r["type"]: r for r in _icontains_search("anemone")}
+        assert {"protocol", "dataset", "capture"} <= rows.keys()
+        assert describe(rows["protocol"], "anemone")["meta"] == "v1"
+        assert describe(rows["capture"], "anemone")["app_url"] == "/inbox"
+        assert describe(rows["dataset"], "anemone")["app_url"].endswith("/research")
+
+    def test_fts_path(self):
+        from django.db import connection
+
+        if connection.vendor != "postgresql":
+            pytest.skip("FTS path is Postgres-only")
+        self._seed()
+        types = {r["type"] for r in search_all("anemone")}
+        assert {"protocol", "dataset", "capture"} <= types
+
+    def test_ui_labels(self):
+        src = open("frontend/src/app/pages/Search.tsx").read()
+        assert 'protocol: "Protocols"' in src and 'capture: "Captures"' in src
