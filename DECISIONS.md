@@ -551,6 +551,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Two small ones: abstract peek in the rail, overview prefetch on hover (#448)
+
+**Decision.** (a) The studio's bibliography rows carry the paper's abstract; a ▸ on the row unfolds it under the title, so "which paper was that again?" is answered without leaving the editor (backlog #126). (b) Hovering a project card on the Projects page prefetches that project's overview query (30 s fresh), so the click lands on a painted page (backlog #64).
+
+**Why.** Both were felt while writing and navigating; both are one hook each. Kept together because neither is a feature on its own.
+
 ### 2026-09-07 — A Studio actions palette on ⌘⇧P (#447)
 
 **Decision.** ⌘P already quick-opens files and sections; ⌘⇧P now opens an *actions* palette: save, compile, locate the cursor in the PDF, toggle sidebar / preview / problems, new file, download the submission .zip, jump to the Files / Outline / Bibliography / History / Comments panel, editor settings, keymap default ↔ vim, compile-on-save and PDF-follows-cursor toggles — every row with its key binding, filtered as you type, ↑↓ and Enter. The settings footer and the `?` shortcuts sheet mention it. Same modal chrome as quick-open.
@@ -2449,7 +2455,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 62. ~~[REV] Synthesis studio (the scaffold note shipped as the matrix's synthesis draft; the manuscript export shipped 2026-09-07, #437: `draft_related_work` → `sections/related-work.tex` with every key in the bibliography)~~ — original: select N papers from the matrix and get a structured literature-synthesis scaffold (themes × claims × evidence table prefilled from reading notes + keywords, exportable to a manuscript section) (idea added by cycle 55)
 63. Assistant actions that act — POST quick actions in the panel (complete milestone, set reading status) with optimistic UI, reusing the bulk endpoints pattern (idea added by cycle 55)
 63. SPA shell polish — pet widget, global search, and the assistant summon inside the React layout so /app/ feels complete while sections migrate (idea added by cycle 56)
-64. SPA route prefetch — hovering a project card prefetches its overview query so navigation feels instant (idea added by cycle 57)
+64. ~~SPA route prefetch (done 2026-09-07, #448: project cards prefetch the overview on hover)~~ — original: hovering a project card prefetches its overview query so navigation feels instant (idea added by cycle 57)
 65. SPA plan editing — phase/milestone/task create+edit modals in React so the plan page reaches full parity and the classic page can retire (idea added by cycle 58)
 66. CSS build gate — add `make css && git diff --exit-code static/css/app.css` to the cycle gate so Tailwind classes used by new TSX never ship missing (idea added by cycle 59, from the ml-56 bug)
 67. SPA error toasts — surface failed optimistic mutations (e.g. PATCH rejected) with a calm inline toast + automatic state rollback instead of relying on the next refetch (idea added by cycle 60, from AUDIT #6 review of the optimistic-write path)
@@ -2534,7 +2540,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 129. Compile streak on the pet/timeline — a compiles-per-week sparkline (the data is now on the timeline) on the manuscript detail or as a Mochi reaction, turning the writing rhythm into a gentle signal (idea added by cycle 116)
 128. ~~User-defined templates (done 2026-09-07, #446 as "Duplicate…": sources, assets, limits and bibliography links into a fresh manuscript; API + MCP)~~ — original: let the owner save any manuscript's current files AS a reusable template (a thin ManuscriptTemplate model or just "duplicate manuscript"), beyond the 6 built-ins (idea added by cycle 115)
 127. ~~MCP figure upload (done 2026-09-07, #441: `attach_manuscript_figure`, multipart asset + includegraphics snippet)~~ — original: write_manuscript_file is text-only; add an MCP tool to attach a figure (multipart to manuscript-files asset) so Claude can complete a paper end-to-end incl. plots (idea added by cycle 114)
-126. Abstract peek in the panel — expand a bibliography row in the research rail to read the full abstract inline (the context endpoint already sends a 280-char snippet; show it on click) without opening the reference page (idea added by cycle 113)
+126. ~~Abstract peek in the panel (done 2026-09-07, #448)~~ — original: expand a bibliography row in the research rail to read the full abstract inline (the context endpoint already sends a 280-char snippet; show it on click) without opening the reference page (idea added by cycle 113)
 125. ~~Cite-check across files (the cite checker reads every .tex file of the manuscript; swept 2026-09-07)~~ — original: the missing-citations check currently scans the active buffer only; aggregate unknown \cite keys across ALL tex files so a citation defined nowhere in a multi-file project is caught (idea added by cycle 112)
 124. ~~Cite hint over MISSING papers (done 2026-09-07, #445: the completion's last row adds, links and cites by DOI / arXiv id)~~ — original: when \cite{} fragment matches nothing in the library, offer an "add by DOI…" inline action that reuses add_reference_by_doi, so writing never breaks to go hunt a paper (idea added by cycle 111, pairs with B2)
 123. Containerized Tectonic compile (escalated by AUDIT #11) — promote Backlog #36: now that multi-file \input exists, run the compile in a throwaway container/namespace; --untrusted + path validation cover single-user but a container boundary is the real fix before any multi-user use (idea escalated by cycle 110)

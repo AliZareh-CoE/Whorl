@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Abstract peek + hover prefetch (2026-09-07, #448).** `_bibliography_rows` abstract; BibPanel ▸ peek; Projects cards prefetch `["overview", slug]`. Test: writing/tests/test_bib_peek.py.
+
 - **Studio actions palette (2026-09-07, #447).** `ActionPalette` on ⌘⇧P with bindings; shortcuts sheet row. Test: writing/tests/test_action_palette.py. Playwright: ⌘⇧P → rows → Enter toggles the preview.
 
 - **Duplicate manuscript (2026-09-07, #446).** `duplicate_manuscript` service + `POST /manuscripts/{id}/duplicate/`; Writing card menu; MCP tool (100 tools). Tests: writing/tests/test_duplicate.py. Playwright: card menu → prompt → copy opens with 2 files.

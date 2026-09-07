@@ -2030,6 +2030,7 @@ def _bibliography_rows(manuscript) -> list[dict]:
                     a.get("family") or a.get("given") or "" for a in (ref.authors or [])[:3]
                 ),
                 "venue": ref.venue,
+                "abstract": ref.abstract,  # #448: the rail can peek at it without leaving
             }
         )
     return rows

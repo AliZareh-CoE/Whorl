@@ -115,11 +115,12 @@ export default function Projects() {
 }
 
 function ProjectCard({ p, i, items, onContextMenu }: { p: Project; i: number; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void }) {
+  const qc = useQueryClient(); // #448: prefetch the overview on hover
   const s = p.summary;
   const desc = stripMd(p.description || "");
   const pct = s.milestones_total ? Math.round((s.milestones_done / s.milestones_total) * 100) : 0;
   return (
-    <Link to={`/projects/${p.slug}`} onContextMenu={onContextMenu} className={`${panel} rise group relative flex flex-col overflow-hidden p-5 pl-6 transition-colors hover:border-indigo-300 dark:hover:border-indigo-500/50`} style={{ ["--i" as string]: i + 1 }} data-testid="project-card">
+    <Link to={`/projects/${p.slug}`} onContextMenu={onContextMenu} onMouseEnter={() => void qc.prefetchQuery({ queryKey: ["overview", p.slug], queryFn: () => api(`/projects/${p.slug}/overview/`), staleTime: 30_000 })} className={`${panel} rise group relative flex flex-col overflow-hidden p-5 pl-6 transition-colors hover:border-indigo-300 dark:hover:border-indigo-500/50`} style={{ ["--i" as string]: i + 1 }} data-testid="project-card">
       <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={{ background: p.color }} />
       <div className="mb-1.5 flex items-start justify-between gap-2">
         <h3 className="min-w-0 truncate text-base font-semibold tracking-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-300">{p.name}</h3>

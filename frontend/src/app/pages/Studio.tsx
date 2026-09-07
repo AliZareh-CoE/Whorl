@@ -42,7 +42,7 @@ function syncInverse(map: SyncMap | null, page: number, x: number, y: number): {
   for (const [f, ln, rx, ry, rw, rh] of rows) { const inside = rx <= x && x <= rx + rw && ry <= y && y <= ry + rh; const dy = ry <= y && y <= ry + rh ? 0 : Math.min(Math.abs(y - ry), Math.abs(y - ry - rh)); const dx = rx <= x && x <= rx + rw ? 0 : Math.min(Math.abs(x - rx), Math.abs(x - rx - rw)); const s = inside ? rw * rh : 1e9 + dy * 3 + dx; if (!best || s < best.s) best = { s, file: map!.files[f], line: ln }; }
   return best ? { file: best.file, line: best.line } : null;
 }
-type BibRow = { link_id: number; reference_id: number; cite_key: string; bibtex_key: string; title: string; year: number | null; authors: string; venue: string };
+type BibRow = { link_id: number; reference_id: number; cite_key: string; bibtex_key: string; title: string; year: number | null; authors: string; venue: string; abstract?: string };
 type Candidate = { reference_id: number; key: string; title: string; authors: string; year: number | null; linked: boolean };
 type Hl = { id: number; reference: number; page: number | null; text: string; comment: string; color: string };
 type Revision = { id: number; label: string; labeled: boolean; created_at: string; files: string[] };
@@ -677,6 +677,7 @@ function ProjectFigures({ slug, base, known, onAdded, onError }: { slug: string;
 function BibPanel({ m, base, onInsert, onQuote, onLinked }: { m: Manuscript; base: string; onInsert: (key: string) => void; onQuote: (latex: string) => void; onLinked: () => void }) {
   const bib = useQuery({ queryKey: ["manuscript-bib", m.id], queryFn: () => api<BibRow[]>(`/manuscripts/${m.id}/bibliography/`) });
   const [openRef, setOpenRef] = useState<number | null>(null);
+  const [peek, setPeek] = useState<number | null>(null); // #448: abstract peek
   const [q, setQ] = useState("");
   const lib = useQuery({ queryKey: ["cite-library", m.id], queryFn: () => wb<{ candidates: Candidate[] }>(`${base}cite-library/`), enabled: q.length > 0 });
   const matches = useMemo(() => { const needle = q.toLowerCase(); return (lib.data?.candidates ?? []).filter((c) => !c.linked && (c.key.toLowerCase().includes(needle) || c.title.toLowerCase().includes(needle) || c.authors.toLowerCase().includes(needle))).slice(0, 12); }, [lib.data, q]);
@@ -689,8 +690,10 @@ function BibPanel({ m, base, onInsert, onQuote, onLinked }: { m: Manuscript; bas
         <li key={r.link_id}>
           <div className="flex items-center">
             <button type="button" onClick={() => onInsert(r.cite_key)} className={`${sideItem} st-text`} title={`${r.authors} (${r.year ?? "n.d."}) — ${r.title}`}><span className="shrink-0 font-mono text-indigo-300">@{r.cite_key}</span><span className="truncate st-dim">{r.title}</span></button>
+            {r.abstract && <button type="button" onClick={() => setPeek(peek === r.reference_id ? null : r.reference_id)} className="shrink-0 px-1 text-[10px] st-dim st-hover-fg" title="Read the abstract here" aria-label={`Abstract of ${r.cite_key}`} aria-expanded={peek === r.reference_id} data-testid="bib-peek">{peek === r.reference_id ? "▾" : "▸"}</button>}
             <button type="button" onClick={() => setOpenRef(openRef === r.reference_id ? null : r.reference_id)} className="shrink-0 px-1 text-[10px] st-dim st-hover-fg" title="Your highlights from this paper" aria-label={`Highlights of ${r.cite_key}`}>{openRef === r.reference_id ? "−" : "✎"}</button>
           </div>
+          {peek === r.reference_id && r.abstract && <p className="mx-1 mb-1.5 rounded border px-2 py-1.5 text-[11px] leading-4 st-dim" style={{ borderColor: "var(--studio-line)" }} data-testid="bib-abstract">{r.abstract}</p>}
           {openRef === r.reference_id && <PaperHighlights referenceId={r.reference_id} citeKey={r.cite_key} onQuote={onQuote} />}
         </li>
       ))}</ul>
