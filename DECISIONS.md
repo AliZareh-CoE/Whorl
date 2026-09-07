@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Reading queue: explore neighbours (#403)
+
+**Decision.** A queue (and literature) row's menu carries *Similar in your library*: a panel above the list shows the paper's nearest neighbours from `GET /references/{id}/related/` (the existing local similarity), each with its year, a similarity percentage, a link to the paper and a `+ add here` that files it into this project; *explore beyond* opens the Library detail with the OpenAlex lenses.
+
+**Why.** Backlog #37: while queueing what to read next, the question "what else do I have like this?" was two pages away. The similarity endpoint already existed; the panel just puts it where the reading decision happens.
+
+**Alternatives rejected.** Inline expansion under each row (the list is a table of statuses; a single panel keeps it scannable); fetching OpenAlex neighbours here (network calls belong behind the explicit lens on the Library page).
+
 ### 2026-09-07 — Small polish: active nav icon tint, typeahead miss feedback; two ideas retired (#402)
 
 **Decision.** The sidebar's active item tints its icon with the accent (backlog #172). In the Files tree, when typeahead finds no row starting with what was typed, the hint pill turns red, shakes once and says "no match" (backlog #185). Two older ideas are retired as moot: the "reset layout" confirmation (#163 — the SPA dashboard has no reset-layout control) and the pet reading its mood blurb (#162 — the click already reads the rotating bubble line, which is the mood).
@@ -2059,7 +2067,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
 35. Slim the Docker image — multi-stage build, piper/onnx as optional extra (~800 MB → ~300 MB) (idea added by cycle 29)
 36. Containerized LaTeX compile — run Tectonic in a throwaway container/namespace to close the \input file-read residual risk if Atlas ever goes multi-user (idea added by cycle 30 audit)
-37. Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31)
+37. ~~Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31) — done 2026-09-07, #403~~
 38. Listen prefetch — synthesize the next chunk while the current one plays to remove gaps (idea added by cycle 32)
 39. ~~Doctor on the Automations page — render the same checks in the UI with a stale-worker banner (idea added by cycle 33) — covered by the Diagnostics page (engine, jobs, feed, warm-up, access, front-end errors); swept 2026-09-07~~
 40. ~~Swipe + touch targets (done 2026-06-11, cycle 39, UI/UX): drawer closes on a >60px left swipe (Alpine touch handlers; short swipes ignored), milestone/task check-offs grew to 20/16px visuals with an invisible `after:-inset-2.5` pseudo-element giving ≈40×40px tap targets (+ shrink-0 so flex rows can't squeeze them); verified at 420px in a real touch browser.~~

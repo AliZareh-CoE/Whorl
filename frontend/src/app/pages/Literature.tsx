@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { BookOpen, Check, Flag, Highlighter, Plus, Unlink } from "lucide-react";
+import { BookOpen, Check, Flag, Highlighter, Plus, Telescope, Unlink, X } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -95,6 +95,14 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
 
   // CRUD sweep 2026-09-06: priority and "remove from project" were only in the classic UI
   const menu = useMenu();
+  // Explore neighbours (#403, backlog #37): "similar in your library" for any queue item
+  const [neighboursOf, setNeighboursOf] = useState<Ref | null>(null);
+  const neighbours = useQuery({ queryKey: ["related", neighboursOf?.id], queryFn: () => api<{ id: number; bibtex_key: string; title: string; year: number | null; score: number }[]>(`/references/${neighboursOf?.id}/related/`), enabled: neighboursOf !== null, staleTime: 60_000 });
+  const linkNeighbour = useMutation({
+    mutationFn: (id: number) => api("/references/bulk/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: [id], action: "link", project: slug }) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["literature", slug] }); petReact("paper"); },
+    onError: (e) => void errorDialog("Couldn't add the paper to this project", e),
+  });
   const setPriority = useMutation({
     mutationFn: ({ id, priority }: { id: number; priority: string }) => api(`/project-references/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priority }) }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["literature", slug] }),
@@ -111,6 +119,7 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
     return [
       { label: "Open the paper", icon: <BookOpen className="h-3.5 w-3.5" />, onSelect: () => navigate(`/references/${ref.id}`) },
       { label: "Read & highlight", icon: <Highlighter className="h-3.5 w-3.5" />, onSelect: () => navigate(`/library?q=${encodeURIComponent(ref.bibtex_key)}&read=${ref.id}`) },
+      { label: "Similar in your library", icon: <Telescope className="h-3.5 w-3.5" />, onSelect: () => setNeighboursOf(ref) },
       "-",
       ...(["high", "normal", "low"] as const).map((p) => ({ label: `${p[0].toUpperCase()}${p.slice(1)} priority`, icon: row.priority === p ? tick(true) : <Flag className="h-3.5 w-3.5 opacity-40" />, onSelect: () => setPriority.mutate({ id: row.id, priority: p }) })),
       "-",
@@ -271,6 +280,33 @@ export default function Literature({ queue = false }: { queue?: boolean }) {
           </div>
         )}
         <div className="divide-y divide-stone-100 dark:divide-stone-800">
+          {neighboursOf && (
+            <div className="mb-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-sm dark:border-indigo-500/30 dark:bg-indigo-500/10" data-testid="neighbours">
+              <div className="mb-1.5 flex items-center gap-2">
+                <Telescope className="h-3.5 w-3.5 text-indigo-500" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate text-xs text-stone-600 dark:text-stone-300">Similar in your library to <span className="font-medium text-stone-800 dark:text-stone-100">{neighboursOf.title}</span></span>
+                <Link to={`/library?q=${encodeURIComponent(neighboursOf.bibtex_key)}`} className="text-[11px] text-indigo-600 hover:underline dark:text-indigo-300" title="Open the Library detail — OpenAlex lenses: similar, cites, cited by">explore beyond ↗</Link>
+                <button type="button" onClick={() => setNeighboursOf(null)} aria-label="Close" className="text-stone-400 hover:text-stone-600"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>
+              </div>
+              {neighbours.isLoading && <p className="text-xs text-stone-400">Looking…</p>}
+              {neighbours.data && neighbours.data.length === 0 && <p className="text-xs text-stone-400">Nothing similar yet — add more papers, or explore beyond the library.</p>}
+              {neighbours.data && neighbours.data.length > 0 && (
+                <ul className="divide-y divide-indigo-100 dark:divide-indigo-500/20">
+                  {neighbours.data.map((n) => {
+                    const inProject = rows.some((r) => r.reference === n.id);
+                    return (
+                      <li key={n.id} className="flex items-center gap-2 py-1.5 text-xs" data-testid="neighbour">
+                        <Link to={`/references/${n.id}`} className="min-w-0 flex-1 truncate text-stone-700 hover:text-indigo-700 hover:underline dark:text-stone-200 dark:hover:text-indigo-300">{n.title}</Link>
+                        {n.year && <span className="font-mono text-stone-400">{n.year}</span>}
+                        <span className="w-10 text-right font-mono text-[10px] text-stone-400" title="similarity">{Math.round(n.score * 100)}%</span>
+                        {inProject ? <span className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500 dark:bg-stone-800 dark:text-stone-300">in project</span> : <button type="button" onClick={() => linkNeighbour.mutate(n.id)} className="rounded-full border border-indigo-300 px-1.5 py-0.5 text-[10px] text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/40 dark:text-indigo-200" data-testid="neighbour-add">+ add here</button>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
           {rows.map((row) => (
             <div key={row.id} className="group flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-stone-50 dark:hover:bg-stone-800" onContextMenu={(e) => menu.open(e, itemsFor(row))} data-testid="literature-row">
               <input

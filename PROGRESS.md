@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Queue neighbours (2026-09-07, #403).** Row menu → "Similar in your library" panel (related endpoint, similarity %, + add here, explore beyond → Library lenses). Guard: literature/tests/test_neighbours.py.
+
 - **Polish batch (2026-09-07, #402).** Active nav icon takes the accent; Files typeahead miss → red shaking hint with "no match"; #163/#162 retired as moot. Guard: core/tests/test_polish.py.
 
 - **Calendar feed token (2026-09-07, #401).** `FeedToken` (migration core.0008), `GET/POST /api/v1/feed-token/`, the `?key=` authenticator takes the feed token for the feed only; the Dashboard copies the token URL and can rotate it. Test in core/tests/test_calendar.py (+1).
