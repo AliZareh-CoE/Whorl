@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Search remembers: recent searches and pins (#435)
+
+**Decision.** The Search page keeps the last eight searches that returned results and lets you pin any query with the ☆ at the right of the box. With the box empty, pinned searches come first (amber, with an ✕ to unpin), then the recents (with a clear). Both live in this browser's `localStorage` (`atlas-search-recents`, `atlas-search-pins`) behind try/catch, like the library's list/cards choice — a convenience, not data: the search itself is the URL and `/api/v1/search/`.
+
+**Why.** Backlog #55 (from the classic UI's recents dropdown, which the SPA never got). Researchers run the same three searches for weeks ("pupil", "dual-task", the reviewer's pet phrase); a chip beats retyping.
+
+**Alternatives rejected.** A server-side SavedSearch model with API + MCP (nothing downstream needs a pinned search; if a smart view ever wants a saved *global* search, that is the moment to promote it); recording every keystroke's debounced query as a recent (only searches that returned something are worth remembering).
+
 ### 2026-09-07 — Served files revalidate for free: one conditional-GET helper (#434)
 
 **Decision.** `core/files.py::file_response(request, field_file, …)` is now the only way Atlas hands out an uploaded file — document download, inline preview and the workspace raw view all go through it. It stamps `ETag` (`"<mtime>-<size>"`, from the storage so it works on any backend), `Last-Modified`, `Cache-Control: private, max-age=86400` and `nosniff`, and answers `If-None-Match` / `If-Modified-Since` with an empty 304. The magic-byte checks still run first (a 304 can never bypass #250). `/media/` (reference PDFs, compiled manuscripts, figures) already had this from `django.views.static.serve`.
@@ -2333,7 +2341,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 52. ~~Recent searches (done 2026-06-11, cycle 48, UI/UX): submits store the query in localStorage (5 max, deduped); focusing the empty box lists them as a keyboard-navigable listbox (queries rendered via textContent), Enter re-runs the search — browser-verified.~~
 53. Trigram index for the literature `?kw=` filter — reference.abstract icontains scans could use a GIN trgm index too once libraries grow past a few thousand rows (idea added by cycle 46)
 54. ~~Last-Modified/If-Modified-Since on media downloads (done 2026-09-07, #434: `core/files.py::file_response` — ETag + Last-Modified + 304 on the three file views; `/media/` already had it via static.serve)~~ (idea added by cycle 47)
-55. Pin a search — star a recent search to keep it permanently at the top of the recents dropdown (idea added by cycle 48)
+55. ~~Pin a search (done 2026-09-07, #435: recents + ☆ pins on the SPA Search page, localStorage)~~ — original: star a recent search to keep it permanently at the top of the recents dropdown (idea added by cycle 48)
 56. Pet speech variety pack — seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)
 57. Search page budget — /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
 58. Tree tooltips — hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)

@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Search recents + pins (2026-09-07, #435).** Search.tsx localStorage recents (8, only searches with results) and ☆ pins; chips when the box is empty. Test: core/tests/test_search_recents.py. Playwright: docs/screenshots/search-pins.png.
+
 - **Conditional files (2026-09-07, #434).** `core/files.py::file_response` (ETag mtime-size, Last-Modified, 304 on If-None-Match / If-Modified-Since, shared Cache-Control + nosniff) behind document_download, document_preview and DocumentViewSet.raw. Test: core/tests/test_conditional_files.py.
 
 - **Library ranges (2026-09-07, #433).** anchorRef + selectRange; shift-click / shift-x ranges, ⌘A selects the view. Test: literature/tests/test_selection_keys.py. Playwright: shift-click 1→4 = 4 selected, ⌘A = all, Esc = 0.
