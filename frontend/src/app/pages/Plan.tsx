@@ -12,6 +12,7 @@ import { Kebab } from "../../components/Menu";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 import Roadmap from "./plan/Roadmap";
+import Orbit from "./plan/Orbit";
 import Focus from "./plan/Focus";
 import MilestoneDrawer, { type DrawerMilestone } from "./plan/MilestoneDrawer";
 
@@ -185,6 +186,7 @@ export default function Plan() {
         </div>
       ) : (
         <div className="space-y-4">
+          <Orbit phases={data.phases} accent={accent} onOpen={(id) => document.getElementById(`phase-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} />
           <Focus slug={slug!} onChanged={invalidate} />
           {data.phases.map((phase, pi) => (
             <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onRename={async () => { const name = await promptDialog({ title: "Rename phase", label: "Name", initial: phase.name, validate: (v) => (v.trim() ? null : "Name the phase.") }); if (name && name.trim() !== phase.name) renamePhase.mutate({ id: phase.id, name: name.trim() }); }} onDelete={async () => { const n = phase.milestones.length; if (await confirmDialog({ title: `Delete the phase “${phase.name}”?`, body: n ? `Its ${n} milestone${n === 1 ? "" : "s"} and their tasks go with it.` : "The phase has no milestones.", danger: true, confirmLabel: "Delete phase" })) deletePhase.mutate(phase.id); }} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
@@ -218,7 +220,7 @@ function PhaseCard({ phase, index, accent, onToggleMilestone, onToggleTask, onCy
   const dates = phase.target_start || phase.target_end ? `${phase.target_start ?? "…"} → ${phase.target_end ?? "…"}` : "";
   const unattached = allQuestions.filter((q) => !phase.questions.some((x) => x.id === q.id));
   return (
-    <section className={`${panel} rise p-5`} style={{ ["--i" as string]: index }} data-testid="phase-card">
+    <section id={`phase-${phase.id}`} className={`${panel} rise scroll-mt-4 p-5`} style={{ ["--i" as string]: index }} data-testid="phase-card">
       <div className="mb-3 flex items-baseline gap-3">
         <span className="font-display text-2xl font-bold leading-none text-stone-300 dark:text-stone-600">{String(phase.order).padStart(2, "0")}</span>
         <h2 className="font-display min-w-0 flex-1 text-lg font-semibold text-stone-900 dark:text-stone-100">{phase.name}</h2>

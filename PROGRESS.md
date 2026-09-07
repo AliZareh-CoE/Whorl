@@ -2,6 +2,14 @@
 
 ## Current Status
 
+- **★ PLAN ORBIT (2026-09-07, #392).** Phases as arcs (status colours, the current one glowing with its progress), milestones as moons (done / overdue), counts under each arc, click → the phase card. Playwright both themes: 4 phases, 9 moons, no errors (docs/screenshots/plan-orbit.png, -light.png). Guard in core/tests/test_constellation.py.
+
+- **⌘K safe verbs (2026-09-07, #391).** Copy project / library .bib to the clipboard, this week's review, quick capture, LaTeX warm-up, backup download, web inspector (desktop). Playwright: "bib" → Enter → "Copied N BibTeX entries" with the clipboard holding the export (docs/screenshots/palette-verbs.png). Guard in core/tests/test_today.py.
+
+- **CI boot check on the frozen server (2026-09-07, #390).** `scripts/boot_check.py` runs in the release workflow on Linux and Windows against the frozen server (Tauri stub, four pages, fails on empty root / errors / panels); screenshots uploaded as `boot-check-<platform>`. Ran green locally against the dev server.
+
+- **Desktop web inspector on demand (2026-09-07, #389).** `devtools` feature + `open_devtools` command; F12 / Ctrl+Shift+I, Diagnostics button, boot-panel button. Pins in core/tests/test_client_errors.py; cargo check green (see log).
+
 - **Achievements batch two (2026-09-07, #388).** 29 more (86 total; 10 hidden), 16 new facts; tests +2 in core/tests/test_achievements.py; API count checked live (docs/screenshots/achievements-85.png).
 
 - **★ CONSTELLATION HEADER (2026-09-07, #387).** The overview draws the project's papers + notes + links as a drifting sky (canvas, in-file layout, accent-tinted, hover title, click opens, caption + graph link, reduced-motion aware). Playwright in both themes: hover tooltip, click → /references/20, no console errors (docs/screenshots/overview-constellation.png, -light.png). Guard: core/tests/test_constellation.py.
