@@ -638,3 +638,8 @@ def suggest_review_themes(slug: str):
 def get_diagnostics(network: bool = False):
     """Version, paths, LaTeX engine, jobs, update feed, last failed compile, server log tail."""
     return _request("GET", "/diagnostics/" + ("?network=1" if network else ""))
+
+
+def get_achievements():
+    """The achievements ledger: tiers, progress, score, rank, next-up, souls counters."""
+    return _request("GET", "/achievements/")

@@ -540,3 +540,8 @@ def test_theme_suggestions_and_diagnostics_client_calls(capture):
     assert calls_url_has(capture, "/projects/attention/review-matrix/suggest/")
     client.get_diagnostics(network=True)
     assert calls_url_has(capture, "/diagnostics/?network=1")
+
+
+def test_get_achievements(capture):
+    client.get_achievements()
+    assert capture["url"].endswith("/achievements/")

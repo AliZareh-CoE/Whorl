@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ ACHIEVEMENTS + SOULS MODE (2026-09-07, #374).** 57 achievements / 4 tiers / 8 hidden, progress + first-unlock timestamps, score & ranks, `/achievements` page, unlock toast, `get_achievements` (89 tools), Souls mode (grim speech, deaths/bonfires/bosses/souls, studio YOU DIED flash). Playwright: 57 cards, 8 unlocked on the demo, toast "First light", souls toggle → counters, pet page souls line (docs/screenshots/achievements.png, achievements-souls.png, pet-souls.png). Tests: core/tests/test_achievements.py (9), MCP client test; migration core.0006.
+
 - **★ APP ICON + server threads (2026-09-07, #373).** Owner: "the app doesn't have a proper desktop icon" — it was a flat indigo square. `scripts/make_icon.py` renders the Observatory mark (navy rounded square, aurora, orbit ring, star) in pure Python; `tauri icon` regenerated every size (.ico has 6 sizes, .icns, PNGs). Owner's pasted 0.1.86 report also showed waitress queue-depth warnings → 8 threads, notice silenced; the media 404 in it is #365 (fixed in ≥0.1.90). Scaffold test pins the icon.
 
 - **LaTeX warm-up, first-run card (2026-09-07, #372).** The empty-app Welcome panel offers "Prepare the LaTeX engine" (hidden once the cache is warm), polling while it runs; guard test in test_first_run.

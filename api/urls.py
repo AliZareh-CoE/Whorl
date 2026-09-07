@@ -58,6 +58,7 @@ urlpatterns = [
         name="comments",
     ),
     path("v1/pet/", views.PetAPIView.as_view(), name="pet"),
+    path("v1/achievements/", views.AchievementsAPIView.as_view(), name="achievements"),
     path("v1/connect/", views.ConnectAPIView.as_view(), name="connect"),
     path("v1/demo/", views.DemoAPIView.as_view(), name="demo"),
     path("v1/diagnostics/", views.DiagnosticsAPIView.as_view(), name="diagnostics"),

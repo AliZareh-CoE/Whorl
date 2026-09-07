@@ -32,12 +32,29 @@ class Comment(TimeStampedModel):
 
 
 class Pet(TimeStampedModel):
-    """The single Atlas companion (Owner idea #12). State is derived; only the name is stored."""
+    """The single Atlas companion (Owner idea #12). State is derived; only the name and the
+    owner's chosen mode are stored."""
 
     name = models.CharField(max_length=40, default="Mochi")
+    # Souls mode (owner, 2026-09-07): grim, dramatic tone — deaths, bonfires, bosses.
+    souls_mode = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
+
+
+class AchievementUnlock(models.Model):
+    """When an achievement was first seen unlocked (achievements themselves are derived from
+    the data; this row only remembers the moment, for "new" badges and the ledger's order)."""
+
+    key = models.CharField(max_length=60, unique=True)
+    unlocked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-unlocked_at"]
+
+    def __str__(self):
+        return self.key
 
 
 class TodoItem(TimeStampedModel):

@@ -44,3 +44,7 @@ update or the terminal failed.
 - Prefer reading tools first; write only what the user asked for.
 - Never delete or overwrite plans, notes or references without an explicit "yes".
 - Refer to projects by name, not slug, when talking to the user.
+
+## Achievements
+
+`get_achievements` returns the ledger — fun, steady, hard and souls tiers with progress, the score and rank, and the five closest to unlocking. Mention a fresh unlock when there is one; suggest the closest one when the person asks what to go for.

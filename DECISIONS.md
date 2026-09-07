@@ -492,6 +492,15 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     table is normative (react-arborist, papaparse, lucide, Tauri plugins, pdf.js vendored).
     Plan of record: docs/plans/2026-06-12-file-workspace-ide-epic.md (9 slices).
 
+31. **Achievements — lots, some just for fun, some brutal, "souls game mode on research"
+    (owner, 2026-09-07).** ~~First slice (2026-09-07, #374): 57 achievements in four tiers
+    (fun / steady / hard / souls) derived from real data with progress bars, hidden ones,
+    first-unlock timestamps, score + ranks (Undergrad → Ashen One), an Achievements page,
+    a toast on fresh unlocks, `get_achievements` for Claude, and Souls mode: the companion
+    speaks grimly, the ledger counts deaths / bonfires / bosses / souls, and the studio
+    flashes YOU DIED on a failed compile.~~ Remaining: seasonal/secret achievements, a
+    "platinum" for the whole ledger, souls-mode achievements that only count while it is on.
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
@@ -543,6 +552,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Achievements: a derived ledger with a souls tier (#374)
+
+**Decision.** `core/achievements.py` holds a catalogue of 57 achievements as predicates over one `facts` dict gathered from the database (papers, notes, milestones, submissions, hypotheses, streaks, activity hours…), each with a progress (current/target) and a tier: fun (5 pts, several hidden), steady (10), hard (25), souls (50 — "You died", "Git gud", "Boss slain: Reviewer 2", "No-hit run", "Bonfire lit", "Hollowed, returned", "Praise the sun", "New game+", "The abyss"). Only the first-unlock moment is stored (`AchievementUnlock`); everything else is recomputed and cached with the pet state. Score → rank (Undergrad … Ashen One). `/achievements` page with tier filters and the five closest; toast on a fresh unlock; `GET /api/v1/achievements/`; MCP `get_achievements` (89 tools). **Souls mode** is a stored flag on the pet: same facts, grim lines ("{deaths} deaths. Each one taught you something. Rise."), counters, and a YOU DIED / BONFIRE LIT flash in the studio.
+
+**Why.** The owner asked for "a lot of achievements, some just for fun, some really hard, souls game mode on research". Deriving them from real work keeps the no-guilt design of the pet: nothing to grind, nothing nags — the ledger only names what already happened, and the souls tier turns the worst days of research (rejections, contradictions, failed builds) into something you can wear.
+
+**Alternatives rejected.** Event-sourced achievements (a new table written from every view; brittle and it would miss data created through the API/MCP); per-project achievements (the ledger is about the researcher, not one project); a separate difficulty setting (souls mode is tone — the data is the data).
 
 ### 2026-09-07 — The app icon is rendered, not drawn (#373)
 

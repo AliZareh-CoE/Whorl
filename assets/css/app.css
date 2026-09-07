@@ -578,3 +578,9 @@
   --md-code-bg: rgba(255, 255, 255, 0.08);
 }
 .md-editor .cm-editor { min-height: 22rem; }
+
+/* souls mode (2026-09-07): the studio's compile verdict, briefly, the way a certain game says it */
+.you-died { background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.85)); animation: you-died 2.6s ease-out forwards; }
+.you-died p { animation: you-died-text 2.6s ease-out forwards; }
+@keyframes you-died { 0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes you-died-text { 0% { transform: scale(0.92); letter-spacing: 0.2em; } 100% { transform: scale(1.04); letter-spacing: 0.36em; } }

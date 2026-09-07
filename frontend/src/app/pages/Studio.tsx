@@ -259,6 +259,19 @@ function StudioInner({ m }: { m: Manuscript }) {
   useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirtyRef.current.size) { e.preventDefault(); e.returnValue = ""; } }; window.addEventListener("beforeunload", guard); return () => window.removeEventListener("beforeunload", guard); }, []);
 
   // --- compile + status polling ------------------------------------------------------
+  // souls mode (owner, 2026-09-07): a failed compile is a death, a good one lights a bonfire
+  const soulsQ = useQuery({ queryKey: ["pet"], queryFn: () => api<{ souls_mode?: boolean }>("/pet/"), staleTime: 300_000 });
+  const [banner, setBanner] = useState<"died" | "bonfire" | null>(null);
+  const prevStatus = useRef<string>("");
+  useEffect(() => {
+    const prev = prevStatus.current; prevStatus.current = compile.status;
+    if (!soulsQ.data?.souls_mode || prev !== "running") return;
+    if (compile.status === "failed") setBanner("died");
+    else if (compile.status === "ok") setBanner("bonfire");
+    const t = window.setTimeout(() => setBanner(null), 2600);
+    return () => window.clearTimeout(t);
+  }, [compile.status, soulsQ.data?.souls_mode]);
+
   const applyStatus = useCallback((raw: Compile) => {
     // Tectonic repeats some warnings once per pass — show each distinct problem once
     const seen = new Set<string>();
@@ -447,6 +460,11 @@ function StudioInner({ m }: { m: Manuscript }) {
         {flash && <span className="rounded bg-indigo-500/20 px-2 text-indigo-200">{flash}</span>}
       </footer>
 
+      {banner && (
+        <div className="you-died pointer-events-none fixed inset-0 z-[65] flex items-center justify-center" aria-live="assertive" data-testid={`souls-${banner}`}>
+          <p className={`font-display text-6xl font-bold tracking-[0.3em] drop-shadow-[0_0_30px_rgba(0,0,0,0.9)] ${banner === "died" ? "text-red-600" : "text-amber-400"}`}>{banner === "died" ? "YOU DIED" : "BONFIRE LIT"}</p>
+        </div>
+      )}
       {quickOpen && <QuickOpen files={textFiles} outline={outline} onClose={() => setQuickOpen(false)} onPick={(pick) => { setQuickOpen(false); if (pick.kind === "file") void openFile(pick.id); else adRef.current?.gotoLine(pick.line); }} />}
     </div>
   );

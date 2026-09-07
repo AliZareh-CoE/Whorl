@@ -270,27 +270,14 @@ ACHIEVEMENTS = [
 ]
 
 
-def achievements(stats: dict, lifetime: int, streak: int) -> list[dict]:
-    from literature.models import ProjectReference
-    from notes.models import Note
-    from plans.models import Milestone
-    from research.models import ExperimentEntry
+def achievements(stats: dict, lifetime: int, streak: int, facts: dict | None = None) -> list[dict]:
+    """The full ledger (core/achievements.py) — the original ten live on inside it."""
+    from core import achievements as ach
 
-    counts = {
-        "read": ProjectReference.objects.filter(reading_status__in=["read", "annotated"]).count(),
-        "milestones": Milestone.objects.filter(completed_at__isnull=False).count(),
-        "notes": Note.objects.count(),
-        "experiments": ExperimentEntry.objects.count(),
-    }
-    return [
-        {
-            "key": key,
-            "title": title,
-            "description": desc,
-            "unlocked": bool(pred(stats, lifetime, streak, counts)),
-        }
-        for key, title, desc, pred in ACHIEVEMENTS
-    ]
+    facts = facts or ach.gather_facts(stats, lifetime, streak)
+    rows = ach.evaluate(facts)
+    ach.record_unlocks(rows)
+    return rows
 
 
 def rename_pet(name: str) -> str:
@@ -328,8 +315,28 @@ def pet_state() -> dict:
         lines.append(dict(STAT_RULES)[dominant])
     rng.shuffle(lines)
     streak = streak_days()
+    from core import achievements as ach
+
+    facts = ach.gather_facts(stats, lifetime, streak)
+    ledger = achievements(stats, lifetime, streak, facts)
+    total = ach.score(ledger)
+    if pet.souls_mode:
+        # souls mode (owner, 2026-09-07): same facts, told grimly
+        lines = ach.souls_speech(facts)
+        rng.shuffle(lines)
     state = {
         "name": pet.name,
+        "souls_mode": pet.souls_mode,
+        "souls": ach.souls_counters(facts),
+        "achievement_score": total,
+        "rank": ach.rank(total),
+        "recent_unlocks": [
+            r["key"]
+            for r in ledger
+            if r["unlocked"]
+            and r["unlocked_at"]
+            and r["unlocked_at"] >= timezone.now() - datetime.timedelta(days=1)
+        ],
         "speech": lines[0],
         "speech_lines": lines[:6],  # the widget rotates through these, Buddy-style
         "reactions": {kind: rng.choice(pool) for kind, pool in REACTION_LINES.items()},
@@ -347,7 +354,7 @@ def pet_state() -> dict:
         "stage_floor": stage[0],
         "next_stage_points": next_stage[0] if next_stage else None,
         "streak_days": streak,
-        "achievements": achievements(stats, lifetime, streak),
+        "achievements": ledger,
         "points_legend": [{"action": a, "points": p} for a, p in POINTS_LEGEND],
         "stages": [{"points": p, "name": n, "blurb": b} for p, n, _e, b in STAGES],
     }

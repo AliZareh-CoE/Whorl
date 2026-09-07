@@ -622,6 +622,15 @@ def get_diagnostics(network: bool = False) -> dict:
     return client.get_diagnostics(network=network)
 
 
+@mcp.tool()
+def get_achievements() -> dict:
+    """The research achievements ledger (fun / steady / hard / souls tiers): every achievement
+    with progress toward it and when it unlocked, the score and rank, the five closest to
+    unlocking, and the souls-mode counters (deaths, bonfires, bosses, souls). Good for
+    "what should I go for next?" and for celebrating a fresh unlock."""
+    return client.get_achievements()
+
+
 # Keep this at the very end: `python -m mcp_server.server` runs the module as __main__, and
 # any tool declared below the entry point would never be registered (29 of 88 tools were
 # missing that way until 2026-09-06).

@@ -2434,13 +2434,34 @@ class PetAPIView(APIView):
         responses={200: None},
     )
     def post(self, request):
+        from core.achievements import set_souls_mode
         from core.pet import pet_state, rename_pet
 
+        if "souls_mode" in request.data:
+            set_souls_mode(bool(request.data.get("souls_mode")))
+            if "name" not in request.data:
+                return Response(pet_state())
         name = (request.data.get("name") or "").strip()
         if not name:
             return Response({"name": ["A name is required."]}, status=400)
         rename_pet(name)
         return Response(pet_state())
+
+
+class AchievementsAPIView(APIView):
+    """The achievements ledger (owner, 2026-09-07): every achievement with tier, progress and
+    unlock time, the score and rank, the souls counters."""
+
+    @extend_schema(
+        operation_id="v1_achievements",
+        description="All achievements with tier (fun/steady/hard/souls), progress, unlock "
+        "time; score, rank, next-up suggestions and the souls-mode counters.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from core.achievements import ledger
+
+        return Response(ledger())
 
 
 class DemoAPIView(APIView):

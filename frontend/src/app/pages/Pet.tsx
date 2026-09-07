@@ -4,16 +4,17 @@
  * all derived from the database, never a chore. */
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Award, BookOpen, Brain, Check, Flame, Lock, Pencil, Sparkles, Target, Volume2, Zap } from "lucide-react";
+import { Award, BookOpen, Brain, Check, Flame, Lock, Pencil, Skull, Sparkles, Target, Volume2, Zap } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api, csrfToken } from "../api";
 import { Creature, type Reaction } from "../pet/Creature";
 
-type Achievement = { key: string; title: string; description: string; unlocked: boolean };
+type Achievement = { key: string; title: string; description: string; unlocked: boolean; tier: string; points: number; hidden: boolean; progress: { current: number; target: number; percent: number } };
 type PetState = {
   name: string; stage: string; stage_blurb: string; mood: string; mood_blurb: string; speech: string; speech_lines: string[];
   reactions: Record<string, string>; stats: Record<string, number>; dominant_stat: string; weekly_points: number; lifetime_points: number;
   to_next_stage: number | null; next_stage_name: string | null; stage_floor: number; next_stage_points: number | null; streak_days: number;
-  achievements: Achievement[]; points_legend: { action: string; points: number }[]; stages: { points: number; name: string; blurb: string }[];
+  achievements: Achievement[]; achievement_score: number; rank: { name: string; next: string | null; next_at: number | null }; souls_mode: boolean; souls: { deaths: number; bonfires: number; bosses: number; souls: number }; recent_unlocks: string[]; points_legend: { action: string; points: number }[]; stages: { points: number; name: string; blurb: string }[];
 };
 
 const panel = "rise rounded-2xl border border-stone-200 bg-white/70 p-5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/60";
@@ -35,6 +36,7 @@ export default function PetPage() {
   const [name, setName] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const rename = useMutation({ mutationFn: (n: string) => api<PetState>("/pet/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) }), onSuccess: (data) => { qc.setQueryData(["pet"], data); setEditing(false); } });
+  const souls = useMutation({ mutationFn: (on: boolean) => api<PetState>("/pet/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ souls_mode: on }) }), onSuccess: (data) => { qc.setQueryData(["pet"], data); qc.invalidateQueries({ queryKey: ["achievements"] }); setLine(data.speech); } });
   const p = pet.data;
   useEffect(() => { if (p && !line) setLine(p.speech); }, [p, line]);
 
@@ -119,16 +121,23 @@ export default function PetPage() {
       </div>
 
       <section className={`${panel} mt-5`} style={{ ["--i" as string]: 4 }} data-testid="pet-achievements">
-        <p className={`${railH} mb-3`}>Achievements <span className="normal-case tracking-normal text-stone-400">{unlocked}/{p.achievements.length}</span></p>
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <p className={railH}>Achievements <span className="normal-case tracking-normal text-stone-400">{unlocked}/{p.achievements.length}</span></p>
+          <span className="text-sm"><span className="text-gradient font-semibold">{p.rank.name}</span> <span className="text-xs text-stone-400">· {p.achievement_score} pts{p.rank.next ? ` · ${p.rank.next_at! - p.achievement_score} to ${p.rank.next}` : ""}</span></span>
+          <Link to="/achievements" className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-300" data-testid="ledger-link">The whole ledger →</Link>
+          <label className={`ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-xs ${p.souls_mode ? "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-200" : "border-stone-200 text-stone-500 dark:border-stone-700"}`} title="Same facts, told grimly" data-testid="pet-souls-toggle"><input type="checkbox" checked={p.souls_mode} onChange={(e) => souls.mutate(e.target.checked)} className="accent-red-600" /><Skull className="h-3.5 w-3.5" aria-hidden="true" />Souls mode</label>
+        </div>
+        {p.souls_mode && <p className="mb-3 text-xs text-red-600 dark:text-red-300" data-testid="pet-souls-line">{p.souls.deaths} deaths · {p.souls.bonfires} bonfires · {p.souls.bosses} bosses slain · {p.souls.souls} souls</p>}
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {p.achievements.map((a) => (
+          {[...p.achievements].sort((a, b) => Number(b.unlocked) - Number(a.unlocked) || b.progress.percent - a.progress.percent).slice(0, 10).map((a) => (
             <li key={a.key} className={`rounded-xl border p-3 ${a.unlocked ? "border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10" : "border-stone-100 opacity-70 dark:border-stone-800"}`} title={a.description}>
               <div className="flex items-center gap-2 text-sm font-medium">{a.unlocked ? <Award className="h-4 w-4 text-amber-500" aria-hidden="true" /> : <Lock className="h-4 w-4 text-stone-300" aria-hidden="true" />}{a.title}</div>
               <p className="mt-1 text-[11px] leading-4 text-stone-500">{a.description}</p>
-              {a.unlocked && <p className="mt-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-300"><Check className="h-3 w-3" aria-hidden="true" />unlocked</p>}
+              {a.unlocked ? <p className="mt-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-300"><Check className="h-3 w-3" aria-hidden="true" />unlocked</p> : !a.hidden && a.progress.target > 1 ? <p className="mt-1 text-[10px] tabular-nums text-stone-400">{a.progress.current}/{a.progress.target}</p> : null}
             </li>
           ))}
         </ul>
+        <p className="mt-3 text-[11px] text-stone-400">Ten of {p.achievements.length}. Fun ones, steady ones, hard ones, and a souls tier for the brave — <Link to="/achievements" className="text-indigo-600 hover:underline dark:text-indigo-300">see them all</Link>.</p>
       </section>
     </div>
   );

@@ -9,6 +9,31 @@ import TerminalDock, { openTerminal } from "./TerminalDock";
 import { installExternalLinkHandler } from "./external";
 import { Creature, type Reaction } from "./pet/Creature";
 import { UpdaterButton } from "./UpdaterButton";
+import { Trophy } from "lucide-react";
+
+/** Achievement toast (owner, 2026-09-07): a fresh unlock is announced once per browser. */
+function UnlockToast({ unlocks, titles, grim }: { unlocks: string[]; titles: Record<string, { title: string; tier: string }>; grim: boolean }) {
+  const [shown, setShown] = useState<string | null>(null);
+  useEffect(() => {
+    if (!unlocks.length || shown) return;
+    let seen: string[] = [];
+    try { seen = JSON.parse(localStorage.getItem("atlas-seen-unlocks") || "[]"); } catch { /* storage blocked */ }
+    const fresh = unlocks.find((k) => !seen.includes(k));
+    if (!fresh) return;
+    setShown(fresh);
+    try { localStorage.setItem("atlas-seen-unlocks", JSON.stringify([...seen, fresh].slice(-200))); } catch { /* storage blocked */ }
+    const t = window.setTimeout(() => setShown(null), 9000);
+    return () => window.clearTimeout(t);
+  }, [unlocks, shown]);
+  if (!shown) return null;
+  const meta = titles[shown];
+  return (
+    <NavLink to="/achievements" onClick={() => setShown(null)} className={`rise fixed bottom-5 right-5 z-40 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur ${grim || meta?.tier === "souls" ? "border-red-500/50 bg-stone-950/95 text-red-100" : "border-amber-300/60 bg-white/95 text-stone-800 dark:border-amber-500/40 dark:bg-stone-900/95 dark:text-stone-100"}`} role="status" data-testid="unlock-toast">
+      <Trophy className={`h-5 w-5 ${grim || meta?.tier === "souls" ? "text-red-400" : "text-amber-500"}`} aria-hidden="true" />
+      <span><span className="block text-[10px] font-semibold uppercase tracking-wider opacity-70">{grim || meta?.tier === "souls" ? "Achievement earned" : "Achievement unlocked"}</span><span className="font-medium">{meta?.title ?? shown}</span></span>
+    </NavLink>
+  );
+}
 
 // Observatory rail: a glowing gradient bar marks the active page; the rest stays quiet.
 const navCls = ({ isActive }: { isActive: boolean }) =>
@@ -67,6 +92,9 @@ export default function Layout() {
         speech: string;
         speech_lines?: string[];
         reactions?: Record<string, string>;
+        recent_unlocks?: string[];
+        achievements?: { key: string; title: string; tier: string }[];
+        souls_mode?: boolean;
       }>("/pet/"),
     staleTime: 300_000,
   });
@@ -185,6 +213,7 @@ export default function Layout() {
           <NavLink to="/connect" className="mb-1 flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:text-stone-700 dark:hover:text-stone-200"><Plug className="h-3.5 w-3.5" aria-hidden="true" />Connect Claude Code</NavLink>
           <button type="button" onClick={() => openTerminal({ toggle: true })} className="mb-1 flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:text-stone-700 dark:hover:text-stone-200" title="Toggle the terminal (⌃`)"><TerminalSquare className="h-3.5 w-3.5" aria-hidden="true" />Terminal<span className="ml-auto font-mono text-[10px] text-stone-400">⌃`</span></button>
           <UpdaterButton />
+          {pet?.recent_unlocks?.length ? <UnlockToast unlocks={pet.recent_unlocks} titles={Object.fromEntries((pet.achievements ?? []).map((a) => [a.key, { title: a.title, tier: a.tier }]))} grim={Boolean(pet.souls_mode)} /> : null}
           <button
             type="button"
             onClick={() => (window as unknown as { __toggleTheme?: () => void }).__toggleTheme?.()}
