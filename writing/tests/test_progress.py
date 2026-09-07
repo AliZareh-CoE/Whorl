@@ -76,3 +76,20 @@ def test_progress_api_and_card_field(client, world):
     writing = open("frontend/src/app/pages/Writing.tsx").read()
     assert 'data-testid="progress-spark"' in writing and "progress.today_delta" in writing
     assert "def get_writing_progress(" in open("mcp_server/server.py").read()
+
+
+def test_dashboard_words_written_this_month(world):
+    """#418: the dashboard stat sums positive daily deltas across manuscripts this month."""
+    from core.dashboard import monthly_stats, words_written_since
+
+    project, ms = world
+    today = timezone.localdate()
+    start = today.replace(day=1)
+    record_words(ms, 1000, start - dt.timedelta(days=1))  # last month's baseline
+    record_words(ms, 1300, start)  # +300 on the 1st
+    if today > start:
+        record_words(ms, 1200, today)  # a cut is not negative writing
+    other = Manuscript.objects.create(project=project, title="Second")
+    record_words(other, 50, today)  # first sample ever: no delta to count
+    assert words_written_since(start) == 300
+    assert monthly_stats()["words_written"] == 300

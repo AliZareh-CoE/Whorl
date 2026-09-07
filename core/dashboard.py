@@ -172,7 +172,25 @@ def monthly_stats(today=None):
         "notes_written": Note.objects.filter(created_at__date__gte=month_start).count(),
         "milestones_done": Milestone.objects.filter(completed_at__date__gte=month_start).count(),
         "experiments_logged": ExperimentEntry.objects.filter(date__gte=month_start).count(),
+        "words_written": words_written_since(month_start),
     }
+
+
+def words_written_since(start) -> int:
+    """Words added to manuscripts since ``start`` (#418): the sum of positive day-to-day
+    deltas of the daily word samples (#413), across every manuscript."""
+    from writing.models import WordCountSample
+
+    total = 0
+    previous: dict[int, int] = {}
+    for sample in WordCountSample.objects.order_by("manuscript_id", "date").values_list(
+        "manuscript_id", "date", "words"
+    ):
+        manuscript_id, day, words = sample
+        if manuscript_id in previous and day >= start:
+            total += max(0, words - previous[manuscript_id])
+        previous[manuscript_id] = words
+    return total
 
 
 def dashboard_context():

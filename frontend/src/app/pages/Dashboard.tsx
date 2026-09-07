@@ -303,12 +303,13 @@ export default function Dashboard() {
       <WeekEverywhere week={data.week} />
 
       {!calm && (
-        <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-5">
+        <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <Stat value={data.todos_open} label="on today's list" i={2} to="/today" />
           <Stat value={data.stats.papers_read} label="papers read this month" i={3} />
           <Stat value={data.stats.notes_written} label="notes written this month" i={4} />
-          <Stat value={data.stats.milestones_done} label="milestones completed" i={5} />
-          <Stat value={data.inbox_count} label="inbox items to triage" i={6} to="/inbox" />
+          <Stat value={data.stats.words_written} label="words written this month" i={5} to="/writing" />
+          <Stat value={data.stats.milestones_done} label="milestones completed" i={6} />
+          <Stat value={data.inbox_count} label="inbox items to triage" i={7} to="/inbox" />
         </div>
       )}
 

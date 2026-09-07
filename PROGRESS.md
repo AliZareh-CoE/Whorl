@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Words written this month (2026-09-07, #418).** `core/dashboard.py::words_written_since`, `stats.words_written`, Dashboard six-cell stat row (→ /writing). Test: writing/tests/test_progress.py::test_dashboard_words_written_this_month.
+
 - **MCP bots (2026-09-07, #417).** `list_bots`, `run_bot`, `toggle_bot` over the bots API (96 tools); README list + count. Tests: mcp_server/tests/test_docs.py.
 
 - **Markdown vault export (2026-09-07, #416).** `projects/vault.py`, `GET /projects/{slug}/vault/` (zip; `?documents=0`), overview kebab item + ⌘K verb. Tests: projects/tests/test_vault.py (3). Verified: the demo vault downloaded and listed.

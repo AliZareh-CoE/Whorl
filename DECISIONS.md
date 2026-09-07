@@ -552,6 +552,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — "Words written this month" on the dashboard (#418)
+
+**Decision.** `monthly_stats()` gains `words_written`: the sum of positive day-to-day deltas of the daily word samples (#413) across every manuscript since the first of the month; a cut counts as zero, a manuscript's first-ever sample counts as nothing. The dashboard's stat row becomes six cells (three per row on small screens) with "words written this month" linking to Writing; `get_dashboard` carries it too.
+
+**Why.** The stats row answered reading and note-taking but not writing, which is the output that actually leaves the lab. The samples were already there; the stat is one pass over them.
+
+**Alternatives rejected.** Total words across manuscripts (a size, not a month's work); counting deletions as negative (a month of editing down a draft would show as negative writing, which reads as punishment).
+
 ### 2026-09-07 — Bots from the MCP side (#417)
 
 **Decision.** Three thin tools over the existing bots API: `list_bots` (state, last result, recent runs), `run_bot(slug)` (run now, returns the result line) and `toggle_bot(slug)` (flip enabled). 96 tools. Nothing new server-side: the Automations page already spoke this contract.
