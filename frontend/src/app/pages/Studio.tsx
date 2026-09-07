@@ -15,6 +15,7 @@ import { tags as t } from "@lezer/highlight";
 import {
   AlertTriangle, ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, Download, FileText, FolderOpen, History, ListTree,
   ImagePlus, Loader2, Minus, Package, PanelLeft, PanelRight, Play, Plus, RefreshCw, Search, Settings2, TerminalSquare, Trash2, Upload, X,
+  Crosshair,
 } from "lucide-react";
 import { mountEditor, Split, type EditorAdapter } from "../../editor";
 import { api, csrfToken } from "../api";
@@ -23,7 +24,24 @@ import { confirmDialog, promptDialog } from "../../components/Dialog";
 type MFile = { id: number; path: string; kind: string; is_main: boolean; url?: string; size?: number };
 type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; compile_status: string; compiled_at: string | null; files: MFile[] };
 type Diag = { level: string; file: string; line: number | null; message: string };
-type Compile = { status: string; diagnostics: Diag[]; compiled_at: string | null; pdf_url: string | null; log: string };
+type Compile = { status: string; diagnostics: Diag[]; compiled_at: string | null; pdf_url: string | null; log: string; synctex?: boolean };
+// SyncTeX (#378): one rectangle per (page, file, line) in PDF points from the top-left
+type SyncMap = { files: string[]; pages: Record<string, [number, number, number, number, number, number][]> };
+type Locate = { page: number; y: number; h: number; nonce: number };
+function syncForward(map: SyncMap | null, file: string, line: number): { page: number; y: number; h: number } | null {
+  if (!map) return null; const fi = map.files.indexOf(file); if (fi < 0) return null;
+  let best: { d: number; hdr: number; w: number; page: number; y: number; h: number } | null = null;
+  // a heading line also leaves its mark in another page's running header (y < 60pt): prefer the
+  // body, then the wider box, then the earlier page
+  for (const [page, rows] of Object.entries(map.pages)) for (const [f, ln, , y, w, h] of rows) { if (f !== fi || ln < line) continue; const d = ln - line; const hdr = y < 60 ? 1 : 0; if (!best || d < best.d || (d === best.d && (hdr < best.hdr || (hdr === best.hdr && (w > best.w || (w === best.w && Number(page) < best.page)))))) best = { d, hdr, w, page: Number(page), y, h }; }
+  return best ? { page: best.page, y: best.y, h: best.h } : null;
+}
+function syncInverse(map: SyncMap | null, page: number, x: number, y: number): { file: string; line: number } | null {
+  const rows = map?.pages[String(page)]; if (!rows) return null;
+  let best: { s: number; file: string; line: number } | null = null;
+  for (const [f, ln, rx, ry, rw, rh] of rows) { const inside = rx <= x && x <= rx + rw && ry <= y && y <= ry + rh; const dy = ry <= y && y <= ry + rh ? 0 : Math.min(Math.abs(y - ry), Math.abs(y - ry - rh)); const dx = rx <= x && x <= rx + rw ? 0 : Math.min(Math.abs(x - rx), Math.abs(x - rx - rw)); const s = inside ? rw * rh : 1e9 + dy * 3 + dx; if (!best || s < best.s) best = { s, file: map!.files[f], line: ln }; }
+  return best ? { file: best.file, line: best.line } : null;
+}
 type BibRow = { link_id: number; reference_id: number; cite_key: string; bibtex_key: string; title: string; year: number | null; authors: string; venue: string };
 type Candidate = { reference_id: number; key: string; title: string; authors: string; year: number | null; linked: boolean };
 type Hl = { id: number; reference: number; page: number | null; text: string; comment: string; color: string };
@@ -145,6 +163,8 @@ function StudioInner({ m }: { m: Manuscript }) {
 
   const [compile, setCompile] = useState<Compile>({ status: m.compile_status, diagnostics: [], compiled_at: m.compiled_at, pdf_url: null, log: "" });
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [syncMap, setSyncMap] = useState<SyncMap | null>(null);
+  const [locate, setLocate] = useState<Locate | null>(null);
   const pollRef = useRef<number | null>(null);
   const [words, setWords] = useState<WordCount | null>(null);
   const [flash, setFlash] = useState("");
@@ -238,6 +258,7 @@ function StudioInner({ m }: { m: Manuscript }) {
           Prec.highest(keymap.of([
             { key: "Mod-Enter", run: () => { compileRef.current(); return true; } },
             { key: "Mod-s", run: () => { saveNowRef.current(); return true; } },
+            { key: "Mod-Shift-j", run: () => { locateRef.current(); return true; } },
           ])),
           EditorView.updateListener.of((u) => { if (u.selectionSet || u.docChanged) setLn(u.state.doc.lineAt(u.state.selection.main.head).number); }),
         ],
@@ -277,6 +298,26 @@ function StudioInner({ m }: { m: Manuscript }) {
   useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirtyRef.current.size) { e.preventDefault(); e.returnValue = ""; } }; window.addEventListener("beforeunload", guard); return () => window.removeEventListener("beforeunload", guard); }, []);
 
   // --- compile + status polling ------------------------------------------------------
+  // SyncTeX (#378): cursor line → PDF spot; PDF double-click → source line
+  const locateInPdf = useCallback(() => {
+    const ad = adRef.current; if (!ad) return;
+    const path = filesRef.current.find((f) => f.id === ad.activeFile())?.path ?? "main.tex";
+    const spot = syncForward(syncMapRef.current, path, ad.getCursorLine());
+    if (!spot) { setFlash(syncMapRef.current ? "No PDF position for this line yet — recompile." : "Compile first; the PDF then knows where every line is."); return; }
+    setPreviewOpen(true); setLocate({ ...spot, nonce: Date.now() });
+  }, []);
+  const syncMapRef = useRef<SyncMap | null>(null); syncMapRef.current = syncMap;
+  const locateInSource = useCallback(async (page: number, x: number, y: number) => {
+    const hit = syncInverse(syncMapRef.current, page, x, y);
+    if (!hit) { setFlash("No source position here — recompile to refresh the map."); return; }
+    const f = filesRef.current.find((ff) => ff.path === hit.file);
+    if (!f) return;
+    if (f.id !== adRef.current?.activeFile()) await openFile(f.id);
+    adRef.current?.gotoLine(hit.line); adRef.current?.focus();
+    setFlash(`${hit.file}:${hit.line}`);
+  }, [openFile]);
+  const locateRef = useRef(locateInPdf); locateRef.current = locateInPdf;
+
   // souls mode (owner, 2026-09-07): a failed compile is a death, a good one lights a bonfire
   const soulsQ = useQuery({ queryKey: ["pet"], queryFn: () => api<{ souls_mode?: boolean }>("/pet/"), staleTime: 300_000 });
   const [banner, setBanner] = useState<"died" | "bonfire" | null>(null);
@@ -297,6 +338,7 @@ function StudioInner({ m }: { m: Manuscript }) {
     setCompile(s);
     if (s.status !== "running") {
       if (s.pdf_url) setPdfUrl(`${s.pdf_url}${s.pdf_url.includes("?") ? "&" : "?"}t=${Date.now()}`);
+      if (s.status === "ok") void api<SyncMap>(`/manuscripts/${m.id}/synctex/`).then(setSyncMap).catch(() => setSyncMap(null));
       pushDiagnostics(s.diagnostics || [], activeRef.current);
       if ((s.diagnostics || []).some((d) => d.level === "error")) setProblemsOpen(true);
     }
@@ -391,6 +433,7 @@ function StudioInner({ m }: { m: Manuscript }) {
               </div>
             )}
           </div>
+          <button type="button" onClick={locateInPdf} className={iconBtn} title="Show this line in the PDF (⌘⇧J) — double-click the PDF to come back" data-testid="locate-pdf"><Crosshair className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden lg:inline">Locate</span></button>
           <a href={`${base}submission.zip`} className={iconBtn} title="arXiv-ready source + .bib"><Package className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden lg:inline">.zip</span></a>
           <button type="button" onClick={() => void doCompile()} disabled={running} className="ml-1 inline-flex h-7 items-center gap-1.5 rounded-md bg-indigo-600 px-3 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-60" title="Recompile (⌘↩)" data-testid="compile-btn">{running ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Play className="h-3.5 w-3.5" aria-hidden="true" />}{running ? "Compiling…" : "Recompile"}</button>
         </div>
@@ -401,7 +444,7 @@ function StudioInner({ m }: { m: Manuscript }) {
         {sidebarOpen && (
           <aside id="studio-side" className="flex min-w-0 flex-col border-r" style={{ borderColor: "var(--studio-line)", background: "var(--studio-panel)" }}>
             <nav className="flex shrink-0 border-b text-[11px]" style={{ borderColor: "var(--studio-line)" }} aria-label="Studio panels">
-              {([["files", FolderOpen, "Files"], ["outline", ListTree, todos.length ? `Outline · ${todos.length} to-do${todos.length === 1 ? "" : "s"}` : "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
+              {([["files", FolderOpen, "Files"], ["outline", ListTree, todos.length ? `Outline · ${todos.length}` : "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
                 <button key={key} type="button" onClick={() => setTab(key)} className={`flex flex-1 items-center justify-center gap-1 py-2 transition-colors ${tab === key ? "border-b-2 border-indigo-400 st-fg" : "st-dim st-hover-fg"}`} title={label} aria-label={label}><Icon className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden xl:inline">{label}</span></button>
               ))}
             </nav>
@@ -474,7 +517,7 @@ function StudioInner({ m }: { m: Manuscript }) {
           )}
         </section>
 
-        {previewOpen && <PdfPane id="studio-preview" url={pdfUrl} status={compile.status} log={compile.log} compiledAt={compile.compiled_at} />}
+        {previewOpen && <PdfPane id="studio-preview" url={pdfUrl} status={compile.status} log={compile.log} compiledAt={compile.compiled_at} locate={locate} onLocate={syncMap ? locateInSource : undefined} />}
       </div>
 
       {/* ---------------------------------------------------------------- status bar */}
@@ -485,7 +528,7 @@ function StudioInner({ m }: { m: Manuscript }) {
         {missingCites > 0 && <span className="text-amber-400">{missingCites} cite key{missingCites === 1 ? "" : "s"} not in the bibliography</span>}
         <span className={`ml-auto ${compile.status === "ok" ? "text-emerald-400" : compile.status === "failed" ? "text-red-400" : running ? "text-indigo-300" : ""}`}>{running ? "compiling" : compile.status === "ok" ? `compiled ${compile.compiled_at ? new Date(compile.compiled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}` : compile.status === "failed" ? "compile failed" : "not compiled"}</span>
         <span>{settings.keymap === "vim" ? "VIM" : "LaTeX"}</span>
-        {flash && <span className="rounded bg-indigo-500/20 px-2 text-indigo-200">{flash}</span>}
+        {flash && <span className="rounded bg-indigo-500/20 px-2 text-indigo-200" data-testid="studio-flash">{flash}</span>}
       </footer>
 
       {banner && (
@@ -607,8 +650,10 @@ function QuickOpen({ files, outline, onClose, onPick }: { files: MFile[]; outlin
 }
 
 // ------------------------------------------------------------------ PDF preview
-function PdfPane({ id, url, status, log, compiledAt }: { id: string; url: string | null; status: string; log: string; compiledAt: string | null }) {
+function PdfPane({ id, url, status, log, compiledAt, locate, onLocate }: { id: string; url: string | null; status: string; log: string; compiledAt: string | null; locate?: Locate | null; onLocate?: (page: number, x: number, y: number) => void }) {
   const scroll = useRef<HTMLDivElement>(null);
+  const [marker, setMarker] = useState<{ page: number; top: number; height: number } | null>(null);
+  const onLocateRef = useRef(onLocate); onLocateRef.current = onLocate;
   const pagesEl = useRef<HTMLDivElement>(null);
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(1);
@@ -647,7 +692,9 @@ function PdfPane({ id, url, status, log, compiledAt }: { id: string; url: string
         const scale = zoom === "fit" ? width / base.width : zoom;
         const viewport = p.getViewport({ scale });
         const canvas = document.createElement("canvas");
-        canvas.width = viewport.width; canvas.height = viewport.height; canvas.className = "studio-page"; canvas.dataset.page = String(n);
+        canvas.width = viewport.width; canvas.height = viewport.height; canvas.className = "studio-page"; canvas.dataset.page = String(n); canvas.dataset.scale = String(scale);
+        canvas.title = "Double-click to jump to the source line";
+        canvas.addEventListener("dblclick", (ev) => { const r = canvas.getBoundingClientRect(); const sc = Number(canvas.dataset.scale) || 1; onLocateRef.current?.(n, (ev.clientX - r.left) / sc, (ev.clientY - r.top) / sc); });
         host.appendChild(canvas);
         await p.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
       }
@@ -662,6 +709,18 @@ function PdfPane({ id, url, status, log, compiledAt }: { id: string; url: string
   }, [numPages]);
 
   const go = (n: number) => { const c = scroll.current?.querySelector<HTMLCanvasElement>(`canvas[data-page="${n}"]`); if (c && scroll.current) scroll.current.scrollTo({ top: c.offsetTop - 8, behavior: "smooth" }); };
+  // forward sync: scroll to the page and draw a bar where the line sits for a moment
+  useEffect(() => {
+    if (!locate) return;
+    const c = scroll.current?.querySelector<HTMLCanvasElement>(`canvas[data-page="${locate.page}"]`);
+    if (!c || !scroll.current) return;
+    const sc = Number(c.dataset.scale) || 1;
+    const top = c.offsetTop + locate.y * sc;
+    scroll.current.scrollTo({ top: Math.max(0, top - scroll.current.clientHeight / 3), behavior: "smooth" });
+    setMarker({ page: locate.page, top, height: Math.max(6, locate.h * sc) });
+    const t = window.setTimeout(() => setMarker(null), 2200);
+    return () => window.clearTimeout(t);
+  }, [locate]);
   const zoomLabel = zoom === "fit" ? "fit" : `${Math.round(zoom * 100)}%`;
   const step = (dir: 1 | -1) => setZoom((z) => { const cur = z === "fit" ? 1 : z; return Math.min(3, Math.max(0.4, Math.round((cur + dir * 0.15) * 100) / 100)); });
 
@@ -673,7 +732,7 @@ function PdfPane({ id, url, status, log, compiledAt }: { id: string; url: string
         <span className="ml-auto flex items-center gap-1"><button type="button" onClick={() => step(-1)} className="st-hover-fg" aria-label="Zoom out"><Minus className="h-3.5 w-3.5" aria-hidden="true" /></button><button type="button" onClick={() => setZoom("fit")} className="w-9 text-center tabular-nums st-hover-fg" title="Fit width">{zoomLabel}</button><button type="button" onClick={() => step(1)} className="st-hover-fg" aria-label="Zoom in"><Plus className="h-3.5 w-3.5" aria-hidden="true" /></button>{url && <a href={url.split("?")[0]} target="_blank" rel="noreferrer" className="ml-1 st-hover-fg" title="Download the PDF" aria-label="Download PDF"><Download className="h-3.5 w-3.5" aria-hidden="true" /></a>}</span>
       </div>
       <div ref={scroll} className={`relative min-h-0 flex-1 overflow-y-auto transition-opacity ${status === "running" ? "opacity-50" : ""}`} style={{ background: "var(--studio-bg)" }}>
-        <div ref={pagesEl} className="mx-auto flex flex-col items-center gap-3 p-4" />
+        <div ref={pagesEl} style={{ position: "relative" }} className="mx-auto flex flex-col items-center gap-3 p-4" />{marker && <div className="studio-sync-marker pointer-events-none absolute left-0 right-0" style={{ top: marker.top, height: marker.height }} data-testid="sync-marker" />}
         {!url && status !== "failed" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-xs st-dim">
             {status === "running" ? <Loader2 className="h-5 w-5 animate-spin text-indigo-400" aria-hidden="true" /> : <RefreshCw className="h-5 w-5 st-dim" aria-hidden="true" />}

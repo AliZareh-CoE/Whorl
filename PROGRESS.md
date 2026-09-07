@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **★ SYNCTEX (2026-09-07, #378).** Compile with --synctex, compact per-line map on the manuscript, API, Locate (⌘⇧J) with a marker bar, PDF double-click → file:line. Tests: writing/tests/test_synctex.py (5) + the real-compile test asserts the map. Migration writing.0013.
+
 - **Studio to-do panel (2026-09-07, #377).** Markers across all files with click-to-line, count in the Outline tab; demo source carries a TODO and a FIXME. Tests: writing/tests/test_studio_todos.py.
 
 - **★ RESTORE FROM A BACKUP (2026-09-07, #376).** Staged upload (validated), applied at the next desktop launch before the DB opens with the previous data kept beside it; Diagnostics section (restart / cancel / last result); `manage.py restore_backup`. Playwright: uploaded a real backup of the dev app → staged card with counts → cancelled (docs/screenshots/restore-staged.png). Tests: core/tests/test_backup.py (+4).

@@ -584,3 +584,7 @@
 .you-died p { animation: you-died-text 2.6s ease-out forwards; }
 @keyframes you-died { 0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes you-died-text { 0% { transform: scale(0.92); letter-spacing: 0.2em; } 100% { transform: scale(1.04); letter-spacing: 0.36em; } }
+
+/* SyncTeX (#378): where the cursor's line sits in the PDF, for a moment */
+.studio-sync-marker { background: rgba(124, 108, 255, 0.28); box-shadow: 0 0 0 2px rgba(124, 108, 255, 0.9), 0 0 18px rgba(124, 108, 255, 0.6); border-radius: 3px; animation: sync-marker 2.2s ease-out forwards; }
+@keyframes sync-marker { 0% { opacity: 0; } 10% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }

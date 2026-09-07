@@ -341,6 +341,11 @@ class TestCompile:
         manuscript.refresh_from_db()
         assert manuscript.compile_status == "ok", manuscript.compile_log
         assert manuscript.compiled_pdf.read().startswith(b"%PDF")
+        # #378: the SyncTeX map came along and points line 3 ("Real compile.") at page 1
+        assert manuscript.synctex["files"] == ["main.tex"]
+        from writing.synctex import forward
+
+        assert forward(manuscript.synctex, "main.tex", 3)["page"] == 1
 
 
 class TestEditorSplitView:

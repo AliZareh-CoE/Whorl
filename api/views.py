@@ -2084,12 +2084,24 @@ class ManuscriptViewSet(AtlasViewSet):
         description="Compile state: status, parsed diagnostics [{level,file,line,message}], "
         "log tail on failure, and the PDF url when compiled. (No ETag — polling stays fresh.)",
     )
+    @extend_schema(
+        responses={200: OpenApiResponse(description="SyncTeX map of the last good compile")},
+        description="SyncTeX map (#378): {files: [paths], pages: {n: [[file, line, x, y, w, h], "
+        "…]}} in PDF points from the top-left, for PDF-click ↔ source-line in the studio. "
+        "Empty when the manuscript has not compiled.",
+    )
+    @action(detail=True, methods=["get"], url_path="synctex")
+    def synctex(self, request, pk=None):
+        manuscript = self.get_object()
+        return Response(manuscript.synctex or {"files": [], "pages": {}})
+
     @action(detail=True, methods=["get"], url_path="compile-status")
     def compile_status(self, request, pk=None):
         manuscript = self.get_object()
         return Response(
             {
                 "status": manuscript.compile_status,
+                "synctex": bool(manuscript.synctex),
                 "diagnostics": manuscript.compile_diagnostics,
                 "compiled_at": manuscript.compiled_at,
                 "pdf_url": manuscript.compiled_pdf.url if manuscript.compiled_pdf else None,

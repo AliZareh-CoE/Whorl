@@ -65,6 +65,9 @@ class Manuscript(TimeStampedModel):
     compile_diagnostics = models.JSONField(default=list, blank=True)  # parsed from the log
     compile_generation = models.PositiveIntegerField(default=0)  # bumped per queue; stale drops
     compiled_at = models.DateTimeField(null=True, blank=True)
+    # SyncTeX map from the last good compile (#378): {"files": [...], "pages": {"1": [[file,
+    # line, x, y, w, h], …]}} in PDF points — PDF click ↔ source line in the studio
+    synctex = models.JSONField(default=dict, blank=True)
     references = models.ManyToManyField(Reference, through="ManuscriptReference", blank=True)
     # File-workspace epic (Owner #30) slice 1b: a manuscript becomes a VIEW over the
     # unified tree — its sources are the Documents under root_folder's subtree. root_folder

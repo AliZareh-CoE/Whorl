@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — SyncTeX in the studio (#378)
+
+**Decision.** Tectonic runs with `--synctex`; `writing/synctex.py` folds the `.synctex.gz` records into one rectangle per (page, file, line) in PDF points, stored as `Manuscript.synctex` on a good compile (cleared on failure) and served by `GET /manuscripts/{id}/synctex/`. In the studio, **Locate** (⌘⇧J) scrolls the PDF to the cursor's line and flashes a bar there; **double-click** anywhere in the PDF opens the matching file and line. The inverse lookup prefers the smallest box containing the point (page and paragraph boxes contain everything).
+
+**Why.** Backlog idea #33 and the "better than Overleaf" bar: jumping between the rendered page and the source is what makes a two-pane editor feel like one document. The compact map (one rectangle per line) keeps the payload small enough to fetch once per compile.
+
+**Alternatives rejected.** Server-side lookups per click (a round-trip for every jump); storing the raw synctex file (megabytes, and the parsing would move to every client).
+
 ### 2026-09-07 — Studio to-do panel (#377)
 
 **Decision.** The studio's Outline tab lists every `% TODO …`, `% FIXME …`, `% XXX`, `% HACK` and `\todo{…}` marker across all source files (each loaded once into the editor's state map), with click-to-line across files and a count in the tab label. The demo manuscript ships two markers.
@@ -1855,7 +1863,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 30. Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24)
 31. Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25)
 32. tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26)
-33. SyncTeX-style jump — click in the PDF preview to jump to the matching source line (idea added by cycle 27)
+33. ~~SyncTeX-style jump (done 2026-09-07, #378: double-click the PDF → source, ⌘⇧J → PDF)~~
 34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
 35. Slim the Docker image — multi-stage build, piper/onnx as optional extra (~800 MB → ~300 MB) (idea added by cycle 29)
 36. Containerized LaTeX compile — run Tectonic in a throwaway container/namespace to close the \input file-read residual risk if Atlas ever goes multi-user (idea added by cycle 30 audit)

@@ -27,6 +27,7 @@ RESULT_FIELDS = [
     "compile_diagnostics",
     "compiled_pdf",
     "compiled_at",
+    "synctex",
     "updated_at",
 ]
 
@@ -64,6 +65,21 @@ def _stale(manuscript: Manuscript, generation: int | None) -> bool:
         return False
     current = Manuscript.objects.values_list("compile_generation", flat=True).get(pk=manuscript.pk)
     return generation < current
+
+
+def _synctex_map(work: Path, main_path: str) -> dict:
+    """The compact SyncTeX map for the studio (#378); empty when the engine wrote none."""
+    from .synctex import read_synctex
+
+    candidate = (work / main_path).with_suffix(".synctex.gz")
+    if not candidate.exists():
+        candidate = (work / main_path).with_suffix(".synctex")
+    if not candidate.exists():
+        return {}
+    try:
+        return read_synctex(candidate, work)
+    except Exception:  # noqa: BLE001 - a bad map must never fail a good compile
+        return {}
 
 
 def _fail(manuscript: Manuscript, log: str) -> str:
@@ -135,7 +151,7 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
             if sys.platform == "win32":  # no console window flashing behind the app
                 run_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             proc = subprocess.run(
-                [str(engine), "--untrusted", "--chatter", "minimal", main_path],
+                [str(engine), "--untrusted", "--synctex", "--chatter", "minimal", main_path],
                 cwd=work,
                 capture_output=True,
                 text=True,
@@ -154,8 +170,10 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
                 )
                 manuscript.compile_status = Manuscript.CompileStatus.OK
                 manuscript.compiled_at = timezone.now()
+                manuscript.synctex = _synctex_map(work, main_path)
             else:
                 manuscript.compile_status = Manuscript.CompileStatus.FAILED
+                manuscript.synctex = {}
         except subprocess.TimeoutExpired:
             log = (
                 f"Compile timed out after {COMPILE_TIMEOUT}s. The first compile downloads the TeX "
