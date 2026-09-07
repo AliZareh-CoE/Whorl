@@ -8,6 +8,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Reaction = "hop" | "celebrate" | "love" | "nom" | "think";
 
+// #461 (backlog #132): crossing a stage is a moment — the egg cracks, the new creature pops
+// in — played once per install (the last drawn stage is remembered in localStorage).
+const STAGE_ORDER = ["egg", "hatchling", "scholar", "sage"];
+const STAGE_KEY = "atlas-pet-stage";
+
 export function Creature({ stage, mood, size = 48, reaction, onClick, className = "", species }: { stage: string; mood: string; size?: number; reaction?: Reaction | null; onClick?: () => void; className?: string; species?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const idle = useRef<number | null>(null);
@@ -57,12 +62,31 @@ export function Creature({ stage, mood, size = 48, reaction, onClick, className 
     }
   }, [reaction]);
 
-  const scholar = stage === "scholar" || stage === "sage";
-  const sage = stage === "sage";
+  const [hatching, setHatching] = useState<"crack" | "born" | null>(null);
+  useEffect(() => {
+    let stored: string | null = null;
+    try { stored = localStorage.getItem(STAGE_KEY); } catch { /* private mode */ }
+    if (stored === stage) return;
+    try { localStorage.setItem(STAGE_KEY, stage); } catch { /* ignore */ }
+    if (stored === null || STAGE_ORDER.indexOf(stage) <= STAGE_ORDER.indexOf(stored)) return;
+    const timers: number[] = [];
+    if (stored === "egg") {
+      setHatching("crack");
+      timers.push(window.setTimeout(() => setHatching("born"), 1500));
+      timers.push(window.setTimeout(() => setHatching(null), 2300));
+    } else {
+      setHatching("born");
+      timers.push(window.setTimeout(() => setHatching(null), 800));
+    }
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [stage]);
+  const drawStage = hatching === "crack" ? "egg" : stage;
+  const scholar = drawStage === "scholar" || drawStage === "sage";
+  const sage = drawStage === "sage";
   const happy = mood === "happy" || mood === "thriving";
 
   return (
-    <span ref={ref} onClick={onClick} className={`mochi mochi-${stage} mochi-${mood} ${species ? `mochi-species-${species}` : ""} ${onClick ? "cursor-pointer" : ""} ${className}`} style={{ width: size, height: size }} role={onClick ? "button" : "img"} aria-label={`Mochi the ${stage}, ${mood}`} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}>
+    <span ref={ref} onClick={onClick} className={`mochi mochi-${drawStage} mochi-${mood} ${species ? `mochi-species-${species}` : ""} ${hatching === "crack" ? "mochi-egg-crack" : hatching === "born" ? "mochi-born" : ""} ${onClick ? "cursor-pointer" : ""} ${className}`} data-hatching={hatching ?? undefined} style={{ width: size, height: size }} role={onClick ? "button" : "img"} aria-label={`Mochi the ${stage}, ${mood}`} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}>
       {particles && (
         <span className="mochi-particles" aria-hidden="true">
           {particles.items.map((p, i) => <i key={`${particles.id}-${i}`} className={particles.kind === "love" ? "mochi-heart" : "mochi-confetti"} style={{ ["--tx" as string]: `${p.x}px`, ["--ty" as string]: `${p.y}px`, ["--delay" as string]: `${p.d}s`, ["--rot" as string]: `${p.r}deg`, ["--hue" as string]: `${(i * 47) % 360}` }} />)}
@@ -75,7 +99,7 @@ export function Creature({ stage, mood, size = 48, reaction, onClick, className 
           <radialGradient id="mochi-belly" cx="50%" cy="40%" r="60%"><stop offset="0%" stopColor="#fff9ee" /><stop offset="100%" stopColor="var(--mochi-belly)" /></radialGradient>
         </defs>
         <ellipse className="mochi-shadow" cx="32" cy="59" rx="16" ry="3" fill="#000" opacity="0.12" />
-        {stage === "egg" ? (
+        {drawStage === "egg" ? (
           <g className="mochi-body">
             <path d="M32 8 C44 8 52 22 52 36 C52 49 43 57 32 57 C21 57 12 49 12 36 C12 22 20 8 32 8 Z" fill="url(#mochi-body)" stroke="var(--mochi-line)" strokeWidth="1.2" />
             <path d="M22 30 l4 -4 l3 5 l4 -6 l3 5 l4 -4" fill="none" stroke="var(--mochi-line)" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" opacity="0.7" />
@@ -91,7 +115,7 @@ export function Creature({ stage, mood, size = 48, reaction, onClick, className 
             {/* ear tufts (scholar+) */}
             {scholar && <g className="mochi-tufts"><path d="M17 20 l-4 -12 l11 7 z" fill="var(--mochi-body)" stroke="var(--mochi-line)" strokeWidth="1" strokeLinejoin="round" /><path d="M47 20 l4 -12 l-11 7 z" fill="var(--mochi-body)" stroke="var(--mochi-line)" strokeWidth="1" strokeLinejoin="round" /></g>}
             {/* body */}
-            <path d={stage === "hatchling" ? "M32 18 C46 18 52 30 52 41 C52 51 43 57 32 57 C21 57 12 51 12 41 C12 30 18 18 32 18 Z" : "M32 12 C48 12 54 26 54 40 C54 51 44 58 32 58 C20 58 10 51 10 40 C10 26 16 12 32 12 Z"} fill="url(#mochi-body)" stroke="var(--mochi-line)" strokeWidth="1.2" />
+            <path d={drawStage === "hatchling" ? "M32 18 C46 18 52 30 52 41 C52 51 43 57 32 57 C21 57 12 51 12 41 C12 30 18 18 32 18 Z" : "M32 12 C48 12 54 26 54 40 C54 51 44 58 32 58 C20 58 10 51 10 40 C10 26 16 12 32 12 Z"} fill="url(#mochi-body)" stroke="var(--mochi-line)" strokeWidth="1.2" />
             {/* belly */}
             <path d="M32 30 C40 30 44 37 44 45 C44 52 38 56 32 56 C26 56 20 52 20 45 C20 37 24 30 32 30 Z" fill="url(#mochi-belly)" opacity="0.95" />
             <path d="M26 45 q6 4 12 0 M27 50 q5 3 10 0" fill="none" stroke="var(--mochi-line)" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
@@ -99,7 +123,7 @@ export function Creature({ stage, mood, size = 48, reaction, onClick, className 
             <path className="mochi-wing mochi-wing-l" d="M13 34 C8 40 9 50 15 54 C17 46 17 40 19 34 Z" fill="var(--mochi-body)" stroke="var(--mochi-line)" strokeWidth="1" />
             <path className="mochi-wing mochi-wing-r" d="M51 34 C56 40 55 50 49 54 C47 46 47 40 45 34 Z" fill="var(--mochi-body)" stroke="var(--mochi-line)" strokeWidth="1" />
             {/* hatchling keeps a bit of shell */}
-            {stage === "hatchling" && <path d="M20 22 l3 5 l3 -6 l3 6 l3 -6 l3 6 l3 -5 q-2 -6 -9 -6 q-7 0 -9 6 z" fill="#f5efe0" stroke="#d8cdb4" strokeWidth="0.8" strokeLinejoin="round" />}
+            {drawStage === "hatchling" && <path d="M20 22 l3 5 l3 -6 l3 6 l3 -6 l3 6 l3 -5 q-2 -6 -9 -6 q-7 0 -9 6 z" fill="#f5efe0" stroke="#d8cdb4" strokeWidth="0.8" strokeLinejoin="round" />}
             {/* face */}
             <g className="mochi-eyes">
               <g className="mochi-eye"><circle cx="24" cy="31" r={scholar ? 5.6 : 4.6} fill="#fff" stroke="var(--mochi-line)" strokeWidth="0.9" /><circle className="mochi-pupil" cx="24" cy="31.5" r={scholar ? 2.6 : 2.1} fill="#241e12" /><circle className="mochi-pupil" cx="25" cy="30.3" r="0.8" fill="#fff" /></g>

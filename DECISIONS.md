@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The hatch is a moment (#461)
+
+**Decision.** The creature remembers the stage it last drew (`localStorage` `atlas-pet-stage`). When the stage it is asked to draw is *later* than that one, it plays a transition once: the egg shakes and cracks for a second and a half, then the new creature pops in with a little overshoot; then it stores the new stage. Later stage crossings (hatchling → scholar → sage) play the pop without the egg. Same drawing, same CSS variables; two keyframes in `app.css`. Reduced-motion users get the swap without the shake.
+
+**Why.** Backlog #132 (owner idea #23's last line): the first finished work hatches the egg, and a hatch that just swaps a drawing throws the moment away.
+
+**Alternatives rejected.** A modal or toast for the hatch (the sidebar creature *is* the place); an animation on every mount (once per stage, per install, or it becomes noise).
+
 ### 2026-09-07 — The compile rhythm is a signal (#460)
 
 **Decision.** `writing/progress.py::compile_rhythm` counts compiles per day over two weeks from the revision snapshots every successful compile leaves (labeled ones included). It rides in the manuscript's `progress` payload as `compiles`; Writing cards show a dot row under the word sparkline ("· 7 compiles this week"); the Studio status bar says "· 3 compiles today"; and Mochi has a line for a compiling week. No new table: the revisions already were the record.
@@ -2618,7 +2626,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 135. CM6 migration sub-epic — execute docs/plans/2026-06-11-cm6-oss-migration.md slices A/B/C; closes #114 (offline editor) and deletes the hand-rolled snippet walker + hints (idea added by cycle 121, from the OSS plan)
 134. OSS-replacement audit pass — a dedicated cycle that inventories Atlas's hand-rolled pieces (CM5 snippet walker, planned drag-resize, detex word count, difflib usage, the pet animation) and swaps in mature libraries where they're clearly better (Owner idea #28); pairs with the CM6 evaluation (idea added by cycle 120)
 133. ~~Sanitize zip member names centrally (done 2026-09-07, #453: `core/archives.py`)~~ — original: the submission-zip traversal guard is local to the view; a shared safe_archive_name() helper would cover any future zip/tar export (idea added by cycle 120, from AUDIT #12)
-132. Pet hatch animation — when the pet crosses a stage threshold (egg→hatchling etc.), play a one-time SVG transition (shell crack/burst) instead of just swapping the drawing (idea added by cycle 119)
+132. ~~Pet hatch animation (done 2026-09-07, #461)~~ — original: when the pet crosses a stage threshold (egg→hatchling etc.), play a one-time SVG transition (shell crack/burst) instead of just swapping the drawing (idea added by cycle 119)
 131. ~~Include the .bbl in the submission zip (done 2026-09-07, #442: `--keep-intermediates`, `compiled_bbl`, `<main>.bbl` in submission.zip)~~ — original: persist the compiled .bbl (compile with --keep-intermediates and store it on the manuscript) so the arXiv package includes it for venues that don't run BibTeX (idea added by cycle 118)
 130. ~~Resolve/strike line comments (done 2026-09-07, #439: `resolved_at`, PATCH, greyed rows, gutter marks only for open ones)~~ — original: let a line comment be marked resolved (greyed + dot hidden) so addressed feedback clears, like a review tool; the Comment model would need a resolved flag (idea added by cycle 117)
 129. ~~Compile streak on the pet/timeline (done 2026-09-07, #460)~~ — original: a compiles-per-week sparkline (the data is now on the timeline) on the manuscript detail or as a Mochi reaction, turning the writing rhythm into a gentle signal (idea added by cycle 116)
