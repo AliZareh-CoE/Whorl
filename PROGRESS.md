@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Demo GIF (2026-09-07, #430).** `scripts/demo_gif.py` (11 captioned keyframes, compile-first studio, toast hidden) → `docs/demo.gif` 3.0 MB, README embed, `make demo-gif`. Test: core/tests/test_demo_gif.py.
+
 - **Plan drag (2026-09-07, #429).** `POST /projects/{slug}/phases/reorder/`; Plan.tsx phase handle + milestone rows draggable, cards as drop targets, optimistic. Test: plans/tests/test_plans.py::test_phase_reorder_and_milestone_move. Playwright (real mouse drag, both directions, ring on the target): docs/screenshots/plan-drag.png.
 
 - **Search coverage (2026-09-07, #428).** Protocols, datasets, captures in both search paths + describe(); SPA labels. Tests: core/tests/test_search.py::test_finds_protocols_datasets_captures (both paths).

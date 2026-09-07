@@ -17,6 +17,10 @@ Claude Code can do all of it with you — 96 tools over the same API the UI uses
 **Download:** [Atlas desktop preview](https://github.com/AliZareh-CoE/project-manager/releases/tag/desktop-preview)
 (Windows `.exe`/`.msi`, Linux `.deb`/`.rpm`) · login `atlas` / `atlas` after `seed_demo`, or create your own user.
 
+![A 40-second tour of Atlas: dashboard, plan, library, reader, notes, graph, LaTeX studio, review matrix, Claude Code](docs/demo.gif)
+
+<sup>The tour is scripted — `make demo-gif` re-shoots it against the seeded demo (`scripts/demo_gif.py`).</sup>
+
 ## Screens
 
 | | |

@@ -19,7 +19,7 @@ become backlog slices.
 
 - [x] LICENSE — AGPL-3.0 (cycle 28; rationale in DECISIONS.md)
 - [x] One-command install — `docker compose --profile app up -d --build` runs web+worker+db+redis (cycle 29)
-- [x] README with hero screenshots, feature grid, comparison table (cycle 28; GIF still todo)
+- [x] README with hero screenshots, feature grid, comparison table (cycle 28; demo GIF 2026-09-07, #430 — `docs/demo.gif`, re-shot by `make demo-gif`)
 - [ ] Demo instance or `seed_demo`-powered screenshot tour
 - [x] CONTRIBUTING.md (cycle 28); issue + PR templates + architecture invariants (cycle 82)
 - [x] CI: GitHub Actions runs pytest + ruff + tsc + assets-check on every PR (cycle 92)

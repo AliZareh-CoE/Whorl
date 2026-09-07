@@ -47,6 +47,9 @@ assets-check: css js  ## rebuild assets and fail if committed outputs are stale
 	git diff --exit-code static/css/app.css static/js || \
 	  (echo "✕ built assets differ from committed ones — commit the rebuilt files"; exit 1)
 
+demo-gif:  ## re-shoot docs/demo.gif against the seeded dev server (Pillow pulled in ad hoc)
+	uv run --with pillow python scripts/demo_gif.py docs/demo.gif
+
 audit:  ## run the security probe sweep (every-10-cycles audit helper)
 	@bash scripts/audit.sh
 

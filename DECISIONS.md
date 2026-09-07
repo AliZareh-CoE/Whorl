@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — The README gets a moving picture: a scripted demo GIF (#430)
+
+**Decision.** `scripts/demo_gif.py` drives the seeded demo through eleven screens — dashboard, project overview, plan, library, reading flow, a note, the 3D graph, the LaTeX studio (compiled first through the API so the preview shows a PDF), the review matrix, Connect Claude Code and the ⌘K palette with "add paper" typed — stamps a caption on each, and Pillow assembles the keyframes into `docs/demo.gif` (960 px, 128 colours, 2.2 s holds with one 50 % blend frame per cut; 22 frames, 3.0 MB). The README embeds it under the download line; `make demo-gif` re-shoots it; `core/tests/test_demo_gif.py` keeps it present, a real GIF, referenced and under 4 MB. Pillow is pulled in ad hoc with `uv run --with pillow` — a maintainer-only tool, not a dependency.
+
+**Why.** Owner idea #8's remaining line ("demo GIF") and OPENSOURCE.md's own brief: the sales pitch is the whole loop in one unbroken picture. Screenshots show rooms; the GIF walks the house.
+
+**Alternatives rejected.** A true 60-second screen recording (Playwright records WebM but the repo has no ffmpeg, GitHub READMEs cannot embed video, and a 60 s GIF is tens of MB); 3-step cross-fades (4× the bytes for a nicer cut — measured 6.5 MB); a hand-recorded GIF (rots the moment a screen changes; the script re-shoots in a minute).
+
 ### 2026-09-07 — The plan moves under the mouse: drag phases, drag milestones between phases (#429)
 
 **Decision.** The phase number on each card is a drag handle: drop it on another card and the phase takes that card's place (`POST /api/v1/projects/{slug}/phases/reorder/ {ids}` writes `order` 1..n and `updated_at`, mirroring the to-do and smart-view reorders; unlisted phases keep their relative order after). Milestone rows are draggable too: dropping one on a different phase card moves it there (`PATCH /milestones/{id}/ {phase}`). Both are optimistic in the SPA and settle from the server. Cards ring indigo for a phase drop, emerald for a milestone drop; the two payloads use private MIME types so a card knows which it is being offered.
