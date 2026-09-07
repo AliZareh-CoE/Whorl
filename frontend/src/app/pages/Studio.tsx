@@ -412,7 +412,11 @@ function StudioInner({ m }: { m: Manuscript }) {
     if (compileRefState.current.status === "running") return;
     await saveAll();
     setCompile((c) => ({ ...c, status: "running" }));
-    try { await api(`/manuscripts/${m.id}/compile/`, { method: "POST" }); poll(); }
+    try {
+      const out = await api<{ status: string; unchanged?: boolean; deduped?: boolean }>(`/manuscripts/${m.id}/compile/`, { method: "POST" });
+      if (out.unchanged) { setCompile((c) => ({ ...c, status: "ok" })); setFlash("Up to date — nothing changed since the last compile."); return; } // #455
+      poll();
+    }
     catch (e) { setCompile((c) => ({ ...c, status: "failed", log: e instanceof Error ? e.message : "Compile request failed." })); }
   }, [m.id, poll, saveAll]);
   compileRef.current = () => { void doCompile(); };

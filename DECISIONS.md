@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Identical source is not compiled twice (#455)
+
+**Decision.** `writing/compile.py::source_hash` digests everything a compile reads — every text file's path and content, every asset's path and size, and the bibliography Atlas would generate when the tree ships no `references.bib`. The compile action stores it on the manuscript (`compile_source_hash`, writing 0016) when it queues; a successful compile stamps it as `compiled_source_hash`. A request whose digest matches a *running* compile answers 202 `{deduped: true}` without a second build; one whose digest matches the last *successful* compile (with a PDF on file) answers 200 `{unchanged: true}` and the studio says "Up to date — nothing changed since the last compile." `force` (body or query, and `compile_manuscript(force=True)` over MCP) compiles anyway — after installing the engine, say.
+
+**Why.** Backlog #115: compile-on-save racing a ⌘↵, or a Recompile on an unchanged tree, ran Tectonic again for the same PDF — on the desktop that is a whole CPU core and, in immediate mode, a busy thread while the window waits.
+
+**Alternatives rejected.** Debouncing in the studio only (Claude and the API can fire the same duplicates); hashing only the main file (sections and the bibliography change the PDF).
+
 ### 2026-09-07 — No installer? Run it from source (#454)
 
 **Decision.** `make standalone` (PowerShell: `$env:DJANGO_SETTINGS_MODULE = "config.settings.desktop"; uv run python manage.py run_desktop`) runs exactly what the desktop shell runs — the SQLite, Docker-less, Node-less server — from a checkout, and any browser at 127.0.0.1:8000 is the app; `ATLAS_DATA_DIR` can point at the desktop app's data folder so both see the same projects. Documented at the top of the README and in the desktop README, verified on a fresh data dir (login answers after five seconds), guarded by a docs test.
@@ -2552,7 +2560,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 112. CI audit artifacts — upload /tmp/server.log and the sweep output as workflow artifacts on failure so red audit jobs are debuggable without rerunning (idea added by cycle 99)
 113. API timing smoke in CI — extend the audit job with a best-of-5 latency check on 3 hot endpoints against the 50ms bar, so regressions like the cycle-100 N+1 surface in PRs not audits (idea added by cycle 100)
 114. ~~Vendor CodeMirror locally (the CM6 editor is bundled; no CDN reference remains in templates or the SPA; swept 2026-09-07)~~ — original: the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
-115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
+115. ~~Compile-queue dedupe (done 2026-09-07, #455: `source_hash`, deduped / unchanged answers, `force`)~~ — original: hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
 116. ~~PDF text layer in the editor preview (done 2026-09-07, #452)~~ — original: add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
 149. ~~Pet voice personality — mood layer (done 2026-06-13): MOOD_VOICES in core/tts.py sets loudness/liveliness from the pet's weekly mood (sleeping 0.6 → thriving 1.0 + extra noise_w) on top of the stage's pace/timbre (volume-only so they compose); read_aloud passes both stage+mood; real WAVs verified distinct per mood; 4 tests incl. MOODS↔MOOD_VOICES sync + compose.~~
 142. ~~Pet voice personality (done 2026-06-12, cycle 138, Owner #29 follow-on): STAGE_VOICES in core/tts.py shapes Piper delivery per growth stage — egg murmurs slow+soft (length 1.25, noise 0.45), hatchling peeps fast (0.8, lively phoneme timing), scholar is the voice as trained, sage is slow+measured (1.18) — and read_aloud derives the stage server-side from pet_state(). Real-voice durations verified distinct (1.94s/2.25s/2.59s for the same sentence); live endpoint 200 audio/wav; 4 new tests incl. a STAGES↔STAGE_VOICES sync guard.~~

@@ -29,8 +29,36 @@ RESULT_FIELDS = [
     "compiled_at",
     "synctex",
     "compiled_bbl",
+    "compiled_source_hash",
     "updated_at",
 ]
+
+
+def source_hash(manuscript: Manuscript) -> str:
+    """#455: a digest of everything a compile reads — every text file's path and content, every
+    asset's path and size, and the bibliography Atlas would generate (links, keys, overrides)
+    when the tree ships no references.bib. Same digest ⇒ same PDF."""
+    import hashlib
+
+    from .services import export_manuscript_bib
+
+    h = hashlib.sha256()
+    files = list(manuscript.files.all().order_by("path"))
+    for f in files:
+        h.update(f.path.encode())
+        h.update(b"\0")
+        if f.kind == ManuscriptFile.Kind.ASSET:
+            size = f.asset.size if f.asset else 0
+            h.update(f"asset:{f.asset.name if f.asset else ''}:{size}".encode())
+        else:
+            h.update(f.content.encode())
+        h.update(b"\0\0")
+    if not files:
+        h.update(manuscript.latex_source.encode())
+    if not any(f.path == "references.bib" for f in files):
+        h.update(b"\0bib\0")
+        h.update((export_manuscript_bib(manuscript) or "").encode())
+    return h.hexdigest()
 
 
 def tectonic_path() -> Path | None:
@@ -179,6 +207,9 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
                 )
                 manuscript.compile_status = Manuscript.CompileStatus.OK
                 manuscript.compiled_at = timezone.now()
+                manuscript.compiled_source_hash = manuscript.compile_source_hash or source_hash(
+                    manuscript
+                )
                 manuscript.synctex = _synctex_map(work, main_path)
                 bbl_path = (work / main_path).with_suffix(".bbl")
                 manuscript.compiled_bbl = (

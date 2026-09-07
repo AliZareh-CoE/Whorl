@@ -65,6 +65,10 @@ class Manuscript(TimeStampedModel):
     # #442: the bibliography as BibTeX produced it — arXiv runs no BibTeX, so the
     # submission package must carry the .bbl next to the sources
     compiled_bbl = models.TextField(blank=True)
+    # #455: what the running / last successful compile was built from — identical source
+    # is not compiled twice (a save-triggered compile racing a click, a Recompile on nothing)
+    compile_source_hash = models.CharField(max_length=64, blank=True)
+    compiled_source_hash = models.CharField(max_length=64, blank=True)
     compile_diagnostics = models.JSONField(default=list, blank=True)  # parsed from the log
     compile_generation = models.PositiveIntegerField(default=0)  # bumped per queue; stale drops
     compiled_at = models.DateTimeField(null=True, blank=True)

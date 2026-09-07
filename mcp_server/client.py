@@ -219,9 +219,11 @@ def set_main_file(file_id: int):
     return _request("PATCH", f"/manuscript-files/{file_id}/", json={"is_main": True})
 
 
-def compile_manuscript(manuscript_id: int):
+def compile_manuscript(manuscript_id: int, force: bool = False):
     """Queue a compile. Returns immediately; poll get_compile_status for the result."""
-    return _request("POST", f"/manuscripts/{manuscript_id}/compile/")
+    return _request(
+        "POST", f"/manuscripts/{manuscript_id}/compile/", json={"force": force} if force else None
+    )
 
 
 def get_compile_status(manuscript_id: int):

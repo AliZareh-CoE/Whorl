@@ -2098,14 +2098,50 @@ class ManuscriptViewSet(AtlasViewSet):
     )
     @action(detail=True, methods=["post"])
     def compile(self, request, pk=None):
+        from writing.compile import source_hash
         from writing.tasks import enqueue_compile
 
         manuscript = self.get_object()
         if not manuscript.source_text().strip():
             return Response({"detail": "latex_source is empty."}, status=400)
+        # #455: identical source is not compiled twice. A running compile of the same tree
+        # absorbs the request; a successful one with the same tree is already the answer.
+        data = request.data if isinstance(request.data, dict) else {}
+        force = str(data.get("force", request.query_params.get("force", ""))).lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        digest = source_hash(manuscript)
+        if not force:
+            if (
+                manuscript.compile_status == Manuscript.CompileStatus.RUNNING
+                and manuscript.compile_source_hash == digest
+            ):
+                return Response({"status": "running", "deduped": True}, status=202)
+            if (
+                manuscript.compile_status == Manuscript.CompileStatus.OK
+                and manuscript.compiled_source_hash == digest
+                and manuscript.compiled_pdf
+            ):
+                return Response(
+                    {
+                        "status": "ok",
+                        "unchanged": True,
+                        "compiled_at": manuscript.compiled_at,
+                    }
+                )
         manuscript.compile_generation += 1
         manuscript.compile_status = Manuscript.CompileStatus.RUNNING
-        manuscript.save(update_fields=["compile_generation", "compile_status", "updated_at"])
+        manuscript.compile_source_hash = digest
+        manuscript.save(
+            update_fields=[
+                "compile_generation",
+                "compile_status",
+                "compile_source_hash",
+                "updated_at",
+            ]
+        )
         enqueue_compile(manuscript.pk, manuscript.compile_generation)
         return Response({"status": "running"}, status=202)
 

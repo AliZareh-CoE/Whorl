@@ -193,10 +193,13 @@ def set_main_file(file_id: int) -> dict:
 
 
 @mcp.tool()
-def compile_manuscript(manuscript_id: int) -> dict:
+def compile_manuscript(manuscript_id: int, force: bool = False) -> dict:
     """Queue a LaTeX compile of the manuscript's current source. Returns immediately; then
-    poll get_compile_status until status is 'ok' or 'failed' to read diagnostics and the PDF."""
-    return client.compile_manuscript(manuscript_id)
+    poll get_compile_status until status is 'ok' or 'failed' to read diagnostics and the PDF.
+    Identical source is not compiled twice: {"status": "ok", "unchanged": true} means the last
+    PDF already matches, {"deduped": true} that a compile of this exact tree is running. Pass
+    force=True to compile anyway (e.g. after installing the engine)."""
+    return client.compile_manuscript(manuscript_id, force)
 
 
 @mcp.tool()
