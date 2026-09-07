@@ -368,6 +368,17 @@ class Command(BaseCommand):
                     "venue": "Journal of Cognitive Demonstration",
                     "citation_count": (index * 37) % 900 + 10,
                     "entry_type": "article",
+                    # #448: an abstract per paper so the rail's peek and the reader's tl;dr
+                    # have something to show on the demo
+                    "abstract": (
+                        f"{family} et al. ({year}) asked whether working-memory load changes "
+                        f"how attention is allocated. In {2 + index % 3} experiments (n = "
+                        f"{24 + index * 4}) they varied load and distractor salience; load "
+                        f"{'reduced' if index % 2 else 'redistributed'} vigilance rather than "
+                        "capping it, and the effect grew with practice. The paper is a "
+                        "standard reference for the "
+                        f"{'strategic' if index % 2 else 'capacity'} account."
+                    ),
                 },
             )
             corpus_refs.append(reference)
