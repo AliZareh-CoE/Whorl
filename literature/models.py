@@ -71,7 +71,11 @@ class Reference(TimeStampedModel):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            GinIndex(fields=["title"], opclasses=["gin_trgm_ops"], name="reference_title_trgm")
+            GinIndex(fields=["title"], opclasses=["gin_trgm_ops"], name="reference_title_trgm"),
+            # #53: the ?kw= filter and the matrix word match scan abstracts with icontains
+            GinIndex(
+                fields=["abstract"], opclasses=["gin_trgm_ops"], name="reference_abstract_trgm"
+            ),
         ]
 
     def __str__(self):

@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Two small ones: abstracts get a trigram index, Mochi gets a calendar (#465)
+
+**Decision.** (#53) `Reference.abstract` gets a `gin_trgm_ops` GIN index (`reference_abstract_trgm`, literature 0009 via `PostgresAddIndex`, so SQLite skips the DDL) — the `?kw=` filter on the project literature pages and the review-matrix word match both scan abstracts with `icontains`, which the trigram index serves once a library is in the thousands. (#56) `core/pet.py::calendar_lines` adds one weekday line and one month line to the speech candidates (seven and twelve, all observations: "Friday. Leave the next step written down; Monday-you will be grateful."), and the milestone reaction pool grows from three to six so the hop moment repeats less.
+
+**Why.** Both were the last two "small and certain" backlog items; bundling keeps the cycle honest (one commit, one gate) without pretending either is a feature.
+
+**Alternatives rejected.** A speech line per holiday (locale-bound; the month is enough ambience); a full-text index on abstracts instead of trigram (the filters are substring matches, not ranked search — global search already has FTS).
+
 ### 2026-09-07 — Claude backs up before it bulk-edits (#464)
 
 **Decision.** MCP tool `take_snapshot(list_only=false)` (101 tools): the default writes a snapshot through `POST /snapshots/` and answers the file, the rotation and the folder status; `list_only=true` reads `GET /snapshots/`. The docstring and the atlas-daily skill both say when: before a request that deletes or rewrites many things. No new API — the tool is the thin client the MCP contract requires.
@@ -2553,10 +2561,10 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 50. ~~Grove seasons — paused projects show bare autumn trees and archived ones fade out, so the grove reflects the whole portfolio at a glance (idea added by cycle 43)~~ — dead: the grove was a classic-UI widget the SPA never carried; the Projects page folds archived work instead (retired 2026-09-07)
 51. ~~(Done 2026-09-07, #422: core/tests/test_template_lint.py.)~~ Template lint pass — a tiny pytest that walks every template and asserts title/breadcrumbs blocks contain no `<script>` (the cycle-44 corruption class), plus django-template syntax check via the loader (idea added by cycle 44)
 52. ~~Recent searches (done 2026-06-11, cycle 48, UI/UX): submits store the query in localStorage (5 max, deduped); focusing the empty box lists them as a keyboard-navigable listbox (queries rendered via textContent), Enter re-runs the search — browser-verified.~~
-53. Trigram index for the literature `?kw=` filter — reference.abstract icontains scans could use a GIN trgm index too once libraries grow past a few thousand rows (idea added by cycle 46)
+53. ~~Trigram index for the literature `?kw=` filter (done 2026-09-07, #465: `reference_abstract_trgm`)~~ — original: reference.abstract icontains scans could use a GIN trgm index too once libraries grow past a few thousand rows (idea added by cycle 46)
 54. ~~Last-Modified/If-Modified-Since on media downloads (done 2026-09-07, #434: `core/files.py::file_response` — ETag + Last-Modified + 304 on the three file views; `/media/` already had it via static.serve)~~ (idea added by cycle 47)
 55. ~~Pin a search (done 2026-09-07, #435: recents + ☆ pins on the SPA Search page, localStorage)~~ — original: star a recent search to keep it permanently at the top of the recents dropdown (idea added by cycle 48)
-56. Pet speech variety pack — seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)
+56. ~~Pet speech variety pack (done 2026-09-07, #465: weekday + month lines, six milestone reactions)~~ — original: seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)
 57. ~~Search page budget (measured 2026-09-07: 14 queries / 27 ms for three demo queries — under the bar; struck)~~ — original: /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
 58. ~~Tree tooltips (the grove lives only in the classic dashboard, replaced by the SPA; struck 2026-09-07)~~ — original: hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)
 59. ~~[REV] Atlas Assistant panel (done 2026-06-11, cycle 55 — the first revolutionary cycle): ✨ Assistant on every page — Cmd/Ctrl-K (or sidebar button) opens a calm slide-over React island; fuzzy jump-to-anything command bar (local subsequence scoring over a server-built index of projects/notes/references/prompts/manuscripts/pages, ≤400 entries, 5 queries); page-aware quick actions; 'Ask Claude about this' composes a context-rich MCP prompt (object + suggested atlas tools) with one-click copy; recent-activity feed for the current object. Backend: core/assistant.py + GET /assistant/context/ (session-gated). Built with parallel agent workflows per owner suggestion. NO paid APIs.~~ (idea added by cycle 52)

@@ -150,6 +150,9 @@ def _speech_candidates(now) -> list[str]:
     elif compiles_week >= 3:
         lines.append(f"{compiles_week} compiles this week. The PDF is alive.")
 
+    # #56: the calendar has moods too — a weekday line and a seasonal one, still observations
+    lines.extend(calendar_lines(now))
+
     hour = now.hour
     if hour < 6:
         lines.append("Up before the birds. I'll keep watch.")
@@ -160,6 +163,37 @@ def _speech_candidates(now) -> list[str]:
     else:
         lines.append("Evening session — stop while it's still fun.")
     return lines
+
+
+WEEKDAY_LINES = {
+    0: "Monday. The week is a blank page — one line on it is enough.",
+    1: "Tuesday: nobody's favourite, everybody's most productive.",
+    2: "Midweek. Halfway is a real place; look around.",
+    3: "Thursday. The week has a shape now — finish the sentence.",
+    4: "Friday. Leave the next step written down; Monday-you will be grateful.",
+    5: "A Saturday visit. Research doesn't mind, but rest is part of the method.",
+    6: "Sunday. A quiet look is allowed; a marathon is not.",
+}
+
+SEASON_LINES = {
+    1: "New year, same notebook. That's the point of a notebook.",
+    2: "February: short month, long nights, good for reading.",
+    3: "March. Something is thawing — maybe that paper.",
+    4: "April. Conference season is coming for someone; is it you?",
+    5: "May. Half the year's plans are still possible.",
+    6: "June. Long light, long sessions — keep the short breaks.",
+    7: "July. Even reviewers are on holiday. Write for yourself.",
+    8: "August: the quiet month. Quiet is where drafts get finished.",
+    9: "September. The academic year turns over; so can the plan.",
+    10: "October. Deadlines cluster like starlings.",
+    11: "November. Dark early; a good hour for the literature.",
+    12: "December. Close the year with a decision written down.",
+}
+
+
+def calendar_lines(now) -> list[str]:
+    """One line for the weekday and one for the month — ambience, never a demand."""
+    return [WEEKDAY_LINES[now.weekday()], SEASON_LINES[now.month]]
 
 
 def pet_speech(now=None) -> str:
@@ -185,6 +219,9 @@ REACTION_LINES = {
         "A milestone falls! *happy hop*",
         "Checked. The plan advances.",
         "That one's done. Onward.",
+        "One less thing between you and the paper.",
+        "Bonfire lit. Rest here a moment.",
+        "The plan moved because you did.",
     ],
     "paper": [
         "Om nom — knowledge.",

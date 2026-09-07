@@ -144,6 +144,7 @@ def test_trigram_indexes_are_postgres_only():
         "documents/migrations/0002_document_document_title_trgm.py",
         "notes/migrations/0003_note_note_title_trgm.py",
         "literature/migrations/0004_reference_reference_title_trgm.py",
+        "literature/migrations/0009_reference_abstract_trgm.py",  # #53
         "projects/migrations/0002_decisionrecord_decision_title_trgm_and_more.py",
     ):
         assert "PostgresAddIndex" in (BASE_DIR / mig).read_text(), mig

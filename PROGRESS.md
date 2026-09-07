@@ -4,6 +4,8 @@
 
 - **⚠ OWNER REPORT (2026-09-07, later): the newest installer they can get still opens a dark, empty window.** The release feed tops out at 0.1.139 (built 05:17 UTC); every push since is unbuildable — desktop-release runs 140–165 fail in four seconds with `runner_id: 0` (no runner assigned: GitHub Actions spending limit / billing on the account — owner action). #451 makes the watchdog fire on "no painted text" (the mounted flag was set before React drew anything) and report in-flight requests. The other items in that batch (project CRUD, open from disk, missing PDF, icon, achievements) shipped in 0.1.11x–0.1.139; if they still show, the installed build is older than it looks — Diagnostics says the version.
 
+- **Two small ones (2026-09-07, #465).** #53 `reference_abstract_trgm` (literature 0009, Postgres-only DDL; applied on dev Postgres and on a fresh SQLite data dir); #56 `calendar_lines` weekday + month speech, six milestone reactions. Tests: core/tests/test_pet_calendar_lines.py, migration guard in test_desktop_settings.
+
 - **MCP take_snapshot (2026-09-07, #464, 101 tools).** `client.take_snapshot(list_only)`, server tool, README pins, atlas-daily skill convention. Test: mcp_server/tests/test_client.py::test_take_snapshot_client_calls. Live: client wrote a 4.7 MB zip against the dev server.
 
 - **Restore from a snapshot (2026-09-07, #463).** `POST /restore/ {snapshot}` stages a listed file by name (404 for unknown / path-like names); Diagnostics lists the files with *Restore…* → the existing staged-restore flow. Test: core/tests/test_snapshots.py::test_restore_from_a_snapshot_by_name. Playwright: Restore… → confirm → "A restore is staged" → cancel.
