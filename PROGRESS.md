@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Clickable run bars (2026-09-07, #423).** `QuickCapture.bot_run` (notes migration), run context in `bots/registry.py`, run ids in `/bots/`, `?run=` on `/quick-capture/`, Inbox banner, Automations bars as links. Tests: bots/tests/test_bots.py::TestRunLinks (2). Playwright: docs/screenshots/inbox-run-filter.png.
+
 - **Template lint (2026-09-07, #422).** core/tests/test_template_lint.py: every template compiles; title/breadcrumb blocks carry no script/style.
 
 - **Documents sparse state (2026-09-07, #421).** Dashed footer at ≤3 files with the page's purpose + Files link; empty-state upload CTA. Guard: core/tests/test_polish.py::test_documents_sparse_state. Playwright: docs/screenshots/documents-sparse.png.

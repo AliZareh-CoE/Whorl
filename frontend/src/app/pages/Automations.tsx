@@ -1,9 +1,10 @@
 /** Bots with run-history charts (SPA slice 10). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { queryGate } from "../../components/QueryBoundary";
 
-type Run = { ok: boolean; count: number | null; started_at: string };
+type Run = { id: number; ok: boolean; count: number | null; captures: number; started_at: string };
 type Bot = { slug: string; name: string; description: string; enabled: boolean; last_result: string; runs: Run[] };
 
 function RunChart({ runs }: { runs: Run[] }) {
@@ -14,12 +15,15 @@ function RunChart({ runs }: { runs: Run[] }) {
     <div className="mt-4">
       <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-stone-400">Run history</p>
       <div className="flex h-10 items-end gap-px" aria-label="Run history chart">
-        {ordered.map((r, i) => (
-          <div key={i}
-               title={`${r.started_at.slice(0, 16).replace("T", " ")} — ${r.ok ? r.count ?? 0 : "failed"}`}
-               className={`w-2.5 rounded-t transition-colors ${r.ok ? "bg-indigo-200 hover:bg-indigo-400" : "bg-red-300 hover:bg-red-500"}`}
-               style={{ height: `${Math.max(8, Math.round(((r.count ?? 0) * 100) / top))}%` }} />
-        ))}
+        {ordered.map((r, i) => {
+          const title = `${r.started_at.slice(0, 16).replace("T", " ")} — ${r.ok ? r.count ?? 0 : "failed"}`;
+          const cls = `block w-2.5 rounded-t transition-colors ${r.ok ? "bg-indigo-200 hover:bg-indigo-400" : "bg-red-300 hover:bg-red-500"}`;
+          const style = { height: `${Math.max(8, Math.round(((r.count ?? 0) * 100) / top))}%` };
+          // #423: a bar that filed something opens the Inbox filtered to that run
+          return r.ok && r.captures > 0
+            ? <Link key={r.id ?? i} to={`/inbox?run=${r.id}`} title={`${title} — ${r.captures} filed in the Inbox, click to see them`} className={cls} style={style} data-testid="run-bar" />
+            : <div key={r.id ?? i} title={title} className={cls} style={style} />;
+        })}
       </div>
     </div>
   );

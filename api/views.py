@@ -1832,6 +1832,9 @@ class QuickCaptureViewSet(AtlasViewSet):
         processed = self.request.query_params.get("processed")
         if processed in ("true", "false"):
             queryset = queryset.filter(processed=(processed == "true"))
+        run = self.request.query_params.get("run")  # #423: what one bot run filed
+        if run and run.isdigit():
+            queryset = queryset.filter(bot_run_id=int(run))
         return queryset
 
     @extend_schema(
@@ -3034,10 +3037,17 @@ class BotsAPIView(APIView):
         description="All bots with enabled state and recent runs.", responses={200: None}
     )
     def get(self, request):
-        from bots.models import Bot
+        from django.db.models import Count, Prefetch
+
+        from bots.models import Bot, BotRun
         from bots.registry import BOTS
 
-        states = {b.slug: b for b in Bot.objects.filter(slug__in=BOTS).prefetch_related("runs")}
+        states = {
+            b.slug: b
+            for b in Bot.objects.filter(slug__in=BOTS).prefetch_related(
+                Prefetch("runs", queryset=BotRun.objects.annotate(filed=Count("captures")))
+            )
+        }
         return Response(
             {
                 "bots": [
@@ -3048,7 +3058,13 @@ class BotsAPIView(APIView):
                         "enabled": states[slug].enabled if slug in states else False,
                         "last_result": states[slug].last_result if slug in states else "",
                         "runs": [
-                            {"ok": r.ok, "count": r.count, "started_at": r.started_at.isoformat()}
+                            {
+                                "id": r.pk,
+                                "ok": r.ok,
+                                "count": r.count,
+                                "captures": r.filed,  # #423: what the run filed in the inbox
+                                "started_at": r.started_at.isoformat(),
+                            }
                             for r in (states[slug].runs.all()[:20] if slug in states else [])
                         ],
                     }

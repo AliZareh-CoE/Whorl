@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — A bar on the run chart opens the Inbox filtered to that run (#423)
+
+**Decision.** `QuickCapture.bot_run` (nullable FK to `bots.BotRun`) records which automation run filed a capture: `run_bot` now creates the `BotRun` row *before* running the bot and holds it in a context variable that `_capture_once` reads, then fills in the outcome afterwards. The bots API returns each run's `id`, `GET /quick-capture/?run=<id>` filters to that run's captures, the Inbox honours `?run=` with a banner ("Showing what one automation run filed — n captures, m still open · Show the whole inbox") and the Automations run-history bars link to it when the run filed anything. Hand-written captures stay `bot_run = null`.
+
+**Why.** Backlog #44: the chart said "3" and the Inbox could not say which three. The link needed the row to exist while the bot ran, hence the create-then-update.
+
+**Alternatives rejected.** Tagging captures by text prefix (emoji-sniffing is not a foreign key); a `BotRun.capture_ids` JSON list (the FK gives the reverse relation and cascades correctly when a run is pruned).
+
 ### 2026-09-07 — Template lint: every template parses, chrome blocks stay clean (#422)
 
 **Decision.** `core/tests/test_template_lint.py` walks every `.html` under `templates/` and each app's `templates/`, compiles it through the Django engine (a broken tag fails the build with the file name) and asserts that `{% block title %}` and `{% block breadcrumbs %}` contain no `<script>` or `<style>`. One parametrised test per template, so the failure names the file.
@@ -2228,7 +2236,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 41. ~~Keyword cloud on the project overview card (idea added by cycle 35) — done 2026-09-07, #398 (a weighted chip row)~~
 42. ~~Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass) — done 2026-09-07, #399 as Diagnostics › Access + /api/v1/access-events/~~
 43. ~~Prompt variable defaults — `{{name|default}}` syntax pre-fills the fill-in inputs, and last-used values are remembered per prompt in localStorage (idea added by cycle 36) — done 2026-09-07, #393~~
-44. Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)
+44. ~~(Done 2026-09-07, #423: QuickCapture.bot_run, ?run= filter, bars link.)~~ Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)
 45. ~~Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)~~ — shipped 2026-09-07 (#407: core/rendering, `*_html` fields, Prose component; protocols too)
 46. ~~Edge-swipe open (done 2026-06-11, cycle 48, UI/UX): touchstart within 24px of the left edge + >60px rightward swipe opens the drawer (window-level Alpine handlers); mid-screen swipes ignored — touch-verified at 420px.~~
 47. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~

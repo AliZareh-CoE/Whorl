@@ -3,8 +3,8 @@
  *  converts in one click; filing to a project and dismissing stay one click too.
  *  API: /quick-capture/ (hint per item), /quick-capture/{id}/convert/; MCP list_inbox, convert_capture. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { BookOpen, Check, FileText, Flag, Inbox as InboxIcon, ListChecks, Scale, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { ErrorState } from "../../components/ErrorState";
@@ -32,7 +32,10 @@ export default function Inbox() {
   const [text, setText] = useState("");
   const [toast, setToast] = useState<{ msg: string; url?: string } | null>(null);
   const flash = (msg: string, url?: string) => { setToast({ msg, url }); setTimeout(() => setToast(null), 5000); };
-  const { data, isLoading, error, refetch } = useQuery({ queryKey: ["inbox"], queryFn: () => api<Page<Capture>>("/quick-capture/?page_size=200") });
+  // #423: ?run=<bot run id> shows only what that run filed (a bar on the Automations chart)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const runFilter = searchParams.get("run");
+  const { data, isLoading, error, refetch } = useQuery({ queryKey: ["inbox", runFilter], queryFn: () => api<Page<Capture>>(`/quick-capture/?page_size=200${runFilter ? `&run=${encodeURIComponent(runFilter)}` : ""}`) });
   const { data: projects } = useQuery({ queryKey: ["projects-brief"], queryFn: () => api<Page<Project>>("/projects/?page_size=100") });
   const refresh = () => { queryClient.invalidateQueries({ queryKey: ["inbox"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["todos"] }); };
   const capture = useMutation({
@@ -41,21 +44,29 @@ export default function Inbox() {
   });
   const triage = useMutation({
     mutationFn: ({ id, project }: { id: number; project?: string }) => api(`/quick-capture/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(project ? { processed: true, project } : { processed: true }) }),
-    onMutate: ({ id }) => { queryClient.setQueryData<Page<Capture>>(["inbox"], (old) => old ? { ...old, results: old.results.map((c) => (c.id === id ? { ...c, processed: true } : c)) } : old); },
+    onMutate: ({ id }) => { queryClient.setQueryData<Page<Capture>>(["inbox", runFilter], (old) => old ? { ...old, results: old.results.map((c) => (c.id === id ? { ...c, processed: true } : c)) } : old); },
     onSettled: refresh,
   });
   const convert = useMutation({
     mutationFn: ({ id, target, project }: { id: number; target: string; project?: string }) => api<Converted>(`/quick-capture/${id}/convert/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(project ? { target, project } : { target }) }),
-    onMutate: ({ id }) => { queryClient.setQueryData<Page<Capture>>(["inbox"], (old) => old ? { ...old, results: old.results.map((c) => (c.id === id ? { ...c, processed: true } : c)) } : old); },
+    onMutate: ({ id }) => { queryClient.setQueryData<Page<Capture>>(["inbox", runFilter], (old) => old ? { ...old, results: old.results.map((c) => (c.id === id ? { ...c, processed: true } : c)) } : old); },
     onSuccess: (out) => { refresh(); if (out.kind === "reference") petReact("paper"); if (out.kind === "note") petReact("note"); flash(`${out.kind === "reference" ? (out.created ? "Added the paper" : "Paper already in the library") : out.kind === "todo" ? "On today's list" : `Created the ${out.kind}`}: ${out.title}`, out.app_url); },
     onError: (e) => { refresh(); flash(`Could not convert — ${(e as Error).message}`); },
   });
 
   if (isLoading) return <div className="mx-auto max-w-3xl"><Skeleton className="mb-4 h-8 w-40" /><Skeleton className="mb-6 h-24 w-full" /><Skeleton className="h-40 w-full" /></div>;
   if (error || !data) return <ErrorState message="Couldn't load the inbox." onRetry={() => refetch()} />;
-  const open = data.results.filter((c) => !c.processed);
+  // in run mode everything the run filed is shown, triaged or not — that is the question asked
+  const open = runFilter ? data.results : data.results.filter((c) => !c.processed);
+  const stillOpen = data.results.filter((c) => !c.processed).length;
+  const runBanner = runFilter ? (
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-800 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200" data-testid="inbox-run-filter">
+      <span>Showing what one automation run filed — {data.results.length} capture{data.results.length === 1 ? "" : "s"}, {stillOpen} still open.</span>
+      <button type="button" onClick={() => setSearchParams({})} className="ml-auto font-medium hover:underline">Show the whole inbox</button>
+    </div>
+  ) : null;
   const projectRows = projects?.results ?? [];
-  return <InboxBody open={open} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} toast={toast} />;
+  return <InboxBody runBanner={runBanner} open={open} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} toast={toast} />;
 }
 
 /* Keyboard triage (Inbox v2 slice 2): j/k or arrows move the cursor, Enter takes the
@@ -63,7 +74,7 @@ export default function Inbox() {
    inbox without touching the mouse. Keys are ignored while typing in the capture box. */
 const KEY_TARGETS = ["paper", "todo", "note", "milestone", "decision"] as const;
 
-function InboxBody({ open, projectRows, text, setText, capture, convert, triage, toast }: { open: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
+function InboxBody({ open, projectRows, text, setText, capture, convert, triage, toast, runBanner }: { runBanner?: ReactNode; open: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
   const [cursor, setCursor] = useState(0);
   const [legend, setLegend] = useState(false);
   const projectFor = (c: Capture) => c.project ?? projectRows[0]?.slug ?? undefined;
@@ -100,6 +111,7 @@ function InboxBody({ open, projectRows, text, setText, capture, convert, triage,
         </div>
       </form>
 
+      {runBanner}
       {open.length > 0 && (
         <p className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-400" data-testid="inbox-legend">
           <button type="button" onClick={() => setLegend((v) => !v)} className="rounded border border-stone-200 px-1.5 font-mono dark:border-stone-700" title="Keyboard triage">?</button>
@@ -141,6 +153,7 @@ function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismi
       <Prose html={c.text_html} className="break-words text-sm text-stone-800 dark:text-stone-100" testId="capture-text" />
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="text-stone-400">{ago(c.created_at)}</span>
+        {c.processed && <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-emerald-700 dark:text-emerald-300" title="Already triaged">filed</span>}
         {chips.map((ch) => <span key={ch} className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-mono text-indigo-700 dark:text-indigo-200">{ch}</span>)}
         <span className="ml-auto flex flex-wrap items-center gap-1">
           <select value={project} onChange={(e) => setProject(e.target.value)} aria-label="Project" className="rounded-md border border-stone-200 bg-white px-1.5 py-0.5 text-[11px] text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
