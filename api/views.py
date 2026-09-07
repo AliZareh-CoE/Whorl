@@ -1061,7 +1061,7 @@ class DocumentViewSet(AtlasViewSet):
 
 
 class ReferenceViewSet(AtlasViewSet):
-    queryset = Reference.objects.prefetch_related("project_links__project")
+    queryset = Reference.objects.prefetch_related("project_links__project", "tags")
     serializer_class = serializers.ReferenceSerializer
     project_filter = "project_links__project__slug"
 
@@ -1070,9 +1070,9 @@ class ReferenceViewSet(AtlasViewSet):
         # needs_metadata, project, reading_status, unfiled, sort) — see literature/library.py.
         from literature.library import filter_references
 
-        queryset = Reference.objects.prefetch_related("project_links__project").select_related(
-            "text"
-        )
+        queryset = Reference.objects.prefetch_related(
+            "project_links__project", "tags"
+        ).select_related("text")
         if self.action == "list":
             return filter_references(queryset, self.request.query_params)
         return queryset

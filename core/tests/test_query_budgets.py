@@ -131,3 +131,24 @@ class TestApiQueryBudgets:
             f"/api/v1/milestones/?project={project.slug}&q={'a' * 5000}"
         )
         assert response.status_code == 200  # capped to 200 chars, not an error
+
+
+class TestApiBudgets:
+    """#426: the SPA's list endpoints must not grow with the rows they return."""
+
+    def test_reference_list_with_tags_is_constant(
+        self, client_logged_in, django_assert_max_num_queries
+    ):
+        from literature.models import LibraryTag
+        from literature.tests.factories import ReferenceFactory
+
+        tags = [LibraryTag.objects.create(name=f"t{i}") for i in range(3)]
+        for i in range(40):
+            ref = ReferenceFactory(bibtex_key=f"ref{i}")
+            ref.tags.add(tags[i % 3])
+            if i % 2:
+                ref.tags.add(tags[(i + 1) % 3])
+        with django_assert_max_num_queries(12):
+            response = client_logged_in.get("/api/v1/references/?page_size=50")
+        assert response.status_code == 200 and len(response.json()["results"]) == 40
+        assert all(isinstance(r["tags"], list) for r in response.json()["results"])

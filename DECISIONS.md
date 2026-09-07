@@ -552,6 +552,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Performance pass: the references list stops asking for tags one row at a time (#426)
+
+**Decision.** A query probe over the twenty hottest API endpoints on the demo data (cache cleared) found one N+1: the references list ran one `LibraryTag` query per row (36 queries for 50 rows; the `tags` field on the serializer reads the M2M). `prefetch_related("tags")` on both reference querysets takes it to 7, flat in the row count; a budget test pins it (40 rows, ≤ 12 queries). Everything else was flat: the dashboard is 23 queries warm (the heatmap and pet are cached), the project overview 51 queries at ~60 ms — each a cheap aggregate from a different selector, not a per-row pattern — the achievements ledger 77 single counts behind the pet's 5-minute cache.
+
+**Why.** Owner idea #1: every cycle leaves the app faster or no slower. Today's slices added serializer fields (`progress`, `*_html`, `captures`) — the probe is how the loop checks they did not smuggle in per-row queries (they did not; the tags one predates them).
+
+**Alternatives rejected.** Squeezing the overview's 51 into fewer by threading prefetched phases through six selectors (a refactor for ~20 ms on a page that already answers in 60); caching list responses (ETags already make the repeat case free).
+
 ### 2026-09-07 — A keyboard cheat sheet on `?` (#425)
 
 **Decision.** `app/shortcuts.tsx` holds the one list of shortcuts the app answers to — everywhere (⌘K, ?, the inspector on the desktop), Inbox (j/k, ↵, 1–5, x), Notes (⌘S, `[[`, `@`), Studio (⌘S, ⌘↩, ⌘⇧J, ⌘B, ⌘\, ⌘J, ⌘P), Reader — rendered as a two-column card through the in-app notice dialog. `?` opens it anywhere except inside inputs, textareas, selects, contenteditable and the CodeMirror editor; "Keyboard shortcuts" is a ⌘K verb. The modifier label follows the platform (⌘ / Ctrl).

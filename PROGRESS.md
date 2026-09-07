@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Performance pass (2026-09-07, #426).** Probe of 20 endpoints; references list 36→7 queries (`prefetch_related("tags")`); budget test core/tests/test_query_budgets.py::TestApiBudgets. Warm dashboard 23 q / 25 ms; overview 51 q / 60 ms (flat).
+
 - **Shortcuts sheet (2026-09-07, #425).** `app/shortcuts.tsx` (`?` key, ⌘K verb), five groups. Guard: core/tests/test_polish.py::test_shortcuts_sheet. Playwright: docs/screenshots/shortcuts-sheet.png.
 
 - **Backup awareness (2026-09-07, #424).** `core.BackupRecord` (0010) written by the backup view; `core/backups.py`; diagnostics `backups` + text line; dashboard attention row; Diagnostics header line. Tests: core/tests/test_backup_awareness.py (2).
