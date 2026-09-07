@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Studio follow-cursor sync (2026-09-07, #394).** Setting "PDF follows the cursor" → debounced forward SyncTeX on every cursor line change. Guard in writing/tests/test_synctex.py.
+
 - **Prompt defaults + remembered fill-ins (2026-09-07, #393).** `{{name|default}}` parsed on both sides, `variables` on the API, `render_prompt()`; the gallery shows defaults as placeholders and remembers typed values per prompt. Tests +3 in prompts/tests.
 
 - **★ PLAN ORBIT (2026-09-07, #392).** Phases as arcs (status colours, the current one glowing with its progress), milestones as moons (done / overdue), counts under each arc, click → the phase card. Playwright both themes: 4 phases, 9 moons, no errors (docs/screenshots/plan-orbit.png, -light.png). Guard in core/tests/test_constellation.py.

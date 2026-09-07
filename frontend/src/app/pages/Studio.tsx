@@ -27,7 +27,7 @@ type Diag = { level: string; file: string; line: number | null; message: string 
 type Compile = { status: string; diagnostics: Diag[]; compiled_at: string | null; pdf_url: string | null; log: string; synctex?: boolean };
 // SyncTeX (#378): one rectangle per (page, file, line) in PDF points from the top-left
 type SyncMap = { files: string[]; pages: Record<string, [number, number, number, number, number, number][]> };
-type Locate = { page: number; y: number; h: number; nonce: number };
+type Locate = { page: number; y: number; h: number; nonce: number; quiet?: boolean };
 function syncForward(map: SyncMap | null, file: string, line: number): { page: number; y: number; h: number } | null {
   if (!map) return null; const fi = map.files.indexOf(file); if (fi < 0) return null;
   let best: { d: number; hdr: number; w: number; page: number; y: number; h: number } | null = null;
@@ -47,7 +47,7 @@ type Candidate = { reference_id: number; key: string; title: string; authors: st
 type Hl = { id: number; reference: number; page: number | null; text: string; comment: string; color: string };
 type Revision = { id: number; label: string; labeled: boolean; created_at: string; files: string[] };
 type WordCount = { words: number; headers?: number; captions?: number; math?: number };
-type Settings = { keymap: "default" | "vim"; fontSize: number; spellcheck: boolean; autoCompile: boolean };
+type Settings = { keymap: "default" | "vim"; fontSize: number; spellcheck: boolean; autoCompile: boolean; followCursor: boolean };
 type Tab = "files" | "outline" | "bib" | "history";
 
 const SETTINGS_KEY = "atlas-studio-settings";
@@ -71,7 +71,7 @@ export function figureLatex(path: string): string {
 }
 
 function loadSettings(): Settings {
-  try { return { keymap: "default", fontSize: 14, spellcheck: false, autoCompile: false, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") }; } catch { return { keymap: "default", fontSize: 14, spellcheck: false, autoCompile: false }; }
+  try { return { keymap: "default", fontSize: 14, spellcheck: false, autoCompile: false, followCursor: false, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") }; } catch { return { keymap: "default", fontSize: 14, spellcheck: false, autoCompile: false, followCursor: false }; }
 }
 
 /** Workbench endpoints are classic JSON views: session auth + CSRF, form-encoded writes. */
@@ -307,6 +307,19 @@ function StudioInner({ m }: { m: Manuscript }) {
     setPreviewOpen(true); setLocate({ ...spot, nonce: Date.now() });
   }, []);
   const syncMapRef = useRef<SyncMap | null>(null); syncMapRef.current = syncMap;
+  // Follow the cursor (#394): with the setting on, the PDF scrolls to the current line as you
+  // move — debounced, silent when the line has no position, and only while the preview is open.
+  useEffect(() => {
+    if (!settings.followCursor || !previewOpen) return;
+    const t = window.setTimeout(() => {
+      const ad = adRef.current; if (!ad || !syncMapRef.current) return;
+      const path = filesRef.current.find((f) => f.id === ad.activeFile())?.path ?? "main.tex";
+      const spot = syncForward(syncMapRef.current, path, ln);
+      if (spot) setLocate({ ...spot, nonce: Date.now(), quiet: true });
+    }, 220);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ln, settings.followCursor, previewOpen, syncMap]);
   const locateInSource = useCallback(async (page: number, x: number, y: number) => {
     const hit = syncInverse(syncMapRef.current, page, x, y);
     if (!hit) { setFlash("No source position here — recompile to refresh the map."); return; }
@@ -428,7 +441,8 @@ function StudioInner({ m }: { m: Manuscript }) {
                 <label className="mb-2 flex items-center justify-between">Keymap<select value={settings.keymap} onChange={(e) => setSettings((s) => ({ ...s, keymap: e.target.value as Settings["keymap"] }))} className="rounded border bg-transparent px-1 py-0.5" style={{ borderColor: "var(--studio-line)" }}><option value="default">Default</option><option value="vim">Vim</option></select></label>
                 <label className="mb-2 flex items-center justify-between">Font size<input type="number" min={11} max={22} value={settings.fontSize} onChange={(e) => setSettings((s) => ({ ...s, fontSize: Number(e.target.value) || 14 }))} className="w-14 rounded border bg-transparent px-1 py-0.5" style={{ borderColor: "var(--studio-line)" }} /></label>
                 <label className="mb-2 flex items-center justify-between">Spellcheck<input type="checkbox" checked={settings.spellcheck} onChange={(e) => setSettings((s) => ({ ...s, spellcheck: e.target.checked }))} /></label>
-                <label className="flex items-center justify-between">Compile on save<input type="checkbox" checked={settings.autoCompile} onChange={(e) => setSettings((s) => ({ ...s, autoCompile: e.target.checked }))} /></label>
+                <label className="mb-2 flex items-center justify-between">Compile on save<input type="checkbox" checked={settings.autoCompile} onChange={(e) => setSettings((s) => ({ ...s, autoCompile: e.target.checked }))} /></label>
+                <label className="flex items-center justify-between" title="Continuous SyncTeX: the PDF scrolls to the line under the cursor (⌘⇧J still works)">PDF follows the cursor<input type="checkbox" checked={settings.followCursor} onChange={(e) => setSettings((st) => ({ ...st, followCursor: e.target.checked }))} data-testid="follow-cursor" /></label>
                 <p className="mt-3 border-t pt-2 text-[10px] leading-4 st-dim" style={{ borderColor: "var(--studio-line)" }}>⌘S save · ⌘↩ compile · ⌘B sidebar · ⌘\ preview · ⌘J problems · ⌘P quick open · ⌘F find</p>
               </div>
             )}

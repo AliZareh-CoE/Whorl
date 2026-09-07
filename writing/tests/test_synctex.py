@@ -90,3 +90,14 @@ def test_synctex_api(client_logged_in):
         client_logged_in.get(f"/api/v1/manuscripts/{m.id}/compile-status/").json()["synctex"]
         is True
     )
+
+
+def test_studio_can_follow_the_cursor():
+    """#394: a setting makes the PDF follow the cursor line (continuous forward sync)."""
+    from pathlib import Path
+
+    from django.conf import settings
+
+    src = (Path(settings.BASE_DIR) / "frontend/src/app/pages/Studio.tsx").read_text()
+    assert "followCursor: boolean" in src and 'data-testid="follow-cursor"' in src
+    assert "[ln, settings.followCursor, previewOpen, syncMap]" in src  # the debounced effect

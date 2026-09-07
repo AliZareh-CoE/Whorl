@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Studio: the PDF follows the cursor (#394)
+
+**Decision.** An editor setting, *PDF follows the cursor*, turns SyncTeX forward sync (#378) continuous: whenever the cursor line changes, a debounced effect resolves the line to its PDF spot and scrolls the preview there with the usual marker; nothing happens for lines without a position, when the preview is closed, or before a compile. Off by default; ⌘⇧J keeps working either way.
+
+**Why.** Backlog idea #30 asked for the split view with sync scroll. The map and the marker existed; the only missing piece was letting the cursor drive them without a keystroke, which is how every LaTeX IDE's "auto sync" feels. Off by default because a scrolling preview is a distraction while drafting; on while polishing, it is exactly what you want.
+
+**Alternatives rejected.** Following the editor's scroll position instead of the cursor (the cursor is what the writer is thinking about); scrolling the editor when the PDF scrolls (the double-click already does that on demand — continuous inverse sync fights the writer).
+
 ### 2026-09-07 — Prompts: `{{name|default}}` and remembered fill-ins (#393)
 
 **Decision.** A placeholder may carry a default after a pipe — `{{venue|NeurIPS}}` — which fills in unless the user types something; the first occurrence that carries a default speaks for every occurrence of that name. `Prompt.variables` (name + default) is on the API, `render_prompt()` applies value → default → the bare placeholder left visible, and the gallery shows the default as the input's placeholder. The values typed for a prompt are remembered per prompt in the browser (`atlas-prompt-values:<id>`) and come back next time.
@@ -1980,7 +1988,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 27. ~~MCP ETag cache (done 2026-06-11, cycle 47): the MCP client remembers ETag+body per GET (path, params), sends If-None-Match and reuses the cached body on 304 — verified [200, 304] live against the real API; client stays pure httpx (AST test green). Last-Modified on media split out to Backlog #54.~~
 28. Loop-resilience note — chain notifications can drop and watchdog monitors expire at 30 min; watchdog is now re-armed every cycle (lesson from the cycle-21→22 stall)
 29. Dev-process note — runserver/worker restarts must use pkill -f "[m]anage.py ..." (bracket trick) or they kill their own shell; documented after the cycle-23 debugging (idea added by cycle 23)
-30. Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24)
+30. ~~Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24) — the split view shipped with the studio; sync scroll done 2026-09-07, #394~~
 31. Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25)
 32. tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26)
 33. ~~SyncTeX-style jump (done 2026-09-07, #378: double-click the PDF → source, ⌘⇧J → PDF)~~

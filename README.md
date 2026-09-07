@@ -57,7 +57,7 @@ Claude Code can do all of it with you — 90 tools over the same API the UI uses
 **Writing** — one studio page per manuscript: status pipeline, deadline countdown, abstract, compile card with approximate word count, bibliography built from the project's literature, cite check with one-click fixes, submission timeline.
 - Reviewer-response tracker: paste the reviews, get a point-by-point response note and "7/12 answered".
 - Venue budget: words, abstract, figures, tables, references, pages — live bars against the venue's limits.
-- A full-window LaTeX studio: files, outline, bibliography and history panels, CodeMirror with `\cite{}` completion from your library and a live cite-check, PDF preview, problems panel, autosave, Vim keymap, ⌘P quick open. Compiles with Tectonic (bundled in the desktop app), keeps revisions, exports an arXiv-ready `.zip`.
+- A full-window LaTeX studio: files, outline, bibliography and history panels, CodeMirror with `\cite{}` completion from your library and a live cite-check, PDF preview, problems panel, autosave, Vim keymap, ⌘P quick open. Compiles with Tectonic (bundled in the desktop app), keeps revisions, exports an arXiv-ready `.zip`. SyncTeX both ways: ⌘⇧J shows the cursor's line in the PDF (or let the PDF follow the cursor, an editor setting), and a double-click in the PDF opens the source line.
 
 **Overview, dashboard, inbox, today**
 - Project overview: current phase with health, this week, a digest of what changed, open questions, manuscripts at a glance.
