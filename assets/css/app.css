@@ -596,3 +596,7 @@
 /* SyncTeX (#378): where the cursor's line sits in the PDF, for a moment */
 .studio-sync-marker { background: rgba(124, 108, 255, 0.28); box-shadow: 0 0 0 2px rgba(124, 108, 255, 0.9), 0 0 18px rgba(124, 108, 255, 0.6); border-radius: 3px; animation: sync-marker 2.2s ease-out forwards; }
 @keyframes sync-marker { 0% { opacity: 0; } 10% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Typeahead miss (#402): the hint pill shakes once when nothing starts with what you typed */
+.typeahead-miss { animation: typeahead-shake 0.3s ease-in-out; }
+@keyframes typeahead-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }

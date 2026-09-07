@@ -467,10 +467,12 @@ export default function Files() {
   const typeahead = useRef<{ buffer: string; at: number }>({ buffer: "", at: 0 });
   const hintTimer = useRef<ReturnType<typeof setTimeout>>();
   const [typedHint, setTypedHint] = useState("");
+  const [typedMiss, setTypedMiss] = useState(false); // #402 (backlog #185): no row matches → the hint shakes red
   const rowName = (r: FlatRow) => (r.kind === "folder" ? r.folder.name : r.file.name);
   const clearTypeahead = () => {
     typeahead.current.buffer = "";
     setTypedHint("");
+    setTypedMiss(false);
     if (hintTimer.current) clearTimeout(hintTimer.current);
   };
   const jumpToTyped = (ch: string) => {
@@ -486,8 +488,9 @@ export default function Files() {
     const start = ta.buffer.length === 1 ? focusIdx + 1 : focusIdx;
     for (let n = 0; n < flat.length; n++) {
       const idx = (start + n) % flat.length;
-      if (rowName(flat[idx]).toLowerCase().startsWith(q)) { setFocusIdx(idx); return; }
+      if (rowName(flat[idx]).toLowerCase().startsWith(q)) { setFocusIdx(idx); setTypedMiss(false); return; }
     }
+    setTypedMiss(true);
   };
 
   const onTreeKey = (e: {
@@ -694,8 +697,8 @@ export default function Files() {
             Explorer
           </div>
           {typedHint && (
-            <span className="pointer-events-none absolute right-2 top-2 z-20 rounded bg-stone-700/90 px-1.5 py-0.5 font-mono text-xs text-white">
-              {typedHint}
+            <span data-testid="typeahead-hint" data-miss={typedMiss ? "1" : undefined} className={`pointer-events-none absolute right-2 top-2 z-20 rounded px-1.5 py-0.5 font-mono text-xs text-white ${typedMiss ? "typeahead-miss bg-red-600/90" : "bg-stone-700/90"}`}>
+              {typedHint}{typedMiss && <span className="ml-1 opacity-80">— no match</span>}
             </span>
           )}
           {dragging && <p className="mb-1 rounded bg-indigo-50 py-1 text-center text-xs font-medium text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">{dropFolder != null ? "Drop to upload into this folder" : "Drop to upload"}</p>}

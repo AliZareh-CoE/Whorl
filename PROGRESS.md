@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Polish batch (2026-09-07, #402).** Active nav icon takes the accent; Files typeahead miss → red shaking hint with "no match"; #163/#162 retired as moot. Guard: core/tests/test_polish.py.
+
 - **Calendar feed token (2026-09-07, #401).** `FeedToken` (migration core.0008), `GET/POST /api/v1/feed-token/`, the `?key=` authenticator takes the feed token for the feed only; the Dashboard copies the token URL and can rotate it. Test in core/tests/test_calendar.py (+1).
 
 - **Smart views drag-to-reorder (2026-09-07, #400).** `POST /library-views/reorder/`, facets ordered by position, draggable rail rows. Test in literature/tests/test_tags_views.py (+1).

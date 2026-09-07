@@ -40,7 +40,7 @@ function UnlockToast({ unlocks, titles, grim }: { unlocks: string[]; titles: Rec
 const navCls = ({ isActive }: { isActive: boolean }) =>
   `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
     isActive
-      ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-stone-100 dark:shadow-[inset_0_0_0_1px_rgba(139,124,255,0.25)]"
+      ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-stone-100 dark:shadow-[inset_0_0_0_1px_rgba(139,124,255,0.25)] [&>svg]:opacity-100 [&>svg]:text-indigo-600 dark:[&>svg]:text-indigo-300"
       : "text-stone-600 hover:bg-stone-100 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100"
   }`;
 const iconCls = "h-4 w-4 shrink-0 opacity-70 transition-opacity group-hover:opacity-100 group-[.active]:opacity-100";
