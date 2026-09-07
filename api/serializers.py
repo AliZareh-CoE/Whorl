@@ -388,6 +388,21 @@ class LibraryTagSerializer(serializers.ModelSerializer):
         model = LibraryTag
         fields = ["id", "name", "color", "count", "created_at"]
 
+    def validate_name(self, value):
+        clean = " ".join((value or "").split()).strip()
+        if not clean:
+            raise serializers.ValidationError("A tag needs a name.")
+        return clean
+
+    def validate_color(self, value):
+        """Blank (no colour) or a #rrggbb hex — the Library paints chips with it (#381)."""
+        import re
+
+        value = (value or "").strip().lower()
+        if value and not re.fullmatch(r"#[0-9a-f]{6}", value):
+            raise serializers.ValidationError("Use a #rrggbb colour, or leave it blank.")
+        return value
+
 
 class SavedViewSerializer(serializers.ModelSerializer):
     class Meta:

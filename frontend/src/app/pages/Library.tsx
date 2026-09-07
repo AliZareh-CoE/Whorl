@@ -5,10 +5,10 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, Pencil, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
-import { confirmDialog } from "../../components/Dialog";
+import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { useMenu, type MenuItem } from "../../components/Menu";
 import PdfReader, { HL_COLORS, type Highlight } from "./library/PdfReader";
 import { Skeleton } from "../../components/Skeleton";
@@ -32,7 +32,7 @@ type Facets = {
   years: { year: number; count: number }[]; entry_types: { entry_type: string; count: number }[];
   venues: { venue: string; count: number }[]; projects: { slug: string; name: string; count: number }[];
   all_projects: { slug: string; name: string; color: string }[];
-  untagged: number; tags: { name: string; color: string; count: number }[]; views: SavedView[];
+  untagged: number; tags: { id: number; name: string; color: string; count: number }[]; views: SavedView[];
   duplicates: number;
 };
 type DupMember = { id: number; title: string; year: number | null; doi: string | null; venue: string; bibtex_key: string; has_pdf: boolean; projects: string[]; tags: string[]; score: number };
@@ -59,6 +59,23 @@ const chip = (on: boolean) =>
   `flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-xs transition-colors ${
     on ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200" : "text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
   }`;
+
+// Tag colours (#381): eight calm swatches, chosen from the rail; chips carry a tinted
+// background + a dot so the name stays readable in both themes.
+const TAG_PALETTE: { name: string; hex: string }[] = [
+  { name: "Rose", hex: "#f43f5e" }, { name: "Amber", hex: "#f59e0b" }, { name: "Lime", hex: "#84cc16" }, { name: "Teal", hex: "#14b8a6" },
+  { name: "Sky", hex: "#0ea5e9" }, { name: "Indigo", hex: "#6366f1" }, { name: "Violet", hex: "#a855f7" }, { name: "Pink", hex: "#ec4899" },
+];
+type TagColors = Record<string, string>;
+function TagChip({ name, color, className = "", children }: { name: string; color?: string; className?: string; children?: React.ReactNode }) {
+  return (
+    <span data-testid="tag-chip" data-color={color || ""} style={color ? { background: `${color}33` } : undefined}
+          className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-stone-600 dark:text-stone-200 ${color ? "" : "bg-stone-100 dark:bg-stone-800"} ${className}`}>
+      {color && <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />}
+      {name}{children}
+    </span>
+  );
+}
 
 function authorsLine(r: Ref, max = 3): string {
   const names = (r.authors ?? []).map((a) => a.family || a.given || "").filter(Boolean);
@@ -252,6 +269,26 @@ export default function Library() {
     onSuccess: () => { invalidate(); flash("Metadata found and applied."); },
     onError: () => flash("No confident metadata match — try adding the DOI by hand."),
   });
+  // Tags (#381): colour, rename and delete from the rail; the facets carry each tag's colour
+  const tagColors: TagColors = useMemo(() => Object.fromEntries((facets.data?.tags ?? []).map((t) => [t.name, t.color])), [facets.data?.tags]);
+  const patchTag = useMutation({
+    mutationFn: ({ id, ...patch }: { id: number; name?: string; color?: string }) =>
+      api(`/library-tags/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }),
+    onSuccess: (_out, vars) => { invalidate(); if (vars.name && filters.tag) set({ tag: vars.name }); },
+    onError: (e) => void errorDialog("Couldn't update the tag", e),
+  });
+  const deleteTag = useMutation({
+    mutationFn: (id: number) => api(`/library-tags/${id}/`, { method: "DELETE" }),
+    onSuccess: () => { invalidate(); if (filters.tag) set({ tag: "" }); },
+    onError: (e) => void errorDialog("Couldn't delete the tag", e),
+  });
+  const tagItems = (t: { id: number; name: string; color: string; count: number }): MenuItem[] => [
+    { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: async () => { const name = await promptDialog({ title: "Rename tag", initial: t.name, confirmLabel: "Rename", validate: (v) => (v.trim() ? null : "A tag needs a name.") }); if (name && name.trim() !== t.name) patchTag.mutate({ id: t.id, name: name.trim() }); } },
+    { label: "Delete tag…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete the tag “${t.name}”?`, body: `It comes off ${t.count} paper${t.count === 1 ? "" : "s"}; the papers stay.`, danger: true, confirmLabel: "Delete tag" })) deleteTag.mutate(t.id); } },
+    "-",
+    ...TAG_PALETTE.map((c) => ({ label: c.name, hint: t.color === c.hex ? "current" : undefined, icon: <span className="inline-block h-3 w-3 rounded-full" style={{ background: c.hex }} aria-hidden="true" />, onSelect: () => patchTag.mutate({ id: t.id, color: c.hex }) })),
+    { label: "No colour", disabled: !t.color, icon: <span className="inline-block h-3 w-3 rounded-full border border-stone-400" aria-hidden="true" />, onSelect: () => patchTag.mutate({ id: t.id, color: "" }) },
+  ];
 
   // whole-page drop zone
   useEffect(() => {
@@ -434,7 +471,7 @@ export default function Library() {
                 <p className={railH}>Tags</p>
                 {f.tags.length === 0 && <p className="px-2 text-[11px] text-stone-400">No tags yet — select papers and use “Tag”.</p>}
                 {f.tags.slice(0, 12).map((t) => (
-                  <button key={t.name} type="button" className={chip(filters.tag === t.name)} onClick={() => set({ tag: filters.tag === t.name ? "" : t.name, untagged: "" })}>
+                  <button key={t.name} type="button" data-testid="rail-tag" className={chip(filters.tag === t.name)} onClick={() => set({ tag: filters.tag === t.name ? "" : t.name, untagged: "" })} onContextMenu={(e) => menu.open(e, tagItems(t))} title="Right-click for colour, rename, delete">
                     <span className="flex min-w-0 items-center gap-1.5"><TagIcon className="h-3 w-3 shrink-0" style={{ color: t.color || "#8b7cff" }} aria-hidden="true" /><span className="truncate">{t.name}</span></span>
                     <span className="tabular-nums text-stone-400">{t.count}</span>
                   </button>
@@ -547,7 +584,7 @@ export default function Library() {
                             <p className="mt-0.5 flex flex-wrap gap-1 text-[10px]">
                               {m.has_pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-indigo-600 dark:text-indigo-300">PDF</span>}
                               {m.projects.map((p) => <span key={p} className="rounded-full bg-stone-100 px-1.5 py-0.5 text-stone-500 dark:bg-stone-800 dark:text-stone-300">{p}</span>)}
-                              {m.tags.map((t) => <span key={t} className="rounded-full bg-stone-100 px-1.5 py-0.5 text-stone-500 dark:bg-stone-800 dark:text-stone-300">#{t}</span>)}
+                              {m.tags.map((t) => <TagChip key={t} name={t} color={tagColors[t]} />)}
                             </p>
                           </div>
                           <span className="shrink-0 text-[10px] tabular-nums text-stone-400" title="completeness score">{m.score}</span>
@@ -586,7 +623,7 @@ export default function Library() {
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
                     {r.projects.map((p) => <span key={p.slug} title={`${p.name} · ${STATUS_LABEL[p.reading_status] ?? p.reading_status}`} className="h-2 w-2 rounded-full" style={{ background: p.color }} />)}
-                    {r.tags.slice(0, 3).map((t) => <span key={t} className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500 dark:bg-stone-800 dark:text-stone-300">{t}</span>)}
+                    {r.tags.slice(0, 3).map((t) => <TagChip key={t} name={t} color={tagColors[t]} className="text-[10px]" />)}
                     {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
                     {r.pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">PDF</span>}
                     {r.pdf_match && <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-200" title="Your search matched inside the PDF text"><Search className="mr-0.5 inline h-2.5 w-2.5" aria-hidden="true" />in PDF</span>}
@@ -640,7 +677,7 @@ export default function Library() {
               Select a paper to see its abstract, links, and related work.
             </div>
           ) : (
-            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} onLitNote={(project) => litNote.mutate({ reference: detail.id, project })} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
+            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} onLitNote={(project) => litNote.mutate({ reference: detail.id, project })} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} tagColors={tagColors} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
           )}
         </aside>
       </div>
@@ -650,7 +687,7 @@ export default function Library() {
   );
 }
 
-function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText, onLitNote }: { r: Ref; allTags: string[]; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; onLitNote: (project: string) => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
+function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, tagColors, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText, onLitNote }: { r: Ref; allTags: string[]; tagColors: TagColors; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; onLitNote: (project: string) => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
   const [full, setFull] = useState(false);
   const [newTag, setNewTag] = useState("");
   const citation = useQuery({ queryKey: ["cite", r.id, citeStyle], queryFn: () => api<Citation>(`/references/${r.id}/cite/?style=${citeStyle}`), staleTime: 5 * 60_000 });
@@ -699,10 +736,9 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-1.5">
         {r.tags.map((t) => (
-          <span key={t} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-700 dark:text-indigo-200">
-            <TagIcon className="h-3 w-3" aria-hidden="true" />{t}
-            <button type="button" onClick={() => onTag(t, true)} aria-label={`Remove tag ${t}`} className="opacity-60 hover:opacity-100"><X className="h-3 w-3" aria-hidden="true" /></button>
-          </span>
+          <TagChip key={t} name={t} color={tagColors[t]} className="px-2 text-[11px]">
+            <button type="button" onClick={() => onTag(t, true)} aria-label={`Remove tag ${t}`} className="ml-0.5 opacity-60 hover:opacity-100"><X className="h-3 w-3" aria-hidden="true" /></button>
+          </TagChip>
         ))}
         <form onSubmit={(e) => { e.preventDefault(); const t = newTag.trim(); if (t) { onTag(t, false); setNewTag(""); } }}>
           <input value={newTag} onChange={(e) => setNewTag(e.target.value)} list="detail-tag-names" placeholder="+ tag" className="w-20 rounded-full border border-dashed border-stone-300 bg-transparent px-2 py-0.5 text-[11px] placeholder:text-stone-400 focus:w-32 focus:border-indigo-400 focus:outline-none dark:border-stone-700" />

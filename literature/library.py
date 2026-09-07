@@ -133,9 +133,14 @@ def facets(qs: QuerySet) -> dict:
         .order_by("-n")
     ]
     tags = [
-        {"name": row["tags__name"], "color": row["tags__color"], "count": row["n"]}
+        {
+            "id": row["tags__id"],
+            "name": row["tags__name"],
+            "color": row["tags__color"],
+            "count": row["n"],
+        }
         for row in qs.exclude(tags__isnull=True)
-        .values("tags__name", "tags__color")
+        .values("tags__id", "tags__name", "tags__color")
         .annotate(n=Count("id", distinct=True))
         .order_by("-n", "tags__name")
     ]
@@ -172,6 +177,14 @@ BULK_ACTIONS = (
     "tag",
     "untag",
 )
+
+
+def touch_references(pks) -> None:
+    """Bump updated_at so list/detail ETags change when only a tag (M2M) moved."""
+    from django.utils import timezone
+
+    if pks:
+        Reference.objects.filter(pk__in=list(pks)).update(updated_at=timezone.now())
 
 
 def bulk(
@@ -211,18 +224,23 @@ def bulk(
     elif action in ("tag", "untag"):
         if not (value or "").strip():
             raise ValueError("'tag' / 'untag' need the tag name in value")
+        touched: list[int] = []
         if action == "tag":
             tag = LibraryTag.get_or_create_named(value)
             for ref in refs:
                 if not ref.tags.filter(pk=tag.pk).exists():
                     ref.tags.add(tag)
-                    affected += 1
+                    touched.append(ref.pk)
         else:
             tag = LibraryTag.objects.filter(name__iexact=value.strip()).first()
             if tag:
                 for ref in refs.filter(tags=tag):
                     ref.tags.remove(tag)
-                    affected += 1
+                    touched.append(ref.pk)
+        affected = len(touched)
+        # M2M changes don't move updated_at, and the list ETag is built from it: without this
+        # bump the SPA keeps getting 304s and never shows the new tag (#381).
+        touch_references(touched)
     elif action == "fetch_pdf":
         from .tasks import fetch_oa_pdf_task
 

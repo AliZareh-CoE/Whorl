@@ -553,6 +553,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Library tag colours, rename and delete from the rail; tag changes move the list ETag (#381)
+
+**Decision.** A tag's colour (the model had the field since slice 5) is now chosen from the rail: right-click a tag → eight swatches, "No colour", **Rename…** and **Delete tag…** (in-app dialogs). Chips on the rows, in the detail pane and on the duplicate cards carry a tint plus a dot in that colour, so a tag reads the same everywhere. `PATCH /library-tags/{id}/` validates `#rrggbb` (or blank) and keeps case-insensitive uniqueness on rename; the facets carry each tag's `id`.
+
+**Why.** The rail already painted the tag icon with the colour nobody could set. Colour on a tag is the cheapest way to make a long list scannable ("everything rose is methods"), and rename/delete were the last tag operations without a place in the UI. While verifying, the rows kept showing a stale tag set: tagging is an M2M change that never moves `updated_at`, and the list ETag (#11-adjacent conditional GETs) is built from it, so the SPA got 304s after every tag/untag and after a rename or delete. `literature.library.touch_references` now bumps the affected rows in `bulk` and in the tag viewset's update/destroy — the same "keep updated_at honest" rule the hypothesis/evidence and manuscript viewsets already follow. Regression test in `test_tags_views`.
+
+**Alternatives rejected.** A free colour picker (eight calm swatches fit the palette and a menu; a wheel needs a dialog and produces greens nobody can read on); folding the tag table's max `updated_at` into the reference list ETag (works for rename/delete but not for tag/untag, and splits the ETag rule); dropping the ETag on the reference list (MCP polling would lose its cheap 304s).
+
 ### 2026-09-07 — The dashboard hero carries the top of your list and your rank (#380)
 
 **Decision.** `GET /api/v1/dashboard/` now includes `todos` (the first four open Today items in list order); the hero renders them with a tick box that completes in place and a "n more on today's list" link. A small chip next to the counts shows the achievement rank and score (red in souls mode) and opens the ledger.
@@ -1678,7 +1686,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 305. ~~Library v2 slice 6 (done 2026-09-06): duplicate clusters with a suggested keep, relation-preserving merge, Duplicates mode in the workbench, API + MCP. See the 2026-09-06 decision.~~
 304. ~~Updater polish (done 2026-09-06, #370: progress events + bar, release notes confirm, 6-hourly re-check)~~ — original note: download progress in the sidebar control (the install closure has a chunk callback), release notes from latest.json shown before installing, a "check on a schedule" while the app is open (currently once per launch).
 303. ~~In-app updates live (done 2026-09-06): keypair generated (public key committed, private key handed to the owner for the TAURI_SIGNING_PRIVATE_KEY secret), sign-when-secret CI logic, preview release published as a prerelease with asset pruning, silent launch check + one-click install + restart in the sidebar. See the 2026-09-06 decision.~~
-302. Library, remaining vs. Paperpile/Zotero after slice 5: duplicate merge (keep links/PDF/tags), inline PDF preview pane in the workbench, tag colours in the UI (model has the field), drag-to-reorder smart views, per-reference notes surfaced in the detail pane.
+302. Library, remaining vs. Paperpile/Zotero after slice 5: duplicate merge (keep links/PDF/tags), inline PDF preview pane in the workbench, ~~tag colours in the UI (done 2026-09-07, #381: swatches, rename, delete from the rail)~~, drag-to-reorder smart views, per-reference notes surfaced in the detail pane.
 301. ~~Library v2 slice 5 (done 2026-09-06): LibraryTag + SavedView, rail sections (Smart views with "+ save", Tags with Untagged), bulk/detail tag editing, API + MCP. See the 2026-09-06 decision.~~
 300. Today list, later (⌘K `todo:` verb done 2026-09-06, #371; hero widget done 2026-09-07, #380): drag-to-reorder, ~~a compact widget on the dashboard hero ("3 on your list")~~, ~~a ⌘K verb "Add to my list"~~, optional due times with a gentle nudge in the sidebar, carry-over count ("2 from yesterday").
 299. ~~Today list (done 2026-09-06, owner request): core.TodoItem + /today page + sidebar entry + /api/v1/todos/ + MCP list/add/complete. See the 2026-09-06 decision.~~

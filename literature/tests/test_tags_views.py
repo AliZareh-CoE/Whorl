@@ -55,7 +55,8 @@ def test_facets_include_tags_untagged_and_views(refs):
     library.bulk([a.pk], "tag", value="pilot")
     SavedView.objects.create(name="Pilot papers", params={"tag": "pilot"}, position=1)
     f = library.facets(Reference.objects.all())
-    assert f["tags"] == [{"name": "pilot", "color": "", "count": 1}]
+    tag = LibraryTag.objects.get(name="pilot")
+    assert f["tags"] == [{"id": tag.pk, "name": "pilot", "color": "", "count": 1}]
     assert f["untagged"] == 1
     assert f["views"][0]["name"] == "Pilot papers" and f["views"][0]["params"] == {"tag": "pilot"}
 
@@ -130,6 +131,12 @@ def test_ui_wiring():
         "library-tag-names",
         'action: "tag"',
         "Untagged",
+        # #381: colours + rename/delete from the rail
+        "TAG_PALETTE",
+        'data-testid="rail-tag"',
+        "tagItems(t)",
+        "function TagChip",
+        "/library-tags/${id}/",
     ):
         assert needle in src, needle
     chunks = " ".join(
@@ -137,3 +144,53 @@ def test_ui_wiring():
         for p in (Path(settings.BASE_DIR) / "static" / "js" / "islands").glob("Library*.js")
     )
     assert "Smart views" in chunks and "/library-views/" in chunks
+
+
+def test_tag_colour_and_rename_via_api(client, owner, refs):
+    """#381: the Library paints tags with their colour; rename keeps case-insensitive uniqueness."""
+    a, b = refs
+    library.bulk([a.pk], "tag", value="pilot")
+    library.bulk([b.pk], "tag", value="core")
+    pilot = LibraryTag.objects.get(name="pilot")
+    url = f"/api/v1/library-tags/{pilot.pk}/"
+    ok = client.patch(url, {"color": "#F59E0B"}, content_type="application/json", **HEADERS)
+    assert ok.status_code == 200 and ok.json()["color"] == "#f59e0b"
+    bad = client.patch(url, {"color": "orange"}, content_type="application/json", **HEADERS)
+    assert bad.status_code == 400 and "color" in bad.json()
+    cleared = client.patch(url, {"color": ""}, content_type="application/json", **HEADERS)
+    assert cleared.status_code == 200 and cleared.json()["color"] == ""
+    clash = client.patch(url, {"name": "CORE"}, content_type="application/json", **HEADERS)
+    assert clash.status_code == 400 and "core" in clash.json()["name"][0]
+    renamed = client.patch(
+        url, {"name": "  pilot   study "}, content_type="application/json", **HEADERS
+    )
+    assert renamed.status_code == 200 and renamed.json()["name"] == "pilot study"
+    assert list(a.tags.values_list("name", flat=True)) == ["pilot study"]
+    gone = client.delete(url, **HEADERS)
+    assert gone.status_code == 204 and a.tags.count() == 0 and Reference.objects.count() == 2
+
+
+def test_tag_changes_move_the_reference_list_etag(client, owner, refs):
+    """#381 regression: tagging is an M2M change that never touched updated_at, so the list
+    ETag stayed put and the SPA got 304s — the new tag never appeared in the rows."""
+    a, _ = refs
+    first = client.get("/api/v1/references/?sort=added", **HEADERS)
+    etag = first["ETag"]
+    library.bulk([a.pk], "tag", value="pilot")
+    after_tag = client.get("/api/v1/references/?sort=added", HTTP_IF_NONE_MATCH=etag, **HEADERS)
+    assert after_tag.status_code == 200 and after_tag["ETag"] != etag
+    etag = after_tag["ETag"]
+    pilot = LibraryTag.objects.get(name="pilot")
+    client.patch(
+        f"/api/v1/library-tags/{pilot.pk}/",
+        {"name": "pilot study"},
+        content_type="application/json",
+        **HEADERS,
+    )
+    renamed = client.get("/api/v1/references/?sort=added", HTTP_IF_NONE_MATCH=etag, **HEADERS)
+    assert renamed.status_code == 200 and renamed["ETag"] != etag
+    assert any(r["tags"] == ["pilot study"] for r in renamed.json()["results"])
+    etag = renamed["ETag"]
+    client.delete(f"/api/v1/library-tags/{pilot.pk}/", **HEADERS)
+    deleted = client.get("/api/v1/references/?sort=added", HTTP_IF_NONE_MATCH=etag, **HEADERS)
+    assert deleted.status_code == 200 and all(r["tags"] == [] for r in deleted.json()["results"])

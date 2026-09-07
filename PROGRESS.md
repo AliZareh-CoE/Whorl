@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- **Library tag colours (2026-09-07, #381).** Right-click a rail tag → eight swatches / no colour / rename / delete; tinted chips on rows, detail pane and duplicate cards; `PATCH /library-tags/` validates the hex and rename uniqueness. Fixed on the way: tag/untag/rename/delete never moved `updated_at`, so the reference list ETag stayed put and the SPA showed stale tags (304s) — `touch_references` bumps the rows now (regression test). Playwright: tagged a paper → Rose from the rail → both chips tinted → renamed → deleted (docs/screenshots/library-tag-colours.png). Tests: literature/tests/test_tags_views.py (+2, guard extended). Full suite before this slice: 1113 passed, 1 skipped.
+
 - **Hero to-dos + rank chip (2026-09-07, #380).** Dashboard API `todos` (top 4 open), tick in place, "n more" link; rank/score chip → /achievements. Test in test_dashboard_v2; Playwright ticked an item from the hero (docs/screenshots/hero-todos.png).
 
 - **Audit in desktop mode (2026-09-07).** `scripts/ui_audit.py … desktop` injects a `window.__TAURI__` stub so desktop-only paths run in the sweep; run before every desktop-facing commit from now on.

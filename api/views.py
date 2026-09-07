@@ -1612,6 +1612,31 @@ class LibraryTagViewSet(AtlasViewSet):
             return
         serializer.save(name=" ".join(name.split()).strip())
 
+    def perform_update(self, serializer):
+        name = serializer.validated_data.get("name")
+        if name is not None:
+            clash = (
+                LibraryTag.objects.filter(name__iexact=name)
+                .exclude(pk=serializer.instance.pk)
+                .first()
+            )
+            if clash:
+                raise rf_serializers.ValidationError(
+                    {"name": [f"A tag called “{clash.name}” already exists."]}
+                )
+        serializer.save()
+        # the tag's name is serialised on every reference carrying it (#381)
+        from literature.library import touch_references
+
+        touch_references(serializer.instance.references.values_list("pk", flat=True))
+
+    def perform_destroy(self, instance):
+        from literature.library import touch_references
+
+        pks = list(instance.references.values_list("pk", flat=True))
+        super().perform_destroy(instance)
+        touch_references(pks)
+
 
 class SavedViewViewSet(AtlasViewSet):
     """Smart views: named Library filter sets restored with one click from the rail."""
