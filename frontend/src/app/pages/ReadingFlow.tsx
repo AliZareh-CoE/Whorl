@@ -4,12 +4,15 @@
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, csrfToken, petReact } from "../api";
+import { listenTo, type Listener } from "../listen";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
+import { queryGate } from "../../components/QueryBoundary";
 
 type Paper = {
-  id: number;
+  id: number | null; // #450: null when the paper sits in no project yet (library mode)
+  project?: string | null;
   reading_status: string;
   priority: string;
   reference: {
@@ -36,25 +39,31 @@ function authorLine(a: Paper["reference"]["authors"]): string {
 export default function ReadingFlow() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  // #450: /library/read?<filters> runs the same flow over any Library view
+  const libraryMode = !slug;
+  const search = useLocation().search;
   const queryClient = useQueryClient();
   const [i, setI] = useState(0);
   const [done, setDone] = useState<Set<number>>(new Set());
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [flash, setFlash] = useState("");
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const listenerRef = useRef<Listener | null>(null);
   const [listening, setListening] = useState(false);
-  const [tldr, setTldr] = useState<string[] | null>(null);
+  // tl;dr (#395): section-by-section from the PDF text when it is indexed, else the abstract
+  const [tldr, setTldr] = useState<{ title: string; page: number | null; sentences: string[] }[] | null>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["reading-flow", slug],
-    queryFn: () => api<{ papers: Paper[] }>(`/projects/${slug}/reading-flow/`),
+  const flow = useQuery({
+    queryKey: ["reading-flow", slug ?? "library", search],
+    queryFn: () => api<{ papers: Paper[] }>(libraryMode ? `/references/reading-flow/${search}` : `/projects/${slug}/reading-flow/`),
   });
+  const data = flow.data;
   const papers = data?.papers ?? [];
   const paper = papers[i];
 
   async function setStatus(status: string) {
     if (!paper) return;
+    if (paper.id === null) { setFlash("This paper is in no project yet — file it from the Library first."); setTimeout(() => setFlash(""), 2500); return; }
     await api(`/project-references/${paper.id}/`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -62,10 +71,11 @@ export default function ReadingFlow() {
     });
     setFlash(`Marked ${STATUS_LABEL[status]}`);
     setTimeout(() => setFlash(""), 1200);
-    queryClient.invalidateQueries({ queryKey: ["literature", slug] });
+    queryClient.invalidateQueries({ queryKey: ["literature", slug ?? paper.project] });
+    queryClient.invalidateQueries({ queryKey: ["references"] });
     if (status === "read" || status === "annotated") petReact("paper");
     if (status === "read" || status === "annotated") {
-      setDone((d) => new Set(d).add(paper.id));
+      setDone((d) => new Set(d).add(paper.id as number));
       next();
     }
   }
@@ -75,30 +85,23 @@ export default function ReadingFlow() {
   async function summarize() {
     if (!paper) return;
     if (tldr) { setTldr(null); return; }
-    const res = await fetch("/summarize/", {
-      method: "POST",
-      headers: { "X-CSRFToken": csrfToken(), "X-SPA": "1" },
-      body: new URLSearchParams({ text: paper.reference.abstract }),
-    });
-    setTldr((await res.json()).sentences ?? []);
+    try {
+      const out = await api<{ source: string; sections: { title: string; page: number | null; sentences: string[] }[]; reason?: string }>(`/references/${paper.reference.id}/tldr/`);
+      setTldr(out.sections.length ? out.sections : [{ title: "Nothing to summarise", page: null, sentences: [out.reason ?? "No abstract and no PDF text on file."] }]);
+    } catch {
+      setFlash("Couldn't summarise this paper.");
+    }
   }
 
   async function listen() {
-    if (listening) { audioRef.current?.pause(); setListening(false); return; }
+    if (listening) { listenerRef.current?.stop(); listenerRef.current = null; setListening(false); return; }
     if (!paper) return;
     setListening(true);
-    try {
-      const res = await fetch("/tts/", {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfToken() },
-        body: new URLSearchParams({ text: `${paper.reference.title}. ${paper.reference.abstract}` }),
-      });
-      if (!res.ok) throw new Error();
-      const audio = new Audio(URL.createObjectURL(await res.blob()));
-      audioRef.current = audio;
-      audio.onended = () => setListening(false);
-      await audio.play();
-    } catch { setListening(false); }
+    // #404: chunked, prefetched — the abstract starts within a sentence and reads without gaps
+    const l = listenTo(`${paper.reference.title}. ${paper.reference.abstract}`);
+    listenerRef.current = l;
+    try { await l.done; } catch (e) { setFlash(String((e as Error).message ?? "Read-aloud unavailable.")); }
+    finally { if (listenerRef.current === l) { listenerRef.current = null; setListening(false); } }
   }
 
   async function saveNote() {
@@ -106,7 +109,7 @@ export default function ReadingFlow() {
     await api("/quick-capture/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: `[${paper.reference.bibtex_key}] ${noteText}`, project: slug }),
+      body: JSON.stringify({ text: `[${paper.reference.bibtex_key}] ${noteText}`, project: slug ?? paper.project ?? null }),
     });
     setNoteText(""); setNoteOpen(false);
     setFlash("Note captured");
@@ -119,20 +122,22 @@ export default function ReadingFlow() {
         if (e.key === "Escape") setNoteOpen(false);
         return;
       }
-      if (e.key === "Escape") { navigate(`/projects/${slug}/queue`); return; }
+      if (e.key === "Escape") { if (libraryMode) navigate("/library"); else navigate(`/projects/${slug}/queue`); return; }
       if (STATUS_KEYS[e.key]) { e.preventDefault(); setStatus(STATUS_KEYS[e.key]); }
       else if (e.key === "n" || e.key === "ArrowRight") next();
       else if (e.key === "p" || e.key === "ArrowLeft") prev();
       else if (e.key === "j") { e.preventDefault(); setNoteOpen(true); }
       else if (e.key === "l") listen();
-      else if (e.key === "s" && paper.reference.abstract) { e.preventDefault(); summarize(); }
+      else if (e.key === "s") { e.preventDefault(); summarize(); }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   });
 
-  if (isLoading)
-    return (
+  // #409: skeleton while loading, ErrorState with retry when the fetch fails
+  const gate = queryGate(flow, {
+    message: "Couldn't load the reading flow.",
+    skeleton: (
       <div role="status" aria-label="Loading" className="mx-auto max-w-3xl px-4">
         <div className="mb-3 flex items-center justify-between">
           <Skeleton className="h-3 w-32" />
@@ -146,7 +151,9 @@ export default function ReadingFlow() {
           <SkeletonLines lines={5} />
         </article>
       </div>
-    );
+    ),
+  });
+  if (gate) return gate;
 
   if (!paper) {
     return (
@@ -159,7 +166,7 @@ export default function ReadingFlow() {
             : "Nothing left to read in this project. Link new references to build the queue back up."}
         </p>
         <Link
-          to={`/projects/${slug}/literature`}
+          to={libraryMode ? "/library" : `/projects/${slug}/literature`}
           className="inline-flex items-center gap-1.5 rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
           Back to literature
@@ -179,7 +186,7 @@ export default function ReadingFlow() {
         </span>
         <span className="flex items-center gap-3 text-stone-400">
           {flash && <span className="font-medium text-emerald-600">{flash}</span>}
-          <Link to={`/projects/${slug}/queue`} className="transition-colors hover:text-stone-600 dark:hover:text-stone-300">Esc to exit</Link>
+          <Link to={libraryMode ? "/library" : `/projects/${slug}/queue`} className="transition-colors hover:text-stone-600 dark:hover:text-stone-300">Esc to exit</Link>
         </span>
       </div>
       <div className="mb-6 h-1 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">
@@ -207,9 +214,15 @@ export default function ReadingFlow() {
           {r.doi && <a href={`https://doi.org/${r.doi}`} className="font-medium text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">DOI ↗</a>}
         </div>
         {tldr && (
-          <ul className="mb-4 list-disc space-y-1.5 rounded border border-stone-100 bg-stone-50 p-4 pl-8 text-sm leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300">
-            {tldr.map((s, i) => <li key={i}>{s}</li>)}
-          </ul>
+          <ol className="mb-4 space-y-2 rounded border border-stone-100 bg-stone-50 p-4 text-sm leading-relaxed text-stone-600 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300" data-testid="flow-tldr">
+            {tldr.map((s, i) => (
+              <li key={i}>
+                <span className="font-medium text-stone-800 dark:text-stone-100">{s.title}</span>
+                {s.page && <span className="ml-1.5 rounded-full bg-stone-200 px-1.5 py-0.5 text-[10px] text-stone-500 dark:bg-stone-700 dark:text-stone-300">p.{s.page}</span>}
+                <span className="ml-1 text-stone-400">·</span> {s.sentences.join(" ")}
+              </li>
+            ))}
+          </ol>
         )}
         {r.abstract
           ? <p className="max-w-prose text-[15px] leading-7 text-stone-700 dark:text-stone-300">{r.abstract}</p>

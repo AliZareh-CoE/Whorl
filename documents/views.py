@@ -1,10 +1,11 @@
 from django.contrib import messages
-from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, UpdateView
 
+from core.files import file_response
 from core.modals import ModalFormMixin
 from projects.models import Project
 from projects.views import ProjectScopedMixin
@@ -111,10 +112,9 @@ def documents_index(request, slug):
 
 def document_download(request, slug, pk):
     document = get_object_or_404(Document, pk=pk, project__slug=slug)
-    response = FileResponse(document.file.open("rb"), as_attachment=True)
-    # files are immutable once uploaded (edits create new files) — let browsers cache
-    response["Cache-Control"] = "private, max-age=86400"
-    return response
+    # files are immutable once uploaded (edits create new files): a day of caching, then a
+    # free 304 on the validators (#434)
+    return file_response(request, document.file, as_attachment=True)
 
 
 def document_preview(request, slug, pk):
@@ -138,10 +138,7 @@ def document_preview(request, slug, pk):
         handle.seek(0)
         if sniffed is not None:
             serve_type = sniffed
-    response = FileResponse(handle, as_attachment=False, content_type=serve_type)
-    response["X-Content-Type-Options"] = "nosniff"
-    response["Cache-Control"] = "private, max-age=86400"
-    return response
+    return file_response(request, document.file, handle=handle, content_type=serve_type)
 
 
 def _index_url(project):
@@ -367,7 +364,7 @@ def bulk_action(request, slug):
         folder = None
         if request.POST.get("folder"):
             folder = get_object_or_404(project.folders, pk=request.POST["folder"])
-        documents.update(folder=folder)
+        documents.update(folder=folder, updated_at=timezone.now())
         messages.success(
             request, f"Moved {count} document(s) to {folder.name if folder else 'the root'}."
         )

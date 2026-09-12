@@ -6,30 +6,24 @@
   <title>{% block title %}Atlas{% endblock %} · Atlas</title>
   {% load static %}
   <script>
-    // Apply the effective theme before paint (no flash): an explicit saved choice wins,
-    // otherwise follow the OS prefers-color-scheme. The toggle records an explicit choice;
-    // with none stored we keep tracking the OS live. Dark mode is complete app-wide now (#273).
+    // Apply the theme before paint (no flash). Observatory (dark) is Atlas's identity and the
+    // default; "Paper" (light) is an explicit saved choice via the toggle (owner-directed,
+    // 2026-09-06 — this replaced the follow-the-OS default of #273).
     (function () {
-      var mql = window.matchMedia("(prefers-color-scheme: dark)");
       function stored() { try { return localStorage.getItem("theme"); } catch (e) { return null; } }
-      function apply() {
-        var t = stored();
-        var dark = t === "dark" || (t !== "light" && mql.matches);
-        document.documentElement.classList.toggle("dark", dark);
-      }
-      apply();
+      document.documentElement.classList.toggle("dark", stored() !== "light");
       window.__toggleTheme = function () {
         var dark = document.documentElement.classList.toggle("dark");
         try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
       };
-      if (mql.addEventListener) mql.addEventListener("change", function () { if (!stored()) apply(); });
       // Calm mode (#275): reflect the saved preference as a class before paint.
       try { if (localStorage.getItem("atlas-calm") === "1") document.documentElement.classList.add("calm"); } catch (e) {}
     })();
   </script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
-  <script src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js" defer></script>
+  {# vendored (#385): the desktop must work offline — htmx 2.0.4 and Alpine 3.14.9 from static/vendor #}
+  <script src="{% static 'vendor/htmx/htmx.min.js' %}" defer></script>
+  <script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
 </head>
 <body class="h-full bg-stone-50 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:text-white">
@@ -102,6 +96,7 @@
           </a>
         {% endif %}
         <a href="{% url 'bots:automations' %}" class="mb-2 block hover:text-stone-600 dark:hover:text-stone-200 {% if request.resolver_match.namespace == 'bots' %}font-medium text-stone-600{% endif %}">Automations</a>
+        <a href="{% url 'core:connect_claude' %}" class="mb-2 block hover:text-stone-600 dark:hover:text-stone-200 {% if request.resolver_match.url_name == 'connect_claude' %}font-medium text-stone-600{% endif %}">Connect Claude Code</a>
         <button type="button" onclick="window.__toggleTheme()" class="mb-2 block hover:text-stone-600 dark:hover:text-stone-200">
           <span class="dark:hidden">Dark mode 🌙</span><span class="hidden dark:inline">Light mode ☀</span>
         </button>
@@ -111,6 +106,12 @@
       </div>
     </aside>
     <div class="flex-1 min-w-0 lg:ml-56">
+      {% if request.classic_ui %}
+      <div class="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200" data-testid="classic-banner">
+        <span>You are in <strong>classic Atlas</strong>, the older server-rendered UI. Today, the inbox triage, the pet and the studio live in the app.</span>
+        <a href="{{ request.spa_back_url }}" class="shrink-0 rounded-md bg-amber-600 px-2.5 py-1 font-medium text-white hover:bg-amber-700">Back to the app →</a>
+      </div>
+      {% endif %}
       <main id="main" class="{% block main_class %}mx-auto max-w-5xl{% endblock %} px-4 py-8 pt-14 sm:px-6 lg:px-8 lg:pt-8">
         <nav class="mb-6 text-sm text-stone-500" aria-label="Breadcrumb">
           {% block breadcrumbs %}{% endblock %}

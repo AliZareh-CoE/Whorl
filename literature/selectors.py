@@ -126,6 +126,92 @@ def synthesis_scaffold(project) -> str:
     return "\n".join(lines)
 
 
+def _tex_escape(text: str) -> str:
+    out = []
+    for ch in text:
+        out.append(
+            {
+                "&": r"\&",
+                "%": r"\%",
+                "$": r"\$",
+                "#": r"\#",
+                "_": r"\_",
+                "{": r"\{",
+                "}": r"\}",
+                "~": r"\textasciitilde{}",
+                "^": r"\textasciicircum{}",
+                "\\": r"\textbackslash{}",
+            }.get(ch, ch)
+        )
+    return "".join(out)
+
+
+def related_work_latex(project, manuscript=None) -> tuple[str, list]:
+    """A LaTeX `Related work` section drafted from the review matrix (#437, backlog #62).
+
+    One subsection per theme; every cell finding becomes a sentence ending in `\citep{key}`,
+    papers marked without a finding are gathered into one `\citep{a, b, c}`; themes with no
+    papers and papers under no theme are left as comments — gaps to fill or drop. Returns the
+    LaTeX and the references it cites (so the caller can put them in the bibliography).
+    Pure local logic — a running start, not a generated review.
+    """
+    from datetime import date
+
+    from .models import ReviewMark
+
+    themes = list(project.review_themes.all())
+    links = list(project.project_references.select_related("reference"))
+    marks = (
+        ReviewMark.objects.filter(theme__project=project)
+        .select_related("theme", "project_reference__reference")
+        .order_by("project_reference__reference__year", "project_reference__reference__bibtex_key")
+    )
+    by_theme: dict[int, list] = {t.pk: [] for t in themes}
+    marked_links: set[int] = set()
+    cited: dict[int, object] = {}
+    for mark in marks:
+        by_theme.setdefault(mark.theme_id, []).append(mark)
+        marked_links.add(mark.project_reference_id)
+    target = manuscript.title if manuscript is not None else project.name
+    lines = [
+        f"% Related work for {_tex_escape(target)} — drafted from the review matrix of "
+        f"{_tex_escape(project.name)} on {date.today().isoformat()}.",
+        "% Each sentence is a matrix cell; turn the list into an argument. Every key below is in "
+        "the manuscript's bibliography.",
+        "\\section{Related work}",
+        "",
+    ]
+    for theme in themes:
+        theme_marks = by_theme.get(theme.pk, [])
+        lines.append(f"\\subsection{{{_tex_escape(theme.name)}}}")
+        if not theme_marks:
+            lines.append(
+                "% No papers marked under this theme yet — a gap to fill, or drop the subsection."
+            )
+            lines.append("")
+            continue
+        bare = []
+        for mark in theme_marks:
+            ref = mark.project_reference.reference
+            cited[ref.pk] = ref
+            note = (mark.note or "").strip().rstrip(".;:")
+            if note:
+                lines.append(f"{_tex_escape(note)}~\\citep{{{ref.bibtex_key}}}.")
+            else:
+                bare.append(ref.bibtex_key)
+        if bare:
+            lines.append(
+                f"Further work on {_tex_escape(theme.name.lower())} includes~\\citep{{{', '.join(bare)}}}."
+            )
+        lines.append("")
+    uncovered = [link.reference for link in links if link.pk not in marked_links]
+    if uncovered:
+        keys = ", ".join(ref.bibtex_key for ref in uncovered)
+        lines.append(f"% Not yet themed (place them in the matrix, or leave them out): {keys}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n", list(cited.values())
+
+
 def theme_candidates(project_references, theme_name: str):
     """Unread papers that look relevant to a theme but aren't marked under it (Backlog #82).
 

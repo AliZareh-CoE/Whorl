@@ -101,3 +101,59 @@ def test_calendar_endpoint_serves_text_calendar(client):
 def test_calendar_endpoint_requires_api_key(client):
     project = ProjectFactory()
     assert client.get(f"/api/v1/projects/{project.slug}/calendar.ics/").status_code == 401
+
+
+@pytest.mark.django_db
+def test_calendar_feed_endpoint(client_logged_in, settings):
+    from django.test import Client
+
+    from core.calendar import build_ics
+
+    client = Client()  # anonymous — client_logged_in logs in the shared fixture client
+
+    settings.ATLAS_API_KEY = "feedkey"
+    project = ProjectFactory()
+    phase = PhaseFactory(project=project)
+    MilestoneFactory(phase=phase, title="Pilot data", due_date=date(2026, 7, 1))
+    other = ProjectFactory()
+    MilestoneFactory(
+        phase=PhaseFactory(project=other), title="Elsewhere", due_date=date(2026, 8, 1)
+    )
+
+    assert client.get("/api/v1/calendar.ics").status_code in (401, 403)
+    assert client.get("/api/v1/calendar.ics?key=wrong").status_code in (401, 403)
+    ok = client.get("/api/v1/calendar.ics?key=feedkey")
+    assert ok.status_code == 200 and ok["Content-Type"].startswith("text/calendar")
+    body = ok.content.decode()
+    assert "Pilot data" in body and "Elsewhere" in body and f"{project.name}:" in body
+    scoped = client.get(f"/api/v1/calendar.ics?key=feedkey&project={project.slug}").content.decode()
+    assert "Pilot data" in scoped and "Elsewhere" not in scoped
+    assert client_logged_in.get("/api/v1/calendar.ics").status_code == 200  # session works too
+    assert build_ics([project]).count("BEGIN:VEVENT") == 1
+
+
+@pytest.mark.django_db
+def test_feed_token_authenticates_the_calendar_only_and_rotates(
+    client, settings, django_user_model
+):
+    from core.models import FeedToken
+
+    settings.ATLAS_API_KEY = "apikey"
+    if not django_user_model.objects.filter(is_superuser=True).exists():
+        django_user_model.objects.create_superuser("feedowner", password="pw")
+    info = client.get("/api/v1/feed-token/", HTTP_X_API_KEY="apikey").json()
+    token = info["token"]
+    assert info["url"].endswith(f"/api/v1/calendar.ics?key={token}") and len(token) >= 30
+    assert client.get(f"/api/v1/calendar.ics?key={token}").status_code == 200
+    # read-only: the feed token opens nothing else
+    assert client.get(f"/api/v1/projects/?key={token}").status_code in (401, 403)
+    assert client.get("/api/v1/projects/", HTTP_X_API_KEY=token).status_code in (401, 403)
+    # the API key still works in the URL (older subscriptions)
+    assert client.get("/api/v1/calendar.ics?key=apikey").status_code == 200
+    rotated = client.post("/api/v1/feed-token/", HTTP_X_API_KEY="apikey").json()
+    assert rotated["rotated"] and rotated["token"] != token
+    assert client.get(f"/api/v1/calendar.ics?key={token}").status_code in (401, 403)
+    assert client.get(f"/api/v1/calendar.ics?key={rotated['token']}").status_code == 200
+    assert FeedToken.objects.count() == 1
+    src = open("frontend/src/app/pages/Dashboard.tsx").read()
+    assert '"/feed-token/"' in src and 'data-testid="feed-rotate"' in src

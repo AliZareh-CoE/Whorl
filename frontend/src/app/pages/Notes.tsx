@@ -1,227 +1,259 @@
-/** Notes list + markdown editor with wiki-links (SPA slice 6). */
+/** Notes v2 (Observatory) — the notes workbench: list | editor with live preview | link panel.
+ *  [[ autocompletes note titles, @ autocompletes cite keys of papers filed in the project (and
+ *  attaches them to the note), autosave, backlinks / unresolved / mentions, unwritten stubs.
+ *  Everything here is also in the API (/notes/, /links/, /suggest/, /unwritten/, /preview/) and MCP. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api } from "../api";
+import { ArrowUpRight, BookOpen, CalendarDays, FileDown, FlaskConical, Plus, Search, Sparkles, Square, Trash2, Users, Volume2 } from "lucide-react";
+import { api, petReact } from "../api";
+import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
+import MarkdownEditor from "../notes/MarkdownEditor";
+import { listenTo, speakable, type Listener } from "../listen";
 
 type Backlink = { id: number; title: string };
-type Note = {
-  id: number;
-  title: string;
-  body: string;
-  backlinks: Backlink[];
-  updated_at: string;
-};
+type RefSummary = { id: number; bibtex_key: string; title: string; year: number | null };
+type Note = { id: number; title: string; body: string; backlinks: Backlink[]; references_detail: RefSummary[]; updated_at: string };
 type Page<T> = { count: number; results: T[] };
+type Links = { outgoing: Backlink[]; backlinks: Backlink[]; references: RefSummary[]; unresolved: string[]; unresolved_keys: string[]; mentions: Backlink[] };
+type Suggestion = { id: number; label: string; sublabel: string };
 
-export function NotesList() {
-  const { slug } = useParams();
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["notes", slug],
-    queryFn: () => api<Page<Note>>(`/notes/?project=${slug}`),
+const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
+const railH = "mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:text-stone-500";
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => { const t = setTimeout(() => setV(value), ms); return () => clearTimeout(t); }, [value, ms]);
+  return v;
+}
+function ago(iso: string): string {
+  const d = (Date.now() - new Date(iso).getTime()) / 60000;
+  if (d < 1) return "just now"; if (d < 60) return `${Math.round(d)} min`; if (d < 1440) return `${Math.round(d / 60)} h`; return `${Math.round(d / 1440)} d`;
+}
+
+export default function NotesWorkbench() {
+  const { slug, id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const isNew = window.location.pathname.endsWith("/notes/new");
+  const selectedId = id ? Number(id) : null;
+  const [q, setQ] = useState("");
+  const dq = useDebounced(q, 200);
+  const list = useQuery({ queryKey: ["notes", slug, dq], queryFn: () => api<Page<Note>>(`/notes/?project=${slug}&page_size=200${dq ? `&q=${encodeURIComponent(dq)}` : ""}`) });
+  const unwritten = useQuery({ queryKey: ["notes-unwritten", slug], queryFn: () => api<{ titles: string[] }>(`/notes/unwritten/?project=${slug}`) });
+  const notes = list.data?.results ?? [];
+  const create = useMutation({
+    mutationFn: (title: string) => api<Note>("/notes/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project: slug, title, body: "" }) }),
+    onSuccess: (n) => { petReact("note"); queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["notes-unwritten", slug] }); navigate(`/projects/${slug}/notes/${n.id}`); },
+  });
+  const remove = useMutation({
+    mutationFn: (nid: number) => api(`/notes/${nid}/`, { method: "DELETE" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["notes-unwritten", slug] }); queryClient.invalidateQueries({ queryKey: ["graph", slug] }); navigate(`/projects/${slug}/notes`); },
   });
 
-  if (isLoading)
-    return (
-      <div role="status" aria-label="Loading">
-        <Skeleton className="mb-6 h-4 w-56" />
-        <div className="mb-6 flex items-center justify-between">
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="h-8 w-24" />
-        </div>
-        <div className="divide-y divide-stone-100 overflow-hidden rounded border border-stone-200 bg-white dark:divide-stone-800 dark:border-stone-800 dark:bg-stone-900">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="px-5 py-4">
-              <Skeleton className="mb-2 h-4 w-2/5" />
-              <Skeleton className="h-3 w-3/4" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  if (error || !data) return <ErrorState message="Couldn't load notes." onRetry={() => refetch()} />;
-  const notes = data?.results ?? [];
+  const fromTemplate = useMutation({
+    mutationFn: (body: { kind: string; reference?: number }) => api<Note>("/notes/from-template/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project: slug, ...body }) }),
+    onSuccess: (n) => { petReact("note"); queryClient.invalidateQueries({ queryKey: ["notes"] }); navigate(`/projects/${slug}/notes/${n.id}`); },
+  });
+  if (list.error) return <ErrorState message="Couldn't load notes." onRetry={() => list.refetch()} />;
   return (
     <div>
-      <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
-        <Link to="/projects" className="hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">Projects</Link>
-        <span className="px-1.5 text-stone-300 dark:text-stone-400">/</span>
-        <Link to={`/projects/${slug}`} className="hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{slug}</Link>
-        <span className="px-1.5 text-stone-300 dark:text-stone-400">/</span>
-        <span className="text-stone-700 dark:text-stone-300">Notes</span>
+      <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400">
+        <Link to="/projects" className="hover:underline">Projects</Link> / <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Notes
       </nav>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Notes</h1>
-        <Link to={`/projects/${slug}/notes/new`}
-              className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2">
-          New note
-        </Link>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-3xl font-bold tracking-tight dark:text-stone-100">Notes {list.data && <span className="text-gradient">· {list.data.count}</span>}</h1>
+        <p className="text-sm text-stone-400">the project's thinking space — <span className="font-mono text-indigo-500">[[links]]</span> between notes, <span className="font-mono text-indigo-500">@keys</span> to cite papers</p>
+        <Link to={`/projects/${slug}/notes/new`} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"><Plus className="h-4 w-4" aria-hidden="true" />New note</Link>
       </div>
-
-      {notes.length === 0 ? (
-        <div className="rounded border border-dashed border-stone-300 bg-white p-12 text-center dark:border-stone-700 dark:bg-stone-900">
-          <p className="mb-1 text-sm font-medium text-stone-700 dark:text-stone-300">No notes yet</p>
-          <p className="mx-auto mb-5 max-w-md text-sm text-stone-400 dark:text-stone-400">
-            Notes are the project's thinking space — connect them with{" "}
-            <span className="font-medium text-indigo-600 dark:text-indigo-400">[[wiki-links]]</span>.
-          </p>
-          <Link to={`/projects/${slug}/notes/new`}
-                className="inline-block rounded bg-indigo-600 px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2">
-            Write your first note
-          </Link>
-        </div>
-      ) : (
-        <div className="divide-y divide-stone-100 overflow-hidden rounded border border-stone-200 bg-white dark:divide-stone-800 dark:border-stone-800 dark:bg-stone-900">
-          {notes.map((n) => (
-            <Link key={n.id} to={`/projects/${slug}/notes/${n.id}`}
-                  className="block px-5 py-4 transition-colors hover:bg-stone-50 focus:outline-none focus-visible:bg-stone-50 dark:hover:bg-stone-800 dark:focus-visible:bg-stone-800">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">{n.title}</span>
-                {n.backlinks.length > 0 && (
-                  <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400">
-                    {n.backlinks.length} backlink{n.backlinks.length > 1 ? "s" : ""}
-                  </span>
-                )}
+      <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <aside className={`${panel} rise flex max-h-[calc(100vh-11rem)] flex-col overflow-hidden`} style={{ ["--i" as string]: 0 }}>
+          <div className="relative border-b border-stone-100 p-2 dark:border-stone-800">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" aria-hidden="true" />
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search notes…" className="w-full rounded-lg border border-stone-200 bg-white py-1.5 pl-7 pr-2 text-sm placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800" aria-label="Search notes" />
+          </div>
+          <div className="flex-1 overflow-auto">
+            {list.isLoading && <div className="space-y-2 p-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>}
+            {notes.length === 0 && !list.isLoading && <p className="p-4 text-xs text-stone-400">{dq ? "No notes match." : "No notes yet — write the first one."}</p>}
+            <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+              {notes.map((n) => (
+                <li key={n.id}>
+                  <Link to={`/projects/${slug}/notes/${n.id}`} className={`block px-3 py-2 transition-colors ${selectedId === n.id ? "bg-indigo-50 dark:bg-indigo-500/10" : "hover:bg-stone-50 dark:hover:bg-stone-800/60"}`} data-testid="note-row">
+                    <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">{n.title}</p>
+                    <p className="mt-0.5 flex items-center gap-2 text-[11px] text-stone-400"><span className="truncate">{(n.body || "").trim().split("\n")[0].slice(0, 60) || "empty"}</span><span className="ml-auto shrink-0 tabular-nums">{ago(n.updated_at)}</span></p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {(unwritten.data?.titles.length ?? 0) > 0 && (
+              <div className="border-t border-stone-100 p-3 dark:border-stone-800" data-testid="unwritten">
+                <p className={railH}><Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" />Linked but unwritten</p>
+                <ul className="space-y-1">
+                  {unwritten.data!.titles.map((t) => (
+                    <li key={t}><button type="button" onClick={() => create.mutate(t)} className="flex w-full items-center gap-1 truncate text-left text-xs text-stone-500 hover:text-indigo-600 dark:text-stone-400 dark:hover:text-indigo-300" title="Create this note"><Plus className="h-3 w-3 shrink-0" aria-hidden="true" /><span className="truncate">{t}</span></button></li>
+                  ))}
+                </ul>
               </div>
-              <p className="mt-0.5 truncate text-xs text-stone-400 dark:text-stone-400">
-                {n.body.slice(0, 140) || "Empty note"}
-              </p>
-            </Link>
-          ))}
+            )}
+          </div>
+        </aside>
+        {isNew ? (
+          <NewNote slug={slug!} onCreate={(t) => create.mutate(t)} pending={create.isPending || fromTemplate.isPending} onTemplate={(kind, reference) => fromTemplate.mutate({ kind, reference })} />
+        ) : selectedId ? (
+          <Editor key={selectedId} slug={slug!} id={selectedId} onDelete={() => remove.mutate(selectedId)} onCreateStub={(t) => create.mutate(t)} />
+        ) : (
+          <div className={`${panel} rise flex min-h-[50vh] flex-col items-center justify-center p-10 text-center`} style={{ ["--i" as string]: 1 }}>
+            <BookOpen className="mb-2 h-7 w-7 text-indigo-400" aria-hidden="true" />
+            <p className="font-medium text-stone-700 dark:text-stone-100">{notes.length ? "Pick a note, or start a new one." : "Write the first note."}</p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-stone-400">Type <span className="font-mono">[[</span> to link another note and <span className="font-mono">@</span> to cite a paper from this project's literature. Links become the knowledge graph.</p>
+            <Link to={`/projects/${slug}/notes/new`} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"><Plus className="h-4 w-4" aria-hidden="true" />New note</Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+export { NotesWorkbench as NotesList, NotesWorkbench as NoteEditor };
+
+function NewNote({ slug, onCreate, pending, onTemplate }: { slug: string; onCreate: (title: string) => void; pending: boolean; onTemplate: (kind: string, reference?: number) => void }) {
+  const [title, setTitle] = useState(() => new URLSearchParams(window.location.search).get("title") ?? "");
+  const [paperQ, setPaperQ] = useState("");
+  const dpq = useDebounced(paperQ, 150);
+  const papers = useQuery({ queryKey: ["note-suggest", slug, "reference", dpq], queryFn: () => api<Suggestion[]>(`/notes/suggest/?project=${slug}&kind=reference&q=${encodeURIComponent(dpq)}`), enabled: paperQ.length > 0 });
+  const tpl = "flex items-start gap-3 rounded-xl border border-stone-200 p-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 disabled:opacity-50 dark:border-stone-800 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10";
+  return (
+    <div className={`${panel} rise p-6`} style={{ ["--i" as string]: 1 }} data-testid="new-note">
+      <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) onCreate(title.trim()); }}>
+        <p className={railH}>New note in {slug}</p>
+        <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title — e.g. Load theory: open questions" className="font-display w-full bg-transparent text-2xl font-semibold text-stone-900 placeholder:text-stone-300 focus:outline-none dark:text-stone-100 dark:placeholder:text-stone-600" aria-label="New note title" />
+        <p className="mt-2 text-xs text-stone-400">Enter creates a blank note. Titles are unique per project; [[Title]] elsewhere links here.</p>
+        <button type="submit" disabled={pending || !title.trim()} className="mt-3 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Create note</button>
+      </form>
+      <p className={`${railH} mt-6`}>Or start from a template</p>
+      <div className="grid gap-2 sm:grid-cols-2" data-testid="templates">
+        <div className={`${tpl} flex-col`}>
+          <span className="flex items-center gap-2 text-sm font-medium text-stone-800 dark:text-stone-100"><BookOpen className="h-4 w-4 text-indigo-500" aria-hidden="true" />Literature note</span>
+          <span className="text-xs text-stone-400">One paper: claims, method, limitations, relevance — its highlights come along.</span>
+          <input value={paperQ} onChange={(e) => setPaperQ(e.target.value)} placeholder="Type a cite key or title…" className="mt-1 w-full rounded-md border border-stone-200 bg-white px-2 py-1 text-xs focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800" aria-label="Paper for the literature note" />
+          {paperQ && (
+            <ul className="mt-1 max-h-32 w-full overflow-auto text-xs">
+              {(papers.data ?? []).map((r) => <li key={r.id}><button type="button" disabled={pending} onClick={() => onTemplate("literature", r.id)} className="block w-full truncate rounded px-1.5 py-1 text-left hover:bg-indigo-500/10"><span className="font-mono text-indigo-500">@{r.label}</span> <span className="text-stone-500">{r.sublabel}</span></button></li>)}
+              {papers.data && papers.data.length === 0 && <li className="px-1.5 py-1 text-stone-400">No paper in this project matches.</li>}
+            </ul>
+          )}
         </div>
-      )}
+        <button type="button" disabled={pending} onClick={() => onTemplate("daily")} className={tpl}><CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" /><span><span className="block text-sm font-medium text-stone-800 dark:text-stone-100">Daily note</span><span className="text-xs text-stone-400">Today's page: this week's focus as checkboxes, a log, captures. One per day.</span></span></button>
+        <button type="button" disabled={pending} onClick={() => onTemplate("meeting")} className={tpl}><Users className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" /><span><span className="block text-sm font-medium text-stone-800 dark:text-stone-100">Meeting</span><span className="text-xs text-stone-400">Attendees, agenda, decisions, actions.</span></span></button>
+        <button type="button" disabled={pending} onClick={() => onTemplate("experiment")} className={tpl}><FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" /><span><span className="block text-sm font-medium text-stone-800 dark:text-stone-100">Experiment</span><span className="text-xs text-stone-400">Hypothesis, setup, observations, result, next step.</span></span></button>
+      </div>
     </div>
   );
 }
 
-export function NoteEditor() {
-  const { slug, id } = useParams();
-  const isNew = id === undefined;
-  const navigate = useNavigate();
+function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number; onDelete: () => void; onCreateStub: (title: string) => void }) {
   const queryClient = useQueryClient();
+  const note = useQuery({ queryKey: ["note", id], queryFn: () => api<Note>(`/notes/${id}/`) });
+  const links = useQuery({ queryKey: ["note-links", id], queryFn: () => api<Links>(`/notes/${id}/links/`) });
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
-  const [saved, setSaved] = useState(true);
-
-  const { data: note } = useQuery({
-    queryKey: ["note", id],
-    queryFn: () => api<Note>(`/notes/${id}/`),
-    enabled: !isNew,
+  const bodyRef = useRef(""); bodyRef.current = body;
+  const [loaded, setLoaded] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [exported, setExported] = useState("");
+  // #412: read this note to me — chunked, prefetched playback of the markdown-stripped body
+  const [listening, setListening] = useState<{ index: number; total: number } | null>(null);
+  const listenerRef = useRef<Listener | null>(null);
+  const stopListening = () => { listenerRef.current?.stop(); listenerRef.current = null; setListening(null); };
+  useEffect(() => stopListening, [id]);
+  const listen = async () => {
+    if (listenerRef.current) { stopListening(); return; }
+    const text = speakable(`${title}. ${bodyRef.current}`);
+    if (!text) return;
+    setListening({ index: 0, total: 0 });
+    const l = listenTo(text, (index, total) => setListening({ index, total }));
+    listenerRef.current = l;
+    try { await l.done; } catch (e) { setExported(String((e as Error).message ?? e)); setTimeout(() => setExported(""), 4000); }
+    finally { if (listenerRef.current === l) { listenerRef.current = null; setListening(null); } }
+  };
+  useEffect(() => { if (note.data && !loaded) { setTitle(note.data.title); setBody(note.data.body); setLoaded(true); } }, [note.data, loaded]);
+  const debouncedBody = useDebounced(body, 500);
+  const preview = useQuery({
+    queryKey: ["note-preview", id, debouncedBody],
+    queryFn: () => api<{ html: string }>("/notes/preview/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: debouncedBody, project: slug }) }),
+    enabled: loaded,
+    placeholderData: (prev) => prev,
   });
-  useEffect(() => {
-    if (note) {
-      setTitle(note.title);
-      setBody(note.body);
-    }
-  }, [note]);
-
   const save = useMutation({
-    mutationFn: () =>
-      isNew
-        ? api<Note>("/notes/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ project: slug, title, body }),
-          })
-        : api<Note>(`/notes/${id}/`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, body }),
-          }),
-    onSuccess: (created) => {
-      setSaved(true);
-      queryClient.invalidateQueries({ queryKey: ["notes", slug] });
-      queryClient.invalidateQueries({ queryKey: ["note", id] });
-      if (isNew) navigate(`/projects/${slug}/notes/${created.id}`, { replace: true });
-    },
+    mutationFn: (payload: { title: string; body: string }) => api<Note>(`/notes/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
+    onSuccess: () => { setDirty(false); setSavedAt(Date.now()); queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["note-links", id] }); queryClient.invalidateQueries({ queryKey: ["notes-unwritten", slug] }); queryClient.invalidateQueries({ queryKey: ["graph", slug] }); },
   });
+  const timer = useRef<number>(0);
+  const queueSave = useCallback((t: string, b: string) => { setDirty(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => save.mutate({ title: t, body: b }), 1200); }, [save]);
+  useEffect(() => { const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); window.clearTimeout(timer.current); save.mutate({ title, body }); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [title, body, save]);
 
-  async function togglePreview() {
-    if (previewHtml !== null) {
-      setPreviewHtml(null);
-      return;
-    }
-    const data = await api<{ html: string }>("/notes/preview/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body, project: slug }),
-    });
-    setPreviewHtml(data.html);
-  }
+  const suggest = useCallback(async (kind: "note" | "reference", q: string) => api<Suggestion[]>(`/notes/suggest/?project=${slug}&kind=${kind}&q=${encodeURIComponent(q)}`), [slug]);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        e.preventDefault();
-        save.mutate();
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  });
-
+  if (note.isLoading || !loaded) return <div className={`${panel} p-6`}><Skeleton className="mb-3 h-7 w-1/2" /><Skeleton className="h-64 w-full" /></div>;
+  if (note.error) return <ErrorState message="Couldn't load this note." onRetry={() => note.refetch()} />;
+  const L = links.data;
   return (
-    <div className="mx-auto max-w-3xl">
-      <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
-        <Link to={`/projects/${slug}`} className="hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">{slug}</Link>
-        <span className="px-1.5 text-stone-300 dark:text-stone-400">/</span>
-        <Link to={`/projects/${slug}/notes`} className="hover:text-indigo-700 hover:underline dark:hover:text-indigo-300">Notes</Link>
-        <span className="px-1.5 text-stone-300 dark:text-stone-400">/</span>
-        <span className="text-stone-700 dark:text-stone-300">{isNew ? "New note" : title || "Untitled"}</span>
-      </nav>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <input
-          value={title}
-          onChange={(e) => { setTitle(e.target.value); setSaved(false); }}
-          placeholder="Note title"
-          aria-label="Note title"
-          className="flex-1 rounded border border-stone-300 bg-white px-3 py-2 text-lg font-medium text-stone-900 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
-        />
-        <div className="flex items-center gap-2">
-          <button onClick={togglePreview}
-                  className="rounded border border-stone-300 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:border-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
-            {previewHtml !== null ? "Edit" : "Preview"}
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_17rem]">
+      {exported && <div role="status" className="fixed bottom-5 right-5 z-30 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm shadow-lg dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100">{exported}</div>}
+      <div className={`${panel} rise overflow-hidden`} style={{ ["--i" as string]: 1 }} data-testid="note-editor">
+        <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-2 text-[11px] text-stone-400 dark:border-stone-800">
+          <span className="font-mono">[[</span><span>link a note</span><span className="font-mono">@</span><span>cite a paper</span><span>· ⌘S saves</span>
+          <span className="ml-auto tabular-nums" data-testid="save-state">{save.isPending ? "saving…" : dirty ? "editing…" : savedAt ? "saved" : ""}</span>
+          <button type="button" onClick={() => void listen()} className={`inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300 ${listening ? "text-indigo-600 dark:text-indigo-300" : ""}`} title={listening ? "Stop reading" : "Read this note aloud (local voice)"} data-testid="note-listen" aria-pressed={!!listening}>
+            {listening ? <Square className="h-3.5 w-3.5" aria-hidden="true" /> : <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />}
+            {listening ? (listening.total ? `stop · ${Math.min(listening.index + 1, listening.total)}/${listening.total}` : "stop") : "listen"}
           </button>
-          <button onClick={() => save.mutate()} disabled={save.isPending || !title.trim()}
-                  className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:opacity-50">
-            {save.isPending ? "Saving…" : saved ? "Saved" : "Save"}
-          </button>
+          <button type="button" onClick={async () => { const style = (() => { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } })(); const out = await api<{ markdown: string; references: number }>(`/notes/${id}/export/?style=${style}`); await navigator.clipboard?.writeText(out.markdown); setExported(`Copied as Markdown${out.references ? ` with ${out.references} reference${out.references === 1 ? "" : "s"} (${style.toUpperCase()})` : ""}.`); setTimeout(() => setExported(""), 3500); }} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy the note as Markdown with a formatted bibliography"><FileDown className="h-3.5 w-3.5" aria-hidden="true" />export</button>
+          <button type="button" onClick={async () => { if (await confirmDialog({ title: `Delete “${title}”?`, body: "Links from other notes to it become plain text.", danger: true, confirmLabel: "Delete note" })) onDelete(); }} className="inline-flex items-center gap-1 hover:text-red-500" aria-label="Delete note"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+        </div>
+        <input value={title} onChange={(e) => { setTitle(e.target.value); queueSave(e.target.value, body); }} className="font-display w-full bg-transparent px-5 pt-4 text-2xl font-semibold text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Note title" />
+        <div className="grid md:grid-cols-2">
+          <div className="relative">
+            <MarkdownEditor value={body} onChange={(v) => { setBody(v); queueSave(title, v); }} onSave={() => { window.clearTimeout(timer.current); save.mutate({ title, body: bodyRef.current }); }} suggest={suggest} placeholder="Write in Markdown. [[Another note]] links it; @lavie2010attention cites a paper and attaches it to this note." />
+          </div>
+          <div className="border-t border-stone-100 md:border-l md:border-t-0 dark:border-stone-800">
+            <div className="prose prose-sm prose-stone max-w-none px-5 py-4 dark:prose-invert" data-testid="note-preview" dangerouslySetInnerHTML={{ __html: preview.data?.html ?? "" }} />
+            {!body.trim() && <p className="px-5 pb-4 text-xs text-stone-400">The preview renders here as you type.</p>}
+          </div>
         </div>
       </div>
-
-      {previewHtml !== null ? (
-        /* server-rendered through markdownify → nh3-sanitized, so this is safe HTML */
-        <div className="prose prose-stone max-w-none rounded border border-stone-200 bg-white p-8 dark:prose-invert dark:border-stone-800 dark:bg-stone-900"
-             dangerouslySetInnerHTML={{ __html: previewHtml }} />
-      ) : (
-        <textarea
-          value={body}
-          onChange={(e) => { setBody(e.target.value); setSaved(false); }}
-          rows={20}
-          placeholder="Markdown. [[Note Title]] links to other notes in this project."
-          aria-label="Note body"
-          className="w-full resize-y rounded border border-stone-300 bg-white p-6 font-mono text-sm leading-relaxed text-stone-900 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
-        />
-      )}
-
-      {!isNew && (note?.backlinks.length ?? 0) > 0 && (
-        <section className="mt-6 rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Backlinks</h2>
-          <ul className="space-y-2 text-sm">
-            {note!.backlinks.map((b) => (
-              <li key={b.id}>
-                <Link to={`/projects/${slug}/notes/${b.id}`} className="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">
-                  {b.title}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      <p className="mt-4 text-xs text-stone-400 dark:text-stone-400">Press Ctrl/Cmd-S to save.</p>
+      <aside className="space-y-3" data-testid="link-panel">
+        <div className={`${panel} rise p-4`} style={{ ["--i" as string]: 2 }}>
+          <p className={railH}>Cites</p>
+          {L && L.references.length ? (
+            <ul className="space-y-1 text-sm">{L.references.map((r) => <li key={r.id}><Link to={`/references/${r.id}`} className="block truncate hover:text-indigo-700 dark:text-stone-200 dark:hover:text-indigo-300" title={r.title}><span className="font-mono text-xs text-indigo-500">@{r.bibtex_key}</span> <span className="text-stone-500 dark:text-stone-400">{r.title}</span></Link></li>)}</ul>
+          ) : <p className="text-xs text-stone-400">Type @ to cite a paper filed in this project.</p>}
+          {L && L.unresolved_keys.length > 0 && <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-300">Unknown keys: {L.unresolved_keys.map((k) => `@${k}`).join(", ")}</p>}
+        </div>
+        <div className={`${panel} rise p-4`} style={{ ["--i" as string]: 3 }}>
+          <p className={railH}>Links out</p>
+          {L && L.outgoing.length ? <ul className="space-y-1 text-sm">{L.outgoing.map((n) => <li key={n.id}><Link to={`/projects/${slug}/notes/${n.id}`} className="block truncate hover:text-indigo-700 dark:text-stone-200 dark:hover:text-indigo-300">{n.title}</Link></li>)}</ul> : <p className="text-xs text-stone-400">No [[links]] yet.</p>}
+          {L && L.unresolved.length > 0 && (
+            <div className="mt-2">
+              <p className="text-[11px] text-stone-400">Linked but not written yet:</p>
+              <ul className="mt-0.5 space-y-0.5">{L.unresolved.map((t) => <li key={t}><button type="button" onClick={() => onCreateStub(t)} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-300"><Plus className="h-3 w-3" aria-hidden="true" />{t}</button></li>)}</ul>
+            </div>
+          )}
+        </div>
+        <div className={`${panel} rise p-4`} style={{ ["--i" as string]: 4 }}>
+          <p className={railH}>Backlinks {L?.backlinks.length ? <span className="normal-case tracking-normal text-stone-400">{L.backlinks.length}</span> : null}</p>
+          {L && L.backlinks.length ? <ul className="space-y-1 text-sm">{L.backlinks.map((n) => <li key={n.id}><Link to={`/projects/${slug}/notes/${n.id}`} className="block truncate hover:text-indigo-700 dark:text-stone-200 dark:hover:text-indigo-300">{n.title}</Link></li>)}</ul> : <p className="text-xs text-stone-400">Nothing links here yet.</p>}
+          {L && L.mentions.length > 0 && (
+            <div className="mt-2">
+              <p className="text-[11px] text-stone-400">Mentions without a link:</p>
+              <ul className="mt-0.5 space-y-0.5 text-xs">{L.mentions.map((n) => <li key={n.id}><Link to={`/projects/${slug}/notes/${n.id}`} className="inline-flex items-center gap-1 text-stone-500 hover:text-indigo-600 dark:text-stone-400 dark:hover:text-indigo-300">{n.title}<ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link></li>)}</ul>
+            </div>
+          )}
+        </div>
+        <p className="px-1 text-[11px] text-stone-400">Edited {note.data ? ago(note.data.updated_at) : ""} ago · <Link to={`/projects/${slug}/graph`} className="hover:underline">see the graph</Link></p>
+      </aside>
     </div>
   );
 }

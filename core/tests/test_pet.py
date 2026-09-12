@@ -135,3 +135,83 @@ class TestBuddyPersonality:
         assert _level(99) == 9
         assert _level(100) == 10
         assert _level(10_000) == 10
+
+
+class TestHabitSignals:
+    """#419: streak, unusual hour and today's writing show up in Mochi's lines."""
+
+    def _note_at(self, project, when, title):
+        from notes.models import Note
+
+        note = Note.objects.create(project=project, title=title, body="x")
+        Note.objects.filter(pk=note.pk).update(created_at=when, updated_at=when)
+        return note
+
+    def test_streak_and_words_lines(self):
+        import datetime as dt
+
+        from django.utils import timezone
+
+        from core.pet import _speech_candidates
+        from projects.tests.factories import ProjectFactory
+        from writing.models import Manuscript
+        from writing.progress import record_words
+
+        project = ProjectFactory()
+        now = timezone.localtime()
+        for i in range(4):
+            self._note_at(project, now - dt.timedelta(days=i), f"day {i}")
+        ms = Manuscript.objects.create(project=project, title="Paper")
+        record_words(ms, 100, now.date() - dt.timedelta(days=1))
+        record_words(ms, 340, now.date())
+        lines = _speech_candidates(now)
+        assert any("days running" in line for line in lines)
+        assert any("+240 words today" in line for line in lines)
+
+    def test_unusual_hour_line(self):
+        import datetime as dt
+
+        from django.utils import timezone
+
+        from core.pet import _speech_candidates
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        now = timezone.localtime()
+        for offset in (5, 6, 7):  # three usual hours, none of them now
+            when = (now - dt.timedelta(days=10)).replace(hour=(now.hour + offset) % 24)
+            self._note_at(project, when, f"note {offset}")
+        assert any("Not your usual hour" in line for line in _speech_candidates(now))
+        # activity at this hour makes it usual: the line goes away
+        self._note_at(project, now - dt.timedelta(days=3), "now-ish")
+        assert not any("Not your usual hour" in line for line in _speech_candidates(now))
+
+
+class TestSpecies:
+    """#427: the plumage is decided once per install and shows up in the state."""
+
+    def test_species_is_deterministic_and_named(self):
+        from core.models import Pet
+        from core.pet import GOLDEN, SPECIES, pet_species, pet_state
+
+        pet, _ = Pet.objects.get_or_create(pk=1, defaults={"name": "Mochi"})
+        first = pet_species(pet)
+        assert first == pet_species(Pet.objects.get(pk=1))
+        assert first["key"] in {k for k, *_ in SPECIES} | {GOLDEN[0]}
+        assert first["shiny"] == (first["key"] == "golden")
+        state = pet_state()
+        assert state["species"] == first
+        # every seed lands on a real species; the golden one is rare but reachable
+        import datetime as dt
+
+        from django.utils import timezone
+
+        class Fake:
+            def __init__(self, pk, created_at):
+                self.pk, self.created_at = pk, created_at
+
+        keys = {
+            pet_species(Fake(i, timezone.now() + dt.timedelta(seconds=i)))["key"]
+            for i in range(400)
+        }
+        assert {k for k, *_ in SPECIES} <= keys and "golden" in keys

@@ -259,7 +259,7 @@ class TestGraphAPI:
         response = client.get(f"/api/v1/projects/{link_a.project.slug}/graph/", **HEADERS)
         assert response.status_code == 200
         data = response.json()
-        assert {"nodes", "links"} == set(data)
+        assert {"nodes", "links", "stats"} == set(data)
         assert len(data["nodes"]) == 2
         assert data["links"][0]["kind"] == "citation"
 
@@ -297,6 +297,11 @@ class TestMCPSupportEndpoints:
         slug = task.milestone.phase.project.slug
         data = client.get(f"/api/v1/projects/{slug}/plan/", **HEADERS).json()
         assert data["phases"][0]["milestones"][0]["tasks"][0]["title"] == "Leaf"
+        # the SPA plan page prints the project name and paints progress in its colour
+        project = task.milestone.phase.project
+        assert data["project"] == slug
+        assert data["project_name"] == project.name
+        assert data["project_color"] == project.color
 
     def test_reading_queue_endpoint_sorted(self, client, owner):
         from literature.tests.factories import ProjectReferenceFactory
@@ -539,9 +544,9 @@ class TestResearchAPI:
         row = data["results"][0]
         assert row["supports"] == 1 and row["contradicts"] == 1
 
-    def test_research_endpoints_are_read_only(self, client_logged_in):
+    def test_research_endpoints_validate_writes(self, client_logged_in):
         response = client_logged_in.post("/api/v1/hypotheses/", {}, content_type="application/json")
-        assert response.status_code == 405
+        assert response.status_code == 400 and "statement" in response.json()
 
     def test_experiments_and_datasets_listed(self, client_logged_in):
         from projects.tests.factories import ProjectFactory
@@ -758,3 +763,263 @@ class TestGenericQSearch:
         # ProjectViewSet declares no q_fields — ?q= must be a no-op, not an error
         data = client_logged_in.get("/api/v1/projects/?q=alpha").json()
         assert data["count"] >= 2
+
+
+class TestLibraryImport:
+    """Library v2: import endpoints (files/text + Zotero)."""
+
+    def test_import_pasted_csl_json_links_to_project(self, client, owner):
+        project = ProjectFactory()
+        data = client.post(
+            "/api/v1/references/import/",
+            {
+                "text": '[{"title": "Imported Paper Title", "DOI": "10.1000/imp.1", '
+                '"type": "article-journal", "issued": {"date-parts": [[2020]]}}]',
+                "project": project.slug,
+            },
+            content_type="application/json",
+            **HEADERS,
+        ).json()
+        assert (data["created"], data["existing"], data["failed"]) == (1, 0, 0)
+        assert data["results"][0]["source"] == "csl-json"
+        assert project.project_references.count() == 1
+
+    def test_import_files_multipart_mixed(self, client, owner, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        bib = SimpleUploadedFile("lib.bib", b"@article{k1, title={Bib Paper Title}, year={2019}}")
+        ris = SimpleUploadedFile(
+            "lib.ris", b"TY  - JOUR\nTI  - Ris Paper Title\nPY  - 2018\nER  -\n"
+        )
+        junk = SimpleUploadedFile("photo.png", b"\x89PNG")
+        data = client.post(
+            "/api/v1/references/import/", {"files": [bib, ris, junk]}, **HEADERS
+        ).json()
+        assert data["created"] == 2 and data["failed"] == 1
+        assert any("Can't tell" in r["error"] for r in data["results"])
+
+    def test_import_requires_something(self, client, owner):
+        response = client.post(
+            "/api/v1/references/import/", {}, content_type="application/json", **HEADERS
+        )
+        assert response.status_code == 400
+
+    def test_import_zotero_reports_when_zotero_is_closed(self, client, owner, monkeypatch):
+        from literature import importers
+
+        def boom(project, base_url):
+            raise importers.ZoteroUnavailable("Zotero isn't reachable")
+
+        monkeypatch.setattr(importers, "import_from_zotero", boom)
+        response = client.post(
+            "/api/v1/references/import-zotero/", {}, content_type="application/json", **HEADERS
+        )
+        assert response.status_code == 503
+        assert "Zotero" in response.json()["detail"]
+
+    def test_import_zotero_success(self, client, owner, monkeypatch):
+        from literature import importers
+
+        monkeypatch.setattr(
+            importers,
+            "import_from_zotero",
+            lambda project, base_url: importers.ImportSummary(
+                [importers.ImportResult("Z Paper", 1, True, "zotero")]
+            ),
+        )
+        data = client.post(
+            "/api/v1/references/import-zotero/", {}, content_type="application/json", **HEADERS
+        ).json()
+        assert data["created"] == 1 and data["results"][0]["source"] == "zotero"
+
+
+class TestLibraryWorkbench:
+    """Library v2: facets, list filters, bulk, find-metadata over the API."""
+
+    def _seed(self):
+        from literature.models import Reference
+
+        a = Reference.objects.create(title="Alpha Paper", bibtex_key="alpha", year=2020, venue="V")
+        b = Reference.objects.create(title="Beta Paper", bibtex_key="beta", year=2019, venue="W")
+        return a, b
+
+    def test_list_filters_and_projects_field(self, client, owner):
+        from literature.models import ProjectReference
+
+        a, b = self._seed()
+        project = ProjectFactory()
+        ProjectReference.objects.create(project=project, reference=a, reading_status="read")
+        data = client.get("/api/v1/references/?year=2020", **HEADERS).json()
+        assert [r["title"] for r in data["results"]] == ["Alpha Paper"]
+        assert data["results"][0]["projects"][0]["reading_status"] == "read"
+        data = client.get("/api/v1/references/?q=beta&sort=title", **HEADERS).json()
+        assert [r["title"] for r in data["results"]] == ["Beta Paper"]
+        data = client.get("/api/v1/references/?unfiled=true", **HEADERS).json()
+        assert [r["title"] for r in data["results"]] == ["Beta Paper"]
+
+    def test_facets_endpoint(self, client, owner):
+        self._seed()
+        data = client.get("/api/v1/references/facets/", **HEADERS).json()
+        assert data["total"] == 2 and [y["year"] for y in data["years"]] == [2019, 2020]
+
+    def test_bulk_endpoint(self, client, owner):
+        a, b = self._seed()
+        project = ProjectFactory()
+        data = client.post(
+            "/api/v1/references/bulk/",
+            {"ids": [a.pk, b.pk], "action": "link", "project": project.slug},
+            content_type="application/json",
+            **HEADERS,
+        ).json()
+        assert data["affected"] == 2
+        bad = client.post(
+            "/api/v1/references/bulk/",
+            {"ids": [a.pk], "action": "status", "project": project.slug, "value": "nah"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert bad.status_code == 400
+
+    def test_find_metadata_endpoint(self, client, owner, monkeypatch):
+        from literature import library
+
+        a, b = self._seed()
+        monkeypatch.setattr(
+            library,
+            "fetch_metadata_by_doi",
+            lambda doi: {"doi": doi, "title": "Found", "extra": {}},
+        )
+        a.doi = "10.9/x"
+        a.save()
+        data = client.post(f"/api/v1/references/{a.pk}/find-metadata/", **HEADERS).json()
+        assert data["title"] == "Found"
+        from literature.services import MetadataError
+
+        def boom(reference, client=None):
+            raise MetadataError("No confident match")
+
+        monkeypatch.setattr(library, "find_metadata", boom)
+        assert (
+            client.post(f"/api/v1/references/{b.pk}/find-metadata/", **HEADERS).status_code == 400
+        )
+
+
+class TestLibraryDiscovery:
+    """Library v2 slice 3: discover lenses + export over the API."""
+
+    def test_discover_endpoint_validates_kind_and_returns_rows(self, client, owner, monkeypatch):
+        from literature import discover
+        from literature.models import Reference
+
+        ref = Reference.objects.create(title="Anchor", bibtex_key="anchor", doi="10.1/a")
+        monkeypatch.setattr(
+            discover,
+            "discover",
+            lambda reference, kind, limit: [{"title": f"{kind}:{limit}", "addable": True}],
+        )
+        data = client.get(
+            f"/api/v1/references/{ref.pk}/discover/?kind=cited_by&limit=5", **HEADERS
+        ).json()
+        assert data == {
+            "kind": "cited_by",
+            "results": [{"title": "cited_by:5", "addable": True}],
+            "error": "",
+        }
+
+        def limited(reference, kind, limit):
+            raise discover.DiscoverError("OpenAlex's free daily budget for this network is used up")
+
+        monkeypatch.setattr(discover, "discover", limited)
+        data = client.get(f"/api/v1/references/{ref.pk}/discover/?kind=similar", **HEADERS).json()
+        assert data["results"] == [] and "daily budget" in data["error"]
+        assert (
+            client.get(f"/api/v1/references/{ref.pk}/discover/?kind=nope", **HEADERS).status_code
+            == 400
+        )
+
+    def test_export_by_ids_and_by_filter(self, client, owner):
+        from literature.models import Reference
+
+        a = Reference.objects.create(title="Alpha", bibtex_key="alpha2020", year=2020)
+        Reference.objects.create(title="Beta", bibtex_key="beta2019", year=2019)
+        response = client.get(f"/api/v1/references/export/?ids={a.pk}", **HEADERS)
+        assert response["Content-Type"].startswith("application/x-bibtex")
+        assert (
+            "alpha2020" in response.content.decode() and "beta2019" not in response.content.decode()
+        )
+        response = client.get("/api/v1/references/export/?year=2019", **HEADERS)
+        assert (
+            "beta2019" in response.content.decode() and "alpha2020" not in response.content.decode()
+        )
+
+
+class TestCitations:
+    def test_cite_one_and_many(self, client, owner):
+        from literature.models import Reference
+
+        a = Reference.objects.create(
+            title="Alpha", bibtex_key="a", year=2000, authors=[{"family": "Adams", "given": "B"}]
+        )
+        b = Reference.objects.create(
+            title="Beta", bibtex_key="b", year=2001, authors=[{"family": "Zed", "given": "A"}]
+        )
+        one = client.get(f"/api/v1/references/{a.pk}/cite/?style=mla", **HEADERS).json()
+        assert (
+            one["style"] == "mla"
+            and one["text"].startswith("Adams, B. “Alpha.”")
+            and one["intext"] == "(Adams)"
+        )
+        assert (
+            client.get(f"/api/v1/references/{a.pk}/cite/?style=nope", **HEADERS).status_code == 400
+        )
+        many = client.get(
+            f"/api/v1/references/cite/?ids={b.pk},{a.pk}&style=ieee", **HEADERS
+        ).json()
+        assert [e["reference_id"] for e in many["entries"]] == [b.pk, a.pk]
+        assert many["entries"][0]["text"].startswith("[1] A. Zed,")
+
+
+class TestProjectSummary:
+    """UI audit 2026-09-06: the Projects index needs phase/progress/health/counts per card."""
+
+    def test_list_carries_a_summary(self, client_logged_in):
+        from plans.models import Milestone, Phase
+        from projects.tests.factories import ProjectFactory
+
+        project = ProjectFactory()
+        phase = Phase.objects.create(project=project, name="Pilot", order=1, status="in_progress")
+        Milestone.objects.create(phase=phase, title="a")
+        done = Milestone.objects.create(phase=phase, title="b")
+        done.completed_at = done.created_at
+        done.save()
+        row = client_logged_in.get("/api/v1/projects/").json()["results"][0]
+        s = row["summary"]
+        assert s["current_phase"] == "Pilot" and s["milestones_total"] == 2
+        assert s["milestones_done"] == 1 and s["percent"] == 50 and s["health"]["state"]
+        assert set(s["counts"]) == {"papers", "notes", "manuscripts", "documents"}
+
+    def test_summary_is_read_only(self, client_logged_in):
+        response = client_logged_in.post(
+            "/api/v1/projects/",
+            {"name": "Summary ignored", "summary": {"percent": 99}},
+            content_type="application/json",
+        )
+        assert response.status_code == 201 and response.json()["summary"]["percent"] == 0
+
+
+class TestConnectAPI:
+    """The SPA Connect page (2026-09-06) reads one endpoint and installs skills with one POST."""
+
+    def test_connect_details_and_skills(self, client_logged_in, tmp_path, monkeypatch):
+        from core import skills
+
+        monkeypatch.setattr(skills, "personal_skills_dir", lambda: tmp_path / "skills")
+        data = client_logged_in.get("/api/v1/connect/").json()
+        assert data["claude_command"].startswith("claude mcp add atlas")
+        assert "mcpServers" in data["mcp_json"] and data["api_url"].startswith("http")
+        assert len(data["skills"]) == 4 and not any(s["installed"] for s in data["skills"])
+        assert data["skills_dir"].endswith("skills")
+        response = client_logged_in.post("/api/v1/connect/skills/")
+        assert response.status_code == 200 and len(response.json()["installed"]) == 4
+        assert all(
+            s["up_to_date"] for s in client_logged_in.get("/api/v1/connect/").json()["skills"]
+        )

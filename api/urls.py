@@ -31,10 +31,15 @@ router.register("folders", views.FolderViewSet)
 router.register("tags", views.TagViewSet)
 router.register("documents", views.DocumentViewSet)
 router.register("references", views.ReferenceViewSet)
+router.register("library-tags", views.LibraryTagViewSet)
+router.register("library-views", views.SavedViewViewSet)
+router.register("highlights", views.HighlightViewSet)
 router.register("project-references", views.ProjectReferenceViewSet)
 router.register("quick-capture", views.QuickCaptureViewSet)
+router.register("todos", views.TodoItemViewSet)
 router.register("notes", views.NoteViewSet)
 router.register("hypotheses", views.HypothesisViewSet)
+router.register("evidence", views.EvidenceViewSet)
 router.register("experiments", views.ExperimentEntryViewSet)
 router.register("datasets", views.DatasetViewSet)
 router.register("protocols", views.ProtocolViewSet)
@@ -47,12 +52,29 @@ urlpatterns = [
     path("v1/search/", views.SearchAPIView.as_view(), name="search"),
     path("v1/dashboard/", views.DashboardAPIView.as_view(), name="dashboard"),
     path("v1/weekly-review/", views.WeeklyReviewAPIView.as_view(), name="weekly_review"),
+    path("v1/comments/<int:pk>/", views.CommentDeleteAPIView.as_view(), name="comment_delete"),
     path(
         "v1/comments/<slug:kind>/<int:object_id>/",
         views.CommentsAPIView.as_view(),
         name="comments",
     ),
     path("v1/pet/", views.PetAPIView.as_view(), name="pet"),
+    path("v1/achievements/", views.AchievementsAPIView.as_view(), name="achievements"),
+    path("v1/connect/", views.ConnectAPIView.as_view(), name="connect"),
+    path("v1/demo/", views.DemoAPIView.as_view(), name="demo"),
+    path("v1/diagnostics/", views.DiagnosticsAPIView.as_view(), name="diagnostics"),
+    path("v1/diagnostics/warm-latex/", views.LatexWarmupAPIView.as_view(), name="latex_warmup"),
+    path("v1/client-errors/", views.ClientErrorAPIView.as_view(), name="client_errors"),
+    path("v1/access-events/", views.AccessEventsAPIView.as_view(), name="access_events"),
+    path("v1/feed-token/", views.FeedTokenAPIView.as_view(), name="feed_token"),
+    path("v1/watch-folder/", views.WatchFolderAPIView.as_view(), name="watch_folder"),
+    path("v1/watch-folder/scan/", views.WatchFolderScanAPIView.as_view(), name="watch_folder_scan"),
+    path("v1/calendar.ics", views.CalendarFeedView.as_view(), name="calendar_ics"),
+    path("v1/backup.zip", views.BackupView.as_view(), name="backup_zip"),
+    path("v1/restore/", views.RestoreAPIView.as_view(), name="restore"),
+    path("v1/snapshots/", views.SnapshotsAPIView.as_view(), name="snapshots"),
+    path("v1/connect/skills/", views.ConnectSkillsAPIView.as_view(), name="connect_skills"),
+    path("v1/connect/test/", views.ConnectTestAPIView.as_view(), name="connect_test"),
     path("v1/bots/", views.BotsAPIView.as_view(), name="bots"),
     path("v1/bots/<slug:slug>/action/", views.BotActionAPIView.as_view(), name="bot_action"),
     path("v1/", include(router.urls)),

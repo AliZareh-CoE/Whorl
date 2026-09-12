@@ -1,13 +1,21 @@
+from django.core.exceptions import ObjectDoesNotExist
+from drf_spectacular.utils import extend_schema_field, inline_serializer
 from rest_framework import serializers
 
+from core.models import TodoItem
 from documents.models import Document, Folder, Tag
-from literature.models import ProjectReference, Reference
+from literature.models import Highlight, LibraryTag, ProjectReference, Reference, SavedView
 from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    """Projects, with a read-only ``summary`` (UI audit 2026-09-06) so the Projects index can
+    show phase, progress, health and counts per card without one request per project."""
+
+    summary = serializers.SerializerMethodField()
+
     class Meta:
         model = Project
         fields = [
@@ -18,10 +26,37 @@ class ProjectSerializer(serializers.ModelSerializer):
             "status",
             "color",
             "position",
+            "summary",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["slug"]
+
+    def get_summary(self, project) -> dict:
+        from plans import selectors as plan_selectors
+        from plans.roadmap import project_roadmap
+
+        done, total, percent = plan_selectors.project_progress(project)
+        phase = plan_selectors.current_phase(project)
+        health = None
+        if phase is not None:
+            row = next((r for r in project_roadmap(project)["phases"] if r["id"] == phase.pk), None)
+            if row:
+                health = {"state": row["state"], "label": row["label"]}
+        return {
+            "current_phase": phase.name if phase else None,
+            "phase_progress": phase.progress if phase else None,
+            "milestones_done": done,
+            "milestones_total": total,
+            "percent": percent,
+            "health": health,
+            "counts": {
+                "papers": project.project_references.count(),
+                "notes": project.notes.count(),
+                "manuscripts": project.manuscripts.count(),
+                "documents": project.documents.count(),
+            },
+        }
 
 
 class ProjectSlugField(serializers.SlugRelatedField):
@@ -90,8 +125,28 @@ class ResearchQuestionSerializer(serializers.ModelSerializer):
         fields = ["id", "project", "question", "status", "phases", "created_at", "updated_at"]
 
 
-class DecisionRecordSerializer(serializers.ModelSerializer):
+class RenderedBodyMixin:
+    """`<field>_html` companions (#407): the markdown body rendered with [[note]] and
+    @cite-key mentions resolved, ready for the SPA to show. Read-only."""
+
+    rendered_fields: tuple[str, ...] = ()
+    soft_breaks = False
+
+    def _rendered(self, obj, field: str) -> str:
+        from core.rendering import render_body
+
+        return render_body(
+            getattr(obj, field, "") or "",
+            getattr(obj, "project", None),
+            soft_breaks=self.soft_breaks,
+        )
+
+
+class DecisionRecordSerializer(RenderedBodyMixin, serializers.ModelSerializer):
     project = ProjectSlugField()
+    context_html = serializers.SerializerMethodField()
+    decision_html = serializers.SerializerMethodField()
+    alternatives_html = serializers.SerializerMethodField()
 
     class Meta:
         model = DecisionRecord
@@ -102,10 +157,25 @@ class DecisionRecordSerializer(serializers.ModelSerializer):
             "context",
             "decision",
             "alternatives",
+            "context_html",
+            "decision_html",
+            "alternatives_html",
             "decided_on",
             "created_at",
             "updated_at",
         ]
+
+    @extend_schema_field(serializers.CharField())
+    def get_context_html(self, obj):
+        return self._rendered(obj, "context")
+
+    @extend_schema_field(serializers.CharField())
+    def get_decision_html(self, obj):
+        return self._rendered(obj, "decision")
+
+    @extend_schema_field(serializers.CharField())
+    def get_alternatives_html(self, obj):
+        return self._rendered(obj, "alternatives")
 
 
 class FolderSerializer(serializers.ModelSerializer):
@@ -156,6 +226,76 @@ class DocumentSerializer(serializers.ModelSerializer):
 
 
 class ReferenceSerializer(serializers.ModelSerializer):
+    # Library v2: which projects hold this paper, with the per-project reading state — one
+    # prefetch on the viewset, no per-row queries.
+    projects = serializers.SerializerMethodField()
+    # Library v2 slice 8: did the search term hit inside the PDF text? (only on filtered lists)
+    pdf_match = serializers.SerializerMethodField()
+    text_status = serializers.SerializerMethodField()
+    # Library v2 slice 5: tags by name (writable: a list of names creates missing tags)
+    tags = serializers.ListField(
+        child=serializers.CharField(max_length=60), required=False, write_only=True
+    )
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["tags"] = [t.name for t in instance.tags.all()]
+        return data
+
+    @extend_schema_field(serializers.BooleanField(allow_null=True))
+    def get_pdf_match(self, obj):
+        return getattr(obj, "pdf_match", None)
+
+    @extend_schema_field(serializers.CharField())
+    def get_text_status(self, obj):
+        """'indexed' (searchable), 'error: …', 'pending' (PDF not read yet), or 'none' (no PDF)."""
+        if not obj.pdf:
+            return "none"
+        try:
+            text = obj.text
+        except ObjectDoesNotExist:
+            return "pending"
+        return f"error: {text.error}" if text.error else "indexed"
+
+    def _apply_tags(self, instance, names):
+        from literature.models import LibraryTag
+
+        if names is None:
+            return
+        instance.tags.set([LibraryTag.get_or_create_named(n) for n in names if n.strip()])
+
+    def update(self, instance, validated_data):
+        names = validated_data.pop("tags", None)
+        instance = super().update(instance, validated_data)
+        self._apply_tags(instance, names)
+        return instance
+
+    @extend_schema_field(
+        serializers.ListField(
+            child=inline_serializer(
+                "ReferenceProjectLink",
+                fields={
+                    "slug": serializers.CharField(),
+                    "name": serializers.CharField(),
+                    "color": serializers.CharField(),
+                    "reading_status": serializers.CharField(),
+                    "priority": serializers.CharField(),
+                },
+            )
+        )
+    )
+    def get_projects(self, obj) -> list[dict]:
+        return [
+            {
+                "slug": link.project.slug,
+                "name": link.project.name,
+                "color": link.project.color,
+                "reading_status": link.reading_status,
+                "priority": link.priority,
+            }
+            for link in obj.project_links.all()
+        ]
+
     def validate_pdf(self, value):
         from django.core.exceptions import ValidationError as DjangoValidationError
 
@@ -185,20 +325,27 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "raw_bibtex",
             "extra",
             "citation_count",
+            "projects",
+            "tags",
+            "pdf_match",
+            "text_status",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["bibtex_key"]
+        read_only_fields = ["bibtex_key", "projects"]
 
     def create(self, validated_data):
         from literature.services import generate_bibtex_key
 
+        names = validated_data.pop("tags", None)
         validated_data["bibtex_key"] = generate_bibtex_key(
             validated_data.get("authors", []),
             validated_data.get("year"),
             validated_data.get("title", ""),
         )
-        return super().create(validated_data)
+        instance = super().create(validated_data)
+        self._apply_tags(instance, names)
+        return instance
 
 
 class ReferenceSummarySerializer(serializers.ModelSerializer):
@@ -226,12 +373,263 @@ class ProjectReferenceSerializer(serializers.ModelSerializer):
         ]
 
 
-class QuickCaptureSerializer(serializers.ModelSerializer):
+class QuickCaptureSerializer(RenderedBodyMixin, serializers.ModelSerializer):
     project = ProjectSlugField(required=False, allow_null=True)
+    hint = serializers.SerializerMethodField()
+    text_html = serializers.SerializerMethodField()
+    soft_breaks = True  # captures are jotted, not typeset: every newline is a break
 
     class Meta:
         model = QuickCapture
-        fields = ["id", "text", "processed", "project", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "text",
+            "text_html",
+            "processed",
+            "project",
+            "hint",
+            "created_at",
+            "updated_at",
+        ]
+
+    @extend_schema_field(serializers.CharField())
+    def get_text_html(self, obj):
+        return self._rendered(obj, "text")
+
+    @extend_schema_field(serializers.DictField())
+    def get_hint(self, obj):
+        """Inbox v2: what the capture looks like (paper / note / todo / …) and any ids found."""
+        from notes.capture import detect
+
+        return detect(obj.text)
+
+
+class ConvertCaptureSerializer(serializers.Serializer):
+    target = serializers.ChoiceField(choices=["paper", "note", "todo", "milestone", "decision"])
+    project = ProjectSlugField(required=False, allow_null=True)
+    phase = serializers.IntegerField(required=False, allow_null=True)
+    due = serializers.DateField(required=False, allow_null=True)
+
+
+class TodoItemSerializer(serializers.ModelSerializer):
+    """The owner's Today list: text, done, optional project."""
+
+    project = ProjectSlugField(required=False, allow_null=True)
+
+    class Meta:
+        model = TodoItem
+        fields = [
+            "id",
+            "text",
+            "done",
+            "done_at",
+            "position",
+            "due_at",
+            "project",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["done_at"]
+
+
+class LibraryTagSerializer(serializers.ModelSerializer):
+    count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = LibraryTag
+        fields = ["id", "name", "color", "count", "created_at"]
+
+    def validate_name(self, value):
+        clean = " ".join((value or "").split()).strip()
+        if not clean:
+            raise serializers.ValidationError("A tag needs a name.")
+        return clean
+
+    def validate_color(self, value):
+        """Blank (no colour) or a #rrggbb hex — the Library paints chips with it (#381)."""
+        import re
+
+        value = (value or "").strip().lower()
+        if value and not re.fullmatch(r"#[0-9a-f]{6}", value):
+            raise serializers.ValidationError("Use a #rrggbb colour, or leave it blank.")
+        return value
+
+
+class SavedViewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SavedView
+        fields = ["id", "name", "params", "position", "created_at", "updated_at"]
+
+
+class ManuscriptReferenceInSerializer(serializers.Serializer):
+    """Add a library paper to a manuscript's bibliography (Writing v2 slice 1)."""
+
+    reference = serializers.PrimaryKeyRelatedField(queryset=Reference.objects.all())
+    cite_key_override = serializers.CharField(required=False, allow_blank=True, max_length=120)
+
+
+class SubmissionEventInSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(
+        choices=[
+            "submitted",
+            "desk_reject",
+            "reviews_received",
+            "revision_submitted",
+            "accepted",
+            "rejected",
+            "published",
+            "note",
+        ]
+    )
+    date = serializers.DateField()
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class ReviewThemeInSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=200)
+    order = serializers.IntegerField(required=False, allow_null=True)
+
+
+class ReviewMarkInSerializer(serializers.Serializer):
+    """One matrix cell (Matrix v2)."""
+
+    reference = serializers.CharField(help_text="Reference id or bibtex key")
+    theme = serializers.CharField(help_text="Theme id or name (a name creates the theme)")
+    marked = serializers.BooleanField(default=True)
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=300)
+
+
+class ReviewsInSerializer(serializers.Serializer):
+    """Paste the reviews you received (Writing v2 slice 2)."""
+
+    text = serializers.CharField(
+        allow_blank=True,
+        help_text="The reviews as received; 'Reviewer N' headings and numbered/bulleted points are recognised.",
+    )
+    date = serializers.DateField(required=False)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class NoteFromTemplateSerializer(serializers.Serializer):
+    """Create a note from a template (Notes v2 slice 3)."""
+
+    project = ProjectSlugField()
+    kind = serializers.ChoiceField(
+        choices=["blank", "literature", "daily", "meeting", "experiment"],
+        help_text="literature needs `reference`; daily returns today's note if it exists.",
+    )
+    reference = serializers.PrimaryKeyRelatedField(
+        queryset=Reference.objects.all(), required=False, allow_null=True
+    )
+
+
+class PlanOutlineSerializer(serializers.Serializer):
+    """Plan v2: the whole plan as a Markdown outline (see plans/outline.py for the grammar)."""
+
+    markdown = serializers.CharField(
+        help_text="'# phase [status] (start → end)', '> objective', '- [ ] milestone (due YYYY-MM-DD)', indented '- [ ] task'; keep the {#id} tokens to rename safely."
+    )
+    dry_run = serializers.BooleanField(
+        default=False, help_text="Preview the changes without writing."
+    )
+
+
+class HighlightSerializer(serializers.ModelSerializer):
+    """A passage marked while reading (Library v2 slice 7)."""
+
+    project = ProjectSlugField(required=False, allow_null=True)
+    project_name = serializers.CharField(source="project.name", read_only=True, default="")
+
+    class Meta:
+        model = Highlight
+        fields = [
+            "id",
+            "reference",
+            "project",
+            "project_name",
+            "page",
+            "text",
+            "comment",
+            "color",
+            "rects",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_rects(self, value):
+        if not isinstance(value, list) or len(value) > 200:
+            raise serializers.ValidationError("rects must be a list of at most 200 boxes.")
+        for box in value:
+            if not isinstance(box, dict) or set(box) != {"x", "y", "w", "h"}:
+                raise serializers.ValidationError("each box needs x, y, w, h.")
+            if not all(isinstance(box[k], (int, float)) and -0.01 <= box[k] <= 1.01 for k in box):
+                raise serializers.ValidationError("box values are fractions of the page (0..1).")
+        return [{k: round(float(box[k]), 4) for k in ("x", "y", "w", "h")} for box in value]
+
+
+class MergeReferencesSerializer(serializers.Serializer):
+    keep = serializers.IntegerField(help_text="The reference that survives.")
+    merge = serializers.ListField(
+        child=serializers.IntegerField(),
+        min_length=1,
+        max_length=50,
+        help_text="Ids folded into `keep` and deleted.",
+    )
+
+
+class BulkReferenceActionSerializer(serializers.Serializer):
+    """Library v2 bulk bar: one action over many references."""
+
+    ids = serializers.ListField(child=serializers.IntegerField(), min_length=1, max_length=500)
+    action = serializers.ChoiceField(
+        choices=[
+            "link",
+            "unlink",
+            "status",
+            "priority",
+            "delete",
+            "find_metadata",
+            "fetch_pdf",
+            "tag",
+            "untag",
+        ]
+    )
+    project = serializers.SlugField(
+        required=False, allow_blank=True, help_text="Needed for link/unlink/status/priority."
+    )
+    value = serializers.CharField(
+        required=False, allow_blank=True, help_text="The reading status or priority to set."
+    )
+
+
+class ImportReferencesSerializer(serializers.Serializer):
+    """Library import (Library v2): drop files and/or paste text in one call."""
+
+    files = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        help_text="Any mix of .pdf, .bib, .ris, or CSL .json files (multipart).",
+    )
+    text = serializers.CharField(
+        required=False, allow_blank=True, help_text="Pasted BibTeX / CSL-JSON / RIS."
+    )
+    format = serializers.ChoiceField(
+        choices=["auto", "bibtex", "csl-json", "ris"],
+        default="auto",
+        help_text="Format of `text`; 'auto' sniffs it.",
+    )
+    project = serializers.SlugField(
+        required=False, allow_blank=True, help_text="Optional project slug to link everything to."
+    )
+
+
+class ImportZoteroSerializer(serializers.Serializer):
+    project = serializers.SlugField(required=False, allow_blank=True)
+    base_url = serializers.URLField(
+        required=False,
+        allow_blank=True,
+        help_text="Zotero local API root (default http://127.0.0.1:23119).",
+    )
 
 
 class AddByDoiSerializer(serializers.Serializer):
@@ -246,6 +644,7 @@ class AddByDoiSerializer(serializers.Serializer):
 class NoteSerializer(serializers.ModelSerializer):
     project = ProjectSlugField()
     backlinks = serializers.SerializerMethodField()
+    references_detail = ReferenceSummarySerializer(source="references", many=True, read_only=True)
 
     class Meta:
         model = Note
@@ -255,6 +654,7 @@ class NoteSerializer(serializers.ModelSerializer):
             "title",
             "body",
             "references",
+            "references_detail",
             "backlinks",
             "created_at",
             "updated_at",
@@ -268,15 +668,63 @@ class NoteSerializer(serializers.ModelSerializer):
         ]
 
 
+class EvidenceSerializer(serializers.ModelSerializer):
+    """One piece of evidence for a hypothesis (Research v2): a paper, a note or a document,
+    with a direction and a one-line summary."""
+
+    reference_detail = ReferenceSummarySerializer(source="reference", read_only=True)
+    note_title = serializers.CharField(source="note.title", read_only=True, default="")
+    document_title = serializers.CharField(source="document.title", read_only=True, default="")
+
+    class Meta:
+        from research.models import Evidence
+
+        model = Evidence
+        fields = [
+            "id",
+            "hypothesis",
+            "direction",
+            "summary",
+            "reference",
+            "reference_detail",
+            "note",
+            "note_title",
+            "document",
+            "document_title",
+            "created_at",
+        ]
+        extra_kwargs = {
+            "reference": {"required": False, "allow_null": True},
+            "note": {"required": False, "allow_null": True},
+            "document": {"required": False, "allow_null": True},
+        }
+
+
 class HypothesisSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
     supports = serializers.SerializerMethodField()
     contradicts = serializers.SerializerMethodField()
+    mixed = serializers.SerializerMethodField()
+    suggested_status = serializers.SerializerMethodField()
+    evidence = EvidenceSerializer(many=True, read_only=True)
 
     class Meta:
         from research.models import Hypothesis
 
         model = Hypothesis
-        fields = ["id", "statement", "status", "supports", "contradicts", "created_at"]
+        fields = [
+            "id",
+            "project",
+            "statement",
+            "status",
+            "supports",
+            "contradicts",
+            "mixed",
+            "suggested_status",
+            "evidence",
+            "created_at",
+            "updated_at",
+        ]
 
     def get_supports(self, obj) -> int:
         return sum(1 for e in obj.evidence.all() if e.direction == "supports")
@@ -284,10 +732,29 @@ class HypothesisSerializer(serializers.ModelSerializer):
     def get_contradicts(self, obj) -> int:
         return sum(1 for e in obj.evidence.all() if e.direction == "contradicts")
 
+    def get_mixed(self, obj) -> int:
+        return sum(1 for e in obj.evidence.all() if e.direction == "mixed")
 
-class ExperimentEntrySerializer(serializers.ModelSerializer):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_suggested_status(self, obj):
+        return obj.suggested_status
+
+
+class ExperimentEntrySerializer(RenderedBodyMixin, serializers.ModelSerializer):
+    project = ProjectSlugField()
     commit_label = serializers.CharField(read_only=True)
     protocol_label = serializers.SerializerMethodField()
+    body_html = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.CharField())
+    def get_body_html(self, obj):
+        return self._rendered(obj, "body")
+
+    hypotheses = serializers.PrimaryKeyRelatedField(
+        many=True,
+        required=False,
+        queryset=__import__("research.models", fromlist=["Hypothesis"]).Hypothesis.objects.all(),
+    )
 
     class Meta:
         from research.models import ExperimentEntry
@@ -295,31 +762,45 @@ class ExperimentEntrySerializer(serializers.ModelSerializer):
         model = ExperimentEntry
         fields = [
             "id",
+            "project",
             "date",
             "title",
             "body",
+            "body_html",
             "commit_url",
             "commit_label",
             "protocol",
             "protocol_label",
+            "hypotheses",
             "created_at",
         ]
+        extra_kwargs = {
+            "protocol": {"required": False, "allow_null": True},
+            "date": {"required": False},
+        }
 
     def get_protocol_label(self, obj) -> str:
         return str(obj.protocol) if obj.protocol_id else ""
 
 
 class DatasetSerializer(serializers.ModelSerializer):
+    project = ProjectSlugField()
+
     class Meta:
         from research.models import Dataset
 
         model = Dataset
-        fields = ["id", "name", "location", "version", "checksum", "description"]
+        fields = ["id", "project", "name", "location", "version", "checksum", "description"]
 
 
-class ProtocolSerializer(serializers.ModelSerializer):
+class ProtocolSerializer(RenderedBodyMixin, serializers.ModelSerializer):
     project = ProjectSlugField()
     is_current = serializers.BooleanField(read_only=True)
+    body_html = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.CharField())
+    def get_body_html(self, obj):
+        return self._rendered(obj, "body")
 
     class Meta:
         from research.models import Protocol
@@ -330,6 +811,7 @@ class ProtocolSerializer(serializers.ModelSerializer):
             "project",
             "title",
             "body",
+            "body_html",
             "version",
             "parent",
             "is_current",
@@ -395,7 +877,11 @@ class ManuscriptFileSerializer(serializers.ModelSerializer):
 
         if validated_data.get("is_main") and not instance.is_main:
             with transaction.atomic():
-                instance.manuscript.files.filter(is_main=True).update(is_main=False)
+                from django.utils import timezone
+
+                instance.manuscript.files.filter(is_main=True).update(
+                    is_main=False, updated_at=timezone.now()
+                )
                 return super().update(instance, validated_data)
         return super().update(instance, validated_data)
 
@@ -409,6 +895,23 @@ class ManuscriptFileSummarySerializer(serializers.ModelSerializer):
 
 
 class ManuscriptSerializer(serializers.ModelSerializer):
+    progress = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.DictField())
+    def get_progress(self, obj):
+        """#413: the last 14 days of word samples (sparkline), today's delta and the streak."""
+        from writing.progress import progress
+
+        summary = progress(obj, days=14)
+        return {
+            "today_delta": summary["today_delta"],
+            "week_delta": summary["week_delta"],
+            "streak": summary["streak"],
+            "words": summary["words"],
+            "samples": [s["delta"] for s in summary["samples"]],
+            "compiles": summary["compiles"],  # #460: per-day compiles, today, week
+        }
+
     project = ProjectSlugField()
     events = SubmissionEventSerializer(many=True, read_only=True)
     project_name = serializers.CharField(source="project.name", read_only=True)
@@ -428,20 +931,36 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "deadline",
             "abstract",
             "latex_source",
+            "venue_limits",
+            "auto_revisions_keep",
             "compile_status",
             "compile_diagnostics",
             "compiled_at",
             "events",
             "files",
+            "progress",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["compile_status", "compile_diagnostics", "compiled_at"]
 
+    def validate_auto_revisions_keep(self, value):
+        if value < 1 or value > 500:
+            raise serializers.ValidationError("Keep between 1 and 500 automatic revisions.")
+        return value
+
+    def validate_venue_limits(self, value):
+        from writing.budget import clean_limits
+
+        return clean_limits(value)
+
 
 class PromptSerializer(serializers.ModelSerializer):
+    # #393: the placeholders with their defaults, so MCP clients can fill a prompt correctly
+    variables = serializers.ListField(child=serializers.DictField(), read_only=True)
+
     class Meta:
         from prompts.models import Prompt
 
         model = Prompt
-        fields = ["id", "title", "body", "tags", "created_at", "updated_at"]
+        fields = ["id", "title", "body", "tags", "variables", "created_at", "updated_at"]

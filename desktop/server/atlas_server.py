@@ -14,7 +14,7 @@ def _log_to_data_dir():
     """Send the frozen server's stdout/stderr to <data-dir>/atlas-server.log.
 
     The Tauri shell launches this with no console (windowed build), so otherwise a startup
-    failure — a Postgres error, a bad migration, any traceback — is invisible and the window
+    failure — a bad migration, a port clash, any traceback — is invisible and the window
     just shows "127.0.0.1 refused to connect". Logging to the per-user data dir gives the
     owner (and us) a file to read. It also means a stray print() can't crash on a None stdout.
     """

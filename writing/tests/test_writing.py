@@ -316,7 +316,7 @@ class TestCompile:
         manuscript = ManuscriptFactory()
         called = {}
         monkeypatch.setattr(
-            "writing.tasks.compile_manuscript_task",
+            "writing.tasks.enqueue_compile",
             lambda pk, gen=None: called.setdefault("pk", pk),
         )
         response = client_logged_in.post(
@@ -341,6 +341,11 @@ class TestCompile:
         manuscript.refresh_from_db()
         assert manuscript.compile_status == "ok", manuscript.compile_log
         assert manuscript.compiled_pdf.read().startswith(b"%PDF")
+        # #378: the SyncTeX map came along and points line 3 ("Real compile.") at page 1
+        assert manuscript.synctex["files"] == ["main.tex"]
+        from writing.synctex import forward
+
+        assert forward(manuscript.synctex, "main.tex", 3)["page"] == 1
 
 
 class TestEditorSplitView:
@@ -457,7 +462,7 @@ class TestCompileDiagnostics:
 
         called = {}
         monkeypatch.setattr(
-            "writing.tasks.compile_manuscript_task",
+            "writing.tasks.enqueue_compile",
             lambda pk, gen=None: called.setdefault("pk", pk),
         )
         queued = client_logged_in.post(f"/api/v1/manuscripts/{manuscript.pk}/compile/")
@@ -502,7 +507,7 @@ class TestEpicSlice2:
         manuscript = ManuscriptFactory(latex_source="x")
         seen = {}
         monkeypatch.setattr(
-            "writing.tasks.compile_manuscript_task",
+            "writing.tasks.enqueue_compile",
             lambda pk, gen=None: seen.update(pk=pk, gen=gen),
         )
         url = f"/projects/{manuscript.project.slug}/writing/{manuscript.pk}/compile/"

@@ -172,7 +172,25 @@ def monthly_stats(today=None):
         "notes_written": Note.objects.filter(created_at__date__gte=month_start).count(),
         "milestones_done": Milestone.objects.filter(completed_at__date__gte=month_start).count(),
         "experiments_logged": ExperimentEntry.objects.filter(date__gte=month_start).count(),
+        "words_written": words_written_since(month_start),
     }
+
+
+def words_written_since(start) -> int:
+    """Words added to manuscripts since ``start`` (#418): the sum of positive day-to-day
+    deltas of the daily word samples (#413), across every manuscript."""
+    from writing.models import WordCountSample
+
+    total = 0
+    previous: dict[int, int] = {}
+    for sample in WordCountSample.objects.order_by("manuscript_id", "date").values_list(
+        "manuscript_id", "date", "words"
+    ):
+        manuscript_id, day, words = sample
+        if manuscript_id in previous and day >= start:
+            total += max(0, words - previous[manuscript_id])
+        previous[manuscript_id] = words
+    return total
 
 
 def dashboard_context():
@@ -185,3 +203,81 @@ def dashboard_context():
         "stats": monthly_stats(),
         "inbox_count": QuickCapture.objects.filter(processed=False).count(),
     }
+
+
+def week_everywhere(today=None, days=7, limit=40):
+    """Dashboard v2: overdue and due-within-a-week milestones/tasks across active projects,
+    overdue first, each with its project — the cross-project "this week" list."""
+    from plans.models import Task
+
+    today = today or timezone.localdate()
+    horizon = today + datetime.timedelta(days=days)
+    live = ["planning", "active"]
+    items = []
+    for m in (
+        Milestone.objects.filter(
+            completed_at__isnull=True, due_date__lte=horizon, phase__project__status__in=live
+        )
+        .select_related("phase__project")
+        .order_by("due_date")[:limit]
+    ):
+        items.append(
+            {
+                "kind": "milestone",
+                "id": m.pk,
+                "title": m.title,
+                "due_date": m.due_date,
+                "days": (m.due_date - today).days,
+                "project": m.phase.project.slug,
+                "project_name": m.phase.project.name,
+                "color": m.phase.project.color,
+                "phase": m.phase.name,
+            }
+        )
+    for t in (
+        Task.objects.filter(
+            done=False, due_date__lte=horizon, milestone__phase__project__status__in=live
+        )
+        .select_related("milestone__phase__project")
+        .order_by("due_date")[:limit]
+    ):
+        project = t.milestone.phase.project
+        items.append(
+            {
+                "kind": "task",
+                "id": t.pk,
+                "title": t.title,
+                "due_date": t.due_date,
+                "days": (t.due_date - today).days,
+                "project": project.slug,
+                "project_name": project.name,
+                "color": project.color,
+                "phase": t.milestone.phase.name,
+            }
+        )
+    items.sort(key=lambda i: (i["due_date"], i["kind"] != "milestone", i["title"]))
+    return {
+        "today": today,
+        "week_ends": horizon,
+        "overdue": [i for i in items if i["days"] < 0],
+        "due_this_week": [i for i in items if i["days"] >= 0],
+    }
+
+
+def project_health(rows):
+    """Attach the current phase's health (from the roadmap) to each active-project row."""
+    from plans.roadmap import project_roadmap
+
+    out = {}
+    for row in rows:
+        project, phase = row["project"], row["phase"]
+        if phase is None:
+            continue
+        match = next((r for r in project_roadmap(project)["phases"] if r["id"] == phase.pk), None)
+        if match:
+            out[project.slug] = {
+                "state": match["state"],
+                "label": match["label"],
+                "forecast_end": match["forecast_end"],
+            }
+    return out

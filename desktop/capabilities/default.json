@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Atlas desktop core capabilities",
+  "description": "Atlas desktop core capabilities. `remote` matters: the app is served from the bundled server at http://127.0.0.1:<port>, which Tauri treats as a REMOTE origin \u2014 without it no command (terminal, updater, file picker, external links) is allowed and every invoke fails with 'not allowed by ACL'.",
   "windows": [
     "main"
   ],
@@ -9,5 +9,13 @@
     "core:default",
     "dialog:allow-open",
     "updater:default"
-  ]
+  ],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*",
+      "http://localhost:*",
+      "http://127.0.0.1",
+      "http://localhost"
+    ]
+  }
 }

@@ -19,6 +19,27 @@ STAGES = [
     (120, "sage", "🦉✨", "A sage. It has watched whole phases complete."),
 ]
 
+# #427 (backlog #110): the plumage is decided once per install, from the Pet row's identity —
+# a Buddy-style hatch that is yours and stays yours. One in sixty-four is golden.
+SPECIES = [
+    ("tawny", "tawny owl", "warm brown with a cream belly — the classic study companion"),
+    ("snowy", "snowy owl", "white as a blank page, grey-flecked"),
+    ("barn", "barn owl", "pale gold with a heart-shaped face"),
+    ("dusk", "dusk owl", "slate and violet — reads best after dark"),
+]
+GOLDEN = ("golden", "golden owl", "✦ shiny — one hatch in sixty-four comes out gold")
+
+
+def pet_species(pet) -> dict:
+    import hashlib
+
+    seed = f"{pet.pk}:{pet.created_at.isoformat() if pet.created_at else ''}"
+    digest = hashlib.sha256(seed.encode()).digest()
+    shiny = digest[0] % 64 == 0
+    key, name, blurb = GOLDEN if shiny else SPECIES[digest[1] % len(SPECIES)]
+    return {"key": key, "name": name, "blurb": blurb, "shiny": shiny}
+
+
 MOODS = [
     (0, "sleeping", "zzz… it rests while you rest"),
     (1, "content", "quietly pleased with this week's progress"),
@@ -100,6 +121,38 @@ def _speech_candidates(now) -> list[str]:
         done, total = phase.milestone_counts
         lines.append(f"“{phase.name}” is moving — {done}/{total} milestones.")
 
+    # #419: habit signals — the streak, the usual hours, today's writing
+    days = _activity_days(limit=120)
+    streak = streak_days(days, today)
+    if streak >= 7:
+        lines.append(f"{streak} days in a row. That's a habit now, not luck.")
+    elif streak >= 3:
+        lines.append(f"{streak} days running. The streak is yours to keep — or not.")
+    from core.achievements import _hours_and_weekdays
+    from core.dashboard import words_written_since
+
+    usual_hours, _ = _hours_and_weekdays()
+    if len(usual_hours) >= 3 and now.hour not in usual_hours:
+        lines.append("Not your usual hour. Curious what brought you here.")
+    words_today = words_written_since(today)
+    if words_today >= 500:
+        lines.append(f"+{words_today:,} words on the paper today. A real session.")
+    elif words_today > 0:
+        lines.append(f"+{words_today} words today. The pen is moving.")
+    # #460: the compile rhythm — a PDF that keeps being rebuilt is a paper being finished
+    from writing.progress import compiles_since
+
+    compiles_week = compiles_since(today - datetime.timedelta(days=6))
+    if compiles_week >= 10:
+        lines.append(
+            f"{compiles_week} compiles this week. That paper is being built, not just written."
+        )
+    elif compiles_week >= 3:
+        lines.append(f"{compiles_week} compiles this week. The PDF is alive.")
+
+    # #56: the calendar has moods too — a weekday line and a seasonal one, still observations
+    lines.extend(calendar_lines(now))
+
     hour = now.hour
     if hour < 6:
         lines.append("Up before the birds. I'll keep watch.")
@@ -110,6 +163,37 @@ def _speech_candidates(now) -> list[str]:
     else:
         lines.append("Evening session — stop while it's still fun.")
     return lines
+
+
+WEEKDAY_LINES = {
+    0: "Monday. The week is a blank page — one line on it is enough.",
+    1: "Tuesday: nobody's favourite, everybody's most productive.",
+    2: "Midweek. Halfway is a real place; look around.",
+    3: "Thursday. The week has a shape now — finish the sentence.",
+    4: "Friday. Leave the next step written down; Monday-you will be grateful.",
+    5: "A Saturday visit. Research doesn't mind, but rest is part of the method.",
+    6: "Sunday. A quiet look is allowed; a marathon is not.",
+}
+
+SEASON_LINES = {
+    1: "New year, same notebook. That's the point of a notebook.",
+    2: "February: short month, long nights, good for reading.",
+    3: "March. Something is thawing — maybe that paper.",
+    4: "April. Conference season is coming for someone; is it you?",
+    5: "May. Half the year's plans are still possible.",
+    6: "June. Long light, long sessions — keep the short breaks.",
+    7: "July. Even reviewers are on holiday. Write for yourself.",
+    8: "August: the quiet month. Quiet is where drafts get finished.",
+    9: "September. The academic year turns over; so can the plan.",
+    10: "October. Deadlines cluster like starlings.",
+    11: "November. Dark early; a good hour for the literature.",
+    12: "December. Close the year with a decision written down.",
+}
+
+
+def calendar_lines(now) -> list[str]:
+    """One line for the weekday and one for the month — ambience, never a demand."""
+    return [WEEKDAY_LINES[now.weekday()], SEASON_LINES[now.month]]
 
 
 def pet_speech(now=None) -> str:
@@ -135,6 +219,9 @@ REACTION_LINES = {
         "A milestone falls! *happy hop*",
         "Checked. The plan advances.",
         "That one's done. Onward.",
+        "One less thing between you and the paper.",
+        "Bonfire lit. Rest here a moment.",
+        "The plan moved because you did.",
     ],
     "paper": [
         "Om nom — knowledge.",
@@ -180,6 +267,117 @@ def pet_stats() -> dict:
     }
 
 
+POINTS_LEGEND = [
+    ("milestone completed", 3),
+    ("note written", 2),
+    ("paper read or annotated", 2),
+    ("experiment logged", 2),
+    ("paper added to the library", 1),
+    ("comment left", 1),
+]
+
+
+def _activity_days(limit: int = 120) -> set:
+    """Calendar days with any pet-feeding activity (for the streak)."""
+    from literature.models import ProjectReference, Reference
+    from notes.models import Note
+    from plans.models import Milestone
+    from research.models import ExperimentEntry
+
+    since = timezone.now() - datetime.timedelta(days=limit)
+    days = set()
+    for qs, field in (
+        (Milestone.objects.filter(completed_at__isnull=False), "completed_at"),
+        (Note.objects.all(), "created_at"),
+        (Reference.objects.all(), "created_at"),
+        (ProjectReference.objects.filter(reading_status__in=["read", "annotated"]), "updated_at"),
+        (ExperimentEntry.objects.all(), "created_at"),
+    ):
+        for value in qs.filter(**{f"{field}__gte": since}).values_list(field, flat=True):
+            days.add(timezone.localtime(value).date())
+    return days
+
+
+def streak_days(days: set | None = None, today=None) -> int:
+    """Consecutive days ending today (or yesterday, so a morning visit does not read 0)."""
+    days = _activity_days() if days is None else days
+    today = today or timezone.localdate()
+    start = today if today in days else today - datetime.timedelta(days=1)
+    if start not in days:
+        return 0
+    n = 0
+    while start in days:
+        n += 1
+        start -= datetime.timedelta(days=1)
+    return n
+
+
+ACHIEVEMENTS = [
+    # (key, title, description, predicate(stats, lifetime, streak, counts))
+    (
+        "first_light",
+        "First light",
+        "Feed Mochi once — any note, paper or milestone.",
+        lambda st, life, streak, c: life >= 1,
+    ),
+    ("hatched", "Hatched", "Reach 10 lifetime points.", lambda st, life, streak, c: life >= 10),
+    (
+        "bookworm",
+        "Bookworm",
+        "Read or annotate 10 papers.",
+        lambda st, life, streak, c: c["read"] >= 10,
+    ),
+    (
+        "closer",
+        "Closer",
+        "Complete 10 milestones.",
+        lambda st, life, streak, c: c["milestones"] >= 10,
+    ),
+    ("scribe", "Scribe", "Write 25 notes.", lambda st, life, streak, c: c["notes"] >= 25),
+    ("lab_rat", "Lab rat", "Log 5 experiments.", lambda st, life, streak, c: c["experiments"] >= 5),
+    (
+        "week_long",
+        "Seven days",
+        "A seven-day activity streak.",
+        lambda st, life, streak, c: streak >= 7,
+    ),
+    (
+        "month_long",
+        "Thirty days",
+        "A thirty-day activity streak.",
+        lambda st, life, streak, c: streak >= 30,
+    ),
+    (
+        "well_rounded",
+        "Well-rounded",
+        "Every stat at level 3 or more.",
+        lambda st, life, streak, c: min(st.values()) >= 3,
+    ),
+    ("sage", "Sage", "Reach the sage stage (120 points).", lambda st, life, streak, c: life >= 120),
+]
+
+
+def achievements(stats: dict, lifetime: int, streak: int, facts: dict | None = None) -> list[dict]:
+    """The full ledger (core/achievements.py) — the original ten live on inside it."""
+    from core import achievements as ach
+
+    facts = facts or ach.gather_facts(stats, lifetime, streak)
+    rows = ach.evaluate(facts)
+    ach.record_unlocks(rows)
+    return rows
+
+
+def rename_pet(name: str) -> str:
+    from core.models import Pet
+
+    name = (name or "").strip()[:40] or "Mochi"
+    pet, _ = Pet.objects.get_or_create(pk=1)
+    pet.name = name
+    pet.save(update_fields=["name", "updated_at"])
+    cache.delete("atlas-pet-state")
+    return name
+
+
 def pet_state() -> dict:
     cached = cache.get("atlas-pet-state")
     if cached is not None:
@@ -188,6 +386,7 @@ def pet_state() -> dict:
     from core.models import Pet
 
     pet, _ = Pet.objects.get_or_create(pk=1, defaults={"name": "Mochi"})
+    species = pet_species(pet)
     lifetime = _activity_points()
     weekly = _activity_points(since=timezone.now() - WEEK)
 
@@ -203,9 +402,29 @@ def pet_state() -> dict:
     if stats[dominant] > 0:
         lines.append(dict(STAT_RULES)[dominant])
     rng.shuffle(lines)
+    streak = streak_days()
+    from core import achievements as ach
 
+    facts = ach.gather_facts(stats, lifetime, streak)
+    ledger = achievements(stats, lifetime, streak, facts)
+    total = ach.score(ledger)
+    if pet.souls_mode:
+        # souls mode (owner, 2026-09-07): same facts, told grimly
+        lines = ach.souls_speech(facts)
+        rng.shuffle(lines)
     state = {
         "name": pet.name,
+        "souls_mode": pet.souls_mode,
+        "souls": ach.souls_counters(facts),
+        "achievement_score": total,
+        "rank": ach.rank(total),
+        "recent_unlocks": [
+            r["key"]
+            for r in ledger
+            if r["unlocked"]
+            and r["unlocked_at"]
+            and r["unlocked_at"] >= timezone.now() - datetime.timedelta(days=1)
+        ],
         "speech": lines[0],
         "speech_lines": lines[:6],  # the widget rotates through these, Buddy-style
         "reactions": {kind: rng.choice(pool) for kind, pool in REACTION_LINES.items()},
@@ -213,13 +432,24 @@ def pet_state() -> dict:
         "dominant_stat": dominant,
         "stage": stage[1],
         "emoji": stage[2],
-        "stage_blurb": stage[3],
+        "stage_blurb": (
+            f"Hatched — a {species['name']}! Fed by your first finished work."
+            if stage[1] == "hatchling"
+            else stage[3]
+        ),
+        "species": species,
         "mood": mood[1],
         "mood_blurb": mood[2],
         "weekly_points": weekly,
         "lifetime_points": lifetime,
         "to_next_stage": (next_stage[0] - lifetime) if next_stage else None,
         "next_stage_name": next_stage[1] if next_stage else None,
+        "stage_floor": stage[0],
+        "next_stage_points": next_stage[0] if next_stage else None,
+        "streak_days": streak,
+        "achievements": ledger,
+        "points_legend": [{"action": a, "points": p} for a, p in POINTS_LEGEND],
+        "stages": [{"points": p, "name": n, "blurb": b} for p, n, _e, b in STAGES],
     }
     cache.set("atlas-pet-state", state, 300)
     return state

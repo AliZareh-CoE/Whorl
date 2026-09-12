@@ -8,11 +8,13 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { Prose } from "../../components/Prose";
 import { ErrorState } from "../../components/ErrorState";
 
-type Event = { date: string; kind: string; label: string; detail: string; url: string };
+type Event = { date: string; kind: string; label: string; detail: string; url: string; body_html?: string };
 
 const KINDS: Record<string, { label: string; dot: string }> = {
   milestone: { label: "Milestone", dot: "bg-indigo-500" },
@@ -55,6 +57,8 @@ function periodLabel(period: string, zoom: Zoom): string {
 export default function Timeline() {
   const { slug } = useParams();
   const [zoom, setZoom] = useState<Zoom>("month");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set()); // #443: events opened in place
+  const toggleExpanded = (key: string) => setExpanded((prev) => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
 
@@ -178,8 +182,13 @@ export default function Timeline() {
               </h2>
               <ul className="space-y-3.5">
                 {items.map((e, i) => (
-                  <li key={`${e.date}-${e.kind}-${i}`} className="group relative text-sm">
+                  <li key={`${e.date}-${e.kind}-${i}`} className="group relative text-sm" data-testid="timeline-event" data-expandable={e.body_html ? "1" : undefined}>
                     <span className={`absolute -left-[26px] top-[7px] size-2.5 rounded-full ring-4 ring-stone-50 dark:ring-stone-900 ${KINDS[e.kind]?.dot ?? "bg-stone-300"}`} aria-hidden />
+                    {e.body_html && (
+                      <button type="button" onClick={() => toggleExpanded(`${e.date}-${e.kind}-${i}`)} aria-expanded={expanded.has(`${e.date}-${e.kind}-${i}`)} aria-label={expanded.has(`${e.date}-${e.kind}-${i}`) ? "Collapse" : "Read it here"} title="Read it here" data-testid="timeline-expand" className="absolute -right-1 top-1 rounded p-1 text-stone-300 transition-colors hover:text-indigo-500 dark:text-stone-600 dark:hover:text-indigo-300">
+                        <ChevronDown className={`h-4 w-4 transition-transform ${expanded.has(`${e.date}-${e.kind}-${i}`) ? "rotate-180" : ""}`} aria-hidden="true" />
+                      </button>
+                    )}
                     <Link
                       to={e.url}
                       className="-mx-2 flex flex-col gap-0.5 rounded px-2 py-1 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:hover:bg-stone-800 sm:flex-row sm:items-baseline sm:gap-2"
@@ -193,6 +202,11 @@ export default function Timeline() {
                         {zoom !== "day" ? ` · ${e.date}` : ""}
                       </span>
                     </Link>
+                    {e.body_html && expanded.has(`${e.date}-${e.kind}-${i}`) && (
+                      <div className="mt-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 dark:border-stone-800 dark:bg-stone-950/40" data-testid="timeline-body">
+                        <Prose html={e.body_html} className="text-sm" />
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

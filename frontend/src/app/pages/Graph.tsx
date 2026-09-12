@@ -1,208 +1,207 @@
-/** 3D knowledge graph (SPA slice 10) — 3d-force-graph lazy-loaded from the CDN. */
+/** Knowledge graph v2 (Observatory) — 3d-force-graph / force-graph from the vendored build (works
+ *  offline in the desktop app). Search-to-focus, kind and link filters, neighbourhood focus mode,
+ *  hover highlighting, a side panel with the node's facts and neighbours, hubs and orphans stats.
+ *  Data: GET /projects/{slug}/graph/ (nodes, links, stats). */
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Crosshair, ExternalLink, RefreshCw, Search, X } from "lucide-react";
 import { api, csrfToken } from "../api";
+import { queryGate } from "../../components/QueryBoundary";
 
-type Node = { id: string; type: string; label: string; group: string; size: number; url?: string };
-type GraphData = { nodes: Node[]; links: { source: string; target: string; kind: string }[] };
+type Node = { id: string; type: "reference" | "note"; label: string; title: string; group: string; size: number; url?: string; app_url?: string; year?: number | null; venue?: string; citations?: number | null; authors?: string; has_pdf?: boolean; highlights?: number; words?: number; updated_at?: string; degree: number };
+type Edge = { source: string | { id: string }; target: string | { id: string }; kind: string };
+type Stats = { references: number; notes: number; links: number; by_kind: Record<string, number>; orphans: number; hubs: { id: string; label: string; degree: number }[] };
+type GraphData = { nodes: Node[]; links: Edge[]; stats: Stats };
 
-declare global {
-  interface Window { ForceGraph3D?: any; ForceGraph?: any }
-}
+declare global { interface Window { ForceGraph3D?: any; ForceGraph?: any } }
 
+const LIB = { "3d": "/static/vendor/forcegraph/3d-force-graph.min.js", "2d": "/static/vendor/forcegraph/force-graph.min.js" } as const;
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.onload = () => resolve();
-    s.onerror = reject;
-    document.head.appendChild(s);
+    const s = document.createElement("script"); s.src = src; s.onload = () => resolve(); s.onerror = reject; document.head.appendChild(s);
   });
 }
-
-const COLORS: Record<string, string> = {
-  to_read: "#f59e0b", skimmed: "#818cf8", read: "#4f46e5",
-  annotated: "#16a34a", note: "#0d9488", reference: "#6366f1",
-};
-
-const LEGEND: { group: string; label: string }[] = [
-  { group: "to_read", label: "To read" },
-  { group: "skimmed", label: "Skimmed" },
-  { group: "read", label: "Read" },
-  { group: "annotated", label: "Annotated" },
-  { group: "note", label: "Note" },
-];
+const COLORS: Record<string, string> = { to_read: "#f59e0b", skimmed: "#a5b4fc", read: "#7c6cff", annotated: "#34d399", note: "#2dd4bf" };
+const LINK_COLORS: Record<string, string> = { citation: "#7c6cff", "note-link": "#2dd4bf", "note-citation": "#c084fc" };
+const LEGEND: [string, string][] = [["to_read", "To read"], ["skimmed", "Skimmed"], ["read", "Read"], ["annotated", "Annotated"], ["note", "Note"]];
+const LINK_LEGEND: [string, string][] = [["citation", "cites"], ["note-link", "note → note"], ["note-citation", "note → paper"]];
+const endId = (e: string | { id: string }) => (typeof e === "string" ? e : e.id);
+const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
 
 export default function Graph() {
   const { slug } = useParams();
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<any>(null);
-  const [mode, setMode] = useState<"3d" | "2d">("3d");
+  const [mode, setMode] = useState<"3d" | "2d">(() => { try { return (localStorage.getItem("atlas-graph-mode") as "3d" | "2d") || "3d"; } catch { return "3d"; } });
   const [selected, setSelected] = useState<Node | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [focus, setFocus] = useState<{ id: string; depth: number } | null>(null);
+  const [q, setQ] = useState("");
+  const [kinds, setKinds] = useState<Set<string>>(new Set(["reference", "note"]));
+  const [linkKinds, setLinkKinds] = useState<Set<string>>(new Set(["citation", "note-link", "note-citation"]));
+  const [hideOrphans, setHideOrphans] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => { try { localStorage.setItem("atlas-graph-mode", mode); } catch { /* private mode */ } }, [mode]);
 
-  const { data } = useQuery({
-    queryKey: ["graph", slug],
-    queryFn: () => api<GraphData>(`/projects/${slug}/graph/`),
-  });
+  const graph = useQuery({ queryKey: ["graph", slug], queryFn: () => api<GraphData>(`/projects/${slug}/graph/`) });
+  const data = graph.data;
 
+  // neighbours index
+  const neighbours = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const l of data?.links ?? []) { const s = endId(l.source), t = endId(l.target); (m.get(s) ?? m.set(s, new Set()).get(s)!).add(t); (m.get(t) ?? m.set(t, new Set()).get(t)!).add(s); }
+    return m;
+  }, [data]);
+  const matches = useMemo(() => {
+    const needle = q.trim().toLowerCase(); if (!needle) return new Set<string>();
+    return new Set((data?.nodes ?? []).filter((n) => n.label.toLowerCase().includes(needle) || n.title.toLowerCase().includes(needle) || (n.authors ?? "").toLowerCase().includes(needle)).map((n) => n.id));
+  }, [q, data]);
+  const visible = useMemo(() => {
+    if (!data) return null;
+    let ids = new Set(data.nodes.filter((n) => kinds.has(n.type)).map((n) => n.id));
+    if (focus) {
+      const keep = new Set<string>([focus.id]); let frontier = [focus.id];
+      for (let d = 0; d < focus.depth; d++) { const next: string[] = []; for (const id of frontier) for (const nb of neighbours.get(id) ?? []) if (!keep.has(nb)) { keep.add(nb); next.push(nb); } frontier = next; }
+      ids = new Set([...ids].filter((id) => keep.has(id)));
+    }
+    const links = data.links.filter((l) => linkKinds.has(l.kind) && ids.has(endId(l.source)) && ids.has(endId(l.target)));
+    if (hideOrphans) { const linked = new Set<string>(); for (const l of links) { linked.add(endId(l.source)); linked.add(endId(l.target)); } ids = new Set([...ids].filter((id) => linked.has(id) || id === focus?.id)); }
+    // fresh copies: force-graph mutates nodes/links in place
+    return { nodes: data.nodes.filter((n) => ids.has(n.id)).map((n) => ({ ...n })), links: links.map((l) => ({ source: endId(l.source), target: endId(l.target), kind: l.kind })) };
+  }, [data, kinds, linkKinds, hideOrphans, focus, neighbours]);
+
+  const isDark = () => document.documentElement.classList.contains("dark");
+  const nodeColor = useCallback((n: Node) => {
+    const base = COLORS[n.group] ?? "#a8a29e";
+    const active = hovered ?? selected?.id ?? null;
+    const dim = (active && n.id !== active && !(neighbours.get(active)?.has(n.id))) || (matches.size > 0 && !matches.has(n.id));
+    return dim ? base + "33" : base;
+  }, [hovered, selected, neighbours, matches]);
+
+  // build / rebuild the graph when the library, mode or visible data change
   useEffect(() => {
-    if (!data || !containerRef.current) return;
+    if (!visible || !containerRef.current) return;
     let cancelled = false;
     (async () => {
-      await loadScript(
-        mode === "3d"
-          ? "https://unpkg.com/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"
-          : "https://unpkg.com/force-graph@1.43.5/dist/force-graph.min.js",
-      );
+      await loadScript(LIB[mode]);
       if (cancelled || !containerRef.current) return;
-      containerRef.current.innerHTML = "";
       const factory = mode === "3d" ? window.ForceGraph3D : window.ForceGraph;
-      const graph = factory()(containerRef.current)
-        .graphData(data)
-        .nodeLabel((n: Node) => n.label)
+      if (!factory) return;
+      graphRef.current?._destructor?.();
+      containerRef.current.innerHTML = "";
+      const g = factory()(containerRef.current)
+        .graphData(visible)
+        .nodeLabel((n: Node) => `<div style="font:12px system-ui;max-width:260px"><b>${n.label}</b><br/>${n.title}</div>`)
         .nodeVal((n: Node) => n.size)
-        .nodeColor((n: Node) => COLORS[n.group] ?? "#a8a29e")
+        .nodeColor(nodeColor)
+        .linkColor((l: Edge) => (LINK_COLORS[l.kind] ?? "#94a3b8") + (isDark() ? "99" : "77"))
+        .linkWidth((l: Edge) => (l.kind === "note-citation" ? 1.5 : 1))
         .width(containerRef.current.clientWidth)
-        .height(560)
-        .onNodeClick((n: Node) => setSelected(n));
-      if (mode === "3d") graph.backgroundColor("#fafaf9");
-      graphRef.current = graph;
+        .height(600)
+        .onNodeClick((n: Node) => { setSelected(n); if (mode === "3d" && n && typeof (n as any).x === "number") { const d = 120; const { x, y, z } = n as any; const r = 1 + d / Math.hypot(x, y, z || 1); g.cameraPosition({ x: x * r, y: y * r, z: (z || 0) * r }, n, 900); } })
+        .onNodeHover((n: Node | null) => setHovered(n?.id ?? null))
+        .onBackgroundClick(() => setSelected(null));
+      if (mode === "3d") { g.backgroundColor(isDark() ? "#05070f" : "#fafaf9").linkOpacity(0.55).linkDirectionalParticles((l: Edge) => (l.kind === "citation" ? 1 : 0)).linkDirectionalParticleWidth(1.2).linkDirectionalParticleSpeed(0.004); }
+      else { g.backgroundColor(isDark() ? "#05070f" : "#fafaf9").linkDirectionalArrowLength(3).linkDirectionalArrowRelPos(1); }
+      graphRef.current = g; setReady(true);
     })();
-    return () => { cancelled = true; graphRef.current?._destructor?.(); };
-  }, [data, mode]);
+    return () => { cancelled = true; };
+  }, [visible, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { graphRef.current?.nodeColor(nodeColor); }, [nodeColor]);
+  useEffect(() => () => { graphRef.current?._destructor?.(); }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { if (focus) setFocus(null); else setSelected(null); } };
+    window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
+  }, [focus]);
 
+  const focusOn = (id: string, depth = 1) => { setFocus({ id, depth }); const n = data?.nodes.find((x) => x.id === id) ?? null; setSelected(n); };
+  const onSearchEnter = () => { const first = [...matches][0]; if (first) focusOn(first); };
   async function syncCitations() {
     setSyncing(true);
-    await fetch(`/projects/${slug}/graph/sync/`, {
-      method: "POST",
-      headers: { "X-CSRFToken": csrfToken() },
-      redirect: "manual",
-    });
+    await fetch(`/projects/${slug}/graph/sync/`, { method: "POST", headers: { "X-CSRFToken": csrfToken() }, redirect: "manual" });
     setTimeout(() => setSyncing(false), 1500);
   }
-
+  const toggle = (set: Set<string>, setter: (s: Set<string>) => void, key: string) => { const n = new Set(set); if (n.has(key)) n.delete(key); else n.add(key); setter(n); };
   const isEmpty = data != null && data.nodes.length === 0;
+  const stats = data?.stats;
+  const selNeighbours = selected ? [...(neighbours.get(selected.id) ?? [])].map((id) => data?.nodes.find((n) => n.id === id)).filter(Boolean) as Node[] : [];
 
+  // #409: a failed graph fetch shows an error with retry instead of an empty canvas
+  const gate = queryGate(graph, { message: "Couldn't load the graph." });
+  if (gate) return gate;
   return (
     <div>
-      <nav className="mb-6 text-sm text-stone-500 dark:text-stone-400">
-        <Link to="/projects" className="hover:text-indigo-700 dark:hover:text-indigo-300">Projects</Link>
-        <span className="px-1.5 text-stone-300">/</span>
-        <Link to={`/projects/${slug}`} className="hover:text-indigo-700 dark:hover:text-indigo-300">{slug}</Link>
-        <span className="px-1.5 text-stone-300">/</span>
-        <span className="text-stone-700 dark:text-stone-300">Graph</span>
-      </nav>
-
-      <div className="mb-1 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight dark:text-stone-100">Knowledge graph</h1>
-        <div className="flex items-center gap-3 text-xs">
-          <div className="inline-flex overflow-hidden rounded border border-stone-300 dark:border-stone-800">
-            {(["3d", "2d"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                aria-pressed={mode === m}
-                className={
-                  "px-3 py-1 font-medium transition-colors " +
-                  (mode === m
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white text-stone-600 hover:bg-stone-50 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800") +
-                  (m === "3d" ? " border-r border-stone-300 dark:border-stone-800" : "")
-                }
-              >
-                {m.toUpperCase()}
-              </button>
-            ))}
+      <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400"><Link to="/projects" className="hover:underline">Projects</Link> / <Link to={`/projects/${slug}`} className="hover:underline">{slug}</Link> / Graph</nav>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-3xl font-bold tracking-tight dark:text-stone-100">Knowledge graph {stats && <span className="text-gradient">· {stats.references + stats.notes} nodes</span>}</h1>
+        {stats && <p className="text-sm text-stone-400">{stats.references} papers · {stats.notes} notes · {stats.links} links{stats.orphans ? ` · ${stats.orphans} unconnected` : ""}</p>}
+        <div className="ml-auto flex items-center gap-2 text-xs">
+          <div className="inline-flex overflow-hidden rounded-lg border border-stone-300 dark:border-stone-700" role="group" aria-label="Dimensions">
+            {(["3d", "2d"] as const).map((m) => <button key={m} type="button" onClick={() => setMode(m)} aria-pressed={mode === m} className={`px-3 py-1.5 font-medium transition-colors ${mode === m ? "bg-indigo-600 text-white" : "text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"}`}>{m.toUpperCase()}</button>)}
           </div>
-          <button
-            onClick={syncCitations}
-            disabled={syncing}
-            className="inline-flex items-center gap-1.5 rounded border border-stone-300 bg-white px-2.5 py-1 font-medium text-stone-600 transition-colors hover:border-stone-400 hover:bg-stone-50 disabled:opacity-50 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:border-stone-700 dark:hover:bg-stone-800"
-          >
-            {syncing && (
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
-            )}
-            {syncing ? "Sync queued…" : "Sync citations"}
-          </button>
+          <button type="button" onClick={syncCitations} disabled={syncing} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-2.5 py-1.5 font-medium text-stone-600 hover:border-indigo-300 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300"><RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} aria-hidden="true" />{syncing ? "Sync queued…" : "Sync citations"}</button>
         </div>
       </div>
-      <p className="mb-4 text-sm text-stone-500 dark:text-stone-400">
-        Citations and note-links across this project's references and notes.
-      </p>
 
-      <div className="relative overflow-hidden rounded border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
-        <div ref={containerRef} style={{ height: 560 }}>
-          {isEmpty ? (
-            <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-              <p className="mb-2 text-3xl text-stone-300" aria-hidden="true">⬡</p>
-              <p className="mb-1 text-sm font-medium text-stone-600 dark:text-stone-300">Nothing to graph yet</p>
-              <p className="mb-4 max-w-xs text-sm text-stone-400">
-                Add references or notes to this project and they'll appear here, wired together by
-                citations and links.
-              </p>
-              <Link
-                to={`/projects/${slug}/literature`}
-                className="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 dark:hover:border-stone-700 dark:hover:bg-stone-800"
-              >
-                Add references
-              </Link>
-            </div>
-          ) : (
-            <p className="p-8 text-sm text-stone-400">Loading graph…</p>
-          )}
-        </div>
+      <div className={`${panel} rise mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 text-xs`} style={{ ["--i" as string]: 0 }} data-testid="graph-toolbar">
+        <label className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" aria-hidden="true" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") onSearchEnter(); }} placeholder="Find a paper or note… Enter focuses" className="w-64 rounded-lg border border-stone-200 bg-white py-1.5 pl-7 pr-2 placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800" aria-label="Find a node" />
+          {q && <span className="absolute -right-1 top-1/2 -translate-y-1/2 translate-x-full text-stone-400">{matches.size} match{matches.size === 1 ? "" : "es"}</span>}
+        </label>
+        <span className="ml-8 flex items-center gap-1.5">
+          {LEGEND.map(([k, label]) => { const kind = k === "note" ? "note" : "reference"; const on = kinds.has(kind); return <button key={k} type="button" onClick={() => toggle(kinds, setKinds, kind)} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 transition-opacity ${on ? "" : "opacity-40"} hover:bg-stone-100 dark:hover:bg-stone-800`} aria-pressed={on} title={k === "note" ? "Show notes" : "Show papers"}><span className="inline-block h-2 w-2 rounded-full" style={{ background: COLORS[k] }} />{label}</button>; })}
+        </span>
+        <span className="flex items-center gap-1.5">
+          {LINK_LEGEND.map(([k, label]) => { const on = linkKinds.has(k); return <button key={k} type="button" onClick={() => toggle(linkKinds, setLinkKinds, k)} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 transition-opacity ${on ? "" : "opacity-40"} hover:bg-stone-100 dark:hover:bg-stone-800`} aria-pressed={on}><span className="inline-block h-0.5 w-3" style={{ background: LINK_COLORS[k] }} />{label}</button>; })}
+        </span>
+        <label className="flex items-center gap-1.5 text-stone-500"><input type="checkbox" checked={hideOrphans} onChange={(e) => setHideOrphans(e.target.checked)} className="accent-indigo-500" />hide unconnected</label>
+        {focus && <button type="button" onClick={() => setFocus(null)} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-indigo-700 dark:text-indigo-200"><Crosshair className="h-3 w-3" aria-hidden="true" />focused · depth {focus.depth} <button type="button" onClick={(e) => { e.stopPropagation(); setFocus({ ...focus, depth: focus.depth === 1 ? 2 : 1 }); }} className="underline">{focus.depth === 1 ? "widen" : "narrow"}</button><X className="h-3 w-3" aria-hidden="true" /></button>}
+      </div>
 
-        {!isEmpty && (
-          <div className="pointer-events-none absolute left-3 top-3 rounded border border-stone-200 bg-white/90 px-3 py-2 text-[11px] shadow-sm backdrop-blur dark:border-stone-800 dark:bg-stone-900/90">
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-stone-400">
-              Legend
-            </p>
-            <ul className="space-y-1">
-              {LEGEND.map((item) => (
-                <li key={item.group} className="flex items-center gap-1.5 text-stone-600 dark:text-stone-300">
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: COLORS[item.group] }}
-                    aria-hidden="true"
-                  />
-                  {item.label}
-                </li>
-              ))}
-            </ul>
+      <div className={`${panel} rise relative overflow-hidden`} style={{ ["--i" as string]: 1 }}>
+        {/* the library owns everything inside this div — React must never render children here */}
+        <div ref={containerRef} style={{ height: 600 }} data-testid="graph-canvas" />
+        {isEmpty ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+            <p className="mb-2 text-3xl text-stone-300" aria-hidden="true">⬡</p>
+            <p className="mb-1 text-sm font-medium text-stone-600 dark:text-stone-300">Nothing to graph yet</p>
+            <p className="mb-4 max-w-xs text-sm text-stone-400">File papers into this project and write notes that cite them (@key) or link each other ([[title]]); they appear here wired together.</p>
+            <Link to={`/library`} className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">Open the Library</Link>
+          </div>
+        ) : !ready ? <p className="pointer-events-none absolute left-4 top-4 text-sm text-stone-400">Loading graph…</p> : null}
+        {stats && stats.hubs.length > 0 && !selected && (
+          <div className="pointer-events-auto absolute left-3 top-3 rounded-xl border border-stone-200 bg-white/90 px-3 py-2 text-[11px] shadow-sm backdrop-blur dark:border-stone-800 dark:bg-stone-900/90" data-testid="hubs">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Hubs</p>
+            <ul className="space-y-0.5">{stats.hubs.map((h) => <li key={h.id}><button type="button" onClick={() => focusOn(h.id)} className="flex w-full items-center gap-2 text-left text-stone-600 hover:text-indigo-700 dark:text-stone-300 dark:hover:text-indigo-300"><span className="truncate">{h.label}</span><span className="ml-auto tabular-nums text-stone-400">{h.degree}</span></button></li>)}</ul>
           </div>
         )}
-
         {selected && (
-          <aside className="absolute right-3 top-3 w-64 rounded border border-stone-200 bg-white p-5 shadow-lg dark:border-stone-800 dark:bg-stone-900">
-            <button
-              onClick={() => setSelected(null)}
-              className="absolute right-2.5 top-2.5 text-stone-300 transition-colors hover:text-stone-600 dark:hover:text-stone-300"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-            <p className="mb-1.5 pr-5 text-[10px] font-medium uppercase tracking-wide text-stone-400">
-              {selected.type}
-            </p>
-            <p className="mb-3 text-sm font-medium leading-snug text-stone-800 dark:text-stone-100">{selected.label}</p>
-            {selected.url && (
-              <a
-                href={selected.url}
-                className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
-              >
-                Open <span aria-hidden="true">↗</span>
-              </a>
+          <aside className="absolute right-3 top-3 w-72 rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-xl backdrop-blur dark:border-stone-800 dark:bg-stone-900/95" data-testid="node-panel">
+            <button type="button" onClick={() => setSelected(null)} className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200" aria-label="Close"><X className="h-4 w-4" aria-hidden="true" /></button>
+            <p className="mb-1 flex items-center gap-1.5 pr-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400"><span className="inline-block h-2 w-2 rounded-full" style={{ background: COLORS[selected.group] }} />{selected.type === "reference" ? (selected.group.replace("_", " ")) : "note"}</p>
+            <p className="font-display text-sm font-semibold leading-snug text-stone-900 dark:text-stone-100">{selected.title}</p>
+            {selected.type === "reference" ? (
+              <p className="mt-1 text-[11px] text-stone-400">{[selected.authors, selected.year, selected.venue].filter(Boolean).join(" · ")}{selected.citations != null ? ` · ${selected.citations} citations` : ""}{selected.highlights ? ` · ${selected.highlights} highlight${selected.highlights === 1 ? "" : "s"}` : ""}{selected.has_pdf ? " · PDF" : ""}</p>
+            ) : (
+              <p className="mt-1 text-[11px] text-stone-400">{selected.words} words · edited {selected.updated_at}</p>
             )}
+            <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+              {selected.app_url && <Link to={selected.app_url} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700">Open<ExternalLink className="h-3 w-3" aria-hidden="true" /></Link>}
+              <button type="button" onClick={() => focusOn(selected.id, focus?.id === selected.id ? focus.depth : 1)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"><Crosshair className="h-3 w-3" aria-hidden="true" />{focus?.id === selected.id ? "Focused" : "Focus"}</button>
+            </div>
+            <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Connected · {selNeighbours.length}</p>
+            <ul className="mt-1 max-h-40 space-y-0.5 overflow-auto text-xs">
+              {selNeighbours.map((n) => <li key={n.id}><button type="button" onClick={() => { setSelected(n); if (focus) setFocus({ id: n.id, depth: focus.depth }); }} className="flex w-full items-center gap-1.5 text-left text-stone-600 hover:text-indigo-700 dark:text-stone-300 dark:hover:text-indigo-300"><span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: COLORS[n.group] }} /><span className="truncate">{n.label}</span></button></li>)}
+              {selNeighbours.length === 0 && <li className="text-stone-400">Unconnected — cite it from a note (@key) or sync citations.</li>}
+            </ul>
           </aside>
         )}
       </div>
-
-      <p className="mt-2 text-xs text-stone-400">
-        Node size = citations · color = reading status / type · drag to explore
-      </p>
+      <p className="mt-2 text-xs text-stone-400">Node size = citations (papers) or length (notes) · colour = reading status · hover highlights neighbours · click for details · Esc clears</p>
     </div>
   );
 }

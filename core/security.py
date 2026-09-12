@@ -26,6 +26,9 @@ class ThrottledLoginView(auth_views.LoginView):
         failures = cache.get(_login_key(request), 0)
         if failures >= LOGIN_MAX_FAILURES:
             form = self.get_form()
+            from .access import record
+
+            record("login_locked", request)
             form.add_error(None, "Too many failed attempts. Try again in a few minutes.")
             return self.render_to_response(self.get_context_data(form=form), status=429)
         return super().post(request, *args, **kwargs)
@@ -39,6 +42,27 @@ class ThrottledLoginView(auth_views.LoginView):
     def form_valid(self, form):
         cache.delete(_login_key(self.request))
         return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        """First-run hint (owner, desktop): the bundled app creates the login atlas / atlas and
+        nothing on the page said so. Shown only while that default password still works."""
+        context = super().get_context_data(**kwargs)
+        context["default_login_hint"] = default_login_still_active()
+        return context
+
+
+def default_login_still_active() -> bool:
+    import os
+
+    from django.conf import settings
+    from django.contrib.auth import get_user_model
+
+    if not getattr(settings, "ATLAS_DESKTOP", False):
+        return False
+    username = os.environ.get("ATLAS_ADMIN_USER", "atlas")
+    password = os.environ.get("ATLAS_ADMIN_PASSWORD", "atlas")
+    user = get_user_model().objects.filter(username=username).first()
+    return bool(user and user.check_password(password))
 
 
 def validate_upload_size(file):

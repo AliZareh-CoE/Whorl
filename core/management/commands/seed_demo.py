@@ -163,6 +163,17 @@ class Command(BaseCommand):
         reviews = Folder.objects.create(project=project, parent=lit_folder, name="Review papers")
         methods_folder = Folder.objects.create(project=project, name="Methods")
         data_folder = Folder.objects.create(project=project, name="Data")
+        figures_folder = Folder.objects.create(project=project, name="Figures")
+        # a real image so the Figures gallery and the studio's "Project figures" have one
+        fig = Document.objects.create(
+            project=project,
+            folder=figures_folder,
+            title="Pilot d-prime by condition",
+            description="Sensitivity by load × incentive from the 12-participant pilot.",
+            file=ContentFile(_demo_png(), name="pilot-dprime.png"),
+            content_type="image/png",  # ContentFile carries no browser-reported type
+        )
+        fig.tags.set([Tag.objects.get_or_create(project=project, name="figure")[0]])
         Folder.objects.create(project=project, parent=data_folder, name="Pilot")
 
         key_paper = Tag.objects.create(project=project, name="key-paper", color="#dc2626")
@@ -204,7 +215,8 @@ class Command(BaseCommand):
         DecisionRecord.objects.create(
             project=project,
             title="Use a dual-task paradigm instead of load manipulation within a single task",
-            context="Single-task load manipulations confound difficulty with load.",
+            context="Single-task load manipulations confound difficulty with load "
+            "(the argument in @lavie2010attention; see [[Load theory overview]]).",
             decision="Adopt the dual-task design with separate WM and attention components.",
             alternatives="Within-task load (rejected: confound); pupillometry only (rejected: cost).",
             decided_on=today - datetime.timedelta(days=70),
@@ -356,6 +368,17 @@ class Command(BaseCommand):
                     "venue": "Journal of Cognitive Demonstration",
                     "citation_count": (index * 37) % 900 + 10,
                     "entry_type": "article",
+                    # #448: an abstract per paper so the rail's peek and the reader's tl;dr
+                    # have something to show on the demo
+                    "abstract": (
+                        f"{family} et al. ({year}) asked whether working-memory load changes "
+                        f"how attention is allocated. In {2 + index % 3} experiments (n = "
+                        f"{24 + index * 4}) they varied load and distractor salience; load "
+                        f"{'reduced' if index % 2 else 'redistributed'} vigilance rather than "
+                        "capping it, and the effect grew with practice. The paper is a "
+                        "standard reference for the "
+                        f"{'strategic' if index % 2 else 'capacity'} account."
+                    ),
                 },
             )
             corpus_refs.append(reference)
@@ -421,6 +444,17 @@ class Command(BaseCommand):
                 ),
             )
 
+        from core.models import TodoItem
+
+        for i, text in enumerate(
+            [
+                "Email the lab about Thursday's pilot slot",
+                "Skim the two new load-theory papers",
+                "Draft the ethics amendment paragraph",
+            ],
+            start=1,
+        ):
+            TodoItem.objects.get_or_create(text=text, defaults={"position": i, "project": project})
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
         )
@@ -462,6 +496,20 @@ class Command(BaseCommand):
         )
         for reference in corpus_refs[:6]:
             ManuscriptReference.objects.get_or_create(manuscript=manuscript, reference=reference)
+        _seed_manuscript_source(manuscript)
+        # #413: a fortnight of writing — the sparkline and the streak have something to show
+        from writing.models import WordCountSample
+        from writing.progress import manuscript_words
+
+        final_words = manuscript_words(manuscript)
+        for days_ago, share in enumerate(
+            (1.0, 0.94, 0.94, 0.9, 0.85, 0.85, 0.78, 0.7, 0.7, 0.64, 0.6, 0.52, 0.5, 0.45)
+        ):
+            WordCountSample.objects.update_or_create(
+                manuscript=manuscript,
+                date=today - datetime.timedelta(days=days_ago),
+                defaults={"words": int(final_words * share)},
+            )
         for kind, days_ago, note in [
             (SubmissionEvent.Kind.SUBMITTED, 95, "Initial submission."),
             (SubmissionEvent.Kind.REVIEWS_RECEIVED, 40, "R2 wants a power analysis."),
@@ -518,7 +566,8 @@ class Command(BaseCommand):
             title="Incentive manipulation dry run",
             defaults={
                 "date": today - datetime.timedelta(days=3),
-                "body": "Bonus structure explained; comprehension check passed by 9/9.",
+                "body": "Bonus structure explained; comprehension check passed by 9/9. "
+                "Follows the incentive framing in [[Strategic allocation hypothesis]].",
             },
         )[0].hypotheses.set([strategic_h, capacity_h])
         Dataset.objects.update_or_create(
@@ -578,3 +627,142 @@ class Command(BaseCommand):
                 f"{CitationEdge.objects.filter(citing__project_links__project=project).count()} citation edges."
             )
         )
+
+
+def _seed_manuscript_source(manuscript):
+    """A realistic multi-file LaTeX tree for the studio (Owner report 2026-09-06): main.tex
+    with an \\input, real \\cite keys from the manuscript's bibliography, a table, an equation
+    and a bibliography line — so the outline, cite completion, compile and PDF preview all
+    have something to show. Never clobbers a source someone has actually written."""
+    from writing.models import ManuscriptFile
+
+    main = manuscript.main_file
+    if main is not None and len(main.content.strip()) > 120:
+        return
+    keys = [
+        link.cite_key for link in manuscript.manuscriptreference_set.select_related("reference")
+    ]
+    k = (keys + ["placeholder"] * 4)[:4]
+    main_src = f"""\\documentclass[11pt]{{article}}
+\\usepackage[margin=1in]{{geometry}}
+\\usepackage{{amsmath,booktabs,graphicx,hyperref}}
+\\usepackage[numbers]{{natbib}}
+
+\\title{{Strategic Allocation of Attention Under Working Memory Load}}
+\\author{{A. Researcher \\and B. Collaborator}}
+\\date{{\\today}}
+
+\\begin{{document}}
+\\maketitle
+
+\\begin{{abstract}}
+Load effects on sustained attention are usually read as a structural capacity limit.
+We argue instead that they reflect a strategic trade-off, and test the account with an
+incentive manipulation in a dual-task paradigm.
+\\end{{abstract}}
+
+\\section{{Introduction}}
+Working-memory load reliably degrades vigilance \\citep{{{k[0]}}}. The dominant reading is a
+capacity account \\citep{{{k[1]}}}; an alternative is that observers allocate a limited but
+flexible resource according to payoffs \\citep{{{k[2]},{k[3]}}}. The two accounts make
+different predictions when incentives change mid-block.
+
+\\section{{Hypotheses}}
+\\begin{{enumerate}}
+  \\item Load costs shrink under incentive if allocation is strategic.
+  \\item Load costs are invariant to incentive if the limit is structural.
+\\end{{enumerate}}
+
+\\input{{sections/method}}
+
+\\section{{Results}}
+% TODO Replace the pilot numbers with the full-sample results (n = 80).
+Mean sensitivity by condition is summarised in Table~\\ref{{tab:dprime}}.
+
+\\begin{{table}}[h]
+  \\centering
+  \\begin{{tabular}}{{lcc}}
+    \\toprule
+    Condition & Low load & High load \\\\
+    \\midrule
+    No incentive & 2.41 & 1.72 \\\\
+    Incentive    & 2.39 & 2.18 \\\\
+    \\bottomrule
+  \\end{{tabular}}
+  \\caption{{Sensitivity ($d'$) by load and incentive (pilot, $n = 12$).}}
+  \\label{{tab:dprime}}
+\\end{{table}}
+
+The load cost under incentive was
+\\begin{{equation}}
+  \\Delta d' = d'_{{\\text{{low}}}} - d'_{{\\text{{high}}}} = 0.21,
+  \\label{{eq:cost}}
+\\end{{equation}}
+roughly 30\\% of the cost without incentive.
+
+\\section{{Discussion}}
+A structural limit cannot shrink by 70\\% because money was offered. The pattern favours
+strategic allocation, with the residual cost as an upper bound on the structural component.
+
+\\bibliographystyle{{plainnat}}
+\\bibliography{{references}}
+
+\\end{{document}}
+"""
+    method_src = """\\section{Method}
+\\subsection{Participants}
+% FIXME The power analysis R2 asked for is still missing here.
+Twelve pilot participants (target $n = 80$ after the power analysis requested by R2).
+
+\\subsection{Design}
+A $2 \\times 2$ within-subject design crossing working-memory load (low, high) with
+incentive (none, performance-contingent bonus). Blocks were counterbalanced.
+
+\\subsection{Procedure}
+Each block paired a sustained-attention task with a concurrent memory set. The bonus
+structure was explained before incentive blocks and verified by a comprehension check.
+"""
+    manuscript.latex_source = main_src
+    manuscript.save(update_fields=["latex_source", "updated_at"])
+    main = manuscript.ensure_main_file()
+    if main.content != main_src:
+        main.content = main_src
+        main.save()
+    ManuscriptFile.objects.update_or_create(
+        manuscript=manuscript,
+        path="sections/method.tex",
+        defaults={"content": method_src, "kind": ManuscriptFile.Kind.TEX},
+    )
+
+
+def _demo_png(width: int = 320, height: int = 200) -> bytes:
+    """A small bar-chart-like PNG built from raw scanlines (no image library needed)."""
+    import struct
+    import zlib
+
+    bars = [(40, 150, 0.85), (100, 150, 0.6), (180, 150, 0.83), (240, 150, 0.77)]  # x, w, height
+    rows = []
+    for y in range(height):
+        row = bytearray([0])
+        for x in range(width):
+            colour = (245, 244, 240)
+            for i, (bx, _bw, h) in enumerate(bars):
+                if bx <= x < bx + 50 and y > height - int(h * (height - 20)):
+                    colour = (79, 70, 229) if i % 2 == 0 else (16, 185, 129)
+            if y == height - 12:
+                colour = (120, 113, 108)
+            row += bytes(colour)
+        rows.append(bytes(row))
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+        )
+
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(b"".join(rows)))
+        + chunk(b"IEND", b"")
+    )

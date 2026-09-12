@@ -1,67 +1,172 @@
-# Atlas desktop shell (Tauri)
+# Atlas desktop app (Tauri)
 
-A thin native window over the local Atlas server — Owner idea #30, slice 3. The web
-app stays the single source of truth; this just wraps `http://localhost:8000` in a
-real app window (and is the host for the built-in terminal, slice 5).
+A native, self-contained build of Atlas: one installer, no Python, no Postgres, no Docker on
+the user's machine. The Tauri shell starts a bundled `atlas-server` (the Django app frozen with
+PyInstaller, running on a per-user **SQLite** file, served by waitress), waits for it to answer,
+and opens it in a native window. The web app stays the single source of truth — the desktop
+build adds a **built-in terminal** and **Open from disk** on top of it.
+**Open from disk** picks one file (async command — a blocking picker inside a sync command never
+appears), previews it when it is text, and can add it to the project into any folder. Files already in
+the project can be opened with the system's default app or shown in the file manager from
+the explorer's right-click menu.
 
-This container is headless, so the binary is built on **your** machine.
+## Install it (no build needed)
 
-## One-time setup
-1. Install Rust: https://rustup.rs
-2. Install the Tauri CLI: `cargo install tauri-cli --version "^2"`
-3. System webview deps:
-   - **macOS**: nothing (uses WKWebView)
+The **Desktop release** GitHub Actions workflow (`.github/workflows/desktop-release.yml`)
+builds ready-to-install binaries for Linux and Windows and attaches them to a GitHub Release.
+It runs automatically on every push that touches the desktop app, the frozen server's sources,
+templates, or static assets, rolling them into the draft release **"Atlas desktop preview"**
+(tag `desktop-preview`); a version tag (`git tag v0.1.0 && git push origin v0.1.0`) or a manual
+dispatch from the Actions tab publishes under that tag instead.
+
+Pick the file for your OS from the release's assets:
+
+- **Linux** — `.deb` (Debian/Ubuntu) or `.rpm` (Fedora).
+- **Windows** — the `-setup.exe` (NSIS) or the `.msi`. Windows Smart App Control / SmartScreen
+  warns about unsigned installers; the build is unsigned until a code-signing certificate is
+  added (see "Not yet" below).
+
+Every build stamps a unique version (`0.1.<run number>`), so installing over an older build is
+a real upgrade. On Windows the installer first stops a running `atlas-server.exe` so the update
+can replace its files (`installer-hooks.nsh`).
+
+## What happens on launch
+
+1. The shell picks a port: `ATLAS_PORT` if set, else **8000**, else the next free port when
+   8000 is already taken (a dev `runserver` and the desktop app coexist).
+2. It spawns the bundled `atlas-server` with `ATLAS_DATA_DIR` set to the OS app-data folder
+   (`~/.local/share/com.atlas.research` on Linux, `%APPDATA%\com.atlas.research` on Windows)
+   and opens a **"Starting Atlas…"** splash.
+3. The server runs `manage.py run_desktop` under `config/settings/desktop.py`: `migrate` on
+   `atlas.sqlite3`, `collectstatic` (once per build version), and creates the single login
+   **atlas / atlas** (override with `ATLAS_ADMIN_USER` / `ATLAS_ADMIN_PASSWORD`). Background
+   jobs run in-process; static files come from WhiteNoise.
+4. The window navigates to the app the moment the port answers. If the server exits or never
+   binds, the window shows an **in-app diagnostic page** with the data folder path and the tail
+   of `atlas-server.log`, so a failure explains itself. If the server is up but the app never
+   draws (a blank window), the page's own boot watchdog shows the thrown errors after a few
+   seconds and writes them to `atlas-server.log` (README › If the window is blank). F12 or
+   Ctrl+Shift+I opens the web inspector in the release build (Tauri's `devtools` feature).
+5. Quitting the app stops the server. A second launch focuses the existing window instead of
+   starting a second server on the same database.
+
+The data folder holds everything: `atlas.sqlite3`, `media/`, `staticfiles/`, `secret_key`,
+`api_key`, `server.json` (the URL this launch is serving on), `watch.json` (the watched PDF folder), `atlas-server.log`. Back it up
+to back up Atlas.
+
+## Claude Code integration (`atlas-mcp`)
+
+The installer also ships the Atlas MCP server, frozen as `atlas-mcp` next to `atlas-server`
+(both are Tauri bundle resources). On first launch the app mints an API key into the data
+folder; `atlas-mcp` reads that key and the live URL from `server.json`, so registering Atlas in
+Claude Code is one line with nothing to copy:
+
+```
+claude mcp add atlas -- "<install dir>/atlas-mcp/atlas-mcp"      # .exe on Windows
+claude mcp list                                                   # → atlas … ✓ Connected
+```
+
+The app's **Connect Claude Code** page (sidebar, `/connect/claude/`) prints that line with the
+real installed path filled in, plus the API key and a JSON snippet for other MCP clients. The
+Tauri shell passes the bundled binary's path to the server as `ATLAS_MCP_BIN`, which is how the
+page knows it. Explicit `ATLAS_API_URL` / `ATLAS_API_KEY` env vars on the MCP server always win
+over discovery, and `ATLAS_DATA_DIR` points it at a non-default data folder.
+
+Both binaries are frozen with PyInstaller (`atlas_server.spec`, `atlas_mcp.spec`) — see
+`make desktop-server`.
+
+## No build at all: the server from source
+
+Everything the shell shows is served by `manage.py run_desktop`. From a checkout, `uv sync`
+then `make standalone` (PowerShell: `$env:DJANGO_SETTINGS_MODULE = "config.settings.desktop";
+uv run python manage.py run_desktop`) runs it against the same SQLite data folder the app uses
+when `ATLAS_DATA_DIR` points there, and any browser at http://127.0.0.1:8000 is the app.
+
+## Build it yourself
+
+### One-time setup
+1. Rust: https://rustup.rs, then `cargo install tauri-cli --version "^2"`.
+2. System webview deps:
+   - **macOS**: nothing (WKWebView)
    - **Windows**: WebView2 (preinstalled on Win 11; else the Evergreen runtime)
-   - **Linux**: `webkit2gtk-4.1` + `libappindicator` + `librsvg` (e.g.
-     `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev`)
+   - **Linux**: `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev`
+3. Python side: `uv sync --group build` (adds PyInstaller).
 
-## Run / build
-From the repo root, with Atlas already running (`docker compose up -d` +
-`manage.py runserver`):
+### Shell only, against a server you run (dev loop)
+With Atlas running (`docker compose up -d` + `manage.py runserver`):
 
 ```
-make desktop        # dev run — opens the Atlas window
-make desktop-build  # release build -> desktop/target/release/bundle/
+make desktop          # dev run — opens the Atlas window at http://localhost:8000
+make desktop-build    # release build -> desktop/target/release/bundle/
 ```
 
-Point the shell at a different server with `ATLAS_URL=http://host:port/`.
+Point the shell at another server with `ATLAS_URL=http://host:port/`. Without a bundled
+`atlas-server` next to the binary and without `ATLAS_URL`, the shell just opens
+`http://localhost:8000/`.
 
-## Download / install (ready-to-install binaries)
-You don't have to build it yourself — the **Desktop release** GitHub Actions workflow
-(`.github/workflows/desktop-release.yml`) produces ready-to-install binaries for Linux
-and Windows and attaches them to a GitHub Release:
+### Fully self-contained (what CI does)
+```
+# 1. the stylesheet is a gitignored build artifact — build it first
+make css
+# 2. freeze the Django server + the MCP server
+make desktop-server
+# 3. bundle: tauri.conf.json ships desktop/server/dist/{atlas-server,atlas-mcp} as resources
+make desktop-build
+```
 
-- **Tag a version** to publish: `git tag v0.1.0 && git push origin v0.1.0` (or run the
-  workflow manually from the Actions tab). It builds on Ubuntu + Windows runners.
-- **Grab your installer** from the release's assets:
-  - **Linux** — `.AppImage` (run it directly), `.deb` (Debian/Ubuntu), or `.rpm` (Fedora).
-  - **Windows** — the `.exe` (NSIS) or `.msi` installer.
-- The release is created as a **draft** first so you can review the assets before
-  publishing it.
+To try the frozen server on its own: `ATLAS_PORT=8077 desktop/server/dist/atlas-server/atlas-server`
+then open http://127.0.0.1:8077 (see `desktop/server/README.md`). To run the shell against a
+frozen server without bundling, set `ATLAS_SERVER_BIN=/path/to/atlas-server` and `make desktop`.
 
-> Note: these installers ship the native shell. Atlas itself (the Django server) still
-> runs separately for now — see "NOT YET" below.
+`cargo test` in `desktop/` runs the shell's unit tests (port selection, log tailing).
 
-## Auto-update ("Check for updates" button)
-The desktop app has a built-in updater (Tauri's own, OSS — no paid service). In the SPA
-sidebar a desktop-only **Check for updates** control asks the GitHub Releases feed for a
-newer signed build and installs it, then offers a restart. It's wired but **dormant until
-you do a one-time signing setup** (updater bundles must be signed):
+## In-app updates
 
-1. Generate the keypair once: `cargo tauri signer generate -w ~/.atlas-updater.key`
-   (keep the private key secret — never commit it).
-2. Put the printed **public** key into `desktop/tauri.conf.json` → `plugins.updater.pubkey`
-   (replacing the `REPLACE_ME_…` placeholder).
-3. Flip `bundle.createUpdaterArtifacts` to `true` in the same file.
-4. Add the **private** key as a repo secret `TAURI_SIGNING_PRIVATE_KEY` (and
-   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if you set one) — the desktop-release workflow
-   already passes them through to the signed build.
+The app updates itself from the **desktop-preview** release (published as a prerelease so it
+never shadows a tagged `v*` release). On every launch the sidebar control silently asks the
+release feed (`latest.json`) whether a newer build exists; if so it becomes **Update to
+0.1.NN** — one click downloads and installs, then **Restart to finish update**. "Check for
+updates" stays available for a manual check, and if the feed is unreachable the control links
+to the release page as a fallback.
 
-Until then, the installers from the release workflow still build fine; only the in-app
-update check stays inert (it reports an error gracefully if pressed).
+Updates are **signed**: every `.sig` and `latest.json` is produced with a private key that
+lives only in the repo secret `TAURI_SIGNING_PRIVATE_KEY`, and the app verifies downloads
+against the public key in `desktop/tauri.conf.json` (`plugins.updater.pubkey`). The release
+workflow turns `createUpdaterArtifacts` on automatically whenever that secret exists, so builds
+stay green before the secret is added — they just don't publish an update feed until then.
 
-## What it is / isn't (v1)
-- IS: a native window loading the running Atlas, native window controls + size.
-- Local-disk: 'Open from disk…' on the Files page reads a file you explicitly pick
-  (text-only, 5MB cap, no directory traversal — only the chosen file).
-- NOT YET: bundling the Django server into the binary (you run Atlas separately).
+**One-time setup (repo owner):** GitHub → Settings → Secrets and variables → Actions → New
+repository secret → name `TAURI_SIGNING_PRIVATE_KEY`, value = the private key that pairs with
+the committed public key (generated with `npx @tauri-apps/cli signer generate`; the owner holds
+it). If the key has a password, add `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` too. The next push
+that touches the desktop build publishes `latest.json`, and installed apps start updating.
+
+**Commands and the ACL.** The window loads `http://127.0.0.1:<port>`, which Tauri counts as a
+*remote* origin, so `capabilities/default.json` must list it under `remote.urls` — otherwise
+every command (terminal, updater, file picker, external links) is refused with "not allowed
+by ACL". A test pins this.
+
+**Private repository = no feed.** The app fetches `latest.json` without credentials, and
+GitHub answers 404 for a private repo's release assets — signing is fine, but nothing is ever
+found. The release workflow's `mirror` job fixes this by copying each build's installers,
+`.sig` files and a URL-rewritten `latest.json` into a **public** releases repository: create
+`atlas-releases` (public, empty) under the same owner and add the secrets `RELEASES_REPO`
+(`Owner/atlas-releases`) and `RELEASES_TOKEN` (fine-grained PAT, *Contents: read and write*
+on that repo). The app tries the public feed first and this repo's feed second, so making
+this repository public also works. Until one of those is done the sidebar shows
+*Updates unavailable — why?* with the reason.
+
+Losing the private key means generating a new pair, committing the new public key, and
+shipping one more manual install; keep it somewhere safe. `manage.py doctor` reports the
+updater's configuration state.
+
+The preview release keeps only the newest build: the workflow prunes installers from earlier
+versions (assets sharing the current version stamp — the other platform's — are kept).
+
+## Not yet
+- **Code signing** (Windows Authenticode, macOS notarization) — needs a certificate / Apple
+  developer account; without it Windows shows the unknown-publisher warning.
+- **macOS installers** — Tauri and PyInstaller both support it; the release matrix currently
+  builds Linux + Windows only. Add a `macos-latest` entry to the matrix to get a `.dmg`.
+- **AppImage** — tried twice (#210f, #405); linuxdeploy fails to relink the bundled native
+  libraries (Postgres's, then PyInstaller's). `.deb`/`.rpm` cover Linux.

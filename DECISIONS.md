@@ -25,7 +25,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    restart/MCP reminders.~~ Remaining: CSP if ever public-facing.
 3. **Free local text-to-speech ("read this to me").** A strong free TTS engine (e.g. Piper)
     ~~SPA Listen (done 2026-06-11, cycle 74): /app/references/:id reader with a 🔊 Listen button on the abstract streaming real Piper TTS in-app; sets up the reading-flow [REV].~~
-   the owner can run locally; "Read aloud" on notes, abstracts, and (eventually) PDFs.
+   the owner can run locally; "Read aloud" on notes, abstracts, and (eventually) PDFs. ~~Notes (done 2026-09-07, #412): a listen button on the note editor, markdown stripped, chunked playback.~~
 4. **Auto-download article PDFs.** ~~Done (2026-06-10, cycle 7): arXiv direct + Unpaywall
    best-OA resolution in `literature/oa.py`; background huey fetch on every new reference
    (UI + API, `ATLAS_AUTO_FETCH_PDF` toggle), manual "Fetch open-access PDF" button on
@@ -48,8 +48,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    bot (Crossref sweep → inbox flags). Bots report to the inbox; failures recorded, never
    crash the scheduler.~~ ~~Citation-sync bot + run history (2026-06-11, cycle 23): third
    bot refreshes OpenAlex edges for all active projects (verified live); BotRun model keeps
-   the last 20 runs per bot with ✓/✕ shown in a Run history panel.~~ Remaining: inbox-triage
-   suggester, MCP-side bots.
+   the last 20 runs per bot with ✓/✕ shown in a Run history panel.~~ ~~Inbox-triage suggester — `notes/capture.py::detect` suggests paper/todo/decision per capture and the Inbox pre-selects it (retired as done 2026-09-07).~~ ~~MCP-side bots (done 2026-09-07, #417: list_bots / run_bot / toggle_bot).~~
 8. **Open-source readiness.** Goal: thousands of stars; brainstorm lives in `OPENSOURCE.md`.
    ~~First slice (2026-06-11, cycle 28): AGPL-3.0 LICENSE (decision logged), hero README
    (positioning line, screenshot grid from docs/screenshots/, feature list, comparison table
@@ -67,7 +66,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
    ~~Split-view preview (2026-06-11, cycle 27 UI/UX): toggleable PDF pane beside the
    source (preference remembered), compile-status polling endpoint, pane auto-opens on
    Compile, ✓/⏳/✕ status with failure log inline; verified with a real Tectonic compile.~~
-   Remaining: snippets, section outline.
+   ~~Snippets and the section outline — both live in the Studio (2026-09-06 rebuild: activity-bar Outline panel, snippet completions in the shared editor core).~~
 10. **Commenting / annotations.** ~~First slice (2026-06-11, cycle 14): generic `Comment`
     model (contenttypes) with markdown bodies; comment threads live on note, reference, and
     manuscript pages via one `_comments.html` include; kind allowlist guards the endpoint.~~
@@ -76,8 +75,8 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     pin to it, clicking one scrolls back to its page; page badges on detail threads; the
     `next` redirect is validated local-only (open-redirect guard + tests).~~
     ~~Comments on documents (2026-06-11, cycle 96): modal thread + live counts on every
-    documents-table row, SPA and classic island both.~~ Remaining: comments on folders;
-    selection-anchored PDF comments; LaTeX line-anchored comments in the editor.
+    documents-table row, SPA and classic island both.~~ ~~LaTeX line-anchored comments in the editor (done 2026-09-07, #414: Studio Comments panel, gutter marks, line-number click).~~ Remaining: comments on folders;
+    selection-anchored PDF comments.
 11. **Better papers & literature reviews.** Continuous improvement; NO paid LLM APIs —
     local NLP or the owner's Claude subscription via MCP only. ~~First slice (2026-06-11,
     cycle 15): reading queue shows per-paper theme coverage badges (n/N themes); review
@@ -109,7 +108,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     a clickable breadcrumb (root "Documents" → each ancestor → current), backed by a new
     Folder.ancestors property (walks the parent chain like .path, same query cost). Jump
     straight to any ancestor instead of going back to the tree. Live-verified on real data
-    (Data / Pilot); 2 tests.~~ Remaining: drag rows between folders.
+    (Data / Pilot); 2 tests.~~ ~~Drag rows between folders (done 2026-09-07, #410): file rows drag onto folders or the root through the existing move mutation.~~
 15. **Lightning-fast search with NLP.** ~~First slice (2026-06-11, cycle 19): pg_trgm
     extension + trigram typo-tolerance fallback; websearch query parsing ("quoted phrases",
     OR, -negation); as-you-type suggestion dropdown on the sidebar box (HTMX, 250 ms
@@ -126,8 +125,9 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     resumes) + `pet_speech()` — context lines from overdue/done milestones, today's notes,
     weekly reading streak, active phase progress, time-of-day fallback; hour-stable pick;
     speech bubble on /pet/ and italic line in the sidebar widget; browser-verified with a
-    real data-driven line.~~ Remaining: occasional blink/tilt, more habit signals (streak
-    days, usual working hours), speech on hop.
+    real data-driven line.~~ ~~Blink (the Creature blinks and breathes since the pet overhaul); habit
+    signals (done 2026-09-07, #419: streak days, "not your usual hour", words written today);
+    speech on hop (the sidebar shows the reaction line with the hop since the Buddy-style pass).~~
 17. **Professional tree illustration with more growth phases (owner, 2026-06-11; UI idea).**
     Redraw the project tree as a more polished, professional SVG illustration with more
     distinct phases than the current five — richer trunk/branch structure, layered foliage,
@@ -137,8 +137,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     staggered tapered branches with foliage tufts at their tips, 3-depth-layer canopy
     (back/mid/front opacities) densifying with progress, soft ground mound + roots from 45%,
     white-and-gold blossoms at 100%; everything interpolates with percent; verified across
-    all 8 stages in a rendered strip + on overview/grove.~~ Remaining: gentle CSS sway on
-    bloom, seasonal variants (pairs with Backlog #50 grove seasons).
+    all 8 stages in a rendered strip + on overview/grove.~~ ~~Sway/seasonal variants — retired 2026-09-07: the tree was a classic-UI illustration; the SPA's Observatory identity replaced it with the constellation (#385) and the orbit (#392).~~
 
 18. **Bulk actions + modals everywhere (owner, 2026-06-11).** Two parts: (a) **bulk
     actions for everything** — multi-select with checkboxes and act-on-many (move/tag/
@@ -286,8 +285,7 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     reading, FOCUS from milestones, CURIOSITY from notes+comments, GRIT from experiments+
     submissions, 0–10 curve) with a dominant-trait bar panel on /pet/ and a trait line in
     the speech pool. No nagging kept; 5-min cache kept. Browser-verified: bubble rotation,
-    milestone→"A milestone falls! *happy hop*", personality panel.~~ Remaining: species/
-    hatching/rarity moment (idea #110).
+    milestone→"A milestone falls! *happy hop*", personality panel.~~ ~~Species / hatching / rarity (done 2026-09-07, #427: four plumages + a 1-in-64 golden, decided per install).~~
 
 24. **LaTeX: Overleaf parity, then beyond (owner, 2026-06-11, during cycle 100).** "this
     latex feature that we have is too stupid! still overleaf is better! we need to first
@@ -492,6 +490,15 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
     table is normative (react-arborist, papaparse, lucide, Tauri plugins, pdf.js vendored).
     Plan of record: docs/plans/2026-06-12-file-workspace-ide-epic.md (9 slices).
 
+31. **Achievements — lots, some just for fun, some brutal, "souls game mode on research"
+    (owner, 2026-09-07).** ~~First slice (2026-09-07, #374): 57 achievements in four tiers
+    (fun / steady / hard / souls) derived from real data with progress bars, hidden ones,
+    first-unlock timestamps, score + ranks (Undergrad → Ashen One), an Achievements page,
+    a toast on fresh unlocks, `get_achievements` for Claude, and Souls mode: the companion
+    speaks grimly, the ledger counts deaths / bonfires / bosses / souls, and the studio
+    flashes YOU DIED on a failed compile.~~ ~~Seasonal secrets, souls-only trophies and the
+    Platinum (done 2026-09-07, #415: nine more, 95 in the ledger).~~
+
 ## Loop rules (amendments to CLAUDE.md §5, owner-directed)
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
@@ -543,6 +550,1613 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
   thinking. Cite what was consulted in the cycle notes.
 
 ## Decisions
+
+### 2026-09-07 — Readiness where the status is changed, and a backlog sweep (#467)
+
+**Decision.** The manuscript page (where the status pipeline is) gets a *Ready to submit?* card: the pre-flight summary as a pill and only the rows that need a look, "Run again", and a link that opens the Studio on the Pre-flight tab (`/editor?panel=preflight` — the Studio now honours `?panel=<tab>` for any sidebar tab). The board cards stay as they are: computing thirteen checks per card on every board load is the wrong trade. Backlog sweep: fifteen lines struck as done or obsolete (#28, #29, #36, #63 shell, #65, #66, #76, #83, #86, #91, #123, #134, #135, #164, #211), each with the reason; 34 open lines remain.
+
+**Why.** A check that lives only inside the editor is missed at the moment it matters — the click on *Submitted*. And the backlog had accreted notes and long-done items that cost a pre-check every cycle (#201).
+
+### 2026-09-07 — Submission pre-flight: "is this paper ready?" from real data (#466)
+
+**Decision.** `writing/preflight.py::preflight(manuscript, network=False)` runs thirteen checks and answers each `ok` / `warn` / `fail` / `skip` with a one-line detail and, where there is a place to fix it, a `fix` pointer (`compile`, `problems`, a sidebar `tab`, a `line` in a file, the manuscript `settings`/`budget` page): the compiled PDF exists and its stored source hash matches the current tree (stale ⇒ warn, missing/failed ⇒ fail); compile errors (fail, with the first location); undefined citation/reference warnings (fail) vs. other warnings (noted); `\cite` keys missing from the bibliography (fail) and entries never cited (warn); the offline bib checkers — missing required fields, duplicates (warn) — plus DOI resolution and retractions only when `network=1` (a retraction fails); the venue budget (over ⇒ fail, near ⇒ warn, no limits ⇒ skip); every `\includegraphics` path resolves to an asset in the tree, extension optional (fail with file:line); leftover `% TODO/FIXME`, `\todo{}`, `\textcolor{red}` and `??` (warn with file:line); a `.bbl` kept for arXiv (warn); venue, deadline (past ⇒ fail, ≤3 days ⇒ warn) and abstract. `ready` is true when nothing fails. `GET /api/v1/manuscripts/{id}/preflight/`; MCP `preflight_manuscript` (102 tools); the Studio gets a sixth sidebar tab, *Pre-flight*, that runs on open, colours each row, offers the fix as a button (or a link to the manuscript page) and a "Run again"; the actions palette lists "Pre-flight check".
+
+**Why.** Every other surface in the writing studio reports one dimension (budget, cite check, problems, bib report). The moment before "submit" needs them read together, in order, with nothing invented — a checklist from data, not from memory. Overleaf has none of this; journal submission systems reject for exactly these reasons.
+
+**Alternatives rejected.** A stored "readiness score" (recomputing from data is cheap and can never go stale); blocking the status change to *submitted* on a failing pre-flight (the author decides; Atlas informs); network checks by default (slow, and the offline set is what blocks a submission in practice).
+
+### 2026-09-07 — Two small ones: abstracts get a trigram index, Mochi gets a calendar (#465)
+
+**Decision.** (#53) `Reference.abstract` gets a `gin_trgm_ops` GIN index (`reference_abstract_trgm`, literature 0009 via `PostgresAddIndex`, so SQLite skips the DDL) — the `?kw=` filter on the project literature pages and the review-matrix word match both scan abstracts with `icontains`, which the trigram index serves once a library is in the thousands. (#56) `core/pet.py::calendar_lines` adds one weekday line and one month line to the speech candidates (seven and twelve, all observations: "Friday. Leave the next step written down; Monday-you will be grateful."), and the milestone reaction pool grows from three to six so the hop moment repeats less.
+
+**Why.** Both were the last two "small and certain" backlog items; bundling keeps the cycle honest (one commit, one gate) without pretending either is a feature.
+
+**Alternatives rejected.** A speech line per holiday (locale-bound; the month is enough ambience); a full-text index on abstracts instead of trigram (the filters are substring matches, not ranked search — global search already has FTS).
+
+### 2026-09-07 — Claude backs up before it bulk-edits (#464)
+
+**Decision.** MCP tool `take_snapshot(list_only=false)` (101 tools): the default writes a snapshot through `POST /snapshots/` and answers the file, the rotation and the folder status; `list_only=true` reads `GET /snapshots/`. The docstring and the atlas-daily skill both say when: before a request that deletes or rewrites many things. No new API — the tool is the thin client the MCP contract requires.
+
+**Why.** Product value 5: everything in the UI is available to Claude. A collaborator that can rewrite a plan outline or change forty reading statuses in one call should be able to take the backup that makes that safe, in the same breath.
+
+**Alternatives rejected.** Two tools (list / take — one with a flag reads better in a 101-tool list); snapshotting automatically inside every write tool (slow, noisy, and the daily snapshot plus the rotation already bound the loss).
+
+### 2026-09-07 — The backup you never have to remember (#462)
+
+**Decision.** `core/snapshots.py`: `take_snapshot` writes the one-file backup (`core/backup.py`) into `<data dir>/backups/atlas-snapshot-<stamp>.zip` — under a `.partial` name first, renamed when complete — records a `BackupRecord(kind="auto", path=…)` (core 0013 adds `kind` and `path`) and prunes to the newest `KEEP = 7`. `due()` is true when there is at least one project and the newest snapshot on disk is 24 h old or missing; `run_if_due()` swallows a failure into `last_error` for Diagnostics instead of raising. The desktop starts one daemon thread at boot (`start_scheduler`: first check 90 s after launch, then hourly); a server install runs `manage.py snapshot --if-due` from cron. `GET/POST /api/v1/snapshots/` reads the status and takes one; the diagnostics report carries a `snapshots` block (JSON and the paste-me text); the Diagnostics page gets an *Automatic snapshots* section with the folder, the newest file, kept/total, *Snapshot now* and (desktop) *Show in folder*. `ATLAS_SNAPSHOT_DIR` moves the folder; `backups/` is gitignored for source checkouts. A snapshot counts as a backup for the #424 "last backup" nudge — it is one, on disk.
+
+**Why.** The one-file backup only existed when the owner thought of it; a research tool that keeps a thesis's data must keep it without being asked. Seven daily zips in the data folder survive a bad restore, a wrong delete and an update gone wrong, and cost megabytes.
+
+**Follow-on (#463, same day).** The snapshots on disk are listed in the Diagnostics section, each with *Restore…*: `POST /api/v1/restore/ {"snapshot": "<name>"}` stages that file (matched by name against the folder listing — a path never reaches the filesystem) exactly like an upload, so the existing staged-restore flow (confirm, restart, previous data kept) applies. Buttons disable while a restore is staged.
+
+**Alternatives rejected.** A huey periodic task (the desktop runs huey immediate — periodic tasks never fire there); snapshot at launch only (an app left open for a week would never snapshot); Time-Machine-style incremental copies (the zip is small and a whole-file copy is what a person can actually restore); a setting for the interval and count (convention: a day, seven — `--keep` on the command for servers).
+
+### 2026-09-07 — The hatch is a moment (#461)
+
+**Decision.** The creature remembers the stage it last drew (`localStorage` `atlas-pet-stage`). When the stage it is asked to draw is *later* than that one, it plays a transition once: the egg shakes and cracks for a second and a half, then the new creature pops in with a little overshoot; then it stores the new stage. Later stage crossings (hatchling → scholar → sage) play the pop without the egg. Same drawing, same CSS variables; two keyframes in `app.css`. Reduced-motion users get the swap without the shake.
+
+**Why.** Backlog #132 (owner idea #23's last line): the first finished work hatches the egg, and a hatch that just swaps a drawing throws the moment away.
+
+**Alternatives rejected.** A modal or toast for the hatch (the sidebar creature *is* the place); an animation on every mount (once per stage, per install, or it becomes noise).
+
+### 2026-09-07 — The compile rhythm is a signal (#460)
+
+**Decision.** `writing/progress.py::compile_rhythm` counts compiles per day over two weeks from the revision snapshots every successful compile leaves (labeled ones included). It rides in the manuscript's `progress` payload as `compiles`; Writing cards show a dot row under the word sparkline ("· 7 compiles this week"); the Studio status bar says "· 3 compiles today"; and Mochi has a line for a compiling week. No new table: the revisions already were the record.
+
+**Why.** Backlog #129 — word deltas say how much was written; compiles say how often the paper was *checked*. Together they are the writing rhythm.
+
+### 2026-09-07 — Completions know which environment they are in (#459)
+
+**Decision.** `frontend/src/editor/context.ts` scans the text before the cursor for the innermost unclosed `\begin{…}` and hands out ranking bonuses: `\item` first inside itemize / enumerate / description; `\includegraphics`, `\caption`, `\centering`, `\label` inside figure / table; `\hline`, `\multicolumn`, the booktabs rules inside tabular; `\label`, `\nonumber`, `\frac` inside equation / align. A wrapper around the language package's completion source applies them as CodeMirror `boost`s; nothing is added or removed, only reordered. Pure functions, tested under node.
+
+**Why.** Backlog #117 — Overleaf's usage data shows these commands dominate their environments; typing `\i` inside a list should offer `\item` before `\includegraphics`.
+
+### 2026-09-07 — Chevrons on the Studio's split gutters (#458)
+
+**Decision.** Each Split.js divider in the Studio carries a small chevron: the one between the sidebar and the editor collapses the sidebar, the one between the editor and the PDF collapses the preview — the same toggles as ⌘B / ⌘\ and the header buttons, reachable where the hand already is when resizing. The chevron shows on hover of the gutter and does not interfere with dragging (it is a button inside the gutter, with its own click).
+
+**Why.** Backlog #138 — Overleaf's thin-panel arrows are the gesture people reach for; the header icons are three inches away from the divider.
+
+**Alternatives rejected.** Split.js `collapse(i)` (leaves a zero-width pane the layout must special-case; hiding the pane is what the toggles already do).
+
+### 2026-09-07 — Two small ones: theme candidates everywhere, section copy on Review (#457)
+
+**Decision.** (a) Every theme header in the review matrix now carries a "candidates →" link (shown on hover) to the queue pre-filtered to unread papers that look relevant to it — the gap nudge kept that door for under-read themes only (backlog #105). (b) Each section of the weekly Review has its own ⧉ copy that puts just that section on the clipboard as Markdown, next to the whole-week copy (backlog #99).
+
+### 2026-09-07 — The revision trim says what it keeps (#456)
+
+**Decision.** Every successful compile snapshots the source; the trim kept "all labeled + the last 50 automatic" silently. The History panel now states it — "Kept: all 2 labeled + the last 50 automatic (37 now)" — and the number is a control: click, enter a new cap (1–500), saved per manuscript (`auto_revisions_keep`, writing 0017, on the manuscript API too). The workbench revisions endpoint carries a `retention` block.
+
+**Why.** Backlog #122: a vanished automatic snapshot looked like data loss. A rule you can read and change is not a surprise.
+
+### 2026-09-07 — Identical source is not compiled twice (#455)
+
+**Decision.** `writing/compile.py::source_hash` digests everything a compile reads — every text file's path and content, every asset's path and size, and the bibliography Atlas would generate when the tree ships no `references.bib`. The compile action stores it on the manuscript (`compile_source_hash`, writing 0016) when it queues; a successful compile stamps it as `compiled_source_hash`. A request whose digest matches a *running* compile answers 202 `{deduped: true}` without a second build; one whose digest matches the last *successful* compile (with a PDF on file) answers 200 `{unchanged: true}` and the studio says "Up to date — nothing changed since the last compile." `force` (body or query, and `compile_manuscript(force=True)` over MCP) compiles anyway — after installing the engine, say.
+
+**Why.** Backlog #115: compile-on-save racing a ⌘↵, or a Recompile on an unchanged tree, ran Tectonic again for the same PDF — on the desktop that is a whole CPU core and, in immediate mode, a busy thread while the window waits.
+
+**Alternatives rejected.** Debouncing in the studio only (Claude and the API can fire the same duplicates); hashing only the main file (sections and the bibliography change the PDF).
+
+### 2026-09-07 — No installer? Run it from source (#454)
+
+**Decision.** `make standalone` (PowerShell: `$env:DJANGO_SETTINGS_MODULE = "config.settings.desktop"; uv run python manage.py run_desktop`) runs exactly what the desktop shell runs — the SQLite, Docker-less, Node-less server — from a checkout, and any browser at 127.0.0.1:8000 is the app; `ATLAS_DATA_DIR` can point at the desktop app's data folder so both see the same projects. Documented at the top of the README and in the desktop README, verified on a fresh data dir (login answers after five seconds), guarded by a docs test.
+
+**Why.** With GitHub not assigning build runners, the owner has no way to get the fixes since 0.1.139 — except the source. This path existed in the code (the shell has always called `run_desktop`) and nowhere in the docs.
+
+### 2026-09-07 — One rule for archive member names (#453)
+
+**Decision.** `core/archives.py::safe_archive_name(name)` normalises backslashes and `./`, and refuses absolute paths, drive letters, `..` segments, control characters and empty names. The three archive writers — the submission zip, the Markdown vault and the backup — go through it; a guard test asserts they keep doing so, and the submission zip is tested against a row injected past validation.
+
+**Why.** Backlog #133 (from audit #12): the traversal guard lived inside one view; the vault and the backup came later and re-derived their own safety by construction. One helper, one test, no drift.
+
+### 2026-09-07 — The Studio's PDF preview has a text layer (#452)
+
+**Decision.** Each preview page is now a positioned wrap holding the canvas and a pdf.js `TextLayer` (the same class and `.textLayer` CSS the literature reader uses), so the compiled PDF's text can be selected and copied straight from the studio; page tracking, "go to page" and SyncTeX's forward marker read the wrap instead of the canvas, and the double-click-to-source binding moved onto the wrap so the text layer cannot swallow it. A page without text still renders.
+
+**Why.** Backlog #116 — proofreading means copying a sentence out of the PDF into a note, a message or a search, and the preview was a picture.
+
+**Alternatives rejected.** Rendering via pdf.js's full viewer (its chrome and CSS fight the studio's); a copy-page-text button (selection is the universal gesture).
+
+### 2026-09-07 — The reading flow runs over any Library view (#450)
+
+**Decision.** `GET /api/v1/references/reading-flow/?<library filters>` returns the flow's paper shape for whatever the Library workbench is showing (same params as the list: q, tag, view, year, project, reading status…); each paper names the project link the status applies through — the `project` filter's link, else the first unread link, else the first — and `id` is null when the paper sits in no project yet. `/library/read?<params>` opens the same reading flow page in library mode: statuses go through that link, "j" captures the note into the paper's project, Esc returns to the Library, and a paper with no project says so instead of pretending. The Library list header gets "Read these →" next to ".bib of this view".
+
+**Why.** Backlog #85: a smart view ("to-cite, 2024, no notes yet") is a reading list, and the flow was the only place where reading is actually pleasant — it lived behind one project's queue.
+
+**Alternatives rejected.** Auto-filing unfiled papers into a project to give them a status (the flow should not create links behind your back); a separate library-flow page (one page, two data sources).
+
+### 2026-09-07 — The blank window, third pass: "mounted" now means painted (#451)
+
+**Owner report.** A dark, empty Atlas window again, on the newest installer they could download (the release feed carries 0.1.138/0.1.139, built at 05:06–05:17 UTC; nothing newer can be built — see CI below). No boot panel in the screenshot.
+
+**Finding.** `main.tsx` set `window.__atlasMounted = true` the moment the script *started*, so the watchdog in `spa.html` (#382) stood down before React had drawn anything: any failure after that line — a chunk import that hangs, a render that inserts an empty container and stalls — produced exactly the silent dark window the owner sees. The panel also skipped whenever `#root` had *any* child node, painted or not.
+
+**Decision.** The flag is set by a probe that waits for readable text inside `#root` (checked four times a second for up to a minute); the watchdog fires at eight seconds unless text is on screen, reports the in-flight requests (`performance` resource entries without a response) next to the errors, says plainly when "the app started but never drew anything", and withdraws by itself if the app paints later (a slow first launch). Both surfaces post the report to `/api/v1/client-errors/` as before, so the server log and Diagnostics carry it.
+
+**CI.** Every desktop-release run since 140 fails in four seconds with `runner_id: 0`, no steps and an empty check output — GitHub is not assigning runners to this account (the usual cause is the Actions spending limit or a failed payment; the API cannot show more). Until that is cleared on GitHub's side nothing after 0.1.139 can be built or shipped, including every fix listed in PROGRESS since then.
+
+**Alternatives rejected.** Building the Windows installer here (the frozen server needs a Windows build host); re-triggering runs (a 403 on rerun, and a fresh push is a run — all fail the same way).
+
+### 2026-09-07 — One guard over every raw-HTML sink (#449)
+
+**Decision.** `core/tests/test_html_sinks.py` reads the SPA sources and the templates: every `dangerouslySetInnerHTML` must take a field named `…html` (server-rendered, nh3-sanitised — `Prose`, the citation HTML, the note preview) and never a concatenated or templated string; a raw `innerHTML =` may only clear a node or write a static literal (the gutter marker's SVG); templates carry no `|safe` or `autoescape off`; `mark_safe` exists in exactly one file, behind nh3. Backlog #152.
+
+**Why.** The escape rule was true by convention and checked by review; now a new sink fails the suite before it ships. Four sinks and one `mark_safe` today — the test names them if that changes.
+
+### 2026-09-07 — Two small ones: abstract peek in the rail, overview prefetch on hover (#448)
+
+**Decision.** (a) The studio's bibliography rows carry the paper's abstract; a ▸ on the row unfolds it under the title, so "which paper was that again?" is answered without leaving the editor (backlog #126). (b) Hovering a project card on the Projects page prefetches that project's overview query (30 s fresh), so the click lands on a painted page (backlog #64).
+
+**Why.** Both were felt while writing and navigating; both are one hook each. Kept together because neither is a feature on its own.
+
+### 2026-09-07 — A Studio actions palette on ⌘⇧P (#447)
+
+**Decision.** ⌘P already quick-opens files and sections; ⌘⇧P now opens an *actions* palette: save, compile, locate the cursor in the PDF, toggle sidebar / preview / problems, new file, download the submission .zip, jump to the Files / Outline / Bibliography / History / Comments panel, editor settings, keymap default ↔ vim, compile-on-save and PDF-follows-cursor toggles — every row with its key binding, filtered as you type, ↑↓ and Enter. The settings footer and the `?` shortcuts sheet mention it. Same modal chrome as quick-open.
+
+**Why.** Backlog #119 and the half of #139 that matters (bindings shown next to actions): the toolbar is icons, the bindings were only in tooltips, and power users skip the mouse.
+
+**Alternatives rejected.** Merging into the global ⌘K (⌘K jumps anywhere in Atlas; editor actions are contextual and the studio is full-screen); showing bindings in the toolbar itself (the header is already tight at 1280 px).
+
+### 2026-09-07 — Duplicate a manuscript (#446)
+
+**Decision.** `writing/services.py::duplicate_manuscript` and `POST /api/v1/manuscripts/{id}/duplicate/ {title?, project?, bibliography?}`: a fresh manuscript in idea status with every source file (text and assets, each asset with its own copy of the bytes), the venue limits, the venue and abstract, and — unless asked otherwise — the bibliography links with their cite-key overrides. Compile state, revisions, comments and submission events stay with the original; the tree mirror runs for the copy like for any new manuscript. The Writing board's card menu gets "Duplicate…" (a title prompt, then straight to the copy); Claude gets `duplicate_manuscript` (100 tools).
+
+**Why.** Backlog #128: researchers reuse their own LaTeX skeleton — the class, the macros, the section layout, half the bibliography — far more than any gallery template. "Duplicate" is the user-defined template with no template model to maintain.
+
+**Alternatives rejected.** A `ManuscriptTemplate` model with a save-as flow (a second thing to name, list and delete; a copy of the last paper is what people actually want); copying revisions and events (history belongs to the paper it happened to).
+
+### 2026-09-07 — The cite completion adds the paper you don't have yet (#445)
+
+**Decision.** The editor's `\cite{}` completion now filters the library itself (key, title, authors) and, when nothing matches — or the fragment *is* a DOI or arXiv id — ends the list with "Add a paper by DOI or arXiv id…" / "Add 10.…/… to the library". Accepting it asks for the id (skipped when the fragment already is one), adds the paper through `/references/by-doi/` into the project, links it to the manuscript's bibliography through the workbench `cite-library/` endpoint, replaces the fragment with the new key and reloads the completion pool. The amber cite-check diagnostic keeps pointing at the same door.
+
+**Why.** Backlog #124: writing breaks the moment you have to leave the editor to hunt a paper; the library-wide completion (B1) covered everything already in Atlas, and this covers the rest.
+
+**Alternatives rejected.** Searching Crossref by title from the fragment (a fuzzy guess inserted into a bibliography is how wrong citations happen; the DOI is exact); a separate "add paper" button in the studio rail (the moment of need is inside `\cite{}`).
+
+### 2026-09-07 — The overview does not pay for the timeline's bodies (#444)
+
+**Decision.** `project_timeline(project, bodies=False)` skips the markdown rendering #443 introduced; the overview's week digest — which already builds the event stream to say "this week in the project" — uses it. The Timeline page and its API keep the bodies. Backlog #108 (a mini-timeline strip on the overview) is struck: the week digest *is* that strip.
+
+**Why.** Owner idea #1, performance, is never one slice: #443 quietly made every overview render every decision, note and entry body in the project. Caught the same day by reading the callers.
+
+### 2026-09-07 — Timeline events open in place (#443)
+
+**Decision.** Every timeline event that has a body now carries it as rendered HTML (`body_html`, through `core.rendering.render_body` — markdown, `[[links]]` and `@keys` resolved like everywhere else): a decision's context, decision and alternatives; an experiment entry's body; a note's text (first 1,500 characters); a milestone's notes; a manuscript event's notes. On the Timeline page a chevron on such rows expands the body under the event without leaving the page; the label still links to the object.
+
+**Why.** Backlog #78 and #107: the timeline told you *that* a decision was made on a date and made you leave the page to read *what*; a project's history should read like a methods section, in one scroll.
+
+**Alternatives rejected.** Truncated plain-text snippets on every row (noise on the rows that do not need it); a side panel (the timeline is the reading surface, not a list).
+
+**Dead-idea sweep.** #69 (notes autosave), #70 (submission events from the SPA), #110 (pet species, #427), #114 (vendored editor), #121 (live word count, #413), #125 (cite-check across files) and #136 (pet voice) verified in the code and struck.
+
+### 2026-09-07 — The submission package carries the .bbl (#442)
+
+**Decision.** The compile runs Tectonic with `--keep-intermediates` and, on success, stores the generated bibliography (`main.bbl`) on the manuscript (`compiled_bbl`, writing 0015). `submission.zip` now writes it next to the sources, named after the main file (`paper.bbl` for `paper.tex`), unless the source tree already carries a `.bbl`. No compile yet → no `.bbl`, as before.
+
+**Why.** Backlog #131: arXiv runs no BibTeX — a package with `.tex` + `.bib` and no `.bbl` builds with empty citations there. This is the single most common reason a first arXiv upload fails, and Atlas already had the file in the work directory; it only threw it away.
+
+**Alternatives rejected.** Running BibTeX at export time (a second engine path, a second bundle download; the compile already produced the file); storing the `.bbl` as a `ManuscriptFile` (it would show in the studio's tree and invite edits that the next compile overwrites).
+
+### 2026-09-07 — Claude can attach figures (#441)
+
+**Decision.** `attach_manuscript_figure(manuscript_id, path, file_path)` (99 tools): the MCP client reads a local file, guesses its type and sends it multipart to `/manuscript-files/` as an `asset` at `path` (PATCH when an asset already sits there); the tool answers with the file row and a ready `\begin{figure}…\includegraphics…\label{fig:…}` snippet. `write_manuscript_file` stays the text path.
+
+**Why.** Backlog #127: with `write_manuscript_file`, `draft_related_work` and the cite checker, a figure was the one thing Claude could not put into a paper end to end.
+
+**Alternatives rejected.** Base64 in a JSON tool argument (megabytes through the model's context for nothing — the file is on the same machine as the MCP server); a separate figures API (the manuscript-files endpoint already stores assets and the studio already lists them).
+
+### 2026-09-07 — Undo for inline triage (#440)
+
+**Decision.** One global undo toast (`components/UndoToast.tsx`: `showUndo(message, undo)` + `UndoHost` mounted once in `main.tsx`, bottom-centre, six seconds, Esc dismisses, the newest replaces the last). Filing or dismissing a capture — from the Inbox (button or the `x`/`f` keys) or the dashboard's needs-attention row — shows "Filed under X — “…”" or "Dismissed — “…”" with **Undo**, which PATCHes the capture back to unprocessed with its previous project. Convert-to-object actions are not undoable this way (they created a paper, a note, a milestone — those have their own delete).
+
+**Why.** Backlog #158: an inline action that vanishes a row must be worry-free, or people hesitate — and hesitation is exactly what the inbox is meant to remove.
+
+**Alternatives rejected.** Confirm dialogs (the opposite of quick triage); a "recently dismissed" section (undo within seconds covers the real case; the Inbox already shows filed items per run and search finds captures).
+
+### 2026-09-07 — Comments are searchable and can be resolved (#439)
+
+**Decision.** `Comment.resolved_at` (core 0012). `PATCH /api/v1/comments/{id}/ {resolved}` resolves or reopens; the list endpoints carry `resolved_at`. In the Studio a resolved line comment greys out, drops its gutter mark and offers "reopen"; the Reference page's comments get the same toggle. Global search gains the `comment` kind on both paths — the snippet is the remark, the row says what it sits on (note title, paper, manuscript file and line) and whether it is open or resolved, and opens the note, the paper, or the manuscript editor. `Comment.target_route()` is the one place that knows where a comment lives.
+
+**Why.** Backlog #109 ("where did I write that remark?" — comments were the last first-class text search could not see) and #130 (addressed feedback should clear, like a review tool, without deleting the record of what was said).
+
+**Alternatives rejected.** Deleting instead of resolving (loses the trail; a resolved comment still answers "what did I decide about that paragraph?"); a separate comments page (search already is that page); a `resolved` boolean (the timestamp says when, for free).
+
+### 2026-09-07 — Templates that plan (#438)
+
+**Decision.** A built-in project template now carries three research-first parts beside its folders: a `plan` (a `plans.outline` Markdown outline — phases with objectives, milestones, a task or two), starter `questions` and review-matrix `themes`. `instantiate_template` lays each down only when the project has none of that kind, so re-applying a template, or applying it to a project that already has a plan, never duplicates. Empirical study: four phases / ten milestones / two questions / four themes (Theory, Method, Key finding, Limitation); Theory-review: scope → screening → synthesis → write-up with Claim / Evidence type / Population / Open problem; Software: design → build → evaluate → release; Minimal: one phase, one milestone. The New project cards state the counts; `/projects/templates/` carries them; `create_project(template=…)` over MCP gets the same.
+
+**Why.** "Plans over backlogs" — an empty project with nice folders is still an empty project. The first plan is the hardest to write and the most formulaic; the template's job is to hand the researcher a plan to edit, not a blank page.
+
+**Alternatives rejected.** Templates as DB rows the owner edits in the admin (they version with the code, like the writing gallery; a saved *snapshot* template already exists for the owner's own structures); applying the plan even when phases exist (would merge two plans — the outline endpoint is the deliberate way to rewrite one).
+
+**Dead-idea sweep.** #57 (search budget): measured today at 14 queries / 27 ms on the demo library for three queries, well under the 50 ms bar — struck. #58 (grove tooltips): the grove exists only in the classic dashboard template, which the SPA replaced — struck.
+
+### 2026-09-07 — The matrix writes the Related-work section (#437)
+
+**Decision.** `POST /api/v1/manuscripts/{id}/related-work/` turns the project's review matrix into LaTeX (`literature/selectors.py::related_work_latex`): `\section{Related work}`, one `\subsection` per theme, every cell finding a sentence ending in `~\citep{key}`, papers marked without a finding gathered into one `\citep{a, b}`, empty themes and unthemed papers left as `%` comments (gaps to fill or drop), specials escaped. The section is saved as `sections/related-work.tex` in the manuscript's source tree (409 unless `overwrite`), every cited paper is added to the manuscript's bibliography so the cite checker passes, and the response carries the `\input{sections/related-work}` line. The Matrix page gets "Related work → .tex" (picks the manuscript when the project has several, confirms before replacing, shows a strip with a link into the studio); Claude gets `draft_related_work` (98 tools).
+
+**Why.** Backlog #62's revolutionary half, minus the part that already existed (the synthesis *note*): the review matrix is where findings are extracted; the paper is where they must end up. Retyping thirty cells into `\citep` sentences was the tax. Now the matrix is the first draft of the related-work section and the bibliography stays consistent by construction.
+
+**Alternatives rejected.** Inserting into `main.tex` directly (destructive; a separate file plus one `\input` line is reversible and matches how the demo manuscript is organised); a Markdown export instead of LaTeX (the studio is LaTeX and the cite checker is the point); letting the caller pick themes (one section per theme is the honest shape — delete a subsection in the editor).
+
+### 2026-09-07 — Related papers reach the Reference page and Claude (#436)
+
+**Decision.** The local TF-IDF neighbours (`literature/related.py`, title + abstract, cosine, no network) already fed the Library rail and `GET /references/{id}/related/`; now the Reference page shows them too ("Related in your library", with the similarity as a percentage) and Claude gets `get_related_in_library` (97 tools) — the local complement to `discover_related`, which asks OpenAlex for papers the library does not have. Backlog sweep with it: #1 (in-browser PDF viewer with highlight-to-note — the reader has done this since the Library v2 slices), #3 (embedding-based related papers — TF-IDF is the offline version and the whole point of Atlas is that it works on a train) and #11 (conditional GETs — API lists since #384, files since #434) are struck.
+
+**Why.** "Where is what" — a paper's page is where you decide what to read next; making the reader open the Library rail for that was a detour. The MCP side is product value 5.
+
+**Alternatives rejected.** Embeddings via a local model (a 100 MB+ dependency for a marginal gain on a few hundred abstracts; TF-IDF cosine is transparent and instant); computing related papers across projects only (the library is global by design, so is the neighbourhood).
+
+### 2026-09-07 — Search remembers: recent searches and pins (#435)
+
+**Decision.** The Search page keeps the last eight searches that returned results and lets you pin any query with the ☆ at the right of the box. With the box empty, pinned searches come first (amber, with an ✕ to unpin), then the recents (with a clear). Both live in this browser's `localStorage` (`atlas-search-recents`, `atlas-search-pins`) behind try/catch, like the library's list/cards choice — a convenience, not data: the search itself is the URL and `/api/v1/search/`.
+
+**Why.** Backlog #55 (from the classic UI's recents dropdown, which the SPA never got). Researchers run the same three searches for weeks ("pupil", "dual-task", the reviewer's pet phrase); a chip beats retyping.
+
+**Alternatives rejected.** A server-side SavedSearch model with API + MCP (nothing downstream needs a pinned search; if a smart view ever wants a saved *global* search, that is the moment to promote it); recording every keystroke's debounced query as a recent (only searches that returned something are worth remembering).
+
+### 2026-09-07 — Served files revalidate for free: one conditional-GET helper (#434)
+
+**Decision.** `core/files.py::file_response(request, field_file, …)` is now the only way Atlas hands out an uploaded file — document download, inline preview and the workspace raw view all go through it. It stamps `ETag` (`"<mtime>-<size>"`, from the storage so it works on any backend), `Last-Modified`, `Cache-Control: private, max-age=86400` and `nosniff`, and answers `If-None-Match` / `If-Modified-Since` with an empty 304. The magic-byte checks still run first (a 304 can never bypass #250). `/media/` (reference PDFs, compiled manuscripts, figures) already had this from `django.views.static.serve`.
+
+**Why.** Backlog #54 and the second half of #11: the PDF reader and the studio re-open the same files all day; after the day of caching they re-downloaded them wholesale. Performance is owner idea #1 and never one slice. Backlog #251 asked for the inline-safety contract to live in one place — it now does, alongside the caching.
+
+**Alternatives rejected.** A content hash as the ETag (reads the whole file per request; uploads are immutable, so mtime+size is exact); `ConditionalGetMiddleware` (it hashes the body for ETags and streams poorly with FileResponse); dropping the max-age in favour of revalidate-always (an extra round trip per PDF page load for nothing).
+
+### 2026-09-07 — Library selection ergonomics: ranges and select-all (#433)
+
+**Decision.** The last row you toggled (by checkbox or `x`) is the anchor; **shift-click** a checkbox or press **shift-x** on the row under the cursor to select everything between the anchor and it; **⌘A / Ctrl+A** (outside a text field) selects the whole view; Esc still clears. The hint line in the list header says so.
+
+**Why.** Backlog #60's last open pieces. Bulk actions (link, tag, status, fetch PDFs, cite, export) were already there; selecting forty papers one checkbox at a time was the tax on using them.
+
+**Alternatives rejected.** Drag-to-select (a marquee over a virtual list fights scrolling); "select all matching the filter, beyond the page" (the bulk endpoints take ids, and acting on rows you have not seen is how libraries get mangled).
+
+### 2026-09-07 — ⌘K learns to make things: paper:, a bare DOI, and four creation verbs (#432)
+
+**Decision.** The demo GIF's own last frame showed the gap: "add paper" typed into the palette matched nothing. Now `paper: <DOI or arXiv id>` (also `doi:`, `p:`) adds the paper to the library — and to the project you are in — through `POST /references/by-doi/`, and a bare DOI, `doi.org` URL or arXiv id typed on its own does the same without a prefix. Four static verbs join the list: "Add a paper by DOI or arXiv id" (Library with the add box focused via `?add=1`), "New note in this project" (`/notes/new`), "New manuscript" (Writing with the title box focused via `?new=1`), "New project". When nothing matches, the palette says so and lists the prefixes instead of showing a blank panel.
+
+**Why.** "Ask Atlas anything" promised more than jumping; every first-class object should be creatable from the keyboard without knowing which page owns it. Product value 5 (machine-friendly) has a human cousin: the fastest path from thought to object.
+
+**Alternatives rejected.** Fuzzy-matching page *contents* for creation intents ("note about X" → a note titled X): too clever for a palette; the verbs are explicit and the Inbox already does smart triage. A DOI verb that fetches metadata before showing the row: the fetch is the action, not the preview.
+
+### 2026-09-07 — Today items can carry a time; the sidebar nudges (#431)
+
+**Decision.** `TodoItem.due_at` (optional, UTC). The time is *parsed in the browser* (`frontend/src/app/dueTime.ts`): "call Sam at 3pm", "by 9:30", "@ 4pm", "at noon", "tomorrow at 9am" — am/pm or a colon is required, so "read at 3 papers" stays text; a time already an hour gone means tomorrow. The phrase is stripped from the text and `due_at` sent as ISO with the owner's offset. The Today page shows a time chip per row (quiet, amber within two hours, red once passed), the ⌘K `todo:` verb understands the same syntax, the dashboard's "On your list" rows show the time, and a **sidebar nudge** (`TodoNudge`, shares the `["todos"]` query, re-read every minute) surfaces the one item due within two hours or overdue by less than twelve. The Today header also counts what was carried over ("2 carried over from earlier days"). MCP `add_todo` takes `due_at` (ISO with offset). No reminders beyond the nudge: Atlas has no notification channel and does not want one (product value 4).
+
+**Why.** Backlog #300's last two lines. A time on a scratch-list item is the difference between "call Sam" and actually calling Sam at three; a calm sidebar line is the whole reminder system a single user needs.
+
+**Alternatives rejected.** Parsing on the server (the server keeps UTC; "3pm" is the owner's 3 pm, and the browser knows the zone — MCP callers pass an explicit ISO offset instead); a separate `next-due` endpoint (the list is ≤200 rows and already cached client-side); a datetime picker per row (the sentence is the picker; the API is there for anything else); system notifications (a channel Atlas deliberately lacks).
+
+### 2026-09-07 — The README gets a moving picture: a scripted demo GIF (#430)
+
+**Decision.** `scripts/demo_gif.py` drives the seeded demo through eleven screens — dashboard, project overview, plan, library, reading flow, a note, the 3D graph, the LaTeX studio (compiled first through the API so the preview shows a PDF), the review matrix, Connect Claude Code and the ⌘K palette with "add paper" typed — stamps a caption on each, and Pillow assembles the keyframes into `docs/demo.gif` (960 px, 128 colours, 2.2 s holds with one 50 % blend frame per cut; 22 frames, 3.0 MB). The README embeds it under the download line; `make demo-gif` re-shoots it; `core/tests/test_demo_gif.py` keeps it present, a real GIF, referenced and under 4 MB. Pillow is pulled in ad hoc with `uv run --with pillow` — a maintainer-only tool, not a dependency.
+
+**Why.** Owner idea #8's remaining line ("demo GIF") and OPENSOURCE.md's own brief: the sales pitch is the whole loop in one unbroken picture. Screenshots show rooms; the GIF walks the house.
+
+**Alternatives rejected.** A true 60-second screen recording (Playwright records WebM but the repo has no ffmpeg, GitHub READMEs cannot embed video, and a 60 s GIF is tens of MB); 3-step cross-fades (4× the bytes for a nicer cut — measured 6.5 MB); a hand-recorded GIF (rots the moment a screen changes; the script re-shoots in a minute).
+
+### 2026-09-07 — The plan moves under the mouse: drag phases, drag milestones between phases (#429)
+
+**Decision.** The phase number on each card is a drag handle: drop it on another card and the phase takes that card's place (`POST /api/v1/projects/{slug}/phases/reorder/ {ids}` writes `order` 1..n and `updated_at`, mirroring the to-do and smart-view reorders; unlisted phases keep their relative order after). Milestone rows are draggable too: dropping one on a different phase card moves it there (`PATCH /milestones/{id}/ {phase}`). Both are optimistic in the SPA and settle from the server. Cards ring indigo for a phase drop, emerald for a milestone drop; the two payloads use private MIME types so a card knows which it is being offered.
+
+**Why.** A plan is written, then rearranged — "the pilot belongs in phase two after all" was a delete-and-retype. Plans over backlogs means rearranging must be as cheap as thinking it.
+
+**Alternatives rejected.** Reordering milestones within a phase (they order by due date, which is the honest order); a dnd library (the native API already runs the other three drag surfaces); dragging tasks between milestones (rare; the task is one line to retype).
+
+### 2026-09-07 — Global search reaches protocols, datasets and captures (#428)
+
+**Decision.** Three object kinds were searchable nowhere: protocols (title + body), datasets (name, location, description — the FTS path had skipped them) and inbox captures (text; project may be null). Both search paths — Postgres FTS and the SQLite `icontains` fallback the desktop uses — now cover them, `describe()` gives each a snippet and a route (research page; the Inbox with the capture id), and the SPA groups them under Protocols, Datasets and Captures.
+
+**Why.** "One search box in the sidebar" (Phase 3) means every first-class object. A protocol you wrote in June and a thought you jotted last week are exactly what search is for.
+
+**Alternatives rejected.** Indexing to-do items and comments (short, context-bound text that mostly duplicates its parent — noise in a mixed result list); a separate "search captures" box on the Inbox (one box is the rule).
+
+### 2026-09-07 — Mochi has a species (#427)
+
+**Decision.** `core/pet.py::pet_species` hashes the Pet row's identity (pk + created_at) once: four plumages — tawny, snowy, barn, dusk — and one in sixty-four hatches golden (shiny, with a soft glow). The species rides in the pet state (`species: {key, name, blurb, shiny}`), the hatchling blurb names it ("Hatched — a barn owl!"), the pet page says "a snowy owl · the scholar · thriving" (eggs keep the secret), and the Creature takes a `species` prop that maps to a CSS class overriding the five `--mochi-*` palette variables — no new artwork, the same layered SVG in a different coat.
+
+**Why.** Backlog #110 / owner idea #23's last line: a Buddy-style hatch moment with species and rarity. Deterministic from the install means it is *your* owl on every device that restores your backup; a colour-variable palette makes it a twelve-line change with no drift from the animations.
+
+**Alternatives rejected.** Random at first sight with the result stored (a new field for something a hash gives for free); distinct body shapes per species (artwork and animation debt for a delight feature); a re-roll button (rarity means nothing if you can re-roll).
+
+### 2026-09-07 — Performance pass: the references list stops asking for tags one row at a time (#426)
+
+**Decision.** A query probe over the twenty hottest API endpoints on the demo data (cache cleared) found one N+1: the references list ran one `LibraryTag` query per row (36 queries for 50 rows; the `tags` field on the serializer reads the M2M). `prefetch_related("tags")` on both reference querysets takes it to 7, flat in the row count; a budget test pins it (40 rows, ≤ 12 queries). Everything else was flat: the dashboard is 23 queries warm (the heatmap and pet are cached), the project overview 51 queries at ~60 ms — each a cheap aggregate from a different selector, not a per-row pattern — the achievements ledger 77 single counts behind the pet's 5-minute cache.
+
+**Why.** Owner idea #1: every cycle leaves the app faster or no slower. Today's slices added serializer fields (`progress`, `*_html`, `captures`) — the probe is how the loop checks they did not smuggle in per-row queries (they did not; the tags one predates them).
+
+**Alternatives rejected.** Squeezing the overview's 51 into fewer by threading prefetched phases through six selectors (a refactor for ~20 ms on a page that already answers in 60); caching list responses (ETags already make the repeat case free).
+
+### 2026-09-07 — A keyboard cheat sheet on `?` (#425)
+
+**Decision.** `app/shortcuts.tsx` holds the one list of shortcuts the app answers to — everywhere (⌘K, ?, the inspector on the desktop), Inbox (j/k, ↵, 1–5, x), Notes (⌘S, `[[`, `@`), Studio (⌘S, ⌘↩, ⌘⇧J, ⌘B, ⌘\, ⌘J, ⌘P), Reader — rendered as a two-column card through the in-app notice dialog. `?` opens it anywhere except inside inputs, textareas, selects, contenteditable and the CodeMirror editor; "Keyboard shortcuts" is a ⌘K verb. The modifier label follows the platform (⌘ / Ctrl).
+
+**Why.** The shortcuts existed in five places and were documented in none of them; a cheat sheet is how every keyboard-first tool makes them discoverable, and `?` is the convention.
+
+**Alternatives rejected.** Deriving the list from the code (the bindings live in CodeMirror keymaps, React handlers and a palette — a hand-kept list with a guard test is honest and cheap); a dedicated page (a card that closes with Esc is what you want mid-task).
+
+### 2026-09-07 — The app knows when it was last backed up (#424)
+
+**Decision.** Every download of `/api/v1/backup.zip` writes a `core.BackupRecord` (size, media count, database kind; migration 0010). `core/backups.py::backup_status()` says when the last one was and whether that is *stale* — no backup within 14 days, or never — but only once there is data worth keeping (at least one project). It appears in three places: the Diagnostics header ("last backup 3 d ago", amber when stale, in the copyable report too), the dashboard's Needs-attention block as a calm amber row with the download link (the all-clear card yields to it), and `get_diagnostics` for Claude.
+
+**Why.** A single-user desktop app is one disk failure away from losing a year of notes, and the backup button only helps if you remember it. A dated nudge is the smallest thing that makes people remember, and it never pops up, mails, or blocks.
+
+**Alternatives rejected.** Automatic scheduled backups to a folder (a settings screen and a place to put them — later, if the owner asks); counting restores or Vault exports as backups (a vault is an export of one project, not the database).
+
+### 2026-09-07 — A bar on the run chart opens the Inbox filtered to that run (#423)
+
+**Decision.** `QuickCapture.bot_run` (nullable FK to `bots.BotRun`) records which automation run filed a capture: `run_bot` now creates the `BotRun` row *before* running the bot and holds it in a context variable that `_capture_once` reads, then fills in the outcome afterwards. The bots API returns each run's `id`, `GET /quick-capture/?run=<id>` filters to that run's captures, the Inbox honours `?run=` with a banner ("Showing what one automation run filed — n captures, m still open · Show the whole inbox") and the Automations run-history bars link to it when the run filed anything. Hand-written captures stay `bot_run = null`.
+
+**Why.** Backlog #44: the chart said "3" and the Inbox could not say which three. The link needed the row to exist while the bot ran, hence the create-then-update.
+
+**Alternatives rejected.** Tagging captures by text prefix (emoji-sniffing is not a foreign key); a `BotRun.capture_ids` JSON list (the FK gives the reverse relation and cascades correctly when a run is pruned).
+
+### 2026-09-07 — Template lint: every template parses, chrome blocks stay clean (#422)
+
+**Decision.** `core/tests/test_template_lint.py` walks every `.html` under `templates/` and each app's `templates/`, compiles it through the Django engine (a broken tag fails the build with the file name) and asserts that `{% block title %}` and `{% block breadcrumbs %}` contain no `<script>` or `<style>`. One parametrised test per template, so the failure names the file.
+
+**Why.** Backlog #51: the cycle-44 corruption (a script pasted into a title block) took every page down at once and was only caught by eye. The classic templates are fewer now that the SPA is the front door, but the login page, the spa shell and the admin-side pages still go through them.
+
+**Alternatives rejected.** A full render of each template (needs a context per template; parsing catches the syntax class, the smoke tests cover rendering); djlint as a dependency (a linter for a shrinking template tree).
+
+### 2026-09-07 — The sparse documents table says what it is for (#421)
+
+**Decision.** With three files or fewer (and no filter), the Documents table gets a dashed footer: how many files there are, what the page is for (the project's file cabinet), a link to upload or drop files in Files, and the one rule people trip over (papers' PDFs live in the Library). The empty state gains the same "Upload in Files →" action. The table itself is unchanged; nothing collapses or scrolls.
+
+**Why.** Backlog #178: the wide layout made a three-row table look abandoned. Every empty state explains the page and offers the primary action (UI guideline); a *nearly* empty one deserves the same.
+
+**Alternatives rejected.** A max-height (hides rows that fit fine); onboarding cards with icons (clutter for a page whose value is the table).
+
+### 2026-09-07 — Narrow-width audit: three sideways scrolls fixed (#420)
+
+**Decision.** A 900 px pass of `scripts/ui_audit.py` (light and dark) after today's slices found three pages scrolling sideways, none of them new code: the Documents table's `sr-only` header labels are absolutely positioned and escaped the `overflow-x-auto` scroller (the wrapper is now `relative`); the manuscript detail's two grid columns had `min-width: auto`, so a long cite key widened them past the track (`min-w-0`); the Literature header's link row was `shrink-0` and would not wrap (`flex-wrap`); and the manuscript title, an `<input>` that could only clip, is now a content-sized `<textarea>` (`field-sizing: content`, Enter blurs, newlines stripped) that wraps onto two lines instead of hiding the end of the title behind the studio button. The audit is clean at 900, 1280 light and 1280 dark desktop.
+
+**Why.** UI guideline: wide content scrolls inside its own container, the page never scrolls horizontally. The desktop window is often narrower than a browser tab.
+
+**Alternatives rejected.** Hiding the sr-only labels at narrow widths (they are the accessible names of the action columns); a horizontal-scroll wrapper around the manuscript columns (the content wraps fine once the column is allowed to be narrow).
+
+### 2026-09-07 — Mochi notices habits: the streak, the hour, the writing (#419)
+
+**Decision.** Three more observation lines in `_speech_candidates`, all from data already kept: the activity streak ("4 days running…", "12 days in a row — a habit now, not luck" from seven), the hour ("Not your usual hour. Curious what brought you here." when at least three usual working hours are known and this is not one of them, from the same hours set the achievements read), and today's writing ("+240 words today. The pen is moving.", "+1,200 words … A real session." from five hundred, from the #413 samples). The tone stays observational — no nagging, no "you should".
+
+**Why.** Owner idea #16's remaining line: more habit signals. The pet is the one voice in the app allowed to comment on *how* you work; these three are the facts a good lab-mate would notice.
+
+**Alternatives rejected.** A line for a broken streak ("you missed yesterday") — that is nagging, and the product value says never; time-of-day *suggestions* ("you work best in the morning") — an inference the data cannot support.
+
+### 2026-09-07 — "Words written this month" on the dashboard (#418)
+
+**Decision.** `monthly_stats()` gains `words_written`: the sum of positive day-to-day deltas of the daily word samples (#413) across every manuscript since the first of the month; a cut counts as zero, a manuscript's first-ever sample counts as nothing. The dashboard's stat row becomes six cells (three per row on small screens) with "words written this month" linking to Writing; `get_dashboard` carries it too.
+
+**Why.** The stats row answered reading and note-taking but not writing, which is the output that actually leaves the lab. The samples were already there; the stat is one pass over them.
+
+**Alternatives rejected.** Total words across manuscripts (a size, not a month's work); counting deletions as negative (a month of editing down a draft would show as negative writing, which reads as punishment).
+
+### 2026-09-07 — Bots from the MCP side (#417)
+
+**Decision.** Three thin tools over the existing bots API: `list_bots` (state, last result, recent runs), `run_bot(slug)` (run now, returns the result line) and `toggle_bot(slug)` (flip enabled). 96 tools. Nothing new server-side: the Automations page already spoke this contract.
+
+**Why.** Owner idea #7's last line ("MCP-side bots"): Claude could read the Inbox the bots fill but could not ask a bot to run — "check the deadlines before we plan the week" needed a browser. Now the bots are one tool call away, which is also how a Claude-driven routine would schedule them.
+
+**Alternatives rejected.** Bots implemented *inside* the MCP server (they would need the ORM the server deliberately has none of, and would stop running when Claude is not around); a `create_bot` tool (bots are code in `bots/registry.py`, not data).
+
+### 2026-09-07 — A project as a Markdown vault (#416)
+
+**Decision.** `GET /api/v1/projects/{slug}/vault/` streams a zip that is the whole project as text: `README.md` (description + front matter), `plan.md` (the same outline the Plan page round-trips), `questions.md`, `notes/<title>.md` (bodies as written — `[[wiki-links]]` and `@keys` intact — with the linked references as front matter), `decisions/<date> <title>.md`, `references.bib` + `literature.md` (a reading-status table and per-paper notes), `research/hypotheses.md` (with evidence and its citations), `research/experiments/`, `research/datasets.md`, `protocols/<title> v<n>.md`, `manuscripts/<title>/` (README with status + timeline, then the source tree) and `documents/<folders>/` (the uploaded files; `?documents=0` leaves them out). Titles become file names without punctuation; collisions get `(2)`. A manifest (`atlas-vault.json`) sits at the root. The overview kebab and the ⌘K palette ("Export this project as a Markdown vault") download it.
+
+**Why.** No lock-in is a product value the backup only half-honours: a SQLite file is *yours* but not *readable*. A folder of Markdown opens in Obsidian, in a text editor, in git — and because the notes keep their links and cite keys, the vault is a working knowledge base, not a print-out.
+
+**Alternatives rejected.** Obsidian-specific extras (`.obsidian/` config, callouts) — the plain files open there already and the dialect would leak into every other reader; an import path back (the vault is an export; the API and the backup remain the way in); one giant Markdown file (loses the folder-as-place structure the app is built on).
+
+### 2026-09-07 — Achievements batch three: the calendar, the dark, and the platinum (#415)
+
+**Decision.** Nine more trophies, all still read from real work. Five *seasonal secrets* (hidden until earned) read the activity calendar: New year, new hypothesis (Jan 1), Trick or treat (Oct 31), Solstice (Jun 21 or Dec 21), Leap of faith (Feb 29, steady tier), Friday the 13th. Three belong to Souls mode: Embrace the dark (switch it on), and two that only count while it is on — No bonfire (seven active days) and The Dark Soul (thirty, hidden) — backed by a new `Pet.souls_since` (core migration 0009) that `set_souls_mode` stamps when the mode goes on and clears when it goes off, so leaving and returning starts the count again. And the *Platinum*: every other achievement in the ledger, computed by `evaluate()` from the rest before its own row, listed last so `max_score` and the souls tier include it.
+
+**Why.** Owner idea #31's remaining line: seasonal/secret achievements, a platinum for the whole ledger, souls-mode achievements that only count while it is on. The calendar ones are the kind you find by accident, which is the point of hidden ones; the souls-only ones make the mode a commitment rather than a skin.
+
+**Alternatives rejected.** Counting souls days from the toggle's *first* use ever (a mode you switched off should not keep paying out); a platinum that excludes hidden trophies (then it is not the whole ledger); time-boxed seasonal events with a calendar of their own (a settings-shaped feature; a date check is enough).
+
+### 2026-09-07 — Comments inside the Studio: line-anchored, in the gutter, in a panel (#414)
+
+**Decision.** The Studio gets a *Comments* panel in its activity bar: every comment across the manuscript's source files (`GET /manuscripts/{id}/comments/`, newest first, with file path and line), a click jumps to the file and line, hover shows *delete* (`DELETE /comments/{id}/`), and "+ line N" comments on the line under the cursor. While the panel is open, a click on a line number comments on that line — closed, line numbers behave as line numbers. Commented lines carry the chat-bubble mark in the editor's comment gutter (the `setCommentLines` hook the shared editor core has had since Slice B; the marks follow the active file). The prompt is the in-app multiline dialog.
+
+**Why.** Owner idea #10's last line ("LaTeX line-anchored comments in the editor"): the API, the model anchor and the gutter existed; the Studio rebuild never wired them, so the only way to leave a note on a line was `% TODO`. Overleaf's comments are the feature people miss most when they leave it.
+
+**Alternatives rejected.** Comments on selections with text anchors (the anchor drifts as the text changes; a line is honest and the body can quote); always-on gutter click (line numbers are for selecting lines — the panel-open condition keeps that); a per-file fetch (one manuscript-wide request keeps the panel complete when the open file is not the commented one).
+
+### 2026-09-07 — Writing progress: words per day, today's delta, the streak (#413)
+
+**Decision.** `writing.WordCountSample` keeps one word count per manuscript per day (migration 0014), written whenever a `.tex` file is saved (the last save of the day wins) and whenever the word count is asked for (opening the Studio logs a baseline). `writing/progress.py` turns the samples into deltas — days without a sample carry the previous count forward with a zero delta — plus today's delta, this week's added words, the streak of consecutive writing days ending today or yesterday, and the best day. Surfaces: the word-count endpoint now also answers `today_delta`/`streak`/`week_delta` and the Studio status bar shows "+212 today · 3d streak"; every manuscript carries a 14-day `progress` in its API row and the Writing board draws it as a tiny bar sparkline with the delta beside it; `GET /manuscripts/{id}/progress/?days=` and the MCP tool `get_writing_progress` (93 tools) give the whole series. The demo manuscript is seeded with a fortnight of writing.
+
+**Why.** The Studio counted words but the count had no memory: "how is the paper going?" needs yesterday's number too. A daily sample is the smallest thing that answers it, and it feeds the same places a writer looks (the status bar while writing, the board when choosing what to write).
+
+**Alternatives rejected.** Deriving progress from manuscript revisions (`ManuscriptRevision` keeps content, but not every save makes a revision and counting each one on read is O(revisions)); per-save samples (a row per autosave — the daily grain is what the questions are asked at); a target-words goal with a ring (venue limits already exist as `venue_limits`; goals are a settings screen in disguise).
+
+### 2026-09-07 — Read this note to me (#412)
+
+**Decision.** The note editor's toolbar has a *listen* button: the title and body go through `speakable()` (a markdown stripper in `app/listen.ts` — `[[Note]]` and `@key` become their words, links their text, code blocks and images are skipped, headings/list markers/quotes/table rules go, each line ends as a sentence) and then through the same chunked, prefetched `listenTo` the abstract reader uses (#404), with an *i/n* progress in the button; switching notes or clicking again stops the voice; a missing voice model surfaces as the toast the export button already uses. No new endpoint: `/tts/` and the local Piper voice as before.
+
+**Why.** Owner idea #3 asked for read-aloud on notes, abstracts and PDFs; abstracts had it, PDFs have the section tl;dr, notes had nothing — and a note is the thing you most want read back while walking. Stripping markdown matters: a voice reading "open bracket open bracket" is worse than none.
+
+**Alternatives rejected.** Reading the rendered preview's `innerText` (the preview is a separate query and may lag the editor; the stripper works on what is being typed); a server-side `speakable` (the client has the text, and the chunker already lives there).
+
+### 2026-09-07 — Where a paper appears: backlinks for references (#411)
+
+**Decision.** `literature/usage.py::usage_of(reference)` collects every place a paper is used — notes that link it (the M2M) or cite it as `@key`, decisions / experiment entries / protocols / captures that mention `@key` (a whole-key match through the same `CITE_RE` the mention renderer uses, so `@lavie2010attentionb` is not `@lavie2010attention`), manuscripts whose bibliography carries it (with the cite key actually used), and evidence rows that point at it (with their direction). Served as `GET /api/v1/references/{id}/usage/` (grouped counts + rows with the SPA route to each), as the MCP tool `get_reference_usage` (92 tools), and on the Reference page as a "Where it appears" section between Highlights and Comments, manuscripts first because they are the costliest place to break. The empty state says how to make the paper appear somewhere.
+
+**Why.** Notes have had backlinks since Phase 3; papers had none, although they are the thing a researcher most often asks "where did I use this?" about — before deleting one, before merging duplicates, when writing the related-work section. #407 made mentions live everywhere; this is the reverse index.
+
+**Alternatives rejected.** Parsing `\cite{}` in manuscript `.tex` sources (a file read per manuscript per view; the bibliography membership is the contract the cite checker already enforces); a denormalised mention table maintained on save (more machinery for a per-page query that is a handful of `icontains` filters).
+
+### 2026-09-07 — Files: drag a file onto a folder to move it (#410)
+
+**Decision.** File rows in the Files explorer are `draggable`; the drag carries the document id under a private MIME type (`application/x-atlas-doc`), so folder rows and the tree's empty area — which already accept OS files for upload — tell the two apart: an Atlas row moves through the existing `PATCH /documents/{id}/ {folder}` mutation, an OS file uploads as before. Dropping on the folder the file is already in is a no-op; manuscript folders refuse drops as they did; manuscript source files are not draggable (the Studio owns them). The dragged row dims, the target folder rings, and the tree's border lights when the drop would go to the root.
+
+**Why.** Owner idea #14's last remaining line ("drag rows between folders"): the Files page had the drop zones and the move mutation, only the row → folder gesture was missing, and the Move-to dropdown in the detail pane is three clicks for something every file manager does in one.
+
+**Alternatives rejected.** A drag library (dnd-kit): the native API already drove the OS-file drops and the Today/smart-view reorders; multi-select drag: the explorer has no multi-select yet — when it does, the payload is a list.
+
+### 2026-09-07 — One gate for page data: `queryGate` / `QueryBoundary` (#409)
+
+**Decision.** `components/QueryBoundary.tsx` exports `queryGate(query, {skeleton, message})` — the node to render instead of the page while its query loads (the page's own skeleton, or `SkeletonPage`) or after it fails (`ErrorState` with the message, the error text and a retry) — and `QueryBoundary`, the same as a render-prop component. Nine pages that had a loading rung but no error rung (Reference, ReadingFlow, Automations, Graph, Prompts, Pet, Connect; inline rows on Report and Diagnostics) now go through it. `core/tests/test_query_boundary.py` fails the build when a page under `pages/` calls `useQuery` without `queryGate`, `QueryBoundary` or `ErrorState`; pages whose queries only decorate a static page (NewProject's templates, the Studio's per-panel queries, the plan widgets, the constellation, the PDF reader) are allowlisted by name.
+
+**Why.** Backlog #282, and the owner's blank-window saga: a page that fetches and forgets the error branch shows a skeleton pulsing forever or nothing at all when the request fails — exactly the symptom a user cannot tell apart from a crash. The gate makes the error branch the default, and the guard makes forgetting it a red test.
+
+**Alternatives rejected.** A hook (`useQueryView`) — it is not a hook, it calls none, and naming it like one invites the rules-of-hooks lint to complain about the early return; suspense + error boundaries per route (a larger migration of every query to `useSuspenseQuery`, and the page-level ErrorBoundary already exists for crashes — this is the *expected* failure path).
+
+### 2026-09-07 — The matrix header says how much of each theme is actually read (#408)
+
+**Decision.** Every theme row of the review-matrix table carries `read` (marked papers whose reading status is READ or ANNOTATED, via the same `theme_read_counts` the gap-ordered queue uses) next to `covered`/`total`. The column header shows "n read": green when every marked paper is read, a neutral chip linking to `/queue?theme=<name>` when some are unread, and an amber chip when nothing under the theme has been read yet. The queue's existing `?theme=` filter (unread candidates for a theme) is the landing page.
+
+**Why.** Backlog #48: coverage ("how many papers mention this theme") and reading ("how many of those I have read") are different questions, and the matrix only answered the first. The gap-ordered queue knew the second but the number was invisible where the themes live.
+
+**Alternatives rejected.** A separate "gaps" panel above the table (one more block to scan; the header is where the eye already is); sorting columns by gap (reorders the table under the reader — the number is enough).
+
+### 2026-09-07 — Mentions everywhere: one renderer for every markdown body (#407)
+
+**Decision.** `core/rendering.py` is the single markdown renderer: `resolve_mentions(body, project)` rewrites `[[Note Title]]` (resolved inside the project; globally only when the title is unique) and `@cite-key` into links, leaves unresolved mentions *visibly* in italics, and `render_body()` sanitises the result with nh3. The notes preview endpoint now calls it, and four serializers grew read-only companions: `context_html` / `decision_html` / `alternatives_html` on decisions, `body_html` on experiment entries and protocols, `text_html` on quick captures (with soft line breaks, because captures are jotted). The SPA shows them through one `<Prose>` component; the Decisions page clamps long records behind "Read the whole decision", the experiment log expands an entry on click, protocols render their steps, the Inbox renders captures. Internal links go through the existing SPA link interceptor, so a mention navigates without a reload. `core.mentions` is a project-less alias over the shared resolver.
+
+**Why.** Backlog #45: decisions and lab entries are written in markdown and cite notes and papers, but the SPA showed them as truncated plain text — `[[Load theory overview]]` was dead ink outside Notes. One resolver means a mention behaves the same on every surface, and one HTML field per body keeps the client dumb (no markdown library in the bundle).
+
+**Alternatives rejected.** Rendering markdown in the browser (a second sanitiser and a second mention resolver to keep in sync with the server's); a generic `/render/` endpoint the SPA calls per card (N requests per page for data the list already carries); leaving unresolved mentions as typed (the comments' old contract — the visible gap is the point, it says "this note does not exist yet").
+
+### 2026-09-07 — A watched folder: drop a PDF on disk, it lands in the library (#406)
+
+**Decision.** `literature/watch.py` watches one folder: a daemon thread scans it every 15 s while enabled, imports each new PDF once (a ledger of path, size and mtime; a file still being written waits for the next scan) through the same pipeline as a drag-drop import, optionally filing it into a project; the config lives in `<data dir>/watch.json` and the desktop launcher resumes watching on boot. `GET/POST /api/v1/watch-folder/` and `POST …/scan/` drive it; the Library rail shows the folder, its state and the last scan, with *scan now*, *stop*, and — on the desktop — the OS folder picker (`pick_folder`).
+
+**Why.** Researchers save PDFs to a Downloads folder all day; a library that only fills through its own drop zone is a library that lags. Pointing Atlas at that folder makes "save the PDF" the whole import step, on the desktop where the folder lives.
+
+**Alternatives rejected.** OS file-system events (inotify/ReadDirectoryChanges — platform code in the frozen build for a folder that changes a few times a day; polling is fine); moving or renaming the files (the folder is the owner's; the ledger remembers instead); recursive watching (a Downloads tree is full of things that are not papers).
+
+### 2026-09-07 — AppImage, second attempt (#405)
+
+**Decision.** `appimage` is back in the Linux bundle targets. The first attempt (#210f) failed because linuxdeploy could not relink the bundled Postgres shared objects; Postgres is gone since #286 and the only native libraries left are PyInstaller's own, which linuxdeploy handles. If the Linux job goes red on this, the target comes out again and this entry records why.
+
+**Verdict (run 126, same day).** Red: the .deb and .rpm bundled, then `Bundling Atlas_0.1.126_amd64.AppImage` ended in `failed to bundle project: failed to run linuxdeploy` — the same relinking step, now presumably tripping over PyInstaller's bundled libraries rather than Postgres's. `appimage` is out of the targets again; .deb/.rpm stay. Backlog #288 is closed as *tried twice, not viable with a PyInstaller payload* — the way in, if ever, is a hand-built AppDir without linuxdeploy's library harvesting, which is its own project.
+
+**Why.** Backlog #288: an AppImage runs on any distribution without a package manager, which is what a researcher on a locked-down lab machine needs. One CI run answers whether it works now.
+
+**Alternatives rejected.** Flatpak (a different packaging world and a runtime the app does not need); shipping only .deb/.rpm (excludes every other distribution).
+
+### 2026-09-07 — Read-aloud: chunked and prefetched (#404)
+
+**Decision.** `app/listen.ts` splits the text into sentence-aware chunks of about 420 characters, synthesises the first, starts playing it, and fetches the next chunk while the current one plays; `stop()` aborts the fetch and the audio. The reading flow and the reference page use it; the pet's one-liners keep the plain call.
+
+**Why.** Backlog #38: a 3 000-character abstract meant waiting for the whole synthesis before the first word, and anything past the 5 000-character cap was silently cut. Chunking starts playback within a sentence and reads everything; prefetching removes the gap between chunks that a naive loop would leave.
+
+**Alternatives rejected.** Streaming WAV from the server (Piper synthesises sentence by sentence anyway, and a streaming response complicates the frozen server for the same result); a Web Audio scheduler (gapless to the millisecond, but far more code for spoken prose where a sentence boundary is a natural pause).
+
+### 2026-09-07 — Reading queue: explore neighbours (#403)
+
+**Decision.** A queue (and literature) row's menu carries *Similar in your library*: a panel above the list shows the paper's nearest neighbours from `GET /references/{id}/related/` (the existing local similarity), each with its year, a similarity percentage, a link to the paper and a `+ add here` that files it into this project; *explore beyond* opens the Library detail with the OpenAlex lenses.
+
+**Why.** Backlog #37: while queueing what to read next, the question "what else do I have like this?" was two pages away. The similarity endpoint already existed; the panel just puts it where the reading decision happens.
+
+**Alternatives rejected.** Inline expansion under each row (the list is a table of statuses; a single panel keeps it scannable); fetching OpenAlex neighbours here (network calls belong behind the explicit lens on the Library page).
+
+### 2026-09-07 — Small polish: active nav icon tint, typeahead miss feedback; two ideas retired (#402)
+
+**Decision.** The sidebar's active item tints its icon with the accent (backlog #172). In the Files tree, when typeahead finds no row starting with what was typed, the hint pill turns red, shakes once and says "no match" (backlog #185). Two older ideas are retired as moot: the "reset layout" confirmation (#163 — the SPA dashboard has no reset-layout control) and the pet reading its mood blurb (#162 — the click already reads the rotating bubble line, which is the mood).
+
+**Why.** Both are the kind of feedback that stops a half-second of doubt: "am I on this page?" and "did my keystroke land?". Retiring the two dead ideas keeps the backlog honest.
+
+**Alternatives rejected.** A sound on a typeahead miss (never); tinting every icon (the accent means "here", and only here).
+
+### 2026-09-07 — A read-only token for the calendar URL (#401)
+
+**Decision.** `core.FeedToken` is a single rotatable secret; the Dashboard's *subscribe (.ics)* now copies `…/calendar.ics?key=<feed token>` (from `GET /api/v1/feed-token/`), *rotate* (`POST`) mints a new one and every URL copied before stops working. The `?key=` authenticator accepts the feed token for the calendar feed only — it opens nothing else — and still accepts the API key so older subscriptions keep updating.
+
+**Why.** Backlog #253: calendar services store subscription URLs on their servers; a URL that carries the API key hands out the whole API. A token that can only read deadlines, and that one click retires, is the right shape for something that leaves the machine.
+
+**Alternatives rejected.** A token in the path (`/calendar/<token>.ics`) — the `?key=` contract already exists and the Dashboard is the only place that hands it out; per-project tokens (one secret to rotate is the point of a single-user tool).
+
+### 2026-09-07 — Smart views: drag to reorder (#400)
+
+**Decision.** `POST /api/v1/library-views/reorder/ {"ids": [...]}` sets the rail order (the given ids take positions 1..n, the rest follow; `updated_at` moves), the facets list views by position, and the rail rows are draggable with an insertion line.
+
+**Why.** The last item of the Library-v2 list (#302/#306): the rail is the reading desk's shortcuts and the order should be the owner's, not creation order. Same contract shape as the Today list, same drag pattern.
+
+**Alternatives rejected.** Up/down buttons (two clicks per move, and clutter on hover); alphabetical order (loses the "most used first" the owner arranges by hand).
+
+### 2026-09-07 — The access log: who touched the door (#399)
+
+**Decision.** `core.AccessEvent` records logins, failed logins, login lockouts and rejected API keys (address, user agent, a detail such as the username or the path), kept to the last 500 rows; Django's `user_logged_in` / `user_login_failed` signals, the lockout branch of the login form and the API-key authenticators feed it, and every write is best-effort so a failing log can never block the door. `GET /api/v1/access-events/` lists the events with a seven-day summary; Diagnostics gets an *Access* section and the paste-able report gets one line. The access log is excluded from the data-version bump so a probe cannot churn ETags.
+
+**Why.** Backlog #42 (from the security pass): a self-hosted single-user app exposes one login and one API key, and until now nothing said whether anyone else had tried them. Successful API calls are deliberately not logged per request — Claude polls constantly — the rejected ones are the signal.
+
+**Alternatives rejected.** Django's admin LogEntry (it records model edits, not access); logging every API request (a write per poll and a table that only grows); a separate "Activity & access" page (Diagnostics is already the "why did it do that" page).
+
+### 2026-09-07 — Overview themes (#398)
+
+**Decision.** The overview API carries `themes`: the salient phrases across the project's papers (titles and abstracts), notes, decisions and questions, extracted locally with `core.keywords` and weighted by how many of those sources mention each phrase. The overview shows them as a chip row under the counts, sized by weight; each chip searches the project for the phrase.
+
+**Why.** Backlog #41: "what is this project about, in its own words" was nowhere on the page a visitor lands on. Ten phrases the material itself keeps using are a better answer than a description someone wrote in week one — and they change as the reading changes.
+
+**Alternatives rejected.** A word cloud proper (random sizes and angles say less than a sorted row); topic modelling (a dependency and a fit step for a single-user tool; the RAKE-style extractor already existed for the matrix).
+
+### 2026-09-07 — Library cards view; the unlock toast moves to the top-right (#397)
+
+**Decision.** The Library list gains a *Cards* view (toggle in the list header, remembered per browser): cover-style cards with a colour band (the first project's accent, solid when a PDF is attached), the title, authors, year, venue, the reading status, the PDF/metadata pills and coloured tags; the same cursor, selection, keyboard and right-click behaviour as the rows, so nothing is lost by switching. The achievement toast now appears top-right, since every page's flash lives bottom-right and the two overlapped.
+
+**Why.** The third page the Observatory pass named. Rows scan by title; cards scan by shape — a shelf you recognise papers on. The band doubles as the "which project, do I have the PDF" signal that the rows spell out in pills.
+
+**Alternatives rejected.** Thumbnails of page one (rendering every PDF for a list view, and nothing for the 90% without a PDF); making cards the default (the list is denser and the keyboard flow was built on it).
+
+### 2026-09-07 — Reader: comment markers in the margin, comment on this page (#396)
+
+**Decision.** Each rendered page in the Library reader carries a gutter on its right: one speech-bubble marker per comment anchored to that page (the comment text on hover), and a `+` that appears on hover to comment on that page — a prompt dialog that lists the page's existing comments and posts the new one with `line = page` to the existing comments endpoint. The Library loads a paper's comments only while its reader is open.
+
+**Why.** Backlog idea #31: comments already had a page anchor but only the reference page listed them, away from the page they were about. Marginalia belong in the margin; the reader is where the thought occurs.
+
+**Alternatives rejected.** Anchoring comments to a rectangle like highlights (a highlight with a comment already does that — this is for the page-level thought); an inline comment editor in the gutter (the dialog keeps the page uncluttered and reuses the one dialog system).
+
+### 2026-09-07 — tl;dr of a paper, section by section (#395)
+
+**Decision.** `literature/tldr.py` finds the section headings in a paper's extracted text (known names such as Abstract/Methods/Results, or numbered short Title-Case lines; stops at the references), summarises each section with the local extractive summariser (two sentences), and records the page each section starts on. `GET /references/{id}/tldr/` serves it (falling back to the abstract, or saying why there is nothing), `get_reference_tldr` is the MCP tool (91), and the Library's detail pane has a *tl;dr* block that summarises on request with `p.N` buttons that open the PDF at the section.
+
+**Why.** Backlog idea #32: the question before reading a paper is "is it worth my hour?", and the extracted text was already there for search. Section-wise sentences answer it in twenty seconds without a model or a network call, and the page buttons make the summary a table of contents into the PDF.
+
+**Alternatives rejected.** An LLM summary (a network dependency and a cost for every paper; the extractive one is honest about being the paper's own sentences); summarising at import time (most papers are never opened — do it when asked, cache it in the browser for ten minutes).
+
+### 2026-09-07 — Studio: the PDF follows the cursor (#394)
+
+**Decision.** An editor setting, *PDF follows the cursor*, turns SyncTeX forward sync (#378) continuous: whenever the cursor line changes, a debounced effect resolves the line to its PDF spot and scrolls the preview there with the usual marker; nothing happens for lines without a position, when the preview is closed, or before a compile. Off by default; ⌘⇧J keeps working either way.
+
+**Why.** Backlog idea #30 asked for the split view with sync scroll. The map and the marker existed; the only missing piece was letting the cursor drive them without a keystroke, which is how every LaTeX IDE's "auto sync" feels. Off by default because a scrolling preview is a distraction while drafting; on while polishing, it is exactly what you want.
+
+**Alternatives rejected.** Following the editor's scroll position instead of the cursor (the cursor is what the writer is thinking about); scrolling the editor when the PDF scrolls (the double-click already does that on demand — continuous inverse sync fights the writer).
+
+### 2026-09-07 — Prompts: `{{name|default}}` and remembered fill-ins (#393)
+
+**Decision.** A placeholder may carry a default after a pipe — `{{venue|NeurIPS}}` — which fills in unless the user types something; the first occurrence that carries a default speaks for every occurrence of that name. `Prompt.variables` (name + default) is on the API, `render_prompt()` applies value → default → the bare placeholder left visible, and the gallery shows the default as the input's placeholder. The values typed for a prompt are remembered per prompt in the browser (`atlas-prompt-values:<id>`) and come back next time.
+
+**Why.** Backlog #43: most fill-ins have a usual answer (the venue, the advisor's name, the model), and retyping them every copy is friction that the prompt itself can carry. Remembering the last values is the same idea for the ones that vary slowly.
+
+**Alternatives rejected.** Storing last-used values server-side (a browser convenience, not data); Jinja-style templating in prompts (a whole language for what is one pipe).
+
+### 2026-09-07 — Observatory second pass: the plan as an orbit (#392)
+
+**Decision.** Under the Plan header (cards mode), one SVG strip draws the phases as arcs of an orbit, each sized by its milestone count: a done phase is a solid line in the accent, the phase in progress glows and fills to its progress, a blocked one is amber, a not-started one dashed and dim. Every milestone is a moon on its arc — filled when done, ringed red when overdue — with the title on hover, and each phase shows its `done/total` under the arc. Clicking an arc scrolls to that phase's card. No request: it renders the plan the page already holds.
+
+**Why.** The plan page opened on a stack of cards with no picture of the whole; the roadmap tab has the dates but takes a click. One glance at the orbit says where the project is, what is late, and how much lies ahead — the "plans over backlogs" value made visible, and the second of the pages the Observatory pass named.
+
+**Alternatives rejected.** A time-scaled axis (phases without dates would collapse; the roadmap tab already does time); a circular orbit (reads as decoration and wastes the width); moving the roadmap into the header (too dense for a glance).
+
+### 2026-09-07 — ⌘K: the safe verbs (#391)
+
+**Decision.** The palette's static verbs grow from two to eight: copy this project's `.bib` / the whole library as `.bib` (fetches the export and puts it on the clipboard, reporting the entry count), go to this week's review, new quick capture (the inbox), warm up the LaTeX engine, download a backup, and — desktop only — open the web inspector. Each returns the one-line result the palette flashes.
+
+**Why.** Backlog #279 asked for the actions the owner repeats, side-effect-light so a mistaken Enter never destroys anything: every verb here copies, navigates, downloads or warms a cache. The bibliography copy is the one that saves a trip through the Library every time a citation is needed in another tool.
+
+**Alternatives rejected.** Verbs that delete or move things (the whole point is that Enter is safe); a nested "Commands…" submenu (the fuzzy match over keywords already finds them).
+
+### 2026-09-07 — CI boots the app in a browser against every platform's frozen server (#390)
+
+**Decision.** The release workflow's frozen-server smoke test now also runs `scripts/boot_check.py`: a Playwright Chromium logs in, pretends to be the Tauri web view, loads the dashboard, projects, library and diagnostics pages, and fails the build on an empty root, a missing sidebar, a page or console error, an HTTP error, or either failure panel. Screenshots are uploaded as the `boot-check-<platform>` artifact (kept 14 days), so the Windows rendering can be looked at without a Windows machine.
+
+**Why.** Every failure this week was Windows-only, and the only Windows machine in the loop is the owner's. The frozen server already answered curl in CI; drawing the app is the thing that broke, and a browser on the runner is the closest stand-in for the web view that a Linux container cannot provide.
+
+**Alternatives rejected.** Running the Tauri app itself on the runner (no display, and the shell has no test hook); trusting the Linux boot check to stand for Windows (it passed while the owner's window was blank).
+
+### 2026-09-07 — The desktop ships the web inspector, opened on demand (#389)
+
+**Decision.** `tauri` is built with the `devtools` feature; an `open_devtools` command opens the web view's inspector for the main window; the SPA binds F12 and Ctrl/⌘+Shift+I to it, Diagnostics gets a *Web inspector* button, and the boot-failure panel offers "Open the inspector" whenever the Tauri bridge exists.
+
+**Why.** The blank-window report had no console behind it; #382 captures what the page throws, but a console the owner can open is the general tool — network tab, element tree, the live error — for every future "it doesn't show". Opening it is a deliberate act (a key or a button), so ordinary use never sees it.
+
+**Alternatives rejected.** A debug build for the owner (a second artefact to maintain and download); auto-opening the inspector on an error (frightening, and the panel already carries the text).
+
+### 2026-09-07 — Achievements, batch two (#388)
+
+**Decision.** Twenty-nine more achievements (86 in all): twelve fun (colour-coded tags, a working lunch, midnight oil, 25 PDFs, 50 DOIs, ten comments, a hundred documents, a four-file manuscript, three smart views, a second project, five to-dos in a day, a hidden anniversary), seven steady (a fortnight streak, forty active days, fifty commented highlights, a balanced evidence ledger, five projects, 250 papers, ten phases), five hard (a 90-day streak, two hundred active days, five hundred highlights, ten manuscripts, three complete projects) and five souls (a hundred deaths, fifty bonfires, five rejections, a hidden Dragonslayer for three acceptances, a hidden Estus for twenty failed and twenty good compiles). Sixteen new facts feed them, all counts on data that already exists.
+
+**Why.** The owner asked for "a lot" and for hard ones; the first batch covered the obvious milestones, this one covers habits (streaks, active days, the hour of the day), the library's hygiene (colours, DOIs, PDFs), and the writing grind — the places a researcher actually spends the year. Souls-tier entries stay grim and honest: deaths are rejections, contradictions and failed compiles.
+
+**Alternatives rejected.** Achievements for opening pages or clicking buttons (cheap, unearned, and they would need tracking that does not exist); weekly "seasonal" resets (a ledger should never take anything away).
+
+### 2026-09-07 — Observatory second pass: the project's constellation under the overview header (#387)
+
+**Decision.** `Constellation.tsx` draws the project's papers and notes as a 132 px sky under the overview header: nodes and links from `GET /projects/{slug}/graph/` (capped at 320 nodes by degree), a small in-file layout (sideways-only 1/d repulsion, a home height per star, loose link springs, soft walls — a full n² force layout piles a short band onto its edges), stars tinted with the project accent (unread ones fainter, notes teal), a slow drift and twinkle that stop under `prefers-reduced-motion` or a hidden tab, hover for the title, click to open the paper or note, and a caption with counts and a link to the graph page. Nothing renders when the project has fewer than two nodes.
+
+**Why.** The overview is the page a visitor lingers on and the one that should look like the Observatory rather than a form. The data was already there (the graph endpoint) and a canvas needs no library, so the header gains a living picture of the project's literature for a few kilobytes — and it is honest: every dot is a real paper you can click.
+
+**Alternatives rejected.** Reusing 3d-force-graph in the header (1.3 MB and WebGL for a decoration); a static SVG sparkline of counts (says nothing a number does not); running the layout on the server (the browser has the width, and the layout takes a few milliseconds).
+
+### 2026-09-07 — Library: Find PDF from the row menu, with a result pill (#386)
+
+**Decision.** The row's right-click menu carries **Find PDF** (disabled with a "needs a DOI" hint when the paper has neither DOI nor arXiv id, "PDF attached" when it already has one). While the lookup runs the row shows a "looking…" pill; afterwards a paper that still has no PDF shows a quiet "no PDF found" pill whose tooltip carries the server's outcome (`extra.oa_pdf`, written by `fetch_and_attach_pdf`) and the hint to retry.
+
+**Why.** The lookup existed only in the detail pane and left no trace on a miss, so the same paper got tried again and again. A pill per row answers "did I already look?" at a glance without a new field — the outcome was already stored.
+
+**Alternatives rejected.** A "last checked" facet in the rail (a filter for a state you mostly want to see inline); auto-retrying misses on a schedule (network calls the owner did not ask for).
+
+### 2026-09-07 — The last CDN loads are vendored: htmx and Alpine (#385)
+
+**Decision.** `templates/base.html` loads htmx 2.0.4 and Alpine 3.14.9 from `static/vendor/` instead of unpkg; `core/tests/test_no_cdn.py` fails on any unpkg/jsdelivr/cdnjs/esm.sh URL in the templates or the SPA sources, and checks the two files are present.
+
+**Why.** The desktop app must work with no internet. The graph libraries and pdf.js were vendored earlier for the same reason; these two were the last runtime loads from the network, and every classic page (login included) pulled them. 95 KB of static beats a page that half-works offline.
+
+**Alternatives rejected.** Keeping the CDN with a local fallback (`onerror` swap — two code paths for one file); an npm build for the classic shell (the SPA already has one, the classic pages do not need it).
+
+### 2026-09-07 — ETag honesty: a data version in every ETag, M2M writes touch updated_at, and a guard on bare update() (#384)
+
+**Decision.** Three layers. (1) `core/versioning.py` keeps a process-wide data version in the cache; `core/signals.py` bumps it on every save, delete and M2M change of an Atlas model, and every list/detail ETag in `AtlasViewSet` folds it in. (2) The same M2M receiver stamps `updated_at` on the instance and on the related rows, since Django's `add/remove/set/clear` never touch it. (3) `core/tests/test_etag_honesty.py` walks the app code with `ast` and fails on any queryset `.update(...)` that neither passes `updated_at` nor carries an `# etag: ok` reason; the sites it found (a highlight marking papers skimmed, moving documents, inbox bulk triage, merge bookkeeping, the main-file switch) now stamp `updated_at`, and two lines that run right before a delete or a save are marked.
+
+**Why.** The stale-304 bug shipped twice in one day (#381 tags, #383 reorder) and the survey found five more places waiting to do it. `updated_at` stays the primary signal (it is exact across processes), the version closes the gaps in-process (which is the whole desktop), and the guard stops the next one at test time rather than in the owner's hands.
+
+**Alternatives rejected.** Dropping ETags from the API (MCP polling and the SPA's cache would pay every time); computing ETags from the serialised body (a full render per request just to say 304); a Django middleware that clears the browser cache on writes (cannot see M2M or `update()` either).
+
+### 2026-09-07 — Today list: drag to reorder through one endpoint (#383)
+
+**Decision.** `POST /api/v1/todos/reorder/ {"ids": [...]}` sets the whole order — the given ids take positions 1..n, everything else follows in its current order — and bumps `updated_at` so the list ETag moves. The Today page drags rows by a grip that appears on hover (HTML5 drag & drop, an insertion line above/below the target, optimistic update), and the existing ⌥↑/↓ keyboard reorder now goes through the same call instead of two swapped PATCHes. `reorder_todos` is the MCP tool (90 tools).
+
+**Why.** The list is meant to be reordered by feel, and a swap-only API cannot express "drop it third". One endpoint carrying the full order is the smallest contract that both the mouse and Claude can use, and the optimistic update keeps the row under the cursor. The first Playwright run showed the API reordered but the page did not: `update()` had left `updated_at` alone, the list ETag stayed put, and the browser handed back the old order (the tag bug of #381 again) — the endpoint now stamps `updated_at`, and the test asserts the ETag changes.
+
+**Alternatives rejected.** A drag library (dnd-kit adds a dependency for one list); fractional positions (no re-numbering, but every reorder still writes and the numbers drift); PATCHing each item's position from the client (n requests for one drop).
+
+### 2026-09-07 — A blank window can never be silent: boot watchdog, error boundaries, client-error log; static re-collected clean per version (#382)
+
+**Decision.** The owner reported that 0.1.106 — the build carrying the #379 hotfix — still shows only the background. Two things ship. (1) **Every front-end failure now says so on screen and in the log.** `spa.html` carries an inline boot watchdog: if `#root` is still empty eight seconds in, it draws a plain panel ("Atlas couldn't draw the app") with the errors captured by `window.onerror`/`unhandledrejection`/the script tag's `onerror`, Reload / Copy report / classic-pages buttons and the server-log path, and posts the report to `POST /api/v1/client-errors/`. A React `ErrorBoundary` wraps the whole tree (scope `app`) and the page outlet (scope `page`, reset on navigation) with the same report; every report is logged by `core.client_errors` (→ `atlas-server.log` on the desktop) and kept for the Diagnostics report ("Front-end errors", also in the paste-able text). (2) **The desktop re-collects static assets with `--clear` on a version change and serves them with `WHITENOISE_MAX_AGE = 0`.** Without `--clear`, `collectstatic` keeps any collected file whose mtime is not older than the source's; an installer that preserves build timestamps can therefore leave the previous build's `spa.js`/chunks in the data dir, and a half-updated module graph fails to evaluate — which is exactly a blank window with the background drawn. Chunk names carry no content hash, so the web view's own cache must revalidate too.
+
+**Why.** The SPA boots cleanly here under the desktop settings (SQLite, DEBUG off, WhiteNoise, empty and seeded) and under a fresh PyInstaller freeze, with a Tauri stub — so what is left is the owner's machine: WebView2, the real IPC, their data, and the update path. Reasoning cannot close that gap; evidence can. The watchdog turns the next report into the actual error text, and the clean re-collect removes the one failure mode that only ever happens on an upgraded install (never in CI, never in a fresh Playwright run).
+
+**Alternatives rejected.** Waiting for a console (the release web view has none); a desktop-side dev-tools toggle (helps me, not the owner, and ships a debugging surface); content-hashed chunk names (a bigger change to the Vite/collectstatic contract than `--clear` + revalidation, and it would not have surfaced the error either).
+
+### 2026-09-07 — Library tag colours, rename and delete from the rail; tag changes move the list ETag (#381)
+
+**Decision.** A tag's colour (the model had the field since slice 5) is now chosen from the rail: right-click a tag → eight swatches, "No colour", **Rename…** and **Delete tag…** (in-app dialogs). Chips on the rows, in the detail pane and on the duplicate cards carry a tint plus a dot in that colour, so a tag reads the same everywhere. `PATCH /library-tags/{id}/` validates `#rrggbb` (or blank) and keeps case-insensitive uniqueness on rename; the facets carry each tag's `id`.
+
+**Why.** The rail already painted the tag icon with the colour nobody could set. Colour on a tag is the cheapest way to make a long list scannable ("everything rose is methods"), and rename/delete were the last tag operations without a place in the UI. While verifying, the rows kept showing a stale tag set: tagging is an M2M change that never moves `updated_at`, and the list ETag (#11-adjacent conditional GETs) is built from it, so the SPA got 304s after every tag/untag and after a rename or delete. `literature.library.touch_references` now bumps the affected rows in `bulk` and in the tag viewset's update/destroy — the same "keep updated_at honest" rule the hypothesis/evidence and manuscript viewsets already follow. Regression test in `test_tags_views`.
+
+**Alternatives rejected.** A free colour picker (eight calm swatches fit the palette and a menu; a wheel needs a dialog and produces greens nobody can read on); folding the tag table's max `updated_at` into the reference list ETag (works for rename/delete but not for tag/untag, and splits the ETag rule); dropping the ETag on the reference list (MCP polling would lose its cheap 304s).
+
+### 2026-09-07 — The dashboard hero carries the top of your list and your rank (#380)
+
+**Decision.** `GET /api/v1/dashboard/` now includes `todos` (the first four open Today items in list order); the hero renders them with a tick box that completes in place and a "n more on today's list" link. A small chip next to the counts shows the achievement rank and score (red in souls mode) and opens the ledger.
+
+**Why.** The dashboard answers "what should I work on today?"; the Today list *is* that answer for the small stuff, and it lived one click away. The rank chip is the only place the achievements surface outside their own pages — one glance, never a nag.
+
+**Alternatives rejected.** A whole Today panel on the dashboard (duplicates the page); pushing the rank into the sidebar pet widget (already the busiest 60 px in the app).
+
+### 2026-09-07 — Hotfix: a hook below an early return blanked the app; a static rules-of-hooks guard (#379)
+
+**Decision.** The dashboard's warm-up hooks (#372) were added below the loading/error returns; once data arrived the hook count changed, React threw #310 and every page mounted under the dashboard route went blank — the owner's "the new update isn't even showing anything" (builds 0.1.99–0.1.104). Both offenders (Dashboard, and a latent one on Today) are fixed, and `core/tests/test_hook_order.py` now walks every component and fails on any hook call after a top-level early return, since the repo has no eslint.
+
+**Why.** The UI audit passed the night before because the bug landed after it ran, and the desktop stub was the first thing to load `/` afterwards. A static guard costs nothing and catches the whole class; it is the cheapest possible replacement for `eslint-plugin-react-hooks` without adding Node tooling to CI.
+
+**Alternatives rejected.** Adding eslint to the build (a Node toolchain in CI for one rule); an error boundary that hides the blank page (it would show a message, but the page would still be broken).
+
+### 2026-09-07 — SyncTeX in the studio (#378)
+
+**Decision.** Tectonic runs with `--synctex`; `writing/synctex.py` folds the `.synctex.gz` records into one rectangle per (page, file, line) in PDF points, stored as `Manuscript.synctex` on a good compile (cleared on failure) and served by `GET /manuscripts/{id}/synctex/`. In the studio, **Locate** (⌘⇧J) scrolls the PDF to the cursor's line and flashes a bar there; **double-click** anywhere in the PDF opens the matching file and line. The inverse lookup prefers the smallest box containing the point (page and paragraph boxes contain everything).
+
+**Why.** Backlog idea #33 and the "better than Overleaf" bar: jumping between the rendered page and the source is what makes a two-pane editor feel like one document. The compact map (one rectangle per line) keeps the payload small enough to fetch once per compile.
+
+**Alternatives rejected.** Server-side lookups per click (a round-trip for every jump); storing the raw synctex file (megabytes, and the parsing would move to every client).
+
+### 2026-09-07 — Studio to-do panel (#377)
+
+**Decision.** The studio's Outline tab lists every `% TODO …`, `% FIXME …`, `% XXX`, `% HACK` and `\todo{…}` marker across all source files (each loaded once into the editor's state map), with click-to-line across files and a count in the tab label. The demo manuscript ships two markers.
+
+**Why.** Owner idea #9 ("better than Overleaf") — a writer's own reminders live in the source; every editor that people love surfaces them. Comments are the Overleaf feature for teams; for one researcher the marker list is the honest equivalent.
+
+**Alternatives rejected.** A separate Tasks tab (one more tab for a list that belongs beside the outline); parsing only the open file (the whole point is "what is left, anywhere").
+
+### 2026-09-07 — Restore from a backup is staged, then applied at launch (#376)
+
+**Decision.** A backup zip uploaded on Diagnostics (`POST /api/v1/restore/`) is validated (manifest, a database inside, no path traversal) and saved as `restore-pending.zip` in the data folder; the desktop launcher applies it at the next start, *before* `migrate` opens the database: the SQLite file (with its WAL/journal) and the media folder move to `restore-backup-<timestamp>/`, the backup's copies come in, and `restore-result.json` records the outcome, which Diagnostics shows. The page offers "Restart Atlas and restore now" on the desktop and "Cancel". `manage.py restore_backup <zip>` stages + applies for servers (JSON backups extract `restore-database.json` for `loaddata`).
+
+**Why.** A backup nobody can restore is a screenshot. Swapping a live SQLite file under an open Django connection is not safe, and the desktop has exactly one moment when nothing is open — launch. Keeping the previous data beside the restored one makes the operation reversible by hand.
+
+**Alternatives rejected.** Restoring in-process by closing connections (waitress threads may hold others; a half-restore is worse than none); `loaddata` into the live database (merges by primary key — surprising duplicates and dangling files).
+
+### 2026-09-07 — Achievements: a derived ledger with a souls tier (#374)
+
+**Decision.** `core/achievements.py` holds a catalogue of 57 achievements as predicates over one `facts` dict gathered from the database (papers, notes, milestones, submissions, hypotheses, streaks, activity hours…), each with a progress (current/target) and a tier: fun (5 pts, several hidden), steady (10), hard (25), souls (50 — "You died", "Git gud", "Boss slain: Reviewer 2", "No-hit run", "Bonfire lit", "Hollowed, returned", "Praise the sun", "New game+", "The abyss"). Only the first-unlock moment is stored (`AchievementUnlock`); everything else is recomputed and cached with the pet state. Score → rank (Undergrad … Ashen One). `/achievements` page with tier filters and the five closest; toast on a fresh unlock; `GET /api/v1/achievements/`; MCP `get_achievements` (89 tools). **Souls mode** is a stored flag on the pet: same facts, grim lines ("{deaths} deaths. Each one taught you something. Rise."), counters, and a YOU DIED / BONFIRE LIT flash in the studio.
+
+**Why.** The owner asked for "a lot of achievements, some just for fun, some really hard, souls game mode on research". Deriving them from real work keeps the no-guilt design of the pet: nothing to grind, nothing nags — the ledger only names what already happened, and the souls tier turns the worst days of research (rejections, contradictions, failed builds) into something you can wear.
+
+**Alternatives rejected.** Event-sourced achievements (a new table written from every view; brittle and it would miss data created through the API/MCP); per-project achievements (the ledger is about the researcher, not one project); a separate difficulty setting (souls mode is tone — the data is the data).
+
+### 2026-09-07 — The app icon is rendered, not drawn (#373)
+
+**Decision.** `scripts/make_icon.py` renders the Observatory mark — a navy rounded square with an aurora glow, a tilted orbit ring and a bright star — as a 1024² PNG from signed-distance fields in pure Python (no Pillow, no ImageMagick, no design file to lose); `tauri icon` turns it into every platform size, committed under `desktop/icons/`. The desktop server runs eight waitress threads and no longer logs queue-depth notices.
+
+**Why.** The installed app showed the Tauri placeholder — a flat indigo square — which the owner rightly called "not a proper icon". A script keeps the mark reproducible and editable without a designer's tool, and the same identity carries into the product name work later (the mark is abstract on purpose: it survives a rename).
+
+**Alternatives rejected.** A hand-made PNG in the repo (unreproducible); an SVG through a rasteriser (none available in the build environment; the CI runners would need one too).
+
+### 2026-09-07 — LaTeX warm-up: know the bundle cache is cold, fill it on purpose (#372)
+
+**Decision.** `writing/warmup.py` finds Tectonic's cache directory per platform, reports warm/cold + size, and can compile a small document that pulls the common packages (amsmath, graphicx, hyperref, natbib, booktabs, xcolor, geometry) on a daemon thread, with the state in the Django cache. Diagnostics shows a *TeX bundle* row with **Warm up now** and polls while it runs; the report text and `get_diagnostics` carry it.
+
+**Why.** The owner's "latex didn't compile" was, in part, a first compile silently downloading the bundle for minutes. A cold cache is now a visible fact with a button, not a surprise behind "Compiling…".
+
+**Alternatives rejected.** Shipping the bundle in the installer (hundreds of MB for packages most papers never use); warming automatically on first launch (an unasked-for download on a metered connection).
+
+### 2026-09-06 — ⌘K: `todo:` verb and recent jumps (#371)
+
+**Decision.** The palette understands `todo: <text>` (also `t:`) and adds it to the Today list, tagged with the project you are in; navigations made through the palette are remembered per browser (`atlas-recent-jumps`, six entries) and shown as "Recent jumps" above the server's "Recently edited" list when the query is empty.
+
+**Why.** The two things a researcher does most from the keyboard are "note this for later" and "back to where I was". Both were one hop too far: capture went to the inbox for triage, and the empty palette only knew what changed in the data, not where *you* had been.
+
+**Alternatives rejected.** Persisting jumps server-side (a per-browser convenience, not data); a generic "Add to list" verb that prompts (typing `todo:` is faster and consistent with the inbox's own prefixes).
+
+### 2026-09-06 — Updater polish: progress, notes, re-check (#370)
+
+**Decision.** `install_update` emits `update-progress {downloaded, total, done}` from the download callback; the sidebar control shows a percent bar (or MB when the feed sends no length), then "Installing…". Clicking "Update to x" first shows the release notes from the feed in a confirm dialog. The silent check repeats every six hours while the window is open. Backlog #304 done; a public feed (#347) is still the owner's step.
+
+**Why.** A multi-minute download with a spinner is indistinguishable from a hang — the thing the owner keeps reporting. Notes before installing are basic courtesy; the periodic check means a laptop left open still learns about a fix shipped that day.
+
+**Alternatives rejected.** A separate updates page (the sidebar control is where the state already lives); auto-install without asking (a restart in the middle of writing is not calm).
+
+### 2026-09-06 — Connect page: a live connection test that launches the real MCP command (#369)
+
+**Decision.** `POST /api/v1/connect/test/` runs four checks server-side (API key set; API answers that key at the URL in the command; the exact MCP command with `--check` starts and reaches the API; `claude` on PATH), each with a fix line. The MCP server gained `--check`: it lists projects through the API and counts its tools, printing one JSON line. Backlog #290 done.
+
+**Why.** "Is it connected?" had no answer inside the app. Running the very command Claude Code will run is the only test that cannot lie — and it immediately caught a real bug: `python -m mcp_server.server` registered 29 of 88 tools because the `__main__` block sat mid-file (the frozen `atlas-mcp` imported the module and was unaffected). The block now ends the file and a test pins that.
+
+**Alternatives rejected.** A browser-side fetch to the API (proves nothing about the MCP process); spawning an MCP client over stdio (heavy; `--check` covers the same wiring).
+
+### 2026-09-06 — Desktop hands stored files to the operating system (#368)
+
+**Decision.** In desktop mode the workspace tree carries `local_path` for every stored file; the Files menu offers **Open with the system app** and **Show in folder**, backed by two Tauri commands (`open_path`, `reveal_path`) that accept only an existing regular file. Servers never report local paths.
+
+**Why.** A researcher's files are used by other programs — a CSV in R, a figure in Illustrator, a PDF in the reader they already know. Downloading a copy from a local app is absurd; the file is right there. This is the desktop half of "contain any file from disk" (#30).
+
+**Alternatives rejected.** The Tauri opener plugin (another permission surface for two commands); reporting local paths everywhere (leaks server layout for no gain).
+
+### 2026-09-06 — Compiles never run inside the request (#367)
+
+**Decision.** `writing/tasks.enqueue_compile` queues the huey task on server installs and, in *immediate* mode (desktop, Redis-less dev), runs the compile on a daemon thread that closes its DB connection when done. Both compile views call it.
+
+**Why.** Immediate-mode huey executes the task inline inside the HTTP request, so on the desktop the click on Compile held the request for the whole run — a first Tectonic run downloads its bundle for minutes — and the studio's "stalled compile" hint could not tell that apart from a hang. The studio polls compile-status anyway; nothing needed the synchronous result.
+
+**Alternatives rejected.** A real huey consumer thread in the desktop process (more moving parts for one long task); making compile synchronous with a short timeout (the first run is legitimately slow).
+
+### 2026-09-06 — CRUD everywhere: in-app dialogs, context menus, every object editable and deletable in the SPA (#364)
+
+**Decision.** Three owner reports in one evening ("I made a project to test, now I can't delete it", "left click doesn't have much functionality", "CRUD is missing from the whole project") were the same defect: the SPA had migrated the *reading* of most objects but not their editing. This slice closes it as a rule, not a patch:
+- `components/Dialog.tsx` — `confirmDialog` / `promptDialog` / `noticeDialog` / `errorDialog` with one `<DialogHost />` at the root. No page may call `window.prompt/confirm/alert` again (guarded by `core/tests/test_crud_everywhere.py`): the desktop webview can swallow native dialogs, which is why "+ Folder" looked dead. Destructive confirms are red; the ones that erase a lot (project, manuscript) require typing the name.
+- `components/Menu.tsx` — `useMenu()` (right-click) and `<Kebab />` (the ⋯ every row carries) share one popup with keyboard navigation. Pages declare actions as data, so right-click, ⋯ and the detail pane all offer the same list.
+- Coverage: project settings + archive + delete (overview, card menus); Files (file: open/new tab/download/copy path/rename/delete; folder: new folder inside/upload here/rename/delete; blank: new folder/upload/refresh; F2/Del; drop onto a folder uploads into it); decisions edit/delete + dated; figures rename/delete; prompts create/edit/delete; literature priority/status/remove-from-project + Add papers; reference metadata editor + delete; research: hypothesis edit, experiments edit/delete, datasets rename/location/version/delete, **research questions panel** (the object nothing in the app could create); plan: add/rename/delete phase; manuscripts delete (typed title) + shelve.
+- Failed writes surface as an error dialog with the server's text instead of vanishing.
+
+**Why.** §1 "a place for everything" includes the way out: an object you cannot rename or delete is clutter you are stuck with. One dialog and one menu component keep the answer to "how do I change this?" identical on every page.
+
+**Alternatives rejected.** Per-page modals (twelve styles of the same question); sending people to the classic UI or the admin for deletes (the front door is the SPA now, #342); native dialogs with a desktop-only polyfill (the desktop is the primary target).
+
+### 2026-09-06 — Django serves `/media/` in every settings module (#365)
+
+**Decision.** `config/urls.py` routes `media/<path>` to `django.views.static.serve` unconditionally (behind the login middleware) instead of the `static()` helper that only works with `DEBUG=True`.
+
+**Why.** Owner report: the studio's PDF pane said *Missing PDF* for `/media/manuscripts/pdf/manuscript-1.pdf`. Desktop settings run with `DEBUG=False` and no reverse proxy, so nothing served uploads at all — every compiled PDF, attached paper and figure 404'd in the installed app. A single-user app has no proxy to hand this to.
+
+**Alternatives rejected.** Whitenoise-style media (wrong tool; media is per-user data); an API endpoint per file type (the URLs are already in the models' `FileField.url`).
+
+### 2026-09-06 — `open_local_file` is an async Tauri command and returns bytes (#366)
+
+**Decision.** The desktop file picker command is `async fn`, receives the pick through a channel and returns `{path, name, size, content?, data_b64}`; Files shows a text preview when the file is UTF-8, says "binary" otherwise, and offers **Add to this project** (into any folder) which uploads the bytes through the normal upload endpoint.
+
+**Why.** Owner: "open from disk not working". A `blocking_pick_file` inside a synchronous command runs on the main thread — exactly where the dialog plugin documents it must not — so the picker never opened. Returning the bytes turns a viewer into the missing "bring a file in" path.
+
+**Alternatives rejected.** The fs plugin with a scoped allowlist (broader surface than one user-picked file); text-only as before (PDFs and images are the common case).
+
+### 2026-09-06 — One-file backup (#363)
+
+**Decision.** `GET /api/v1/backup.zip` (`core/backup.py`) downloads a zip with a transactionally consistent copy of the SQLite database (both a byte-exact `atlas.sqlite3` for copy-it-back restores and a `database.sql` dump), or a `database.json` `dumpdata` on other databases, plus the whole media folder, a `MANIFEST.json` and a `README.txt` with the restore steps. The Diagnostics page has the **Download a backup** button.
+
+**Why.** A single-user desktop app holding years of reading and writing needs one obvious way to take it all somewhere else; the data folder is knowable (Diagnostics shows it) but a zip is what people actually keep.
+
+### 2026-09-06 — Connect page shows what is installed on this machine (#362)
+
+**Decision.** `core/tooling.detect_tools` looks up `claude`, `node`, `git` on PATH (plus the LaTeX engine through the resolver) with a guarded `--version`, and `GET /api/v1/connect/` carries the result; the Connect page shows a chip per tool and, when Claude Code is missing, the install line. The terminal dock's **Claude** tab depends on `claude` being on PATH — now the page says so before the tab prints "command not found".
+
+### 2026-09-06 — MCP: `get_diagnostics` and `suggest_review_themes` (88 tools, #361)
+
+**Decision.** Claude can read the same diagnostics report as the app (with an optional network probe) and propose matrix columns from the papers. The daily skill points at `get_diagnostics` for "why didn't it work" questions; the literature skill uses `suggest_review_themes` before `add_review_theme`.
+
+### 2026-09-06 — The calendar feed is finally served (#360)
+
+**Finding.** `core/calendar.py` has built valid `.ics` for months (Backlog #9) and nothing served it — the tests were the only caller.
+
+**Decision.** `GET /api/v1/calendar.ics` returns one VCALENDAR of every non-archived project's milestones and manuscript deadlines (`?project=<slug>` narrows). Calendar apps cannot send headers, so a `QueryKeyAuthentication` accepts `?key=<api key>` on this endpoint only; the session and the header still work. The dashboard's Deadlines card has a **subscribe (.ics)** button that copies the URL — with the key in it, which the tooltip says plainly.
+
+### 2026-09-06 — Figures into the manuscript (#359)
+
+**Decision.** In the studio's Files panel every image asset gets an ⊕ that inserts a `figure` environment (`\includegraphics[width=\linewidth]{path}`, caption, `fig:` label) at the cursor, and a **Project figures** list shows the project's image documents: one click copies the file into the manuscript as `figures/<name>` through the existing upload endpoint and inserts the environment. `seed_demo` now includes a small PNG figure so the gallery and the studio have one to show.
+
+**Why.** Figures lived in the Figures page and manuscripts lived in the studio; moving a plot between them meant a download, an upload and typing the environment by hand.
+
+### 2026-09-06 — Notes editor v2: CodeMirror Markdown (#358)
+
+**Decision.** The note body is a CodeMirror 6 editor (`frontend/src/app/notes/MarkdownEditor.tsx`, `@codemirror/lang-markdown` added): Markdown highlighting (headings, emphasis, links, code, quotes), `[[` note-link and `@` cite completions from `/notes/suggest/` (with the "new note" option preserved), ⌘B / ⌘I / ⌘K formatting, ⌘S save, find, history, line wrapping, and a CSS-variable palette (`.md-editor`) for both looks. The hand-rolled textarea autocomplete (regex on `selectionStart`, own popover, own key handling) is gone; the preview, autosave and link panel are untouched.
+
+**Why.** Notes are written every day; a textarea with a bolted-on popover is not a writing surface, and the studio already proved the CodeMirror core. One editor engine now serves LaTeX and Markdown.
+
+**Alternatives.** A WYSIWYG editor (rejected: `[[links]]` and `@keys` are the point; Markdown stays visible and portable); keeping the textarea and adding shortcuts (rejected: no highlighting, no proper completion UI).
+
+### 2026-09-06 — CI boots the frozen server before an installer ships (#357)
+
+**Decision.** The release workflow now runs the PyInstaller output on each target OS: `--setup-only` (migrate, collect static, create the login), then serve on a spare port, fetch the login page, call `/api/v1/diagnostics/` with the minted key and require the bundled Tectonic path in the answer, and fetch the SPA bundle — printing the server log on failure. A scaffold test pins the step and its order.
+
+**Why.** Every owner report today was a defect that existed only in the installed build (no engine, ACL, links, first run). The suite runs the Django code, not the frozen artifact; this step runs the artifact.
+
+### 2026-09-06 — Today v2 and matrix theme suggestions (#356)
+
+**Decision.** Today gets a keyboard (`j`/`k`, space ticks, `e` edits inline, `x` deletes, `⌥↑/↓` reorders through `position`, `n` focuses the input), inline editing by double-click, an amber "since Tue / N days old" chip on items carried over from earlier days, and project chips that link to the project. The review matrix gains **Suggest themes**: `literature/matrix.suggest_themes` runs the existing keyword extractor over each paper's title and abstract and ranks phrases by how many papers mention them, skipping themes that already exist (`GET /projects/{slug}/review-matrix/suggest/`); each chip adds a column.
+
+**Why.** The Today list is used dozens of times a day, so every mouse trip counts, and old items should look old. Matrix columns were typed from memory; the papers already know their themes.
+
+### 2026-09-06 — Exact highlight marks (#355)
+
+**Decision.** A highlight now stores the selection's line boxes as fractions of the page (`Highlight.rects`, migration 0008; validated to at most 200 boxes in 0..1). The reader captures them from the selection's client rects at save time and paints them in an `.hl-layer` between the canvas and the text layer, so marks look like a real PDF viewer's, survive zoom, and no longer depend on matching span text; highlights without boxes (older ones, MCP-created ones) keep the text-match painter. The API's `perform_create` passes the boxes through the `add_highlight` service — the first browser check caught that it silently dropped them.
+
+### 2026-09-06 — Diagnostics page (#354)
+
+**Decision.** `GET /api/v1/diagnostics/` (`core/diagnostics.py`) gathers version, platform, data folder, database, LaTeX engine path, job mode, API-key state, the updater endpoints (probed only with `?network=1`), the last failed compile's log and the tail of the desktop server log, plus a plain-text rendering. `pages/Diagnostics.tsx` at `/diagnostics` shows it with pass/fail marks and a **Copy report** button; the Connect page and the sidebar's "Updates unavailable — why?" link there.
+
+**Why.** Three of today's owner reports ("didn't compile", "check for update failed", "not allowed by ACL") took a round-trip each to understand. One paste should carry the answer.
+
+### 2026-09-06 — Compile hardening for the desktop (#353)
+
+**Finding.** The owner: "the latex didn't compile". The Windows installer does carry `tectonic.exe` (verified in the run 75 job log: 50 MB in `bin/`), so the likely killers were the 180 s compile timeout — Tectonic's first run fetches the TeX bundle over the network, which takes minutes — and, before the ACL fix, nothing in the shell working at all.
+
+**Decision.** `COMPILE_TIMEOUT` is 900 s with a message that says what the wait is; `tectonic_path()` also looks next to the frozen executable (`_MEIPASS/bin`, `<exe>/bin`, `<exe>/_internal/bin`); the engine path is the first line of every compile log so a failure names the binary it used; on Windows the subprocess runs with `CREATE_NO_WINDOW` so no console flashes behind the app, and output is decoded as UTF-8 with replacement.
+
+### 2026-09-06 — Desktop commands were refused by the ACL (#353)
+
+**Finding.** The owner: "shell couldn't start — command terminal_spawn not allowed by ACL". The desktop webview loads the bundled server at `http://127.0.0.1:<port>`. Tauri 2 treats any http origin as *remote*, and a capability applies to remote origins only when it names them under `remote.urls`. Ours did not, so the window matched no capability and **every** command was refused — the terminal, the updater's check and install, the native file picker, and the new external-link opener. The earlier in-browser checks could not catch this because the browser has no Tauri IPC at all.
+
+**Decision.** `desktop/capabilities/default.json` now declares `remote.urls` for `http://127.0.0.1:*` and `http://localhost:*` (any port: the shell picks a free one), guarded by a scaffold test. The updater button explains an ACL refusal on older builds and points to a one-time reinstall. This also means "check for update failed" on the installed build was this refusal first and the private-repo 404 second; both are now handled.
+
+**Alternatives.** Serving the app through Tauri's custom protocol instead of http (rejected: the bundled Django server is the single source of truth and the browser build must stay identical); per-command permissions (not needed: application commands are allowed once a capability matches the origin).
+
+### 2026-09-06 — Outbound links in the desktop app (#352)
+
+**Finding.** The owner: "the button to get it manually failed". The Tauri shell only navigates within the local Atlas origin (a deliberate hardening), so every outbound link in the desktop app — the releases page, DOIs, API docs, "Open ↗" on a PDF host — silently did nothing.
+
+**Decision.** A `open_external` command in the shell hands http(s)/mailto URLs to the operating system's browser (`cmd /C start`, `open`, `xdg-open`; everything else is refused, unit-tested), and the app installs one capturing click handler that routes any off-origin anchor through it (`frontend/src/app/external.ts`). In a normal browser nothing changes. The updater's "get it manually" uses it directly.
+
+**Alternatives.** Widening `on_navigation` to allow any https host (rejected: the window would leave the app; the hardening exists so a compromised page cannot steer it); the tauri-plugin-opener crate (rejected for now: same result with zero new dependencies and no new capability grants).
+
+### 2026-09-06 — First run on the desktop: login hint, welcome panel, demo loader, doctor (#351)
+
+**Finding.** A fresh install (verified against an empty desktop-settings instance) showed a login form with no hint that the bundled login is `atlas / atlas`, then a dashboard saying "All clear, everywhere" with zero projects. `seed_demo` also could not be re-run: deleting a project with a manuscript re-created the manuscript's mirror folder mid-cascade (the `ManuscriptFile` post-delete signal re-synced while the parents were still inside the collector's transaction), leaving an orphan folder and a foreign-key error at commit.
+
+**Decision.** (1) The login page shows the default credentials only on desktop builds and only while that password still works (`ATLAS_DESKTOP` setting, `default_login_still_active`). (2) With zero projects the dashboard opens a Welcome panel: create a project, **Load the demo project** (`POST /api/v1/demo/`, idempotent), connect Claude Code. (3) The mirror signal ignores cascade deletes (Django's `origin` argument) so projects delete cleanly and the demo reloads. (4) `manage.py doctor` finds Tectonic through the engine resolver and checks the update feed, naming the private-repo 404.
+
+**Alternatives.** Auto-login on the desktop (rejected for now: the login is the only lock on a shared machine; a hint is enough); seeding the demo automatically on first launch (rejected: an empty Atlas is the right start for a real project — the offer is one click away).
+
+### 2026-09-06 — Inbox keyboard triage and matrix CSV (#350)
+
+**Decision.** The Inbox gets a cursor: `j`/`k` (or arrows) move it, `Enter` converts with the suggested target, `1`–`5` pick paper / today / note / milestone / decision, `f` files under the project, `x` dismisses, `?` shows the legend; keys are ignored while typing in the capture box, and hovering a row moves the cursor so mouse and keyboard agree. The review matrix gains a **CSV** export (key, title, year, one column per theme with the extracted finding or an `x`) built client-side from the table the page already holds.
+
+**Why.** Triage is a batch activity; the mouse round-trip per capture was the slowest part of inbox zero. The CSV is what co-authors and R scripts ask for when a matrix leaves Atlas.
+
+**Alternatives.** A server-side CSV endpoint (rejected: the page already has the full table; one less route in the schema); vim-style `d` for dismiss (rejected: `x` reads as "close" to everyone).
+
+### 2026-09-06 — Quotes from highlights into the manuscript (#349)
+
+**Decision.** The studio's Bibliography panel opens each cited paper (✎) to the passages the owner highlighted while reading; one click inserts them at the cursor as a `quote` environment with `\citep{key}` and the page (`quoteLatex`). The Library's highlight cards gain a **quote** action that copies the same thing as inline LaTeX, and `/manuscripts/:id/editor?quote=<highlight id>` inserts a specific highlight on open (the deep link the Library and MCP can hand out). No new backend: highlights already carry text, page and paper.
+
+**Why.** Reading and writing were two rooms; the passage you marked on page 3 should be one click from the paragraph that needs it. This is the "quotes into manuscripts" item from the Library second-pass list.
+
+**Alternatives.** A separate "Quotes" tab (rejected: the bibliography already lists exactly the papers that may be quoted); storing quotes as their own objects (rejected: a highlight *is* the quote — duplicating it would drift).
+
+### 2026-09-06 — Library health and protocols move into the app (#348)
+
+**Decision.** The bib report becomes `pages/Report.tsx` at `/projects/:slug/report`: the four checkers as cards with levels, `@key` links to each paper, a **Merge into first** action on duplicate findings (`POST /references/merge/`), and network checks (doi.org / Crossref) behind an explicit toggle so the page opens instantly. Protocols are written, read and re-versioned inside the Research page (`ProtocolPanel`: create v1, open, "new version" → `POST /protocols/{id}/new-version/`). Both classic pages keep working; the report URL maps to the app.
+
+**Why.** After #342 every remaining classic link is a small betrayal of the "one front door" promise; these were the last two the SPA still pointed at.
+
+**Alternatives.** Auto-merging duplicates (rejected: the checker's fuzzy title match needs a human "yes"); a modal editor for protocols (rejected: inline keeps the page calm and the version chain visible).
+
+### 2026-09-06 — Auto-update: a private repo cannot feed the updater (#347)
+
+**Finding.** The owner added `TAURI_SIGNING_PRIVATE_KEY`; every release since 0.1.67 carries `.sig` files and `latest.json`, so the signing half works. But the repository is private, and the Tauri updater fetches `https://github.com/<repo>/releases/download/desktop-preview/latest.json` without credentials — GitHub answers 404 (verified with curl). The launch-time check swallowed the error, so the app looked fine and simply never updated.
+
+**Decision.** (1) The workflow gains a `mirror` job: after both platforms upload, it copies this build's installers, signatures and a URL-rewritten `latest.json` into a public releases repository named by the `RELEASES_REPO` secret using `RELEASES_TOKEN`, replacing older versions; without the secrets it emits a warning and exits cleanly. (2) The app's updater endpoints list the public feed first (`alizareh-coe/atlas-releases`) and this repo second, so either "create the public feed" or "make the repo public" fixes updates without a rebuild. (3) `UpdaterButton` no longer hides launch-check failures: it shows *Updates unavailable — why?* with a plain-language explanation (404 → private repo; signature mismatch → reinstall; network). (4) README gains an *Auto-update* section with the two owner actions.
+
+**Alternatives.** Embedding a GitHub token in the app (rejected: anyone with the binary could read the repo); proxying the feed through the local Atlas server with a user-entered token (rejected: more moving parts than a public feed, and still needs a token per machine); asking the owner to make the repo public without a fallback (rejected: their call — both paths are wired).
+
+### 2026-09-06 — UI audit pass 1: every page swept, the flaws fixed (#346)
+
+**Decision.** A Playwright sweep of all 30 SPA routes (dark, 1440 px) checked horizontal overflow, sub-10 px text, empty bodies, console errors and redirects, and every screenshot was reviewed by eye. Findings and fixes: the Projects index leaked raw Markdown and said nothing about progress → rewritten (`pages/Projects.tsx`: grouped by status with archived folded, cards with accent, phase, progress bar, health pill, counts; `ProjectSerializer.summary` feeds it in one request); `/projects/new` fired `GET /projects/new/plan/` 404s from the command bar → guarded; five links still pointed at classic pages that now redirect straight back to the same SPA page (Documents "folders & upload", Files "documents page", Literature "matrix & reports", Plan "classic page", Reference "classic") → replaced with the real in-app destinations (Files for uploads, the review matrix) or removed; the bib report keeps an explicit `?classic=1` link until it has an SPA twin. The rest of the pages (dashboard, library, notes, graph, timeline, files, figures, queue, reading flow, review, decisions, automations, prompts, today, inbox, search, writing, studio, pet) passed both the automated checks and the eye test. The last sidebar link into classic — Connect Claude Code — became an SPA page (`pages/Connect.tsx` at `/connect`, `GET /api/v1/connect/`, `POST /api/v1/connect/skills/`) with a desktop-only "Run it here" button that types the `claude mcp add` line into the terminal dock.
+
+**Why.** The owner: "general UI has many flaws". The automated sweep found no layout breakage; the real flaws were content leaks (Markdown), dead-end links created by the one-front-door redirect (#342), and an index page that had never had a v2 pass.
+
+**Alternatives.** A visual-regression suite (parked in the Backlog: worth it once the design settles); fixing links one by one as they are noticed (rejected: the sweep is cheap and repeatable — `scripts/ui_audit.py` runs it again in one command).
+
+### 2026-09-06 — Mochi v2: a living companion, not an emoji (#345)
+
+**Decision.** `frontend/src/app/pet/Creature.tsx` replaces the 26 px static SVG: one layered owl whose pupils follow the cursor (CSS variables set from a single mousemove listener; it glances around by itself when the mouse rests), blinks, breathes, twitches its tufts, flaps when thriving, sleeps with a drifting *zzz*, and reacts to real events with squash-and-stretch hops, a confetti burst for milestones, hearts when poked, a *nom* for papers. Stages change the creature (egg with a crack and peeking eyes → hatchling with shell → scholar with round glasses → sage with cap, scarf and sparkles); all motion lives in `assets/css/app.css` (`.mochi`, reduced-motion aware). The sidebar shows it at 44 px and links to a new SPA page `/pet` (`pages/Pet.tsx`): big pokeable creature, speech line with local voice, this-week / streak / lifetime, the road to the next stage, four stats with the dominant one flagged, the feeding legend, and ten achievements. Backend: `core/pet.py` gains `streak_days`, `achievements`, `POINTS_LEGEND`, `rename_pet`; `GET /api/v1/pet/` returns them; `POST /api/v1/pet/` renames. The classic `/pet/` page redirects to the app (#342 map).
+
+**Why.** The owner: "our pet is terrible man! it needs some real UI improvements, something that goes viral". A companion is only shareable if it feels alive — eye tracking and reactions are the whole trick — and only defensible in a research tool if every number comes from real work, which the existing points model already guaranteed.
+
+**Alternatives.** Lottie/Rive animations (rejected: new dependency and binary assets; hand-authored SVG + CSS is 9 KB and themable); canvas physics (rejected: sidebar cost); a decaying "hunger" mechanic (rejected on the product's own rule: it never nags, sleeping means you rested too).
+
+### 2026-09-06 — Terminal dock on every page + Atlas skills for Claude Code (#344)
+
+**Decision.** The desktop terminal becomes a global **dock** (`frontend/src/app/TerminalDock.tsx`, mounted in the app layout): ⌃` toggles it anywhere, tabs hold independent shells, drag-to-resize and maximize, a **Claude** button opens a tab running `claude` (Atlas is already its MCP server). `desktop/src/terminal.rs` now manages many PTYs (ids on every output/exit event, `terminal_kill`), sets `TERM` and `ATLAS_DESKTOP`, and honours `ATLAS_SHELL`. The Files page's own terminal mount is replaced by the dock toggle. In a browser the dock explains that the shell lives in the desktop app. Four **skills** ship in `mcp_server/skills/` (`atlas-daily`, `atlas-literature`, `atlas-writing`, `atlas-plan`): tool-by-tool playbooks with safety conventions; the Connect Claude Code page lists them with install state and a one-click install into `~/.claude/skills/` (`core/skills.py`, `POST /connect/claude/skills/`). A test asserts every backticked tool in a skill is a real MCP tool.
+
+**Why.** The owner asked for "cmd or terminal inside it just like VS Code" and noted that "claude might need some skills for this". The terminal existed but was buried inside one page and single-session; Claude had 86 tools and no idea which order to use them in.
+
+**Alternatives.** A web-served terminal (rejected: arbitrary code execution over HTTP; the guard test forbids it); project-scoped skills in `.claude/skills` of a project folder (rejected: the user's projects are not git checkouts; personal skills follow the user everywhere); a single "atlas" mega-skill (rejected: Claude loads skills by description match, four focused ones trigger better).
+
+### 2026-09-06 — The LaTeX studio moves into the app; desktop builds ship Tectonic (#343)
+
+**Decision.** `frontend/src/app/pages/Studio.tsx` at `/manuscripts/:id/editor` is a full-window, VS-Code-shaped editor rendered outside the app layout: activity sidebar (Files with new/upload/rename/delete, Outline, Bibliography with click-to-cite and add-from-library, History with labelled snapshots, diffs and restore), a tabbed CodeMirror 6 editor built on the shared `frontend/src/editor` core (LaTeX grammar, snippets, `\cite{}` completion from the whole project library, live cite-check), a pdf.js preview with page navigation and zoom, a Problems panel wired to the compile diagnostics (click → file + line, deduplicated), autosave with a status bar (line, file, word count, missing cite keys, compile state, keymap), settings (Vim keymap, font size, spellcheck, compile-on-save), Quick Open (⌘P) over files and sections, and ⌘S / ⌘↩ / ⌘B / ⌘\ / ⌘J shortcuts. The CodeMirror theme and syntax colours read CSS variables from `.studio` so one theme serves Observatory and Paper. The classic editor page keeps working but browsers are redirected to the studio (#342 map). The workbench file list now bootstraps `main.tex` from `latex_source`, and `seed_demo` seeds a two-file manuscript with real cite keys, a table and an equation.
+
+**Engine.** `writing/compile.py` resolves Tectonic from `ATLAS_TECTONIC`, then the bundled `bin/tectonic[.exe]`, then PATH, and fails with an actionable message. The release workflow downloads Tectonic 0.15.0 per platform into `bin/` before PyInstaller freezes the server (the spec bundles it), so Recompile works on an installed app — until now the desktop build had no engine at all and every compile failed. A compile that gets no answer for four minutes tells the user about `make worker` instead of spinning.
+
+**Why.** The owner: "the latex editor is terrible … nothing close to real world standards". The old editor was the biggest exit into the classic UI, was light-only, cramped (72 vh preview) and could not compile on the desktop.
+
+**Alternatives.** Porting the 1,000-line vanilla editor script as-is into a React shell (rejected: it was written around DOM ids and would keep two code paths alive); Monaco (rejected: 5 MB, no LaTeX grammar, and the CM6 core with codemirror-lang-latex was already there); bundling a full TeX Live (rejected: gigabytes; Tectonic downloads exactly the packages a document needs).
+
+### 2026-09-06 — One front door: classic pages send browsers to the app (#342)
+
+**Decision.** `core/ui_middleware.ClassicRedirectMiddleware` redirects a plain browser GET (Accept `text/html`, not HTMX, not XHR) for a classic trailing-slash page to its SPA twin, using `core/spa_routes.spa_equivalent` (mirrors `frontend/src/app/links.ts`; a test pins both). Escape hatches: `?classic=1` or entering through `/classic/` sets an `atlas_ui=classic` session cookie so classic stays browsable; every classic page now carries a banner whose "Back to the app" link (`?ui=app`) clears it. The sidebar's "← Classic Atlas" link is gone (it sat right under the theme toggle and was a one-misclick exit); classic is reachable from ⌘K ("Classic Atlas (old UI)") and by URL.
+
+**Why.** The owner reported that the app "suddenly jumps back to the older UI and my todo list disappears". The SPA still exited into classic through the LaTeX editor button, the pet link, and any ⌘K / search row without an SPA mapping (references and manuscripts were unmapped) — and classic had no link back, and no Today page. One front door removes the whole class of bug instead of patching links one by one.
+
+**Alternatives.** Patching every classic link in the SPA (rejected: the next unmapped URL brings the bug back); deleting the classic UI (rejected for now: the editor, pet page and connect page still live there — each becomes an SPA page in the following slices); redirecting the Django test client too (rejected: hundreds of classic view tests are scripts, not people; requiring an explicit `text/html` Accept keeps them meaningful and matches real navigations).
+
+### 2026-09-06 — Research v2 slice 1: the hypothesis ledger (#341)
+
+**Decision.** The research viewsets (hypotheses, experiments, datasets) become writable, and evidence gets its own `/api/v1/evidence/` resource (`project_filter` walks `hypothesis__project__slug`). `HypothesisSerializer` nests evidence rows (with a `reference_detail` summary, note and document titles), the supports/contradicts/mixed tallies and `suggested_status` from the evidence balance. Evidence writes bump the hypothesis' `updated_at` (`_touch_hypothesis`) so list/detail ETags change — the same stale-304 bug the manuscript studio had (#327), caught again by Playwright. MCP gains `add_hypothesis`, `set_hypothesis_status`, `add_evidence`, `log_experiment` (86 tools). `Research.tsx` is rewritten as a ledger: propose box, hypothesis cards with the evidence balance bar, "evidence says X →" one-click accept, an inline evidence form with paper/note autocomplete (reusing the notes suggest endpoint), experiment log and dataset registry; both destructive buttons confirm.
+
+**Why.** The Research page was the last area without a v2 pass and the only one where the SPA could not create anything — every hypothesis had to come from the admin. A ledger is only useful if attaching evidence is a five-second act from the page you are reading on.
+
+**Alternatives.** Evidence as a nested write on the hypothesis (rejected: a flat resource is simpler for MCP and for deletes); a modal per evidence row (rejected: inline is faster and matches the rest of the SPA).
+
+### 2026-09-06 — Review matrix v2: the extraction table (#339)
+
+**Decision.** `literature/matrix.py` turns the review matrix into an extraction table: `add_theme`
+(case-insensitive reuse, auto order), `resolve_theme` (id or name — a new name creates the column),
+`set_mark` (reference by id or bibtex key; create / update note / clear), `matrix` (themes with
+coverage, rows with cells keyed by theme id) and `matrix_markdown`. API on projects:
+`review-matrix/` gains `table`; `POST review-matrix/themes/`, `PATCH|DELETE
+review-matrix/themes/{id}/`, `POST review-matrix/mark/`, `GET review-matrix/markdown/`. MCP
+`set_review_mark`, `add_review_theme` (82 tools). New SPA page `/projects/{slug}/matrix` (also a
+quick link on the overview): sticky paper column and theme header with coverage bars, click to mark,
+click again to type the finding (Enter saves, right-click clears), inline theme rename/delete, paper
+filter and "only untouched", Copy as Markdown, `.md` download, Draft synthesis note.
+
+**Why.** Elicit's paper × question table is the feature researchers screenshot; Atlas has had the
+data model since Phase 2 but only a classic toggle grid. With cells that hold the extracted finding
+and an MCP tool to fill them, Claude can read the project's PDFs (`search_in_pdf`, highlights) and
+draft the table for the researcher to correct — offline, on their own library.
+
+**Alternatives considered.** Free-form column types (numbers, enums) — parked: a 300-character
+note per cell covers extraction; typed columns can come with an export to CSV. Auto-suggested
+themes from keywords — parked (the keyword cloud exists; a "suggest themes" button is a small
+follow-up).
+
+### 2026-09-06 — Search v2 + Reference page parity (#337)
+
+**Decision.** Search results now explain themselves: `core.search.describe` adds a `snippet`
+(for papers the PDF page hit with its `page` and `where: "in the PDF"`, else an excerpt of the
+abstract; for notes/decisions/phases/manuscripts an excerpt of their text around the first term),
+an `app_url` that opens the object in the SPA, and a one-line `meta`; the API also returns
+`project_name`. The Search page is rewritten: `?q=` in the URL, results grouped by kind with counts,
+terms marked in labels and snippets, "in the PDF · p.N" chips, ↑↓/Enter navigation. The standalone
+Reference page gains the Cite block (remembered style, in-text and `\cite{}` copies) and the
+Highlights section, links "open in the Library", and replaces the PDF iframe — which the
+`X-Frame-Options: DENY` header (kept, it is a security test) blanked — with a "Read & highlight →"
+jump that deep-links the Library reader via `?q=<key>&read=<id>`.
+
+**Why.** A search that only lists titles makes the reader open five things to find the one; the
+snippet with the page is the answer in place, and it showcases the PDF full-text index. The
+Reference page was the one paper view without highlights or citations.
+
+**Alternatives considered.** Relaxing frame options to SAMEORIGIN for the iframe — rejected: the
+workbench reader is better than an iframe and the header stays strict.
+
+### 2026-09-06 — Inbox v2 slice 1: smart capture triage (#335)
+
+**Decision.** `notes/capture.py` reads a capture (`detect`: DOI / arXiv id / URL, and the prefixes
+`todo:` `idea:`/`note:` `decision:` `milestone:`; long or multi-line text suggests a note; the rest
+suggests a Today item) and converts it (`convert`) into a paper (via `add_reference_by_identifier`,
+filed into the project), a note (title from the first line, URL appended), a Today item, a milestone
+(current phase, or a "Backlog" phase created on demand, optional due date) or a decision record —
+then marks the capture processed and filed. The list serializer carries `hint`; `POST
+/quick-capture/{id}/convert/`; `?processed=` filter; MCP `list_inbox`, `convert_capture` (80 tools).
+The Inbox page is rewritten in the Observatory identity: live "looks like a …" hint while typing,
+⌘Enter capture, rows with detected chips and one-click targets (the suggested one highlighted),
+project select, File and Dismiss; optimistic removal and a toast with an "open →" link. **Dashboard
+v2 judged done** after slice 1; current area: Inbox.
+
+**Why.** An inbox that only files text under a project is a to-do list with extra steps. Research
+captures are usually a paper, a task or an idea; turning them into the real object is the triage,
+and doing it in one click is what makes the inbox get emptied.
+
+**Alternatives considered.** LLM classification of captures — rejected: the prefixes and ids cover
+the common cases deterministically and offline; the suggested target is only a highlight, every
+target stays one click away. Auto-converting DOIs on capture — rejected: the owner should choose the
+project, and a capture may be a reminder rather than a request to add.
+
+### 2026-09-06 — Dashboard v2 slice 1: this week, everywhere (#333)
+
+**Decision.** `core/dashboard.py` gains `week_everywhere` (two cross-project queries: open
+milestones and tasks due within seven days in planning/active projects, overdue first, each carrying
+its project slug/name/colour and phase) and `project_health` (the current phase's roadmap health per
+active project). `GET /dashboard/` now returns `week`, `todos_open`, `heatmap` (the cached 26-week
+grid the classic page already had) and `health` on each active row; MCP `get_dashboard` (78 tools).
+The SPA dashboard adds "This week, everywhere" (tick-to-complete with optimistic removal), health
+pills under each active project, an "on today's list" tile linking to Today, and the heatmap at the
+bottom (hidden in calm mode). **Overview v2 judged done** after slice 1; current area: Dashboard.
+
+**Why.** CLAUDE.md's Phase 5 acceptance is literally "what should I work on today, everywhere?" —
+the needs-attention lead answered the urgent part; the week list answers the rest, and completing
+from the dashboard means the answer updates without leaving it.
+
+**Alternatives considered.** Reusing `plans.focus.week_focus` per project — rejected: N projects ×
+several queries; two flat queries do it. Next-up items on the dashboard — rejected: without a
+project context "next" is noise; the project overview keeps it.
+
+### 2026-09-06 — Overview v2 slice 1: one glance, in the Observatory (#331)
+
+**Decision.** `projects/overview.py` adds four blocks to the overview API: `week_digest` (the
+project's timeline events of the last seven days, counted by kind with the six newest items),
+`questions` (open first, then partially answered, answered, abandoned; with their phases),
+`manuscripts` (live ones by nearest deadline, with days left and any venue-budget overruns), and
+`hypotheses` (counts by status). The SPA overview is rewritten in the Observatory identity: ring +
+gradient milestone count in the header, quick links, a current-phase card (health pill, objective,
+glowing bar, window), the compact This-week strip, a three-up row (digest, questions + hypotheses,
+manuscripts), count tiles that link into the right section, next milestones, recent documents and
+decisions. **Writing v2 judged best-in-field** after three slices; current area is the Overview.
+
+**Why.** CLAUDE.md calls the overview the heart of Atlas: "one glance = full situational
+awareness". It answered "where are we" but not "what changed" or "what is still open"; the digest and
+the questions block close that, and manuscripts with overruns bring the writing pipeline into view.
+
+**Alternatives considered.** A per-project activity heatmap — parked for the Dashboard, where the
+cross-project one lives. Pinned documents — parked; recent documents plus the Files page cover it.
+
+### 2026-09-06 — Writing v2 slice 3: the venue budget (#329)
+
+**Decision.** `Manuscript.venue_limits` (JSON, migration writing 0012) stores the target venue's
+limits for words, abstract words, figures, tables, references and pages; `writing/budget.py`
+computes usage (LaTeX detex word count over the .tex files, abstract word count, `figure`/`table`
+environments, bibliography size, PDF pages after a compile via pypdf) and rates each against its
+limit: ok / near (≥ 90 %) / over, with a one-line summary. Limits are validated on the serializer
+(`clean_limits`: known keys, positive integers only). API `GET /manuscripts/{id}/budget/`; limits
+via the normal PATCH; MCP `get_manuscript_budget`, `set_venue_limits` (77 tools). UI: a Venue
+budget card in the studio with an inline six-field limits form and colour-coded bars.
+
+**Why.** "Am I over?" is the question asked ten times a day in the last week before a deadline;
+Overleaf answers it with a plugin and a guess. Keeping the limits on the manuscript makes the
+answer live everywhere — in the studio, from Claude, and later on the dashboard.
+
+**Alternatives considered.** A shared `Venue` table with known journals' limits — parked: a
+handful of numbers per manuscript is convention-over-configuration; a venue library can be built
+on top when there are enough manuscripts to share them. Page estimates without a compile —
+rejected: a number that is wrong is worse than "unknown until compiled".
+
+### 2026-09-06 — Writing v2 slice 2: the reviewer-response tracker (#327)
+
+**Decision.** `writing/reviews.py` parses pasted reviews into points (reviewers split on
+"Reviewer N" / "Referee N" headings, points on numbered or bulleted lines, unmarked paragraphs
+folded into the previous point), logs a `reviews_received` event whose notes link the note with
+`[[…]]`, and writes a "Response to reviewers — <title> (<date>)" note: `## Reviewer N` sections,
+`- [ ] **RN.k** <point>` with a `> Response:` slot under each. Progress = ticked boxes / boxes in
+the newest such note for that manuscript (scoped by title prefix, so two manuscripts in one project
+don't share). API `POST /manuscripts/{id}/reviews/`, `GET …/response-progress/` (`{progress: …|null}`
+— a bare null renders as an empty body in DRF); MCP `log_reviews`, `get_response_progress` (75
+tools). UI: choosing "Reviews received" in the timeline form reveals the paste box; a progress card
+links to the note; the compile card gains the submission `.zip` link. Fixed on the way: the
+manuscript detail ETag is built from `updated_at`, so events and bibliography changes now touch the
+manuscript — otherwise the SPA (and MCP polling) kept a 304-stale timeline.
+
+**Why.** The revision round is where papers die: reviewer points scattered across an email, a
+response letter rebuilt from scratch. Turning the reviews into a checklist note the moment they
+arrive, and showing "7/12 answered" on the manuscript, keeps the round moving — and the note is
+already in the project's graph, citing the papers the reviewers asked for once you add `@keys`.
+
+**Alternatives considered.** A dedicated ReviewPoint model — rejected for now: the note is
+editable, exportable and linkable for free, and checkbox progress is honest enough; a model can
+come if per-point status or reviewer assignment is needed. Parsing with an LLM — rejected: the
+heuristics cover the common shapes and never fail (an unparseable paste still scaffolds R1.1).
+
+### 2026-09-06 — Writing v2 slice 1: the manuscript studio (#325)
+
+**Decision.** The SPA manuscript page becomes the studio: everything about one paper on one screen,
+with the LaTeX editor one click away. New API on manuscripts: `bibliography` (GET rows with cite
+key / title / year / authors; POST adds a library paper, idempotent, with an optional cite-key
+override), `DELETE bibliography/{reference_id}`, `cite-check` (every `\cite`-family key across all
+.tex files — or `latex_source` — against the bibliography, plus `resolvable`: missing keys the
+library already knows, with ids), `bib` (text/x-bibtex download), `events` POST and
+`DELETE events/{id}`; manuscripts are creatable through the API. MCP `get_manuscript_bibliography`,
+`add_manuscript_reference`, `remove_manuscript_reference`, `manuscript_cite_check`,
+`add_submission_event` (73 tools). UI: board in the Observatory identity with a new-manuscript form
+and a "deadlines within two weeks" strip; studio with an editable title/venue/deadline header, a
+status pipeline (past steps ticked), abstract with autosave and word count, source & compile card
+(files, main file, compile, status pill, diagnostics, PDF link, approximate word/heading/caption
+counts), bibliography card (search the project's literature → Add, cite-key chips copy `\cite{}`,
+"cite all", .bib), cite-check card (missing keys with one-click add from the library, uncited
+entries), submission timeline with log/delete.
+
+**Why.** Overleaf edits; Paperpile cites; neither answers "is this paper's bibliography consistent
+with what I actually cite, and where is it in the pipeline?" The studio makes that the default view
+and keeps the classic editor for the source itself.
+
+**Alternatives considered.** Embedding the LaTeX editor island in the studio — parked: the editor
+is a full-height workspace with its own file tree; a link is honest for now. A separate events
+viewset — rejected: events belong to a manuscript and never need listing across manuscripts.
+
+### 2026-09-06 — Notes v2 slice 3: templates and export with a bibliography (#323)
+
+**Decision.** `notes/templates.py` renders five templates from project data: *literature* (title
+"Family Year — title", first line `@key`, metadata + DOI, sections In one sentence / Claims / Method /
+Limitations / Why it matters, then every highlight of the paper as block quotes with page and
+comment, and a `[[Highlights — key]]` link when that note exists; the reference is attached), *daily*
+(title = ISO date, unique per day; this week's focus from `plans.focus` as checkboxes, then Log and
+Captured), *meeting*, *experiment*, *blank*. `export_note` returns the body as written plus a
+References section formatted by `literature.citations.bibliography` in the chosen style. API:
+`GET /notes/templates/`, `POST /notes/from-template/`, `GET /notes/{id}/export/?style=`; MCP
+`create_note_from_template`, `export_note` (68 tools). UI: the New-note pane offers the templates (the
+literature card searches the project's papers inline), the editor toolbar gets "export" (copies
+Markdown with the bibliography in the Library's remembered citation style), and the Library detail
+pane gets a "Note" button that starts a literature note in the paper's project. **Notes + graph
+judged best-in-field** after three slices (workbench with @citations, navigable vendored graph,
+templates + export); next area: the Writing studio.
+
+**Why.** Zettelkasten tooling asks the researcher to build literature notes by hand; here the paper,
+its key and the highlights already taken arrive in one click, and the note leaves with a
+bibliography. The daily note is the ADHD-friendly page the owner asked for, seeded from the plan.
+
+**Alternatives considered.** User-editable template bodies — parked: convention over configuration,
+and the five cover the research loop; a `templates` setting screen can wait. Pandoc-style
+`[@key]` brackets — rejected: `@key` alone is what people type and what the autocomplete inserts.
+
+### 2026-09-06 — Notes v2 slice 2: Graph v2, vendored and navigable (#321)
+
+**Decision.** `3d-force-graph` 1.73.4 and `force-graph` 1.43.5 are vendored under
+`static/vendor/forcegraph/` (MIT, unmodified dist builds) and both the SPA page and the classic
+template load them from there — the desktop app must not depend on unpkg being reachable. A guard
+test fails the build if either page references unpkg again. `core/graph.py` now returns per-node
+facts (year, venue, authors, citations, PDF, highlight count for papers; words and last edit for
+notes; degree for all; `app_url` for SPA navigation) and `stats` (counts, links by kind, orphans, top-5
+hubs). The Graph page is rewritten: search with match count and Enter-to-focus, paper/note and
+link-kind toggles, hide-unconnected, neighbourhood focus mode with depth 1/2 (computed client-side
+over the full graph, which is project-sized), hover dimming of non-neighbours, camera fly-to on
+click in 3D, directional particles on citation edges, dark/light canvas from the theme, a hubs card
+and a node panel with facts, Open, Focus and the clickable neighbour list. React never renders
+children inside the library's mount div (that crashed the page: the library cleared React-owned
+nodes); overlays are siblings.
+
+**Why.** A graph you can't search or focus is decoration. Focus mode + the neighbour list turn it
+into navigation: from a hub paper to the notes that cite it and back. Vendoring is what makes the
+graph exist at all in an offline desktop session.
+
+**Alternatives considered.** Server-side neighbourhood queries (`?focus=`) — rejected for now:
+the whole project graph is a few hundred nodes and one request; revisit when projects have
+thousands of references. Bundling the library through Vite instead of a script tag — rejected:
+three.js in the island bundle would triple its size for one page.
+
+### 2026-09-06 — Notes v2 slice 1: the notes workbench with @citations (#319)
+
+**Decision.** Notes adopt Pandoc-style citation keys: `@bibtex_key` in a body attaches the paper to
+the note (`sync_note_references`, additive — manual links are never removed) and renders as a link
+to the paper in the preview; `[[Title]]` keeps linking notes. New API: `GET /notes/{id}/links/`
+(outgoing, backlinks, references, unresolved titles/keys, unlinked mentions), `GET /notes/suggest/`
+(autocomplete for both triggers, prefix matches first, references limited to papers filed in the
+project), `GET /notes/unwritten/`; `references_detail` on the note serializer; MCP `list_notes`,
+`get_note`, `update_note`, `get_note_links` (66 tools). The SPA Notes page becomes a workbench:
+list with search and the "linked but unwritten" stubs, editor with a live preview beside it and
+autosave (1.2 s / ⌘S), an autocomplete popover for `[[` and `@` (client-side re-ranked against the
+characters typed now, since the query is debounced), and a link panel (Cites / Links out / Backlinks
+with mentions-without-a-link). One lazy component serves all three note routes so switching notes
+keeps the list state.
+
+**Why.** Obsidian and Logseq made `[[links]]` table stakes; what a researcher's notes lack there is a
+first-class tie to the literature. `@key` is the notation people already use in Markdown manuscripts,
+so a note that cites becomes a graph edge and a bibliography for free.
+
+**Alternatives considered.** A rich-text/CodeMirror editor — rejected for this slice: a textarea with
+a preview keeps the Markdown honest and ships without a dependency; caret-accurate popovers can come
+later. Removing references when a key disappears — rejected: manual attachments from the reader
+would be lost. Global reference suggestions — rejected: the project's own literature is the
+relevant set, and the library workbench files papers in one click.
+
+### 2026-09-06 — Plan v2 slice 4: phase context, questions on the plan, keyboard reschedule (#317)
+
+**Decision.** The plan API now returns each phase's objective, target window and attached research
+questions, plus the project's full question list; the phase card shows a context block (objective —
+click to edit, autosaved on blur; question chips coloured by status with detach; "+ research
+question" attaches through `PATCH /questions/{id}/ {phases}`), and the header carries editable date
+inputs. The roadmap's bars and diamonds are focusable; ←/→ nudge a day, Shift+←/→ a week, saving on
+each press. **Plan judged best-in-field after four slices** (document outline, roadmap with health and
+forecast, this-week focus, drawer, context, API + MCP parity) — next area: Notes + knowledge graph.
+
+**Why.** CLAUDE.md's research-first value puts questions and phases together; until now the link was
+only editable in the classic forms. Objectives are the "why" of a phase and belong at the top of the
+card, not in a form. Keyboard rescheduling makes the roadmap usable without a mouse and with a
+screen reader (the bars are sliders with value text).
+
+**Alternatives considered.** Creating questions from the plan page — parked; the Research page owns
+question CRUD and the Plan only links. Natural-language dates — parked again; date inputs and the
+outline cover it.
+
+### 2026-09-06 — Plan v2 slice 3: this week + the milestone drawer (#315)
+
+**Decision.** `plans/focus.py` computes one project's week: overdue milestones and tasks (oldest
+first, milestones before tasks on the same day), everything due within seven days, then up to three
+undated/later milestones of the current phase so the list never goes empty while work remains.
+`GET /projects/{slug}/focus/`; the overview embeds the same block plus a `health` reading for the
+current phase (from the roadmap service); MCP `get_week_focus` (62 tools). UI: a "This week" strip at
+the top of the Plan (and, compact, on the overview) with in-place completion; a milestone drawer
+(title, due date, notes with autosave, tasks add/toggle/delete, delete) opened from any milestone
+title; the plan API now returns milestone notes. The drawer is opaque (`.drawer-solid`) because the
+Observatory glass panels bleed the page through.
+
+**Why.** The Plan answered "where are we" but not "what now": the researcher still had to scan every
+phase for the nearest date. The strip is the answer in one glance, and completing from it keeps the
+plan honest. The drawer closes the last gap that sent people to the classic page (notes, dates).
+
+**Alternatives considered.** Cross-project "this week everywhere" — that belongs to the Dashboard
+area and will reuse `week_focus`. Natural-language dates in quick-add ("next fri") — parked; the
+outline + date input cover it for now. A modal instead of a drawer — rejected: the plan stays
+visible for context.
+
+### 2026-09-06 — Plan v2 slice 2: the roadmap (#313)
+
+**Decision.** `plans/roadmap.py` turns the plan into timeline rows: each phase gets a window (its
+target dates, else inferred: after the previous phase / from its milestones' due dates / six weeks,
+flagged `inferred`), its milestones with due/done/overdue, a health state computed from the share of
+milestones done against the share of the window elapsed (±15 % band → on_track; blocked / overdue /
+upcoming / done / empty are explicit), a one-line reason, and a finish forecast = today + remaining ×
+the measured days-per-milestone once two are done. `GET /projects/{slug}/roadmap/`; rescheduling
+reuses `PATCH /phases/{id}/` and `/milestones/{id}/`; MCP `get_roadmap`, `set_phase_dates` (61 tools).
+The Plan page grows a Phases | Roadmap | Outline switch (remembered in localStorage). The roadmap is
+plain React + pointer events: month gridlines, a glowing today line, bars coloured by health with
+the progress fill inside, dashed bars for suggested dates, a striped forecast tail, diamonds for
+milestones (filled = done, red glow = overdue); drag a bar to move, its edges to resize, a diamond
+to change a due date — optimistic locally, one PATCH on release.
+
+**Why.** "Where are we against the plan?" needs time on an axis, not a list. Inferred windows mean
+the view is useful from the first milestone; the health reading names *why* a phase is behind so
+the fix is obvious; drag-to-reschedule makes the roadmap the place plans get adjusted, not a report.
+
+**Alternatives considered.** A Gantt library (frappe-gantt, dhtmlx) — rejected: a dependency and its
+own styling for a view that is 300 lines of React; the Observatory look would fight it. Dependencies
+between phases (finish-to-start arrows) — parked: phases are already ordered, and arrows add noise
+before there is a scheduling engine. Per-milestone "days late" statistics — parked to the dashboard.
+
+### 2026-09-06 — Plan v2 slice 1: the plan as a document (#311)
+
+**Decision.** The Library is judged best-in-field after eight slices (import from anywhere, faceted
+workbench, discovery lenses, six citation styles, tags + smart views, duplicate merge, in-place reader
+with highlights and reading notes, full-text search inside PDFs; API + MCP parity throughout). Next
+area per the cycle order: the Plan. Slice 1 makes the plan writable as a document: `plans/outline.py`
+exports the plan as a Markdown outline (`# phase [status] (start → end) {#id}`, `> objective`,
+`- [ ] milestone (due …) {#id}`, indented tasks) and applies an edited outline back — `{#id}` tokens
+keep identity across renames (so completion timestamps, notes and links survive), lines without an id
+create, missing ids delete, checkboxes set completion, order = position. `preview()` reports created /
+renamed / deleted before anything is written; parse errors carry line numbers. API `GET/POST
+/projects/{slug}/outline/` (`dry_run`), MCP `get_plan_outline` / `set_plan_outline` (59 tools). The SPA
+Plan page is rewritten in the Observatory identity: orbit-ring progress, gradient count, glass phase
+cards with glowing accent bars, click-to-cycle status, milestone/task check-off, inline quick-add, and
+an "Edit as outline" mode (monospace editor, Tab indents, ⌘S saves, live dry-run panel, syntax card).
+
+**Why.** Every PM tool makes you click through forms to plan; researchers plan in text. An outline
+that round-trips losslessly is faster to write, diffable, pasteable into a proposal, and the same
+contract Claude can use to draft or restructure a plan in one call.
+
+**Alternatives considered.** A drag-and-drop outliner component — rejected: heavy, and a textarea with
+a live preview is honest about what a save does. Matching by title instead of ids — rejected: renames
+would look like delete + create and lose history. Making the outline the storage format — rejected:
+the relational model drives progress roll-ups, the overview and the dashboard.
+
+### 2026-09-06 — Library v2 slice 8: search inside your PDFs (#309)
+
+**Decision.** Every attached PDF is read once with pypdf into `literature.ReferenceText` (one string
+per page + the joined body; `source_name` remembers which file it came from). A `post_save` receiver
+on `Reference` enqueues `extract_text_task` whenever the PDF is new or changed (huey; immediate in the
+desktop and dev settings) and drops the row when the PDF is removed; `manage.py index_pdf_text` backfills.
+Matching is `icontains` on the body on every backend (the desktop runs SQLite) — Postgres additionally
+folds `text__body` into the global-search vector at weight D. The workbench search annotates
+`pdf_match` per row, the detail pane shows "Found in the PDF" with page + snippet, and the reader
+gets a find bar that walks the matching pages and paints the term on the text layer. API:
+`GET /references/text-search/?q=` (library-wide, optional project), `GET /references/{id}/text-search/?q=`,
+`POST /references/{id}/index-text/`; `text_status` on every reference. MCP: `search_pdf_text`,
+`search_in_pdf` (57 tools).
+
+**Why.** Zotero and Paperpile both index PDF text; a library that only searches titles and abstracts
+loses exactly the queries a researcher asks ("which paper mentioned the dissociation?"). Page-level
+storage is what makes the answer actionable: the hit names the page and the reader opens on it.
+
+**Alternatives considered.** A Postgres `SearchVectorField` with a GIN index on the body — better at
+scale, but SQLite desktop builds would need a second path; `icontains` is honest and identical on
+both, and a trigram/FTS upgrade stays possible behind `pdf_match_filter`. Storing text in
+`Reference.extra` — rejected: a multi-megabyte JSON field on the hot row. Extracting at import only —
+rejected: PDFs also arrive by Unpaywall fetch, API upload, and merge; the signal covers all of them.
+
+### 2026-09-06 — Library v2 slice 7: read and highlight inside the workbench (#307)
+
+**Decision.** Highlights become a model (`literature.Highlight`: reference, optional project, page, text,
+comment, colour) instead of lines appended to a note. `reading.add_highlight` still mirrors the passage
+into the project's "Highlights — <key>" note when a project is given (the note graph keeps working) and
+bumps `to_read` links to `skimmed`. The classic reader's save endpoint now goes through the same service.
+The workbench gets a pdf.js reader in the centre pane (vendored build, lazy per-page render, text layer,
+selection → colour bar → POST /highlights/), and saved highlights are painted back by matching their text
+against the page's text spans — no stored rectangles, so a re-rendered or re-imported PDF still shows them.
+Reading notes reuse `ProjectReference.notes` (one textarea per project, debounced PATCH). Per-row
+`POST /references/{id}/fetch-pdf/` wraps the existing OA download. MCP: `list_highlights`, `add_highlight`,
+`get_highlights_markdown`, `get_reading_notes`, `set_reading_notes`, `fetch_pdf` (55 tools).
+
+**Why.** Zotero's reader is the one thing people say they can't leave it for; Paperpile and ReadCube
+charge for it. Reading is where a library earns its keep, and every highlight should be a first-class row
+Claude can list, comment on and paste into a manuscript — not a line buried in a note body.
+
+**Alternatives considered.** Storing highlight rectangles (exact repaint, but breaks when the PDF is
+replaced, and doubles the payload) — rejected for now; text matching is good enough and honest.
+Embedding the classic reader page in an iframe — rejected: no shared state with the detail pane.
+A separate `/read` SPA route — rejected: the whole point is not leaving the list.
+
+**Release workflow.** Pruning old installers moved from the start of every matrix job to a post-build
+`prune` job that runs only when every platform succeeded: the owner opened the release mid-run and found
+no `.exe` because the Linux job had already deleted the previous Windows installer.
+
+### 2026-09-06 — Library v2 slice 6: duplicate clusters and a real merge (#305)
+
+**Decision.** `library.duplicate_groups()` clusters probable duplicates with a union-find over
+the existing `check_duplicates` findings (near-identical normalised titles; DOI matches are
+impossible in the database because DOI is unique) plus identical arXiv ids, and suggests the
+most complete record to keep (PDF 8, DOI 4, abstract 2, year 2, venue 1, +authors, +3 per
+project link, +tags). `library.merge_references(keep, merge)` folds everything into the kept
+record inside a transaction: project links (the better reading status / high priority / merged
+notes / review marks win when both exist), tags, note links, manuscript bibliographies, evidence,
+citation edges (deduplicated, self-edges dropped), comments (generic FK), the PDF file, and
+empty scalar fields; `extra.merged_from` records the folded keys; the merged record's DOI and
+file are released before the kept one saves (unique constraint). Exposed as
+`GET /references/duplicates/`, `POST /references/merge/`, MCP `find_duplicates` /
+`merge_references` (49 tools), a `duplicates` facet count, and a **Duplicates** mode in the
+workbench (rail chip → grouped cards with a keep radio and "Merge into the selected").
+
+**Why.** Every library that imports from more than one source grows duplicates; the bib report
+flagged them for months without a fix action, and the workbench made bulk import easy enough
+that a merge became the missing half. Losing a project link, a note, or a PDF during cleanup is
+the failure mode every researcher fears — hence the relation-by-relation move with tests.
+
+**Alternatives.** (a) Auto-merge on import when titles match — rejected: title similarity has
+false positives (editions, errata, translations); a human picks the survivor. (b) Soft-delete the
+merged rows — rejected: the export/dedupe paths would need to filter them everywhere; the
+`merged_from` trail on the kept record preserves the history that matters.
+
+### 2026-09-06 — In-app updates go live: signed feed on the published preview release (#303)
+
+**Decision.** (1) The updater keypair now exists: the public key is committed in
+`desktop/tauri.conf.json`; the private key is held by the owner and belongs in the
+`TAURI_SIGNING_PRIVATE_KEY` repo secret. (2) The release workflow flips
+`createUpdaterArtifacts` on only when that secret is present, so builds never go red for a
+missing key. (3) The rolling `desktop-preview` release is **published as a prerelease** (a
+draft can't be fetched by the app), with a prune step keeping only the newest build's assets;
+the updater endpoint is the tag URL (`releases/download/desktop-preview/latest.json`), not
+`releases/latest`, which ignores prereleases. (4) The shell exposes `check_update` (silent, on
+launch) and `install_update` separately; the sidebar control becomes "Update to x.y.z" when a
+build is available, installs on click, and offers a restart — with a "get it manually" link
+when the feed is unreachable.
+
+**Why.** Owner: "auto update or update button so I won't need to download it every time and
+install again." Tauri's updater refuses unsigned artifacts, so signing is the only route; the
+one thing the code cannot do is add the secret to GitHub — that stays a one-time owner action,
+and everything else is ready the moment it exists.
+
+**Alternatives.** (a) Download the installer and launch it (no signing) — rejected: no
+integrity check on a binary that runs as the user, and the NSIS/MSI dance is what the owner
+wants to stop doing. (b) Commit the private key to the workflow — rejected outright.
+(c) Generate a fresh key per build — rejected: the public key is baked into the installed app,
+so updates would never verify.
+
+### 2026-09-06 — Library v2 slice 5: tags and smart views (#301)
+
+**Decision.** `literature.LibraryTag` (global, case-insensitive-unique labels with an optional
+colour) on `Reference.tags`, and `literature.SavedView` (a named dict of the list endpoint's
+filter params). The workbench rail gains **Smart views** ("+ save" appears whenever a filter is
+active; one click restores the exact query, including the search text) and **Tags** (counts,
+an Untagged bucket). Tags are applied from the bulk bar ("tag…" with suggestions), from the
+detail pane (chip editor), or by writing `tags: [names]` on a reference through the API;
+missing tags are created. API: `library-tags` (with counts; POST reuses a case-insensitive
+match), `library-views`, list filters `tag=` / `untagged=`, bulk `tag` / `untag`, facets carry
+`tags`, `untagged`, `views`. MCP: `list_library_tags`, `tag_references` (47 tools).
+
+**Why.** Zotero's collections/tags and Paperpile's labels + saved searches are how people keep
+a 1,000-paper library navigable; Atlas had projects only. Saved views are the cheapest possible
+"collections": they compose every filter the rail already has instead of a second hierarchy.
+
+**Alternatives.** (a) Reuse `documents.Tag` — rejected: per-project by design, while the
+library is global. (b) Nested collections — rejected: smart views + project filing cover it
+without a tree to maintain; revisit only if users ask.
+
+### 2026-09-06 — A plain "Today" list, separate from plan tasks (owner request, #299)
+
+**Decision.** `core.TodoItem` (text, done, done_at, position, optional project) with a
+dead-simple SPA page at `/today` (input + Enter, one-click tick with an optimistic update, done
+items sink to a "Done" section, "Clear done"), a "Today" entry at the top of the sidebar,
+`/api/v1/todos/` (+ `clear-done`), and MCP `list_todos` / `add_todo` / `complete_todo`.
+
+**Why.** The owner: "I have ADHD and I keep losing track of the stuff I need to do for the day…
+something very simple." Plan tasks live under milestones and carry research structure; the
+inbox is for unprocessed thoughts. Neither is a scratch list you glance at ten times a day.
+Open items are never auto-cleared — losing an item overnight is the failure mode to avoid.
+
+**Alternatives.** (a) Reuse `plans.Task` with a null milestone — rejected: it would leak into
+plan progress roll-ups and the model's invariant (every task under a milestone). (b) Reuse
+`QuickCapture` with a flag — rejected: the inbox's job is triage, and mixing the two makes
+both noisier. Parked ideas: due dates/reminders, drag-to-reorder, a dashboard widget (#300).
+
+### 2026-09-06 — Library v2 slice 4: formatted citations without a CSL engine (#297)
+
+**Decision.** `literature/citations.py` formats bibliography entries, in-text forms, and whole
+bibliographies in six styles (APA 7, MLA 9, Chicago author-date, Harvard, Vancouver, IEEE) as
+hand-written pure functions over the metadata Atlas holds, with volume/issue/pages now carried
+into `Reference.extra` by the Crossref and OpenAlex mappers. Exposed as
+`GET /references/{id}/cite/?style=`, `GET /references/cite/?ids=&style=` (alphabetical for
+author-date styles, numbered in the given order for Vancouver/IEEE), MCP `format_citations`, a
+Cite block in the workbench's detail pane (style picker remembered in localStorage, Copy
+citation, the in-text form as a copy button), and **Copy citations** in the bulk bar.
+
+**Why.** "Copy a citation" is the single most frequent thing researchers open Zotero for, and
+the reason Paperpile's browser button exists; six styles cover the vast majority of venues.
+
+**Alternatives.** (a) citeproc-py + CSL styles — rejected for now: 2k+ style files, a heavy
+dependency, and a JSON-schema conversion layer, for output the six hand-written styles already
+give; the module is shaped so a CSL engine could replace it behind the same `cite()` /
+`bibliography()` contract later. (b) Client-side citation.js — rejected: would duplicate the
+formatting in the SPA and leave the API/MCP without it.
+
+### 2026-09-06 — Library v2 slice 3: grow the library from any paper (#295)
+
+**Decision.** Three OpenAlex lenses on every reference, inside the workbench's detail pane:
+*Similar* (`related_works`), *It cites* (`referenced_works`, batched 50 at a time), and
+*Cited by* (`filter=cites:`, most-cited first). Every row is annotated with library membership
+in one query (by DOI and by OpenAlex id), so the UI offers **+ Add** (via the existing
+`by-doi` endpoint, into the current project filter when one is set), **in library** (a link),
+or an OpenAlex link for rows without a DOI. The resolved OpenAlex id is stored on the reference
+the first time, so later lenses cost one request less. Same slice: **Export .bib** for a
+selection or for the whole filtered view (`GET /references/export/?ids=…` or the list
+filters), **Copy BibTeX** to the clipboard, and a **Fetch OA PDFs** bulk action that queues the
+existing open-access fetch for every selected paper without a file. MCP: `discover_related`,
+`export_bibtex` (41 tools).
+
+**Why.** This is ResearchRabbit's whole pitch and Zotero has nothing like it; putting it one
+click from every paper, with dedupe and project filing built in, is the "finally" moment for
+literature review. Export-of-selection is the most common thing Paperpile users do daily.
+
+**Alternatives.** (a) Semantic Scholar's API — rejected: needs an API key for useful rate
+limits; OpenAlex is keyless and already used. (b) A full citation-graph page instead of a pane —
+already exists (Graph); the pane is about *action* (add), not visualisation. (c) A download
+endpoint with `Content-Disposition` only — kept, plus clipboard copy, because the Tauri webview
+does not download files.
+
+### 2026-09-06 — Library v2 begins: one import engine for every source (#293)
+
+**Decision.** The Library is the first feature area to be made best-in-field (owner: "one
+feature at a time… better than the profitable companies"). Slice 1 is getting papers IN from
+anywhere through one path: `literature/importers.py` parses BibTeX, CSL-JSON (Zotero's export
+and its local API), and RIS (EndNote/Mendeley/Web of Science) into the same metadata dicts, and
+dropped PDFs are read (pypdf, first 3 pages) for a DOI/arXiv id → real metadata fetched → file
+attached; PDFs without an id are kept as stubs titled from the PDF and flagged `needs_metadata`
+so nothing is ever lost. Everything dedupes by DOI, arXiv id, or normalised title + year
+(≥ 8 chars), across formats. Exposed as `POST /api/v1/references/import/` (multipart files +
+pasted text), `POST /api/v1/references/import-zotero/` (Zotero 7 local API, paginated, with an
+actionable error when Zotero is closed or its API is off), and MCP tools `import_references` /
+`import_from_zotero`. The old `services.import_bibtex` keeps its callers but new imports go
+through the shared dedupe path.
+
+**Why.** Every commercial library tool wins or loses on day one: can I bring my 400 papers in?
+Zotero users export CSL-JSON or run Zotero locally; Mendeley/EndNote users have RIS; everyone
+has a folder of PDFs. Dedupe across formats is what makes repeated imports safe.
+
+**Alternatives.** (a) Zotero web API with an API key — rejected for now: needs a key and a
+network; the local API is zero-config on the machine Atlas (desktop) runs on. (b) GROBID for PDF
+metadata — rejected: a 500 MB Java service; the DOI-on-page-one heuristic plus Crossref covers
+the vast majority, and stubs catch the rest. (c) Adding `pypdf` breaks the locked dependency list
+in CLAUDE.md §2 — accepted and logged: pure Python, tiny, and the frozen desktop build carries it
+(spec THIRD_PARTY updated).
+
+### 2026-09-06 — "Observatory": a new visual identity, dark by default (owner-directed, #291)
+
+**Decision.** The owner rejected the calm-editorial look outright ("I still don't like the UI at
+all… make this crazy enough for YouTube"). Atlas now has a signature identity, **Observatory**:
+a deep-space canvas with a slow aurora and star grain, glass panels with luminous hairlines, an
+electric-violet accent paired with cyan/magenta in gradients, display type (Space Grotesk) for
+headings and numerals, staggered entrances, and a **living constellation** of the active
+projects (a zero-dependency canvas module, `static/js/constellation.js`) behind the dashboard
+greeting and on the login screen. The shell is an icon rail with a glowing active bar and an
+"Ask Atlas anything ⌘K" spotlight; the command bar is a glass spotlight; the dashboard opens
+with a time-aware greeting ("Good evening. 2 things need you.") and orbit-ring project progress.
+Dark is the default; "Paper" (light) stays as an explicit choice via the same toggle.
+
+**How it reaches every page without a rewrite.** Tailwind v4 emits colours as `var(--color-*)`,
+so redefining the stone/indigo tokens under `.dark` re-skins all 16 SPA pages and every classic
+template at once; panels get glass via the literal `dark:bg-stone-900` class token they already
+carry (`[class~="dark:bg-stone-900"]`). Only Layout, Dashboard, CommandBar, and login were
+touched by hand. Fonts are vendored (OFL) so the desktop app looks the same offline.
+
+**Alternatives.** (a) A React redesign page-by-page — rejected for now: 5.6k lines of TSX for
+the same visual result the tokens give; individual pages can still get bespoke treatment later
+(backlog #292). (b) Keep follow-the-OS theming (#273) — rejected: the owner wants the new look on
+first launch; the light theme is one click away. (c) three.js for the hero — rejected: the
+citation graph already depends on a CDN that an offline desktop can't reach; a 2D canvas
+particle field is dependency-free and cheap. §7 of CLAUDE.md ("calm and editorial") is
+superseded by this owner direction; the calm-mode toggle and reduced-motion support remain.
+
+### 2026-09-06 — Desktop ↔ Claude Code: ship `atlas-mcp` in the installer, zero-config (#289)
+
+**Decision.** Make the installed desktop app driveable from Claude Code with one line and no
+secrets to copy. Three pieces: (1) `config/settings/desktop.py` mints an API key on first launch
+and persists it as `<data dir>/api_key` (an explicit `ATLAS_API_KEY` still wins); `run_desktop`
+publishes `<data dir>/server.json` with the live URL (the port can differ from 8000 since #286).
+(2) The MCP server is frozen with PyInstaller too (`desktop/server/atlas_mcp.{py,spec}` →
+`atlas-mcp`) and shipped as a second Tauri bundle resource; with no `ATLAS_API_URL`/`ATLAS_API_KEY`
+in its environment it discovers both from the data dir (`mcp_server/desktop_config.py`, still
+Django-free), so the registration is `claude mcp add atlas -- "<install dir>/atlas-mcp/atlas-mcp"`.
+(3) A **Connect Claude Code** page (`/connect/claude/`, linked from both sidebars) prints that
+line for *this* install with the real path (the shell passes it as `ATLAS_MCP_BIN`), plus the key
+and a JSON snippet for other MCP clients; on a dev/server install it prints the explicit
+`--env ATLAS_API_URL/ATLAS_API_KEY … python -m mcp_server.server` form instead.
+
+**Why.** Phase 6's acceptance ("from Claude Code, the owner can list projects…") was only true
+for a repo checkout: the desktop build started with an EMPTY API key (so the API rejected every
+call) and had no MCP server on the machine at all. The owner's ask was "100% integratable with
+Claude Code" — for a desktop user that means no Python, no .env, no copying keys.
+
+**Alternatives.** (a) Print the key in the `claude mcp add` line — rejected: it lands in shell
+history and `.claude.json`; discovery from the data dir gives the same one-liner with no secret in
+it (the key is still shown on the page for other clients). (b) Have `atlas-mcp` fail to start when
+Atlas isn't running — rejected: Claude Code would then lose the tool list whenever the app is
+closed; instead tool calls return "Atlas is not reachable … is the Atlas app running?".
+(c) Bundle the MCP server INTO `atlas-server` (one binary, a `--mcp` flag) — rejected: the MCP
+server must stay a pure API client (CLAUDE.md §5 Phase 6), and a separate binary keeps that
+boundary visible. Verified end to end with the real `claude` CLI: `claude mcp list` → `√ Connected`
+against the frozen binaries; a stdio client listed 37 tools and created a project through them.
+
+### 2026-09-06 — Desktop: finish the SQLite switch by removing the Postgres remnants (#286)
+
+**Decision.** Strip everything the bundled-Postgres design (#210g) left behind after the SQLite
+switch (#266): the two CI steps that downloaded zonky's embedded-postgres binaries per OS, the
+`resources/pg` bundle resource, the `ATLAS_PG_BIN` plumbing in the Tauri shell, the
+`postgres.exe` taskkill in the NSIS hooks, the Postgres/`MSVCR120.dll` advice on the in-app
+diagnostic page, and the dead `core/desktop_runtime.py` module (262 lines) with its 12 tests.
+Keep `run_desktop`'s one-time cleanup of a stale `pgdata/` (that is the upgrade path for machines
+that ran the old build). At the same time make the shell **step aside to a free port** when 8000
+is taken (`choose_port` in server.rs) and derive `CSRF_TRUSTED_ORIGINS` from `ATLAS_PORT`.
+
+**Why.** Every installer shipped ~50 MB of Postgres it never ran, the failure page told users to
+install a VC++ redistributable that could not help, and a developer's `runserver` on 8000 made the
+desktop app fail to bind (the CSRF origins were also hardcoded to :8000, so a different port would
+have rejected every POST). This is the parked #268. The desktop README also still said the server
+was "NOT YET" bundled.
+
+**Alternatives.** (a) Leave the Postgres bundling as an "option" behind a flag — rejected: the
+owner chose SQLite, and dead alternate paths are exactly what made the saga hard to debug.
+(b) Fail loudly when 8000 is busy instead of choosing another port — rejected: the user cannot fix
+that from inside the app, and nothing in the app depends on the port number. (c) Re-enable
+AppImage now that the native Postgres `.so`s are gone — deferred (#288): worth one CI experiment,
+but not bundled into this change so the release stays green.
+
 
 ### 2026-06-17 — Theme follows the OS by default now that dark mode is complete (#273)
 
@@ -736,13 +2350,36 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
-285. Adopt `calm:hidden` on more secondary chrome (follows #275) — now that the `.calm` variant exists, quiet the remaining noise sources in calm mode: the classic dashboard's activity heatmap, the figure-gallery per-image counts, and any "X this month" stat figures on the classic overview. One class each, no new state. Could also add a tiny "Calm" affordance to the classic base.html so calm mode is discoverable outside the SPA dashboard (idea added by the cycle that shipped #275, 2026-06-17).
-284. ⌘K palette recents/empty-state — when the query is empty the palette shows the "Actions" + page-context block, but not the user's recent jumps. A short "Recent" group (last 3-4 navigations, persisted to localStorage like the classic base.html search-recents already does) would make reopening ⌘K a one-keystroke return to where you were. Pairs with the new group-header rendering (#279) (idea added by the cycle that shipped #279's header, 2026-06-17).
+306. Library v2 slice 7 candidates: ~~inline PDF preview pane in the workbench (needs pdf.js vendored for offline desktop)~~ (the in-workbench reader); ~~per-reference reading notes + highlights surfaced in the detail pane~~ (both in the detail pane; swept 2026-09-07); ~~"Find PDF" per row with a status pill (done 2026-09-07, #386)~~; ~~drag-to-reorder for smart views (done 2026-09-07, #400)~~.
+305. ~~Library v2 slice 6 (done 2026-09-06): duplicate clusters with a suggested keep, relation-preserving merge, Duplicates mode in the workbench, API + MCP. See the 2026-09-06 decision.~~
+304. ~~Updater polish (done 2026-09-06, #370: progress events + bar, release notes confirm, 6-hourly re-check)~~ — original note: download progress in the sidebar control (the install closure has a chunk callback), release notes from latest.json shown before installing, a "check on a schedule" while the app is open (currently once per launch).
+303. ~~In-app updates live (done 2026-09-06): keypair generated (public key committed, private key handed to the owner for the TAURI_SIGNING_PRIVATE_KEY secret), sign-when-secret CI logic, preview release published as a prerelease with asset pruning, silent launch check + one-click install + restart in the sidebar. See the 2026-09-06 decision.~~
+302. Library, remaining vs. Paperpile/Zotero after slice 5: duplicate merge (keep links/PDF/tags), inline PDF preview pane in the workbench, ~~tag colours in the UI (done 2026-09-07, #381: swatches, rename, delete from the rail)~~, ~~drag-to-reorder smart views (done 2026-09-07, #400)~~, per-reference notes surfaced in the detail pane.
+301. ~~Library v2 slice 5 (done 2026-09-06): LibraryTag + SavedView, rail sections (Smart views with "+ save", Tags with Untagged), bulk/detail tag editing, API + MCP. See the 2026-09-06 decision.~~
+300. ~~Today list, later (⌘K `todo:` verb done 2026-09-06, #371; hero widget done 2026-09-07, #380; drag-to-reorder done 2026-09-07, #383; due times + sidebar nudge + carry-over count done 2026-09-07, #431).~~
+299. ~~Today list (done 2026-09-06, owner request): core.TodoItem + /today page + sidebar entry + /api/v1/todos/ + MCP list/add/complete. See the 2026-09-06 decision.~~
+298. Citations, later: a CSL-engine backend (citeproc-py) behind the same cite()/bibliography() contract for the long tail of styles; a "Cite" button on the Reference page and the PDF reader; citation export as RTF/Word-ready HTML.
+297. ~~Library v2 slice 4 (done 2026-09-06): formatted citations in six styles + in-text forms + bibliographies; cite endpoints; MCP format_citations; Cite block in the detail pane and Copy citations in the bulk bar; volume/issue/pages carried from Crossref/OpenAlex. See the 2026-09-06 decision.~~
+296. Library v2 slice 4 candidates (judge after slice 3): (a) reference tags + smart lists (saved filter views in the rail), (b) duplicate merge (the bib report flags duplicates; merging keeps links/PDF/notes), (c) per-reference notes + highlight summary surfaced in the detail pane, (d) inline PDF preview pane in the workbench, (e) "Find PDF" per row with a status pill after fetch.
+295. ~~Library v2 slice 3 (done 2026-09-06): discovery lenses (similar / cites / cited-by) with one-click add in the detail pane, export .bib for selection/view + copy BibTeX, bulk Fetch OA PDFs; MCP discover_related + export_bibtex. See the 2026-09-06 decision.~~
+295. Library v2 slice 3 candidates (pick the most "finally" one): (a) PDF-first reading flow from the workbench — open the reader in the detail pane with highlights → notes; (b) smart collections / saved filters ("unread 2024 in Project X", "no PDF yet") pinned to the rail; (c) "find PDFs for all" (OA fetch) as a bulk action + per-row OA badge; (d) author facet + author pages; (e) Zotero collections → projects mapping on import; (f) BibTeX/CSL export of any filtered selection (respecting facets) — Paperpile-style "export what I see".
+294. ~~Library v2 slice 2 — the workbench (done 2026-09-06): facets | list | detail; whole-page drop zone; import panel (files + paste + link-to-project) with per-item results; keyboard j/k/enter/x/o; multi-select bulk bar (link, status, find metadata, delete); year histogram; needs-metadata recovery via DOI/arXiv/Crossref title search; load-more pagination; `projects` on every reference. API: `/references/facets/`, list filters + sorts (NULLs last), `/references/bulk/`, `/references/{id}/find-metadata/`. Screenshots in README.~~
+294. Library v2 slice 2 — the workbench UI: three-pane Library (facets | list | detail), drop-anything import zone with per-file progress, keyboard j/k/enter/x, multi-select bulk actions (link to project, reading status, priority, delete), "find metadata" for needs_metadata stubs, sort/filters, load-more pagination. Backend: `/references/facets/`, list filters (year, has_pdf, entry_type, venue, sort), `/references/bulk/`.
+293. ~~Library v2 slice 1 — import engine (done 2026-09-06): CSL-JSON/RIS/BibTeX/PDF/Zotero-local through one dedupe path; import + import-zotero API; MCP tools. See the 2026-09-06 decision.~~
+292. Observatory, second pass: bespoke treatment for the pages a video lingers on — ~~Project Overview (constellation of that project's references + notes as the header — done 2026-09-07, #387)~~, ~~the Plan (phases as an orbital timeline — done 2026-09-07, #392)~~, ~~the Library (cover-style reference cards — done 2026-09-07, #397)~~, and the 3D graph page (Observatory palette for nodes/links, bloom). Also vendor 3d-force-graph so the graph works offline in the desktop app.
+291. ~~Observatory visual identity (done 2026-09-06): dark-by-default tokens re-skinning every page, aurora + star grain, glass panels, vendored Inter/Space Grotesk, constellation canvas on the dashboard hero and login, icon rail with ⌘K spotlight, spotlight command bar, orbit-ring progress, time-aware greeting. Plan API now returns project_name/project_color (the SPA plan page had an empty breadcrumb and an invisible progress bar). See the 2026-09-06 decision.~~
+289. ~~Desktop ↔ Claude Code, zero-config (done 2026-09-06): API key minted+persisted in the desktop data dir; `server.json` with the live URL; `atlas-mcp` (frozen MCP server) shipped in the installer and discovering both by itself; "Connect Claude Code" page with the exact `claude mcp add` line per install; friendly "is the Atlas app running?" tool error. See the 2026-09-06 decision.~~
+290. ~~Connect page: a live "test the connection" button (done 2026-09-06, #369: four server-side checks, MCP `--check`)~~ — original note: (server-side: spawn the MCP server? no — call the API with the key and report; client-side can't reach the CLI). Low priority; `claude mcp list` covers it.
+288. ~~(Retried 2026-09-07, #405 — red again: linuxdeploy fails on the PyInstaller payload too. Closed.)~~ AppImage retry — it was dropped (#210f) because linuxdeploy could not relink the bundled Postgres `.so`s; with Postgres gone (#286) the only native libs are PyInstaller's, so adding `appimage` back to `bundle.targets` may just work. One CI experiment on a branch; keep .deb/.rpm regardless.
+287. macOS desktop build — add `macos-latest` to the desktop-release matrix (Tauri + PyInstaller both support it; the frozen server needs the same Tailwind + freeze steps). Unsigned .dmg will hit Gatekeeper ("damaged"/right-click Open) until notarization is set up, so document that alongside D3.
+286. ~~Strip the dead Postgres bundling from the desktop app (done 2026-09-06, was parked as #268): removed the per-OS embedded-postgres CI steps, the `resources/pg` bundle resource, ATLAS_PG_BIN in the shell, postgres.exe in the NSIS hooks, the Postgres/MSVCR120 advice on the diagnostic page, and `core/desktop_runtime.py` + its 12 tests. Added `choose_port` (8000 else a free port) so a dev `runserver` no longer breaks the launch, with CSRF origins following ATLAS_PORT; a real `run_desktop --setup-only` test on a fresh SQLite data dir; desktop README rewritten (it still said the server was "NOT YET" bundled). Frozen binary verified end to end on :8077 (login 302→200, CSRF POST 302, foreign Origin 403). See the 2026-09-06 decision.~~
+285. ~~(Retired 2026-09-07: the classic dashboard is no longer the front door; the SPA's calm mode covers its own chrome.)~~ Adopt `calm:hidden` on more secondary chrome (follows #275) — now that the `.calm` variant exists, quiet the remaining noise sources in calm mode: the classic dashboard's activity heatmap, the figure-gallery per-image counts, and any "X this month" stat figures on the classic overview. One class each, no new state. Could also add a tiny "Calm" affordance to the classic base.html so calm mode is discoverable outside the SPA dashboard (idea added by the cycle that shipped #275, 2026-06-17).
+284. ~~⌘K palette recents (done 2026-09-06, #371: "Recent jumps" from localStorage, 6 entries)~~ — original note: ⌘K palette recents/empty-state — when the query is empty the palette shows the "Actions" + page-context block, but not the user's recent jumps. A short "Recent" group (last 3-4 navigations, persisted to localStorage like the classic base.html search-recents already does) would make reopening ⌘K a one-keystroke return to where you were. Pairs with the new group-header rendering (#279) (idea added by the cycle that shipped #279's header, 2026-06-17).
 283. ~~Extend ErrorState to the secondary pages (done 2026-06-17): wired the retryable error state into Decisions, Timeline, Figures, Inbox, and Review (the latter previously masked a failed load as a perpetual "Assembling your week…"). 16 SPA pages now share the error state; guard asserts all 16. Chose this lower-risk coverage pass over the #282 render-prop refactor (rollback frequency made churning 11 working pages unwise this cycle).~~
-282. A shared `<QueryBoundary>` (or `useQueryView`) wrapper — loading-skeleton + ErrorState are consistent but still hand-wired per page (every page repeats the isLoading/error/!data ladder, now 16×). A small wrapper taking the query result + a skeleton + a render fn would remove the boilerplate and guarantee no page forgets the error branch. Still-unwired: Graph, Reference detail, Research, Automations, ReadingFlow, NewProject. Do this as a careful refactor when the container is stable (idea updated by the cycle that shipped #283, 2026-06-17).
+282. ~~(Shipped 2026-09-07, #409: `queryGate` + `QueryBoundary`, nine pages wired, guard test.)~~ A shared `<QueryBoundary>` (or `useQueryView`) wrapper — loading-skeleton + ErrorState are consistent but still hand-wired per page (every page repeats the isLoading/error/!data ladder, now 16×). A small wrapper taking the query result + a skeleton + a render fn would remove the boilerplate and guarantee no page forgets the error branch. Still-unwired: Graph, Reference detail, Research, Automations, ReadingFlow, NewProject. Do this as a careful refactor when the container is stable (idea updated by the cycle that shipped #283, 2026-06-17).
 281. ~~Roll ErrorState into the primary pages (done 2026-06-17): wired the retryable ErrorState into the six main index/detail pages that previously had NO error branch at all (Projects, Library, Notes, Writing, Literature, Search) — a failed load on any of them now shows "Try again" instead of silently rendering empty or crashing. 11 pages total now on the shared error state. Guard strengthened to assert all 11 keep it.~~
 280. ~~Retryable ErrorState component (done 2026-06-17): replaced the bare red "Couldn't load…" lines on the 6 highest-traffic SPA query failures (Dashboard, Documents, Files content + tree, ProjectOverview, Plan) with a shared, dark-aware ErrorState that offers a "Try again" button (refetch) — transient API hiccups recover in place, no full reload. Guard test asserts it's built + no page regresses to the bare pattern.~~
-279. More palette verbs (continuing #276/#277) — keep adding the safe, reversible actions the owner repeats: "Copy current project .bib", "Go to today's review", "New quick capture" (beyond the capture: prefix). Keep them side-effect-light so a mistaken Enter never destroys anything. ~~The "Commands" group header is DONE (2026-06-17): palette rows now show a section label per kind (Commands / Go to / Complete) inserted whenever the kind changes, so verbs read as actions distinct from navigation; guard asserts the header is built.~~ Remaining: the additional verbs themselves.
+279. ~~More palette verbs (continuing #276/#277) — keep adding the safe, reversible actions the owner repeats: "Copy current project .bib", "Go to today's review", "New quick capture" (beyond the capture: prefix). (Done 2026-09-07, #391: those three plus warm-up, backup and the web inspector.)~~ Keep them side-effect-light so a mistaken Enter never destroys anything. ~~The "Commands" group header is DONE (2026-06-17): palette rows now show a section label per kind (Commands / Go to / Complete) inserted whenever the kind changes, so verbs read as actions distinct from navigation; guard asserts the header is built.~~ Remaining: the additional verbs themselves.
 277. ~~"Toggle calm mode" palette verb (done 2026-06-17): ⌘K now offers it alongside "Toggle dark mode", discoverable by typing calm/focus/quiet/stats; flips the shared calm state and flashes the result.~~
 278. ~~Calm mode live-updatable (done 2026-06-17): extracted frontend/src/app/calm.ts (readCalm/setCalm/toggleCalm + a useCalm() hook). setCalm persists AND dispatches a same-tab "atlas-calm-change" event; useCalm also listens to cross-tab `storage`. The dashboard now uses useCalm() so the palette verb (#277) flips it live without a remount.~~
 276. ~~Surface the theme toggle in ⌘K (done 2026-06-17): the command palette now offers a "Toggle dark mode" verb (kind: "verb"), discoverable by typing dark/light/theme/appearance, flipping window.__toggleTheme() and flashing the resulting state. Verb matches rank above nav results. Guard test asserts the source + committed spa.js agree.~~
@@ -764,15 +2401,15 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 256. ~~Figure-gallery UI page (done 2026-06-16): app/pages/Figures.tsx — a calm React grid that fetches /projects/{slug}/figures/, groups thumbnails by folder, offers a tag-filter chip row, and opens a click-to-lightbox (full image + download/close) over each figure's nosniff'd raw_url. Empty state points to Documents. Wired the route in main.tsx + a Figures quick-link on ProjectOverview. tsc clean (0 errors; the 32 pre-existing src/editor errors were just an incomplete node_modules — npm ci fixed them), vite build regenerated spa.js + Figures-chunk.js, the route is in the bundle, and the /figures/ data was live-verified end-to-end in #8-data. Frontend slice; built artifacts committed.~~
 255. The three inline/download file responses (document_download, document_preview, api raw) now all hand-set `Cache-Control: private, max-age=86400` + (where inline) nosniff. If a fourth file-serving path appears, a tiny `cacheable_file_response(handle, content_type, *, inline)` helper in documents/ would keep the immutability/cache/nosniff contract in one place (pairs with the #251 inline-safety helper idea). Low priority (idea added during #254)
 254. ~~Cache-Control on the API raw inline endpoint (done 2026-06-16): DocumentViewSet.raw set nosniff but no Cache-Control, while document_download/document_preview both cache the same immutable files for a day — so the workspace PDF/image preview re-downloaded every view. Added `Cache-Control: private, max-age=86400` (uploads are immutable; edits create new files), matching the other two paths; extended the raw test to assert it. AUDIT #23 follow-on.~~
-253. Subscribable calendar feed (follow-on to #9's calendar half): the .ics endpoint authes via the X-API-Key *header*, but real calendar apps (Google/Apple/Outlook) subscribe by URL and can't send custom headers. A read-only, revocable per-user feed token in the path (e.g. /calendar/{token}.ics, login_not_required, constant-time compared, scoped to deadlines only) would make it actually subscribable. Defer until after AUDIT #23 since it adds a URL-bearing credential — design the token rotation/scoping carefully (idea added during #9-calendar)
+253. ~~(Done 2026-09-07, #401: a read-only, rotatable feed token in the `?key=` URL.) Subscribable calendar feed (follow-on to #9's calendar half): the .ics endpoint authes via the X-API-Key *header*, but real calendar apps (Google/Apple/Outlook) subscribe by URL and can't send custom headers. A read-only, revocable per-user feed token in the path (e.g. /calendar/{token}.ics, login_not_required, constant-time compared, scoped to deadlines only) would make it actually subscribable. Defer until after AUDIT #23 since it adds a URL-bearing credential — design the token rotation/scoping carefully (idea added during #9-calendar)~~
 252. The doctor's worker/redis, static-css, optional-components (Tectonic/Piper), and media+api-key blocks are still inline in handle() like the desktop block was before #208. If handle() keeps growing, the same extract-to-_check_X() treatment (a small ordered list of self.* section methods) would keep it a readable table of contents. Low priority — only worth it if another section accretes sub-checks (idea added during #208)
-251. Centralize the inline-preview safety contract: both paths (documents.views.document_preview #249 and api DocumentViewSet.raw #250) now independently (a) allowlist a content type and (b) confirm magic bytes before serving inline. A tiny shared helper — e.g. documents.preview.inline_response(file, declared_type) returning a nosniff FileResponse or None — would make the rule live in one place so a future third inline surface can't forget the byte check. Low priority; revisit if a third inline path appears (idea added during #250)
+~~251. Centralize the inline-preview safety contract: both paths (documents.views.document_preview #249 and api DocumentViewSet.raw #250) now independently (a) allowlist a content type and (b) confirm magic bytes before serving inline. A tiny shared helper — e.g. documents.preview.inline_response(file, declared_type) returning a nosniff FileResponse or None — would make the rule live in one place so a future third inline surface can't forget the byte check. Low priority; revisit if a third inline path appears (idea added during #250)~~ (done 2026-09-07, #434: both paths return through `core/files.py::file_response`)
 250. ~~Sniff bytes on the API raw inline endpoint too (done 2026-06-16): DocumentViewSet.raw picked its inline content_type purely from the file extension (.png → image/png) and never checked the bytes — the same mismatch class #249 closed for the document preview. It now reads the head, confirms it (sniff_image_type for rasters, a `%PDF-` check for PDFs), and 404s if the bytes don't match the extension-claimed type, so a mislabeled file (html named .png) can't reach the inline path. Reused documents.models.sniff_image_type; updated the existing raw test to a full PNG signature + added a mislabeled-extension 404 test.~~
 224. ~~Windows desktop "127.0.0.1 refused to connect" (fixed 2026-06-14): the owner's install launched but the bundled server never served. Root cause: ensure_postgres passed `-k <socket_dir>` (a unix-socket path) inside pg_ctl's space-split `-o` string — Windows has no such socket and a username with a space splits the arg, so `pg_ctl start` failed, crashed run_desktop, and the window hit a blank ERR_CONNECTION_REFUSED. Fix: only pass `-k` on POSIX (the app connects over TCP loopback everywhere anyway); on a start failure raise a RuntimeError carrying postgres.log's tail; and tee the frozen server's stdout/stderr to <data-dir>/atlas-server.log (the windowed build has no console, so crashes were invisible — this also stops a stray print crashing on a None stdout). Pushing this rebuilds the installer for the owner to retry; 2 guard tests. (Can't run Windows here — fix is by code reasoning + the new log will confirm/deny if it persists.)~~
 225. ~~Windows initdb.exe exits 1 (in progress 2026-06-14, #228): the atlas-server.log (the #224 logging worked!) showed initdb.exe runs but exits status 1 — so #224's socket fix was for a later step; the real failure is initdb itself, and my code didn't surface its stderr. #228 fixes three things: (1) _run now raises RuntimeError WITH stdout+stderr for EVERY pg helper, so the next log shows initdb's actual complaint; (2) a half-built pgdata (no PG_VERSION) from prior failed runs is rmtree'd before initdb (else "directory not empty" fails every retry); (3) the `\\?\` extended-length prefix Tauri puts on the binary path is stripped (initdb mis-resolves its share/ dir from it). Pushing rebuilds the installer. If still failing, the next atlas-server.log will name the exact initdb error.~~ Remaining for #225: main.rs should show a friendly in-app error page (with the log path) instead of the raw browser refused-to-connect.
 229. ~~CI didn't rebuild on desktop server Python changes (fixed 2026-06-14): #228's fix lived in core/desktop_runtime.py, but desktop-release.yml's push paths were `desktop/**` + the workflow file only — so the installer never rebuilt and the owner would have re-tested an unchanged binary. The frozen server bundles core/desktop_runtime.py, run_desktop.py, config/settings/desktop.py and pyproject.toml, so those are now in the trigger paths (guard test added). I lack workflow_dispatch permission (403), so editing the workflow — which is in its own paths — is how I kick a build for a non-desktop/ change. (Broader app-model changes still won't auto-rebuild the desktop bundle; acceptable — those rarely need a desktop-only reship, and a version tag always rebuilds.)~~
 231. ~~Windows: bundled Postgres has no client tools (fixed 2026-06-14, THE root cause): the owner's log proved #228's `\\?\` strip fixed initdb (it now succeeds) — the failure moved to `pg_isready not found`. The zonky windows-amd64 16.4.0 bundle ships ONLY initdb.exe/pg_ctl.exe/postgres.exe; NOT pg_isready/psql/createdb/createuser (verified by extracting the jar). ensure_postgres shelled out to pg_isready (wait), psql (db-exists), createdb (create) — all absent on Windows. Fix: do the readiness wait + `SELECT 1 FROM pg_database` + `CREATE DATABASE` through psycopg (already in the frozen server; migrate needs it) — no client-tool dependency, cross-platform (psycopg uses TCP loopback). Live-verified the wait+ensure logic end-to-end on the dev Postgres (create-if-missing + idempotent). Guard test forbids _pg_bin("pg_isready"/"psql"/"createdb"). The whole Windows saga was one onion: initdb-not-found(#210) → unix socket(#224) → \\?\ prefix(#228) → missing client tools(#231); no Windows machine needed — owner logs + jar inspection + live psycopg test diagnosed each.~~
-211. (AUDIT #20) Tighten the bundled-Postgres auth — trust-auth on 127.0.0.1 lets any local process reach the desktop DB without a password (fine for single-user, matches file ownership). A unix-socket-only listener or a generated password would harden it; low priority (idea added by AUDIT #20)
+211. ~~(AUDIT #20) Tighten the bundled-Postgres auth — trust-auth on 127.0.0.1 lets any local process reach the desktop DB without a password (fine for single-user, matches file ownership). A unix-socket-only listener or a generated password would harden it; low priority (idea added by AUDIT #20)~~ (struck 2026-09-07, sweep #467: obsolete — the bundled Postgres was replaced by SQLite (#266); there is no local DB listener)
 
 ### ★ #210 post-ship fixes (owner ran the Windows installer, 2026-06-14)
 - **210-fix1 ✅ Windows "initdb not found" crash:** the installer launched + the frozen server ran, but `_pg_bin` looked for `initdb` while Windows ships `initdb.exe`. Fixed: `_pg_bin` now checks both `<name>` and `<name>.exe` and searches both ATLAS_PG_BIN and ATLAS_PG_BIN/bin; main.rs passes the pg ROOT (resource_dir/pg) so the bin/ fallback covers any layout. 2 new tests (.exe + bin-subdir). The frozen server + Tauri launch worked — this was the last runtime gap.
@@ -841,8 +2478,8 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 197. ~~Fold folder_tree's own query (done 2026-06-14): folder_tree(project, prefetched=None) takes an optional pre-loaded folder list; it had exactly one caller (documents_index), which now loads project.folders.all() ONCE and feeds it to the nested tree, the bulk-move select, and the row selects. Folder-table queries 4→3 (total 12→11); budget tightened 16→15. The fallback keeps folder_tree standalone-callable.~~
 181. ~~Documents folder-query redundancy (done 2026-06-14): investigated the ~5 folder-table queries — folder_tree itself is already one query (builds nesting in memory, no N+1); the redundancy was the bulk-move <select> re-fetching project.folders.all despite the #180 cached `folders` context var. Pointed it at the cache: folder-table queries 5→4, total 13→12; tightened the budget test 18→16 to lock it in. Remaining duplicate (folder_tree's own query) split to #197.~~
 180. ~~Documents move-`<select>` N+1 (found by AUDIT #17, fixed 2026-06-13): `_doc_row.html` re-queried `project.folders.all` per document row (10 folder-table q across ~5 rows, O(rows)). Fixed by passing one cached `list(project.folders.all())` from documents_index and iterating `folders|default:project.folders.all` so HTMX single-row swaps still fall back to a single query. Folder-table queries dropped 10→5 (now row-independent); a django_assert_max_num_queries(18) test with 5 folders × 15 docs guards the regression.~~
-185. Typeahead "no match" feedback — when the buffer matches nothing, the hint pill could flash red/shake briefly so it's clear the keystroke landed but found nothing, instead of silently holding focus (idea added during #168/#169)
-184. Extend the typeahead hint pattern to the classic documents/folder tree (HTMX) — the React Files tree now has it; the server-rendered tree could get a small JS sprinkle for parity (idea added during #168/#169)
+185. ~~Typeahead "no match" feedback — when the buffer matches nothing, the hint pill could flash red/shake briefly so it's clear the keystroke landed but found nothing, instead of silently holding focus (idea added during #168/#169) — done 2026-09-07, #402~~
+184. ~~Extend the typeahead hint pattern to the classic documents/folder tree (HTMX) — the React Files tree now has it; the server-rendered tree could get a small JS sprinkle for parity (idea added during #168/#169) — classic-only; retired 2026-09-07~~
 169. ~~Cancel typeahead on focus leave / Escape (done 2026-06-14): Escape clears a pending buffer (and is swallowed so it doesn't also collapse/deselect), and onBlur on the tree clears it, so returning to the tree never triggers a surprise jump from a stale buffer. DOM-verified: Escape removes the hint span.~~
 168. ~~Active typeahead buffer hint (done 2026-06-14): the current buffer shows as a small dark mono pill in the tree's top-right while typing, auto-clearing 1s after the last keystroke (and on Escape/blur), so you can see what you've typed when names share a prefix. DOM-verified: the hint span carries the typed text.~~
 167. ~~Type-to-select in the Files tree (done 2026-06-13): pressing a letter jumps focus to the next visible row whose name starts with the typed buffer (Finder/VS Code behavior); 800ms reset window, modifier-aware so Ctrl-P is untouched; complements the arrow nav + Ctrl-P. Live-verified: typing 'a' jumped to analysis-notes.md.~~
@@ -854,7 +2491,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 186. #25 density sweep is COMPLETE across the main surfaces (overview, dashboard, plan, writing board, library, documents, reading queue, matrix, project literature) — next density-adjacent work should be the shared base list-page wrapper (#183) so future pages inherit the rhythm instead of re-applying it by hand (idea added during #182)
 182. ~~Project literature index density (done 2026-06-14): literature/project_literature.html widened to max-w-6xl + header mb-6→4; the filter bar / keyword cloud / link list were already tight. Live-verified 200 at width 1056, no JS errors, screenshot reviewed. The per-project Literature landing now matches the rest of the #25 sweep — density is consistent across every literature surface.~~
 179. ~~Reading-queue + review-matrix density (done 2026-06-13): reading_queue.html + matrix.html widened to max-w-6xl, order-filter/intro margins 6→4, matrix th/td py-2→1.5; finishes the #25 table/list sweep across literature (library #165, documents #171, queue + matrix #179). Both live-verified 200 at width 1056, no JS errors, matrix screenshot reviewed (calm, cohering with the icon nav).~~
-178. Documents-table empty/sparse state polish — with the wider layout a 3-row table leaves a lot of whitespace; a calmer empty-ish state or a max-height could tighten sparse projects (idea added during #171)
+178. ~~(Done 2026-09-07, #421: dashed sparse footer + upload CTA.)~~ Documents-table empty/sparse state polish — with the wider layout a 3-row table leaves a lot of whitespace; a calmer empty-ish state or a max-height could tighten sparse projects (idea added during #171)
 171. ~~Density pass on the documents/folder tables (done 2026-06-13): the per-project Documents page widened to max-w-6xl (block main_class), header mb-6→4, table header + every _doc_row.html cell py-2→1.5; the folder rail already used .card. Live-verified: 200, main width 1056, rows render, no JS errors, screenshot reviewed (cohering with the new sidebar + subnav icons). Completes the #25 table sweep alongside #165.~~
 191. Factor the "remember a whitelisted ?param in the session" pattern into a tiny helper (now used by #176 library sort and #190 literature order) so future persisted controls don't re-implement the get/restore dance (idea added during #190)
 190. ~~Persist the per-project literature order (done 2026-06-14): the order pill choice saves to session["literature_order"]; visiting the per-project Literature page with no ?sort= restores it (default "added"), mirroring #176's library sort. Test covers the round-trip; live-verified choosing Title persists across a bare revisit.~~
@@ -873,30 +2510,30 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 176. ~~Persist the library sort (done 2026-06-14): an explicit ?sort= is saved to request.session (library_sort/library_dir); arriving at /library/ with no sort param restores the last-used order instead of snapping to title-asc. Test asserts a sorted visit then a bare visit keeps the order; live-verified Year-desc persists across a param-less revisit with the arrow shown.~~
 170. ~~Sortable library columns (done 2026-06-13): Reference/Year/Venue/Cited headers are server-side sort links (?sort=&dir=, no JS) via a _sort_th.html partial; a LIBRARY_SORTS whitelist keeps ?sort= off arbitrary ORM fields, nulls_last keeps blanks off the top, title is the stable tiebreaker, the search query is preserved, and the active column shows a ↑/↓ + aria-sort. 4 tests incl. a hostile-sort fallback. Live-verified: Year asc 1995→ / desc 2022→.~~
 165. ~~Density pass on the library/literature index (done 2026-06-13): widened to max-w-6xl, header/search margins 6→4, table header + row padding 2→1.5; calm and scannable, 25 rows verified, query budget held. Documents tables split out to #171.~~
-164. Audit-cadence note in PROGRESS — track 'milestones since last audit' explicitly so AUDIT #17 timing is unambiguous after the rollback-scrambled milestone numbering (idea added by AUDIT #16)
-163. Reset-layout confirmation — Reset layout reloads immediately; a tiny inline confirm (or undo toast) would prevent an accidental wipe of a carefully-tuned arrangement (idea added during #150)
-162. Pet speaks its mood+stage blurb on hover/click — the voice now varies by mood; let the pet optionally read its mood_blurb so you hear the personality, not just a fixed line (idea added during #149)
+164. ~~Audit-cadence note in PROGRESS — track 'milestones since last audit' explicitly so AUDIT #17 timing is unambiguous after the rollback-scrambled milestone numbering (idea added by AUDIT #16)~~ (struck 2026-09-07, sweep #467: obsolete — slices are numbered (#4xx) and audits are logged in AUDITS.md)
+163. ~~Reset-layout confirmation — Reset layout reloads immediately; a tiny inline confirm (or undo toast) would prevent an accidental wipe of a carefully-tuned arrangement (idea added during #150) — moot in the SPA (no reset-layout control); retired 2026-09-07, #402~~
+162. ~~Pet speaks its mood+stage blurb on hover/click — the voice now varies by mood; let the pet optionally read its mood_blurb so you hear the personality, not just a fixed line (idea added during #149) — covered: the click reads the rotating mood bubble; retired 2026-09-07, #402~~
 175. Editor chrome / writing board could reuse core/_nav_icon.html names where they overlap (writing, documents) so there's literally one icon source file, retiring any remaining bespoke inline SVGs (idea added during #173)
-174. Persist + indicate keyboard focus across the subnav (roving tabindex / arrow-key tab traversal) now that it's a richer icon bar — small a11y win matching the Files-tree nav (idea added during #173)
+174. ~~Persist + indicate keyboard focus across the subnav (roving tabindex / arrow-key tab traversal) now that it's a richer icon bar — small a11y win matching the Files-tree nav (idea added during #173) — classic subnav only; the SPA has no icon subnav; retired 2026-09-07~~
 173. ~~Lucide icons on the project context subnav (done 2026-06-13): all 11 tabs (Overview/Plan/Documents/Literature/Questions/Writing/Notes/Research/Graph/Decisions/Edit) now carry a calm Lucide glyph from core/_nav_icon.html (Literature reuses the library glyph); the bar wraps gracefully (flex-wrap) so the icons never overflow. 2 added guard tests (subnav↔partial lockstep). Screenshot reviewed: calm, Overview active.~~
-172. Active-item icon tint — nav icons are uniformly stone-400; tinting the active item's icon with the accent (or stone-600) would reinforce "you are here" without extra chrome (idea added during #161)
+172. ~~Active-item icon tint — nav icons are uniformly stone-400; tinting the active item's icon with the accent (or stone-600) would reinforce "you are here" without extra chrome (idea added during #161) — done 2026-09-07, #402~~
 161. ~~Lucide icons in the classic sidebar/nav (done 2026-06-13): a core/_nav_icon.html partial inlines the Lucide (MIT) stroke set so the classic Django sidebar shares the React workspace's icon language — Dashboard/Projects/Library/Writing/Prompts/Inbox/Assistant + the mobile menu button; ☰ and ✨ glyphs retired. 4 guard tests (base↔partial lockstep, no bare emoji, rendered). Screenshot reviewed: calm. Editor-chrome already done in #137; subnav split to #173.~~
 159. ~~Vite 6→8 upgrade (done 2026-06-14): bumped vite ^6→^8 + @vitejs/plugin-react ^4→^6; npm audit --omit=dev now 0 vulns (esbuild advisory GHSA-gv7w-rqvm-qjhr closed). Vite 8 reshuffled chunk module-id matching so the chunkFileNames heuristics needed updating: the editor-core chunk is now the shared CodeMirror bundle (detect "codemirror", not just /src/editor/), and Vite 8's opaque "chunk"/"dist"/"index" fallback names map to a tidy "shared-chunk.js". Clean-rebuilt (rm islands/* first) so no stale orphans (removed client-chunk/index-chunk + the now-inlined TerminalPanel.css). tsc clean; all 5 key surfaces (SPA dashboard, Files, classic documents, library, latex editor) live-verified with zero JS errors / zero failed JS requests + screenshot.~~
 160. ~~Harden the Tauri webview navigation allowlist (done 2026-06-13, from AUDIT #15): the desktop shell's WebviewWindowBuilder.on_navigation only permits the Atlas host (localhost), so a compromised loaded page can't steer the app window off-origin; cargo check passes, structural test asserts the guard.~~
 
 (populated by phase gates; work top to bottom only after the Phase 6 gate passes)
 
-1. In-browser PDF viewer with highlight-to-note
+1. ~~In-browser PDF viewer with highlight-to-note (done across the Library v2 slices: the workbench reader with highlights, notes, comments; swept 2026-09-07, #436)~~
 2. ~~Literature review matrix (papers × themes) (DEAD/already-done, swept 2026-06-16): the matrix exists — GET /api/v1/projects/{slug}/review-matrix/ ("which paper covers which theme") + a React review-matrix surface + seed_demo data. Nothing to build. Dead-idea sweep per #201.~~
-3. Embedding-based related-paper suggestions
+3. ~~Embedding-based related-paper suggestions (the offline version shipped as local TF-IDF cosine — Library rail, Reference page and MCP `get_related_in_library`; OpenAlex covers papers outside the library; swept 2026-09-07, #436)~~
 4. ~~GitHub commit ↔ experiment linking (done 2026-06-16): ExperimentEntry gained a commit_url URLField + a commit_label property that prettifies a GitHub/GitLab commit URL to owner/repo@shortsha (else the host). Wired through the form, admin list_display, the ExperimentEntrySerializer (read-only commit_label), the classic experiments.html (a ⎇ owner/repo@sha link), and the React Research experiment log. Pure pasted-URL link — no GitHub API call — so it's offline/host-agnostic. Migration 0002; live-verified the read path + label parse; 3 tests (label parsing across hosts, rendered link, form accepts url). The "fetch commit metadata" richer version stays parked as #259.~~
 5. ~~Cmd+K command palette (DEAD/already-done, swept 2026-06-16): app/CommandBar.tsx is a complete Cmd/Ctrl+K palette — fuzzy jump-to-anything (subsequence scorer), real verbs (capture:, done:), page-aware quick actions from the assistant context endpoint, recents, and an "Ask Claude" MCP handoff. Bound to (metaKey||ctrlKey)+k in CommandBar. Already shipped back in cycle 65; nothing to build. Dead-idea sweep per #201.~~
 6. ~~Auto-generated weekly review (DEAD/already-done, swept 2026-06-16): the weekly review exists — core/reviews.weekly_review() + WeeklyReviewAPIView (/api/v1/weekly-review/) + the React Review page (cross-project /review and scoped /projects/:slug/review, with week-back nav and a copyable digest). Nothing to build. Dead-idea sweep per #201.~~
 7. ~~Protocol library with versioning — API-first slice done 2026-06-16: new research.Protocol model (project, title, body markdown, version, parent self-FK) — append-only, so editing means a new version: protocol.new_version(**overrides) clones with version+1 and parent set, and is_current = "no later version names me as parent" (head of the chain). Exposed as a WRITABLE DRF viewset /api/v1/protocols/ (the one research viewset that's writable — protocols are an MCP-managed, machine-friendly feature so Claude can author/revise them) with a POST {id}/new-version/ action; version+parent are read-only (the history chain can't be forged). Registered in admin + router; schema --fail-on-warn clean. Migration research/0003; live-verified create→new-version→list (v2 current, v1 superseded); 8 tests. Remaining: a classic/SPA project UI page (list current protocols + version history + edit-as-new-version) — parked as #260.~~
-8. Results/figure gallery — ~~data layer done 2026-06-16 (API-first): GET /api/v1/projects/{slug}/figures/ returns every inline-previewable raster image in the project (newest first) — id, title, folder, tags, size, content_type, created_at + a `raw_url` that serves the image inline (reusing #250/#254). documents.selectors.project_figures is a pure, N+1-free selector (filter content_type startswith image/ in DB, exact preview_kind whitelist in Python, excludes SVG); API-key gated, project-scoped, schema-documented (--fail-on-warn clean). Live-verified end-to-end (uploaded a PNG → appeared in the feed → raw_url served image/png inline + nosniff + cache). 7 tests.~~ Remaining: the gallery UI page (#256) — a React grid of thumbnails linking to raw_url, grouped by folder, with a tag filter.
-9. Email/calendar deadline reminders — ~~calendar half done 2026-06-16: GET /api/v1/projects/{slug}/calendar.ics/ exports the project's milestone due dates + manuscript deadlines as an iCalendar (RFC 5545) feed of all-day VEVENTs (core/calendar.py, a dependency-free generator with escape + 75-octet line folding; completed milestones marked ✓/CONFIRMED). Authed via the existing X-API-Key; schema validates with --fail-on-warn; live-verified (7 events on the demo project). 8 tests.~~ Still open: the email-reminder half (needs SMTP config) and a token-in-URL feed so a calendar app can subscribe without a header (see #253).
+8. Results/figure gallery — ~~data layer done 2026-06-16 (API-first): GET /api/v1/projects/{slug}/figures/ returns every inline-previewable raster image in the project (newest first) — id, title, folder, tags, size, content_type, created_at + a `raw_url` that serves the image inline (reusing #250/#254). documents.selectors.project_figures is a pure, N+1-free selector (filter content_type startswith image/ in DB, exact preview_kind whitelist in Python, excludes SVG); API-key gated, project-scoped, schema-documented (--fail-on-warn clean). Live-verified end-to-end (uploaded a PNG → appeared in the feed → raw_url served image/png inline + nosniff + cache). 7 tests.~~ ~~Remaining: the gallery UI page (#256) — a React grid of thumbnails linking to raw_url, grouped by folder, with a tag filter.~~ (The Figures page `/projects/{slug}/figures` shipped it; swept 2026-09-07.)
+9. Email/calendar deadline reminders — (email half retired 2026-09-07: it needs SMTP credentials, a settings screen in disguise; the calendar feed + feed token (#401) and the deadline-reminder bot into the Inbox cover the need) ~~calendar half done 2026-06-16: GET /api/v1/projects/{slug}/calendar.ics/ exports the project's milestone due dates + manuscript deadlines as an iCalendar (RFC 5545) feed of all-day VEVENTs (core/calendar.py, a dependency-free generator with escape + 75-octet line folding; completed milestones marked ✓/CONFIRMED). Authed via the existing X-API-Key; schema validates with --fail-on-warn; live-verified (7 events on the demo project). 8 tests.~~ Still open: the email-reminder half (needs SMTP config) and a token-in-URL feed so a calendar app can subscribe without a header (see #253).
 10. ~~OpenAlex "discover similar" (done 2026-06-11, cycle 31): `literature/discover.py` resolves the work, batch-fetches related_works, filters out DOIs already in the library; ⌕ Discover panel on reference detail with one-click + Add (reuses by-DOI import incl. background PDF fetch); verified live on a real paper.~~
-11. Conditional GETs — ETag/Last-Modified on API list endpoints and far-future cache headers on media/static, so MCP polling and the PDF reader get cheap revalidation (idea added by cycle 4, from the performance pass)
+11. ~~Conditional GETs (API lists since #384; served files since #434; swept 2026-09-07)~~ — original: ETag/Last-Modified on API list endpoints and far-future cache headers on media/static, so MCP polling and the PDF reader get cheap revalidation (idea added by cycle 4, from the performance pass)
 12. ~~“Read aloud” for whole PDFs (done 2026-06-11, cycle 32): ▶ Listen in the reader — streams text-layer pages through /tts/ from the page in view, sentence-aware chunking for long pages, pause/stop mini player, auto-scroll to the page being read, graceful voice-missing message.~~
 13. ~~Worker-deploy note (done 2026-06-11, cycle 33): `make worker` restart target + README warning; doctor detects stale workers via a CODE_STAMP round-trip task.~~
 14. ~~Keyword cloud + queue filters (done 2026-06-11, cycle 35): weighted keyword cloud on the project literature page (10-min cached), clicking filters both the literature list and the reading queue by ?kw=.~~
@@ -904,7 +2541,7 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 16. ~~`make doctor` (done 2026-06-11, cycle 33): manage.py doctor checks db/migrations/redis/worker-liveness+freshness/CSS/Tectonic/voice/media/API-key with ✓⚠✕ output and exit codes; verified live incl. catching a genuinely stale worker.~~
 17. ~~Prompt variables (done 2026-06-11, cycle 36): `{{placeholder}}` parsing on Prompt (`variable_names` property), per-card fill-in inputs on the gallery, copy button substitutes filled values before writing to the clipboard.~~
 18. ~~Bot run history charts (done 2026-06-11, cycle 37): pure-CSS bar sparkline of the last 20 runs per bot on the Automations page — bar height = headline number parsed from each result line (`BotRun.count`), failed runs in red, hover tooltip with date + result; history list capped at 5 with chart above; seeded demo runs. (Last-N retention shipped earlier in cycle 12.)~~
-19. LaTeX compile service — vendor the Tectonic binary (like Tailwind/Piper pattern) behind a huey task with compile logs surfaced in the editor (idea added by cycle 13)
+19. ~~LaTeX compile service — vendor the Tectonic binary (like Tailwind/Piper pattern) behind a huey task with compile logs surfaced in the editor (idea added by cycle 13)~~ (Done: the studio compiles with bundled Tectonic, logs in the problems panel; swept 2026-09-07.)
 20. ~~Comment mentions (done 2026-06-11, cycle 38): `core/mentions.py` resolves `[[Note Title]]` (when exactly one note matches, any project) and `@cite-key` into markdown links before markdownify/nh3; applied via the `mentions` template filter in comment threads; unresolved/ambiguous mentions stay as typed; seeded demo comment exercises both.~~
 21. ~~Queue gap-ordering (done 2026-06-11, cycle 41): "Fill matrix gaps" toggle on the reading queue — each queued paper scores by its least-read theme (READ/ANNOTATED counts), under-read themes float up with an amber "fills: <theme> (n read)" badge, unmarked papers sort last; default priority order unchanged.~~
 22. ~~Pet hop (done 2026-06-11, cycle 42): milestone completion sends `HX-Trigger: atlas:milestone-completed`; a body listener restarts a calm two-bounce CSS animation on the sidebar pet (reduced-motion respected; un-checking stays quiet); verified in a real browser both ways.~~
@@ -913,71 +2550,71 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 25. ~~Suggest keyboard nav (done 2026-06-11, cycle 45, UI/UX): ↑/↓ cycle a highlight through the sidebar suggestions (proper combobox/listbox roles + aria-activedescendant), Enter opens the active result, first Escape clears the list keeping focus, second blurs; browser-verified end to end. Recent-searches memory split out to Backlog #52.~~
 26. ~~GIN trgm indexes (done 2026-06-11, cycle 46): GinIndex(gin_trgm_ops) on the five trigram-fallback columns (project.name, reference/note/document/decision title), migrations depend on core.0003_pg_trgm; fallback switched from `similarity()>0.25` (seq-scan only) to `__trigram_similar` (% operator, threshold 0.3) so the planner can use the indexes — EXPLAIN-verified Bitmap Index Scan; typo search re-verified live.~~
 27. ~~MCP ETag cache (done 2026-06-11, cycle 47): the MCP client remembers ETag+body per GET (path, params), sends If-None-Match and reuses the cached body on 304 — verified [200, 304] live against the real API; client stays pure httpx (AST test green). Last-Modified on media split out to Backlog #54.~~
-28. Loop-resilience note — chain notifications can drop and watchdog monitors expire at 30 min; watchdog is now re-armed every cycle (lesson from the cycle-21→22 stall)
-29. Dev-process note — runserver/worker restarts must use pkill -f "[m]anage.py ..." (bracket trick) or they kill their own shell; documented after the cycle-23 debugging (idea added by cycle 23)
-30. Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24)
-31. Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25)
-32. tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26)
-33. SyncTeX-style jump — click in the PDF preview to jump to the matching source line (idea added by cycle 27)
-34. Animated demo GIF for the README — scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
+28. ~~Loop-resilience note — chain notifications can drop and watchdog monitors expire at 30 min; watchdog is now re-armed every cycle (lesson from the cycle-21→22 stall)~~ (struck 2026-09-07, sweep #467: note, not a task — the loop's own process; kept in CLAUDE/PROGRESS rituals)
+29. ~~Dev-process note — runserver/worker restarts must use pkill -f "[m]anage.py ..." (bracket trick) or they kill their own shell; documented after the cycle-23 debugging (idea added by cycle 23)~~ (struck 2026-09-07, sweep #467: note, not a task — the bracket-trick is in the scratchpad start scripts)
+30. ~~Editor split view — compiled PDF preview pane beside the source with sync scroll (idea added by cycle 24) — the split view shipped with the studio; sync scroll done 2026-09-07, #394~~
+31. ~~Comment markers rendered in the PDF margin at their anchor position (idea added by cycle 25) — done 2026-09-07, #396 (page-anchored bubbles + comment-on-this-page)~~
+32. ~~tl;dr for whole PDFs — summarize the text layer per section in the reader (idea added by cycle 26) — done 2026-09-07, #395~~
+33. ~~SyncTeX-style jump (done 2026-09-07, #378: double-click the PDF → source, ⌘⇧J → PDF)~~
+34. ~~Animated demo GIF for the README (done 2026-09-07, #430: `scripts/demo_gif.py` → `docs/demo.gif`, `make demo-gif`)~~ — original idea: scripted Playwright run through the killer 60-second flow (idea added by cycle 28)
 35. Slim the Docker image — multi-stage build, piper/onnx as optional extra (~800 MB → ~300 MB) (idea added by cycle 29)
-36. Containerized LaTeX compile — run Tectonic in a throwaway container/namespace to close the \input file-read residual risk if Atlas ever goes multi-user (idea added by cycle 30 audit)
-37. Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31)
-38. Listen prefetch — synthesize the next chunk while the current one plays to remove gaps (idea added by cycle 32)
-39. Doctor on the Automations page — render the same checks in the UI with a stale-worker banner (idea added by cycle 33)
+36. ~~Containerized LaTeX compile — run Tectonic in a throwaway container/namespace to close the \input file-read residual risk if Atlas ever goes multi-user (idea added by cycle 30 audit)~~ (struck 2026-09-07, sweep #467: closed by `--untrusted` in writing/compile.py (path validation + Tectonic's untrusted mode); multi-user is a §1 non-goal)
+37. ~~Discover-similar in the reading queue — a "explore neighbors" action per queue item (idea added by cycle 31) — done 2026-09-07, #403~~
+38. ~~Listen prefetch — synthesize the next chunk while the current one plays to remove gaps (idea added by cycle 32) — done 2026-09-07, #404 (chunked + prefetched)~~
+39. ~~Doctor on the Automations page — render the same checks in the UI with a stale-worker banner (idea added by cycle 33) — covered by the Diagnostics page (engine, jobs, feed, warm-up, access, front-end errors); swept 2026-09-07~~
 40. ~~Swipe + touch targets (done 2026-06-11, cycle 39, UI/UX): drawer closes on a >60px left swipe (Alpine touch handlers; short swipes ignored), milestone/task check-offs grew to 20/16px visuals with an invisible `after:-inset-2.5` pseudo-element giving ≈40×40px tap targets (+ shrink-0 so flex rows can't squeeze them); verified at 420px in a real touch browser.~~
-41. Keyword cloud on the project overview card (idea added by cycle 35)
-42. Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass)
-43. Prompt variable defaults — `{{name|default}}` syntax pre-fills the fill-in inputs, and last-used values are remembered per prompt in localStorage (idea added by cycle 36)
-44. Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)
-45. Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)
+41. ~~Keyword cloud on the project overview card (idea added by cycle 35) — done 2026-09-07, #398 (a weighted chip row)~~
+42. ~~Audit log page — surface recent logins (incl. throttled attempts) and API activity on a simple "Activity & access" page, building on the new throttle counters (idea added by cycle 5, from the security pass) — done 2026-09-07, #399 as Diagnostics › Access + /api/v1/access-events/~~
+43. ~~Prompt variable defaults — `{{name|default}}` syntax pre-fills the fill-in inputs, and last-used values are remembered per prompt in localStorage (idea added by cycle 36) — done 2026-09-07, #393~~
+44. ~~(Done 2026-09-07, #423: QuickCapture.bot_run, ?run= filter, bars link.)~~ Clickable chart bars — clicking a bot history bar filters the Inbox to captures created by that run (needs a run→capture link) (idea added by cycle 37)
+45. ~~Mentions everywhere — apply the same [[note]]/@cite-key resolution to decision records, experiment entries, and quick captures (one filter, three templates) (idea added by cycle 38)~~ — shipped 2026-09-07 (#407: core/rendering, `*_html` fields, Prose component; protocols too)
 46. ~~Edge-swipe open (done 2026-06-11, cycle 48, UI/UX): touchstart within 24px of the left edge + >60px rightward swipe opens the drawer (window-level Alpine handlers); mid-screen swipes ignored — touch-verified at 420px.~~
 47. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
-48. Matrix gap column hints — show each theme's read-count in the review matrix header so gaps are visible there too, linking back to the gap-ordered queue (idea added by cycle 41)
-49. More pet reactions — a sparkle on phase completion and a brief "om nom" when a reference is marked read, all through the same HX-Trigger pattern (idea added by cycle 42)
-50. Grove seasons — paused projects show bare autumn trees and archived ones fade out, so the grove reflects the whole portfolio at a glance (idea added by cycle 43)
-51. Template lint pass — a tiny pytest that walks every template and asserts title/breadcrumbs blocks contain no `<script>` (the cycle-44 corruption class), plus django-template syntax check via the loader (idea added by cycle 44)
+48. ~~Matrix gap column hints — show each theme's read-count in the review matrix header so gaps are visible there too, linking back to the gap-ordered queue (idea added by cycle 41)~~ — shipped 2026-09-07 (#408)
+49. ~~More pet reactions — a sparkle on phase completion and a brief "om nom" when a reference is marked read, all through the same HX-Trigger pattern (idea added by cycle 42)~~ — already true in the SPA (`petReact("milestone")` on check-off, `petReact("paper")` on read; retired 2026-09-07)
+50. ~~Grove seasons — paused projects show bare autumn trees and archived ones fade out, so the grove reflects the whole portfolio at a glance (idea added by cycle 43)~~ — dead: the grove was a classic-UI widget the SPA never carried; the Projects page folds archived work instead (retired 2026-09-07)
+51. ~~(Done 2026-09-07, #422: core/tests/test_template_lint.py.)~~ Template lint pass — a tiny pytest that walks every template and asserts title/breadcrumbs blocks contain no `<script>` (the cycle-44 corruption class), plus django-template syntax check via the loader (idea added by cycle 44)
 52. ~~Recent searches (done 2026-06-11, cycle 48, UI/UX): submits store the query in localStorage (5 max, deduped); focusing the empty box lists them as a keyboard-navigable listbox (queries rendered via textContent), Enter re-runs the search — browser-verified.~~
-53. Trigram index for the literature `?kw=` filter — reference.abstract icontains scans could use a GIN trgm index too once libraries grow past a few thousand rows (idea added by cycle 46)
-54. Last-Modified/If-Modified-Since on media downloads (PDFs, documents) so re-reads are free (split from old #27) (idea added by cycle 47)
-55. Pin a search — star a recent search to keep it permanently at the top of the recents dropdown (idea added by cycle 48)
-56. Pet speech variety pack — seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)
-57. Search page budget — /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
-58. Tree tooltips — hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)
+53. ~~Trigram index for the literature `?kw=` filter (done 2026-09-07, #465: `reference_abstract_trgm`)~~ — original: reference.abstract icontains scans could use a GIN trgm index too once libraries grow past a few thousand rows (idea added by cycle 46)
+54. ~~Last-Modified/If-Modified-Since on media downloads (done 2026-09-07, #434: `core/files.py::file_response` — ETag + Last-Modified + 304 on the three file views; `/media/` already had it via static.serve)~~ (idea added by cycle 47)
+55. ~~Pin a search (done 2026-09-07, #435: recents + ☆ pins on the SPA Search page, localStorage)~~ — original: star a recent search to keep it permanently at the top of the recents dropdown (idea added by cycle 48)
+56. ~~Pet speech variety pack (done 2026-09-07, #465: weekday + month lines, six milestone reactions)~~ — original: seasonal/weekday lines and milestone-completion one-liners spoken in the hop moment via HX-Trigger payload (idea added by cycle 49)
+57. ~~Search page budget (measured 2026-09-07: 14 queries / 27 ms for three demo queries — under the bar; struck)~~ — original: /search/ sits exactly at the 50ms bar; profile the per-type rank queries and consider a single UNION query or smaller LIMIT_PER_TYPE (idea added by cycle 50, from AUDIT #5)
+58. ~~Tree tooltips (the grove lives only in the classic dashboard, replaced by the SPA; struck 2026-09-07)~~ — original: hovering a grove tree shows stage name + "n/m milestones" in a styled tooltip instead of the browser default (idea added by cycle 51)
 59. ~~[REV] Atlas Assistant panel (done 2026-06-11, cycle 55 — the first revolutionary cycle): ✨ Assistant on every page — Cmd/Ctrl-K (or sidebar button) opens a calm slide-over React island; fuzzy jump-to-anything command bar (local subsequence scoring over a server-built index of projects/notes/references/prompts/manuscripts/pages, ≤400 entries, 5 queries); page-aware quick actions; 'Ask Claude about this' composes a context-rich MCP prompt (object + suggested atlas tools) with one-click copy; recent-activity feed for the current object. Backend: core/assistant.py + GET /assistant/context/ (session-gated). Built with parallel agent workflows per owner suggestion. NO paid APIs.~~ (idea added by cycle 52)
-60. Bulk-bar keyboard shortcuts — x toggles selection on the focused row, shift-click selects ranges, Esc clears the selection (idea added by cycle 53)
+60. ~~Bulk-bar keyboard shortcuts (x and Esc earlier; shift-click / shift-x ranges and ⌘A done 2026-09-07, #433)~~ — original: x toggles selection on the focused row, shift-click selects ranges, Esc clears the selection (idea added by cycle 53)
 61. Island dev-mode — `vite dev` proxy so island development gets HMR against the running Django server (idea added by cycle 54)
-62. [REV] Synthesis studio — select N papers from the matrix and get a structured literature-synthesis scaffold (themes × claims × evidence table prefilled from reading notes + keywords, exportable to a manuscript section) — candidate for the next revolutionary cycle at 65 (idea added by cycle 55)
+62. ~~[REV] Synthesis studio (the scaffold note shipped as the matrix's synthesis draft; the manuscript export shipped 2026-09-07, #437: `draft_related_work` → `sections/related-work.tex` with every key in the bibliography)~~ — original: select N papers from the matrix and get a structured literature-synthesis scaffold (themes × claims × evidence table prefilled from reading notes + keywords, exportable to a manuscript section) (idea added by cycle 55)
 63. Assistant actions that act — POST quick actions in the panel (complete milestone, set reading status) with optimistic UI, reusing the bulk endpoints pattern (idea added by cycle 55)
-63. SPA shell polish — pet widget, global search, and the assistant summon inside the React layout so /app/ feels complete while sections migrate (idea added by cycle 56)
-64. SPA route prefetch — hovering a project card prefetches its overview query so navigation feels instant (idea added by cycle 57)
-65. SPA plan editing — phase/milestone/task create+edit modals in React so the plan page reaches full parity and the classic page can retire (idea added by cycle 58)
-66. CSS build gate — add `make css && git diff --exit-code static/css/app.css` to the cycle gate so Tailwind classes used by new TSX never ship missing (idea added by cycle 59, from the ml-56 bug)
+63. ~~SPA shell polish — pet widget, global search, and the assistant summon inside the React layout so /app/ feels complete while sections migrate (idea added by cycle 56)~~ (struck 2026-09-07, sweep #467: done long ago — the React Layout carries the pet, global search and the assistant)
+64. ~~SPA route prefetch (done 2026-09-07, #448: project cards prefetch the overview on hover)~~ — original: hovering a project card prefetches its overview query so navigation feels instant (idea added by cycle 57)
+65. ~~SPA plan editing — phase/milestone/task create+edit modals in React so the plan page reaches full parity and the classic page can retire (idea added by cycle 58)~~ (struck 2026-09-07, sweep #467: done — Plan v2 (#311 onward) creates/edits phases, milestones and tasks in React; the classic plan page is gone)
+66. ~~CSS build gate — add `make css && git diff --exit-code static/css/app.css` to the cycle gate so Tailwind classes used by new TSX never ship missing (idea added by cycle 59, from the ml-56 bug)~~ (struck 2026-09-07, sweep #467: done — `make assets-check` (css + js, fails on a stale committed output))
 67. SPA error toasts — surface failed optimistic mutations (e.g. PATCH rejected) with a calm inline toast + automatic state rollback instead of relying on the next refetch (idea added by cycle 60, from AUDIT #6 review of the optimistic-write path)
 68. Server-side reference search — ?search= on /api/v1/references/ (title/key/venue/authors icontains) so the SPA library scales past one page (idea added by cycle 61)
-69. Autosave for the SPA note editor — debounced PATCH 2s after typing stops, with the Saved indicator reflecting in-flight state (idea added by cycle 62)
-70. Log submission events from the SPA — small add-event form on the manuscript timeline (kind, date, notes) via a SubmissionEvent API (idea added by cycle 63)
+69. ~~Autosave for the SPA note editor (shipped with the CodeMirror notes editor; swept 2026-09-07)~~ — original: debounced PATCH 2s after typing stops, with the Saved indicator reflecting in-flight state (idea added by cycle 62)
+70. ~~Log submission events from the SPA (the Writing page's event form posts to /manuscripts/{id}/events/; swept 2026-09-07)~~ — original: small add-event form on the manuscript timeline (kind, date, notes) via a SubmissionEvent API (idea added by cycle 63)
 71. ~~Bulk milestone create (done 2026-06-11, cycle 71): POST /api/v1/milestones/ accepts a JSON list (many=True) and completed_at is settable at create — used immediately to plan future self-build cycles in one call. Friction-sourced from dogfood setup, now fixed.~~
 72. ~~Milestone search (done 2026-06-11, cycle 71): ?q= filters milestones by title so scripts/SPA find one without fetching the whole plan. Friction-sourced from the first dogfood ship step.~~
 73. ~~Command-index SWR cache (done 2026-06-11, cycle 77): the ⌘K bar's assistant-context (and plan) now load via React Query with staleTime — cached across opens, refreshed in the background. 3 opens → 1 fetch (was 3 fresh fetches); content paints instantly from cache. The plan query shares the Plan page's key so there's often zero extra fetch.~~
 74. ~~[REV] Reading-flow mode (done 2026-06-11, cycle 75): /app/projects/:slug/read — keyboard-driven read-next session over the queue (1-4 reading status, n/p move, j quick-note, l listen TTS, Esc exit), one card at a time priority-ordered, progress bar, optimistic PATCH advancing on read/annotated; dedicated /reading-flow/ API. Flashcards for papers.~~
 75. register_readonly API helper — one-liner read-only serializer+viewset+route for simple models; felt as boilerplate friction in cycle 66 (idea added by cycle 66, friction-sourced)
-76. Route-level code splitting — React.lazy per SPA section so spa.js stays lean as pages accumulate; bundle grew 30→38KB gz in cycle 67 (idea added by cycle 67, friction-sourced)
+76. ~~Route-level code splitting — React.lazy per SPA section so spa.js stays lean as pages accumulate; bundle grew 30→38KB gz in cycle 67 (idea added by cycle 67, friction-sourced)~~ (struck 2026-09-07, sweep #467: done — every SPA page is a lazy island chunk under static/js/islands/)
 77. ~~Shared route rule (done 2026-06-11, cycle 76): replaced the hand-mirrored SPA route list in core/urls.py with ONE catch-all — `^(?!api/|app/|static/|media/)(?!.*/$).+$` serves the shell for any slash-less path (classic keeps trailing-slash URLs). Adding a React page now needs zero Django changes; the cycle-74/75 drift class is gone. Tests cover unlisted pages served, classic intact, unknown /api/ still 404.~~
-78. SPA decision detail — context/alternatives render in the timeline (saved now, shown truncated); felt while recording the cycle-69 decision (idea added by cycle 69)
+78. ~~SPA decision detail (done 2026-09-07, #443: timeline rows expand the rendered context / decision / alternatives)~~ — original: context/alternatives render in the timeline (saved now, shown truncated); felt while recording the cycle-69 decision (idea added by cycle 69)
 79. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
 80. ~~Bulk task create + search (done 2026-06-11, cycle 89): tasks endpoint mirrors milestones — POST a JSON list to create many (done settable at create), ?q= filters by title. The plan API is now uniform across milestones and tasks.~~
 81. ~~SPA synthesis + coverage (done 2026-06-11, cycle 73): React literature page gets a Draft-synthesis button (X-SPA JSON → navigates to the note, no reload) and a coverage-gap nudge highlighting themes with ≤1 paper; closes Owner idea #11's active coverage-gap suggestion too.~~
 82. ~~Coverage-gap → queue prefill (done 2026-06-11, cycle 94, UI/UX): thin themes in the nudge are clickable chips → `/queue?theme=X` shows unread candidates (theme words matched against title/abstract, already-marked excluded) via `theme_candidates` selector + `?theme=` on /api/v1/project-references/; quiet filter chip with Clear, NN/g-style filtered empty state; browser-verified.~~
-83. PROMOTE #77 to next-priority — the shared route manifest; cycle 74 hit the exact predicted drift (React route added, Django pattern forgotten, 404). Do it before more routes accrue (idea escalated by cycle 74)
+83. ~~PROMOTE #77 to next-priority — the shared route manifest; cycle 74 hit the exact predicted drift (React route added, Django pattern forgotten, 404). Do it before more routes accrue (idea escalated by cycle 74)~~ (struck 2026-09-07, sweep #467: done — core/spa_routes.py + links.ts with a guard test (test_front_door))
 84. ~~Weekly research review (done 2026-06-11, cycles 84-85): data layer core/reviews.py + /api/v1/weekly-review/, then the SPA page at /review + /projects/:slug/review — a calm skimmable 'this week' digest (papers/notes/milestones/decisions/experiments, each linked), top-line summary, ◀▶ week-back nav, per-project + cross-project, sidebar 'Review' link. The self-build project's own review shows the loop's week.~~
-85. Reading-flow for the whole library — a 'read flow' over any filtered reference set, not just one project's queue (idea added by cycle 75)
-86. Promote the route rule to docs — note the slash-less=SPA / trailing-slash=classic invariant in CONTRIBUTING so external contributors don't re-add per-route Django patterns (idea added by cycle 76)
+85. ~~Reading-flow for the whole library (done 2026-09-07, #450: `/library/read?<filters>` over `/references/reading-flow/`)~~ — original: a 'read flow' over any filtered reference set, not just one project's queue (idea added by cycle 75)
+86. ~~Promote the route rule to docs — note the slash-less=SPA / trailing-slash=classic invariant in CONTRIBUTING so external contributors don't re-add per-route Django patterns (idea added by cycle 76)~~ (struck 2026-09-07, sweep #467: done — CONTRIBUTING.md carries the slash-less = SPA / trailing-slash = classic rule)
 87. ~~Prefetch assistant index on mount (done 2026-06-11, cycle 78): Layout warms the ⌘K assistant-context query on app load, so even the very first ⌘K paints instantly.~~
 88. ~~tl;dr in reading-flow (done 2026-06-11, cycle 79): 's' summarizes the current paper's abstract inline during a read session; resets on next/prev, in the key legend. The focused session is now Listen + tl;dr + note + status, fully keyboard.~~
 89. ~~Seeded abstracts (done 2026-06-11, cycle 81): three demo references (incl. one to_read) now carry real abstracts, so tl;dr/Listen/reading-flow demo out of the box; closes the AUDIT #8 finding.~~
 90. ~~Seeded abstracts (done 2026-06-11, cycle 81): three demo references (incl. one to_read) now carry real abstracts, so tl;dr/Listen/reading-flow demo out of the box; closes the AUDIT #8 finding.~~
-91. Sample PDF for a to_read paper in seed_demo — so the PDF reader/iframe also demos in the reading-flow, not just the abstract (idea added by cycle 81)
+91. ~~Sample PDF for a to_read paper in seed_demo — so the PDF reader/iframe also demos in the reading-flow, not just the abstract (idea added by cycle 81)~~ (struck 2026-09-07, sweep #467: done — seed_demo attaches a generated PDF to lavie2010attention)
 92. Docs site (mkdocs-material) with the MCP setup guide front and center — next open-source slice after templates (idea added by cycle 82)
 93. ~~Comments on documents (done 2026-06-11, cycle 96): document kind added to the comment allowlist (classic endpoint + /api/v1/comments/document/{id}/ both lit up); 💬 button with live count on every documents-table row opens a modal thread (ESC/backdrop/✕ dismissal, ⌘-Enter post) per owner modals rule + overlay-pattern research; counts piggyback on documents_table_props in one query; browser-verified post→persist→dismiss.~~
 94. ~~Weekly-digest bot (done 2026-06-11, cycle 86): opt-in bot posts last week's summary (papers/notes/milestones/decisions/experiments counts) to the inbox via core/reviews.py; pairs the Review page with a Friday push. Quiet weeks post nothing.~~
@@ -985,24 +2622,24 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 96. ~~Review copy-as-markdown (done 2026-06-11, cycle 88): a 'Copy week' button on the Review page emits clean markdown (sectioned by papers/milestones/notes/decisions/experiments) for pasting into a lab journal or a Claude session.~~
 97. ~~MCP weekly_review tool (done 2026-06-11, cycle 87): get_weekly_review(project, weeks_back) exposed over the MCP server (client fn + tool); Claude can pull 'what did I do this week' in chat. Verified live (30 milestones for self-build). Client stays pure httpx.~~
 98. ~~MCP get_synthesis_scaffold (done 2026-06-11, cycle 93): read-only GET /projects/{slug}/synthesis/ (distinct from the note-creating POST) + MCP client fn + tool, so Claude can pull the theme-organized review scaffold to draft a section in chat — creates no note. Client stays pure httpx.~~
-99. Per-section copy — small copy buttons on each Review section (e.g. just the milestones) for finer-grained pasting (idea added by cycle 88)
+99. ~~Per-section copy (done 2026-09-07, #457)~~ — original: small copy buttons on each Review section (e.g. just the milestones) for finer-grained pasting (idea added by cycle 88)
 100. ~~Generic list-create+search mixin (done 2026-06-11, cycle 98, tech improvement): AtlasViewSet gains `q_fields` (?q= icontains-OR search) and `bulk_create` (JSON-list POST) knobs; milestones/tasks/prompts overrides collapsed to two-line declarations; notes, decisions, research questions, hypotheses, and datasets opted into ?q= for free; live-verified on notes and decisions; 3 new tests incl. ?q= no-op without q_fields.~~
 101. ~~`make audit` (done 2026-06-11, cycle 91): scripts/audit.sh runs the anon-access + key-auth + #77-catch-all + open-redirect + pip/npm probes as one read-only command, exit-coded; every audit cycle starts here now.~~
 102. ~~CI workflow (done 2026-06-11, cycle 92): .github/workflows/ci.yml runs ruff check+format, pytest (postgres service), frontend tsc, and a committed-assets-not-stale check on every push/PR — the loop's hand-run gate now guards contributions. README CI badge.~~
 103. ~~CI make-audit job (done 2026-06-11, cycle 99, tech improvement): second CI job (postgres service, uv sync, migrate, runserver with a 30s readiness loop) runs `make audit` on every PR; audit.sh now prefers $ATLAS_API_KEY over .env so CI needs no dotfile; verified locally via the exact env-var-only path.~~
 104. ~~Duplicate of #95 — shipped together in cycle 95.~~
-105. Theme chips beyond the gap nudge — make every theme in the review matrix header link to its candidate queue, not just thin ones, so the prefilter is discoverable from the matrix too (idea added by cycle 94)
+105. ~~Theme chips beyond the gap nudge (done 2026-09-07, #457)~~ — original: make every theme in the review matrix header link to its candidate queue, not just thin ones, so the prefilter is discoverable from the matrix too (idea added by cycle 94)
 106. Design-notes file — a docs/DESIGN.md capturing the HIG-derived rules now binding (clarity/deference/depth, filtered-empty-state pattern, chip vocabulary) so every future UI slice starts from the same language (idea added by cycle 94, from the new owner design-research rule)
-107. Timeline event detail expand — click a dot to expand the event in place (decision context, experiment body, note preview) without leaving the page (idea added by cycle 95)
-108. Timeline on the overview — a 5-event mini-timeline strip on the project overview linking to the full page (idea added by cycle 95)
-109. Comment threads from search — comments are invisible to global search; index comment bodies (FTS) so "where did I write that remark?" resolves (idea added by cycle 96)
-110. Pet hatching & species — a one-time hatch moment (deterministic from the install, Buddy-style) choosing among a few species/looks, with a tiny shiny chance; pairs with #49/#56 (idea added by cycle 97)
+107. ~~Timeline event detail expand (done 2026-09-07, #443)~~ — original: click a dot to expand the event in place (decision context, experiment body, note preview) without leaving the page (idea added by cycle 95)
+108. ~~Timeline on the overview (the week digest on the overview lists the week's events and links to the timeline; swept 2026-09-07, #444)~~ — original: a 5-event mini-timeline strip on the project overview linking to the full page (idea added by cycle 95)
+109. ~~Comment threads from search (done 2026-09-07, #439: `comment` kind on both search paths, routes to the note / paper / editor)~~ — original: comments are invisible to global search; index comment bodies (FTS) so "where did I write that remark?" resolves (idea added by cycle 96)
+110. ~~Pet hatching & species (done 2026-09-07, #427)~~ — original: a one-time hatch moment (deterministic from the install, Buddy-style) choosing among a few species/looks, with a tiny shiny chance; pairs with #49/#56 (idea added by cycle 97)
 111. Document the ?q= convention in the API schema — a reusable OpenApiParameter on every q_fields viewset so MCP/scripts discover searchability from /api/docs/ (idea added by cycle 98)
 112. CI audit artifacts — upload /tmp/server.log and the sweep output as workflow artifacts on failure so red audit jobs are debuggable without rerunning (idea added by cycle 99)
 113. API timing smoke in CI — extend the audit job with a best-of-5 latency check on 3 hot endpoints against the 50ms bar, so regressions like the cycle-100 N+1 surface in PRs not audits (idea added by cycle 100)
-114. Vendor CodeMirror locally — the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
-115. Compile-queue dedupe — hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
-116. PDF text layer in the editor preview — add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
+114. ~~Vendor CodeMirror locally (the CM6 editor is bundled; no CDN reference remains in templates or the SPA; swept 2026-09-07)~~ — original: the editor dies without internet (cdnjs); pull the CM5 assets into static/vendor/ like tailwind/tectonic/piper, felt when the sandbox proxy broke CDN loads during cycle-101 verification (idea added by cycle 101, friction-sourced)
+115. ~~Compile-queue dedupe (done 2026-09-07, #455: `source_hash`, deduped / unchanged answers, `force`)~~ — original: hash the source at queue time and skip the enqueue entirely when an identical-source compile is already running (the generation guard drops stale results; this would avoid the wasted compile too) (idea added by cycle 102)
+116. ~~PDF text layer in the editor preview (done 2026-09-07, #452)~~ — original: add pdf.js TextLayer (the literature reader already does it) so preview text is selectable/copyable; prerequisite niceness for SyncTeX click-to-jump in slice 7 (idea added by cycle 103)
 149. ~~Pet voice personality — mood layer (done 2026-06-13): MOOD_VOICES in core/tts.py sets loudness/liveliness from the pet's weekly mood (sleeping 0.6 → thriving 1.0 + extra noise_w) on top of the stage's pace/timbre (volume-only so they compose); read_aloud passes both stage+mood; real WAVs verified distinct per mood; 4 tests incl. MOODS↔MOOD_VOICES sync + compose.~~
 142. ~~Pet voice personality (done 2026-06-12, cycle 138, Owner #29 follow-on): STAGE_VOICES in core/tts.py shapes Piper delivery per growth stage — egg murmurs slow+soft (length 1.25, noise 0.45), hatchling peeps fast (0.8, lively phoneme timing), scholar is the voice as trained, sage is slow+measured (1.18) — and read_aloud derives the stage server-side from pet_state(). Real-voice durations verified distinct (1.94s/2.25s/2.59s for the same sentence); live endpoint 200 audio/wav; 4 new tests incl. a STAGES↔STAGE_VOICES sync guard.~~
 148. Icon sweep for the rest of the app — the editor chrome now speaks one stroke-SVG language; the classic sidebar/pages still mix glyphs (✨ Assistant, ⌘K, section headers); a templatetag or include for the icon set would let every surface share it (idea added by cycle 137)
@@ -1010,38 +2647,38 @@ D3. (Owner one-time) Activate live auto-update — generate the Tauri updater ke
 147. ~~Audit-sweep output as a CI artifact (done 2026-06-12, cycle 139, shipped with #144): make audit tees to /tmp/audit-output.txt under set -o pipefail (exit code preserved, verified locally) and the file joins the failure() artifact upload — completes #112.~~
 143. ~~Smoke artifacts on CI failure (done 2026-06-12, cycle 136, tech improvement, shipped with #145): any failed check — or a crash before the checks even run (try/except around the whole battery) — writes editor-smoke.png (full page), the browser console log, and the failure list to SMOKE_ARTIFACT_DIR; ci.yml uploads them via actions/upload-artifact on failure() together with /tmp/server.log. Verified both paths live: green run leaves nothing, a forced bad-password run exits 1 with all three artifacts written.~~
 141. ~~Editor-page Playwright smoke in CI (done 2026-06-12, cycle 132, tech improvement): scripts/editor_smoke.py — a 6-check headless battery (mount w/ zero CDN editor assets, autosave, multi-file switch preserving buffers, line comment + gutter dot, cite autocomplete, compile wiring incl. graceful no-tectonic failure) distilled from the cycle-126 cutover battery; self-seeding via X-API-Key on an empty DB; wired into the CI audit job (createsuperuser --noinput, playwright chromium, no Redis needed — dev huey is immediate). ALL PASS locally.~~
-158. Undo for inline triage — a filed/dismissed attention row vanishes immediately; a 5-second "undo" toast (PATCH processed:false) would make the inline action worry-free (idea added by cycle 147)
+158. ~~Undo for inline triage (done 2026-09-07, #440: global UndoHost, six-second Undo on the Inbox and the dashboard row)~~ — original: a filed/dismissed attention row vanishes immediately; a 5-second "undo" toast (PATCH processed:false) would make the inline action worry-free (idea added by cycle 147)
 157. ~~Inline triage from the attention lead (done 2026-06-12, cycle 147): SPA rows get a project select + file/dismiss buttons (react-query PATCH to /quick-capture/{id}/, dashboard query invalidated); classic rows get the same via a compact form POSTing to notes:triage, which now honors a safe `next` redirect (url_has_allowed_host_and_scheme, offsite rejected + tested) so it bounces back to /classic/. 9-check live battery across both shells ALL PASS; the 2 real inbox items untouched.~~
 156. ~~Needs-attention in the SPA dashboard (done 2026-06-12, cycle 146): /api/v1/dashboard/ gained an `attention` block (overdue w/ plan URLs, deadlines w/ days_to_deadline, inbox texts — serialized in the existing endpoint, no second fetch) and Dashboard.tsx renders the same answer-first lead as the classic shell, "All clear" line included. Live-verified (overdue row + 2 triage links), API test added. Both shells now lead with the answer.~~
 155. ~~card-title token sweep (done 2026-06-13): the standalone section-heading pattern (mb-2 + uppercase label classes) in literature/read + notes/note_detail (5 headings) converted to .card-title; a grep lint test (documents/tests/test_card_title_token.py) fails the build if it returns. Table headers + tight editor-rail labels with bespoke spacing intentionally exempt.~~
 154. ~~Density lint (done 2026-06-12, cycle 144): core/tests/test_density_tokens.py fails the build on any template hand-rolling `rounded border border-stone-200 bg-white p-4/p-5` instead of class="card" (p-2/p-3/p-6 outliers stay legal) — and the sweep it forced converted all 33 offenders across 15 templates (dashboard, literature detail/report/read/import, notes, decisions, research ledger/experiments, pet, manuscript detail, editor research panel, comments, documents). All 8 affected pages browser-verified 200/no-errors/no-4xx.~~
 153. ~~Shared density tokens (done 2026-06-12, cycle 143, shipped with the plan density pass): .card and .card-title component classes in app.css (@layer components, Tailwind v4 @apply) define the one card rhythm; project overview (4 cards) and the plan's phase cards converted as first consumers.~~
-152. Extend the escape guard to the React islands' dangerouslySetInnerHTML (if any) and the classic templates' |safe filters — one grep-based "no unescaped sink" test covering every hand-built-HTML path, not just the editor glue (idea added by cycle 141)
+152. ~~Extend the escape guard to every raw-HTML sink (done 2026-09-07, #449: core/tests/test_html_sinks.py)~~ — original: extend the escape guard to the React islands' dangerouslySetInnerHTML (if any) and the classic templates' |safe filters — one grep-based "no unescaped sink" test covering every hand-built-HTML path, not just the editor glue (idea added by cycle 141)
 151. ~~Central escape discipline for the glue (done 2026-06-12, cycle 141, tech improvement, from AUDIT #14): esc() hoisted to the top of latex-editor.js and applied to EVERY ${} inside an innerHTML template (the audit fixed the research panel; this swept the diagnostics list, hypotheses, and comment-date sites too — all now esc()'d even where the data is internal). A pytest guard (writing/tests/test_glue_escapes.py) greps the file and fails the build on any unescaped innerHTML interpolation — verified it catches a deliberately reverted escape. Immune by construction now, not by review.~~
 150. ~~Editor 'Reset layout' (done 2026-06-13): a View-menu entry clears every atlas-editor-* localStorage key (split sizes, sidebar, preview, drawer, layout, zoom, settings) and reloads, restoring the default 3-pane layout; verified it wipes a custom arrangement back to defaults.~~
 144. ~~Remember the last-picked layout name (done 2026-06-12, cycle 139, UI/UX, shipped with #147): atlas-editor-layout sticks on preset click and an indigo stroke-SVG check renders beside the active preset; ANY divergence — manual preview toggle, rail collapse, divider drag — clears it (applyingPreset flag keeps init restore + preset application from self-clearing). 9-check battery ALL PASS incl. reload persistence and drag-clears.~~
 140. ~~Layout presets menu (done 2026-06-12, cycle 133, UI/UX): View menu gains a Layout section — ✍ Drafting (editor only, full width), ⇆ Reviewing (editor + PDF 50/50), ▦ Submitting (files + editor + PDF) — one-shot presets that seed the per-layout split keys and drive the same setSidebar/setPreview machinery as manual toggles. Fixed two latent bugs en route: the editor column never grew when it was the only pane (no flex-grow once Split.js is out of the picture), and a collapsed preview never survived reload (the init else-branch skipped hiding the pane). 8-check browser battery ALL PASS incl. reload persistence.~~
-139. Keyboard shortcuts in the menus — show the binding next to each menu item (Ctrl-F is there; add Ctrl-S save, Ctrl-Enter compile?) and actually bind compile to Ctrl-Enter like Overleaf (idea added by cycle 128)
-138. Click-collapse chevrons on the split gutters — Overleaf's thin-panel collapse/restore arrows on the Split.js dividers (Split.js .collapse(i) exists); pairs with the layout menu (idea added by cycle 127)
+139. ~~Keyboard shortcuts in the menus (⌘↵ compiles since the studio; the ⌘⇧P palette shows every binding next to its action, 2026-09-07, #447)~~ — original: show the binding next to each menu item (Ctrl-F is there; add Ctrl-S save, Ctrl-Enter compile?) and actually bind compile to Ctrl-Enter like Overleaf (idea added by cycle 128)
+138. ~~Click-collapse chevrons on the split gutters (done 2026-09-07, #458)~~ — original: Overleaf's thin-panel collapse/restore arrows on the Split.js dividers (Split.js .collapse(i) exists); pairs with the layout menu (idea added by cycle 127)
 145. ~~Probe for 404s in the browser batteries (done 2026-06-12, cycle 136, shipped with #143): editor_smoke.py check 1 now fails on any >=400 response during mount (favicon tolerated) and prints the offending URLs — the class of bug that hid the Vite modulePreload 404 is now CI-visible.~~
 137. ~~Slim the CM6 bundle (done 2026-06-12, cycle 134, tech improvement): the vim keymap is now a dynamic import — first-paint editor payload drops 208→172KB gz (-17%), with vim's 39KB gz fetched only when the keybinding is selected (named chunks: latex-editor-core-chunk/vim-keymap-chunk). Found and fixed a latent bug en route: Vite's modulePreload helper built URLs against the site base instead of /static/js/, firing a 404 per dynamic import — disabled the polyfill, native import() resolves module-relative. 9-check vim-lazy battery + SPA route check + editor smoke ALL PASS.~~
-136. Pet voice (Owner idea #29) — 🔊 on the pet speaks its line via the existing Piper /tts/ endpoint; optional spoken reaction in the hop moment behind a remembered mute toggle (idea added by cycle 122)
-135. CM6 migration sub-epic — execute docs/plans/2026-06-11-cm6-oss-migration.md slices A/B/C; closes #114 (offline editor) and deletes the hand-rolled snippet walker + hints (idea added by cycle 121, from the OSS plan)
-134. OSS-replacement audit pass — a dedicated cycle that inventories Atlas's hand-rolled pieces (CM5 snippet walker, planned drag-resize, detex word count, difflib usage, the pet animation) and swaps in mature libraries where they're clearly better (Owner idea #28); pairs with the CM6 evaluation (idea added by cycle 120)
-133. Sanitize zip member names centrally — the submission-zip traversal guard is local to the view; a shared safe_archive_name() helper would cover any future zip/tar export (idea added by cycle 120, from AUDIT #12)
-132. Pet hatch animation — when the pet crosses a stage threshold (egg→hatchling etc.), play a one-time SVG transition (shell crack/burst) instead of just swapping the drawing (idea added by cycle 119)
-131. Include the .bbl in the submission zip — persist the compiled .bbl (compile with --keep-intermediates and store it on the manuscript) so the arXiv package includes it for venues that don't run BibTeX (idea added by cycle 118)
-130. Resolve/strike line comments — let a line comment be marked resolved (greyed + dot hidden) so addressed feedback clears, like a review tool; the Comment model would need a resolved flag (idea added by cycle 117)
-129. Compile streak on the pet/timeline — a compiles-per-week sparkline (the data is now on the timeline) on the manuscript detail or as a Mochi reaction, turning the writing rhythm into a gentle signal (idea added by cycle 116)
-128. User-defined templates — let the owner save any manuscript's current files AS a reusable template (a thin ManuscriptTemplate model or just "duplicate manuscript"), beyond the 6 built-ins (idea added by cycle 115)
-127. MCP figure upload — write_manuscript_file is text-only; add an MCP tool to attach a figure (multipart to manuscript-files asset) so Claude can complete a paper end-to-end incl. plots (idea added by cycle 114)
-126. Abstract peek in the panel — expand a bibliography row in the research rail to read the full abstract inline (the context endpoint already sends a 280-char snippet; show it on click) without opening the reference page (idea added by cycle 113)
-125. Cite-check across files — the missing-citations check currently scans the active buffer only; aggregate unknown \cite keys across ALL tex files so a citation defined nowhere in a multi-file project is caught (idea added by cycle 112)
-124. Cite hint over MISSING papers — when \cite{} fragment matches nothing in the library, offer an "add by DOI…" inline action that reuses add_reference_by_doi, so writing never breaks to go hunt a paper (idea added by cycle 111, pairs with B2)
-123. Containerized Tectonic compile (escalated by AUDIT #11) — promote Backlog #36: now that multi-file \input exists, run the compile in a throwaway container/namespace; --untrusted + path validation cover single-user but a container boundary is the real fix before any multi-user use (idea escalated by cycle 110)
-122. Revision retention policy surfacing — show "kept: all labeled + last 50 auto" somewhere in the History panel and let the user bump the auto-cap, so the trim behavior isn't a surprise (idea added by cycle 109)
-121. Live word-count badge — show the count passively in the status bar and refresh it on the autosave cycle (debounced) instead of only on button click, like Overleaf's always-visible count (idea added by cycle 108)
+136. ~~Pet voice (the sidebar bubble's 🔊 speaks the line through /tts/; swept 2026-09-07)~~ — original (Owner idea #29): 🔊 on the pet speaks its line via the existing Piper /tts/ endpoint; optional spoken reaction in the hop moment behind a remembered mute toggle (idea added by cycle 122)
+135. ~~CM6 migration sub-epic — execute docs/plans/2026-06-11-cm6-oss-migration.md slices A/B/C; closes #114 (offline editor) and deletes the hand-rolled snippet walker + hints (idea added by cycle 121, from the OSS plan)~~ (struck 2026-09-07, sweep #467: done — the editor is CodeMirror 6 (`frontend/src/editor`))
+134. ~~OSS-replacement audit pass — a dedicated cycle that inventories Atlas's hand-rolled pieces (CM5 snippet walker, planned drag-resize, detex word count, difflib usage, the pet animation) and swaps in mature libraries where they're clearly better (Owner idea #28); pairs with the CM6 evaluation (idea added by cycle 120)~~ (struck 2026-09-07, sweep #467: closed — the CM6 migration (#135) removed the hand-rolled editor pieces; the rest are deliberate (detex count, difflib diffs, the pet))
+133. ~~Sanitize zip member names centrally (done 2026-09-07, #453: `core/archives.py`)~~ — original: the submission-zip traversal guard is local to the view; a shared safe_archive_name() helper would cover any future zip/tar export (idea added by cycle 120, from AUDIT #12)
+132. ~~Pet hatch animation (done 2026-09-07, #461)~~ — original: when the pet crosses a stage threshold (egg→hatchling etc.), play a one-time SVG transition (shell crack/burst) instead of just swapping the drawing (idea added by cycle 119)
+131. ~~Include the .bbl in the submission zip (done 2026-09-07, #442: `--keep-intermediates`, `compiled_bbl`, `<main>.bbl` in submission.zip)~~ — original: persist the compiled .bbl (compile with --keep-intermediates and store it on the manuscript) so the arXiv package includes it for venues that don't run BibTeX (idea added by cycle 118)
+130. ~~Resolve/strike line comments (done 2026-09-07, #439: `resolved_at`, PATCH, greyed rows, gutter marks only for open ones)~~ — original: let a line comment be marked resolved (greyed + dot hidden) so addressed feedback clears, like a review tool; the Comment model would need a resolved flag (idea added by cycle 117)
+129. ~~Compile streak on the pet/timeline (done 2026-09-07, #460)~~ — original: a compiles-per-week sparkline (the data is now on the timeline) on the manuscript detail or as a Mochi reaction, turning the writing rhythm into a gentle signal (idea added by cycle 116)
+128. ~~User-defined templates (done 2026-09-07, #446 as "Duplicate…": sources, assets, limits and bibliography links into a fresh manuscript; API + MCP)~~ — original: let the owner save any manuscript's current files AS a reusable template (a thin ManuscriptTemplate model or just "duplicate manuscript"), beyond the 6 built-ins (idea added by cycle 115)
+127. ~~MCP figure upload (done 2026-09-07, #441: `attach_manuscript_figure`, multipart asset + includegraphics snippet)~~ — original: write_manuscript_file is text-only; add an MCP tool to attach a figure (multipart to manuscript-files asset) so Claude can complete a paper end-to-end incl. plots (idea added by cycle 114)
+126. ~~Abstract peek in the panel (done 2026-09-07, #448)~~ — original: expand a bibliography row in the research rail to read the full abstract inline (the context endpoint already sends a 280-char snippet; show it on click) without opening the reference page (idea added by cycle 113)
+125. ~~Cite-check across files (the cite checker reads every .tex file of the manuscript; swept 2026-09-07)~~ — original: the missing-citations check currently scans the active buffer only; aggregate unknown \cite keys across ALL tex files so a citation defined nowhere in a multi-file project is caught (idea added by cycle 112)
+124. ~~Cite hint over MISSING papers (done 2026-09-07, #445: the completion's last row adds, links and cites by DOI / arXiv id)~~ — original: when \cite{} fragment matches nothing in the library, offer an "add by DOI…" inline action that reuses add_reference_by_doi, so writing never breaks to go hunt a paper (idea added by cycle 111, pairs with B2)
+123. ~~Containerized Tectonic compile (escalated by AUDIT #11) — promote Backlog #36: now that multi-file \input exists, run the compile in a throwaway container/namespace; --untrusted + path validation cover single-user but a container boundary is the real fix before any multi-user use (idea escalated by cycle 110)~~ (struck 2026-09-07, sweep #467: closed with #36 — `--untrusted` + path validation; a container is out of scope for a single-user desktop app)
+122. ~~Revision retention policy surfacing (done 2026-09-07, #456)~~ — original: show "kept: all labeled + last 50 auto" somewhere in the History panel and let the user bump the auto-cap, so the trim behavior isn't a surprise (idea added by cycle 109)
+121. ~~Live word-count badge (the Studio status bar shows words and today's delta, #413; swept 2026-09-07)~~ — original: show the count passively in the status bar and refresh it on the autosave cycle (debounced) instead of only on button click, like Overleaf's always-visible count (idea added by cycle 108)
 120. Classic-page density — the classic base.html still defaults to max-w-5xl; sweep the remaining classic-only pages (editor done) once the SPA density work lands, or accelerate their SPA migration (idea added by cycle 107)
-119. Editor command palette — a small Ctrl/Cmd-P over editor actions (compile, find, toggle preview, new file, change keymap) so power users skip the mouse; pairs with the settings popover (idea added by cycle 106)
+119. ~~Editor command palette (done 2026-09-07, #447: ⌘⇧P actions palette with bindings)~~ — original: a small Ctrl/Cmd-P over editor actions (compile, find, toggle preview, new file, change keymap) so power users skip the mouse; pairs with the settings popover (idea added by cycle 106)
 118. Density pass infrastructure — a shared dense-table CSS utility + tighter card padding tokens so the Owner-idea-#25 width/density work is consistent across pages instead of per-page tweaks (idea added by cycle 105)
-117. Context-aware completions — rank \item first inside itemize/enumerate and \includegraphics inside figure (Overleaf's frequency data shows these dominate their environments); needs a tiny enclosing-environment scanner (idea added by cycle 104)
+117. ~~Context-aware completions (done 2026-09-07, #459: `editor/context.ts` scanner + boosts)~~ — original: rank \item first inside itemize/enumerate and \includegraphics inside figure (Overleaf's frequency data shows these dominate their environments); needs a tiny enclosing-environment scanner (idea added by cycle 104)

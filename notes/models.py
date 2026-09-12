@@ -52,6 +52,11 @@ class QuickCapture(TimeStampedModel):
     project = models.ForeignKey(
         Project, on_delete=models.SET_NULL, null=True, blank=True, related_name="captures"
     )
+    # #423: the bot run that filed this capture (null for hand-written ones), so a bar on the
+    # Automations chart can open the Inbox filtered to exactly what that run produced
+    bot_run = models.ForeignKey(
+        "bots.BotRun", on_delete=models.SET_NULL, null=True, blank=True, related_name="captures"
+    )
 
     class Meta:
         ordering = ["-created_at"]

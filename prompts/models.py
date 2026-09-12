@@ -23,13 +23,46 @@ class Prompt(TimeStampedModel):
         return [t.strip() for t in self.tags.split(",") if t.strip()]
 
     @property
-    def variable_names(self) -> list[str]:
-        """Distinct {{placeholders}} in the body, in order of first appearance."""
-        import re
+    def variables(self) -> list[dict]:
+        """Distinct {{placeholders}} in order of first appearance, each with its default:
+        `{{venue|NeurIPS}}` fills "NeurIPS" unless the user types something (#393)."""
+        return parse_variables(self.body or "")
 
-        seen: list[str] = []
-        for match in re.finditer(r"\{\{\s*([a-zA-Z0-9_ -]{1,40}?)\s*\}\}", self.body or ""):
-            name = match.group(1).strip()
-            if name and name not in seen:
-                seen.append(name)
-        return seen
+    @property
+    def variable_names(self) -> list[str]:
+        return [v["name"] for v in self.variables]
+
+
+VARIABLE_RE = r"\{\{\s*([a-zA-Z0-9_ -]{1,40}?)\s*(?:\|([^}]{0,200}?))?\s*\}\}"
+
+
+def parse_variables(body: str) -> list[dict]:
+    import re
+
+    seen: dict[str, str] = {}
+    for match in re.finditer(VARIABLE_RE, body):
+        name = match.group(1).strip()
+        default = (match.group(2) or "").strip()
+        if not name:
+            continue
+        if name not in seen:
+            seen[name] = default
+        elif default and not seen[name]:
+            seen[name] = default  # the first occurrence that carries a default wins
+    return [{"name": name, "default": default} for name, default in seen.items()]
+
+
+def render_prompt(body: str, values: dict | None = None) -> str:
+    """Substitute {{name}} / {{name|default}}: the given value, else the default, else the
+    bare placeholder stays as {{name}} so it is still visible."""
+    import re
+
+    values = values or {}
+    defaults = {v["name"]: v["default"] for v in parse_variables(body or "")}
+
+    def sub(match):
+        name = match.group(1).strip()
+        value = str(values.get(name, "")).strip()
+        return value or defaults.get(name, "") or "{{" + name + "}}"
+
+    return re.sub(VARIABLE_RE, sub, body or "")

@@ -20,3 +20,13 @@ class APIKeyAuthenticationScheme(OpenApiAuthenticationExtension):
             "in": "header",
             "name": "X-API-Key",
         }
+
+
+class QueryKeyAuthenticationScheme(OpenApiAuthenticationExtension):
+    """The `?key=` variant used only by the calendar feed (calendar apps send no headers)."""
+
+    target_class = "api.authentication.QueryKeyAuthentication"
+    name = "ApiKeyQuery"
+
+    def get_security_definition(self, auto_schema):
+        return {"type": "apiKey", "in": "query", "name": "key"}

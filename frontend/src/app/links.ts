@@ -8,14 +8,23 @@ export function toSpaUrl(url: string): { to: string; spa: boolean } {
     [/^\/projects\/([^/]+)\/$/, (m) => `/projects/${m[1]}`],
     [/^\/projects\/([^/]+)\/(plan|documents|figures|literature|research|decisions|graph)\/$/, (m) => `/projects/${m[1]}/${m[2]}`],
     [/^\/projects\/([^/]+)\/literature\/queue\/$/, (m) => `/projects/${m[1]}/queue`],
+    [/^\/projects\/([^/]+)\/literature\/report\/$/, (m) => `/projects/${m[1]}/report`],
     [/^\/projects\/([^/]+)\/notes\/$/, (m) => `/projects/${m[1]}/notes`],
     [/^\/projects\/([^/]+)\/notes\/(\d+)\/$/, (m) => `/projects/${m[1]}/notes/${m[2]}`],
+    [/^\/projects\/([^/]+)\/(timeline|files)\/$/, (m) => `/projects/${m[1]}/${m[2]}`],
+    [/^\/projects\/([^/]+)\/writing\/$/, () => "/writing"],
+    [/^\/projects\/([^/]+)\/writing\/(\d+)\/$/, (m) => `/manuscripts/${m[2]}`],
+    [/^\/projects\/([^/]+)\/writing\/(\d+)\/editor\/$/, (m) => `/manuscripts/${m[2]}/editor`],
+    [/^\/library\/(\d+)\/$/, (m) => `/references/${m[1]}`],
     [/^\/library\/$/, () => "/library"],
     [/^\/writing\/$/, () => "/writing"],
     [/^\/inbox\/$/, () => "/inbox"],
+    [/^\/today\/?$/, () => "/today"],
     [/^\/prompts\/$/, () => "/prompts"],
     [/^\/search\/$/, () => "/search"],
     [/^\/automations\/$/, () => "/automations"],
+    [/^\/pet\/$/, () => "/pet"],
+    [/^\/connect\/claude\/$/, () => "/connect"],
   ];
   for (const [re, build] of maps) {
     const m = url.match(re);

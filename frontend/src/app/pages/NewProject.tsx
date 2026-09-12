@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 
-type Template = { key: string; name: string; description: string; folders: string[] };
+type Template = { key: string; name: string; description: string; folders: string[]; phases?: number; milestones?: number; questions?: number; themes?: number };
 
 const inputClass =
   "w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100";
@@ -46,7 +46,7 @@ export default function NewProject() {
 
       <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">New project</h1>
       <p className="mb-8 text-sm text-stone-500 dark:text-stone-400">
-        Give it a name and an optional starting scaffold. Everything else can be filled in later.
+        Give it a name and an optional starting scaffold — folders, a first plan, starter questions and review themes. Everything can be changed later.
       </p>
 
       <form
@@ -152,6 +152,11 @@ export default function NewProject() {
                 >
                   <span className="block text-sm font-medium text-stone-800 dark:text-stone-100">{t.name}</span>
                   <span className="mt-0.5 block text-xs leading-relaxed text-stone-400">{t.description}</span>
+                  {(t.phases ?? 0) > 0 && (
+                    <span className="mt-1 block text-[11px] text-indigo-600 dark:text-indigo-300" data-testid="template-plan">
+                      {[`${t.phases} phase${t.phases === 1 ? "" : "s"} · ${t.milestones} milestone${t.milestones === 1 ? "" : "s"}`, t.questions ? `${t.questions} question${t.questions === 1 ? "" : "s"}` : "", t.themes ? `${t.themes} review theme${t.themes === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
                   {t.folders.length > 0 && (
                     <span className="mt-2 flex flex-wrap gap-1">
                       {t.folders.map((f) => (

@@ -45,6 +45,7 @@ THIRD_PARTY = [
     "markdown",
     "nh3",
     "corsheaders",
+    "pypdf",
 ]
 
 hiddenimports = []
@@ -52,6 +53,12 @@ datas = [
     (os.path.join(ROOT, "templates"), "templates"),
     (os.path.join(ROOT, "static"), "static"),
 ]
+# The LaTeX engine (Tectonic) rides along when the release workflow fetched it into bin/,
+# so Recompile works out of the box on an installed desktop app (writing/compile.py looks
+# in BASE_DIR/bin first). PyInstaller keeps the executable bit.
+for engine in ("tectonic", "tectonic.exe"):
+    if os.path.exists(os.path.join(ROOT, "bin", engine)):
+        datas.append((os.path.join(ROOT, "bin", engine), "bin"))
 for pkg in LOCAL_APPS + THIRD_PARTY:
     hiddenimports += collect_submodules(pkg)
     datas += collect_data_files(pkg, include_py_files=True)
@@ -74,10 +81,8 @@ exe = EXE(  # noqa: F821
     [],
     exclude_binaries=True,
     name="atlas-server",
-    # windowed (no console): a console window shares a control group with the Postgres it
-    # starts, so console events (Ctrl+C / close) killed Postgres's background workers in a
-    # crash loop (0xC000013A, #245). No console also removes the black box; output already
-    # goes to atlas-server.log.
+    # windowed (no console): the server is a background process the Tauri window owns, so a
+    # black console box would only confuse (#245). Output already goes to atlas-server.log.
     console=False,
 )
 coll = COLLECT(  # noqa: F821

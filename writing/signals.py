@@ -17,7 +17,7 @@ def _resync(manuscript):
 
     root, main_node = resync_manuscript_tree(manuscript, Folder=Folder, Document=Document)
     # keep the FKs current without retriggering Manuscript.save's alias sync
-    type(manuscript).objects.filter(pk=manuscript.pk).update(
+    type(manuscript).objects.filter(pk=manuscript.pk).update(  # etag: ok (runs on its save)
         root_folder=root, main_file_node=main_node
     )
 
@@ -28,10 +28,21 @@ def manuscript_file_saved(sender, instance, **kwargs):
 
 
 @receiver(post_delete, sender="writing.ManuscriptFile")
-def manuscript_file_deleted(sender, instance, **kwargs):
+def manuscript_file_deleted(sender, instance, origin=None, **kwargs):
+    from django.db.models import QuerySet
+
     from .models import Manuscript
 
-    # during a manuscript cascade-delete the parent may already be gone — skip then
+    # A cascade from a Manuscript or Project delete fires this for every file while the
+    # parents still exist inside the collector's transaction; re-syncing then recreates the
+    # mirror folder for a project that is about to vanish (orphan folder → FK violation at
+    # commit; seed_demo could never be re-run). Only a direct file delete re-syncs.
+    if origin is not None:
+        direct = (
+            origin.model is sender if isinstance(origin, QuerySet) else isinstance(origin, sender)
+        )
+        if not direct:
+            return
     manuscript = Manuscript.objects.filter(pk=instance.manuscript_id).first()
     if manuscript is not None:
         _resync(manuscript)

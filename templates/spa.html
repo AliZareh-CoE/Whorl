@@ -1,28 +1,21 @@
 <!doctype html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full" data-version="{{ atlas_version }}" data-server-log="{{ server_log_path }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Atlas</title>
   {% load static %}
   <script>
-    // Apply the effective theme before paint (no flash): an explicit saved choice wins,
-    // otherwise follow the OS prefers-color-scheme. The toggle records an explicit choice;
-    // with none stored we keep tracking the OS live. Dark mode is complete app-wide now (#273).
+    // Apply the theme before paint (no flash). Observatory (dark) is Atlas's identity and the
+    // default; "Paper" (light) is an explicit saved choice via the toggle (owner-directed,
+    // 2026-09-06 — this replaced the follow-the-OS default of #273).
     (function () {
-      var mql = window.matchMedia("(prefers-color-scheme: dark)");
       function stored() { try { return localStorage.getItem("theme"); } catch (e) { return null; } }
-      function apply() {
-        var t = stored();
-        var dark = t === "dark" || (t !== "light" && mql.matches);
-        document.documentElement.classList.toggle("dark", dark);
-      }
-      apply();
+      document.documentElement.classList.toggle("dark", stored() !== "light");
       window.__toggleTheme = function () {
         var dark = document.documentElement.classList.toggle("dark");
         try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
       };
-      if (mql.addEventListener) mql.addEventListener("change", function () { if (!stored()) apply(); });
       // Calm mode (#275): reflect the saved preference as a class before paint, so calm: CSS
       // applies without a flash. The in-app toggle keeps it in sync live.
       try { if (localStorage.getItem("atlas-calm") === "1") document.documentElement.classList.add("calm"); } catch (e) {}
@@ -35,6 +28,77 @@
   <noscript>
     <p class="p-8 text-sm">The Atlas app needs JavaScript. The classic pages remain at <a class="underline" href="/">/</a>.</p>
   </noscript>
-  <script type="module" src="{% static 'js/spa.js' %}"></script>
+  <script>
+    // Boot watchdog (#382): if the app has not drawn anything after a few seconds, say so on
+    // screen with whatever errors were thrown — and post them to the server log — instead of
+    // leaving a blank window. Plain JS with inline styles: it must work when nothing else did.
+    (function () {
+      var errs = [];
+      window.__atlasBootErrors = errs;
+      function push(kind, msg) { if (errs.length < 12) errs.push(kind + ": " + msg); }
+      window.addEventListener("error", function (e) {
+        if (!e.message && e.target && e.target !== window) return; // a resource error: __atlasScriptFailed covers the script
+        var where = e.filename ? " @ " + String(e.filename).replace(location.origin, "") + ":" + e.lineno : "";
+        push("error", (e.message || String(e.error || "")) + where);
+      }, true);
+      window.addEventListener("unhandledrejection", function (e) {
+        var r = e.reason;
+        push("promise", r && r.stack ? String(r.stack).split("\n").slice(0, 3).join(" · ") : String(r));
+      });
+      window.__atlasScriptFailed = function (src) { push("load", "the app script failed to load: " + String(src).replace(location.origin, "")); };
+      function el(tag, text, style) { var n = document.createElement(tag); if (text) n.textContent = text; if (style) n.setAttribute("style", style); return n; }
+      window.setTimeout(function () {
+        var root = document.getElementById("root");
+        // #451: painted text is the only proof of life — nodes alone can be an empty shell
+        if (!root || window.__atlasMounted || (root.innerText || "").replace(/\s+/g, "").length > 20) return;
+        var html = document.documentElement;
+        var pending = [];
+        try {
+          var entries = performance.getEntriesByType("resource");
+          for (var i = 0; i < entries.length; i++) {
+            if (!entries[i].responseEnd) pending.push(String(entries[i].name).replace(location.origin, ""));
+          }
+        } catch (e) {}
+        var report = { where: "boot", url: location.pathname, errors: errs.slice(), pending: pending.slice(0, 12), nodes: root.children.length, readyState: document.readyState, version: html.getAttribute("data-version") || "", userAgent: navigator.userAgent };
+        try {
+          var csrf = (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || "";
+          fetch("/api/v1/client-errors/", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-CSRFToken": decodeURIComponent(csrf) }, body: JSON.stringify(report) }).catch(function () {});
+        } catch (e) {}
+        var box = el("div", "", "max-width:44rem;margin:12vh auto 0;padding:1.5rem 1.75rem;border-radius:1rem;background:#fff;color:#1c1917;font:14px/1.5 system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.35)");
+        box.setAttribute("data-testid", "boot-failure");
+        box.appendChild(el("h1", "Atlas couldn\u2019t draw the app", "margin:0 0 .5rem;font-size:1.25rem;font-weight:600"));
+        box.appendChild(el("p", "The window stayed empty because the app script did not run to the end. This is what was reported:", "margin:0 0 .75rem;color:#57534e"));
+        var lines = errs.slice();
+        if (pending.length) lines.push("still waiting for: " + pending.join(", "));
+        if (!lines.length) lines.push(root.children.length ? "(the app started but never drew anything \u2014 no error was thrown; a request may be hanging)" : "(no error was thrown \u2014 the script may be blocked, missing, or cached from an older build)");
+        var pre = el("pre", lines.join("\n"), "white-space:pre-wrap;word-break:break-word;max-height:14rem;overflow:auto;background:#1c1917;color:#e7e5e4;padding:.75rem 1rem;border-radius:.5rem;font:12px/1.45 ui-monospace,monospace;margin:0 0 1rem");
+        box.appendChild(pre);
+        var row = el("div", "", "display:flex;flex-wrap:wrap;gap:.5rem;align-items:center");
+        var reload = el("button", "Reload", "padding:.45rem .9rem;border-radius:.5rem;border:0;background:#4f46e5;color:#fff;font-weight:500;cursor:pointer");
+        reload.onclick = function () { location.reload(); };
+        var copy = el("button", "Copy report", "padding:.45rem .9rem;border-radius:.5rem;border:1px solid #d6d3d1;background:#fff;color:#1c1917;cursor:pointer");
+        copy.onclick = function () { try { navigator.clipboard.writeText(JSON.stringify(report, null, 1)); copy.textContent = "Copied"; } catch (e) {} };
+        var classic = el("a", "Open the classic pages", "padding:.45rem .9rem;border-radius:.5rem;border:1px solid #d6d3d1;color:#1c1917;text-decoration:none");
+        classic.href = "/classic/";
+        row.appendChild(reload); row.appendChild(copy); row.appendChild(classic);
+        if (window.__TAURI__ && window.__TAURI__.core) {
+          var inspect = el("button", "Open the inspector", "padding:.45rem .9rem;border-radius:.5rem;border:1px solid #d6d3d1;background:#fff;color:#1c1917;cursor:pointer");
+          inspect.onclick = function () { try { window.__TAURI__.core.invoke("open_devtools"); } catch (e) {} };
+          row.appendChild(inspect);
+        }
+        box.appendChild(row);
+        var meta = "Atlas " + (html.getAttribute("data-version") || "dev");
+        var logPath = html.getAttribute("data-server-log");
+        if (logPath) meta += " \u00b7 this report was also written to " + logPath;
+        box.appendChild(el("p", meta, "margin:1rem 0 0;font-size:12px;color:#78716c"));
+        root.appendChild(box);
+        // a late paint (a slow first launch) takes the panel away again
+        var undo = window.setInterval(function () {
+          if (window.__atlasMounted) { window.clearInterval(undo); if (box.parentNode) box.parentNode.removeChild(box); }
+        }, 1000);
+      }, 8000);
+    })();
+  </script>
+  <script type="module" src="{% static 'js/spa.js' %}" onerror="window.__atlasScriptFailed && window.__atlasScriptFailed(this.src)"></script>
 </body>
 </html>

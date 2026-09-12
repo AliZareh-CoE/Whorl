@@ -53,6 +53,47 @@ def _event(uid: str, day: date, summary: str, dtstamp: str, done: bool = False) 
     ]
 
 
+def build_ics(projects, now=None, name: str = "Atlas — deadlines") -> str:
+    """One VCALENDAR across ``projects`` (milestones + manuscript deadlines), for a calendar
+    app's "subscribe by URL". Backlog #9, served at /api/v1/calendar.ics (2026-09-06)."""
+    from django.utils import timezone
+
+    from plans.models import Milestone
+    from writing.models import Manuscript
+
+    now = now or timezone.now()
+    dtstamp = now.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+    projects = list(projects)
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        f"PRODID:{PRODID}",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        _fold(f"X-WR-CALNAME:{_escape(name)}"),
+    ]
+    milestones = (
+        Milestone.objects.filter(phase__project__in=projects, due_date__isnull=False)
+        .select_related("phase__project")
+        .order_by("due_date", "pk")
+    )
+    for m in milestones:
+        check = "✓ " if m.completed_at else ""
+        lines += _event(
+            f"milestone-{m.pk}@atlas",
+            m.due_date,
+            f"{check}{m.phase.project.name}: {m.title}",
+            dtstamp,
+            done=bool(m.completed_at),
+        )
+    for ms in Manuscript.objects.filter(project__in=projects, deadline__isnull=False).order_by(
+        "deadline", "pk"
+    ):
+        lines += _event(f"manuscript-{ms.pk}@atlas", ms.deadline, f"Deadline: {ms.title}", dtstamp)
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(lines) + "\r\n"
+
+
 def build_project_ics(project, now=None) -> str:
     """Return a VCALENDAR string of the project's milestone + manuscript deadlines."""
     from django.utils import timezone

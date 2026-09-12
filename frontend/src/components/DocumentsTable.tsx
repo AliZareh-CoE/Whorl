@@ -6,6 +6,9 @@
  * bulk endpoints. The server table remains the no-JS fallback.
  */
 import { useEffect, useMemo, useState } from "react";
+import { Download, MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { confirmDialog, errorDialog, promptDialog } from "./Dialog";
+import { Kebab, useMenu, type MenuItem } from "./Menu";
 
 type Tag = { id: number; name: string };
 type Folder = { id: number; name: string };
@@ -42,7 +45,7 @@ function csrfToken(): string {
 
 type SortKey = "title" | "folder" | "size" | "added";
 
-export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onDone }: Props) {
+export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onDone, filesUrl }: Props & { filesUrl?: string }) {
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("added");
   const [asc, setAsc] = useState(false);
@@ -55,6 +58,26 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
   const [commentsDoc, setCommentsDoc] = useState<Doc | null>(null);
   const [previewImage, setPreviewImage] = useState<Doc | null>(null);
   const [extraCounts, setExtraCounts] = useState<Record<number, number>>({});
+  // CRUD sweep 2026-09-06: rename / describe / delete one document without leaving the table
+  const menu = useMenu();
+  async function patchDoc(id: number, body: Record<string, unknown>) {
+    const res = await fetch(`/api/v1/documents/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() }, credentials: "same-origin", body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  }
+  async function deleteDoc(id: number) {
+    const res = await fetch(`/api/v1/documents/${id}/`, { method: "DELETE", headers: { "X-CSRFToken": csrfToken() }, credentials: "same-origin" });
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  }
+  const finish = () => (onDone ? onDone() : window.location.reload());
+  const rowItems = (doc: Doc): MenuItem[] => [
+    { label: "Download", icon: <Download className="h-3.5 w-3.5" />, onSelect: () => { const a = document.createElement("a"); a.href = doc.downloadUrl; a.download = doc.title; a.click(); } },
+    { label: "Comments…", icon: <MessageSquare className="h-3.5 w-3.5" />, onSelect: () => setCommentsDoc(doc) },
+    "-",
+    { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: async () => { const t = await promptDialog({ title: "Rename document", label: "Title", initial: doc.title, validate: (v) => (v.trim() ? null : "A document needs a title.") }); if (t && t.trim() !== doc.title) { try { await patchDoc(doc.id, { title: t.trim() }); finish(); } catch (e) { void errorDialog("Couldn't rename the document", e); } } } },
+    { label: "Edit description…", onSelect: async () => { const d = await promptDialog({ title: "Description", label: "What is this file?", initial: doc.description, multiline: true }); if (d !== null && d !== doc.description) { try { await patchDoc(doc.id, { description: d }); finish(); } catch (e) { void errorDialog("Couldn't save the description", e); } } } },
+    "-",
+    { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete “${doc.title}”?`, body: "The file is removed from the project and from disk.", danger: true, confirmLabel: "Delete document" })) { try { await deleteDoc(doc.id); finish(); } catch (e) { void errorDialog("Couldn't delete the document", e); } } } },
+  ];
 
   const rows = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -217,7 +240,9 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      {/* relative: the header's sr-only labels are absolutely positioned and would otherwise
+          escape the scroller and widen the page at narrow widths (#420) */}
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-stone-200 text-left text-[11px] uppercase tracking-wide text-stone-400 dark:border-stone-800">
@@ -256,6 +281,8 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
             {rows.map((doc, index) => (
               <tr
                 key={doc.id}
+                onContextMenu={(e) => menu.open(e, rowItems(doc))}
+                data-testid="document-row"
                 className={`group border-b border-stone-100 transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800 ${
                   selected.has(doc.id) ? "bg-indigo-50/60 dark:bg-indigo-500/10" : ""
                 }`}
@@ -336,12 +363,7 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                     >
                       Download
                     </a>
-                    <a
-                      href={doc.editUrl}
-                      className="text-stone-500 hover:text-indigo-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-1 focus-visible:ring-indigo-500 dark:text-stone-300 dark:hover:text-indigo-300"
-                    >
-                      Edit
-                    </a>
+                    <Kebab items={rowItems(doc)} label={`Actions for ${doc.title}`} />
                   </div>
                 </td>
               </tr>
@@ -357,13 +379,30 @@ export function DocumentsTable({ documents, folders, tags, bulkUrl, nextUrl, onD
                       ? `Nothing matches “${filter.trim()}”. Try a different title, folder, or tag.`
                       : "Upload a file into any folder to start filling this project's library."}
                   </p>
+                  {!filter.trim() && filesUrl && (
+                    <a href={filesUrl} className="mt-3 inline-block rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700" data-testid="documents-upload-cta">Upload in Files →</a>
+                  )}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      {/* #421 (backlog #178): a three-row table in a wide page leaves a lot of quiet space —
+          say what the page is for and offer the next step instead of leaving it blank */}
+      {!filter.trim() && documents.length > 0 && documents.length <= 3 && (
+        <div className="mt-4 rounded border border-dashed border-stone-200 px-4 py-5 text-center dark:border-stone-800" data-testid="documents-sparse">
+          <p className="text-sm text-stone-500 dark:text-stone-300">
+            {documents.length === 1 ? "One file so far." : `${documents.length} files so far.`} This page is the project's file cabinet: protocols, data notes, figures, drafts — anything worth finding again.
+          </p>
+          <p className="mt-2 text-xs text-stone-400">
+            {filesUrl ? <><a href={filesUrl} className="font-medium text-indigo-600 hover:underline dark:text-indigo-300">Upload or drop files in Files →</a> · </> : null}
+            PDFs of papers belong in the Library; tag files here so filters mean something.
+          </p>
+        </div>
+      )}
 
+      {menu.element}
       {commentsDoc && (
         <CommentsModal
           doc={commentsDoc}

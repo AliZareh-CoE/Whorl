@@ -42,8 +42,10 @@ def test_doctor_warns_when_updater_pubkey_is_placeholder(settings, tmp_path):
     settings.ATLAS_API_KEY = "a-real-key"
     output, code = run_doctor()
     # the shipped tauri.conf has the REPLACE_ME placeholder until the owner does D3
-    assert "Desktop auto-update not configured" in output
-    assert code == 0  # it's a warning, not a failure
+    # #303: the repo now carries the real public key with createUpdaterArtifacts off (CI flips
+    # it on when the signing secret exists) — doctor reports that state as OK, not a warning.
+    assert "Desktop auto-update public key set" in output
+    assert code == 0
 
 
 def test_doctor_fails_on_updater_misconfig(settings, tmp_path):

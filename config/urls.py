@@ -1,8 +1,8 @@
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.static import serve
 
 from core.security import ThrottledLoginView
 
@@ -23,5 +23,11 @@ urlpatterns = [
     path("", include("core.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Uploaded files (PDFs, compiled manuscripts, figures) are served by Django itself, in every
+# settings module: this is a single-user app whose desktop build has no reverse proxy, and
+# with DEBUG off the classic `static()` helper silently served nothing — the studio's PDF
+# pane showed "Missing PDF" on the desktop (owner report, 2026-09-06). LoginRequiredMiddleware
+# keeps the files behind the login like every other page.
+urlpatterns += [
+    re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}, name="media"),
+]

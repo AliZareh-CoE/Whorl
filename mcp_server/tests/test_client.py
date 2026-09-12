@@ -82,7 +82,7 @@ def test_no_django_imports():
         elif isinstance(node, ast.ImportFrom) and node.module:
             imported.add(node.module.split(".")[0])
     assert "django" not in imported
-    assert imported <= {"os", "datetime", "httpx"}
+    assert imported <= {"os", "datetime", "httpx", "mimetypes"}  # stdlib only, plus httpx
 
 
 class TestETagCache:
@@ -281,3 +281,283 @@ def test_new_protocol_version_omits_unset_fields(capture):
     assert capture["url"].endswith("/protocols/5/new-version/")
     assert "step 2" in capture["body"]
     assert "title" not in capture["body"]  # carried over, not sent
+
+
+def test_connection_refused_explains_that_atlas_is_not_running(monkeypatch, env):
+    def fake_client():
+        def handler(request):
+            raise httpx.ConnectError("All connection attempts failed", request=request)
+
+        return httpx.Client(
+            base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(client, "_client", fake_client)
+    with pytest.raises(client.AtlasClientError, match="is the Atlas app running"):
+        client.list_projects()
+
+
+def test_import_references_posts_text_and_project(capture):
+    client.import_references("@article{k, title={T}}", "bibtex", "proj")
+    assert capture["method"] == "POST" and calls_url_has(capture, "/references/import/")
+    assert '"format":"bibtex"' in capture["body"] and '"project":"proj"' in capture["body"]
+
+
+def test_import_from_zotero_posts(capture):
+    client.import_from_zotero()
+    assert capture["method"] == "POST" and calls_url_has(capture, "/references/import-zotero/")
+    assert capture["body"] == "{}"
+
+
+def test_discover_related_builds_request(capture):
+    client.discover_related(7, "cited_by", 5)
+    assert calls_url_has(capture, "/references/7/discover/") and "kind=cited_by" in capture["url"]
+
+
+def test_export_bibtex_returns_text(monkeypatch, env):
+    def fake_client():
+        def handler(request):
+            assert "ids=1%2C2" in str(request.url) or "ids=1,2" in str(request.url)
+            return httpx.Response(200, text="@article{k, title={T}}")
+
+        return httpx.Client(
+            base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(client, "_client", fake_client)
+    assert client.export_bibtex([1, 2]).startswith("@article")
+
+
+def test_format_citations_builds_request(capture):
+    client.format_citations([3, 1], "chicago")
+    assert (
+        calls_url_has(capture, "/references/cite/")
+        and "ids=3%2C1" in capture["url"]
+        and "style=chicago" in capture["url"]
+    )
+
+
+def test_todo_client_calls(capture):
+    client.list_todos()
+    assert calls_url_has(capture, "/todos/") and "done=false" in capture["url"]
+    client.add_todo("Book scanner", "proj")
+    assert capture["method"] == "POST" and '"project":"proj"' in capture["body"]
+    client.complete_todo(4)
+    assert (
+        capture["method"] == "PATCH"
+        and calls_url_has(capture, "/todos/4/")
+        and '"done":true' in capture["body"]
+    )
+
+
+def test_tag_client_calls(capture):
+    client.list_library_tags()
+    assert calls_url_has(capture, "/library-tags/")
+    client.tag_references([1, 2], "pilot", remove=True)
+    assert (
+        capture["method"] == "POST"
+        and '"action":"untag"' in capture["body"]
+        and '"value":"pilot"' in capture["body"]
+    )
+
+
+def test_duplicate_client_calls(capture):
+    client.find_duplicates()
+    assert calls_url_has(capture, "/references/duplicates/")
+    client.merge_references(1, [2, 3])
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/references/merge/")
+        and '"merge":[2,3]' in capture["body"]
+    )
+
+
+def test_reading_client_calls(capture):
+    client.list_highlights(7)
+    assert calls_url_has(capture, "/highlights/") and "reference=7" in capture["url"]
+    client.add_highlight(7, "a passage", page=3, project="deep", comment="why")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/highlights/")
+        and '"page":3' in capture["body"]
+        and '"project":"deep"' in capture["body"]
+    )
+    client.add_highlight(7, "global")
+    assert '"project"' not in capture["body"] and '"page"' not in capture["body"]
+    client.get_highlights_markdown(7)
+    assert calls_url_has(capture, "/references/7/highlights-markdown/")
+    client.get_reading_notes(7)
+    assert calls_url_has(capture, "/references/7/reading-notes/")
+    client.set_reading_notes(4, "notes")
+    assert capture["method"] == "PATCH" and calls_url_has(capture, "/project-references/4/")
+    client.fetch_pdf(7)
+    assert capture["method"] == "POST" and calls_url_has(capture, "/references/7/fetch-pdf/")
+
+
+def test_pdf_text_search_client_calls(capture):
+    client.search_pdf_text("perceptual load", project="deep", limit=5)
+    assert calls_url_has(capture, "/references/text-search/") and "project=deep" in capture["url"]
+    client.search_in_pdf(7, "load")
+    assert calls_url_has(capture, "/references/7/text-search/") and "q=load" in capture["url"]
+
+
+def test_plan_outline_client_calls(capture):
+    client.get_plan_outline("deep")
+    assert calls_url_has(capture, "/projects/deep/outline/")
+    client.set_plan_outline("deep", "# A", dry_run=True)
+    assert capture["method"] == "POST" and '"dry_run":true' in capture["body"]
+
+
+def test_roadmap_client_calls(capture):
+    client.get_roadmap("deep")
+    assert calls_url_has(capture, "/projects/deep/roadmap/")
+    client.set_phase_dates(3, start="2026-09-01")
+    assert capture["method"] == "PATCH" and calls_url_has(capture, "/phases/3/")
+    assert '"target_start":"2026-09-01"' in capture["body"] and "target_end" not in capture["body"]
+
+
+def test_week_focus_client_call(capture):
+    client.get_week_focus("deep")
+    assert calls_url_has(capture, "/projects/deep/focus/")
+
+
+def test_notes_client_calls(capture):
+    client.list_notes("deep", q="load")
+    assert calls_url_has(capture, "/notes/") and "q=load" in capture["url"]
+    client.get_note(4)
+    assert calls_url_has(capture, "/notes/4/")
+    client.update_note(4, body="new body")
+    assert (
+        capture["method"] == "PATCH"
+        and '"body":"new body"' in capture["body"]
+        and "title" not in capture["body"]
+    )
+    client.get_note_links(4)
+    assert calls_url_has(capture, "/notes/4/links/")
+
+
+def test_note_template_and_export_client_calls(capture):
+    client.create_note_from_template("deep", "literature", reference_id=9)
+    assert (
+        capture["method"] == "POST"
+        and '"reference":9' in capture["body"]
+        and '"kind":"literature"' in capture["body"]
+    )
+    client.create_note_from_template("deep", "daily")
+    assert "reference" not in capture["body"]
+    client.export_note(4, style="ieee")
+    assert calls_url_has(capture, "/notes/4/export/") and "style=ieee" in capture["url"]
+
+
+def test_manuscript_bibliography_client_calls(capture):
+    client.get_manuscript_bibliography(3)
+    assert calls_url_has(capture, "/manuscripts/3/bibliography/")
+    client.add_manuscript_reference(3, 9, cite_key_override="lavie10")
+    assert (
+        capture["method"] == "POST"
+        and '"reference":9' in capture["body"]
+        and "lavie10" in capture["body"]
+    )
+    client.remove_manuscript_reference(3, 9)
+    assert capture["method"] == "DELETE" and calls_url_has(
+        capture, "/manuscripts/3/bibliography/9/"
+    )
+    client.manuscript_cite_check(3)
+    assert calls_url_has(capture, "/manuscripts/3/cite-check/")
+    client.add_submission_event(3, "submitted", "2026-09-06", "to NeurIPS")
+    assert capture["method"] == "POST" and '"kind":"submitted"' in capture["body"]
+
+
+def test_reviews_client_calls(capture):
+    client.log_reviews(3, "Reviewer 1\n1. small n", date="2026-09-06")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/manuscripts/3/reviews/")
+        and '"date":"2026-09-06"' in capture["body"]
+    )
+    try:
+        client.get_response_progress(3)
+    except (KeyError, TypeError):
+        pass  # the capture transport returns an empty body; the URL is what we check
+    assert calls_url_has(capture, "/manuscripts/3/response-progress/")
+
+
+def test_budget_client_calls(capture):
+    client.get_manuscript_budget(3)
+    assert calls_url_has(capture, "/manuscripts/3/budget/")
+    client.set_venue_limits(3, {"words": 8000})
+    assert capture["method"] == "PATCH" and '"venue_limits":{"words":8000}' in capture["body"]
+
+
+def test_dashboard_client_call(capture):
+    client.get_dashboard()
+    assert calls_url_has(capture, "/dashboard/")
+
+
+def test_inbox_client_calls(capture):
+    client.list_inbox()
+    assert calls_url_has(capture, "/quick-capture/") and "processed=false" in capture["url"]
+    client.convert_capture(5, "milestone", project="deep", phase_id=3, due="2026-10-01")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/quick-capture/5/convert/")
+        and '"phase":3' in capture["body"]
+    )
+
+
+def test_review_matrix_client_calls(capture):
+    client.set_review_mark("deep", "lavie2010attention", "Sample size", note="n=12")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/projects/deep/review-matrix/mark/")
+        and '"note":"n=12"' in capture["body"]
+    )
+    client.add_review_theme("deep", "Load type")
+    assert calls_url_has(capture, "/projects/deep/review-matrix/themes/")
+
+
+def test_research_client_calls(capture):
+    client.add_hypothesis("deep", "Load is strategic")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/hypotheses/")
+        and '"statement":"Load is strategic"' in capture["body"]
+    )
+    client.set_hypothesis_status(4, "testing")
+    assert capture["method"] == "PATCH" and calls_url_has(capture, "/hypotheses/4/")
+    client.add_evidence(4, "supports", "n=12 pilot", reference_id=9)
+    assert (
+        calls_url_has(capture, "/evidence/")
+        and '"reference":9' in capture["body"]
+        and "note" not in capture["body"]
+    )
+    client.log_experiment("deep", "Pilot run", hypothesis_ids=[4], date="2026-09-06")
+    assert calls_url_has(capture, "/experiments/") and '"hypotheses":[4]' in capture["body"]
+
+
+def test_theme_suggestions_and_diagnostics_client_calls(capture):
+    client.suggest_review_themes("attention")
+    assert calls_url_has(capture, "/projects/attention/review-matrix/suggest/")
+    client.get_diagnostics(network=True)
+    assert calls_url_has(capture, "/diagnostics/?network=1")
+
+
+def test_get_achievements(capture):
+    client.get_achievements()
+    assert capture["url"].endswith("/achievements/")
+
+
+def test_take_snapshot_client_calls(capture):
+    """#464: list_only reads the status; the default writes a snapshot (POST)."""
+    client.take_snapshot(list_only=True)
+    assert capture["url"].endswith("/snapshots/") and capture["method"] == "GET"
+    client.take_snapshot()
+    assert capture["url"].endswith("/snapshots/") and capture["method"] == "POST"
+
+
+def test_preflight_client_call(capture):
+    """#466: the readiness checks, with the network flag only when asked."""
+    client.preflight_manuscript(4)
+    assert capture["url"].endswith("/manuscripts/4/preflight/")
+    client.preflight_manuscript(4, network=True)
+    assert capture["url"].endswith("/manuscripts/4/preflight/?network=1")

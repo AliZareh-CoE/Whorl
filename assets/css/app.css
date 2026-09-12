@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @source "../../templates";
 @source "../../**/templates";
@@ -25,6 +26,203 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ------------------------------------------------------------------------------------------
+   OBSERVATORY — the Atlas visual identity (owner-directed, 2026-09-06).
+
+   Dark is the default and the showpiece: a deep-space canvas with a slow aurora, glass panels
+   with luminous edges, an electric-violet accent, display type for numbers and headings, and
+   a living constellation of your research (static/js/constellation.js) on the dashboard and
+   the login screen. Light ("Paper") stays available as an explicit choice.
+
+   HOW IT REACHES EVERY PAGE: Tailwind v4 emits colours as `var(--color-*)`, so redefining the
+   stone/indigo/white tokens under `.dark` re-skins all 16 SPA pages + the classic templates
+   without touching a single component. Panels get their glass treatment via the literal
+   `dark:bg-stone-900` class token every card already carries.
+   ------------------------------------------------------------------------------------------ */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/Inter-var.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("../fonts/SpaceGrotesk-var.woff2") format("woff2");
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+.dark {
+  /* canvas + surfaces */
+  --color-stone-950: #05070f;
+  --color-stone-900: rgb(16 20 40 / 0.62);      /* glass panel */
+  --color-stone-800: rgb(139 148 210 / 0.16);   /* luminous border / hover wash */
+  --color-stone-700: rgb(139 148 210 / 0.28);   /* stronger border, inputs */
+  --color-stone-600: #6f77a6;
+  --color-stone-500: #8189b8;                    /* muted text */
+  --color-stone-400: #9aa3cf;                    /* secondary text */
+  --color-stone-300: #c4c9ea;
+  --color-stone-200: #dfe2f6;
+  --color-stone-100: #f1f2ff;                    /* primary text */
+  --color-stone-50: #ffffff;
+  --color-black: #05070f;
+  /* electric violet accent (+ the cyan it pairs with in gradients) */
+  --color-indigo-300: #c7bfff;
+  --color-indigo-400: #a99cff;
+  --color-indigo-500: #8b7cff;
+  --color-indigo-600: #7c6cff;
+  --color-indigo-700: #6a5af0;
+  --color-atlas-cyan: #4ff2e0;
+  --color-atlas-magenta: #ff5ec4;
+  color-scheme: dark;
+}
+
+/* The aurora: three drifting radial glows fixed behind everything (GPU-cheap: transforms +
+   opacity only). Sits above the canvas colour and below all content. */
+.dark body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 18% 12%, rgb(124 108 255 / 0.32), transparent 70%),
+    radial-gradient(30% 30% at 82% 18%, rgb(79 242 224 / 0.16), transparent 70%),
+    radial-gradient(34% 30% at 60% 92%, rgb(255 94 196 / 0.14), transparent 70%);
+  filter: blur(40px);
+  animation: aurora 26s ease-in-out infinite alternate;
+}
+@keyframes aurora {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(3%, -2%, 0) scale(1.06); }
+  100% { transform: translate3d(-3%, 2%, 0) scale(1.02); }
+}
+/* fine star grain over the canvas */
+.dark body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, rgb(255 255 255 / 0.55), transparent 60%),
+    radial-gradient(1px 1px at 68% 8%, rgb(255 255 255 / 0.45), transparent 60%),
+    radial-gradient(1.5px 1.5px at 84% 62%, rgb(199 191 255 / 0.5), transparent 60%),
+    radial-gradient(1px 1px at 30% 78%, rgb(255 255 255 / 0.4), transparent 60%),
+    radial-gradient(1px 1px at 52% 46%, rgb(79 242 224 / 0.45), transparent 60%),
+    radial-gradient(1.5px 1.5px at 92% 88%, rgb(255 255 255 / 0.35), transparent 60%),
+    radial-gradient(1px 1px at 6% 58%, rgb(255 255 255 / 0.4), transparent 60%);
+}
+
+/* Glass: every panel that declares the dark surface token becomes frosted with a hairline
+   highlight on top and a deep soft shadow — app-wide, no per-component edits. */
+.dark [class~="dark:bg-stone-900"],
+.dark .card {
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 18px 40px -22px rgb(0 0 0 / 0.75);
+}
+.dark [class~="dark:bg-stone-900"][class~="rounded"],
+.dark [class~="dark:bg-stone-900"][class~="rounded-lg"],
+.dark .card {
+  border-radius: 0.875rem;
+}
+/* nested surfaces inside a glass panel must not re-blur */
+.dark [class~="dark:bg-stone-900"] [class~="dark:bg-stone-900"] {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* Display type for headings and big numbers; tabular figures everywhere numbers stack. */
+.dark h1,
+.dark h2,
+.dark .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+.dark h1 {
+  font-weight: 700;
+}
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Progress bars glow in the dark. */
+.dark [class~="rounded-full"][class~="h-1.5"] > [class~="rounded-full"] {
+  box-shadow: 0 0 12px 0 color-mix(in oklab, currentColor 0%, var(--color-indigo-500) 70%);
+}
+
+/* Inputs + selects on glass */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: rgb(9 12 26 / 0.7);
+  border-color: var(--color-stone-700);
+}
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  box-shadow: 0 0 0 3px rgb(124 108 255 / 0.25), 0 0 24px -6px rgb(124 108 255 / 0.5);
+}
+
+/* Utilities the identity pieces share */
+.text-gradient {
+  background: linear-gradient(92deg, #c7bfff 0%, #8b7cff 35%, #4ff2e0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.glow-accent {
+  box-shadow: 0 0 0 1px rgb(124 108 255 / 0.35), 0 0 32px -6px rgb(124 108 255 / 0.55);
+}
+.hairline-gradient {
+  position: relative;
+}
+.hairline-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgb(199 191 255 / 0.55), rgb(79 242 224 / 0.25) 50%, rgb(255 94 196 / 0.3));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Staggered entrance: give children `.rise` and a `--i` index. */
+.rise {
+  animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Orbit ring progress (dashboard): the track is drawn by the component; this just glows. */
+.orbit-ring {
+  filter: drop-shadow(0 0 6px rgb(139 124 255 / 0.55));
+}
+
+/* Thin, quiet scrollbars on the dark canvas */
+.dark ::-webkit-scrollbar { width: 10px; height: 10px; }
+.dark ::-webkit-scrollbar-thumb { background: rgb(139 148 210 / 0.22); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+.dark ::-webkit-scrollbar-track { background: transparent; }
 
 /* World-class focus visibility without per-element classes */
 @layer base {
@@ -180,4 +378,261 @@
 }
 .gutter.gutter-horizontal:hover {
   background-color: rgba(99, 102, 241, 0.08);
+}
+
+/* Library v2 slice 7 — in-workbench PDF reader (pdf.js text layer + painted highlights) */
+.pdf-page { position: relative; margin: 0 auto; background: white; box-shadow: 0 1px 3px rgb(0 0 0 / 0.15); }
+.pdf-page canvas { display: block; }
+/* exact highlight boxes (Library v3) — sit between the canvas and the text layer */
+.pdf-page .hl-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+/* Comment markers in the reader's margin (#396): a gutter to the right of each page */
+.pdf-page-row { position: relative; margin: 0 auto; }
+.pdf-margin { position: absolute; top: 0; bottom: 0; right: 0; width: 30px; z-index: 3; } /* inside the page's own white margin, so it is never clipped by the scroller */
+.pdf-margin-marker, .pdf-margin-add { position: absolute; left: 4px; display: flex; height: 22px; width: 22px; align-items: center; justify-content: center; border-radius: 9999px; border: 1px solid rgb(214 211 209); background: white; color: rgb(79 70 229); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); transition: transform 0.12s ease, opacity 0.12s ease; }
+.pdf-margin-marker:hover, .pdf-margin-add:hover { transform: scale(1.12); }
+.pdf-margin-add { color: rgb(120 113 108); }
+.dark .pdf-margin-marker, .dark .pdf-margin-add { border-color: rgb(68 64 60); background: rgb(28 25 23); color: rgb(165 180 252); }
+.dark .pdf-margin-add { color: rgb(168 162 158); }
+.pdf-page .hl-layer i { position: absolute; display: block; border-radius: 2px; opacity: 0.38; mix-blend-mode: multiply; }
+.dark .pdf-page .hl-layer i { opacity: 0.55; mix-blend-mode: normal; }
+.textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; opacity: 1; }
+.textLayer span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; }
+.textLayer ::selection { background: rgb(79 70 229 / 0.35); }
+.textLayer span[data-hl="yellow"] { background: rgb(250 204 21 / 0.45); }
+.textLayer span[data-hl="green"] { background: rgb(74 222 128 / 0.4); }
+.textLayer span[data-hl="blue"] { background: rgb(96 165 250 / 0.4); }
+.textLayer span[data-hl="pink"] { background: rgb(244 114 182 / 0.4); }
+.textLayer span[data-find="1"] { background: rgb(124 108 255 / 0.45); outline: 1px solid rgb(124 108 255 / 0.6); border-radius: 2px; }
+
+/* Plan v2 slice 3 — the milestone drawer must be opaque over the page (glass panels bleed) */
+.drawer-solid { background: #ffffff; }
+.dark .drawer-solid { background: rgb(9 12 26 / 0.97); backdrop-filter: blur(24px); }
+
+/* --- The LaTeX studio (Owner report 2026-09-06): one CSS-variable palette drives the
+   CodeMirror theme, the panes and the syntax colours in both Paper and Observatory. --- */
+.studio {
+  --studio-bg: #f5f5f4;
+  --studio-panel: #ffffff;
+  --studio-editor-bg: #ffffff;
+  --studio-fg: #1c1917;
+  --studio-line: #e7e5e4;
+  --studio-accent: #4f46e5;
+  --studio-selection: rgba(79, 70, 229, 0.16);
+  --studio-active-line: rgba(79, 70, 229, 0.05);
+  --studio-gutter-fg: #a8a29e;
+  --studio-match: rgba(251, 191, 36, 0.35);
+  --tok-keyword: #7c3aed;
+  --tok-command: #4f46e5;
+  --tok-string: #0f766e;
+  --tok-comment: #a8a29e;
+  --tok-number: #b45309;
+  --tok-bracket: #57534e;
+  --tok-heading: #1c1917;
+  --tok-label: #0369a1;
+  --tok-math: #be185d;
+  color: var(--studio-fg);
+  background: var(--studio-bg);
+}
+.dark .studio {
+  --studio-bg: #0b0d14;
+  --studio-panel: #10131c;
+  --studio-editor-bg: #0e1119;
+  --studio-fg: #e7e5e4;
+  --studio-line: #1f2333;
+  --studio-accent: #a5b4fc;
+  --studio-selection: rgba(129, 140, 248, 0.25);
+  --studio-active-line: rgba(129, 140, 248, 0.07);
+  --studio-gutter-fg: #4b5163;
+  --studio-match: rgba(251, 191, 36, 0.3);
+  --tok-keyword: #c4b5fd;
+  --tok-command: #93c5fd;
+  --tok-string: #6ee7b7;
+  --tok-comment: #5b6275;
+  --tok-number: #fcd34d;
+  --tok-bracket: #a8a29e;
+  --tok-heading: #f5f5f4;
+  --tok-label: #7dd3fc;
+  --tok-math: #f9a8d4;
+}
+.studio {
+  --studio-text: #292524;
+  --studio-muted: #57534e;
+  --studio-dim: #78716c;
+  --studio-hover: rgba(28, 25, 23, 0.06);
+  --studio-badge: rgba(28, 25, 23, 0.08);
+}
+.dark .studio {
+  --studio-text: #d6d3d1;
+  --studio-muted: #a8a29e;
+  --studio-dim: #6b7280;
+  --studio-hover: rgba(255, 255, 255, 0.07);
+  --studio-badge: rgba(255, 255, 255, 0.1);
+}
+.studio .st-fg { color: var(--studio-fg); }
+.studio .st-text { color: var(--studio-text); }
+.studio .st-muted { color: var(--studio-muted); }
+.studio .st-dim { color: var(--studio-dim); }
+.studio .st-hover-fg:hover { color: var(--studio-fg); }
+.studio .st-hover-bg:hover { background: var(--studio-hover); }
+.studio .st-badge { background: var(--studio-badge); }
+.studio .st-placeholder::placeholder { color: var(--studio-dim); }
+.studio .cm-editor { height: 100%; }
+.studio .cm-scroller { overflow: auto; }
+.studio-gutter {
+  background: var(--studio-line);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+.studio-gutter:hover { background: var(--studio-accent); }
+.studio-gutter { position: relative; }
+.studio-gutter-btn {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 14px; height: 36px; border-radius: 7px; padding: 0; line-height: 1;
+  background: var(--studio-panel); border: 1px solid var(--studio-line); color: var(--studio-gutter-fg);
+  font-size: 12px; cursor: pointer; opacity: 0; transition: opacity 120ms;
+}
+.studio-gutter:hover .studio-gutter-btn, .studio-gutter-btn:focus-visible { opacity: 1; }
+.studio-gutter-btn:hover { color: var(--studio-fg); border-color: var(--studio-accent); }
+.studio-page {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.25);
+  background: #fff;
+  max-width: 100%;
+}
+.studio select option { color: #1c1917; }
+
+/* --- Mochi, the lab familiar (Owner report 2026-09-06). Palette per stage, animation per
+   mood; pupils follow --pupil-x/--pupil-y set by Creature.tsx. --- */
+.mochi {
+  --mochi-body: #f0c96a;
+  --mochi-hi: #ffe8a8;
+  --mochi-belly: #fbf1d8;
+  --mochi-line: #9a7a3a;
+  --mochi-accent: #6366f1;
+  --pupil-x: 0px;
+  --pupil-y: 0px;
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  transform-origin: 50% 95%;
+  user-select: none;
+}
+/* #427: species — one palette per install, chosen at hatch (core/pet.py::pet_species) */
+.mochi.mochi-species-snowy { --mochi-body: #e6ebf2; --mochi-hi: #ffffff; --mochi-belly: #f7f9fc; --mochi-line: #7d8794; }
+.mochi.mochi-species-barn { --mochi-body: #e9c98f; --mochi-hi: #fff2d6; --mochi-belly: #fbf6ea; --mochi-line: #9c7a45; }
+.mochi.mochi-species-dusk { --mochi-body: #6b6a8f; --mochi-hi: #a39fd0; --mochi-belly: #d9d6ee; --mochi-line: #3d3a5c; --mochi-accent: #c4b5fd; }
+.mochi.mochi-species-golden { --mochi-body: #f3b52a; --mochi-hi: #fff0a8; --mochi-belly: #fff5cf; --mochi-line: #a1650c; --mochi-accent: #b45309; }
+.mochi-species-golden .mochi-svg { filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.55)); }
+.mochi-egg { --mochi-body: #f6efdd; --mochi-hi: #fffaf0; --mochi-line: #cbbb95; }
+.mochi-scholar { --mochi-body: #c9a26b; --mochi-hi: #f0d9a8; --mochi-line: #8b6a3c; }
+.mochi-sage { --mochi-body: #9b7d55; --mochi-hi: #d9bf8f; --mochi-line: #5f4a2c; --mochi-accent: #818cf8; }
+.dark .mochi { --mochi-accent: #a5b4fc; }
+.mochi-svg { overflow: visible; display: block; }
+.mochi .mochi-body { animation: mochi-breathe 3.6s ease-in-out infinite; transform-origin: 50% 92%; }
+@keyframes mochi-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.025, 0.975) translateY(0.4px); } }
+.mochi .mochi-pupil { transform: translate(var(--pupil-x), var(--pupil-y)); transition: transform 0.18s ease-out; }
+.mochi .mochi-lid { transform: scaleY(0); transform-origin: 50% 50%; transform-box: fill-box; animation: mochi-blink 5.4s ease-in-out infinite; }
+.mochi .mochi-lids .mochi-lid:last-child { animation-delay: 0.02s; }
+@keyframes mochi-blink { 0%, 91%, 100% { transform: scaleY(0); } 94%, 97% { transform: scaleY(1); } }
+.mochi .mochi-wing { transform-origin: 50% 20%; transform-box: fill-box; }
+.mochi .mochi-tufts { animation: mochi-twitch 7s ease-in-out infinite; transform-origin: 50% 100%; transform-box: fill-box; }
+@keyframes mochi-twitch { 0%, 88%, 100% { transform: rotate(0); } 92% { transform: rotate(-4deg); } 96% { transform: rotate(3deg); } }
+.mochi .mochi-sparkle { animation: mochi-twinkle 2.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+.mochi .mochi-sparkle-2 { animation-delay: 1.1s; }
+@keyframes mochi-twinkle { 0%, 100% { opacity: 0.35; transform: scale(0.7) rotate(0); } 50% { opacity: 1; transform: scale(1.15) rotate(20deg); } }
+/* moods */
+.mochi-sleeping .mochi-lid { animation: none; transform: scaleY(1); }
+.mochi-sleeping .mochi-body { animation-duration: 5.5s; filter: saturate(0.7); }
+.mochi-thriving .mochi-body { animation: mochi-bob 1.6s ease-in-out infinite; }
+@keyframes mochi-bob { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-1.5px) scale(1.02, 0.99); } }
+.mochi-thriving .mochi-wing-l { animation: mochi-flap-l 1.6s ease-in-out infinite; }
+.mochi-thriving .mochi-wing-r { animation: mochi-flap-r 1.6s ease-in-out infinite; }
+@keyframes mochi-flap-l { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-14deg); } }
+@keyframes mochi-flap-r { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(14deg); } }
+.mochi-zzz { position: absolute; right: -6%; top: -8%; font: italic 700 0.42em/1 ui-sans-serif, system-ui; color: var(--mochi-accent); pointer-events: none; }
+.mochi-zzz i { display: inline-block; opacity: 0; animation: mochi-zzz 3s ease-in-out infinite; font-style: normal; }
+.mochi-zzz i:nth-child(2) { animation-delay: 1s; font-size: 0.85em; }
+.mochi-zzz i:nth-child(3) { animation-delay: 2s; font-size: 0.7em; }
+@keyframes mochi-zzz { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -14px); } }
+/* reactions */
+.mochi-hop { animation: mochi-hop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes mochi-hop { 0% { transform: scale(1, 1); } 20% { transform: scale(1.12, 0.86); } 45% { transform: translateY(-22%) scale(0.94, 1.08); } 70% { transform: translateY(0) scale(1.06, 0.94); } 100% { transform: scale(1, 1); } }
+.mochi-celebrate { animation: mochi-celebrate 1.1s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes mochi-celebrate { 0% { transform: scale(1); } 15% { transform: scale(1.1, 0.9); } 40% { transform: translateY(-28%) rotate(-8deg) scale(0.96, 1.06); } 60% { transform: translateY(-10%) rotate(8deg); } 80% { transform: translateY(0) scale(1.05, 0.95); } 100% { transform: scale(1); } }
+.mochi-love { animation: mochi-love 0.9s ease-in-out; }
+@keyframes mochi-love { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg) scale(1.04); } 75% { transform: rotate(6deg) scale(1.04); } }
+.mochi-nom { animation: mochi-nom 0.7s ease-in-out; }
+@keyframes mochi-nom { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.08, 0.94); } 60% { transform: scale(0.96, 1.05); } }
+.mochi-think { animation: mochi-think 1.2s ease-in-out; }
+@keyframes mochi-think { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-7deg) translateX(-2%); } }
+.mochi-particles { position: absolute; inset: 0; pointer-events: none; }
+.mochi-particles i { position: absolute; left: 50%; top: 45%; width: 0.14em; height: 0.14em; border-radius: 2px; background: hsl(var(--hue) 85% 60%); transform: translate(-50%, -50%); animation: mochi-confetti 1.2s ease-out forwards; animation-delay: var(--delay); opacity: 0; }
+.mochi-particles i.mochi-heart { width: 0.22em; height: 0.22em; background: none; border-radius: 0; }
+.mochi-particles i.mochi-heart::before { content: "♥"; color: #f472b6; font-size: 0.22em; line-height: 1; position: absolute; left: 0; top: 0; }
+@keyframes mochi-confetti { 0% { opacity: 1; transform: translate(-50%, -50%) rotate(0); } 100% { opacity: 0; transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty) - 18px)) rotate(var(--rot)); } }
+@media (prefers-reduced-motion: reduce) {
+  .mochi .mochi-body, .mochi .mochi-lid, .mochi .mochi-tufts, .mochi .mochi-sparkle, .mochi .mochi-wing, .mochi-zzz i, .mochi-hop, .mochi-celebrate, .mochi-love, .mochi-nom, .mochi-think, .mochi-particles i { animation: none; }
+}
+
+/* --- Notes editor (CodeMirror markdown, 2026-09-06): one palette for both looks --- */
+.md-editor {
+  --md-fg: #292524;
+  --md-dim: #a8a29e;
+  --md-heading: #1c1917;
+  --md-accent: #4f46e5;
+  --md-selection: rgba(79, 70, 229, 0.16);
+  --md-active-line: rgba(79, 70, 229, 0.04);
+  --md-panel: #ffffff;
+  --md-line: #e7e5e4;
+  --md-match: rgba(251, 191, 36, 0.35);
+  --md-code: #be185d;
+  --md-code-bg: rgba(28, 25, 23, 0.06);
+}
+.dark .md-editor {
+  --md-fg: #e7e5e4;
+  --md-dim: #6b7280;
+  --md-heading: #f5f5f4;
+  --md-accent: #a5b4fc;
+  --md-selection: rgba(129, 140, 248, 0.25);
+  --md-active-line: rgba(129, 140, 248, 0.06);
+  --md-panel: #10131c;
+  --md-line: #1f2333;
+  --md-match: rgba(251, 191, 36, 0.3);
+  --md-code: #f9a8d4;
+  --md-code-bg: rgba(255, 255, 255, 0.08);
+}
+.md-editor .cm-editor { min-height: 22rem; }
+
+/* souls mode (2026-09-07): the studio's compile verdict, briefly, the way a certain game says it */
+.you-died { background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.85)); animation: you-died 2.6s ease-out forwards; }
+.you-died p { animation: you-died-text 2.6s ease-out forwards; }
+@keyframes you-died { 0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes you-died-text { 0% { transform: scale(0.92); letter-spacing: 0.2em; } 100% { transform: scale(1.04); letter-spacing: 0.36em; } }
+
+/* SyncTeX (#378): where the cursor's line sits in the PDF, for a moment */
+.studio-sync-marker { background: rgba(124, 108, 255, 0.28); box-shadow: 0 0 0 2px rgba(124, 108, 255, 0.9), 0 0 18px rgba(124, 108, 255, 0.6); border-radius: 3px; animation: sync-marker 2.2s ease-out forwards; }
+@keyframes sync-marker { 0% { opacity: 0; } 10% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Typeahead miss (#402): the hint pill shakes once when nothing starts with what you typed */
+.typeahead-miss { animation: typeahead-shake 0.3s ease-in-out; }
+@keyframes typeahead-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+
+/* #461: the hatch — the egg shakes and cracks open, the new creature pops in (once per stage) */
+.mochi-egg-crack .mochi-svg { animation: mochi-crack 1.5s ease-in-out both; transform-origin: 50% 90%; }
+@keyframes mochi-crack {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(-7deg); }
+  30% { transform: rotate(7deg); }
+  45% { transform: rotate(-10deg); }
+  60% { transform: rotate(10deg) scale(1.03); }
+  75% { transform: rotate(-12deg) scale(1.06); }
+  90% { transform: rotate(12deg) scale(1.1); }
+  100% { transform: scale(1.18); opacity: 0.2; }
+}
+.mochi-born .mochi-svg { animation: mochi-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; transform-origin: 50% 90%; }
+@keyframes mochi-pop {
+  0% { transform: scale(0.2); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mochi-egg-crack .mochi-svg, .mochi-born .mochi-svg { animation: none; }
 }

@@ -118,4 +118,54 @@ def spa_shell(request, rest=""):
 
     ensure_csrf_cookie: the shell has no form, but the SPA's writes need the token.
     """
-    return render(request, "spa.html")
+    import os
+
+    from django.conf import settings
+
+    data_dir = getattr(settings, "DATA_DIR", None)
+    return render(
+        request,
+        "spa.html",
+        {
+            "atlas_version": os.environ.get("ATLAS_VERSION", "dev"),
+            "server_log_path": str(data_dir / "atlas-server.log") if data_dir else "",
+        },
+    )
+
+
+def install_claude_skills(request):
+    """Copy the shipped Atlas skills into ~/.claude/skills so Claude Code loads them."""
+    from django.contrib import messages
+    from django.http import JsonResponse
+    from django.shortcuts import redirect
+
+    from .skills import install_skills, personal_skills_dir
+
+    if request.method != "POST":
+        return redirect("core:connect_claude")
+    try:
+        names = install_skills()
+    except OSError as exc:  # read-only home, permissions
+        messages.error(request, f"Could not install the skills: {exc}")
+        return redirect("core:connect_claude")
+    if request.headers.get("Accept", "").startswith("application/json"):
+        return JsonResponse({"installed": names, "dir": str(personal_skills_dir())})
+    messages.success(request, f"Installed {len(names)} Atlas skills into {personal_skills_dir()}.")
+    return redirect("core:connect_claude")
+
+
+def connect_claude(request):
+    """The one page that makes Atlas usable from Claude Code: the exact `claude mcp add` line
+    for THIS install (desktop or dev), the API key, and a snippet for other MCP clients."""
+    from .mcp_connect import connection_info
+    from .skills import list_skills, personal_skills_dir
+
+    return render(
+        request,
+        "core/connect_claude.html",
+        {
+            "conn": connection_info(request),
+            "skills": list_skills(),
+            "skills_dir": personal_skills_dir(),
+        },
+    )

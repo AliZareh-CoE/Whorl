@@ -1,78 +1,62 @@
-"""Owner idea #15: lightning search — websearch parsing, typo tolerance, suggestions."""
+"""Search v2 — explained hits: snippet, page for PDF hits, SPA links."""
 
 import pytest
-from django.urls import reverse
+from django.core.files.base import ContentFile
 
-from core.search import search_all
-from notes.tests.factories import NoteFactory
+from core.management.commands.seed_demo import make_demo_pdf
+from core.search import describe, excerpt
+from literature.tests.factories import ProjectReferenceFactory, ReferenceFactory
+from notes.models import Note
 from projects.tests.factories import ProjectFactory
 
 pytestmark = pytest.mark.django_db
 
 
-class TestSearchV2:
-    def test_typo_falls_back_to_trigram(self):
-        NoteFactory(title="Attention allocation experiments")
-        results = search_all("attentoin alocation")  # two typos — FTS finds nothing
-        assert any(r["type"] == "note" for r in results)
-
-    def test_websearch_negation(self):
-        NoteFactory(title="Coral study", body="about coral reefs")
-        NoteFactory(title="Coral economics", body="about coral markets")
-        results = search_all("coral -markets")
-        titles = [str(r["object"]) for r in results if r["type"] == "note"]
-        assert "Coral study" in titles
-        assert "Coral economics" not in titles
-
-    def test_quoted_phrase(self):
-        NoteFactory(title="Working memory load study", body="")
-        NoteFactory(title="Memory of working in load environments", body="")
-        results = search_all('"working memory load"')
-        titles = [str(r["object"]) for r in results if r["type"] == "note"]
-        assert "Working memory load study" in titles
-
-    def test_no_fallback_when_fts_hits(self):
-        NoteFactory(title="Unique zebrafish note")
-        ProjectFactory(name="Zebra crossing")  # trigram-close to 'zebrafish' but FTS hit wins
-        results = search_all("zebrafish")
-        assert all(r["type"] == "note" for r in results)
+def test_excerpt_windows_around_the_term():
+    text = "alpha " * 40 + "the DISSOCIATION matters here " + "omega " * 40
+    out = excerpt(text, "dissociation", radius=20)
+    assert out.startswith("…") and out.endswith("…") and "DISSOCIATION" in out and len(out) < 60
+    assert excerpt("short text", "zzz") == "short text" and excerpt("", "x") == ""
+    assert excerpt("x" * 500, '"quoted phrase" -neg', radius=10).endswith("…")
 
 
-class TestSuggest:
-    def test_suggest_returns_links(self, client_logged_in):
-        note = NoteFactory(title="Suggestion target note")
-        response = client_logged_in.get(reverse("core:search_suggest"), {"q": "suggestion target"})
-        content = response.content.decode()
-        assert "Suggestion target note" in content
-        assert note.get_absolute_url() in content
-        assert "All results for" in content
-
-    def test_suggest_requires_two_chars(self, client_logged_in):
-        response = client_logged_in.get(reverse("core:search_suggest"), {"q": "a"})
-        assert response.content.decode().strip() == ""
-
-    def test_sidebar_wired_for_suggestions(self, client_logged_in):
-        response = client_logged_in.get(reverse("core:dashboard"))
-        assert b'hx-get="/search/suggest/"' in response.content
-
-
-class TestTrigramIndexes:
-    def test_all_five_trgm_indexes_exist(self):
-        from django.db import connection
-
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT indexname FROM pg_indexes WHERE indexname LIKE '%_trgm'")
-            names = {row[0] for row in cursor.fetchall()}
-        assert {
-            "project_name_trgm",
-            "decision_title_trgm",
-            "reference_title_trgm",
-            "document_title_trgm",
-            "note_title_trgm",
-        } <= names
-
-    def test_fallback_filters_with_index_served_operator(self):
-        from literature.models import Reference
-
-        sql = str(Reference.objects.filter(title__trigram_similar="load theory").query)
-        assert " % " in sql  # the % operator is what the GIN trgm indexes serve
+def test_search_api_explains_hits(client, settings, django_user_model, tmp_path):
+    settings.ATLAS_API_KEY = "k"
+    settings.MEDIA_ROOT = tmp_path
+    django_user_model.objects.create_superuser("owner", password="pw")
+    project = ProjectFactory(slug="deep", name="Deep")
+    ref = ReferenceFactory(
+        title="Load theory",
+        abstract="Nothing relevant here.",
+        authors=[{"family": "Lavie"}],
+        year=2010,
+    )
+    ref.pdf.save(
+        "l.pdf",
+        ContentFile(make_demo_pdf(["The dissociation between load types matters."])),
+        save=True,
+    )
+    ProjectReferenceFactory(project=project, reference=ref)
+    Note.objects.create(
+        project=project,
+        title="Thinking",
+        body="A long note about the dissociation and more words after it.",
+    )
+    out = client.get("/api/v1/search/?q=dissociation", HTTP_X_API_KEY="k").json()
+    by_type = {r["type"]: r for r in out["results"]}
+    paper = by_type["reference"]
+    assert (
+        paper["where"] == "in the PDF" and paper["page"] == 1 and "dissociation" in paper["snippet"]
+    )
+    assert paper["app_url"] == f"/references/{ref.pk}" and paper["meta"].startswith("Lavie · 2010")
+    note = by_type["note"]
+    assert (
+        note["app_url"].endswith("/notes/") is False and "/projects/deep/notes/" in note["app_url"]
+    )
+    assert "dissociation" in note["snippet"] and note["project_name"] == "Deep"
+    # describe() falls back to the abstract when the term is not in the PDF
+    row = {"type": "reference", "object": ref, "project": None}
+    assert (
+        describe(row, "relevant")["snippet"].startswith("Nothing relevant")
+        and describe(row, "relevant")["page"] is None
+    )

@@ -4,16 +4,23 @@ Bots report into the quick-capture inbox — the existing triage point — rathe
 inventing a notification system.
 """
 
+import contextvars
 import datetime
 
 from django.utils import timezone
 
 from notes.models import QuickCapture
 
+# #423: the BotRun being executed, so captures a bot files carry it
+_CURRENT_RUN: contextvars.ContextVar = contextvars.ContextVar("atlas_bot_run", default=None)
+
 
 def _capture_once(text: str) -> bool:
-    """Drop a line in the inbox unless the identical line is already there unprocessed."""
-    _, created = QuickCapture.objects.get_or_create(text=text, processed=False)
+    """File one capture unless an unprocessed identical one already sits in the inbox."""
+    run = _CURRENT_RUN.get()
+    _, created = QuickCapture.objects.get_or_create(
+        text=text, processed=False, defaults={"bot_run": run}
+    )
     return created
 
 
@@ -128,16 +135,22 @@ def run_bot(slug: str) -> str:
 
     spec = BOTS[slug]
     state, _ = Bot.objects.get_or_create(slug=slug)
+    run = BotRun.objects.create(bot=state, ok=True, result="running")  # #423: exists during the run
+    token = _CURRENT_RUN.set(run)
     ok = True
     try:
         result = spec["run"]()
     except Exception as exc:  # bots must never take the scheduler down
         ok = False
         result = f"failed: {exc.__class__.__name__}: {exc}"[:300]
+    finally:
+        _CURRENT_RUN.reset(token)
     state.last_run_at = timezone.now()
     state.last_result = result[:300]
     state.save()
-    BotRun.objects.create(bot=state, ok=ok, result=result[:300])
+    run.ok = ok
+    run.result = result[:300]
+    run.save(update_fields=["ok", "result"])
     # keep history tidy: last 20 runs per bot
     stale = state.runs.values_list("pk", flat=True)[20:]
     if stale:

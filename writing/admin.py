@@ -6,6 +6,7 @@ from .models import (
     ManuscriptReference,
     ManuscriptRevision,
     SubmissionEvent,
+    WordCountSample,
 )
 
 
@@ -47,3 +48,10 @@ class SubmissionEventAdmin(admin.ModelAdmin):
 class ManuscriptRevisionAdmin(admin.ModelAdmin):
     list_display = ["manuscript", "label", "created_at"]
     list_filter = ["manuscript"]
+
+
+@admin.register(WordCountSample)
+class WordCountSampleAdmin(admin.ModelAdmin):
+    list_display = ("manuscript", "date", "words")
+    list_filter = ("date",)
+    ordering = ("-date",)

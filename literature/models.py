@@ -10,6 +10,43 @@ def reference_pdf_path(instance, filename):
     return f"library/pdfs/{instance.bibtex_key}/{filename}"
 
 
+class LibraryTag(TimeStampedModel):
+    """A label on library references (Library v2 slice 5): global, case-insensitive-unique,
+    optional colour. Distinct from documents.Tag (per-project document tags)."""
+
+    name = models.CharField(max_length=60, unique=True)
+    color = models.CharField(max_length=7, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def get_or_create_named(cls, name: str) -> "LibraryTag":
+        clean = " ".join((name or "").split()).strip()[:60]
+        if not clean:
+            raise ValueError("A tag needs a name.")
+        existing = cls.objects.filter(name__iexact=clean).first()
+        return existing or cls.objects.create(name=clean)
+
+
+class SavedView(TimeStampedModel):
+    """A named set of Library filters ("smart view"): the rail lists them, one click restores
+    the exact query. `params` holds the same keys the list endpoint accepts."""
+
+    name = models.CharField(max_length=80, unique=True)
+    params = models.JSONField(default=dict)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Reference(TimeStampedModel):
     """One paper/book/etc. in the GLOBAL library, shared across projects."""
 
@@ -29,11 +66,16 @@ class Reference(TimeStampedModel):
     raw_bibtex = models.TextField(blank=True)
     extra = models.JSONField(default=dict)
     citation_count = models.PositiveIntegerField(null=True, blank=True)
+    tags = models.ManyToManyField(LibraryTag, blank=True, related_name="references")
 
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            GinIndex(fields=["title"], opclasses=["gin_trgm_ops"], name="reference_title_trgm")
+            GinIndex(fields=["title"], opclasses=["gin_trgm_ops"], name="reference_title_trgm"),
+            # #53: the ?kw= filter and the matrix word match scan abstracts with icontains
+            GinIndex(
+                fields=["abstract"], opclasses=["gin_trgm_ops"], name="reference_abstract_trgm"
+            ),
         ]
 
     def __str__(self):
@@ -157,3 +199,57 @@ class ReviewMark(TimeStampedModel):
 
     def __str__(self):
         return f"{self.project_reference.reference.bibtex_key} × {self.theme.name}"
+
+
+class Highlight(TimeStampedModel):
+    """A passage marked while reading a PDF (Library v2 slice 7).
+
+    Structured, unlike the older "append to a highlights note" flow, so the workbench can list,
+    jump to, comment on, and export highlights per paper. When a project is given the passage is
+    still mirrored into that project's highlights note so it stays in the wiki-link graph.
+    """
+
+    class Color(models.TextChoices):
+        YELLOW = "yellow", "Yellow"
+        GREEN = "green", "Green"
+        BLUE = "blue", "Blue"
+        PINK = "pink", "Pink"
+
+    reference = models.ForeignKey(Reference, on_delete=models.CASCADE, related_name="highlights")
+    project = models.ForeignKey(
+        Project, on_delete=models.SET_NULL, null=True, blank=True, related_name="highlights"
+    )
+    page = models.PositiveIntegerField(null=True, blank=True)
+    text = models.TextField()
+    comment = models.TextField(blank=True)
+    color = models.CharField(max_length=10, choices=Color.choices, default=Color.YELLOW)
+    # Library v3: the selection's boxes as fractions of the page ({x, y, w, h} in 0..1), so the
+    # reader paints the exact marks like a real PDF viewer; empty = paint by text match.
+    rects = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ["page", "created_at"]
+
+    def __str__(self):
+        page = f" p.{self.page}" if self.page else ""
+        return f"{self.reference.bibtex_key}{page}: {self.text[:50]}"
+
+
+class ReferenceText(models.Model):
+    """Extracted text of a reference's PDF (Library v2 slice 8: search inside your PDFs).
+
+    `pages` keeps one string per page so a match can say "p.4" and the reader can jump there;
+    `body` is the same text joined, which is what the search filters run over.
+    """
+
+    reference = models.OneToOneField(Reference, on_delete=models.CASCADE, related_name="text")
+    source_name = models.CharField(max_length=500, blank=True)  # the PDF file this came from
+    pages = models.JSONField(default=list)
+    body = models.TextField(blank=True)
+    page_count = models.PositiveIntegerField(default=0)
+    char_count = models.PositiveIntegerField(default=0)
+    error = models.CharField(max_length=300, blank=True)
+    extracted_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"text of {self.reference.bibtex_key} ({self.page_count} pages)"

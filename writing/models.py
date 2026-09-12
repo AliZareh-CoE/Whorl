@@ -47,6 +47,9 @@ class Manuscript(TimeStampedModel):
     abstract = models.TextField(blank=True)
     repo_url = models.URLField(blank=True)
     latex_source = models.TextField(blank=True)  # edited in the in-browser LaTeX editor
+    # Writing v2 slice 3: the target venue's limits, e.g. {"words": 8000, "abstract_words": 250,
+    # "figures": 6, "references": 60, "pages": 12} — the studio shows usage against them
+    venue_limits = models.JSONField(default=dict, blank=True)
 
     class CompileStatus(models.TextChoices):
         IDLE = "idle", "Not compiled"
@@ -59,9 +62,21 @@ class Manuscript(TimeStampedModel):
         max_length=10, choices=CompileStatus.choices, default=CompileStatus.IDLE
     )
     compile_log = models.TextField(blank=True)
+    # #442: the bibliography as BibTeX produced it — arXiv runs no BibTeX, so the
+    # submission package must carry the .bbl next to the sources
+    compiled_bbl = models.TextField(blank=True)
+    # #455: what the running / last successful compile was built from — identical source
+    # is not compiled twice (a save-triggered compile racing a click, a Recompile on nothing)
+    compile_source_hash = models.CharField(max_length=64, blank=True)
+    compiled_source_hash = models.CharField(max_length=64, blank=True)
+    # #456: how many automatic (unlabeled) revisions the trim keeps; labeled ones always stay
+    auto_revisions_keep = models.PositiveIntegerField(default=50)
     compile_diagnostics = models.JSONField(default=list, blank=True)  # parsed from the log
     compile_generation = models.PositiveIntegerField(default=0)  # bumped per queue; stale drops
     compiled_at = models.DateTimeField(null=True, blank=True)
+    # SyncTeX map from the last good compile (#378): {"files": [...], "pages": {"1": [[file,
+    # line, x, y, w, h], …]}} in PDF points — PDF click ↔ source line in the studio
+    synctex = models.JSONField(default=dict, blank=True)
     references = models.ManyToManyField(Reference, through="ManuscriptReference", blank=True)
     # File-workspace epic (Owner #30) slice 1b: a manuscript becomes a VIEW over the
     # unified tree — its sources are the Documents under root_folder's subtree. root_folder
@@ -205,6 +220,10 @@ class ManuscriptFile(TimeStampedModel):
             Manuscript.objects.filter(pk=self.manuscript_id).update(
                 latex_source=self.content, updated_at=timezone.now()
             )
+        if self.kind == self.Kind.TEX:
+            from writing.progress import record_words  # #413: today's word sample
+
+            record_words(self.manuscript)
 
 
 class ManuscriptRevision(TimeStampedModel):
@@ -237,9 +256,10 @@ def snapshot_manuscript(manuscript, label: str = "") -> "ManuscriptRevision":
     else:
         files = {"main.tex": manuscript.latex_source}
     revision = ManuscriptRevision.objects.create(manuscript=manuscript, label=label, files=files)
-    # trim: keep all labeled + the most recent 50 automatic
+    # trim: keep all labeled + the most recent N automatic (N per manuscript, #456)
+    keep = max(1, int(manuscript.auto_revisions_keep or 50))
     auto = manuscript.revisions.filter(label="").order_by("-created_at")
-    stale_ids = list(auto.values_list("pk", flat=True)[50:])
+    stale_ids = list(auto.values_list("pk", flat=True)[keep:])
     if stale_ids:
         ManuscriptRevision.objects.filter(pk__in=stale_ids).delete()
     return revision
@@ -286,3 +306,24 @@ class SubmissionEvent(TimeStampedModel):
 
     def __str__(self):
         return f"{self.manuscript.title[:30]}: {self.kind} on {self.date}"
+
+
+class WordCountSample(models.Model):
+    """One word count per manuscript per day (#413): the writing log behind "+212 today",
+    the streak and the sparkline. Written whenever a .tex file is saved or the word count is
+    asked for; the last value of the day wins."""
+
+    manuscript = models.ForeignKey(
+        Manuscript, on_delete=models.CASCADE, related_name="word_samples"
+    )
+    date = models.DateField()
+    words = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["date"]
+        constraints = [
+            models.UniqueConstraint(fields=["manuscript", "date"], name="one_word_sample_per_day")
+        ]
+
+    def __str__(self):
+        return f"{self.manuscript_id} {self.date}: {self.words}"

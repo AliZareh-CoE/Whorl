@@ -11,12 +11,13 @@ from django.contrib.postgres.search import (
     TrigramSimilarity,
 )
 
+from core.models import Comment
 from documents.models import Document
 from literature.models import Reference
-from notes.models import Note
+from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion
 from projects.models import DecisionRecord, Project
-from research.models import ExperimentEntry, Hypothesis
+from research.models import Dataset, ExperimentEntry, Hypothesis, Protocol
 from writing.models import Manuscript
 
 LIMIT_PER_TYPE = 10
@@ -73,7 +74,7 @@ _SEARCH_SPECS = [
     (
         "reference",
         lambda: Reference.objects.all(),
-        ["title", "abstract", "venue", "bibtex_key"],
+        ["title", "abstract", "venue", "bibtex_key", "text__body"],
         lambda o: None,
     ),
     (
@@ -130,6 +131,32 @@ _SEARCH_SPECS = [
         ["title", "body"],
         lambda o: o.project,
     ),
+    # #428: the three kinds search had skipped
+    (
+        "dataset",
+        lambda: Dataset.objects.select_related("project"),
+        ["name", "location", "description"],
+        lambda o: o.project,
+    ),
+    (
+        "protocol",
+        lambda: Protocol.objects.select_related("project"),
+        ["title", "body"],
+        lambda o: o.project,
+    ),
+    (
+        "capture",
+        lambda: QuickCapture.objects.select_related("project"),
+        ["text"],
+        lambda o: o.project,
+    ),
+    # #439: "where did I write that remark?" — comments on notes, papers, manuscript files…
+    (
+        "comment",
+        lambda: Comment.objects.select_related("content_type"),
+        ["body"],
+        lambda o: o.target_route()[1],
+    ),
 ]
 
 
@@ -172,7 +199,8 @@ def search_all(text: str) -> list[dict]:
         SearchVector("title", weight="A")
         + SearchVector("abstract")
         + SearchVector("venue")
-        + SearchVector("bibtex_key", weight="A"),
+        + SearchVector("bibtex_key", weight="A")
+        + SearchVector("text__body", weight="D"),  # slice 8: inside the PDF too
         query,
     ):
         results.append({"type": "reference", "object": ref, "project": None})
@@ -245,7 +273,153 @@ def search_all(text: str) -> list[dict]:
     ):
         results.append({"type": "experiment", "object": experiment, "project": experiment.project})
 
+    # #428: datasets, protocols and inbox captures
+    for dataset in _ranked(
+        Dataset.objects.select_related("project"),
+        SearchVector("name", weight="A") + SearchVector("location") + SearchVector("description"),
+        query,
+    ):
+        results.append({"type": "dataset", "object": dataset, "project": dataset.project})
+
+    for protocol in _ranked(
+        Protocol.objects.select_related("project"),
+        SearchVector("title", weight="A") + SearchVector("body"),
+        query,
+    ):
+        results.append({"type": "protocol", "object": protocol, "project": protocol.project})
+
+    for capture in _ranked(
+        QuickCapture.objects.select_related("project"), SearchVector("text", weight="A"), query
+    ):
+        results.append({"type": "capture", "object": capture, "project": capture.project})
+
+    for comment in _ranked(
+        Comment.objects.select_related("content_type"), SearchVector("body", weight="A"), query
+    ):
+        results.append({"type": "comment", "object": comment, "project": comment.target_route()[1]})
+
     if not results:
         results = _trigram_fallback(text.strip())
 
     return results
+
+
+# --- Search v2 (2026-09-06): explain each hit — snippet, page, SPA link, meta ---------------
+
+EXCERPT_RADIUS = 80
+
+
+def excerpt(text: str, q: str, radius: int = EXCERPT_RADIUS) -> str:
+    """A short window of `text` around the first term of `q` (or the start when absent)."""
+    text = " ".join((text or "").split())
+    if not text:
+        return ""
+    terms = [t.strip('"') for t in q.split() if t.strip('"') and not t.startswith("-")]
+    low = text.lower()
+    pos = -1
+    for term in terms:
+        pos = low.find(term.lower())
+        if pos >= 0:
+            break
+    if pos < 0:
+        return text[: radius * 2] + ("…" if len(text) > radius * 2 else "")
+    lo, hi = max(0, pos - radius), min(len(text), pos + radius)
+    return ("…" if lo > 0 else "") + text[lo:hi] + ("…" if hi < len(text) else "")
+
+
+def describe(result: dict, q: str) -> dict:
+    """Snippet / page / app_url / meta for one search_all() row."""
+    kind, obj, project = result["type"], result["object"], result["project"]
+    slug = project.slug if project else None
+    out = {"snippet": "", "page": None, "app_url": None, "meta": "", "where": ""}
+    if kind == "reference":
+        from literature.fulltext import search_pages
+
+        hits = search_pages(obj, q.strip('"'), limit=1) if q.strip() else []
+        authors = ", ".join(
+            a.get("family") or a.get("given") or "" for a in (obj.authors or [])[:3]
+        )
+        out["meta"] = " · ".join(str(x) for x in (authors, obj.year, obj.venue) if x)
+        out["app_url"] = f"/references/{obj.pk}"
+        if hits:
+            out.update(snippet=hits[0]["snippet"], page=hits[0]["page"], where="in the PDF")
+        else:
+            out["snippet"] = excerpt(obj.abstract, q)
+    elif kind == "note":
+        out.update(
+            snippet=excerpt(obj.body, q),
+            app_url=f"/projects/{slug}/notes/{obj.pk}",
+            meta=obj.updated_at.date().isoformat(),
+        )
+    elif kind == "project":
+        out.update(
+            snippet=excerpt(obj.description, q), app_url=f"/projects/{obj.slug}", meta=obj.status
+        )
+    elif kind == "document":
+        out.update(
+            snippet=excerpt(obj.description, q),
+            app_url=f"/projects/{slug}/files",
+            meta=obj.created_at.date().isoformat(),
+        )
+    elif kind == "decision":
+        out.update(
+            snippet=excerpt(obj.decision or obj.context, q),
+            app_url=f"/projects/{slug}/decisions",
+            meta=obj.decided_on.isoformat(),
+        )
+    elif kind == "phase":
+        out.update(
+            snippet=excerpt(obj.objective, q),
+            app_url=f"/projects/{slug}/plan",
+            meta=obj.status.replace("_", " "),
+        )
+    elif kind == "milestone":
+        out.update(
+            snippet=excerpt(obj.notes, q),
+            app_url=f"/projects/{slug}/plan",
+            meta=(f"due {obj.due_date}" if obj.due_date else ""),
+        )
+    elif kind == "manuscript":
+        out.update(
+            snippet=excerpt(obj.abstract, q),
+            app_url=f"/manuscripts/{obj.pk}",
+            meta=obj.status.replace("_", " "),
+        )
+    elif kind == "protocol":
+        out.update(
+            snippet=excerpt(obj.body, q),
+            app_url=f"/projects/{slug}/research",
+            meta=f"v{obj.version}" + ("" if obj.is_current else " (superseded)"),
+        )
+    elif kind == "capture":
+        out.update(
+            snippet=excerpt(obj.text, q),
+            app_url="/inbox",
+            meta="filed" if obj.processed else "in the inbox",
+        )
+    elif kind == "comment":
+        url, _ = obj.target_route()
+        target = obj.target
+        on = getattr(target, "title", None) or getattr(target, "path", None) or str(target or "")
+        where = f"on {on[:60]}" if on else ""
+        if obj.content_type.model == "manuscriptfile" and obj.page:
+            where += f" line {obj.page}"
+        out.update(
+            snippet=excerpt(obj.body, q),
+            app_url=url,
+            meta="resolved" if obj.resolved_at else "open",
+            where=where,
+        )
+    elif kind in ("hypothesis", "experiment", "dataset", "question"):
+        body = (
+            getattr(obj, "statement", "")
+            or getattr(obj, "body", "")
+            or getattr(obj, "description", "")
+            or getattr(obj, "question", "")
+        )
+        out.update(
+            snippet=excerpt(body, q),
+            app_url=f"/projects/{slug}/research",
+            meta=getattr(obj, "status", "") or "",
+        )
+    return out

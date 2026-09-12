@@ -174,9 +174,9 @@ def compile_manuscript_view(request, slug, pk):
     manuscript.compile_generation += 1
     manuscript.compile_status = manuscript.CompileStatus.RUNNING
     manuscript.save()
-    from .tasks import compile_manuscript_task
+    from .tasks import enqueue_compile
 
-    compile_manuscript_task(manuscript.pk, manuscript.compile_generation)
+    enqueue_compile(manuscript.pk, manuscript.compile_generation)
     if request.headers.get("X-SPA"):  # epic slice 2: compile without a page reload
         from django.http import JsonResponse
 
@@ -241,10 +241,7 @@ def export_submission_zip(request, slug, pk):
 
     manuscript, _ = _workbench_objects(slug, pk)
 
-    def _safe(path: str) -> bool:
-        # AUDIT #12: zip entries derive from validated paths, but defend in depth against
-        # a row injected past validation — never emit a traversal/absolute archive name.
-        return not (path.startswith("/") or path.startswith("\\") or ".." in path.split("/"))
+    from core.archives import is_safe_archive_name as _safe  # #453: one guard for every archive
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -265,6 +262,12 @@ def export_submission_zip(request, slug, pk):
             bib = export_manuscript_bib(manuscript)
             if bib:
                 zf.writestr("references.bib", bib)
+        # #442: arXiv runs no BibTeX — ship the .bbl the last compile produced, named after the
+        # main file, unless the tree already carries one
+        if manuscript.compiled_bbl and not any(f.path.endswith(".bbl") for f in files):
+            main = next((f for f in files if f.is_main), None)
+            stem = (main.path if main else "main.tex").rsplit(".", 1)[0]
+            zf.writestr(f"{stem}.bbl", manuscript.compiled_bbl)
     buffer.seek(0)
     slug_name = "".join(c if c.isalnum() else "-" for c in manuscript.title.lower())[:60].strip("-")
     response = HttpResponse(buffer.getvalue(), content_type="application/zip")
@@ -334,6 +337,7 @@ def manuscript_files(request, slug, pk):
     from .models import ManuscriptFile, kind_for_path, validate_manuscript_path
 
     manuscript, _ = _workbench_objects(slug, pk)
+    manuscript.ensure_main_file()  # the studio lists files before anything else: bootstrap
     if request.method == "POST":
         path = request.POST.get("path", "").strip()
         try:
@@ -460,7 +464,13 @@ def manuscript_revisions(request, slug, pk):
         }
         for r in manuscript.revisions.all()[:200]
     ]
-    return JsonResponse({"revisions": revisions})
+    # #456: say what the trim keeps, so a vanished automatic snapshot is no surprise
+    retention = {
+        "keep": manuscript.auto_revisions_keep,
+        "labeled": manuscript.revisions.exclude(label="").count(),
+        "auto": manuscript.revisions.filter(label="").count(),
+    }
+    return JsonResponse({"revisions": revisions, "retention": retention})
 
 
 def revision_diff(request, slug, pk, rev_pk):

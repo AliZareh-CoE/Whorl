@@ -20,6 +20,7 @@ dependencies = [
     "gunicorn>=23",
     "waitress>=3.0",
     "whitenoise>=6.8",
+    "pypdf>=6.17.0",
 ]
 
 [dependency-groups]
@@ -41,6 +42,9 @@ package = false
 DJANGO_SETTINGS_MODULE = "config.settings.dev"
 python_files = ["test_*.py"]
 addopts = "--ds=config.settings.dev"
+# `cargo test`/`cargo tauri dev` copy the frozen server (which carries our test files) into
+# desktop/target/; keep pytest out of build output.
+norecursedirs = [".*", "build", "dist", "node_modules", "target", "frontend"]
 
 [tool.ruff]
 line-length = 100

@@ -267,3 +267,48 @@ class TestWeeklyDigestBot:
         from bots.registry import BOTS
 
         assert "weekly-digest" in BOTS
+
+
+class TestRunLinks:
+    """#423: captures remember the run that filed them; the Inbox can filter by run."""
+
+    def test_captures_carry_the_run_and_api_filters_by_it(self, client_logged_in, monkeypatch):
+        from bots import registry
+        from bots.models import BotRun
+        from notes.models import QuickCapture
+
+        registry.BOTS["_test_filer"] = {
+            "name": "Filer",
+            "description": "files two captures",
+            "run": lambda: (
+                registry._capture_once("one"),
+                registry._capture_once("two"),
+                "2 filed",
+            )[2],
+        }
+        try:
+            assert registry.run_bot("_test_filer") == "2 filed"
+        finally:
+            registry.BOTS.pop("_test_filer")
+        run = BotRun.objects.get(bot__slug="_test_filer")
+        assert run.ok and run.result == "2 filed" and run.count == 2
+        assert set(run.captures.values_list("text", flat=True)) == {"one", "two"}
+        QuickCapture.objects.create(text="by hand")
+        rows = client_logged_in.get(f"/api/v1/quick-capture/?run={run.pk}").json()["results"]
+        assert {r["text"] for r in rows} == {"one", "two"}
+        assert QuickCapture.objects.get(text="by hand").bot_run is None
+        bots = client_logged_in.get("/api/v1/bots/").json()["bots"]
+        assert all("id" in r for b in bots for r in b["runs"])
+        filer = (
+            next(b for b in bots if b["slug"] == "_test_filer")
+            if any(b["slug"] == "_test_filer" for b in bots)
+            else None
+        )
+        assert filer is None  # unregistered again; the field is still on every run
+        assert all("captures" in r for b in bots for r in b["runs"])
+
+    def test_ui_wiring(self):
+        inbox = open("frontend/src/app/pages/Inbox.tsx").read()
+        assert 'searchParams.get("run")' in inbox and 'data-testid="inbox-run-filter"' in inbox
+        auto = open("frontend/src/app/pages/Automations.tsx").read()
+        assert "/inbox?run=${r.id}" in auto

@@ -42,7 +42,9 @@ def list_documents(project: str) -> dict:
 
 @mcp.tool()
 def search(query: str) -> dict:
-    """Full-text search across projects, references, notes, documents, decisions, and plans."""
+    """Full-text search across projects, references (title, abstract, PDF text), notes,
+    documents, decisions, plans, hypotheses, experiments, protocols, datasets and inbox
+    captures — each hit with a snippet and the route to open it."""
     return client.search(query)
 
 
@@ -155,6 +157,28 @@ def read_manuscript_file(file_id: int) -> dict:
 
 
 @mcp.tool()
+def attach_manuscript_figure(manuscript_id: int, path: str, file_path: str) -> dict:
+    """Put a figure (or any binary: PNG, PDF, JPG, data) from this machine into the manuscript's
+    source tree — `file_path` is a local path, `path` where it lands in the manuscript (e.g.
+    figures/pilot.png). Replaces an existing asset at that path. Returns the file row plus an
+    `include` snippet (\\includegraphics) to paste into the .tex. Text files go through
+    write_manuscript_file instead."""
+    row = client.attach_manuscript_asset(manuscript_id, path, file_path)
+    stem = path.rsplit("/", 1)[-1]
+    row = dict(row) if isinstance(row, dict) else {"result": row}
+    row["include"] = (
+        "\\begin{figure}[t]\n  \\centering\n  \\includegraphics[width=\\linewidth]{"
+        + path
+        + "}\n  \\caption{"
+        + stem.rsplit(".", 1)[0].replace("-", " ").replace("_", " ")
+        + "}\n  \\label{fig:"
+        + stem.rsplit(".", 1)[0]
+        + "}\n\\end{figure}"
+    )
+    return row
+
+
+@mcp.tool()
 def write_manuscript_file(manuscript_id: int, path: str, content: str) -> dict:
     """Create or overwrite a manuscript source file at `path` (e.g. 'main.tex' or
     'sections/intro.tex') with `content`. Use this to edit the owner's LaTeX, then call
@@ -169,10 +193,13 @@ def set_main_file(file_id: int) -> dict:
 
 
 @mcp.tool()
-def compile_manuscript(manuscript_id: int) -> dict:
+def compile_manuscript(manuscript_id: int, force: bool = False) -> dict:
     """Queue a LaTeX compile of the manuscript's current source. Returns immediately; then
-    poll get_compile_status until status is 'ok' or 'failed' to read diagnostics and the PDF."""
-    return client.compile_manuscript(manuscript_id)
+    poll get_compile_status until status is 'ok' or 'failed' to read diagnostics and the PDF.
+    Identical source is not compiled twice: {"status": "ok", "unchanged": true} means the last
+    PDF already matches, {"deduped": true} that a compile of this exact tree is running. Pass
+    force=True to compile anyway (e.g. after installing the engine)."""
+    return client.compile_manuscript(manuscript_id, force)
 
 
 @mcp.tool()
@@ -201,10 +228,6 @@ def compile_and_wait(manuscript_id: int, timeout_seconds: int = 120) -> dict:
 def latex_word_count(manuscript_id: int) -> dict:
     """Approximate word/header/caption/inline-math counts across the manuscript's text files."""
     return client.latex_word_count(manuscript_id)
-
-
-if __name__ == "__main__":
-    mcp.run()
 
 
 @mcp.tool()
@@ -255,3 +278,532 @@ def new_protocol_version(protocol_id: int, body: str = "", title: str = "") -> d
     """Revise a protocol by creating its next version (immutable history): pass the updated
     body and/or title; anything omitted carries over from the current version."""
     return client.new_protocol_version(protocol_id, body or None, title or None)
+
+
+@mcp.tool()
+def import_references(text: str, format: str = "auto", project: str = "") -> dict:
+    """Import references from pasted BibTeX, CSL-JSON, or RIS text (format 'auto' sniffs it).
+    Deduplicated by DOI / arXiv id / title+year; returns created/existing/failed counts and
+    per-item results. Optional project slug links every imported paper to that project."""
+    return client.import_references(text, format, project or None)
+
+
+@mcp.tool()
+def import_from_zotero(project: str = "") -> dict:
+    """Pull the entire library from a Zotero 7 running on this computer (its local API on
+    port 23119 must be enabled: Settings → Advanced → allow other applications). Deduplicated;
+    optional project slug links everything to that project."""
+    return client.import_from_zotero(project or None)
+
+
+@mcp.tool()
+def discover_related(reference_id: int, kind: str = "similar", limit: int = 12) -> dict:
+    """Grow the library from one paper: OpenAlex rows for kind='similar' (related work),
+    'references' (what it cites), or 'cited_by' (what cites it, most-cited first). Each row
+    carries in_library / library_id; addable rows have a DOI — add them with add_reference_by_doi."""
+    return client.discover_related(reference_id, kind, limit)
+
+
+@mcp.tool()
+def export_bibtex(reference_ids: list[int] | None = None, project: str = "") -> str:
+    """BibTeX for a list of reference ids, or for every reference linked to a project (slug)."""
+    return client.export_bibtex(reference_ids, project or None)
+
+
+@mcp.tool()
+def format_citations(reference_ids: list[int], style: str = "apa") -> dict:
+    """Formatted citations for reference ids in apa, mla, chicago, harvard, vancouver, or ieee:
+    a full bibliography (text + html) and each entry's in-text form. Find ids via search or
+    get_reading_queue."""
+    return client.format_citations(reference_ids, style)
+
+
+@mcp.tool()
+def list_todos(include_done: bool = False) -> dict:
+    """The owner's personal Today list (plain to-dos, not plan tasks). Open items by default."""
+    return client.list_todos(include_done)
+
+
+@mcp.tool()
+def add_todo(text: str, project: str = "", due_at: str = "") -> dict:
+    """Put something on the owner's Today list (optionally tagged with a project slug).
+    `due_at` is an optional ISO-8601 datetime with offset (e.g. 2026-09-07T15:00:00+02:00) —
+    the sidebar nudges the owner when it comes within two hours."""
+    return client.add_todo(text, project or None, due_at or None)
+
+
+@mcp.tool()
+def complete_todo(todo_id: int, done: bool = True) -> dict:
+    """Tick (or untick) an item on the Today list. Find ids with list_todos."""
+    return client.complete_todo(todo_id, done)
+
+
+@mcp.tool()
+def get_reference_tldr(reference_id: int) -> dict:
+    """tl;dr of a paper section by section: the headings found in its PDF text, each with
+    two key sentences and the page it starts on (falls back to the abstract). Local and
+    instant — read it before deciding whether to read the paper."""
+    return client.get_reference_tldr(reference_id)
+
+
+@mcp.tool()
+def get_related_in_library(reference_id: int) -> list:
+    """Papers already in the library that are most similar to this one (TF-IDF cosine over
+    title and abstract, computed locally — no network). Each row: id, bibtex_key, title, year,
+    score. Use it to suggest what else to read or cite before reaching for discover_related,
+    which goes to OpenAlex for papers the library does not have."""
+    return client.get_related_in_library(reference_id)
+
+
+@mcp.tool()
+def get_reference_usage(reference_id: int) -> dict:
+    """Where this paper appears in Atlas: notes that link or cite it, decisions, experiment
+    entries, protocols and captures that mention @key, manuscripts whose bibliography carries
+    it, and evidence rows that point at it — grouped, with the route to each. Ask before
+    removing a paper, or to find where an argument was used."""
+    return client.get_reference_usage(reference_id)
+
+
+@mcp.tool()
+def duplicate_manuscript(
+    manuscript_id: int, title: str = "", project: str = "", bibliography: bool = True
+) -> dict:
+    """Start a new paper from an existing one: copies every source file and asset, the venue
+    limits and (by default) the bibliography links into a fresh manuscript in idea status —
+    the way researchers reuse their LaTeX skeleton. `project` (a slug) puts the copy in another
+    project. Compile state, revisions, comments and submission events stay with the original."""
+    return client.duplicate_manuscript(manuscript_id, title or None, project or None, bibliography)
+
+
+@mcp.tool()
+def draft_related_work(manuscript_id: int, path: str = "", overwrite: bool = False) -> dict:
+    """Draft a LaTeX `Related work` section from the project's review matrix and save it as
+    `sections/related-work.tex` (or `path`) in the manuscript's source tree: one subsection per
+    theme, each matrix cell finding a sentence ending in \\citep{key}, papers without a finding
+    gathered into one citation, gaps left as comments. Every cited paper is added to the
+    manuscript's bibliography, so the cite checker passes. Returns the \\input line to paste
+    into main.tex and the LaTeX itself. Set overwrite=True to replace an existing draft."""
+    return client.draft_related_work(manuscript_id, path or None, overwrite)
+
+
+@mcp.tool()
+def get_writing_progress(manuscript_id: int, days: int = 30) -> dict:
+    """Writing progress for a manuscript: words per day over the last `days`, today's delta,
+    this week's total, the streak of consecutive writing days and the best day. Use it to
+    answer "how is the paper going?" with numbers."""
+    return client.get_writing_progress(manuscript_id, days)
+
+
+@mcp.tool()
+def list_bots() -> dict:
+    """The automations (deadline reminders, retraction watch, citation sync, …) with their
+    enabled state, last result and the last runs. Bots report to the Inbox."""
+    return client.list_bots()
+
+
+@mcp.tool()
+def run_bot(slug: str) -> dict:
+    """Run one automation right now (slug from list_bots) and return its result line —
+    e.g. run the deadline reminder before a planning conversation."""
+    return client.run_bot(slug)
+
+
+@mcp.tool()
+def toggle_bot(slug: str) -> dict:
+    """Enable or disable an automation (it flips); returns {"enabled": bool}."""
+    return client.toggle_bot(slug)
+
+
+@mcp.tool()
+def reorder_todos(ids: list[int]) -> dict:
+    """Put the Today list in this order: the given item ids take the top positions in the
+    order given; anything not listed keeps its relative order below them."""
+    return client.reorder_todos(ids)
+
+
+@mcp.tool()
+def list_library_tags() -> dict:
+    """Library tags (global labels on references) with how many papers carry each."""
+    return client.list_library_tags()
+
+
+@mcp.tool()
+def tag_references(reference_ids: list[int], tag: str, remove: bool = False) -> dict:
+    """Put a tag on (or take it off) many references at once; missing tags are created."""
+    return client.tag_references(reference_ids, tag, remove)
+
+
+@mcp.tool()
+def find_duplicates() -> dict:
+    """Probable duplicate papers in the library (same DOI/arXiv id or near-identical titles),
+    grouped, each with the most complete record suggested as `keep`."""
+    return client.find_duplicates()
+
+
+@mcp.tool()
+def merge_references(keep: int, merge: list[int]) -> dict:
+    """Merge duplicate references into `keep`: project links, tags, notes, manuscript
+    bibliographies, evidence, citations, comments, and the PDF move over; the others are deleted."""
+    return client.merge_references(keep, merge)
+
+
+@mcp.tool()
+def list_highlights(reference_id: int) -> dict:
+    """Passages highlighted while reading a paper: page, text, comment, colour, project."""
+    return client.list_highlights(reference_id)
+
+
+@mcp.tool()
+def add_highlight(
+    reference_id: int, text: str, page: int | None = None, project: str = "", comment: str = ""
+) -> dict:
+    """Save a highlight on a paper (optionally at a page, with a comment). With a project slug it
+    is also mirrored into that project's "Highlights — <key>" note and the paper is marked skimmed."""
+    return client.add_highlight(reference_id, text, page=page, project=project, comment=comment)
+
+
+@mcp.tool()
+def get_highlights_markdown(reference_id: int) -> dict:
+    """Every highlight of a paper as one Markdown block of quotes with page numbers — paste-ready."""
+    return client.get_highlights_markdown(reference_id)
+
+
+@mcp.tool()
+def get_reading_notes(reference_id: int) -> list:
+    """Reading notes for a paper in each project it is filed in (with project_reference_id)."""
+    return client.get_reading_notes(reference_id)
+
+
+@mcp.tool()
+def set_reading_notes(project_reference_id: int, notes: str) -> dict:
+    """Replace the reading notes on one project link (see get_reading_notes for the id)."""
+    return client.set_reading_notes(project_reference_id, notes)
+
+
+@mcp.tool()
+def fetch_pdf(reference_id: int) -> dict:
+    """Try to attach an open-access PDF to a paper (arXiv first, then Unpaywall by DOI)."""
+    return client.fetch_pdf(reference_id)
+
+
+@mcp.tool()
+def search_pdf_text(query: str, project: str = "", limit: int = 30) -> list:
+    """Search inside the full text of every attached PDF (optionally one project). Each hit gives
+    the paper, the first page containing the query, a snippet, and up to three matching pages."""
+    return client.search_pdf_text(query, project=project, limit=limit)
+
+
+@mcp.tool()
+def search_in_pdf(reference_id: int, query: str) -> list:
+    """Pages of one paper's PDF that contain the query, each with a snippet — cite the page."""
+    return client.search_in_pdf(reference_id, query)
+
+
+@mcp.tool()
+def get_plan_outline(slug: str) -> dict:
+    """The project's plan as a Markdown outline: '# phase [status] (start → end)', '> objective',
+    '- [ ] milestone (due YYYY-MM-DD)', indented '- [ ] task', each with a {#id} token. Edit and
+    send it back with set_plan_outline; keep the ids to rename without losing history."""
+    return client.get_plan_outline(slug)
+
+
+@mcp.tool()
+def set_plan_outline(slug: str, markdown: str, dry_run: bool = False) -> dict:
+    """Rewrite the plan from an outline (same grammar as get_plan_outline). Lines without {#id}
+    create objects, missing ids delete them, checkboxes set completion. Use dry_run=True first to
+    see what would be created, renamed and deleted; parse errors name the line."""
+    return client.set_plan_outline(slug, markdown, dry_run=dry_run)
+
+
+@mcp.tool()
+def get_roadmap(slug: str) -> dict:
+    """The plan as a timeline: each phase's window (real or inferred from milestones), its
+    milestones with due dates, a health state (behind / on_track / ahead / blocked / overdue /
+    upcoming / done) with a one-line reason, and a finish forecast from the completion pace."""
+    return client.get_roadmap(slug)
+
+
+@mcp.tool()
+def set_phase_dates(phase_id: int, start: str = "", end: str = "") -> dict:
+    """Reschedule a phase: ISO dates for its target start and/or end (empty = unchanged)."""
+    return client.set_phase_dates(phase_id, start or None, end or None)
+
+
+@mcp.tool()
+def get_week_focus(slug: str) -> dict:
+    """What to do on this project this week: overdue milestones/tasks first (with days late),
+    then everything due within seven days, then the next milestones of the current phase."""
+    return client.get_week_focus(slug)
+
+
+@mcp.tool()
+def list_notes(project: str, q: str = "") -> dict:
+    """Notes in a project, newest edited first; `q` filters by title/body text."""
+    return client.list_notes(project, q)
+
+
+@mcp.tool()
+def get_note(note_id: int) -> dict:
+    """A note's title, Markdown body, cited references and backlinks."""
+    return client.get_note(note_id)
+
+
+@mcp.tool()
+def update_note(note_id: int, body: str = "", title: str = "") -> dict:
+    """Rewrite a note's body and/or title (empty = unchanged). [[Note Title]] links other notes;
+    @bibtex_key cites a paper from the library and attaches it to the note."""
+    return client.update_note(note_id, body or None, title or None)
+
+
+@mcp.tool()
+def get_note_links(note_id: int) -> dict:
+    """The note's link panel: outgoing [[links]], backlinks, cited references, unresolved
+    titles/keys, and notes that mention this title without linking it."""
+    return client.get_note_links(note_id)
+
+
+@mcp.tool()
+def create_note_from_template(project: str, kind: str, reference_id: int = 0) -> dict:
+    """Start a note from a template: 'literature' (give reference_id — the paper's metadata, @key
+    and highlights are filled in), 'daily' (this week's focus as checkboxes; returns today's note if
+    it exists), 'meeting', 'experiment', or 'blank'."""
+    return client.create_note_from_template(project, kind, reference_id or None)
+
+
+@mcp.tool()
+def export_note(note_id: int, style: str = "apa") -> dict:
+    """The note as portable Markdown with a References section formatted in apa / mla / chicago /
+    harvard / vancouver / ieee — paste it into a manuscript or send it to a colleague."""
+    return client.export_note(note_id, style)
+
+
+@mcp.tool()
+def get_manuscript_bibliography(manuscript_id: int) -> list:
+    """The manuscript's bibliography: cite key, title, year, authors for each paper."""
+    return client.get_manuscript_bibliography(manuscript_id)
+
+
+@mcp.tool()
+def add_manuscript_reference(
+    manuscript_id: int, reference_id: int, cite_key_override: str = ""
+) -> list:
+    """Add a library paper to a manuscript's bibliography (optionally under a custom cite key).
+    Returns the updated bibliography."""
+    return client.add_manuscript_reference(manuscript_id, reference_id, cite_key_override)
+
+
+@mcp.tool()
+def remove_manuscript_reference(manuscript_id: int, reference_id: int) -> dict:
+    """Remove a paper from a manuscript's bibliography (it stays in the library)."""
+    return client.remove_manuscript_reference(manuscript_id, reference_id)
+
+
+@mcp.tool()
+def manuscript_cite_check(manuscript_id: int) -> dict:
+    """Check every \\cite key in the manuscript's .tex files against its bibliography: keys
+    missing from the bib (with `resolvable` ids when the library knows them), entries never cited,
+    and the matched ones."""
+    return client.manuscript_cite_check(manuscript_id)
+
+
+@mcp.tool()
+def add_submission_event(manuscript_id: int, kind: str, date: str, notes: str = "") -> dict:
+    """Log a submission event: submitted / desk_reject / reviews_received / revision_submitted /
+    accepted / rejected / published / note, with an ISO date."""
+    return client.add_submission_event(manuscript_id, kind, date, notes)
+
+
+@mcp.tool()
+def log_reviews(manuscript_id: int, text: str, date: str = "", notes: str = "") -> dict:
+    """Paste the reviews a manuscript received: Atlas logs a reviews_received event and writes a
+    'Response to reviewers' note with one checkbox per reviewer point (R1.1, R1.2, …) and a
+    Response slot under each. Returns the event, the note and the point count."""
+    return client.log_reviews(manuscript_id, text, date, notes)
+
+
+@mcp.tool()
+def get_response_progress(manuscript_id: int) -> dict | None:
+    """How many reviewer points have a final (ticked) response in the newest response note."""
+    return client.get_response_progress(manuscript_id)
+
+
+@mcp.tool()
+def preflight_manuscript(manuscript_id: int, network: bool = False) -> dict:
+    """Is this paper ready to submit? Every readiness check from real data: the compiled PDF
+    is up to date with the source, no compile errors, no undefined citations/references, every
+    \cite key is in the bibliography (and nothing unused), bibliography hygiene (missing
+    fields, duplicates), the venue limits, every \includegraphics path resolves to a file,
+    no TODO/FIXME/\todo/?? left in the text, a .bbl kept for arXiv, and venue/deadline/abstract
+    set. Each check answers ok / warn / fail / skip with a one-line detail and a fix pointer;
+    `ready` is true when nothing fails. network=true also resolves DOIs and checks retractions
+    (slow). Run it before "submit", then fix the fails in order."""
+    return client.preflight_manuscript(manuscript_id, network=network)
+
+
+@mcp.tool()
+def get_manuscript_budget(manuscript_id: int) -> dict:
+    """How the manuscript sits against its venue limits: words, abstract words, figures, tables,
+    references and pages (after a compile), each as used / limit with an ok / near / over state."""
+    return client.get_manuscript_budget(manuscript_id)
+
+
+@mcp.tool()
+def set_venue_limits(manuscript_id: int, limits: dict) -> dict:
+    """Set the target venue's limits, e.g. {"words": 8000, "abstract_words": 250, "figures": 6,
+    "tables": 4, "references": 60, "pages": 12}; unknown keys are ignored."""
+    return client.set_venue_limits(manuscript_id, limits)
+
+
+@mcp.tool()
+def get_dashboard() -> dict:
+    """What should I work on today, everywhere? Needs-attention (overdue milestones, deadlines
+    inside two weeks, untriaged inbox), this week's items across every active project, projects
+    with progress and phase health, monthly stats, upcoming milestones and deadlines."""
+    return client.get_dashboard()
+
+
+@mcp.tool()
+def list_inbox() -> dict:
+    """Captures waiting for triage, each with a `hint` (suggested target and any DOI / arXiv id /
+    URL found in the text)."""
+    return client.list_inbox()
+
+
+@mcp.tool()
+def convert_capture(
+    capture_id: int, target: str, project: str = "", phase_id: int = 0, due: str = ""
+) -> dict:
+    """Triage a capture into a first-class object and mark it processed. target: 'paper' (adds
+    the DOI/arXiv paper, filed into project), 'note', 'todo' (Today list), 'milestone' (into
+    phase_id or the project's current phase; optional ISO due), or 'decision'."""
+    return client.convert_capture(capture_id, target, project, phase_id, due)
+
+
+@mcp.tool()
+def set_review_mark(
+    slug: str, reference: str, theme: str, marked: bool = True, note: str = ""
+) -> dict:
+    """Fill one cell of the project's literature review matrix: `reference` is an id or bibtex
+    key, `theme` an id or name (a new name adds the column), `note` the extracted finding (≤300
+    chars). marked=False clears the cell. Read the paper first (search_in_pdf, list_highlights)."""
+    return client.set_review_mark(slug, reference, theme, marked, note)
+
+
+@mcp.tool()
+def add_review_theme(slug: str, name: str) -> dict:
+    """Add a theme (column) to the project's review matrix, e.g. 'Sample size' or 'Load type'."""
+    return client.add_review_theme(slug, name)
+
+
+@mcp.tool()
+def add_hypothesis(project: str, statement: str, status: str = "proposed") -> dict:
+    """Propose a hypothesis in a project's ledger (status: proposed / testing / …)."""
+    return client.add_hypothesis(project, statement, status)
+
+
+@mcp.tool()
+def set_hypothesis_status(hypothesis_id: int, status: str) -> dict:
+    """Set a hypothesis to proposed / testing / supported / contradicted / inconclusive / abandoned.
+    The ledger also suggests a status from the evidence balance (suggested_status)."""
+    return client.set_hypothesis_status(hypothesis_id, status)
+
+
+@mcp.tool()
+def add_evidence(
+    hypothesis_id: int, direction: str, summary: str, reference_id: int = 0, note_id: int = 0
+) -> dict:
+    """Attach evidence to a hypothesis: direction supports / contradicts / mixed, a one-line
+    summary, and optionally the paper (reference_id) and/or note (note_id) it comes from."""
+    return client.add_evidence(hypothesis_id, direction, summary, reference_id, note_id)
+
+
+@mcp.tool()
+def log_experiment(
+    project: str,
+    title: str,
+    body: str = "",
+    hypothesis_ids: list[int] | None = None,
+    date: str = "",
+) -> dict:
+    """Write a lab-notebook entry (Markdown body: setup, what happened, outcome), dated today
+    unless `date` is given, linked to the hypotheses it tests."""
+    return client.log_experiment(project, title, body, hypothesis_ids, date)
+
+
+@mcp.tool()
+def suggest_review_themes(project: str) -> dict:
+    """Theme candidates for a project's review matrix: keyword phrases that recur across its
+    papers' titles and abstracts, ranked by how many papers mention them, minus the themes that
+    already exist. Add the good ones with add_review_theme."""
+    return client.suggest_review_themes(project)
+
+
+@mcp.tool()
+def get_diagnostics(network: bool = False) -> dict:
+    """Why didn't it work? The same report as the app's Diagnostics page: version, platform,
+    data folder, database, LaTeX engine path, background-job mode, API-key state, the updater
+    endpoints (probed only when network=true), the last failed compile's log and the tail of
+    the desktop server log — plus a plain-text `text` field to paste into a bug report."""
+    return client.get_diagnostics(network=network)
+
+
+@mcp.tool()
+def take_snapshot(list_only: bool = False) -> dict:
+    """Back Atlas up before a big change: writes a snapshot zip (database + every file) into
+    the app's backups folder and rotates the old ones — the same daily automatic snapshot,
+    on demand. Returns the file written, what was removed and the folder status. With
+    list_only=true it only reports the status: folder, how many are kept, the newest one,
+    whether the desktop scheduler runs, the last failure, and the files on disk. Do this
+    first when a request will delete or rewrite many things (bulk status changes, a plan
+    outline rewrite, a restore)."""
+    return client.take_snapshot(list_only=list_only)
+
+
+@mcp.tool()
+def get_achievements() -> dict:
+    """The research achievements ledger (fun / steady / hard / souls tiers): every achievement
+    with progress toward it and when it unlocked, the score and rank, the five closest to
+    unlocking, and the souls-mode counters (deaths, bonfires, bosses, souls). Good for
+    "what should I go for next?" and for celebrating a fresh unlock."""
+    return client.get_achievements()
+
+
+# Keep this at the very end: `python -m mcp_server.server` runs the module as __main__, and
+# any tool declared below the entry point would never be registered (29 of 88 tools were
+# missing that way until 2026-09-06).
+def self_check() -> dict:
+    """Prove the wiring end to end without an MCP client: reach the API with the configured
+    URL + key and count the tools this server offers. Used by `--check` (the Connect page's
+    "Test the connection" runs the very command Claude Code will launch)."""
+    import asyncio
+    import os
+
+    base = os.environ.get("ATLAS_API_URL", "http://127.0.0.1:8000").rstrip("/")
+    try:
+        projects = client.list_projects()
+    except Exception as exc:  # noqa: BLE001 - every failure must be reported, not raised
+        return {"ok": False, "api_url": base, "error": str(exc)}
+    count = (
+        projects.get("count", len(projects.get("results", [])))
+        if isinstance(projects, dict)
+        else len(projects)
+    )
+    tools = asyncio.run(mcp.list_tools())
+    return {"ok": True, "api_url": base, "projects": count, "tools": len(tools)}
+
+
+def main(argv: list[str] | None = None) -> int:
+    import json
+    import sys
+
+    args = sys.argv[1:] if argv is None else argv
+    if "--check" in args:
+        result = self_check()
+        print(json.dumps(result))
+        return 0 if result["ok"] else 1
+    mcp.run()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

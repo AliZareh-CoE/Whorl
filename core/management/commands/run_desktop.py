@@ -12,6 +12,25 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
 
+def write_server_info(data_dir, host: str, port: int) -> dict:
+    """Publish where this instance is serving so the bundled MCP server (and anything else on
+    the machine) can find it without configuration: the desktop shell may pick a port other
+    than 8000 when it is taken, and `atlas-mcp` reads the live URL from here."""
+    import json
+
+    reach_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    info = {
+        "url": f"http://{reach_host}:{port}",
+        "port": port,
+        "data_dir": str(data_dir),
+        "mcp_bin": os.environ.get("ATLAS_MCP_BIN") or None,
+        "version": os.environ.get("ATLAS_VERSION", "dev"),
+        "pid": os.getpid(),
+    }
+    (data_dir / "server.json").write_text(json.dumps(info, indent=2))
+    return info
+
+
 class Command(BaseCommand):
     help = "Prepare and serve the bundled single-user Atlas (SQLite, no Redis/Docker)."
 
@@ -44,6 +63,17 @@ class Command(BaseCommand):
         # silent black box (#241), and skip the slow static re-collect on later launches of the
         # SAME build — keyed on ATLAS_VERSION (set by the Tauri shell from the app version), so an
         # app update still re-collects.
+        # A staged restore (Diagnostics › Restore from a backup, #376) is applied now, before
+        # the database is opened: the SQLite file and media folder are swapped, the previous
+        # ones kept next to them.
+        from core.backup import apply_pending_restore
+
+        restored = apply_pending_restore(settings.DATA_DIR)
+        if restored:
+            self.stdout.write(
+                ("Restored: " if restored["ok"] else "Restore FAILED: ") + restored["detail"]
+            )
+
         self.stdout.write("Preparing the database…")
         call_command("migrate", "--no-input", verbosity=1)
 
@@ -52,8 +82,12 @@ class Command(BaseCommand):
         if marker.exists() and marker.read_text(errors="ignore").strip() == version:
             self.stdout.write("Static assets already collected for this version.")
         else:
+            # --clear (#382): without it collectstatic keeps any collected file whose mtime is
+            # not older than the source's, and an installer that preserves build timestamps
+            # leaves the previous build's spa.js/chunks in place — a half-updated module graph
+            # that fails to evaluate, i.e. a blank window. A version change wipes the folder.
             self.stdout.write("Collecting static assets (first run for this version)…")
-            call_command("collectstatic", "--no-input", verbosity=1)
+            call_command("collectstatic", "--no-input", "--clear", verbosity=1)
             marker.parent.mkdir(parents=True, exist_ok=True)
             marker.write_text(version)
 
@@ -68,10 +102,27 @@ class Command(BaseCommand):
             self.stdout.write("Setup complete.")
             return
 
+        import logging
+
         from waitress import serve
 
         from config.wsgi import application
 
         host, port = options["host"], options["port"]
+        write_server_info(settings.DATA_DIR, host, port)
+        # Watched folder (#406): resume watching on boot when the owner enabled it
+        from literature.watch import start_watcher
+
+        if start_watcher(settings.DATA_DIR):
+            self.stdout.write("Watching the PDF folder for new papers.")
+        # Automatic snapshots (#462): a backup zip a day into <data dir>/backups, last 7 kept
+        from core.snapshots import snapshot_dir, start_scheduler
+
+        if start_scheduler():
+            self.stdout.write(f"Daily snapshots go to {snapshot_dir()}.")
         self.stdout.write(self.style.SUCCESS(f"Atlas is running → http://{host}:{port}"))
-        serve(application, host=host, port=port, threads=4)
+        # Eight threads: a PDF text extraction or a TTS render must not queue the clicks
+        # behind it (the owner's log showed "Task queue depth" warnings with four). The
+        # queue-depth notice itself is normal under a burst and only clutters Diagnostics.
+        logging.getLogger("waitress.queue").setLevel(logging.ERROR)
+        serve(application, host=host, port=port, threads=8)

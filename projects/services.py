@@ -46,11 +46,37 @@ def instantiate_structure(project, structure: dict) -> dict:
     return {"folders": made_folders, "files": made_files}
 
 
+def instantiate_research_scaffold(project, template: dict) -> dict:
+    """#438: lay down the template's plan outline, research questions and review themes —
+    each only when the project has none of that kind yet, so re-applying never duplicates."""
+    from literature.models import ReviewTheme
+    from plans import outline
+    from plans.models import ResearchQuestion
+
+    made = {"phases": 0, "questions": 0, "themes": 0}
+    plan = template.get("plan") or ""
+    if plan.strip() and not project.phases.exists():
+        outline.apply(project, plan)
+        made["phases"] = project.phases.count()
+    if template.get("questions") and not project.questions.exists():
+        for text in template["questions"]:
+            ResearchQuestion.objects.create(project=project, question=text)
+            made["questions"] += 1
+    if template.get("themes") and not project.review_themes.exists():
+        for order, name in enumerate(template["themes"], start=1):
+            ReviewTheme.objects.create(project=project, name=name, order=order)
+            made["themes"] += 1
+    return made
+
+
 def instantiate_template(project, key: str) -> dict:
     """Scaffold from a built-in (code) template by key, OR a user ProjectTemplate by name."""
     template = TEMPLATES.get(key)
     if template:
-        return instantiate_structure(project, template)
+        return {
+            **instantiate_structure(project, template),
+            **instantiate_research_scaffold(project, template),
+        }
 
     from .models import ProjectTemplate
 

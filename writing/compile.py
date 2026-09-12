@@ -1,6 +1,9 @@
 """Server-side LaTeX compilation via the vendored Tectonic binary (Owner idea #9/#24)."""
 
+import os
+import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -12,7 +15,11 @@ from .models import Manuscript, ManuscriptFile
 from .services import export_manuscript_bib
 
 TECTONIC = Path(settings.BASE_DIR) / "bin" / "tectonic"
-COMPILE_TIMEOUT = 180
+COMPILE_TIMEOUT = 900  # the first compile downloads Tectonic's TeX bundle (minutes on a slow link)
+MISSING_ENGINE = (
+    "The LaTeX engine (Tectonic) was not found. Desktop builds bundle it; in a source "
+    "checkout run `make tectonic`, or point ATLAS_TECTONIC at a tectonic binary."
+)
 
 RESULT_FIELDS = [
     "compile_status",
@@ -20,12 +27,65 @@ RESULT_FIELDS = [
     "compile_diagnostics",
     "compiled_pdf",
     "compiled_at",
+    "synctex",
+    "compiled_bbl",
+    "compiled_source_hash",
     "updated_at",
 ]
 
 
+def source_hash(manuscript: Manuscript) -> str:
+    """#455: a digest of everything a compile reads — every text file's path and content, every
+    asset's path and size, and the bibliography Atlas would generate (links, keys, overrides)
+    when the tree ships no references.bib. Same digest ⇒ same PDF."""
+    import hashlib
+
+    from .services import export_manuscript_bib
+
+    h = hashlib.sha256()
+    files = list(manuscript.files.all().order_by("path"))
+    for f in files:
+        h.update(f.path.encode())
+        h.update(b"\0")
+        if f.kind == ManuscriptFile.Kind.ASSET:
+            size = f.asset.size if f.asset else 0
+            h.update(f"asset:{f.asset.name if f.asset else ''}:{size}".encode())
+        else:
+            h.update(f.content.encode())
+        h.update(b"\0\0")
+    if not files:
+        h.update(manuscript.latex_source.encode())
+    if not any(f.path == "references.bib" for f in files):
+        h.update(b"\0bib\0")
+        h.update((export_manuscript_bib(manuscript) or "").encode())
+    return h.hexdigest()
+
+
+def tectonic_path() -> Path | None:
+    """Where the engine lives: ATLAS_TECTONIC, then the bundled bin/ (desktop builds ship
+    `tectonic` / `tectonic.exe` there), then PATH. Owner report 2026-09-06: the desktop
+    installer had no engine at all, so Recompile always failed."""
+    env = os.environ.get("ATLAS_TECTONIC")
+    if env and Path(env).exists():
+        return Path(env)
+    roots = [TECTONIC.parent]
+    # frozen server (PyInstaller): data files live next to the executable, under _internal
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        roots.append(Path(meipass) / "bin")
+    exe_dir = Path(sys.executable).resolve().parent
+    roots += [exe_dir / "bin", exe_dir / "_internal" / "bin"]
+    for root in roots:
+        for name in ("tectonic", "tectonic.exe"):
+            candidate = root / name
+            if candidate.exists():
+                return candidate
+    found = shutil.which("tectonic")
+    return Path(found) if found else None
+
+
 def tectonic_available() -> bool:
-    return TECTONIC.exists()
+    return tectonic_path() is not None
 
 
 def _stale(manuscript: Manuscript, generation: int | None) -> bool:
@@ -34,6 +94,21 @@ def _stale(manuscript: Manuscript, generation: int | None) -> bool:
         return False
     current = Manuscript.objects.values_list("compile_generation", flat=True).get(pk=manuscript.pk)
     return generation < current
+
+
+def _synctex_map(work: Path, main_path: str) -> dict:
+    """The compact SyncTeX map for the studio (#378); empty when the engine wrote none."""
+    from .synctex import read_synctex
+
+    candidate = (work / main_path).with_suffix(".synctex.gz")
+    if not candidate.exists():
+        candidate = (work / main_path).with_suffix(".synctex")
+    if not candidate.exists():
+        return {}
+    try:
+        return read_synctex(candidate, work)
+    except Exception:  # noqa: BLE001 - a bad map must never fail a good compile
+        return {}
 
 
 def _fail(manuscript: Manuscript, log: str) -> str:
@@ -82,7 +157,7 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
     if not source.strip():
         return _fail(manuscript, "Nothing to compile — the LaTeX source is empty.")
     if not tectonic_available():
-        return _fail(manuscript, "Tectonic binary missing — run `make tectonic` first.")
+        return _fail(manuscript, MISSING_ENGINE)
 
     manuscript.compile_status = Manuscript.CompileStatus.RUNNING
     manuscript.save(update_fields=["compile_status", "updated_at"])
@@ -100,14 +175,29 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
         if bib and not (work / "references.bib").exists():
             (work / "references.bib").write_text(bib)
         try:
+            engine = tectonic_path()
+            run_kwargs = {}
+            if sys.platform == "win32":  # no console window flashing behind the app
+                run_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             proc = subprocess.run(
-                [str(TECTONIC), "--untrusted", "--chatter", "minimal", main_path],
+                [
+                    str(engine),
+                    "--untrusted",
+                    "--synctex",
+                    "--keep-intermediates",  # #442: the .bbl for the submission package
+                    "--chatter",
+                    "minimal",
+                    main_path,
+                ],
                 cwd=work,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=COMPILE_TIMEOUT,
+                **run_kwargs,
             )
-            log = (proc.stdout + proc.stderr).strip()
+            log = f"engine: {engine}\n" + (proc.stdout + proc.stderr).strip()
             pdf_path = (work / main_path).with_suffix(".pdf")
             if proc.returncode == 0 and pdf_path.exists():
                 manuscript.compiled_pdf.save(
@@ -117,10 +207,24 @@ def compile_manuscript(manuscript: Manuscript, generation: int | None = None) ->
                 )
                 manuscript.compile_status = Manuscript.CompileStatus.OK
                 manuscript.compiled_at = timezone.now()
+                manuscript.compiled_source_hash = manuscript.compile_source_hash or source_hash(
+                    manuscript
+                )
+                manuscript.synctex = _synctex_map(work, main_path)
+                bbl_path = (work / main_path).with_suffix(".bbl")
+                manuscript.compiled_bbl = (
+                    bbl_path.read_text(encoding="utf-8", errors="replace")
+                    if bbl_path.exists()
+                    else ""
+                )
             else:
                 manuscript.compile_status = Manuscript.CompileStatus.FAILED
+                manuscript.synctex = {}
         except subprocess.TimeoutExpired:
-            log = f"Compile timed out after {COMPILE_TIMEOUT}s."
+            log = (
+                f"Compile timed out after {COMPILE_TIMEOUT}s. The first compile downloads the TeX "
+                "bundle (a few hundred MB) — check the connection and try again."
+            )
             manuscript.compile_status = Manuscript.CompileStatus.FAILED
     if _stale(manuscript, generation):
         return "skipped: a newer compile superseded this one"

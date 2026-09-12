@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Connect Claude Code{% endblock %}
+
+{% block breadcrumbs %}Connect Claude Code{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl" x-data="{ copied: '' , async copy(id) { const el = document.getElementById(id); try { await navigator.clipboard.writeText(el.textContent.trim()); this.copied = id; setTimeout(() => this.copied = '', 1800); } catch (e) { const r = document.createRange(); r.selectNodeContents(el); getSelection().removeAllRanges(); getSelection().addRange(r); } } }">
+  <h1 class="text-xl font-semibold tracking-tight text-stone-900 dark:text-stone-100">Connect Claude Code</h1>
+  <p class="mt-2 text-sm text-stone-600 dark:text-stone-400">
+    Atlas ships an <abbr title="Model Context Protocol">MCP</abbr> server: register it once and Claude Code can list your
+    projects, check off milestones, add references by DOI, write notes, run bib checks, and more — everything the API can do.
+  </p>
+
+  <div class="mt-5 rounded-lg border border-stone-200 bg-white px-4 py-3 text-sm dark:border-stone-700 dark:bg-stone-900">
+    {% if conn.desktop %}
+      <span class="font-medium text-stone-800 dark:text-stone-200">Desktop build detected.</span>
+      <span class="text-stone-600 dark:text-stone-400">The MCP server (<code class="rounded bg-stone-100 px-1 dark:bg-stone-800">atlas-mcp</code>) is installed with the app and finds this Atlas by itself — the command below carries no secrets.</span>
+    {% else %}
+      <span class="font-medium text-stone-800 dark:text-stone-200">Development / server install.</span>
+      <span class="text-stone-600 dark:text-stone-400">The MCP server runs from this checkout's Python; the command below passes the API URL and key explicitly.</span>
+    {% endif %}
+  </div>
+
+  {% if not conn.api_key_configured %}
+  <div class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+    No API key is configured, so the API rejects every request. Set <code>ATLAS_API_KEY</code> in your <code>.env</code>
+    (or run <code>manage.py rotate_api_key</code>) and restart the server, then come back here.
+  </div>
+  {% endif %}
+
+  <h2 class="mt-8 text-xs font-semibold uppercase tracking-wide text-stone-500">1 · Register Atlas in Claude Code</h2>
+  <p class="mt-1 text-sm text-stone-600 dark:text-stone-400">Paste this in a terminal on this machine (Claude Code installed: <code class="rounded bg-stone-100 px-1 dark:bg-stone-800">npm i -g @anthropic-ai/claude-code</code>). Run it once.</p>
+  <div class="mt-2 flex items-start gap-2">
+    <pre id="claude-cmd" class="min-w-0 flex-1 overflow-x-auto rounded-md bg-stone-900 px-4 py-3 text-xs text-stone-100 dark:bg-stone-950">{{ conn.claude_command }}</pre>
+    <button type="button" @click="copy('claude-cmd')" class="shrink-0 rounded border border-stone-300 px-2.5 py-1.5 text-xs text-stone-700 hover:border-indigo-400 hover:text-indigo-700 dark:border-stone-600 dark:text-stone-200" x-text="copied === 'claude-cmd' ? 'Copied ✓' : 'Copy'">Copy</button>
+  </div>
+
+  <h2 class="mt-8 text-xs font-semibold uppercase tracking-wide text-stone-500">2 · Check it</h2>
+  <p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+    <code class="rounded bg-stone-100 px-1 dark:bg-stone-800">claude mcp list</code> should show <span class="font-medium">atlas</span> as connected while Atlas is running.
+    Then, inside Claude Code, try: <em>“List my Atlas projects.”</em>
+  </p>
+
+  <h2 class="mt-8 text-xs font-semibold uppercase tracking-wide text-stone-500">3 · Give Claude the Atlas playbooks (skills)</h2>
+  <p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+    Skills are short playbooks Claude Code loads on demand. Atlas ships {{ skills|length }}: how to run a research day, a literature
+    review, a manuscript and a plan — tool by tool, with the conventions that keep your data safe. They install into
+    <code class="rounded bg-stone-100 px-1 dark:bg-stone-800">{{ skills_dir }}</code>.
+  </p>
+  <ul class="mt-3 divide-y divide-stone-100 rounded-lg border border-stone-200 bg-white text-sm dark:divide-stone-800 dark:border-stone-700 dark:bg-stone-900" data-testid="skills-list">
+    {% for skill in skills %}
+    <li class="flex items-start gap-3 px-4 py-2.5">
+      <code class="mt-0.5 shrink-0 rounded bg-stone-100 px-1.5 py-0.5 text-xs text-indigo-700 dark:bg-stone-800 dark:text-indigo-300">/{{ skill.name }}</code>
+      <span class="min-w-0 flex-1 text-stone-600 dark:text-stone-400">{{ skill.description }}</span>
+      <span class="shrink-0 text-xs {% if skill.up_to_date %}text-emerald-600 dark:text-emerald-400{% elif skill.installed %}text-amber-600 dark:text-amber-400{% else %}text-stone-400{% endif %}">{% if skill.up_to_date %}installed{% elif skill.installed %}older copy{% else %}not installed{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="{% url 'core:install_claude_skills' %}" class="mt-3 flex items-center gap-3">
+    {% csrf_token %}
+    <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Install / update the skills</button>
+    <span class="text-xs text-stone-500">Then, in Claude Code: <em>“/atlas-daily — what should I work on?”</em></span>
+  </form>
+
+  <h2 class="mt-8 text-xs font-semibold uppercase tracking-wide text-stone-500">Connection details</h2>
+  <dl class="mt-2 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
+    <dt class="text-stone-500">API URL</dt><dd><code class="rounded bg-stone-100 px-1 dark:bg-stone-800">{{ conn.api_url }}/api/v1/</code></dd>
+    <dt class="text-stone-500">API key</dt>
+    <dd class="min-w-0">
+      {% if conn.api_key_configured %}
+        <code id="api-key" class="break-all rounded bg-stone-100 px-1 dark:bg-stone-800">{{ conn.api_key }}</code>
+        <button type="button" @click="copy('api-key')" class="ml-1 text-xs text-indigo-600 hover:underline" x-text="copied === 'api-key' ? 'copied ✓' : 'copy'">copy</button>
+        <span class="block text-xs text-stone-500">Header <code>X-API-Key</code>. Treat it like a password — it grants full access to this Atlas.</span>
+      {% else %}<span class="text-stone-500">not configured</span>{% endif %}
+    </dd>
+    <dt class="text-stone-500">MCP command</dt><dd><code class="break-all rounded bg-stone-100 px-1 dark:bg-stone-800">{{ conn.command }}{% for a in conn.args %} {{ a }}{% endfor %}</code></dd>
+    {% if conn.data_dir %}<dt class="text-stone-500">Data folder</dt><dd><code class="break-all rounded bg-stone-100 px-1 dark:bg-stone-800">{{ conn.data_dir }}</code></dd>{% endif %}
+    <dt class="text-stone-500">API docs</dt><dd><a href="/api/docs/" class="text-indigo-600 hover:underline">{{ conn.api_url }}/api/docs/</a></dd>
+  </dl>
+
+  <details class="mt-8 text-sm">
+    <summary class="cursor-pointer text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100">Other MCP clients (Claude Desktop, Cursor, a project <code>.mcp.json</code>)</summary>
+    <p class="mt-2 text-stone-600 dark:text-stone-400">Add this server entry to the client's MCP configuration:</p>
+    <div class="mt-2 flex items-start gap-2">
+      <pre id="mcp-json" class="min-w-0 flex-1 overflow-x-auto rounded-md bg-stone-900 px-4 py-3 text-xs text-stone-100 dark:bg-stone-950">{{ conn.mcp_json }}</pre>
+      <button type="button" @click="copy('mcp-json')" class="shrink-0 rounded border border-stone-300 px-2.5 py-1.5 text-xs text-stone-700 hover:border-indigo-400 hover:text-indigo-700 dark:border-stone-600 dark:text-stone-200" x-text="copied === 'mcp-json' ? 'Copied ✓' : 'Copy'">Copy</button>
+    </div>
+  </details>
+</div>
+{% endblock %}

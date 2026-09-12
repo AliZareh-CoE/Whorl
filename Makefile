@@ -47,12 +47,27 @@ assets-check: css js  ## rebuild assets and fail if committed outputs are stale
 	git diff --exit-code static/css/app.css static/js || \
 	  (echo "✕ built assets differ from committed ones — commit the rebuilt files"; exit 1)
 
+demo-gif:  ## re-shoot docs/demo.gif against the seeded dev server (Pillow pulled in ad hoc)
+	uv run --with pillow python scripts/demo_gif.py docs/demo.gif
+
 audit:  ## run the security probe sweep (every-10-cycles audit helper)
 	@bash scripts/audit.sh
 
 # Atlas desktop shell (Owner #30 slice 3) — requires Rust + tauri-cli (see desktop/README.md)
+standalone:  ## run Atlas from source the way the desktop app does — SQLite, no Docker, no Node
+	DJANGO_SETTINGS_MODULE=config.settings.desktop uv run python manage.py run_desktop
+
 desktop:
 	cd desktop && cargo tauri dev
 
 desktop-build:
 	cd desktop && cargo tauri build
+
+# Freeze the Django server (atlas-server) and the MCP server (atlas-mcp) into
+# desktop/server/dist/ — what the installer bundles; needs `uv sync --group build`.
+# Run `make css` first so the server bundle carries the stylesheet.
+desktop-server:
+	uv run pyinstaller desktop/server/atlas_server.spec --noconfirm \
+		--distpath desktop/server/dist --workpath /tmp/atlas-pyi
+	uv run pyinstaller desktop/server/atlas_mcp.spec --noconfirm \
+		--distpath desktop/server/dist --workpath /tmp/atlas-pyi-mcp
