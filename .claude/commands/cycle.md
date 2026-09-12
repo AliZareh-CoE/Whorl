@@ -68,7 +68,13 @@ ends; the owner does not review in between and never wants to be asked "shall I�
 7. **Judge the area.** Ask honestly: is this feature area now best-in-field? List what a
    Paperpile/Zotero/ResearchRabbit user would still miss. If the list is empty, log the
    verdict in DECISIONS.md and move the "current area" pointer above to the next one.
-8. **Loop.** Start the next cycle immediately.
+8. **Loop.** One shipped slice per hour (owner rule, 2026-09-12: "ship one thing per hour so
+   our cycle will be one per hour"). The `/cycle` prompt fires at the top of every hour
+   (`/loop 1h /cycle`). Each firing ships exactly one slice — build, verify, gate, commit, push,
+   record — then ends the turn and waits for the next hour. A slice that needs longer than an
+   hour is still one slice: finish and gate it properly, ship it, and let the next firing start
+   the next one; never rush a gate to make the hour, never start a second slice inside the same
+   hour. If a firing arrives while a slice is still in progress, continue that slice.
 
 ## Guardrails
 

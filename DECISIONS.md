@@ -503,6 +503,10 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 - **The backlog must never be empty.** Every loop cycle MUST append at least one new,
   concrete, valuable idea to the Backlog below before it ends — the loop runs forever.
+- **Cadence (owner rule, 2026-09-12): one shipped slice per hour.** `/loop 1h /cycle` fires the
+  loop prompt at the top of every hour; each firing ships exactly one slice (built, verified,
+  gated, pushed, recorded) and then waits for the next hour. Long slices finish properly and
+  ship on the hour they are ready; a firing that lands mid-slice continues that slice.
 - **Priority order each cycle:** (a) anything broken → (b) Owner ideas top-down →
   (c) auto Backlog top-down. New owner messages with ideas are appended to Owner ideas
   immediately.
