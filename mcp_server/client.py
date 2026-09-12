@@ -632,6 +632,14 @@ def get_response_progress(manuscript_id: int):
     return _request("GET", f"/manuscripts/{manuscript_id}/response-progress/")["progress"]
 
 
+def submit_manuscript(manuscript_id: int, force: bool = False, date: str = "", notes: str = ""):
+    """#469: submit through the pre-flight; 409 with the report unless force."""
+    payload = {"force": force, "notes": notes}
+    if date:
+        payload["date"] = date
+    return _request("POST", f"/manuscripts/{manuscript_id}/submit/", json=payload)
+
+
 def preflight_manuscript(manuscript_id: int, network: bool = False):
     """#466: the submission readiness checks, ok/warn/fail/skip each, `ready` overall."""
     return _request(

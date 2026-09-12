@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-12 — Submitting runs the pre-flight; a blocked submission can still be recorded (#469)
+
+**Decision.** `POST /manuscripts/{id}/submit/` is the one way a paper becomes *submitted*: it runs the pre-flight, answers 409 with the report when a check fails (unless `force`), and otherwise sets the status and logs the `SubmissionEvent` with the readiness summary in its notes — every fail/warn row, and "Submitted anyway over N blocking issue(s)" when forced. From *Revision* the same call logs `revision_submitted` and moves to *Under review*. The manuscript page's pipeline routes only those two clicks through the endpoint (every other step stays a plain PATCH); a 409 opens an in-app confirm listing the blockers with *Submit anyway* / *Not yet*. The *Deadline* check never blocks: a paper submitted after its deadline is a fact to record, not a mistake to prevent. MCP: `submit_manuscript(manuscript_id, force, date, notes)` (103 tools).
+
+**Why.** The pre-flight only pays off if it fires at the moment it matters — the click that says "it's gone". Recording what was open at submission turns the timeline into the paper's audit trail. Alternatives: a hard block with no override (rejected — the owner may have submitted from a different tree, or a venue may not need a compiled PDF); running the checks client-side before a PATCH (rejected — the API and MCP would bypass them).
+
 ### 2026-09-07 — Audit #25: dependency drift fixed, new surfaces reviewed (#468)
 
 **Decision.** The ten-cycle audit cadence had lapsed since June; this audit (AUDITS.md › #25) covered #263–#467. Findings: six Python advisories (django → 5.2.17, djangorestframework → 3.18.0, mcp → 1.29.1, pydantic-settings → 2.15.0, sqlparse → 0.6.0, cryptography → 50.0.1) and five React Router advisories (→ 7.18.3), all fixed; `pip-audit` and `npm audit --omit=dev` are clean. `mcp` is pinned `<2` (2.x renames FastMCP and breaks the server at import; a guard test keeps the pin). The new surfaces — snapshots, restore-by-name, pre-flight, client errors, watched folder, Tauri open/reveal, the terminal dock, Zotero import — reviewed with no code findings; hot endpoints all under 100 ms.

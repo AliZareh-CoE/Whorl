@@ -92,3 +92,55 @@ def _copy_tree(source, copy, ManuscriptFile, ContentFile):
             with f.asset.open("rb") as src:
                 row.asset.save(f.asset.name.rsplit("/", 1)[-1], ContentFile(src.read()), save=False)
         row.save()
+
+
+class SubmissionBlocked(ValueError):
+    """#469: the pre-flight has blocking rows and the caller did not force."""
+
+    def __init__(self, preflight: dict):
+        super().__init__(preflight["summary"])
+        self.preflight = preflight
+
+
+NON_BLOCKING_KEYS = {"deadline"}  # a late submission is still a submission
+
+
+def submit_manuscript(manuscript, *, force: bool = False, date=None, notes: str = "") -> dict:
+    """#469: submit through the pre-flight. Runs the offline checks; unless ``force``, a failing
+    row (other than the deadline) raises ``SubmissionBlocked`` with the full report. Otherwise the
+    status moves to *submitted* (or *under_review* from *revision*, logging a *revision_submitted*
+    event), a SubmissionEvent is written with the readiness note, and both come back."""
+    from django.utils import timezone
+
+    from .models import Manuscript, SubmissionEvent
+    from .preflight import preflight
+
+    report = preflight(manuscript)
+    blocking = [
+        c for c in report["checks"] if c["state"] == "fail" and c["key"] not in NON_BLOCKING_KEYS
+    ]
+    if blocking and not force:
+        raise SubmissionBlocked(report)
+    revision = manuscript.status == Manuscript.Status.REVISION
+    kind = "revision_submitted" if revision else "submitted"
+    manuscript.status = Manuscript.Status.UNDER_REVIEW if revision else Manuscript.Status.SUBMITTED
+    manuscript.save(update_fields=["status", "updated_at"])
+    lines = [f"Pre-flight at submission: {report['summary']}"]
+    lines += [
+        f"- {c['label']}: {c['detail']}" for c in report["checks"] if c["state"] in ("fail", "warn")
+    ]
+    if force and blocking:
+        lines.append(
+            f"Submitted anyway over {len(blocking)} blocking issue{'s' if len(blocking) != 1 else ''}."
+        )
+    if notes:
+        lines.append(notes)
+    event = SubmissionEvent.objects.create(
+        manuscript=manuscript, kind=kind, date=date or timezone.localdate(), notes="\n".join(lines)
+    )
+    return {
+        "manuscript": manuscript,
+        "event": event,
+        "preflight": report,
+        "forced": bool(force and blocking),
+    }

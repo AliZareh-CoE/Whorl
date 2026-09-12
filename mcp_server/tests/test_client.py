@@ -1,5 +1,7 @@
 """mcp_server.client is Django-free; test it with a mock transport."""
 
+import json
+
 import httpx
 import pytest
 
@@ -561,3 +563,12 @@ def test_preflight_client_call(capture):
     assert capture["url"].endswith("/manuscripts/4/preflight/")
     client.preflight_manuscript(4, network=True)
     assert capture["url"].endswith("/manuscripts/4/preflight/?network=1")
+
+
+def test_submit_manuscript_client_call(capture):
+    """#469: submit through the pre-flight; the date rides only when given."""
+    client.submit_manuscript(4, force=True, notes="n")
+    assert capture["url"].endswith("/manuscripts/4/submit/") and capture["method"] == "POST"
+    assert json.loads(capture["body"]) == {"force": True, "notes": "n"}
+    client.submit_manuscript(4, date="2026-09-10")
+    assert json.loads(capture["body"])["date"] == "2026-09-10"

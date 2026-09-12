@@ -628,6 +628,21 @@ def get_response_progress(manuscript_id: int) -> dict | None:
 
 
 @mcp.tool()
+def submit_manuscript(
+    manuscript_id: int, force: bool = False, date: str = "", notes: str = ""
+) -> dict:
+    """Mark a paper as submitted the careful way: runs the pre-flight first and refuses (HTTP 409
+    with the full report) while a blocking check fails — a stale or missing PDF, compile errors,
+    undefined references, cite keys missing from the bibliography, a venue limit exceeded, a
+    figure file that does not exist. A passed deadline never blocks. With force=true it submits
+    anyway and says so in the event. On success the status becomes submitted (from revision:
+    under_review, logging revision_submitted), a submission event dated today (or `date`,
+    YYYY-MM-DD) is written with the readiness note plus your `notes`, and the manuscript, the
+    event and the report come back. Ask the user before forcing."""
+    return client.submit_manuscript(manuscript_id, force=force, date=date, notes=notes)
+
+
+@mcp.tool()
 def preflight_manuscript(manuscript_id: int, network: bool = False) -> dict:
     """Is this paper ready to submit? Every readiness check from real data: the compiled PDF
     is up to date with the source, no compile errors, no undefined citations/references, every

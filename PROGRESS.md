@@ -6,6 +6,8 @@
 
 - **Cadence change (2026-09-12, owner):** one shipped slice per hour — `/loop 1h /cycle` fires `/cycle` at the top of every hour; each firing ships one slice. The owner merged the branch into `main` via PR #1 (branch A1); this branch keeps receiving slices.
 
+- **Submit through the pre-flight (2026-09-12, #469, 103 tools).** `writing/services.py::submit_manuscript` (+ `SubmissionBlocked`), `POST /manuscripts/{id}/submit/` (409 with the report unless `force`; revision → `revision_submitted`/under_review), pipeline click → endpoint → in-app "Submit anyway" confirm, event notes carry the readiness rows; MCP `submit_manuscript`. Tests: writing/tests/test_submit.py (5), mcp client test. Playwright (both themes): blocked → Not yet keeps *Revision*; Submit anyway → *Under review* + "Revision submitted" event with the "Submitted anyway" note; plain steps stay PATCH; *Submitted* from *Drafting* also routes through. Demo data restored afterwards.
+
 - **AUDIT #25 (2026-09-07, #468).** pip-audit: django 5.2.17, DRF 3.18.0, mcp 1.29.1 (pinned <2 + guard test), pydantic-settings 2.15.0, sqlparse 0.6.0, cryptography 50.0.1 → clean; npm: react-router-dom 7.18.3 → clean; new surfaces reviewed, no code findings; hot endpoints < 100 ms. Report: AUDITS.md › Audit #25. **Next audit due at #478.**
 
 - **Readiness card + backlog sweep (2026-09-07, #467).** `PreflightCard` on the manuscript page (pill, fail/warn rows, "Every check in the Studio →"); Studio `?panel=<tab>`; 15 backlog lines struck with reasons (34 open remain). Test: writing/tests/test_preflight.py::test_manuscript_page_has_the_readiness_card_and_the_studio_opens_the_panel.

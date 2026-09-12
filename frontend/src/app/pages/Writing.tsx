@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Gauge, Loader2, MessageSquareReply, Package, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
-import { api, petReact } from "../api";
+import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
@@ -171,6 +171,19 @@ export function WritingBoard() {
   );
 }
 
+// #469: "Submitted" (and "Under review" from a revision) goes through the pre-flight on the server.
+// The endpoint answers 409 with the report when something blocks; the user can submit anyway.
+type SubmitResult = { manuscript: Manuscript; event: Event; preflight: Preflight; forced: boolean };
+async function submitManuscript(id: number | string, body: { force?: boolean }): Promise<SubmitResult | { blocked: Preflight }> {
+  const res = await fetch(`/api/v1/manuscripts/${id}/submit/`, { method: "POST", headers: { ...JSON_H, Accept: "application/json", "X-CSRFToken": csrfToken() }, body: JSON.stringify(body), credentials: "same-origin" });
+  if (res.status === 409) return { blocked: (await res.json()).preflight as Preflight };
+  if (!res.ok) throw new Error(`${res.status} on /manuscripts/${id}/submit/`);
+  return res.json();
+}
+const SUBMIT_TARGETS: Record<string, string> = { submitted: "idea outlining drafting internal_review shelved", under_review: "revision" };
+/** Does moving `from` → `to` on the pipeline mean "submit this paper"? */
+function isSubmitStep(from: string, to: string): boolean { return (SUBMIT_TARGETS[to] ?? "").split(" ").includes(from); }
+
 export function ManuscriptDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
@@ -184,6 +197,32 @@ export function ManuscriptDetail() {
   const [toast, setToast] = useState("");
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3500); };
   const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (force = false) => {
+    if (!id) return;
+    setSubmitting(true);
+    try {
+      const out = await submitManuscript(id, { force });
+      if ("blocked" in out) {
+        const rows = out.blocked.checks.filter((c) => c.state === "fail" && c.key !== "deadline");
+        const ok = await confirmDialog({
+          title: "The pre-flight found blocking issues",
+          body: <div className="space-y-2 text-sm"><p>{out.blocked.summary}</p><ul className="list-disc space-y-1 pl-5" data-testid="submit-blockers">{rows.map((c) => <li key={c.key}><span className="font-medium">{c.label}</span>{c.detail ? <span className="text-stone-500 dark:text-stone-400"> — {c.detail}</span> : null}</li>)}</ul><p className="text-stone-500 dark:text-stone-400">Fix them in the studio, or record the submission anyway — the event notes what was open.</p></div>,
+          danger: true,
+          confirmLabel: "Submit anyway",
+          cancelLabel: "Not yet",
+        });
+        if (ok) await submit(true);
+        return;
+      }
+      invalidate();
+      flash(out.forced ? "Submitted anyway — the open issues are on the event." : `Submitted · ${out.preflight.summary}`);
+    } catch (e) {
+      void errorDialog("Couldn't submit the manuscript", e);
+    } finally {
+      setSubmitting(false);
+    }
+  };
   const remove = useMutation({
     mutationFn: () => api(`/manuscripts/${id}/`, { method: "DELETE" }),
     onSuccess: () => { queryClient.invalidateQueries(); navigate("/writing"); },
@@ -213,7 +252,7 @@ export function ManuscriptDetail() {
       </div>
       <ol className={`${panel} rise mb-4 flex flex-wrap items-center gap-1 p-1.5`} aria-label="Status pipeline" data-testid="pipeline">
         {COLUMNS.map(([k, label], i) => (
-          <li key={k}><button type="button" onClick={() => patch.mutate({ status: k })} aria-current={k === m.status ? "step" : undefined} className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${k === m.status ? "bg-indigo-600 font-medium text-white" : i < stepIndex && k !== "shelved" ? "text-indigo-600 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10" : "text-stone-500 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800"}`}>{i < stepIndex && k !== "shelved" ? <Check className="mr-1 inline h-3 w-3" aria-hidden="true" /> : null}{label}</button></li>
+          <li key={k}><button type="button" onClick={() => (isSubmitStep(m.status, k) ? void submit() : patch.mutate({ status: k }))} disabled={submitting} data-submit={isSubmitStep(m.status, k) || undefined} aria-current={k === m.status ? "step" : undefined} className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${k === m.status ? "bg-indigo-600 font-medium text-white" : i < stepIndex && k !== "shelved" ? "text-indigo-600 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10" : "text-stone-500 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800"}`}>{i < stepIndex && k !== "shelved" ? <Check className="mr-1 inline h-3 w-3" aria-hidden="true" /> : null}{label}</button></li>
         ))}
       </ol>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

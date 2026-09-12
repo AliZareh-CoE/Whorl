@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
 from django.db.models import Count
@@ -2354,6 +2356,56 @@ class ManuscriptViewSet(AtlasViewSet):
         "the .bbl for arXiv, venue/deadline/abstract — each ok/warn/fail/skip with a detail and "
         "a fix pointer. `ready` is true when nothing fails.",
     )
+    @extend_schema(
+        request=inline_serializer(
+            "SubmitManuscript",
+            {
+                "force": rf_serializers.BooleanField(required=False),
+                "date": rf_serializers.DateField(required=False),
+                "notes": rf_serializers.CharField(required=False, allow_blank=True),
+            },
+        ),
+        responses={200: None, 409: None},
+        description="Submit through the pre-flight (#469): runs the offline readiness checks; a "
+        "blocking row (anything failing except a passed deadline) answers 409 with the full "
+        "report unless `force` is true. Otherwise the status becomes submitted (from revision: "
+        "under_review with a revision_submitted event), a submission event is logged with the "
+        "readiness note, and the manuscript, the event and the report come back.",
+    )
+    @action(detail=True, methods=["post"])
+    def submit(self, request, pk=None):
+        from writing.services import SubmissionBlocked, submit_manuscript
+
+        data = request.data if isinstance(request.data, dict) else {}
+        date = data.get("date") or None
+        if date:
+            try:
+                date = datetime.date.fromisoformat(str(date))
+            except ValueError:
+                return Response({"detail": "date must be YYYY-MM-DD."}, status=400)
+        try:
+            out = submit_manuscript(
+                self.get_object(),
+                force=bool(data.get("force")),
+                date=date,
+                notes=str(data.get("notes") or ""),
+            )
+        except SubmissionBlocked as blocked:
+            return Response(
+                {"detail": blocked.preflight["summary"], "preflight": blocked.preflight},
+                status=409,
+            )
+        return Response(
+            {
+                "manuscript": serializers.ManuscriptSerializer(
+                    out["manuscript"], context={"request": request}
+                ).data,
+                "event": serializers.SubmissionEventSerializer(out["event"]).data,
+                "preflight": out["preflight"],
+                "forced": out["forced"],
+            }
+        )
+
     @action(detail=True, methods=["get"])
     def preflight(self, request, pk=None):
         from writing.preflight import preflight
