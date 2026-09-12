@@ -640,6 +640,11 @@ def submit_manuscript(manuscript_id: int, force: bool = False, date: str = "", n
     return _request("POST", f"/manuscripts/{manuscript_id}/submit/", json=payload)
 
 
+def lint_manuscript(manuscript_id: int):
+    """#470: the static style lint — findings with file/line/rule/level/message/fix."""
+    return _request("GET", f"/manuscripts/{manuscript_id}/lint/")
+
+
 def preflight_manuscript(manuscript_id: int, network: bool = False):
     """#466: the submission readiness checks, ok/warn/fail/skip each, `ready` overall."""
     return _request(

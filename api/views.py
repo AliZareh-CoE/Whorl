@@ -2406,6 +2406,23 @@ class ManuscriptViewSet(AtlasViewSet):
             }
         )
 
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="Style lint findings: file, line, col, rule, level (error/warning), "
+                "message and a suggested fix where one is obvious; counts and the rule catalogue."
+            )
+        },
+        description="Static LaTeX style lint over the manuscript's .tex files — the mistakes a "
+        "compile never reports (unescaped %, \\label before \\caption, undefined/duplicate "
+        "labels, plain spaces before \\ref and units, straight quotes, ..., $$, \\\\ in prose).",
+    )
+    @action(detail=True, methods=["get"])
+    def lint(self, request, pk=None):
+        from writing.lint import lint_manuscript
+
+        return Response(lint_manuscript(self.get_object()))
+
     @action(detail=True, methods=["get"])
     def preflight(self, request, pk=None):
         from writing.preflight import preflight

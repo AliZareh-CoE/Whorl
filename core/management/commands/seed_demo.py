@@ -719,8 +719,9 @@ A $2 \\times 2$ within-subject design crossing working-memory load (low, high) w
 incentive (none, performance-contingent bonus). Blocks were counterbalanced.
 
 \\subsection{Procedure}
-Each block paired a sustained-attention task with a concurrent memory set. The bonus
-structure was explained before incentive blocks and verified by a comprehension check.
+Each block paired a sustained-attention task with a concurrent memory set. Targets appeared
+for 250 ms with a 1.5 s response window; conditions are listed in Table \\ref{tab:dprime}. The
+bonus structure was explained before incentive blocks and verified by a comprehension check.
 """
     manuscript.latex_source = main_src
     manuscript.save(update_fields=["latex_source", "updated_at"])

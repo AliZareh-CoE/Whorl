@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-12 — A style lint for the mistakes a compile never reports (#470)
+
+**Decision.** `writing/lint.py` is a pure, dependency-free linter over the manuscript's `.tex` files with thirteen rules split into *errors* (text that prints wrong: an unescaped `%` after a number, `\label` before `\caption`, duplicate and undefined labels across the whole tree) and *warnings* (style: a plain space before `\ref` or between a number and its unit, straight quotes, `...`, `$$`, `\begin{center}` in a float, `\\` as a paragraph break, a captioned float without a label, `e.g.`/`i.e.` without a comma). Comments, `verbatim`-like environments, `\url{}` arguments and table/align bodies are skipped. It is served as `GET /manuscripts/{id}/lint/`, merged into the Studio's Problems panel next to the compile diagnostics (a `lint` chip toggles it, refreshed on every save, findings underline the line and jump on click), a *Style lint* pre-flight row that points at the first finding and never blocks, and MCP `lint_manuscript` (104 tools). The editor now keeps pushed diagnostics as line numbers and positions them per run, so a file switch cannot replay stale offsets. Not chktex: no external binary, no config file, and only rules whose fix is obvious.
+
+**Why.** Overleaf has no linter; chktex is a separate install with a hundred noisy rules. A researcher hits the same dozen LaTeX traps for years, and the compile is silent about every one of them. Alternatives: bundling chktex (a binary per platform in the desktop build, noisy defaults); a client-only lint in CodeMirror (rejected — the API and MCP would not see it, and the cross-file label rules need the whole tree).
+
 ### 2026-09-12 — Submitting runs the pre-flight; a blocked submission can still be recorded (#469)
 
 **Decision.** `POST /manuscripts/{id}/submit/` is the one way a paper becomes *submitted*: it runs the pre-flight, answers 409 with the report when a check fails (unless `force`), and otherwise sets the status and logs the `SubmissionEvent` with the readiness summary in its notes — every fail/warn row, and "Submitted anyway over N blocking issue(s)" when forced. From *Revision* the same call logs `revision_submitted` and moves to *Under review*. The manuscript page's pipeline routes only those two clicks through the endpoint (every other step stays a plain PATCH); a 409 opens an in-app confirm listing the blockers with *Submit anyway* / *Not yet*. The *Deadline* check never blocks: a paper submitted after its deadline is a fact to record, not a mistake to prevent. MCP: `submit_manuscript(manuscript_id, force, date, notes)` (103 tools).
@@ -2369,6 +2375,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 
 ## Backlog
 
+308. The `codemirror-lang-latex` package runs its own linter (missing `\documentclass`, per-file undefined `\ref`) whose underlines appear in the editor but never in the Problems panel, and whose per-file label check contradicts the cross-file one from #470 — either route its diagnostics through the panel with a `latex` tag or disable it in favour of `writing/lint.py` (idea added by #470)
 307. Port `mcp_server/` to the mcp 2.x API (FastMCP → MCPServer, transport changes) so the `<2` pin from Audit #25 can go; keep the 102-tool contract and the README/docs guards unchanged (idea added by Audit #25)
 306. Library v2 slice 7 candidates: ~~inline PDF preview pane in the workbench (needs pdf.js vendored for offline desktop)~~ (the in-workbench reader); ~~per-reference reading notes + highlights surfaced in the detail pane~~ (both in the detail pane; swept 2026-09-07); ~~"Find PDF" per row with a status pill (done 2026-09-07, #386)~~; ~~drag-to-reorder for smart views (done 2026-09-07, #400)~~.
 305. ~~Library v2 slice 6 (done 2026-09-06): duplicate clusters with a suggested keep, relation-preserving merge, Duplicates mode in the workbench, API + MCP. See the 2026-09-06 decision.~~

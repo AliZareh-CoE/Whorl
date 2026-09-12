@@ -114,9 +114,26 @@ const commentMarkField = StateField.define<RangeSet<GutterMarker>>({
 });
 
 // --- compile diagnostics (Slice B): push status into a CM6 linter ------------------
-let currentDiagnostics: Diagnostic[] = []; // compile diagnostics (pushed on poll)
+// Kept as line numbers, never as absolute positions: the linter re-runs after every change
+// and on every file switch, and a position computed against one document is garbage against
+// the next (#470 found phantom underlines from exactly that).
+type LineDiag = { line: number; level: string; message: string };
+let currentDiagnostics: LineDiag[] = []; // compile + lint diagnostics (pushed by the Studio)
+function positioned(state: EditorState, diags: LineDiag[]): Diagnostic[] {
+  return diags
+    .filter((d) => d.line)
+    .map((d) => {
+      const ln = state.doc.line(Math.max(1, Math.min(d.line, state.doc.lines)));
+      return {
+        from: ln.from,
+        to: ln.to,
+        severity: (d.level === "error" ? "error" : "warning") as Diagnostic["severity"],
+        message: d.message,
+      };
+    });
+}
 function diagnosticsLinter() {
-  return linter((view) => [...currentDiagnostics, ...citeCheckDiagnostics(view.state)]);
+  return linter((view) => [...positioned(view.state, currentDiagnostics), ...citeCheckDiagnostics(view.state)]);
 }
 
 // #459 (backlog #117): the library's LaTeX completions, re-ranked by the enclosing environment —
@@ -404,19 +421,8 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
     reloadCiteLibrary: () => loadCiteLibrary(cfg),
 
     setDiagnostics: (diags) => {
-      const cm: Diagnostic[] = diags
-        .filter((d) => d.line)
-        .map((d) => {
-          const ln = view.state.doc.line(Math.min(d.line, view.state.doc.lines));
-          return {
-            from: ln.from,
-            to: ln.to,
-            severity: (d.level === "error" ? "error" : "warning") as Diagnostic["severity"],
-            message: d.message,
-          };
-        });
-      currentDiagnostics = cm;
-      view.dispatch(setDiagnostics(view.state, [...cm, ...citeCheckDiagnostics(view.state)]));
+      currentDiagnostics = diags;
+      view.dispatch(setDiagnostics(view.state, [...positioned(view.state, diags), ...citeCheckDiagnostics(view.state)]));
     },
   };
 }

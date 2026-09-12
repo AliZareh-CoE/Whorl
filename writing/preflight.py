@@ -404,6 +404,32 @@ def check_leftovers(files, source) -> list[dict]:
     ]
 
 
+def check_lint(files, source) -> list[dict]:
+    """#470: the style lint — never blocks (heuristics), but the first finding is one click away."""
+    from writing.lint import lint_files
+
+    pairs = [(f.path, f.content) for f in files] if files else [("main.tex", source)]
+    out = lint_files(pairs)
+    if not out["count"]:
+        return [_check("lint", "Style lint", "ok", "No lint findings in the sources.")]
+    first = out["findings"][0]
+    n, e = out["count"], out["errors"]
+    detail = (
+        f"{n} finding{'s' if n != 1 else ''}"
+        + (f" ({e} serious)" if e else "")
+        + f" — first at {first['file']}:{first['line']}: {first['message']}"
+    )
+    return [
+        _check(
+            "lint",
+            "Style lint",
+            "warn",
+            detail,
+            {"kind": "line", "path": first["file"], "line": first["line"]},
+        )
+    ]
+
+
 def check_bbl(manuscript) -> list[dict]:
     if not manuscript.manuscriptreference_set.exists():
         return [_check("bbl", "Bibliography file for arXiv", "skip", "No references linked.")]
@@ -438,6 +464,7 @@ def preflight(manuscript, *, network: bool = False) -> dict:
         *check_budget(manuscript),
         *check_figures(manuscript, files),
         *check_leftovers(files, source),
+        *check_lint(files, source),
         *check_bbl(manuscript),
         *check_metadata(manuscript),
     ]

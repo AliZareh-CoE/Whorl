@@ -643,8 +643,21 @@ def submit_manuscript(
 
 
 @mcp.tool()
+def lint_manuscript(manuscript_id: int) -> dict:
+    r"""Static LaTeX style lint over the manuscript's .tex files — the mistakes a compile never
+    reports: an unescaped % after a number (comments out the rest of the line), \label before
+    \caption (numbers the wrong float), duplicate and undefined labels, a plain space before
+    \ref or between a number and its unit (the number wraps), straight "quotes", three dots,
+    $$ display math, \begin{center} inside a float, \\ used as a paragraph break, a captioned
+    float without a label, e.g./i.e. without a comma. Each finding has file, line, col, rule,
+    level (error/warning), message and a suggested fix where one is obvious. Fix the errors
+    first; they change what prints."""
+    return client.lint_manuscript(manuscript_id)
+
+
+@mcp.tool()
 def preflight_manuscript(manuscript_id: int, network: bool = False) -> dict:
-    """Is this paper ready to submit? Every readiness check from real data: the compiled PDF
+    r"""Is this paper ready to submit? Every readiness check from real data: the compiled PDF
     is up to date with the source, no compile errors, no undefined citations/references, every
     \cite key is in the bibliography (and nothing unused), bibliography hygiene (missing
     fields, duplicates), the venue limits, every \includegraphics path resolves to a file,

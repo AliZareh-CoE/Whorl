@@ -23,7 +23,9 @@ import { confirmDialog, promptDialog } from "../../components/Dialog";
 
 type MFile = { id: number; path: string; kind: string; is_main: boolean; url?: string; size?: number };
 type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; compile_status: string; compiled_at: string | null; files: MFile[] };
-type Diag = { level: string; file: string; line: number | null; message: string };
+type Diag = { level: string; file: string; line: number | null; message: string; source?: "lint"; rule?: string; fix?: string };
+// #470: a style-lint finding as the API returns it
+type LintFinding = { file: string; line: number; col: number; rule: string; level: "error" | "warning"; message: string; fix?: string };
 type Compile = { status: string; diagnostics: Diag[]; compiled_at: string | null; pdf_url: string | null; log: string; synctex?: boolean };
 // SyncTeX (#378): one rectangle per (page, file, line) in PDF points from the top-left
 type SyncMap = { files: string[]; pages: Record<string, [number, number, number, number, number, number][]> };
@@ -197,6 +199,13 @@ function StudioInner({ m }: { m: Manuscript }) {
   const markDirty = (fid: number, on: boolean) => { if (on) dirtyRef.current.add(fid); else dirtyRef.current.delete(fid); setDirty([...dirtyRef.current]); };
 
   const refreshWords = useCallback(() => { api<WordCount>(`/manuscripts/${m.id}/word-count/`).then(setWords).catch(() => {}); }, [m.id]);
+  // #470: the style lint — the mistakes a compile never reports — lives in the Problems panel
+  // next to the compile diagnostics and in the gutter of the active file; refreshed on every save
+  const [lint, setLint] = useState<Diag[]>([]);
+  const lintRef = useRef<Diag[]>([]); lintRef.current = lint;
+  const [lintOn, setLintOn] = useState<boolean>(() => { try { return localStorage.getItem("atlas.studio.lint") !== "off"; } catch { return true; } });
+  const lintOnRef = useRef(lintOn); lintOnRef.current = lintOn;
+  const refreshLint = useCallback(() => api<{ findings: LintFinding[] }>(`/manuscripts/${m.id}/lint/`).then((r) => { setLint(r.findings.map((f) => ({ level: f.level, file: f.file, line: f.line, message: f.message, source: "lint" as const, rule: f.rule, fix: f.fix }))); }).catch(() => {}), [m.id]);
 
   const saveFile = useCallback(async (fid: number) => {
     const ad = adRef.current; if (!ad) return;
@@ -209,14 +218,14 @@ function StudioInner({ m }: { m: Manuscript }) {
       if (fid === activeRef.current) {
         setSaveStatus(`Saved ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
         setMissingCites(data.cite?.missing_from_bib ?? 0);
-        refreshWords();
+        refreshWords(); void refreshLint();
         if (settingsRef.current.autoCompile) compileRef.current();
       }
     } catch {
       if (fid === activeRef.current) setSaveStatus("Not saved — retrying");
       window.setTimeout(() => saveFile(fid), 4000);
     }
-  }, [base, refreshWords]);
+  }, [base, refreshWords, refreshLint]);
 
   const saveAll = useCallback(async () => { await Promise.all([...dirtyRef.current].map((fid) => { window.clearTimeout(timers.current.get(fid)); return saveFile(fid); })); }, [saveFile]);
   saveNowRef.current = () => { void saveAll(); };
@@ -244,7 +253,8 @@ function StudioInner({ m }: { m: Manuscript }) {
   const pushDiagnostics = useCallback((diags: Diag[], fid: number) => {
     const ad = adRef.current; if (!ad) return;
     const path = filesRef.current.find((f) => f.id === fid)?.path ?? "main.tex";
-    ad.setDiagnostics(diags.filter((d): d is Diag & { line: number } => !!d.line && (d.file || "main.tex") === path));
+    const all = lintOnRef.current ? [...diags, ...lintRef.current] : diags;
+    ad.setDiagnostics(all.filter((d): d is Diag & { line: number } => !!d.line && (d.file || "main.tex") === path));
   }, []);
 
   const openFile = useCallback(async (fid: number) => {
@@ -417,6 +427,8 @@ function StudioInner({ m }: { m: Manuscript }) {
       }
     }, 1500);
   }, [m.id, applyStatus]);
+  useEffect(() => { void refreshLint(); }, [refreshLint]);
+  useEffect(() => { try { localStorage.setItem("atlas.studio.lint", lintOn ? "on" : "off"); } catch { /* private mode */ } if (ready) pushDiagnostics(compileRefState.current.diagnostics, activeRef.current); }, [lint, lintOn, ready, pushDiagnostics]);
   useEffect(() => { api<Compile>(`/manuscripts/${m.id}/compile-status/`).then((s) => { applyStatus(s); if (s.status === "running") poll(); }).catch(() => {}); refreshWords(); return () => { if (pollRef.current) window.clearInterval(pollRef.current); }; }, [m.id, applyStatus, poll, refreshWords]);
   const doCompile = useCallback(async () => {
     if (compileRefState.current.status === "running") return;
@@ -489,8 +501,9 @@ function StudioInner({ m }: { m: Manuscript }) {
 
   useEffect(() => { if (!flash) return; const tmr = window.setTimeout(() => setFlash(""), 3500); return () => window.clearTimeout(tmr); }, [flash]);
 
-  const errors = compile.diagnostics.filter((d) => d.level === "error").length;
-  const warnings = compile.diagnostics.length - errors;
+  const problems: Diag[] = lintOn ? [...compile.diagnostics, ...lint] : compile.diagnostics;
+  const errors = problems.filter((d) => d.level === "error").length;
+  const warnings = problems.length - errors;
   const running = compile.status === "running";
   const textFiles = files.filter((f) => f.kind !== "asset");
 
@@ -508,6 +521,7 @@ function StudioInner({ m }: { m: Manuscript }) {
     { label: "Download the submission .zip", hint: "arXiv-ready source + .bib + .bbl", run: () => window.location.assign(`${base}submission.zip`) },
     ...(([["files", "Files"], ["outline", "Outline"], ["bib", "Bibliography"], ["history", "History"], ["comments", "Comments"], ["preflight", "Pre-flight"]] as [Tab, string][]).map(([key, name]) => ({ label: `Go to ${name}`, hint: "sidebar panel", run: () => { setSidebarOpen(true); setTab(key); } }))),
     { label: "Pre-flight check", hint: "is this paper ready to submit?", run: () => { setSidebarOpen(true); setTab("preflight"); } },
+    { label: "Run the style lint", hint: "the mistakes a compile never reports", run: () => { setLintOn(true); void refreshLint().then(() => setProblemsOpen(true)); } },
     { label: "Editor settings", run: () => setSettingsOpen(true) },
     { label: `Keymap: ${settings.keymap === "vim" ? "default" : "vim"}`, hint: `now ${settings.keymap}`, run: () => setSettings((st) => ({ ...st, keymap: st.keymap === "vim" ? "default" : "vim" })) },
     { label: `Compile on save: ${settings.autoCompile ? "off" : "on"}`, run: () => setSettings((st) => ({ ...st, autoCompile: !st.autoCompile })) },
@@ -635,14 +649,17 @@ function StudioInner({ m }: { m: Manuscript }) {
           <div ref={hostRef} className="min-h-0 flex-1 overflow-hidden" data-testid="editor-host" />
           {problemsOpen && (
             <div className="flex h-44 shrink-0 flex-col border-t text-xs" style={{ borderColor: "var(--studio-line)", background: "var(--studio-panel)" }} data-testid="problems">
-              <div className="flex items-center gap-2 px-3 py-1 text-[10px] uppercase tracking-wider st-dim"><span>Problems</span><span className="normal-case tracking-normal">{errors} error{errors === 1 ? "" : "s"} · {warnings} warning{warnings === 1 ? "" : "s"}</span><button type="button" onClick={() => setProblemsOpen(false)} className="ml-auto st-hover-fg" aria-label="Close problems"><X className="h-3.5 w-3.5" aria-hidden="true" /></button></div>
+              <div className="flex items-center gap-2 px-3 py-1 text-[10px] uppercase tracking-wider st-dim"><span>Problems</span><span className="normal-case tracking-normal">{errors} error{errors === 1 ? "" : "s"} · {warnings} warning{warnings === 1 ? "" : "s"}</span>
+                <button type="button" onClick={() => setLintOn((v) => !v)} aria-pressed={lintOn} data-testid="lint-toggle" className={`ml-2 rounded-full border px-2 py-px text-[10px] normal-case tracking-normal ${lintOn ? "st-fg" : "st-dim"}`} style={{ borderColor: "var(--studio-line)" }} title="Style lint: the mistakes a compile never reports (#470)">lint{lint.length ? ` · ${lint.length}` : ""}</button>
+                <button type="button" onClick={() => setProblemsOpen(false)} className="ml-auto st-hover-fg" aria-label="Close problems"><X className="h-3.5 w-3.5" aria-hidden="true" /></button></div>
               <ul className="min-h-0 flex-1 overflow-y-auto">
-                {compile.diagnostics.length === 0 && <li className="px-3 py-1 st-dim">{compile.status === "failed" ? "The compile failed before producing diagnostics — see the log in the preview pane." : compile.status === "ok" ? "No problems. Clean compile." : "Compile to see problems here."}</li>}
-                {compile.diagnostics.map((d, i) => (
+                {problems.length === 0 && <li className="px-3 py-1 st-dim">{compile.status === "failed" ? "The compile failed before producing diagnostics — see the log in the preview pane." : compile.status === "ok" ? (lintOn ? "No problems. Clean compile, clean lint." : "No problems. Clean compile.") : lintOn ? "Nothing from the lint. Compile to see problems here." : "Compile to see problems here."}</li>}
+                {problems.map((d, i) => (
                   <li key={i}><button type="button" onClick={async () => { const target = files.find((f) => f.path === (d.file || "main.tex")); if (target && target.id !== activeId) await openFile(target.id); if (d.line) adRef.current?.gotoLine(d.line); }} className="flex w-full items-baseline gap-2 px-3 py-1 text-left st-hover-bg">
                     <span className={`shrink-0 text-[10px] font-semibold uppercase ${d.level === "error" ? "text-red-400" : "text-amber-400"}`}>{d.level}</span>
                     {d.line && <span className="shrink-0 font-mono text-[10px] st-dim">{d.file && d.file !== pathOf(activeId) ? `${d.file} ` : ""}L{d.line}</span>}
-                    <span className="min-w-0 flex-1 truncate st-text">{d.message}</span></button></li>
+                    <span className="min-w-0 flex-1 truncate st-text">{d.message}{d.fix ? <span className="st-dim"> → <code className="font-mono">{d.fix}</code></span> : null}</span>
+                    {d.source === "lint" && <span className="shrink-0 rounded-full border px-1.5 text-[9px] uppercase tracking-wider st-dim" style={{ borderColor: "var(--studio-line)" }} title={d.rule}>lint</span>}</button></li>
                 ))}
               </ul>
             </div>
