@@ -30,3 +30,10 @@ def test_readme_tool_count_is_accurate():
     count = len(_tool_names())
     # the intro brags about the tool count; it must match reality (was stuck at "16 tools")
     assert f"{count} tools" in readme, f"README should say '{count} tools'"
+
+
+def test_mcp_dependency_stays_on_the_1x_api():
+    """Audit #25: mcp 2.x renamed FastMCP → MCPServer and broke the server at import time;
+    the pin keeps `uv lock --upgrade` from pulling it in until the server is ported."""
+    pyproject = (ROOT / "pyproject.toml").read_text()
+    assert '"mcp>=1.28.1,<2"' in pyproject

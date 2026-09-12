@@ -551,6 +551,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-07 — Audit #25: dependency drift fixed, new surfaces reviewed (#468)
+
+**Decision.** The ten-cycle audit cadence had lapsed since June; this audit (AUDITS.md › #25) covered #263–#467. Findings: six Python advisories (django → 5.2.17, djangorestframework → 3.18.0, mcp → 1.29.1, pydantic-settings → 2.15.0, sqlparse → 0.6.0, cryptography → 50.0.1) and five React Router advisories (→ 7.18.3), all fixed; `pip-audit` and `npm audit --omit=dev` are clean. `mcp` is pinned `<2` (2.x renames FastMCP and breaks the server at import; a guard test keeps the pin). The new surfaces — snapshots, restore-by-name, pre-flight, client errors, watched folder, Tauri open/reveal, the terminal dock, Zotero import — reviewed with no code findings; hot endpoints all under 100 ms.
+
+**Why.** Every-10th-cycle audits are a loop rule; the drift showed exactly why — the app code was fine, the lock file was not.
+
+**Alternatives rejected.** Porting the MCP server to mcp 2.x inside the audit (a real slice, not a fix — Backlog); leaving Django on 5.2.15 because the advisories are server-side (the desktop serves HTTP on localhost; patch anyway).
+
 ### 2026-09-07 — Readiness where the status is changed, and a backlog sweep (#467)
 
 **Decision.** The manuscript page (where the status pipeline is) gets a *Ready to submit?* card: the pre-flight summary as a pill and only the rows that need a look, "Run again", and a link that opens the Studio on the Pre-flight tab (`/editor?panel=preflight` — the Studio now honours `?panel=<tab>` for any sidebar tab). The board cards stay as they are: computing thirteen checks per card on every board load is the wrong trade. Backlog sweep: fifteen lines struck as done or obsolete (#28, #29, #36, #63 shell, #65, #66, #76, #83, #86, #91, #123, #134, #135, #164, #211), each with the reason; 34 open lines remain.
@@ -2350,6 +2358,8 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 - **Alternatives rejected:** plain `pip` + `requirements.txt` (no lockfile, slower); Python 3.13 (newer than needed; 3.12 is the conservative floor the spec names).
 
 ## Backlog
+
+307. Port `mcp_server/` to the mcp 2.x API (FastMCP → MCPServer, transport changes) so the `<2` pin from Audit #25 can go; keep the 102-tool contract and the README/docs guards unchanged (idea added by Audit #25)
 306. Library v2 slice 7 candidates: ~~inline PDF preview pane in the workbench (needs pdf.js vendored for offline desktop)~~ (the in-workbench reader); ~~per-reference reading notes + highlights surfaced in the detail pane~~ (both in the detail pane; swept 2026-09-07); ~~"Find PDF" per row with a status pill (done 2026-09-07, #386)~~; ~~drag-to-reorder for smart views (done 2026-09-07, #400)~~.
 305. ~~Library v2 slice 6 (done 2026-09-06): duplicate clusters with a suggested keep, relation-preserving merge, Duplicates mode in the workbench, API + MCP. See the 2026-09-06 decision.~~
 304. ~~Updater polish (done 2026-09-06, #370: progress events + bar, release notes confirm, 6-hourly re-check)~~ — original note: download progress in the sidebar control (the install closure has a chunk callback), release notes from latest.json shown before installing, a "check on a schedule" while the app is open (currently once per launch).

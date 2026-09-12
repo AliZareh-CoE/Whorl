@@ -872,3 +872,68 @@ navigation), acceptable for a single-user desktop showing its own logs.
 
 **Verdict:** healthy after one N+1 fix. The headline new risk — a *writable* API — is properly
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
+
+
+## Audit #25 — 2026-09-07 (since #24: everything from #263 to #467 — the SPA front door, the LaTeX studio and workbench, the desktop rewrite on SQLite, the library workbench, the pet and achievements, bots, snapshots, the pre-flight)
+
+The first audit in the slice-numbered era; the ten-cycle cadence had lapsed since June, so this
+one covers a lot of ground and is deliberately blunt about what it checked and what it did not.
+
+**Dependencies — FOUR FINDINGS, ALL FIXED.**
+- `pip-audit` on the exported lock flagged **django 5.2.15** (PYSEC-2026-2090/2091/2092/3717 →
+  5.2.17), **djangorestframework 3.17.1** (CVE-2026-73229 → 3.18.0), **mcp 1.27.2**
+  (PYSEC-2026-3483), **pydantic-settings 2.14.1** (GHSA-4xgf-cpjx-pc3j → 2.15.0), **sqlparse
+  0.5.5** (five advisories → 0.6.0) and, after the first round, **cryptography 48.0.1**
+  (PYSEC-2026-3552/3553/3554 → 50.0.1). Bumped each with `uv lock --upgrade-package`; re-audit
+  → **No known vulnerabilities found**. Gotcha worth recording: `uv lock --upgrade-package mcp`
+  jumped to **mcp 2.1.1**, which renames `FastMCP` → `MCPServer` and fails at import
+  (`No module named 'mcp.server.fastmcp'`). Pinned `mcp>=1.28.1,<2` in pyproject (resolves to
+  1.29.1, which carries the fix) and added a guard test so a future upgrade cannot re-widen it
+  silently; porting the server to the 2.x API is a backlog item, not an audit fix.
+- `npm audit --omit=dev` flagged **react-router / react-router-dom 7.17.0** (five advisories:
+  open redirect via backslash in `<Link>`/`useNavigate`, RSC XSS, SSR deserialisation, route-
+  matching DoS, RSC CSRF). Bumped to **7.18.3** → **0 vulnerabilities**. The SPA is a client-
+  side router with no SSR/RSC, so only the open-redirect and DoS rows applied in practice;
+  Playwright re-smoked seven routes plus a `<Link>` navigation on the new version: no errors.
+- Full suite on the upgraded stack: green (count in PROGRESS).
+
+**New surfaces since #24 — reviewed, no code findings.**
+- *Snapshots (#462–#464):* the zip is built under a `.partial` name and renamed on completion;
+  the folder is `<data dir>/backups` (or `ATLAS_SNAPSHOT_DIR`), gitignored in a checkout; the
+  scheduler is a daemon thread that closes its DB connection after each tick; a failure is
+  recorded for Diagnostics, never raised. *Restore by name* matches the request against the
+  folder listing and never joins a path — `../name` and unknown names both answer 404 (test).
+  `POST /snapshots/` is key-gated (anon → 401); a single user can write as many zips as they
+  like — rotation caps the disk at seven.
+- *Pre-flight (#466):* 16 queries / ~40 ms on the demo manuscript; every regex is anchored or
+  bounded (`\\includegraphics…{…}`, the marker regex) over author-owned text; the network rows
+  (DOI resolution, retractions) are opt-in via `?network=1`, so a GET never leaves the machine
+  by default.
+- *Client errors (#382):* the endpoint is key/session-gated (anon → 401); each report is clipped
+  to 12 errors × 1500 chars and the ring keeps a fixed number — no unbounded growth.
+- *Watched folder (#406):* accepts any existing directory on the machine. That is the feature —
+  the caller holds the API key, i.e. is the owner — and it only *reads* PDFs from it; noted,
+  accepted for a single-user desktop.
+- *Tauri `open_path` / `reveal_path` (#16):* both go through `existing_file()` (must exist and
+  be a file) before handing the path to the OS opener; arguments are passed as argv, never a
+  shell string. The webview is same-origin and the raw-HTML sink guard (#449) holds the XSS
+  door shut.
+- *Terminal dock (#3):* a local PTY driven over Tauri IPC only — there is no HTTP route to it;
+  the web build renders nothing.
+- *Zotero import:* `base_url` is owner-supplied and defaults to the local connector; same trust
+  level as the key. Unpaywall/OpenAlex fetches only follow `https://` links the APIs return.
+- `scripts/audit.sh`: anon → 401 across the API, pages → 302, catch-all 404, static MIME,
+  `/app//evil.com` stays on-origin — all green; the two dependency rows it flagged were the
+  findings above and are green on re-run.
+
+**Performance (warm, best of three, API key, demo data):** dashboard 40 ms · project overview
+77 ms · references (50) 24 ms · plan 18 ms · search 56 ms · manuscripts 22 ms · timeline 40 ms
+· achievements 62 ms · pre-flight 38 ms · snapshots status 8 ms (0 queries). Everything under
+the 100 ms bar; nothing regressed against #24's numbers.
+
+**Not checked this time (say so):** the frozen Windows/Linux builds (CI has had no runners for
+two days — `runner_id: 0`, an account-level GitHub Actions issue); the Tauri updater path; the
+huey worker under Redis (the desktop runs immediate mode).
+
+**Verdict:** the code is clean; the dependency drift was real and is fixed. Cadence restored:
+the next audit is due after ten more slices (#478).
