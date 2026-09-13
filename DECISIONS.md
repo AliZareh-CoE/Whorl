@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Dashboard: "Writing", everywhere (#487)
+
+**Decision.** `core/dashboard.py::writing_everywhere(limit=6)` — every live manuscript (not published, not shelved) across planning/active projects, each row exactly what the project overview's manuscripts glance shows (status, venue, deadline days, status clock with the nudge flag, pre-flight readiness while the paper is being worked on) plus the project; sorted by urgency: nearest deadline first, then papers whose editor deserves a nudge, then by id. On the dashboard payload as `writing` (MCP `get_dashboard` documents it). The page's *Deadlines* panel becomes *Writing* — the same rows the overview shows, cross-project, with the calendar-subscribe control kept in its header. The `deadlines` list stays in the payload for the calendar feed and older clients.
+
+**Why.** *Deadlines* answered one narrow question (which manuscript has a date) and stayed empty for most researchers; the writing state a researcher checks in the morning is broader — what is drafting and how ready it is, what sits with a journal and for how long, what needs a nudge. The rows come from `manuscripts_glance`, so the dashboard, the overview and the API never disagree; the cost is bounded by the per-project cap (four papers each) and the pre-flight only runs for working papers.
+
+**Alternatives.** A separate panel next to Deadlines (two panels saying overlapping things); listing all manuscripts including shelved/published (noise — those are history); ordering by status pipeline (the overview already sorts by deadline; urgency is the morning question).
+
 ### 2026-09-13 — Dashboard: "Next to read", everywhere (#486)
 
 **Decision.** `core/dashboard.py::reading_queue_everywhere(limit=5)` — every `to_read` link across planning/active projects, highest priority first, then the paper that has waited longest — with the unread count, the high-priority share and how many projects the queue spans; on the dashboard payload as `reading` (MCP `get_dashboard` documents it). The page gets a *Next to read* panel stacked under *Deadlines* in the middle column: five rows (a "high" chip, title, first author + year, a tooltip with the project and the wait), a link into the reading queue of the project at the head.

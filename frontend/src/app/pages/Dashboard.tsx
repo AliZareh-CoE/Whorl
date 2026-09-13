@@ -37,6 +37,7 @@ type Dash = {
   }[];
   milestones: { title: string; project: string; due_date: string | null; overdue: boolean; url: string }[];
   deadlines: { title: string; deadline: string | null; url: string }[];
+  writing?: { live: number; rows: { id: number; title: string; status: string; deadline: string | null; days: number | null; target_venue: string; project: string; project_slug: string; over: string[]; clock: { days: number; label: string; nudge?: { due: boolean; waited: number; after_days: number; basis: string } } | null; readiness: { ready: boolean; fails: number; warns: number; summary: string } | null }[] };
   reading?: { to_read: number; high_priority: number; projects: number; next: { id: number; title: string; first_author: string; year: number | null; priority: string; project: string; project_slug: string; waiting_days: number }[] };
 };
 
@@ -376,21 +377,27 @@ export default function Dashboard() {
         </section>
 
         <div className="space-y-4">
-        <section className={`${panel} rise`} style={{ ["--i" as string]: 7 }}>
-          <div className="flex items-baseline justify-between"><h2 className={h2}>Deadlines</h2><CalendarSubscribe /></div>
-          <ul className="space-y-0.5 text-sm">
-            {data.deadlines.map((d) => (
-              <li key={d.url + d.title}>
-                <a href={d.url} className={row}>
-                  <span aria-hidden="true" className="text-stone-300 dark:text-stone-500">✍</span>
-                  <span className="min-w-0 flex-1 truncate font-medium dark:text-stone-100">{d.title}</span>
-                  <span className="shrink-0 text-xs tabular-nums text-stone-400 dark:text-stone-400">{d.deadline}</span>
-                </a>
+        {/* #487: every live paper across the active projects, the way the overview shows them */}
+        <section className={`${panel} rise`} style={{ ["--i" as string]: 7 }} data-testid="writing-everywhere">
+          <div className="flex items-baseline justify-between"><h2 className={h2}>Writing{data.writing && data.writing.live > 0 && <span className="ml-1 normal-case tracking-normal">{data.writing.live}</span>}</h2><CalendarSubscribe /></div>
+          <ul className="space-y-1.5 text-sm">
+            {(data.writing?.rows ?? []).map((m) => (
+              <li key={m.id} data-testid="writing-row">
+                <Link to={`/manuscripts/${m.id}`} className="-mx-2 block rounded-lg px-2 py-1.5 transition-colors hover:bg-stone-50 dark:hover:bg-stone-800">
+                  <span className="block truncate font-medium text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300">{m.title}</span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-stone-400">
+                    <span className="capitalize">{m.status.replace("_", " ")}</span>
+                    <span>· {m.project}</span>
+                    {m.days != null && <span className={m.days <= 7 ? "font-medium text-red-600 dark:text-red-300" : ""}>· {m.days < 0 ? `${-m.days} d overdue` : m.days === 0 ? "due today" : `${m.days} d left`}</span>}
+                    {m.clock && m.clock.days >= 1 && <span className={m.clock.nudge?.due ? "rounded-full bg-amber-500/10 px-1.5 font-medium text-amber-600 dark:text-amber-300" : ""} title={m.clock.nudge?.due ? `${m.clock.nudge.waited} d with no word, usually ${m.clock.nudge.after_days} — a polite note to the editor is fair` : undefined}>· {m.clock.label}{m.clock.nudge?.due ? " · nudge?" : ""}</span>}
+                    {m.readiness && <span className={`rounded-full px-1.5 ${m.readiness.ready ? (m.readiness.warns ? "bg-amber-500/10 text-amber-600 dark:text-amber-300" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300") : "bg-red-500/10 text-red-600 dark:text-red-300"}`} title={m.readiness.summary}>{m.readiness.ready ? (m.readiness.warns ? `ready · ${m.readiness.warns} to look at` : "ready to submit") : `${m.readiness.fails} blocking`}</span>}
+                  </span>
+                </Link>
               </li>
             ))}
-            {data.deadlines.length === 0 && (
+            {(!data.writing || data.writing.rows.length === 0) && (
               <li className="text-sm text-stone-400 dark:text-stone-400">
-                Manuscript deadlines show up here. <Link to="/writing" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300">Open Writing →</Link>
+                Nothing in the pipeline. <Link to="/writing" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300">Open Writing →</Link>
               </li>
             )}
           </ul>

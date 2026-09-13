@@ -97,6 +97,33 @@ def reading_queue_everywhere(today=None, limit: int = 5) -> dict:
     }
 
 
+def writing_everywhere(today=None, limit: int = 6) -> dict:
+    """#487: every live manuscript (not published, not shelved) across planning/active
+    projects, the way the project overview shows them — status clock, nudge, pre-flight
+    readiness, deadline — sorted by urgency: the nearest deadline first, then papers whose
+    editor deserves a nudge, then the rest by id."""
+    from projects.overview import manuscripts_glance
+
+    today = today or timezone.localdate()
+    rows: list[dict] = []
+    live = 0
+    projects = Project.objects.filter(status__in=[Project.Status.PLANNING, Project.Status.ACTIVE])
+    for project in projects:
+        live += project.manuscripts.exclude(status__in=("published", "shelved")).count()
+        for m in manuscripts_glance(project, today=today, limit=limit):
+            m["project"] = project.name
+            m["project_slug"] = project.slug
+            rows.append(m)
+    rows.sort(
+        key=lambda m: (
+            m["days"] if m["days"] is not None else 10**6,
+            0 if (m.get("clock") or {}).get("nudge", {}).get("due") else 1,
+            m["id"],
+        )
+    )
+    return {"live": live, "rows": rows[:limit]}
+
+
 def needs_attention(today=None, window_days=14):
     """The lead of the dashboard ([REV] cycle 145): the ANSWER to "what should I
     work on today?", not just data. Overdue milestones, manuscript deadlines

@@ -3032,7 +3032,8 @@ class DashboardAPIView(APIView):
         description="Dashboard data: the needs-attention lead (overdue milestones, "
         "manuscript deadlines inside 14 days, untriaged inbox items), stats, active "
         "projects with progress, upcoming milestones and deadlines, inbox count, and the "
-        "reading queue head across every active project (#486).",
+        "reading queue head across every active project (#486) and every live manuscript "
+        "with its clock, readiness and deadline, by urgency (#487).",
         responses={200: None},
     )
     def get(self, request):
@@ -3044,6 +3045,7 @@ class DashboardAPIView(APIView):
             project_health,
             reading_queue_everywhere,
             week_everywhere,
+            writing_everywhere,
         )
         from core.models import TodoItem
         from writing.clock import waiting_manuscripts
@@ -3058,6 +3060,7 @@ class DashboardAPIView(APIView):
                 # Dashboard v2 slice 1: this week everywhere, per-project health, heatmap, today
                 "week": week_everywhere(),
                 "reading": reading_queue_everywhere(),  # #486: what to read today
+                "writing": writing_everywhere(),  # #487: every live paper, by urgency
                 "todos_open": TodoItem.objects.filter(done=False).count(),
                 # backlog #300: the top of the Today list, tickable from the hero
                 "todos": [

@@ -124,3 +124,50 @@ def test_reading_queue_everywhere_orders_by_priority_then_age(client_logged_in):
         "/library/${r.id}",
     ):
         assert needle in tsx, needle
+
+
+def test_writing_everywhere_sorts_live_manuscripts_by_urgency(client_logged_in):
+    """#487: live papers across planning/active projects — nearest deadline first, then a
+    paper whose editor deserves a nudge, then the rest; shelved/published and paused projects
+    stay out; clock/readiness ride along; API + TSX surfaces."""
+    from pathlib import Path
+
+    from core.dashboard import writing_everywhere
+    from writing.models import Manuscript, SubmissionEvent
+
+    today = timezone.localdate()
+    a = ProjectFactory(name="Alpha", status="active")
+    b = ProjectFactory(name="Beta", status="planning")
+    paused = ProjectFactory(name="Paused", status="paused")
+    soon = Manuscript.objects.create(
+        project=b, title="Due soon", status="drafting", deadline=today + datetime.timedelta(days=5)
+    )
+    waiting = Manuscript.objects.create(
+        project=a, title="Waiting", status="under_review", target_venue="Slow J"
+    )
+    SubmissionEvent.objects.create(
+        manuscript=waiting, kind="submitted", date=today - datetime.timedelta(days=200)
+    )
+    idea = Manuscript.objects.create(project=a, title="Idea", status="idea")
+    Manuscript.objects.create(project=a, title="Shelved", status="shelved")
+    Manuscript.objects.create(project=paused, title="Parked", status="drafting")
+    out = writing_everywhere(today=today)
+    assert out["live"] == 3
+    assert [r["title"] for r in out["rows"]] == ["Due soon", "Waiting", "Idea"]
+    assert out["rows"][0]["project"] == "Beta" and out["rows"][0]["days"] == 5
+    assert out["rows"][0]["readiness"] is not None  # drafting → pre-flight shown
+    assert out["rows"][1]["clock"]["nudge"]["due"] is True and out["rows"][1]["readiness"] is None
+    assert idea.pk == out["rows"][2]["id"] and out["rows"][2]["project_slug"] == a.slug
+    assert len(writing_everywhere(today=today, limit=1)["rows"]) == 1
+    body = client_logged_in.get("/api/v1/dashboard/").json()
+    assert body["writing"]["live"] == 3 and body["writing"]["rows"][0]["title"] == "Due soon"
+    assert soon.pk == body["writing"]["rows"][0]["id"]
+    tsx = Path("frontend/src/app/pages/Dashboard.tsx").read_text()
+    for needle in (
+        'data-testid="writing-everywhere"',
+        'data-testid="writing-row"',
+        "/manuscripts/${m.id}",
+        "m.clock.nudge?.due",
+        "m.readiness",
+    ):
+        assert needle in tsx, needle

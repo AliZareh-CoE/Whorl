@@ -774,7 +774,10 @@ def get_dashboard() -> dict:
     inside two weeks, untriaged inbox), this week's items across every active project, projects
     with progress and phase health, monthly stats, upcoming milestones and deadlines, and
     `reading` — the head of the reading queue across every active project (highest priority,
-    then longest waiting) with the unread and high-priority counts (#486)."""
+    then longest waiting) with the unread and high-priority counts (#486); and `writing` —
+    every live manuscript across those projects by urgency, each with its status clock, a
+    nudge flag while a venue sits on it, the pre-flight readiness while it is being worked on,
+    and the deadline (#487)."""
     return client.get_dashboard()
 
 
