@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, BookOpen, CalendarClock, Check, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Sparkles, Trophy, Wand2 } from "lucide-react";
-import { confirmDialog } from "../../components/Dialog";
+import { AlertTriangle, BookOpen, CalendarClock, Check, ClipboardList, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Sparkles, Trophy, Wand2 } from "lucide-react";
+import { confirmDialog, errorDialog, noticeDialog } from "../../components/Dialog";
 import { api } from "../api";
 import { showUndo } from "../../components/UndoToast";
 import { dueState, formatDue } from "../dueTime";
@@ -156,6 +156,27 @@ function OrbitRing({ percent, color, size = 44 }: { percent: number; color: stri
   );
 }
 
+/** #491: the dashboard as a paste-ready morning note — copied to the clipboard and shown so it
+ *  can be read before it goes into a journal or a message; the preview is the fallback when
+ *  the clipboard refuses (a locked-down webview, no user gesture). */
+async function copyDailyBrief(): Promise<void> {
+  let brief: { markdown: string; date: string; needs: number; todos: number; reading: number; writing: number };
+  try { brief = await api("/dashboard/brief/"); } catch (e) { await errorDialog("Could not build today's brief", e); return; }
+  let copied = false;
+  try { await navigator.clipboard.writeText(brief.markdown); copied = true; } catch { copied = false; }
+  await noticeDialog({
+    title: copied ? "Today's brief copied" : "Today's brief",
+    wide: true,
+    okLabel: "Done",
+    body: (
+      <div data-testid="daily-brief">
+        <p className="mb-2 text-xs text-stone-500 dark:text-stone-400">{brief.date} · {brief.needs} need{brief.needs === 1 ? "s" : ""} you · {brief.todos} on the list · {brief.reading} to read · {brief.writing} papers{copied ? " · on your clipboard as markdown" : " · select the text to copy it"}</p>
+        <pre style={{ maxHeight: "60vh" }} className="overflow-auto whitespace-pre-wrap rounded-xl border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-800 dark:border-stone-700 dark:bg-stone-950/60 dark:text-stone-200">{brief.markdown}</pre>
+      </div>
+    ),
+  });
+}
+
 /** #490: a stat tile carries its six-month trend (bars, the current month last and brighter)
  *  and how this month compares with the last — calm, no colour judgement: research months
  *  are not sales quarters. */
@@ -297,6 +318,9 @@ export default function Dashboard() {
               <kbd className="ml-2 inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 font-sans text-[11px] text-stone-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300">
                 <Command className="h-3 w-3" aria-hidden="true" />K
               </kbd>
+            </button>
+            <button type="button" onClick={() => void copyDailyBrief()} className="ml-3 mt-5 inline-flex items-center gap-1.5 rounded-full border border-stone-200 px-3 py-2 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:text-stone-800 dark:border-stone-700 dark:bg-stone-950/40 dark:text-stone-300 dark:hover:text-stone-100" title="The dashboard as a paste-ready markdown note" data-testid="copy-brief">
+              <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />Copy today's brief
             </button>
           </div>
         </div>

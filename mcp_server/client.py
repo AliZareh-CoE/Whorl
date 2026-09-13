@@ -722,6 +722,11 @@ def get_dashboard():
     return _request("GET", "/dashboard/")
 
 
+def get_daily_brief():
+    """#491: the dashboard as a paste-ready markdown note."""
+    return _request("GET", "/dashboard/brief/")
+
+
 def list_inbox():
     """Untriaged captures with detected hints (paper / note / todo / …)."""
     return _request("GET", "/quick-capture/", params={"processed": "false", "page_size": 100})

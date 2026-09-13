@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Dashboard: "Copy today's brief" (#491)
+
+**Decision.** `core/brief.py::daily_brief()` renders the dashboard as a paste-ready markdown note — *Needs you* (overdue milestones, deadlines inside two weeks, papers a venue has sat on, quiet projects, inbox count, a stale backup), *On your list* as `- [ ]` items, *This week, everywhere*, *Next to read*, *Writing* (status, project, deadline, clock, nudge, readiness), *Projects* (phase, milestones, rhythm) and *This month* with deltas against last month — from the same helpers the dashboard renders. `GET /dashboard/brief/` returns `{date, markdown, needs, todos, reading, writing}`; the hero gets *Copy today's brief* next to the ⌘K pill (clipboard + a wide preview, the preview being the fallback); MCP `get_daily_brief` (111 tools).
+
+**Why.** The project status update (#482) answered "how is project X going?"; the morning question is "what should I do today, everywhere?" — and a researcher who keeps a journal, posts a daily note to a lab channel, or asks Claude Code each morning wants that as text, not as a screen. One helper feeds the page, the API and the MCP tool, so the three cannot drift.
+
+**Alternatives.** Sending the brief by email on a schedule (no mail in Atlas, a §1 non-goal for now — the bots can call the API); a separate "Brief" page (it is a by-product of the dashboard, one click away is right); prose instead of headed lists (lists paste into anything and read in ten seconds).
+
 ### 2026-09-13 — Dashboard: stat tiles with a six-month trend and a delta (#490)
 
 **Decision.** `core/dashboard.py::stats_trend(months=6)` bins each monthly stat — papers read, notes written, milestones done, lab entries, words written — into the last six calendar months with exactly the definitions `monthly_stats` uses for the current tile (so tile and trend cannot disagree), one grouped query per stat; `previous` is last month's value. The payload carries it as `trends`; each stat tile shows six slim bars (the current month brighter) and a calm "▲ 3 vs Aug" / "▼ 2 vs Aug" / "= vs Aug" line in stone grey — no green/red: a research month is not a sales quarter.

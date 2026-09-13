@@ -615,3 +615,11 @@ def test_get_status_update_builds_request(capture):
     assert capture["method"] == "GET"
     assert calls_url_has(capture, "/projects/attention-and-memory/status-update/")
     assert "days=14" in capture["url"]
+
+
+def test_get_daily_brief_builds_request(capture):
+    """#491"""
+    from mcp_server import client
+
+    client.get_daily_brief()
+    assert capture["method"] == "GET" and calls_url_has(capture, "/dashboard/brief/")

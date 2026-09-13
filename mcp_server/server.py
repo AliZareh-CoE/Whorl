@@ -785,6 +785,17 @@ def get_dashboard() -> dict:
 
 
 @mcp.tool()
+def get_daily_brief() -> dict:
+    """The morning note, ready to paste (#491): what needs you across every project (overdue
+    milestones, deadlines, papers a venue has sat on, quiet projects, the inbox, a stale
+    backup), what is on your list, this week everywhere, the next papers to read, every live
+    manuscript with its clock and readiness, each active project with its rhythm, and this
+    month's numbers against last month. `markdown` is the text; use it to answer "what
+    should I do today?" in one call, or to draft a daily journal entry."""
+    return client.get_daily_brief()
+
+
+@mcp.tool()
 def list_inbox() -> dict:
     """Captures waiting for triage, each with a `hint` (suggested target and any DOI / arXiv id /
     URL found in the text)."""

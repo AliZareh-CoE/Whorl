@@ -3027,6 +3027,26 @@ class SearchAPIView(APIView):
         return Response({"query": q, "results": results})
 
 
+class DailyBriefAPIView(APIView):
+    """#491: the dashboard as a paste-ready markdown note."""
+
+    @extend_schema(
+        description="A paste-ready daily brief across every project (#491): what needs you "
+        "(overdue, deadlines, papers waiting on a venue, quiet projects, inbox, backup), what "
+        "is on your list, this week everywhere, the next papers to read, every live "
+        "manuscript with its clock and readiness, each active project with its rhythm, and "
+        "this month's numbers against last month — built from the same helpers the dashboard "
+        "renders. `markdown` is the text.",
+        responses={
+            200: OpenApiResponse(description="{date, markdown, needs, todos, reading, writing}")
+        },
+    )
+    def get(self, request):
+        from core.brief import daily_brief
+
+        return Response(daily_brief())
+
+
 class DashboardAPIView(APIView):
     """Everything the dashboard shows, as JSON — the SPA's first data source."""
 
