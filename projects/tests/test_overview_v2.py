@@ -224,3 +224,48 @@ def test_notebook_glance_notes_lab_log_and_datasets(client_logged_in):
         "notebook.experiments.quiet",
     ):
         assert needle in tsx, needle
+
+
+def test_pulse_bins_twelve_weeks_and_finds_the_quiet_streak(client_logged_in):
+    """#483: Monday-based bins ending in the current week, counts by kind, busiest, quiet
+    trailing weeks, last activity."""
+    from pathlib import Path
+
+    today = datetime.date(2026, 9, 13)  # a Sunday; this week starts 2026-09-07
+    project = ProjectFactory()
+    phase = PhaseFactory(project=project, order=1)
+    for delta in (0, 1, 20):  # this week ×2, three weeks back ×1
+        m = MilestoneFactory(phase=phase, title=f"m{delta}")
+        m.completed_at = timezone.make_aware(
+            datetime.datetime.combine(today - datetime.timedelta(days=delta), datetime.time(12))
+        )
+        m.save()
+    project.decisions.create(title="Old", decision="x", decided_on=datetime.date(2026, 1, 1))
+    out = overview.pulse(project, today=today)
+    assert len(out["weeks"]) == 12
+    assert out["weeks"][0]["start"] == "2026-06-22" and out["weeks"][-1]["start"] == "2026-09-07"
+    assert out["weeks"][-1] == {
+        "start": "2026-09-07",
+        "end": "2026-09-13",
+        "count": 2,
+        "kinds": {"milestone": 2},
+    }
+    assert out["weeks"][-3]["count"] == 1 and out["total"] == 3  # the January decision is out
+    assert out["busiest"] == {"start": "2026-09-07", "count": 2}
+    assert out["quiet_weeks"] == 0 and out["last_activity"] == "2026-09-13"
+    assert out["days_since"] == 0
+    later = overview.pulse(project, today=datetime.date(2026, 10, 4))
+    assert later["quiet_weeks"] == 3 and later["days_since"] == 21 and later["total"] == 3
+    body = client_logged_in.get(f"/api/v1/projects/{project.slug}/overview/").json()
+    assert body["pulse"]["total"] == 3 and len(body["pulse"]["weeks"]) == 12
+    empty = overview.pulse(ProjectFactory(), today=today)
+    assert empty["total"] == 0 and empty["busiest"] is None and empty["last_activity"] is None
+    assert empty["quiet_weeks"] == 12 and empty["days_since"] is None
+    tsx = Path("frontend/src/app/pages/ProjectOverview.tsx").read_text()
+    for needle in (
+        'data-testid="pulse"',
+        'data-testid="pulse-week"',
+        "quiet_weeks",
+        "pulse.busiest",
+    ):
+        assert needle in tsx, needle

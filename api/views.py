@@ -413,6 +413,7 @@ class ProjectViewSet(AtlasViewSet):
                 "manuscripts": overview_extras.manuscripts_glance(project),
                 "literature": overview_extras.literature_glance(project),  # #480
                 "notebook": overview_extras.notebook_glance(project),  # #481
+                "pulse": overview_extras.pulse(project),  # #483
                 "hypotheses": overview_extras.hypotheses_summary(project),
                 "themes": overview_extras.themes(project),
             }

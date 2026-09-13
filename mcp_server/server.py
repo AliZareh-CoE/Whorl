@@ -25,7 +25,9 @@ def get_project_overview(slug: str) -> dict:
     literature glance — to-read count, high-priority unread, read this month, the next
     paper up (top of the reading queue) and the last one added (#480); and the notebook
     glance — notes (edited this week, unlinked, the three last touched), the lab log (last
-    entry, quiet after two weeks) and the dataset count (#481)."""
+    entry, quiet after two weeks) and the dataset count (#481); and the pulse — twelve weeks
+    of activity binned per week with counts by kind, the busiest week, the trailing quiet
+    weeks and the last activity date (#483)."""
     return client.get_project_overview(slug)
 
 

@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Project overview: the project's pulse (#483)
+
+**Decision.** `projects/overview.py::pulse(project, weeks=12)` bins every dated event of the project's timeline into Monday-based weeks ending in the current one — count and counts-by-kind per week, the busiest week, the trailing quiet weeks, the last activity date and days since — and rides on the overview payload as `pulse` (MCP `get_project_overview` documents it). The header gets a *Pulse* strip on the right: twelve slim bars in the accent colour (square-root scale so one heavy week does not flatten the rest, the peak week glows, silent weeks are hollow, the current week ringed), a tooltip per week with the kinds, and a caption that says what the bars cannot — "41 events in 12 wk · peak Sep 7" or "quiet 3 wk · last 3 wk ago".
+
+**Why.** The overview said what is going on now (phase, week digest) but not whether the project is *alive*: a researcher juggling several projects reads rhythm before detail, and a strip of bars answers "is this one moving or stalled?" faster than any number. GitHub's contribution graph is the reference; twelve weeks is a quarter, the natural horizon for a research plan. The data is the timeline the week digest already builds (`bodies=False`), so the cost is one pass over the events.
+
+**Alternatives.** A heatmap (the dashboard has one, cross-project; the header needs one row); a longer window (26 weeks read as a wall of dust at 240 px); linear bar heights (a seed week with 36 events turned every other week into a dot).
+
 ### 2026-09-13 — Project overview: a paste-ready status update (#482)
 
 **Decision.** `projects/status.py::status_update(project, days=7)` renders the project's window as plain markdown — the phase with its health and the project's milestone count, one line per manuscript (status, venue, clock, nudge, pre-flight readiness, deadline), *Done in the last n days* grouped by kind (milestones, papers read, papers added, notes, decisions, lab log, hypotheses, documents, manuscript events; six per kind then "… and n more"; compiles left out), *Next* (overdue → due this week → next up, from the focus list), *Open questions* (open and partly answered) and *Blockers* (overdue items, a blocked phase). `GET /projects/{slug}/status-update/?days=` returns `{markdown, since, until, days, done, next, blockers}`; the overview's project menu gets *Copy status update…* which copies the markdown to the clipboard and shows it in a wide notice so the owner reads it before sending (the preview is the fallback when the clipboard refuses); MCP `get_status_update(slug, days)`.

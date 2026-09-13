@@ -28,6 +28,7 @@ type Overview = {
   week_digest: { since: string; total: number; counts: { kind: string; label: string; count: number }[]; items: { date: string; kind: string; label: string; detail: string; url: string }[] };
   questions: { id: number; question: string; status: string; phases: string[] }[];
   // #480: the project's reading state at a glance
+  pulse?: { weeks: { start: string; end: string; count: number; kinds: Record<string, number> }[]; total: number; busiest: { start: string; count: number } | null; quiet_weeks: number; last_activity: string | null; days_since: number | null };
   notebook?: { notes: { total: number; edited_this_week: number; unlinked: number; last_edited: { id: number; title: string; updated: string; days: number } | null; recent: { id: number; title: string; updated: string; days: number }[] }; experiments: { total: number; this_month: number; last: { id: number; title: string; date: string; days: number } | null; quiet: boolean }; datasets: { total: number } };
   literature?: { total: number; by_status: Record<string, number>; to_read: number; high_priority_unread: number; read_this_month: number; next_up: { id: number; title: string; year: number | null; priority: string; first_author: string } | null; last_added: { id: number; title: string; year: number | null; priority: string; first_author: string } | null };
   // #479: the clock (+ nudge while waiting on a venue) and the pre-flight verdict while working
@@ -37,6 +38,7 @@ type Overview = {
 
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
 const h2 = "mb-2 flex items-baseline gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:text-stone-500";
+const KIND_LABEL: Record<string, string> = { milestone: "milestones", paper_added: "papers added", paper_read: "papers read", note: "notes", decision: "decisions", experiment: "lab entries", hypothesis: "hypotheses", document: "documents", manuscript: "manuscript events", manuscript_compiled: "compiles" };
 const quickLinks = [["plan", "Plan"], ["literature", "Literature"], ["documents", "Documents"], ["figures", "Figures"], ["files", "Files"], ["notes", "Notes"], ["research", "Research"], ["decisions", "Decisions"], ["graph", "Graph"], ["matrix", "Matrix"], ["review", "Review"], ["timeline", "Timeline"]] as const;
 const HEALTH: Record<string, string> = { behind: "bg-amber-500/15 text-amber-700 dark:text-amber-300", overdue: "bg-red-500/15 text-red-700 dark:text-red-300", blocked: "bg-red-500/15 text-red-700 dark:text-red-300", ahead: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", done: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", on_track: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200", upcoming: "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-300" };
 const Q_STATUS: Record<string, string> = { open: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200", partially_answered: "bg-amber-500/15 text-amber-700 dark:text-amber-300", answered: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", abandoned: "bg-stone-100 text-stone-400 line-through dark:bg-stone-800" };
@@ -132,6 +134,38 @@ async function copyStatusUpdate(slug: string): Promise<void> {
   });
 }
 
+/** #483: twelve weeks of the project's life as slim bars — the rhythm at a glance. Hollow
+ *  bars are silent weeks; the caption says what the strip cannot: how long the silence is. */
+function Pulse({ pulse, accent }: { pulse: NonNullable<Overview["pulse"]>; accent: string }) {
+  const max = Math.max(1, ...pulse.weeks.map((w) => w.count));
+  const scale = (n: number) => Math.sqrt(n / max); // a 36-event week must not flatten the 1-event ones
+  const fmt = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const caption = pulse.total === 0
+    ? "nothing in 12 weeks"
+    : pulse.quiet_weeks >= 2
+      ? `quiet ${pulse.quiet_weeks} wk · last ${pulse.days_since != null ? ago(pulse.days_since) : ""}`
+      : pulse.busiest
+        ? `${pulse.total} events in 12 wk · peak ${fmt(pulse.busiest.start)}`
+        : `${pulse.total} events in 12 wk`;
+  return (
+    <div className="hidden w-60 shrink-0 self-end lg:block" data-testid="pulse" aria-label="Activity over the last twelve weeks">
+      <div className="flex h-9 items-end gap-[3px]">
+        {pulse.weeks.map((w, i) => {
+          const h = w.count ? Math.max(5, Math.round(scale(w.count) * 36)) : 3;
+          const detail = w.count ? Object.entries(w.kinds).map(([k, n]) => `${n} ${KIND_LABEL[k] ?? k}`).join(", ") : "nothing logged";
+          const isCurrent = i === pulse.weeks.length - 1;
+          return (
+            <span key={w.start} data-testid="pulse-week" title={`${fmt(w.start)} – ${fmt(w.end)}: ${detail}`}
+                  className={`flex-1 rounded-sm transition-[height] duration-500 ${w.count ? "" : "border border-stone-300/70 dark:border-stone-700"} ${isCurrent ? "ring-1 ring-offset-1 ring-offset-transparent" : ""}`}
+                  style={{ height: h, background: w.count ? accent : "transparent", opacity: w.count ? 0.5 + 0.5 * scale(w.count) : 1, boxShadow: w.count === max && w.count ? `0 0 8px ${accent}` : undefined, ["--tw-ring-color" as string]: accent }} />
+          );
+        })}
+      </div>
+      <p className="mt-1 truncate text-[10px] uppercase tracking-[0.14em] text-stone-400" title={caption}>Pulse · <span className="normal-case tracking-normal">{caption}</span></p>
+    </div>
+  );
+}
+
 function ago(days: number): string { if (days <= 0) return "today"; if (days === 1) return "yesterday"; if (days < 14) return `${days} d ago`; if (days < 60) return `${Math.round(days / 7)} wk ago`; return `${Math.round(days / 30)} mo ago`; }
 function when(days: number | null): string { if (days == null) return "no deadline"; if (days < 0) return `${-days} d overdue`; if (days === 0) return "due today"; return `${days} d left`; }
 
@@ -173,6 +207,7 @@ export default function ProjectOverview() {
             {quickLinks.map(([to, label]) => <Link key={to} to={`/projects/${project.slug}/${to}`} className="transition-colors hover:text-indigo-700 dark:hover:text-indigo-300">{label}</Link>)}
           </nav>
         </div>
+        {data.pulse && <Pulse pulse={data.pulse} accent={accent} />}
       </header>
       <Constellation slug={project.slug} accent={accent} />
       {settingsOpen && <ProjectSettings project={project} onClose={() => setSettingsOpen(false)} />}

@@ -150,6 +150,55 @@ def literature_glance(project, today: date | None = None) -> dict:
     }
 
 
+PULSE_WEEKS = 12  # #483: the header strip shows a quarter of weeks
+
+
+def pulse(project, today: date | None = None, weeks: int = PULSE_WEEKS) -> dict:
+    """#483: the project's rhythm — every dated event of the last `weeks` weeks binned into
+    Monday-based weeks (the current week last), counts per kind, the busiest week, how many
+    trailing weeks are silent and when the last thing happened."""
+    from core.timeline import project_timeline
+
+    today = today or timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    first = this_monday - timedelta(weeks=weeks - 1)
+    bins: list[dict] = [
+        {
+            "start": (first + timedelta(weeks=i)).isoformat(),
+            "end": (first + timedelta(weeks=i, days=6)).isoformat(),
+            "count": 0,
+            "kinds": {},
+        }
+        for i in range(weeks)
+    ]
+    last: str | None = None
+    since = first.isoformat()
+    for e in project_timeline(project, bodies=False):
+        if last is None or e["date"] > last:
+            last = e["date"]
+        if e["date"] < since or e["date"] > today.isoformat():
+            continue
+        index = (date.fromisoformat(e["date"]) - first).days // 7
+        row = bins[index]
+        row["count"] += 1
+        row["kinds"][e["kind"]] = row["kinds"].get(e["kind"], 0) + 1
+    total = sum(b["count"] for b in bins)
+    busiest = max(bins, key=lambda b: b["count"]) if total else None
+    quiet = 0
+    for b in reversed(bins):
+        if b["count"]:
+            break
+        quiet += 1
+    return {
+        "weeks": bins,
+        "total": total,
+        "busiest": {"start": busiest["start"], "count": busiest["count"]} if busiest else None,
+        "quiet_weeks": quiet,
+        "last_activity": last,
+        "days_since": (today - date.fromisoformat(last)).days if last else None,
+    }
+
+
 QUIET_LAB_DAYS = 14  # #481: a lab log with no entry for two weeks is worth a nudge
 
 
