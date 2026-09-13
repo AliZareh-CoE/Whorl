@@ -645,6 +645,31 @@ def lint_manuscript(manuscript_id: int):
     return _request("GET", f"/manuscripts/{manuscript_id}/lint/")
 
 
+def search_manuscript(manuscript_id: int, q: str, regex: bool = False, case: bool = False):
+    """#476: find in project — every match across the manuscript's text files."""
+    params = {"q": q}
+    if regex:
+        params["regex"] = "1"
+    if case:
+        params["case"] = "1"
+    return _request("GET", f"/manuscripts/{manuscript_id}/search/", params=params)
+
+
+def replace_in_manuscript(
+    manuscript_id: int,
+    q: str,
+    replacement: str,
+    regex: bool = False,
+    case: bool = False,
+    files: list[str] | None = None,
+):
+    """#476: replace across the manuscript's text files, saved like an editor save."""
+    payload = {"q": q, "replacement": replacement, "regex": regex, "case": case}
+    if files:
+        payload["files"] = files
+    return _request("POST", f"/manuscripts/{manuscript_id}/replace/", json=payload)
+
+
 def get_venue_turnaround(venue: str, exclude: int | None = None):
     """#474: your own median days from submission to decision at a venue."""
     params = {"venue": venue}

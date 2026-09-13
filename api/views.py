@@ -2472,6 +2472,85 @@ class ManuscriptViewSet(AtlasViewSet):
 
         return Response(audit_figures(self.get_object()))
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("q", OpenApiTypes.STR, description="Text or regular expression."),
+            OpenApiParameter(
+                "regex", OpenApiTypes.BOOL, required=False, description="Treat q as a regex."
+            ),
+            OpenApiParameter(
+                "case", OpenApiTypes.BOOL, required=False, description="Match case (default no)."
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Hits across the manuscript's .tex/.bib files: file, line, col, end "
+                "(1-based), the whole line; count, files, truncated (500-hit cap)."
+            )
+        },
+        description="Find in project (#476): every match across the manuscript's text files.",
+    )
+    @action(detail=True, methods=["get"])
+    def search(self, request, pk=None):
+        from writing.search import BadPattern, search_files
+
+        q = request.query_params.get("q") or ""
+        # not self.get_object(): the list's ?q= title filter would hide the manuscript
+        manuscript = get_object_or_404(Manuscript, pk=pk)
+        try:
+            return Response(
+                search_files(
+                    manuscript,
+                    q,
+                    regex=request.query_params.get("regex") in ("1", "true"),
+                    case=request.query_params.get("case") in ("1", "true"),
+                )
+            )
+        except BadPattern as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+    @extend_schema(
+        request=inline_serializer(
+            "ReplaceRequest",
+            {
+                "q": rf_serializers.CharField(),
+                "replacement": rf_serializers.CharField(allow_blank=True),
+                "regex": rf_serializers.BooleanField(required=False),
+                "case": rf_serializers.BooleanField(required=False),
+                "files": rf_serializers.ListField(child=rf_serializers.CharField(), required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(
+                description="replaced (match count) and the changed file paths; the files are "
+                "saved like an editor save."
+            )
+        },
+        description="Replace across the manuscript's text files (#476) — every match of q "
+        "(plain, or a regex with \\1 groups in the replacement), optionally only in `files`.",
+    )
+    @action(detail=True, methods=["post"])
+    def replace(self, request, pk=None):
+        from writing.search import BadPattern, replace_in_files
+
+        data = request.data if isinstance(request.data, dict) else {}
+        files = data.get("files")
+        if files is not None and not isinstance(files, list):
+            return Response({"detail": "files must be a list of paths."}, status=400)
+        try:
+            return Response(
+                replace_in_files(
+                    self.get_object(),
+                    str(data.get("q") or ""),
+                    str(data.get("replacement") or ""),
+                    regex=bool(data.get("regex")),
+                    case=bool(data.get("case")),
+                    files=[str(f) for f in files] if files else None,
+                )
+            )
+        except BadPattern as exc:
+            return Response({"detail": str(exc)}, status=400)
+
     @action(detail=True, methods=["get"])
     def lint(self, request, pk=None):
         from writing.lint import lint_manuscript

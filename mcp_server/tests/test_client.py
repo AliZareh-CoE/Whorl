@@ -590,3 +590,18 @@ def test_get_venue_turnaround_client_call(capture):
     assert "exclude=" not in capture["url"]
     client.get_venue_turnaround("JEP:G", exclude=4)
     assert "exclude=4" in capture["url"]
+
+
+def test_search_and_replace_client_calls(capture):
+    """#476: find in project and replace across files."""
+    client.search_manuscript(4, "load", regex=True)
+    assert capture["url"].endswith("/manuscripts/4/search/?q=load&regex=1")
+    client.replace_in_manuscript(4, "load", "demand", files=["main.tex"])
+    assert capture["method"] == "POST" and capture["url"].endswith("/manuscripts/4/replace/")
+    assert json.loads(capture["body"]) == {
+        "q": "load",
+        "replacement": "demand",
+        "regex": False,
+        "case": False,
+        "files": ["main.tex"],
+    }

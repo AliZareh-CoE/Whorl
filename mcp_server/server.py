@@ -658,6 +658,35 @@ def lint_manuscript(manuscript_id: int) -> dict:
 
 
 @mcp.tool()
+def search_manuscript(manuscript_id: int, q: str, regex: bool = False, case: bool = False) -> dict:
+    """Find in project: every match of q across the manuscript's .tex and .bib files, with
+    file, line, column and the whole line for context (500-hit cap, `truncated` says so).
+    Plain text by default, case-insensitive unless case=true; regex=true treats q as a
+    regular expression. Use it to see where a term, a label or a citation key is used
+    before you rename it with replace_in_manuscript."""
+    return client.search_manuscript(manuscript_id, q, regex=regex, case=case)
+
+
+@mcp.tool()
+def replace_in_manuscript(
+    manuscript_id: int,
+    q: str,
+    replacement: str,
+    regex: bool = False,
+    case: bool = False,
+    files: list[str] | None = None,
+) -> dict:
+    r"""Replace every match of q with `replacement` across the manuscript's text files (or
+    only the `files` listed), saved like an editor save so the history and the compile
+    see the change. In regex mode the replacement may use  / \g<name> groups. Run
+    search_manuscript first: the hit list is exactly what this will change. Returns the
+    number of replacements and the files touched."""
+    return client.replace_in_manuscript(
+        manuscript_id, q, replacement, regex=regex, case=case, files=files
+    )
+
+
+@mcp.tool()
 def get_venue_turnaround(venue: str, exclude: int | None = None) -> dict:
     """How long does this venue take, going by the owner's own submissions? Pairs every
     submitted / revision_submitted event with the next decision (reviews received, desk

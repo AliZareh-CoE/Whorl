@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Find in project, and replace across files, on the server (#476)
+
+**Decision.** `writing/search.py` searches every `.tex` and `.bib` file of a manuscript (plain text or a regular expression, case-folded unless asked, one hit per match with the whole line, a 500-hit cap flagged as `truncated`) and replaces across all of them or a chosen subset, saving each file through `ManuscriptFile.save()` so the alias, the word samples and the history behave as if the change had been typed. Surfaces: `GET /manuscripts/{id}/search/?q=&regex=&case=`, `POST /manuscripts/{id}/replace/`, a *Search* sidebar tab in the Studio (⌘⇧F, hits grouped by file with the match highlighted, click → the line, *Replace all n* behind a confirm that saves the open buffers first and reloads the changed files), MCP `search_manuscript` + `replace_in_manuscript` (109 tools). The search action looks the manuscript up by id directly, because the list's `?q=` title filter would otherwise hide it.
+
+**Why.** Overleaf's project search is the feature people miss first in any other LaTeX editor, and renaming a label, a macro or a term across a multi-file paper is exactly what an author does before a resubmission. Doing it on the server keeps one implementation for the panel, the API and Claude; the hit list is the exact preview of what replace will touch. Alternatives: a client-side search over the loaded buffers (rejected — files not yet opened would be missed, and MCP would have nothing); CodeMirror's built-in find (kept — it is per file and stays).
+
 ### 2026-09-13 — The clock becomes actionable: when a nudge is fair (#475)
 
 **Decision.** While a paper is *submitted* or *under review*, `clock.nudge` says whether a polite note to the editor is fair yet: after 1.5× your own median round at the venue (never under 60 days), or 90 days when you have no history there. A logged nudge — a `note` event whose text mentions "nudge" — restarts the count from its date, so the hint never nags twice for the same wait. Surfaces: the manuscript-page chip turns amber with "96 d with no word, usually 82 — a polite note to the editor is fair" and a *Log a nudge* button that writes the note event; the board card says "· nudge?"; the dashboard's *Needs attention* gains *waiting* rows; the API carries it on every manuscript and the dashboard payload, so MCP sees it through `list_manuscripts` / `get_manuscript` and can log the note with `add_submission_event` (no new tool).

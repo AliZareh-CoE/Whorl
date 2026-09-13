@@ -50,7 +50,8 @@ type Hl = { id: number; reference: number; page: number | null; text: string; co
 type Revision = { id: number; label: string; labeled: boolean; created_at: string; files: string[] };
 type WordCount = { words: number; headers?: number; captions?: number; math?: number; today_delta?: number; streak?: number; week_delta?: number; compiles_today?: number };
 type Settings = { keymap: "default" | "vim"; fontSize: number; spellcheck: boolean; autoCompile: boolean; followCursor: boolean };
-type Tab = "files" | "outline" | "bib" | "history" | "comments" | "preflight";
+type Tab = "files" | "outline" | "bib" | "history" | "comments" | "preflight" | "search";
+const SearchIcon = Search; // #476: the project search tab
 // #466: one readiness check — state, a one-line detail and where to fix it
 type PreflightCheck = { key: string; label: string; state: "ok" | "warn" | "fail" | "skip"; detail: string; fix?: { kind: "compile" | "problems" | "settings" | "budget" } | { kind: "tab"; tab: Tab } | { kind: "line"; path: string; line: number } };
 type Preflight = { ready: boolean; fails: number; warns: number; summary: string; network: boolean; checked_at: string; checks: PreflightCheck[] };
@@ -179,6 +180,7 @@ function StudioInner({ m }: { m: Manuscript }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [ln, setLn] = useState(1);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [searchFocus, setSearchFocus] = useState(0); // #476: ⌘⇧F bumps it to focus the search box
   const [actionsOpen, setActionsOpen] = useState(false); // #447: ⌘⇧P actions palette
 
   const [compile, setCompile] = useState<Compile>({ status: m.compile_status, diagnostics: [], compiled_at: m.compiled_at, pdf_url: null, log: "" });
@@ -473,6 +475,7 @@ function StudioInner({ m }: { m: Manuscript }) {
       else if (k === "j") { e.preventDefault(); setProblemsOpen((v) => !v); }
       else if (k === "p" && !e.shiftKey) { e.preventDefault(); setQuickOpen(true); }
       else if (k === "p" && e.shiftKey) { e.preventDefault(); setActionsOpen(true); }
+      else if (k === "f" && e.shiftKey) { e.preventDefault(); setSidebarOpen(true); setTab("search"); setSearchFocus((n) => n + 1); }
     };
     window.addEventListener("keydown", onKey, true); return () => window.removeEventListener("keydown", onKey, true);
   }, []);
@@ -532,6 +535,7 @@ function StudioInner({ m }: { m: Manuscript }) {
     { label: "Compile", keys: `${MOD} ↵`, run: () => { void doCompile(); } },
     { label: "Locate the cursor in the PDF", keys: `${MOD} ⇧ J`, run: () => locateInPdf() },
     { label: "Quick open a file or section", keys: `${MOD} P`, run: () => setQuickOpen(true) },
+    { label: "Find in project", keys: `${MOD} ⇧ F`, hint: "search and replace across every file", run: () => { setSidebarOpen(true); setTab("search"); setSearchFocus((n) => n + 1); } },
     { label: `${sidebarOpen ? "Hide" : "Show"} the sidebar`, keys: `${MOD} B`, run: () => setSidebarOpen((v) => !v) },
     { label: `${previewOpen ? "Hide" : "Show"} the PDF preview`, keys: `${MOD} \\`, run: () => setPreviewOpen((v) => !v) },
     { label: `${problemsOpen ? "Hide" : "Show"} the problems panel`, keys: `${MOD} J`, run: () => setProblemsOpen((v) => !v) },
@@ -585,7 +589,7 @@ function StudioInner({ m }: { m: Manuscript }) {
         {sidebarOpen && (
           <aside id="studio-side" className="flex min-w-0 flex-col border-r" style={{ borderColor: "var(--studio-line)", background: "var(--studio-panel)" }}>
             <nav className="flex shrink-0 border-b text-[11px]" style={{ borderColor: "var(--studio-line)" }} aria-label="Studio panels">
-              {([["files", FolderOpen, "Files"], ["outline", ListTree, todos.length ? `Outline · ${todos.length}` : "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"], ["comments", MessageSquare, comments.length ? `Comments · ${comments.length}` : "Comments"], ["preflight", ClipboardCheck, "Pre-flight"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
+              {([["files", FolderOpen, "Files"], ["outline", ListTree, todos.length ? `Outline · ${todos.length}` : "Outline"], ["bib", BookOpen, "Bibliography"], ["history", History, "History"], ["comments", MessageSquare, comments.length ? `Comments · ${comments.length}` : "Comments"], ["preflight", ClipboardCheck, "Pre-flight"], ["search", SearchIcon, "Search"]] as [Tab, typeof FolderOpen, string][]).map(([key, Icon, label]) => (
                 <button key={key} type="button" onClick={() => setTab(key)} className={`relative flex min-w-0 flex-1 items-center justify-center gap-1 py-2 transition-colors ${tab === key ? "border-b-2 border-indigo-400 st-fg" : "st-dim st-hover-fg"}`} title={label} aria-label={label} data-testid={`studio-tab-${key}`}>
                   <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   {/* five tabs share ~240 px: icons only, the count as a badge (#414) */}
@@ -652,6 +656,7 @@ function StudioInner({ m }: { m: Manuscript }) {
                 </div>
               )}
               {tab === "preflight" && <PreflightPanel manuscriptId={m.id} onCompile={() => { void doCompile(); }} onProblems={() => setProblemsOpen(true)} onTab={(t) => setTab(t)} onLine={async (path, line) => { const target = files.find((f) => f.path === path); if (target && target.id !== activeId) await openFile(target.id); adRef.current?.gotoLine(line); adRef.current?.focus(); }} />}
+              {tab === "search" && <SearchPanel manuscriptId={m.id} focusTick={searchFocus} onLine={async (path, line) => { const target = files.find((f) => f.path === path); if (target && target.id !== activeId) await openFile(target.id); adRef.current?.gotoLine(line); adRef.current?.focus(); }} onBeforeReplace={saveAll} onReplaced={async (paths) => { const ad = adRef.current; if (!ad) return; for (const path of paths) { const f = filesRef.current.find((x) => x.path === path); if (!f || !loaded.current.has(f.id)) continue; const data = await wb<{ content?: string }>(`${base}files/${f.id}/`); ad.setFileValue(f.id, data.content || ""); markDirty(f.id, false); } recomputeOutline(); void refreshLint(); refreshWords(); }} />}
               {tab === "history" && <HistoryPanel base={base} manuscriptId={m.id} onRestored={async () => { loaded.current.clear(); const ad = adRef.current; if (ad) { for (const fid of tabs) { const data = await wb<{ content?: string }>(`${base}files/${fid}/`); ad.setFileValue(fid, data.content || ""); loaded.current.add(fid); } } setFlash("Version restored."); recomputeOutline(); }} />}
             </div>
           </aside>
@@ -900,6 +905,81 @@ type FigureRow = { tex: string; line: number; path: string; width_in: number | n
 type FigureAudit = { count: number; fails: number; warns: number; summary: string; figures: FigureRow[]; unused: string[] };
 
 type StudioAction = { label: string; keys?: string; hint?: string; run: () => void };
+
+// #476: find and replace across every text file — Overleaf's project search, plus replace
+type SearchHit = { file: string; line: number; col: number; end: number; text: string };
+type SearchOut = { query: string; count: number; files: string[]; truncated: boolean; hits: SearchHit[] };
+function SearchPanel({ manuscriptId, focusTick, onLine, onBeforeReplace, onReplaced }: { manuscriptId: number; focusTick: number; onLine: (path: string, line: number) => Promise<void>; onBeforeReplace: () => Promise<void>; onReplaced: (paths: string[]) => Promise<void> }) {
+  const [q, setQ] = useState("");
+  const [regex, setRegex] = useState(false);
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [replacement, setReplacement] = useState("");
+  const [out, setOut] = useState<SearchOut | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (focusTick) { inputRef.current?.focus(); inputRef.current?.select(); } }, [focusTick]);
+  const run = useCallback(async (query = q) => {
+    if (!query) { setOut(null); setError(""); return; }
+    setBusy(true); setError("");
+    try {
+      const res = await fetch(`/api/v1/manuscripts/${manuscriptId}/search/?q=${encodeURIComponent(query)}${regex ? "&regex=1" : ""}${caseSensitive ? "&case=1" : ""}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
+      const body = await res.json();
+      if (!res.ok) { setError(body.detail || `${res.status}`); setOut(null); } else setOut(body as SearchOut);
+    } catch (e) { setError(e instanceof Error ? e.message : "Search failed"); }
+    finally { setBusy(false); }
+  }, [manuscriptId, q, regex, caseSensitive]);
+  const replaceAll = async () => {
+    if (!out || !out.count) return;
+    const ok = await confirmDialog({ title: `Replace ${out.count} match${out.count === 1 ? "" : "es"} in ${out.files.length} file${out.files.length === 1 ? "" : "s"}?`, body: <p className="text-sm">“{q}” → “{replacement}”. Every file is saved as if you had typed the change; the History panel keeps the version before.</p>, confirmLabel: "Replace all" });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await onBeforeReplace();
+      const r = await api<{ replaced: number; files: string[] }>(`/manuscripts/${manuscriptId}/replace/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q, replacement, regex, case: caseSensitive }) });
+      await onReplaced(r.files);
+      await run();
+    } catch (e) { void errorDialog("Couldn't replace", e); }
+    finally { setBusy(false); }
+  };
+  const groups = out ? out.files.map((f) => ({ file: f, hits: out.hits.filter((h) => h.file === f) })) : [];
+  const toggle = (on: boolean) => `rounded px-1.5 py-px text-[10px] font-mono ${on ? "bg-indigo-500/20 text-indigo-200" : "st-dim st-hover-fg"}`;
+  return (
+    <div data-testid="studio-search">
+      <div className="mb-1 flex items-center justify-between px-1 text-[10px] uppercase tracking-wider st-dim"><span>Find in project</span>{out && <span className="normal-case tracking-normal">{out.count}{out.truncated ? "+" : ""} in {out.files.length} file{out.files.length === 1 ? "" : "s"}</span>}</div>
+      <form onSubmit={(e) => { e.preventDefault(); void run(); }} className="mb-1 flex items-center gap-1 px-1">
+        <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search every .tex and .bib" aria-label="Find in project" className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-xs st-fg focus:outline-none" style={{ borderColor: "var(--studio-line)" }} data-testid="search-input" />
+        <button type="button" onClick={() => setRegex((v) => !v)} className={toggle(regex)} title="Regular expression" aria-pressed={regex}>.*</button>
+        <button type="button" onClick={() => setCaseSensitive((v) => !v)} className={toggle(caseSensitive)} title="Match case" aria-pressed={caseSensitive}>Aa</button>
+      </form>
+      <div className="mb-2 flex items-center gap-1 px-1">
+        <input value={replacement} onChange={(e) => setReplacement(e.target.value)} placeholder="Replace with" aria-label="Replace with" className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-xs st-fg focus:outline-none" style={{ borderColor: "var(--studio-line)" }} data-testid="replace-input" />
+        <button type="button" onClick={() => void replaceAll()} disabled={busy || !out || !out.count} className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-indigo-700 disabled:opacity-40" data-testid="replace-all">Replace all{out && out.count ? ` ${out.count}` : ""}</button>
+      </div>
+      {error && <p className="px-1 text-xs text-red-300">{error}</p>}
+      {out && out.count === 0 && <p className="px-1 text-xs st-dim">No matches.</p>}
+      {!out && !error && <p className="px-1 text-[10px] leading-4 st-dim">Every .tex and .bib file, plain text or a regular expression. Enter to search, a hit to jump, Replace all to change every match at once.</p>}
+      {groups.map((g) => (
+        <div key={g.file} className="mb-2">
+          <div className="px-1 text-[10px] font-medium st-dim">{g.file} · {g.hits.length}</div>
+          <ul>
+            {g.hits.map((h, i) => {
+              const before = h.text.slice(Math.max(0, h.col - 1 - 40), h.col - 1);
+              const match = h.text.slice(h.col - 1, h.end - 1);
+              const after = h.text.slice(h.end - 1, h.end - 1 + 60);
+              return (
+                <li key={i}><button type="button" onClick={() => void onLine(h.file, h.line)} className={`${sideItem} st-text`} title={`${h.file}:${h.line}:${h.col}`} data-testid="search-hit">
+                  <span className="shrink-0 font-mono text-[10px] st-dim">L{h.line}</span>
+                  <span className="min-w-0 truncate"><span className="st-dim">{before}</span><span className="rounded px-px font-semibold st-fg" style={{ background: "rgba(251, 191, 36, 0.28)" }}>{match}</span><span className="st-dim">{after}</span></span>
+                </button></li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** #447: the ⌘⇧P actions palette — every editor action with its binding; same chrome as quick-open. */
 function ActionPalette({ actions, onClose }: { actions: StudioAction[]; onClose: () => void }) {
