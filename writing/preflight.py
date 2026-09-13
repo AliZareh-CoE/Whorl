@@ -372,6 +372,29 @@ def check_figures(manuscript, files) -> list[dict]:
     ]
 
 
+def check_figure_quality(manuscript, files) -> list[dict]:
+    """#473: will every raster figure print sharp? Vector formats pass; rasters are measured."""
+    from writing.figures import audit_figures
+
+    if not any(INCLUDEGRAPHICS.search(f.content) for f in files):
+        return []  # the "Figure files" row already says there are none
+    out = audit_figures(manuscript)
+    bad = [r for r in out["figures"] if r["state"] in ("fail", "warn")]
+    if not bad:
+        return [_check("figure_quality", "Figure quality", "ok", out["summary"])]
+    first = sorted(bad, key=lambda r: (r["state"] != "fail", r["tex"], r["line"]))[0]
+    state = "fail" if out["fails"] else "warn"
+    return [
+        _check(
+            "figure_quality",
+            "Figure quality",
+            state,
+            f"{out['summary']} {first['path']}: {first['detail']}",
+            {"kind": "line", "path": first["tex"], "line": first["line"]},
+        )
+    ]
+
+
 def check_leftovers(files, source) -> list[dict]:
     hits = []
     if files:
@@ -463,6 +486,7 @@ def preflight(manuscript, *, network: bool = False) -> dict:
         *check_bibliography(manuscript, network),
         *check_budget(manuscript),
         *check_figures(manuscript, files),
+        *check_figure_quality(manuscript, files),
         *check_leftovers(files, source),
         *check_lint(files, source),
         *check_bbl(manuscript),

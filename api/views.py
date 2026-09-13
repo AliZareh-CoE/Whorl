@@ -2417,6 +2417,24 @@ class ManuscriptViewSet(AtlasViewSet):
         "compile never reports (unescaped %, \\label before \\caption, undefined/duplicate "
         "labels, plain spaces before \\ref and units, straight quotes, ..., $$, \\\\ in prose).",
     )
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="Per-\\includegraphics rows: tex file + line, resolved asset path, "
+                "format, pixel size, printed width (in), effective dpi, bytes, state "
+                "(ok/warn/fail) and detail; plus unused image assets and a summary."
+            )
+        },
+        description="Figure audit (#473): will every figure print well? Raster sizes are read "
+        "from the file headers, the printed width from the \\includegraphics options; "
+        "300 dpi is the bar, 150 the floor; vector formats pass.",
+    )
+    @action(detail=True, methods=["get"], url_path="figure-audit")
+    def figure_audit(self, request, pk=None):
+        from writing.figures import audit_figures
+
+        return Response(audit_figures(self.get_object()))
+
     @action(detail=True, methods=["get"])
     def lint(self, request, pk=None):
         from writing.lint import lint_manuscript

@@ -838,6 +838,7 @@ function PreflightPanel({ manuscriptId, onCompile, onProblems, onTab, onLine }: 
   const [network, setNetwork] = useState(false);
   const q = useQuery({ queryKey: ["preflight", manuscriptId, network], queryFn: () => api<Preflight>(`/manuscripts/${manuscriptId}/preflight/${network ? "?network=1" : ""}`), staleTime: 0 });
   const r = q.data;
+  const fig = useQuery({ queryKey: ["figure-audit", manuscriptId], queryFn: () => api<FigureAudit>(`/manuscripts/${manuscriptId}/figure-audit/`), staleTime: 0 });
   const dot = (state: PreflightCheck["state"]) => state === "ok" ? "bg-emerald-400" : state === "warn" ? "bg-amber-400" : state === "fail" ? "bg-red-400" : "bg-stone-500/60";
   const fixLabel = (fix: NonNullable<PreflightCheck["fix"]>) => fix.kind === "compile" ? "Compile" : fix.kind === "problems" ? "Problems" : fix.kind === "settings" ? "Manuscript settings" : fix.kind === "budget" ? "Budget" : fix.kind === "tab" ? (fix.tab === "bib" ? "Bibliography" : fix.tab) : fix.kind === "line" ? `${fix.path.replace(/^.*\//, "")}:${fix.line}` : "Fix";
   const runFix = (fix: NonNullable<PreflightCheck["fix"]>) => { if (fix.kind === "compile") onCompile(); else if (fix.kind === "problems") onProblems(); else if (fix.kind === "tab") onTab(fix.tab); else if (fix.kind === "line") void onLine(fix.path, fix.line); };
@@ -867,12 +868,36 @@ function PreflightPanel({ manuscriptId, onCompile, onProblems, onTab, onLine }: 
               </li>
             ))}
           </ul>
+          {fig.data && fig.data.count > 0 && (
+            <div className="mt-3 px-1" data-testid="figure-audit">
+              <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider st-dim"><span>Figures · {fig.data.count}</span><span className="normal-case tracking-normal">{fig.data.summary}</span></div>
+              <table className="w-full text-[11px]">
+                <tbody>
+                  {fig.data.figures.map((f, i) => (
+                    <tr key={i} className="align-top" data-testid="figure-row" data-state={f.state}>
+                      <td className="w-3 pt-1.5"><span className={`block h-2 w-2 rounded-full ${dot(f.state)}`} aria-hidden="true" /></td>
+                      <td className="py-0.5 pr-1">
+                        <button type="button" onClick={() => void onLine(f.tex, f.line)} className="text-left st-fg hover:underline" title={`${f.tex}:${f.line}`}>{f.path.replace(/^.*\//, "")}</button>
+                        <span className="block leading-4 st-dim">{f.detail}</span>
+                      </td>
+                      <td className="whitespace-nowrap py-0.5 text-right font-mono text-[10px] st-dim">{f.format ?? "?"}{f.pixels ? ` ${f.pixels[0]}×${f.pixels[1]}` : ""}{f.dpi !== null ? ` ${f.dpi} dpi` : ""}{f.bytes !== null ? ` ${f.bytes >= 1024 * 1024 ? `${(f.bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(f.bytes / 1024)} kB`}` : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {fig.data.unused.length > 0 && <p className="mt-1 text-[10px] st-dim">Not used by any figure: {fig.data.unused.join(", ")}</p>}
+            </div>
+          )}
           <label className="mt-2 flex cursor-pointer items-center gap-1.5 px-1 text-[10px] st-dim"><input type="checkbox" checked={network} onChange={(e) => setNetwork(e.target.checked)} className="accent-indigo-500" data-testid="preflight-network" />Also resolve DOIs and check retractions (slow)</label>
         </>
       )}
     </div>
   );
 }
+
+// #473: the figure audit rows shown under the pre-flight checks
+type FigureRow = { tex: string; line: number; path: string; width_in: number | null; format: string | null; pixels: [number, number] | null; dpi: number | null; bytes: number | null; state: "ok" | "warn" | "fail"; detail: string };
+type FigureAudit = { count: number; fails: number; warns: number; summary: string; figures: FigureRow[]; unused: string[] };
 
 type StudioAction = { label: string; keys?: string; hint?: string; run: () => void };
 

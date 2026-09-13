@@ -693,7 +693,14 @@ Mean sensitivity by condition is summarised in Table~\\ref{{tab:dprime}}.
   \\label{{tab:dprime}}
 \\end{{table}}
 
-The load cost under incentive was
+\\begin{{figure}}[h]
+  \\centering
+  \\includegraphics[width=0.6\\textwidth]{{figures/pilot-dprime}}
+  \\caption{{Pilot sensitivity by condition (bars: low vs.\\ high load).}}
+  \\label{{fig:pilot}}
+\\end{{figure}}
+
+The load cost under incentive (Figure~\\ref{{fig:pilot}}) was
 \\begin{{equation}}
   \\Delta d' = d'_{{\\text{{low}}}} - d'_{{\\text{{high}}}} = 0.21,
   \\label{{eq:cost}}
@@ -734,6 +741,15 @@ bonus structure was explained before incentive blocks and verified by a comprehe
         path="sections/method.tex",
         defaults={"content": method_src, "kind": ManuscriptFile.Kind.TEX},
     )
+    # #473: a real raster figure in the tree so the figure audit has something to measure
+    # (1600 px at 0.6\textwidth ≈ 410 dpi — prints sharp)
+    fig, created = ManuscriptFile.objects.get_or_create(
+        manuscript=manuscript,
+        path="figures/pilot-dprime.png",
+        defaults={"kind": ManuscriptFile.Kind.ASSET},
+    )
+    if created or not fig.asset:
+        fig.asset.save("pilot-dprime.png", ContentFile(_demo_png(1600, 1000)), save=True)
 
 
 def _demo_png(width: int = 320, height: int = 200) -> bytes:

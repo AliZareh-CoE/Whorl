@@ -645,6 +645,11 @@ def lint_manuscript(manuscript_id: int):
     return _request("GET", f"/manuscripts/{manuscript_id}/lint/")
 
 
+def audit_figures(manuscript_id: int):
+    """#473: every \\includegraphics with its format, pixels, printed width, dpi, size."""
+    return _request("GET", f"/manuscripts/{manuscript_id}/figure-audit/")
+
+
 def fix_lint(manuscript_id: int, only: list[dict] | None = None):
     """#472: apply the lint's mechanical fixes (all, or the `only` ones)."""
     return _request(

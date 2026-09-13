@@ -658,6 +658,18 @@ def lint_manuscript(manuscript_id: int) -> dict:
 
 
 @mcp.tool()
+def audit_figures(manuscript_id: int) -> dict:
+    r"""Will every figure print well? One row per \includegraphics in the manuscript's .tex
+    files: the asset it resolves to, format, pixel size (read from the PNG/JPEG/GIF header),
+    the width it prints at (from width=0.8\textwidth, \columnwidth, cm/in/mm/pt — 6.5 in
+    text width), the effective dpi, the file size, and a state: ok, warn (under 300 dpi, or
+    over 10 MB), fail (under 150 dpi, or no such file). PDF/EPS/SVG are vector and pass.
+    Also lists image assets no figure uses. Use it before a submission and after replacing
+    a figure; the detail says how many pixels wide the export needs to be."""
+    return client.audit_figures(manuscript_id)
+
+
+@mcp.tool()
 def fix_lint(manuscript_id: int, only: list[dict] | None = None) -> dict:
     r"""Apply the style lint's mechanical fixes to the manuscript's .tex files: Figure~\ref,
     5\,ms, ``quotes'', \ldots, 50\%, e.g., and \[ … \] for a one-line $$ pair. Pass `only`
