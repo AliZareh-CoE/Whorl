@@ -136,3 +136,45 @@ def test_manuscripts_glance_carries_the_writing_signals():
     tsx = Path("frontend/src/app/pages/ProjectOverview.tsx").read_text()
     for needle in ('data-testid="glance-clock"', 'data-testid="glance-readiness"', "nudge?"):
         assert needle in tsx, needle
+
+
+def test_literature_glance_counts_and_queue_head(client_logged_in):
+    """#480: to-read (with the high-priority share), read this month, the next paper up."""
+    import datetime
+    from pathlib import Path
+
+    from literature.models import ProjectReference
+    from literature.tests.factories import ReferenceFactory
+
+    project = ProjectFactory()
+    today = datetime.date(2026, 9, 13)
+    a = ProjectReference.objects.create(
+        project=project, reference=ReferenceFactory(title="Old normal"), reading_status="to_read"
+    )
+    b = ProjectReference.objects.create(
+        project=project,
+        reference=ReferenceFactory(title="Urgent"),
+        reading_status="to_read",
+        priority="high",
+    )
+    c = ProjectReference.objects.create(
+        project=project, reference=ReferenceFactory(title="Done"), reading_status="read"
+    )
+    out = overview.literature_glance(project, today=today)
+    assert out["total"] == 3 and out["to_read"] == 2 and out["high_priority_unread"] == 1
+    assert out["by_status"] == {"to_read": 2, "read": 1}
+    assert out["read_this_month"] == 1  # c was updated now, i.e. this month
+    assert out["next_up"]["title"] == "Urgent" and out["next_up"]["priority"] == "high"
+    assert out["last_added"]["title"] == "Done"
+    assert a.pk and b.pk and c.pk
+    body = client_logged_in.get(f"/api/v1/projects/{project.slug}/overview/").json()
+    assert body["literature"]["to_read"] == 2 and body["literature"]["next_up"]["title"] == "Urgent"
+    empty = overview.literature_glance(ProjectFactory(), today=today)
+    assert empty["total"] == 0 and empty["next_up"] is None and empty["last_added"] is None
+    tsx = Path("frontend/src/app/pages/ProjectOverview.tsx").read_text()
+    for needle in (
+        'data-testid="literature-glance"',
+        'data-testid="literature-to-read"',
+        'data-testid="literature-next"',
+    ):
+        assert needle in tsx, needle

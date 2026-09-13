@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Project overview: a Literature glance (#480)
+
+**Decision.** The overview gains a *Literature* panel next to the research questions: how many linked papers are still to read (a link into the project's reading queue), how many of those are high priority, how many were read this month, and *Next up* — the head of the reading queue (highest priority, oldest first), linking to the paper. The payload (`literature_glance`) rides on the overview API and therefore on MCP `get_project_overview`. The three-panel row becomes four on wide screens (two on laptops).
+
+**Why.** The overview answered "where is the plan and the writing?" but not "how is the reading going?", although the reading queue is the project's daily work. One number a researcher acts on — "7 to read, 2 high priority" — and the one paper to open next. Alternatives: a full queue list on the overview (rejected — the queue page exists; the glance should stay a glance); counting reads by highlight or note activity (rejected — reading status is the fact the owner sets).
+
 ### 2026-09-13 — Project overview, third pass: the manuscripts glance says what the studio knows (#479)
 
 **Decision.** Each live manuscript on the Project overview now carries its status clock ("41 d revising"; amber with "· nudge?" when a polite note to the editor is fair) and, while the paper is being worked on (outlining, drafting, internal review, revision), the pre-flight verdict as a pill — "ready to submit", "ready · 4 to look at" or "1 blocking" — with the summary as the tooltip. Waiting papers get the nudge instead of a verdict; published and shelved papers were never listed. The payload is the same `manuscripts_glance` the API and MCP `get_project_overview` return, and the glance is capped at four papers so the pre-flight's ~16 queries each stay bounded.

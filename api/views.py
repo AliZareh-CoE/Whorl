@@ -411,6 +411,7 @@ class ProjectViewSet(AtlasViewSet):
                 "week_digest": overview_extras.week_digest(project),
                 "questions": overview_extras.open_questions(project),
                 "manuscripts": overview_extras.manuscripts_glance(project),
+                "literature": overview_extras.literature_glance(project),  # #480
                 "hypotheses": overview_extras.hypotheses_summary(project),
                 "themes": overview_extras.themes(project),
             }

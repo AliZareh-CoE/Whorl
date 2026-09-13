@@ -108,6 +108,47 @@ def manuscripts_glance(project, today: date | None = None, limit: int = 4) -> li
     return out
 
 
+def literature_glance(project, today: date | None = None) -> dict:
+    """#480: the project's reading state at a glance — how much is unread (and how much of
+    that is high priority), what was read this month, the next paper up (highest priority,
+    oldest first — the reading queue's own order) and the last paper added."""
+    today = today or timezone.localdate()
+    links = list(project.project_references.select_related("reference").order_by("created_at"))
+    by_status: dict[str, int] = {}
+    for link in links:
+        by_status[link.reading_status] = by_status.get(link.reading_status, 0) + 1
+    unread = [link for link in links if link.reading_status == "to_read"]
+    high = [link for link in unread if link.priority == "high"]
+    month_start = today.replace(day=1)
+    read_this_month = sum(
+        1
+        for link in links
+        if link.reading_status in ("read", "annotated") and link.updated_at.date() >= month_start
+    )
+    rank = {"high": 0, "normal": 1, "low": 2}
+    queue = sorted(unread, key=lambda link: (rank.get(link.priority, 1), link.created_at))
+
+    def _row(link):
+        r = link.reference
+        return {
+            "id": r.pk,
+            "title": r.title,
+            "year": r.year,
+            "priority": link.priority,
+            "first_author": (r.authors[0].get("family") if r.authors else "") or "",
+        }
+
+    return {
+        "total": len(links),
+        "by_status": by_status,
+        "to_read": len(unread),
+        "high_priority_unread": len(high),
+        "read_this_month": read_this_month,
+        "next_up": _row(queue[0]) if queue else None,
+        "last_added": _row(links[-1]) if links else None,
+    }
+
+
 def hypotheses_summary(project) -> dict:
     counts = Counter(project.hypotheses.values_list("status", flat=True))
     return {"total": sum(counts.values()), "by_status": dict(counts)}

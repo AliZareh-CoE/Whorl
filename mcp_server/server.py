@@ -21,7 +21,9 @@ def get_project_overview(slug: str) -> dict:
     """One-glance overview of a project: current phase, progress, next milestones, counts,
     and the manuscripts glance — each live paper with its status clock ("41 d revising"),
     whether a nudge to the editor is fair while it waits on a venue, and the pre-flight
-    verdict (ready / fails / warns / summary) while it is being worked on (#479)."""
+    verdict (ready / fails / warns / summary) while it is being worked on (#479); and the
+    literature glance — to-read count, high-priority unread, read this month, the next
+    paper up (top of the reading queue) and the last one added (#480)."""
     return client.get_project_overview(slug)
 
 

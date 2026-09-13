@@ -27,6 +27,8 @@ type Overview = {
   themes?: { label: string; weight: number }[];
   week_digest: { since: string; total: number; counts: { kind: string; label: string; count: number }[]; items: { date: string; kind: string; label: string; detail: string; url: string }[] };
   questions: { id: number; question: string; status: string; phases: string[] }[];
+  // #480: the project's reading state at a glance
+  literature?: { total: number; by_status: Record<string, number>; to_read: number; high_priority_unread: number; read_this_month: number; next_up: { id: number; title: string; year: number | null; priority: string; first_author: string } | null; last_added: { id: number; title: string; year: number | null; priority: string; first_author: string } | null };
   // #479: the clock (+ nudge while waiting on a venue) and the pre-flight verdict while working
   manuscripts: { id: number; title: string; status: string; deadline: string | null; days: number | null; target_venue: string; over: string[]; clock?: { label: string; days: number; nudge?: { due: boolean; waited: number | null; after_days: number | null; basis: string | null } }; readiness?: { ready: boolean; fails: number; warns: number; summary: string } | null }[];
   hypotheses: { total: number; by_status: Record<string, number> };
@@ -169,7 +171,7 @@ export default function ProjectOverview() {
         <Focus slug={project.slug} initial={data.focus} compact />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 2 }} data-testid="digest">
           <p className={h2}><Activity className="h-3 w-3" aria-hidden="true" />This week in the project</p>
           {digest.total === 0 ? <p className="text-xs text-stone-400">Quiet week so far — nothing logged since {digest.since}.</p> : (
@@ -186,7 +188,30 @@ export default function ProjectOverview() {
           )}
           {data.hypotheses.total > 0 && <p className="mt-2 flex items-center gap-1 text-[11px] text-stone-400"><FlaskConical className="h-3 w-3" aria-hidden="true" />{data.hypotheses.total} hypotheses · {Object.entries(data.hypotheses.by_status).map(([k, v]) => `${v} ${k}`).join(" · ")}</p>}
         </section>
-        <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 4 }} data-testid="manuscripts">
+        {/* #480: the reading state — what a glance at the literature should answer */}
+        <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 4 }} data-testid="literature-glance">
+          <p className={h2}><BookOpen className="h-3 w-3" aria-hidden="true" />Literature <span className="normal-case tracking-normal">{data.counts.references}</span></p>
+          {!data.literature || data.literature.total === 0 ? <p className="text-xs text-stone-400">No papers linked yet — <Link to={`/projects/${project.slug}/literature`} className="text-indigo-600 hover:underline dark:text-indigo-300">add the first</Link>.</p> : (
+            <div className="text-sm">
+              <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-stone-500 dark:text-stone-400">
+                <Link to={`/projects/${project.slug}/queue`} className={`font-medium ${data.literature.to_read ? "text-indigo-600 hover:underline dark:text-indigo-300" : "text-stone-500"}`} data-testid="literature-to-read">{data.literature.to_read} to read</Link>
+                {data.literature.high_priority_unread > 0 && <span className="rounded-full bg-amber-500/10 px-1.5 text-amber-600 dark:text-amber-300">{data.literature.high_priority_unread} high priority</span>}
+                <span>· {data.literature.read_this_month} read this month</span>
+              </p>
+              {data.literature.next_up && (
+                <p className="mt-2 text-[11px] uppercase tracking-wider text-stone-400">Next up</p>
+              )}
+              {data.literature.next_up && (
+                <Link to={`/library/${data.literature.next_up.id}`} className="block truncate text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300" data-testid="literature-next" title={data.literature.next_up.title}>{data.literature.next_up.title}</Link>
+              )}
+              {data.literature.next_up && (
+                <p className="text-[11px] text-stone-400">{[data.literature.next_up.first_author, data.literature.next_up.year].filter(Boolean).join(" ")}{data.literature.next_up.priority === "high" ? " · high priority" : ""}</p>
+              )}
+              {!data.literature.next_up && <p className="mt-2 text-xs text-stone-400">Everything linked here has been read.</p>}
+            </div>
+          )}
+        </section>
+        <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 5 }} data-testid="manuscripts">
           <p className={h2}><PenLine className="h-3 w-3" aria-hidden="true" />Manuscripts <span className="normal-case tracking-normal">{data.counts.manuscripts}</span></p>
           {data.manuscripts.length === 0 ? <p className="text-xs text-stone-400">Nothing in the pipeline — <Link to="/writing" className="text-indigo-600 hover:underline dark:text-indigo-300">start a manuscript</Link>.</p> : (
             <ul className="space-y-2 text-sm">{data.manuscripts.map((m) => <li key={m.id}><Link to={`/manuscripts/${m.id}`} className="block truncate text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300">{m.title}</Link><p className="flex flex-wrap items-center gap-x-2 text-[11px] text-stone-400"><span className="capitalize">{m.status.replace("_", " ")}</span>{m.target_venue && <span>· {m.target_venue}</span>}<span className={m.days != null && m.days <= 7 ? "font-medium text-red-600 dark:text-red-300" : ""}>· {when(m.days)}</span>{m.over.length > 0 && <span className="rounded-full bg-red-500/10 px-1.5 text-red-600 dark:text-red-300">over on {m.over.join(", ")}</span>}
