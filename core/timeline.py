@@ -9,6 +9,12 @@ NOTE_PREVIEW = 1500
 
 
 def project_timeline(project, *, bodies: bool = True) -> list[dict]:
+    from core.memo import memo
+
+    return memo(project, ("project_timeline", bodies), lambda: _project_timeline(project, bodies))
+
+
+def _project_timeline(project, bodies: bool) -> list[dict]:
     """Every dated event in the project's life, newest first.
 
     Each event: {date, kind, label, detail, url, body_html}. URLs are SPA paths so the

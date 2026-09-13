@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Project overview: one timeline, one roadmap, one phase per request (#484)
+
+**Decision.** `core/memo.py` — a request-scoped memo that a view enables on a model instance (`enable_memo(project)`); helpers wrap their body in `memo(project, key, compute)` and reuse the first answer for that instance. `plans.selectors.current_phase` / `project_progress`, `plans.roadmap.project_roadmap` and `core.timeline.project_timeline` (keyed by `bodies`) opt in; the API overview enables it. Instances that never opted in behave exactly as before, so tests that mutate and re-ask see live data. Also: the pre-flight's bibliography report loaded each reference one by one (`select_related` now), the notebook glance's `.only()` triggered a deferred-field load per row (dropped), and the open questions prefetch their phases. A budget test pins the API overview at ≤ 60 queries on a busy project.
+
+**Why.** Five slices (#479–#483) each added a helper to the overview, and the same primitives were being recomputed under them: the timeline twice (digest + pulse), the current phase four times, the roadmap three times. 89 queries / 117 ms warm on the demo project became 61 / ~94 ms, and — the point of the budget — nothing in the payload scales with the number of papers or milestones any more.
+
+**Alternatives.** Passing precomputed values down through every helper signature (invasive, and the serializer computes the same things from a different entry point); `functools.lru_cache` on the helpers (cross-request staleness, and keyed on an ORM instance); dropping features from the payload (the glances are the product).
+
 ### 2026-09-13 — Project overview: the project's pulse (#483)
 
 **Decision.** `projects/overview.py::pulse(project, weeks=12)` bins every dated event of the project's timeline into Monday-based weeks ending in the current one — count and counts-by-kind per week, the busiest week, the trailing quiet weeks, the last activity date and days since — and rides on the overview payload as `pulse` (MCP `get_project_overview` documents it). The header gets a *Pulse* strip on the right: twelve slim bars in the accent colour (square-root scale so one heavy week does not flatten the rest, the peak week glows, silent weeks are hollow, the current week ringed), a tooltip per week with the kinds, and a caption that says what the bars cannot — "41 events in 12 wk · peak Sep 7" or "quiet 3 wk · last 3 wk ago".

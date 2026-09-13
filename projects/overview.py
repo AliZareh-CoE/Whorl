@@ -45,7 +45,9 @@ def week_digest(project, today: date | None = None, days: int = 7) -> dict:
 
 def open_questions(project, limit: int = 6) -> list[dict]:
     order = {"open": 0, "partially_answered": 1, "answered": 2, "abandoned": 3}
-    rows = sorted(project.questions.all(), key=lambda q: (order.get(q.status, 9), -q.pk))
+    rows = sorted(
+        project.questions.prefetch_related("phases"), key=lambda q: (order.get(q.status, 9), -q.pk)
+    )
     return [
         {
             "id": q.pk,
@@ -221,7 +223,7 @@ def notebook_glance(project, today: date | None = None) -> dict:
     today = today or timezone.localdate()
     week_ago = today - timedelta(days=7)
     month_start = today.replace(day=1)
-    notes = list(project.notes.only("id", "title", "updated_at").order_by("-updated_at", "-id"))
+    notes = list(project.notes.order_by("-updated_at", "-id"))
     linked: set[int] = set()
     for src, dst in NoteLink.objects.filter(source__project=project).values_list(
         "source_id", "target_id"
@@ -229,9 +231,7 @@ def notebook_glance(project, today: date | None = None) -> dict:
         linked.add(src)
         linked.add(dst)
     last_note = notes[0] if notes else None
-    entries = list(
-        project.experiment_entries.only("id", "date", "title").order_by("-date", "-created_at")
-    )
+    entries = list(project.experiment_entries.order_by("-date", "-created_at"))
     last_entry = entries[0] if entries else None
     quiet_days = (today - last_entry.date).days if last_entry else None
     return {

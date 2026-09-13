@@ -12,6 +12,7 @@ from datetime import date, timedelta
 
 from django.utils import timezone
 
+from core.memo import memo
 from projects.models import Project
 
 from .models import Phase
@@ -76,6 +77,10 @@ def _health(phase: Phase, start: date, end: date, today: date) -> dict:
 
 def project_roadmap(project: Project, today: date | None = None) -> dict:
     today = today or timezone.localdate()
+    return memo(project, ("project_roadmap", today), lambda: _project_roadmap(project, today))
+
+
+def _project_roadmap(project: Project, today: date) -> dict:
     rows = []
     previous_end: date | None = None
     for phase in project.phases.prefetch_related("milestones"):

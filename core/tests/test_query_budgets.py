@@ -62,6 +62,21 @@ class TestQueryBudgets:
             response = client_logged_in.get(project.get_absolute_url())
         assert response.status_code == 200
 
+    def test_api_overview_budget(self, client_logged_in, django_assert_max_num_queries):
+        """#484: the SPA overview payload (digest, pulse, glances, themes, manuscripts with
+        their pre-flight) — the timeline, the roadmap and the current phase are computed once
+        per request, and nothing in it scales with the number of papers or milestones."""
+        from notes.models import Note
+        from writing.models import Manuscript
+
+        project = build_busy_project()
+        for i in range(5):
+            Note.objects.create(project=project, title=f"n{i}", body="[[n0]]")
+        Manuscript.objects.create(project=project, title="P", status="drafting")
+        with django_assert_max_num_queries(60):
+            response = client_logged_in.get(f"/api/v1/projects/{project.slug}/overview/")
+        assert response.status_code == 200
+
     def test_plan_page_budget(self, client_logged_in, django_assert_max_num_queries):
         project = build_busy_project()
         with django_assert_max_num_queries(12):

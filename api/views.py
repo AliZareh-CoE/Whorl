@@ -22,6 +22,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.files import file_response
+from core.memo import enable_memo
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
 from literature import services as literature_services
@@ -347,6 +348,7 @@ class ProjectViewSet(AtlasViewSet):
         from projects import overview as overview_extras
 
         project = self.get_object()
+        enable_memo(project)  # #484: one timeline, one roadmap, one current phase per request
         done, total, percent = plan_selectors.project_progress(project)
         phase = plan_selectors.current_phase(project)
         health = None

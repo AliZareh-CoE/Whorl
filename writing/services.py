@@ -44,7 +44,9 @@ def export_manuscript_bib(manuscript) -> str:
 
 
 def manuscript_bib_report(manuscript, include_network_checks: bool = False) -> dict:
-    references = [link.reference for link in manuscript.manuscriptreference_set.all()]
+    references = [
+        link.reference for link in manuscript.manuscriptreference_set.select_related("reference")
+    ]
     return run_bib_report(references, include_network_checks=include_network_checks)
 
 
