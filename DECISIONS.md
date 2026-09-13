@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Audit #26: clean dependencies, the new surfaces hold, one cap added (#478)
+
+**Decision.** The ten-cycle audit (AUDITS.md › #26) covered #469–#477. `pip-audit` and `npm audit --omit=dev` are clean with no bumps needed; `scripts/audit.sh` is green; every new endpoint answers 401 anonymously; replace only touches files whose path matches the tree exactly (`../../etc/passwd` is ignored); a lint fix with a forged span applies nothing; the figure audit reads at most 64 KB of an asset; every hot endpoint, old and new, is under 100 ms warm. One hardening: the project search now refuses a pattern longer than 500 characters (a 20 000-character query was accepted before). One accepted risk, recorded: a user-supplied regular expression can backtrack catastrophically — `(a+)+$` over a 26-character run already takes five seconds — and Python's `re` cannot be interrupted; the scan is per line and the only person who can send the pattern is the owner, so a hang would be self-inflicted and bounded by one request. Next audit due at #488.
+
+**Why.** The cadence is the point: ten slices of new surface, one honest look. Alternatives for the regex risk — a regex engine with a time limit (a dependency for a single-user edge), or forbidding nested quantifiers by inspection (brittle, and it would refuse legitimate patterns) — were rejected in favour of stating it.
+
 ### 2026-09-13 — Go to definition, and the Writing studio judged best-in-field for a single-user tool (#477)
 
 **Decision.** ⌘⇧D (and the palette's *Go to definition*) reads the macro under the caret: on `\ref{key}` (any of the ref macros, the key under the caret when several are listed) it jumps to the `\label{key}` anywhere in the tree; on `\cite{key}` to the `@entry{key,` in a `.bib` file of the tree, or to the Bibliography tab when the bibliography is generated from the library. The lookup is the project search with a regular expression, so there is no new server code and Claude has the same power through `search_manuscript`. The editor adapter gained `getCursor()` (line and column).

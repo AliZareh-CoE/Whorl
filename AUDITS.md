@@ -874,6 +874,62 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #26 — 2026-09-13 (since #25: #469–#477 — submit through the pre-flight, the style lint and its fixes, the figure audit, the status clock and the nudge, find and replace, go to definition)
+
+Back on the ten-cycle cadence. Nine feature slices, one honest look.
+
+**Dependencies — CLEAN.** `pip-audit` on the exported lock: *No known vulnerabilities found*
+(no bumps needed this time). `npm audit --omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`:
+every row green (anon → 401 across the API, pages → 302, catch-all 404, static MIME,
+`/app//evil.com` stays on-origin).
+
+**New surfaces since #25 — reviewed; one cap added, one risk accepted.**
+- *Auth:* `search`, `lint`, `figure-audit`, `venue-turnaround`, `preflight` answer 401
+  anonymously; `POST submit`, `replace`, `lint/fix` likewise.
+- *Replace (#476):* the `files` filter matches tree paths exactly — `../../etc/passwd` in the
+  list is simply ignored (`replaced: 0, files: []`); a bad regex is a 400; only `.tex`/`.bib`
+  files are ever rewritten, assets never.
+- *Lint fixes (#472):* a forged span (`col: 999`) applies nothing — every replacement is
+  verified against the text actually there before it is written.
+- *Figure audit (#473):* reads at most 64 KB of an asset's head to size it; PDF/EPS/SVG are
+  never opened; a missing file is a row, not an exception.
+- *Submit (#469):* status changes only through the service; `force` is an explicit flag; the
+  event notes carry the readiness rows (author-owned text).
+- *Search (#476) — cap added:* a 20 000-character query was accepted (plain text is escaped,
+  so it was harmless, but it is a mistake not a search). The pattern is now capped at 500
+  characters → 400 (test in writing/tests/test_search.py).
+- *Search — risk accepted, recorded:* a user-supplied regular expression can backtrack
+  catastrophically: `(a+)+$` over a 26-character run of `a` already takes ~5 s in Python's
+  `re`, which cannot be interrupted. The scan is per line, the only person who can send the
+  pattern holds the API key, and a hang costs one request — accepted for a single-user tool
+  rather than adding a time-limited regex engine as a dependency.
+- *Go to definition (#477):* client-only; it calls the search endpoint with an escaped key.
+
+**Performance (warm, best of three, API key, demo data):** dashboard 47 ms · project overview
+80 ms · references (50) 30 ms · plan 24 ms · search 62 ms · manuscripts 29 ms · manuscript
+detail (with clock + nudge) 27 ms · pre-flight (now with the figure audit) 39 ms · lint 23 ms ·
+figure audit 22 ms · project search 18 ms · venue turnaround 18 ms. Everything under the
+100 ms bar; nothing regressed against #25.
+
+**Desktop CI — A FINDING, FIXED.** GitHub Actions runners are back (runs no longer die in four
+seconds with `runner_id: 0`), which exposed a real bug: the *Write release notes* step piped
+`git log … | grep … | head -12 | sed` under `pipefail`; once the last 40 subjects all matched
+`^(feat|fix|perf)`, `head` closed the pipe early, grep died with *write error: Broken pipe*
+(exit 2), the `GITHUB_OUTPUT` heredoc never got its closing delimiter and every build since
+run 187 was red at that step. Fixed in the workflow: no `head` in the pipeline — awk prints the
+first twelve and reads to EOF, `{ grep … || true; }` keeps a build with no matching subjects
+green. Verified locally under `set -eo pipefail`.
+
+**Noticed, not acted on:** the repository has been renamed to `Whorl` on GitHub (the runner
+checks out `/home/runner/work/Whorl/Whorl`). The updater endpoint, the homepage and the README
+badges still say `project-manager`; GitHub redirects renamed repositories, so they keep working.
+The product name and the URLs stay as they are until the owner says the word — renaming is the
+owner's call (loop rule 7).
+
+**Not checked this time (say so):** the frozen Windows/macOS/Linux installers end to end (the
+first green run after this fix will show); the Tauri updater against the renamed repository;
+the huey worker under Redis.
+
 ## Audit #25 — 2026-09-07 (since #24: everything from #263 to #467 — the SPA front door, the LaTeX studio and workbench, the desktop rewrite on SQLite, the library workbench, the pet and achievements, bots, snapshots, the pre-flight)
 
 The first audit in the slice-numbered era; the ten-cycle cadence had lapsed since June, so this

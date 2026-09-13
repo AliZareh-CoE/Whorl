@@ -93,7 +93,11 @@ jobs:
             echo "Atlas desktop $VER — ready-to-install builds. Pick the file for your OS below; installed apps update themselves from this release."
             echo
             echo "What changed recently:"
-            git log --no-merges --format='%s' -n 40 | grep -E '^(feat|fix|perf)' | head -12 | sed 's/^/- /'
+            # No `head` in this pipeline (Audit #26): once 40 subjects all matched, `head -12`
+            # closed the pipe early, grep died with "write error: Broken pipe" (exit 2 under
+            # pipefail) and the heredoc never got its closing delimiter — every build was red.
+            # awk reads to EOF; `|| true` keeps a build with no feat/fix subjects green.
+            git log --no-merges --format='%s' -n 40 | { grep -E '^(feat|fix|perf)' || true; } | awk 'NR <= 12 { print "- " $0 }'
             echo "NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 

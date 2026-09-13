@@ -2,9 +2,13 @@
 
 ## Current Status
 
+- **CI update (2026-09-13, #478):** GitHub Actions runners are back; the builds were then failing in the release-notes step — fixed in #478, first green run pending. The owner-report line below is kept for history.
+
 - **⚠ OWNER REPORT (2026-09-07, later): the newest installer they can get still opens a dark, empty window.** The release feed tops out at 0.1.139 (built 05:17 UTC); every push since is unbuildable — desktop-release runs 140–165 fail in four seconds with `runner_id: 0` (no runner assigned: GitHub Actions spending limit / billing on the account — owner action). #451 makes the watchdog fire on "no painted text" (the mounted flag was set before React drew anything) and report in-flight requests. The other items in that batch (project CRUD, open from disk, missing PDF, icon, achievements) shipped in 0.1.11x–0.1.139; if they still show, the installed build is older than it looks — Diagnostics says the version.
 
 - **Cadence change (2026-09-12, owner):** one shipped slice per hour — `/loop 1h /cycle` fires `/cycle` at the top of every hour; each firing ships one slice. The owner merged the branch into `main` via PR #1 (branch A1); this branch keeps receiving slices.
+
+- **AUDIT #26 (2026-09-13, #478).** **Desktop CI finding fixed:** runners are back and every build since run 187 was red at *Write release notes* (`head -12` closed the pipe → grep "Broken pipe" under pipefail → unterminated heredoc); the pipeline no longer uses `head`. Also noticed: the GitHub repo is now named **Whorl** (owner's rename; URLs keep working through redirects; nothing renamed on our side). pip-audit clean, npm audit clean, `scripts/audit.sh` green; new surfaces since #468 probed (anon 401 everywhere, replace ignores paths outside the tree, forged lint spans skipped, bad regex → 400); hot endpoints 18–80 ms; one cap added (search pattern ≤ 500 chars, test); regex backtracking recorded as an accepted single-user risk. Report: AUDITS.md › Audit #26. **Next audit due at #488.**
 
 - **Go to definition + Writing verdict (2026-09-13, #477).** ⌘⇧D / palette: `\ref{key}` → its `\label` across files, `\cite{key}` → the `.bib` entry or the Bibliography tab; adapter `getCursor()`; shortcut sheet rows for ⌘⇧D and ⌘⇧F. Writing judged best-in-field for a single-user tool (DECISIONS); current area → Project overview after Audit #26 (#478). Tests: writing/tests/test_goto.py. Playwright: caret on `\ref{tab:dprime}` in sections/method.tex → main.tex label line.
 
@@ -24,7 +28,7 @@
 
 - **Submit through the pre-flight (2026-09-12, #469, 103 tools).** `writing/services.py::submit_manuscript` (+ `SubmissionBlocked`), `POST /manuscripts/{id}/submit/` (409 with the report unless `force`; revision → `revision_submitted`/under_review), pipeline click → endpoint → in-app "Submit anyway" confirm, event notes carry the readiness rows; MCP `submit_manuscript`. Tests: writing/tests/test_submit.py (5), mcp client test. Playwright (both themes): blocked → Not yet keeps *Revision*; Submit anyway → *Under review* + "Revision submitted" event with the "Submitted anyway" note; plain steps stay PATCH; *Submitted* from *Drafting* also routes through. Demo data restored afterwards.
 
-- **AUDIT #25 (2026-09-07, #468).** pip-audit: django 5.2.17, DRF 3.18.0, mcp 1.29.1 (pinned <2 + guard test), pydantic-settings 2.15.0, sqlparse 0.6.0, cryptography 50.0.1 → clean; npm: react-router-dom 7.18.3 → clean; new surfaces reviewed, no code findings; hot endpoints < 100 ms. Report: AUDITS.md › Audit #25. **Next audit due at #478.**
+- **AUDIT #25 (2026-09-07, #468).** pip-audit: django 5.2.17, DRF 3.18.0, mcp 1.29.1 (pinned <2 + guard test), pydantic-settings 2.15.0, sqlparse 0.6.0, cryptography 50.0.1 → clean; npm: react-router-dom 7.18.3 → clean; new surfaces reviewed, no code findings; hot endpoints < 100 ms. Report: AUDITS.md › Audit #25. Next audit was #478 (done).
 
 - **Readiness card + backlog sweep (2026-09-07, #467).** `PreflightCard` on the manuscript page (pill, fail/warn rows, "Every check in the Studio →"); Studio `?panel=<tab>`; 15 backlog lines struck with reasons (34 open remain). Test: writing/tests/test_preflight.py::test_manuscript_page_has_the_readiness_card_and_the_studio_opens_the_panel.
 

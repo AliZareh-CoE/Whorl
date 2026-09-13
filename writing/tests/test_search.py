@@ -47,6 +47,8 @@ def test_search_plain_case_and_regex():
         S.search_files(m, "")
     with pytest.raises(S.BadPattern):
         S.search_files(m, "(", regex=True)
+    with pytest.raises(S.BadPattern):  # Audit #26: a bounded pattern length
+        S.search_files(m, "a" * 501)
 
 
 def test_search_caps_the_hit_list(monkeypatch):

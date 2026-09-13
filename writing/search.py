@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 
 MAX_HITS = 500
+MAX_PATTERN = 500  # Audit #26: a query longer than this is a mistake, not a search
 TEXT_KINDS = ("tex", "bib")
 
 
@@ -22,6 +23,8 @@ class BadPattern(ValueError):
 def _pattern(q: str, *, regex: bool, case: bool) -> re.Pattern:
     if not q:
         raise BadPattern("Nothing to search for.")
+    if len(q) > MAX_PATTERN:
+        raise BadPattern(f"The pattern is longer than {MAX_PATTERN} characters.")
     flags = 0 if case else re.IGNORECASE
     try:
         return re.compile(q if regex else re.escape(q), flags)
