@@ -241,7 +241,7 @@ export default function Dashboard() {
             <SkeletonCard key={i} />
           ))}
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -302,7 +302,7 @@ export default function Dashboard() {
                     <button type="button" onClick={() => tick.mutate(t.id)} className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-stone-300 text-transparent transition-colors hover:border-indigo-400 hover:text-indigo-500 dark:border-stone-600" aria-label={`Done: ${t.text}`} title="Tick it off"><Check className="h-3 w-3" aria-hidden="true" /></button>
                     <span className="min-w-0 truncate">{t.text}</span>
                     {t.due_at && <span className={`shrink-0 text-[11px] tabular-nums ${dueState(t.due_at) === "overdue" ? "text-red-500" : dueState(t.due_at) === "soon" ? "text-amber-600 dark:text-amber-300" : "text-stone-400"}`} data-testid="hero-due">· {formatDue(t.due_at)}</span>}
-                    {t.project && <span className="shrink-0 text-[11px] text-stone-400">· {t.project}</span>}
+                    {t.project && <span className="min-w-0 max-w-[9rem] truncate text-[11px] text-stone-400">· {t.project}</span>}
                   </li>
                 ))}
                 {data.todos_open > data.todos.length && <li className="text-xs text-stone-400"><Link to="/today" className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300"><ListChecks className="h-3 w-3" aria-hidden="true" />{data.todos_open - data.todos.length} more on today's list</Link></li>}
@@ -355,14 +355,14 @@ export default function Dashboard() {
           <h2 className={`${h2} mb-2.5`}>Needs attention</h2>
           <ul className="space-y-1.5 text-sm">
             {attention.overdue.map((m) => (
-              <li key={`o${m.url}${m.title}`} className="flex items-baseline gap-2">
+              <li key={`o${m.url}${m.title}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="shrink-0 rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-300">overdue</span>
                 <a href={m.url} className="min-w-0 flex-1 truncate hover:underline dark:text-stone-100">{m.title}</a>
                 <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400">{m.project} · due {m.due_date}</span>
               </li>
             ))}
             {attention.deadlines.map((d) => (
-              <li key={`d${d.url}${d.title}`} className="flex items-baseline gap-2">
+              <li key={`d${d.url}${d.title}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${d.days_to_deadline < 7 ? "bg-red-500/10 text-red-600 dark:text-red-300" : "bg-amber-500/10 text-amber-600 dark:text-amber-300"}`}>deadline</span>
                 <a href={d.url} className="min-w-0 flex-1 truncate hover:underline dark:text-stone-100">{d.title}</a>
                 <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400">
@@ -371,7 +371,7 @@ export default function Dashboard() {
               </li>
             ))}
             {waiting.map((w) => (
-              <li key={`w${w.id}`} className="flex items-baseline gap-2" data-testid="attention-waiting">
+              <li key={`w${w.id}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="attention-waiting">
                 <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-300">waiting</span>
                 <a href={w.url} className="min-w-0 flex-1 truncate hover:underline dark:text-stone-100">{w.title}</a>
                 <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400" title={w.basis}>{w.venue || w.project} · {w.waited} d, usually {w.after_days} — a nudge is fair</span>
@@ -379,7 +379,7 @@ export default function Dashboard() {
             ))}
             {/* #489: a project that has gone flat — before a deadline says so */}
             {quiet.map((q) => (
-              <li key={`q${q.slug}`} className="flex items-baseline gap-2" data-testid="attention-quiet">
+              <li key={`q${q.slug}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="attention-quiet">
                 <span className="shrink-0 rounded-full bg-stone-500/10 px-2 py-0.5 text-[11px] font-medium text-stone-500 dark:text-stone-300">quiet</span>
                 <Link to={q.url} className="min-w-0 flex-1 truncate hover:underline dark:text-stone-100">{q.name}</Link>
                 <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400">nothing logged for {q.quiet_weeks} weeks{q.days_since != null ? ` · last activity ${q.days_since} d ago` : ""}</span>
@@ -387,7 +387,7 @@ export default function Dashboard() {
             ))}
             {/* #424: a calm nudge when the last backup is old or there has never been one */}
             {backupStale && attention.backup && (
-              <li className="flex items-baseline gap-2" data-testid="attention-backup">
+              <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="attention-backup">
                 <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-300">backup</span>
                 <span className="min-w-0 flex-1 truncate text-stone-600 dark:text-stone-300">
                   {attention.backup.last ? `Last backup ${attention.backup.last.days_ago} days ago.` : "No backup yet."} Everything lives in one file — worth keeping a copy somewhere else.
@@ -410,7 +410,7 @@ export default function Dashboard() {
       <WeekEverywhere week={data.week} />
 
       {!calm && (
-        <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mb-5 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           <Stat value={data.todos_open} label="on today's list" i={2} to="/today" />
           <Stat value={data.stats.papers_read} label="papers read this month" i={3} series={data.trends?.series.papers_read} previous={data.trends?.previous.papers_read} months={data.trends?.months} />
           <Stat value={data.stats.notes_written} label="notes written this month" i={4} series={data.trends?.series.notes_written} previous={data.trends?.previous.notes_written} months={data.trends?.months} />
@@ -420,8 +420,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <section className={`${panel} rise`} style={{ ["--i" as string]: 6 }}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <section className={`${panel} rise min-w-0`} style={{ ["--i" as string]: 6 }}>
           <h2 className={h2}>Active projects</h2>
           <div className="space-y-3">
             {data.active.map((p) => (
@@ -448,9 +448,9 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
         {/* #487: every live paper across the active projects, the way the overview shows them */}
-        <section className={`${panel} rise`} style={{ ["--i" as string]: 7 }} data-testid="writing-everywhere">
+        <section className={`${panel} rise min-w-0`} style={{ ["--i" as string]: 7 }} data-testid="writing-everywhere">
           <div className="flex items-baseline justify-between"><h2 className={h2}>Writing{data.writing && data.writing.live > 0 && <span className="ml-1 normal-case tracking-normal">{data.writing.live}</span>}</h2><CalendarSubscribe /></div>
           <ul className="space-y-1.5 text-sm">
             {(data.writing?.rows ?? []).map((m) => (
@@ -475,7 +475,7 @@ export default function Dashboard() {
           </ul>
         </section>
         {/* #486: what to read today — the queue head across every active project */}
-        <section className={`${panel} rise`} style={{ ["--i" as string]: 7.5 }} data-testid="reading-next">
+        <section className={`${panel} rise min-w-0`} style={{ ["--i" as string]: 7.5 }} data-testid="reading-next">
           <div className="flex items-baseline justify-between"><h2 className={h2}><BookOpen className="mr-1 inline h-3 w-3 align-[-1px]" aria-hidden="true" />Next to read</h2>
             {data.reading && data.reading.to_read > 0 && <span className="text-[11px] text-stone-400">{data.reading.to_read} unread{data.reading.high_priority > 0 ? ` · ${data.reading.high_priority} high priority` : ""}{data.reading.projects > 1 ? ` · ${data.reading.projects} projects` : ""}</span>}
           </div>
@@ -499,7 +499,7 @@ export default function Dashboard() {
         </section>
         </div>
 
-        <section className={`${panel} rise`} style={{ ["--i" as string]: 8 }}>
+        <section className={`${panel} rise min-w-0`} style={{ ["--i" as string]: 8 }}>
           <h2 className={h2}>Upcoming milestones</h2>
           <ul className="space-y-0.5 text-sm">
             {data.milestones.map((m) => (
@@ -558,7 +558,7 @@ function WeekEverywhere({ week }: { week: Dash["week"] }) {
                     <button type="button" onClick={() => complete.mutate(i)} aria-label={`Complete ${i.title}`} className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-transparent transition-colors hover:border-indigo-400 hover:text-indigo-500 ${i.kind === "milestone" ? "rounded-md border-stone-300 dark:border-stone-600" : "border-stone-200 dark:border-stone-700"}`}><Check className="h-2.5 w-2.5" aria-hidden="true" /></button>
                     <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: i.color }} aria-hidden="true" />
                     <Link to={`/projects/${i.project}/plan`} className="min-w-0 flex-1 truncate text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300" title={`${i.project_name} · ${i.phase}`}>{i.title}{i.kind === "task" && <span className="ml-1 text-[10px] text-stone-400">task</span>}</Link>
-                    <span className="hidden shrink-0 truncate text-[11px] text-stone-400 sm:inline">{i.project_name}</span>
+                    <span className="hidden min-w-0 max-w-[10rem] truncate text-[11px] text-stone-400 sm:inline-block">{i.project_name}</span>
                     <span className={`shrink-0 text-[11px] tabular-nums ${i.days < 0 ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{when(i.days)}</span>
                   </li>
                 ))}
