@@ -2087,7 +2087,7 @@ def _bibliography_rows(manuscript) -> list[dict]:
 
 
 class ManuscriptViewSet(AtlasViewSet):
-    queryset = Manuscript.objects.all().prefetch_related("word_samples")
+    queryset = Manuscript.objects.all().prefetch_related("word_samples", "events")
     serializer_class = serializers.ManuscriptSerializer
     project_filter = "project__slug"
     q_fields = ("title",)
@@ -2417,6 +2417,43 @@ class ManuscriptViewSet(AtlasViewSet):
         "compile never reports (unescaped %, \\label before \\caption, undefined/duplicate "
         "labels, plain spaces before \\ref and units, straight quotes, ..., $$, \\\\ in prose).",
     )
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "venue", OpenApiTypes.STR, description="Target venue name (case-insensitive)."
+            ),
+            OpenApiParameter(
+                "exclude",
+                OpenApiTypes.INT,
+                description="A manuscript id to leave out (usually the one you are looking at).",
+                required=False,
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Your own turnaround at this venue: manuscripts and review rounds "
+                "counted, median days from a submission to the next decision, the median for "
+                "first decisions, fastest and slowest."
+            )
+        },
+        description="Venue turnaround (#474) from your submission timelines: every "
+        "submitted / revision_submitted event paired with the next decision (reviews "
+        "received, desk reject, accepted, rejected) across all manuscripts at the venue.",
+    )
+    @action(detail=False, methods=["get"], url_path="venue-turnaround")
+    def venue_turnaround(self, request):
+        from writing.clock import venue_turnaround
+
+        venue = (request.query_params.get("venue") or "").strip()
+        if not venue:
+            return Response({"detail": "venue is required."}, status=400)
+        exclude = request.query_params.get("exclude")
+        try:
+            exclude_id = int(exclude) if exclude else None
+        except ValueError:
+            return Response({"detail": "exclude must be an integer id."}, status=400)
+        return Response(venue_turnaround(venue, exclude_id=exclude_id))
+
     @extend_schema(
         responses={
             200: OpenApiResponse(

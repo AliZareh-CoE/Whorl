@@ -645,6 +645,14 @@ def lint_manuscript(manuscript_id: int):
     return _request("GET", f"/manuscripts/{manuscript_id}/lint/")
 
 
+def get_venue_turnaround(venue: str, exclude: int | None = None):
+    """#474: your own median days from submission to decision at a venue."""
+    params = {"venue": venue}
+    if exclude is not None:
+        params["exclude"] = exclude
+    return _request("GET", "/manuscripts/venue-turnaround/", params=params)
+
+
 def audit_figures(manuscript_id: int):
     """#473: every \\includegraphics with its format, pixels, printed width, dpi, size."""
     return _request("GET", f"/manuscripts/{manuscript_id}/figure-audit/")

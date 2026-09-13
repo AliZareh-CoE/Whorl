@@ -15,7 +15,11 @@ import { ErrorState } from "../../components/ErrorState";
 type Event = { id: number; kind: string; date: string; notes: string };
 type MFile = { id: number; path: string; kind: string; is_main: boolean };
 type Progress = { today_delta: number; week_delta: number; streak: number; words: number; samples: number[]; compiles?: { per_day: { date: string; compiles: number }[]; today: number; week: number } };
-type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; target_venue: string; deadline: string | null; abstract: string; progress?: Progress; compile_status: string; compiled_at: string | null; venue_limits: Record<string, number>; events: Event[]; files: MFile[] };
+type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; target_venue: string; deadline: string | null; abstract: string; progress?: Progress; compile_status: string; compiled_at: string | null; venue_limits: Record<string, number>; events: Event[]; files: MFile[]; clock?: Clock };
+// #474: how long the paper has sat in its status, and how long this venue usually takes
+type Clock = { status: string; since: string; days: number; source: string; label: string };
+type Turnaround = { venue: string; manuscripts: number; rounds: number; median_days: number | null; first_decision_median_days: number | null; fastest_days: number | null; slowest_days: number | null };
+const WAITING = new Set(["submitted", "under_review", "revision"]);
 // #467: the pre-flight summary where the status is changed (the Studio has the full panel)
 type PreflightRow = { key: string; label: string; state: "ok" | "warn" | "fail" | "skip"; detail: string };
 type Preflight = { ready: boolean; fails: number; warns: number; summary: string; checks: PreflightRow[] };
@@ -157,6 +161,7 @@ export function WritingBoard() {
                       <span className="flex items-start gap-2"><span className="min-w-0 flex-1 font-medium text-stone-900 dark:text-stone-100">{m.title}</span><Kebab items={cardItems(m)} label={`Actions for ${m.title}`} className="-mr-1 -mt-1 opacity-0 group-hover:opacity-100 focus:opacity-100" /></span>
                       <p className="mt-1 text-xs text-stone-400">{m.project_name}{m.target_venue ? ` · ${m.target_venue}` : ""}</p>
                       {dl && <p className={`mt-1.5 text-xs ${dl.urgent ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{dl.text}</p>}
+                      {m.clock && m.clock.days >= 1 && <p className={`mt-1 text-xs ${WAITING.has(m.status) ? "text-indigo-600 dark:text-indigo-300" : "text-stone-400"}`} data-testid="card-clock" title={`Since ${m.clock.since}`}>{m.clock.label}</p>}
                       {m.progress && m.progress.words > 0 && <ProgressSpark progress={m.progress} />}
                     </Link>
                   ); })}
@@ -228,9 +233,15 @@ export function ManuscriptDetail() {
     onSuccess: () => { queryClient.invalidateQueries(); navigate("/writing"); },
     onError: (e) => void errorDialog("Couldn't delete the manuscript", e),
   });
+  // hooks stay above the early return (the #28 lesson): the venue turnaround is fetched only
+  // while the paper waits on a venue, and only once the manuscript itself has loaded
+  const venue = m?.target_venue.trim() ?? "";
+  // the paper's own finished rounds count (an open round never can), so no exclude here
+  const turnaround = useQuery({ queryKey: ["turnaround", venue], queryFn: () => api<Turnaround>(`/manuscripts/venue-turnaround/?venue=${encodeURIComponent(venue)}`), enabled: !!m && !!venue && WAITING.has(m.status) });
   if (isLoading || !m) return <div role="status" aria-label="Loading" className="space-y-4"><Skeleton className="h-4 w-32" /><Skeleton className="h-7 w-2/3" /><div className={`${panel} max-w-2xl p-5`}><SkeletonLines lines={3} /></div></div>;
   const dl = deadlineLabel(m.deadline);
   const stepIndex = COLUMNS.findIndex(([k]) => k === m.status);
+  const ta = turnaround.data;
   return (
     <div>
       <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400"><Link to="/writing" className="hover:underline">Writing</Link> / <Link to={`/projects/${m.project}`} className="hover:underline">{m.project_name}</Link> / {m.title}</nav>
@@ -249,6 +260,12 @@ export function ManuscriptDetail() {
         <label className="flex items-center gap-1.5">deadline <input type="date" value={m.deadline ?? ""} onChange={(e) => patch.mutate({ deadline: e.target.value || null })} className="rounded-md border border-transparent bg-transparent px-1 py-0.5 hover:border-stone-300 focus:border-indigo-400 focus:outline-none dark:text-stone-200 dark:hover:border-stone-700" aria-label="Deadline" />
           {dl && <span className={`rounded-full px-2 py-0.5 text-xs ${dl.urgent ? "bg-red-500/10 font-medium text-red-600 dark:text-red-300" : "bg-stone-100 text-stone-500 dark:bg-stone-800"}`}>{dl.text}</span>}
         </label>
+        {m.clock && (
+          <span className="flex items-center gap-1.5" data-testid="status-clock" title={`Since ${m.clock.since}${m.clock.source !== "updated" ? ` (${m.clock.source.replace(/_/g, " ")})` : ""}`}>
+            <span className={`rounded-full px-2 py-0.5 text-xs ${WAITING.has(m.status) ? "bg-indigo-500/10 font-medium text-indigo-700 dark:text-indigo-200" : "bg-stone-100 text-stone-500 dark:bg-stone-800"}`}>{m.clock.label}</span>
+            {ta && ta.rounds > 0 && ta.median_days !== null && <span className="text-xs text-stone-400" data-testid="venue-turnaround" title={`${ta.rounds} round${ta.rounds === 1 ? "" : "s"} across ${ta.manuscripts} of your manuscripts at ${ta.venue}: fastest ${ta.fastest_days} d, slowest ${ta.slowest_days} d`}>· your median here: {ta.median_days} d to a decision</span>}
+          </span>
+        )}
       </div>
       <ol className={`${panel} rise mb-4 flex flex-wrap items-center gap-1 p-1.5`} aria-label="Status pipeline" data-testid="pipeline">
         {COLUMNS.map(([k, label], i) => (

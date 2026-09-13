@@ -916,6 +916,16 @@ class ManuscriptSerializer(serializers.ModelSerializer):
     events = SubmissionEventSerializer(many=True, read_only=True)
     project_name = serializers.CharField(source="project.name", read_only=True)
     files = ManuscriptFileSummarySerializer(many=True, read_only=True)
+    clock = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.DictField())
+    def get_clock(self, obj):
+        """#474: how long the paper has sat in its status — since (date), days, source
+        (the event kind that started the clock, or "updated"), and a label like
+        "42 d under review"."""
+        from writing.clock import status_clock
+
+        return status_clock(obj)
 
     class Meta:
         from writing.models import Manuscript
@@ -939,6 +949,7 @@ class ManuscriptSerializer(serializers.ModelSerializer):
             "events",
             "files",
             "progress",
+            "clock",
             "created_at",
             "updated_at",
         ]

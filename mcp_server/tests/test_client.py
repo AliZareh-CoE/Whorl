@@ -581,3 +581,12 @@ def test_fix_lint_client_call(capture):
     assert json.loads(capture["body"]) == {}
     client.fix_lint(4, only=[{"file": "main.tex", "line": 2, "rule": "unit-space", "col": 4}])
     assert json.loads(capture["body"])["only"][0]["rule"] == "unit-space"
+
+
+def test_get_venue_turnaround_client_call(capture):
+    """#474: the venue's turnaround; `exclude` rides only when given."""
+    client.get_venue_turnaround("JEP:G")
+    assert "/manuscripts/venue-turnaround/" in capture["url"] and "venue=JEP" in capture["url"]
+    assert "exclude=" not in capture["url"]
+    client.get_venue_turnaround("JEP:G", exclude=4)
+    assert "exclude=4" in capture["url"]

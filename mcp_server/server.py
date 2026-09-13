@@ -658,6 +658,18 @@ def lint_manuscript(manuscript_id: int) -> dict:
 
 
 @mcp.tool()
+def get_venue_turnaround(venue: str, exclude: int | None = None) -> dict:
+    """How long does this venue take, going by the owner's own submissions? Pairs every
+    submitted / revision_submitted event with the next decision (reviews received, desk
+    reject, accepted, rejected) across all manuscripts whose target venue matches
+    (case-insensitive) and returns the manuscripts and rounds counted, the median days per
+    round, the median for first decisions, and the fastest and slowest. Every manuscript
+    also carries a `clock` (since, days, label such as "42 d under review") in
+    list_manuscripts / get_manuscript — use both to answer "should I nudge the editor?"."""
+    return client.get_venue_turnaround(venue, exclude=exclude)
+
+
+@mcp.tool()
 def audit_figures(manuscript_id: int) -> dict:
     r"""Will every figure print well? One row per \includegraphics in the manuscript's .tex
     files: the asset it resolves to, format, pixel size (read from the PNG/JPEG/GIF header),
