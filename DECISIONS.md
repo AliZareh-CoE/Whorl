@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Project overview: a paste-ready status update (#482)
+
+**Decision.** `projects/status.py::status_update(project, days=7)` renders the project's window as plain markdown — the phase with its health and the project's milestone count, one line per manuscript (status, venue, clock, nudge, pre-flight readiness, deadline), *Done in the last n days* grouped by kind (milestones, papers read, papers added, notes, decisions, lab log, hypotheses, documents, manuscript events; six per kind then "… and n more"; compiles left out), *Next* (overdue → due this week → next up, from the focus list), *Open questions* (open and partly answered) and *Blockers* (overdue items, a blocked phase). `GET /projects/{slug}/status-update/?days=` returns `{markdown, since, until, days, done, next, blockers}`; the overview's project menu gets *Copy status update…* which copies the markdown to the clipboard and shows it in a wide notice so the owner reads it before sending (the preview is the fallback when the clipboard refuses); MCP `get_status_update(slug, days)`.
+
+**Why.** The CLAUDE.md backlog's "auto-generated weekly review" was half built: `core/reviews.weekly_review` lists the week's items (the Review page), but nobody sends their advisor a list of items — they send a short note with the phase, what got done, what is next and what is stuck. The text is built from the same helpers the overview uses (progress, roadmap health, week digest, focus, manuscripts glance, open questions), so the note and the page cannot disagree, and the API/MCP get the one call that answers "how is project X going?".
+
+**Alternatives.** Rendering it from the weekly review only (Mon–Sun windows, no plan/manuscript state — too thin for a status note); a rich-text email composer (out of scope, no mail in Atlas); a dedicated page (the note is a by-product of the overview, not a place; the menu keeps it one click away).
+
 ### 2026-09-13 — Project overview: a Notebook glance (#481)
 
 **Decision.** The overview's lower row gains a *Notebook* panel between the milestones and the documents/decisions stack: notes (count, edited this week, an "n unlinked" chip when some note has no `[[link]]` in or out, the three last-touched notes with relative ages) and the lab log (entries, this month, the last entry and its age, an amber "quiet n d" chip once nothing was logged for 14 days) plus the dataset count. `projects/overview.py::notebook_glance` is in the overview payload as `notebook`, so MCP `get_project_overview` carries it too.

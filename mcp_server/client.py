@@ -79,6 +79,11 @@ def get_project_overview(slug: str):
     return _request("GET", f"/projects/{slug}/overview/")
 
 
+def get_status_update(slug: str, days: int = 7):
+    """#482: a paste-ready markdown status update for the project's last `days` days."""
+    return _request("GET", f"/projects/{slug}/status-update/", params={"days": days})
+
+
 def get_plan(slug: str):
     return _request("GET", f"/projects/{slug}/plan/")
 

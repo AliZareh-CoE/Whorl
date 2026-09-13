@@ -605,3 +605,13 @@ def test_search_and_replace_client_calls(capture):
         "case": False,
         "files": ["main.tex"],
     }
+
+
+def test_get_status_update_builds_request(capture):
+    """#482"""
+    from mcp_server import client
+
+    client.get_status_update("attention-and-memory", days=14)
+    assert capture["method"] == "GET"
+    assert calls_url_has(capture, "/projects/attention-and-memory/status-update/")
+    assert "days=14" in capture["url"]

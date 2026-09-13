@@ -39,6 +39,7 @@ def week_digest(project, today: date | None = None, days: int = 7) -> dict:
             for kind, n in counts.most_common()
         ],
         "items": events[:6],
+        "items_all": events,  # #482: the status update lists everything in the window
     }
 
 

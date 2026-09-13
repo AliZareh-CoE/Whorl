@@ -30,6 +30,17 @@ def get_project_overview(slug: str) -> dict:
 
 
 @mcp.tool()
+def get_status_update(slug: str, days: int = 7) -> dict:
+    """A paste-ready status update for a project as markdown (#482): the current phase and
+    its health, each manuscript's state (status clock, pre-flight readiness, deadline), what
+    got done in the last `days` days grouped by kind (milestones, papers read, notes,
+    decisions, lab entries…), what is next (overdue first, then due this week, then next
+    up), open research questions, and blockers. Use it to draft the weekly note to an
+    advisor or to answer "how is project X going?" in one call; `markdown` is the text."""
+    return client.get_status_update(slug, days)
+
+
+@mcp.tool()
 def get_plan(slug: str) -> dict:
     """The project's full plan: ordered phases with milestones (ids, due dates, overdue flags) and tasks."""
     return client.get_plan(slug)

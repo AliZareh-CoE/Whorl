@@ -707,6 +707,31 @@ class ProjectViewSet(AtlasViewSet):
         return Response({"ordered": len(ids)})
 
     @extend_schema(
+        operation_id="v1_projects_status_update",
+        parameters=[
+            OpenApiParameter(
+                "days", int, description="Window in days ending today (default 7, max 90)."
+            )
+        ],
+        description="A paste-ready status update (#482): the project's window as markdown — "
+        "phase and health, every manuscript's state (clock, readiness, deadline), what got "
+        "done grouped by kind, what is next (overdue → due this week → next up), open "
+        "questions and blockers. Built from the same helpers as the overview so the text "
+        "and the page agree. Send it to an advisor, a collaborator, or paste it in a note.",
+        responses={200: OpenApiResponse(description="{markdown, since, until, days, counts}")},
+    )
+    @action(detail=True, methods=["get"], url_path="status-update")
+    def status_update(self, request, slug=None):
+        from projects.status import status_update
+
+        project = self.get_object()
+        try:
+            days = int(request.query_params.get("days", 7))
+        except ValueError:
+            return Response({"detail": "days must be an integer"}, status=400)
+        return Response(status_update(project, days=days))
+
+    @extend_schema(
         operation_id="v1_projects_vault",
         description="The project as a Markdown vault (#416): a zip of notes (with their "
         "[[wiki-links]]), decisions, the plan outline, the literature list + references.bib, "

@@ -5,11 +5,11 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Activity, Archive, ArchiveRestore, BookOpen, FileText, FlaskConical, HelpCircle, NotebookPen, PenLine, Settings2, Trash2 } from "lucide-react";
+import { Activity, Archive, ArchiveRestore, BookOpen, ClipboardList, FileText, FlaskConical, HelpCircle, NotebookPen, PenLine, Settings2, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
-import { confirmDialog, errorDialog } from "../../components/Dialog";
+import { confirmDialog, errorDialog, noticeDialog } from "../../components/Dialog";
 import { Kebab } from "../../components/Menu";
 import Focus, { type FocusData } from "./plan/Focus";
 import Constellation from "./project/Constellation";
@@ -111,6 +111,27 @@ function ProjectSettings({ project, onClose }: { project: Overview["project"]; o
   );
 }
 
+/** #482: the week as a paste-ready markdown note — copied to the clipboard and shown so the
+ *  owner can read it before sending; the clipboard may refuse outside a user gesture chain
+ *  (or in a locked-down webview), so the preview is the fallback, selectable and copyable. */
+async function copyStatusUpdate(slug: string): Promise<void> {
+  let update: { markdown: string; since: string; until: string; done: number; next: number; blockers: number };
+  try { update = await api(`/projects/${slug}/status-update/`); } catch (e) { await errorDialog("Could not build the status update", e); return; }
+  let copied = false;
+  try { await navigator.clipboard.writeText(update.markdown); copied = true; } catch { copied = false; }
+  await noticeDialog({
+    title: copied ? "Status update copied" : "Status update",
+    wide: true,
+    okLabel: "Done",
+    body: (
+      <div data-testid="status-update">
+        <p className="mb-2 text-xs text-stone-500 dark:text-stone-400">{update.since} → {update.until} · {update.done} done · {update.next} next · {update.blockers} {update.blockers === 1 ? "blocker" : "blockers"}{copied ? " · on your clipboard as markdown" : " · select the text to copy it"}</p>
+        <pre style={{ maxHeight: "60vh" }} className="overflow-auto whitespace-pre-wrap rounded-xl border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-800 dark:border-stone-700 dark:bg-stone-950/60 dark:text-stone-200">{update.markdown}</pre>
+      </div>
+    ),
+  });
+}
+
 function ago(days: number): string { if (days <= 0) return "today"; if (days === 1) return "yesterday"; if (days < 14) return `${days} d ago`; if (days < 60) return `${Math.round(days / 7)} wk ago`; return `${Math.round(days / 30)} mo ago`; }
 function when(days: number | null): string { if (days == null) return "no deadline"; if (days < 0) return `${-days} d overdue`; if (days === 0) return "due today"; return `${days} d left`; }
 
@@ -139,6 +160,7 @@ export default function ProjectOverview() {
               <button type="button" onClick={() => setSettingsOpen((v) => !v)} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors ${settingsOpen ? "border-indigo-300 text-indigo-700 dark:border-indigo-500/50 dark:text-indigo-200" : "border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-800 dark:border-stone-700 dark:text-stone-400 dark:hover:text-stone-100"}`} data-testid="project-settings-toggle" aria-expanded={settingsOpen}><Settings2 className="h-3.5 w-3.5" aria-hidden="true" />Settings</button>
               <Kebab label="Project actions" items={[
                 { label: settingsOpen ? "Close settings" : "Edit project…", icon: <Settings2 className="h-3.5 w-3.5" />, onSelect: () => setSettingsOpen((v) => !v) },
+                { label: "Copy status update…", icon: <ClipboardList className="h-3.5 w-3.5" />, onSelect: () => void copyStatusUpdate(project.slug) },
                 { label: "Export as Markdown vault", icon: <FileText className="h-3.5 w-3.5" />, onSelect: () => { window.location.assign(`/api/v1/projects/${project.slug}/vault/`); } },
                 { label: actions.archived ? "Unarchive" : "Archive project", icon: actions.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />, onSelect: actions.toggleArchive },
                 "-",

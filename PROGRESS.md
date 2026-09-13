@@ -8,6 +8,8 @@
 
 - **Cadence change (2026-09-12, owner):** one shipped slice per hour — `/loop 1h /cycle` fires `/cycle` at the top of every hour; each firing ships one slice. The owner merged the branch into `main` via PR #1 (branch A1); this branch keeps receiving slices.
 
+- **Project overview — slice 4 (2026-09-13, #482, 110 tools).** `projects/status.py::status_update` (phase + health, manuscripts with clock/readiness/deadline, done-by-kind in the window, next, open questions, blockers → markdown), `GET /projects/{slug}/status-update/?days=`, overview menu *Copy status update…* (clipboard + wide preview), MCP `get_status_update`. Tests: projects/tests/test_status.py (4), mcp client test. Playwright: the menu item copies the demo note to the clipboard ("Status update copied"), both themes; anonymous → 401.
+
 - **Project overview — slice 3 (2026-09-13, #481).** `notebook_glance` (notes: total, edited_this_week, unlinked, last_edited, recent[3]; experiments: total, this_month, last, quiet ≥ 14 d; datasets) on the overview payload as `notebook`; a *Notebook* panel in the lower row (now three columns) with the three last-touched notes, the last lab entry and the quiet chip; MCP docstring. Tests: projects/tests/test_overview_v2.py (test_notebook_glance_notes_lab_log_and_datasets). Playwright: the demo shows 3 notes · 3 edited this week, 2 lab entries · 2 this month · 1 dataset, both themes.
 
 - **Project overview — slice 2 (2026-09-13, #480).** `literature_glance` (to_read, high_priority_unread, read_this_month, by_status, next_up, last_added) on the overview payload; *Literature* panel with the to-read link into the queue, the high-priority chip, reads this month and *Next up*; row grid 2/4 columns. Desktop run 193 green. Tests: projects/tests/test_overview_v2.py.
