@@ -12,7 +12,7 @@ export function shortcutGroups(): Group[] {
     { title: "Everywhere", rows: [[`${MOD} K`, "Ask Atlas anything — jump, capture, complete, run a verb"], ["?", "This sheet"], ...(isDesktop() ? [["F12 · Ctrl Shift I", "Open the web inspector"] as [string, string]] : [])] },
     { title: "Inbox", rows: [["j / k", "Move between captures"], ["↵", "File the highlighted capture where Atlas suggests"], ["1 – 5", "File as paper · today · note · milestone · decision"], ["x", "Dismiss"], [`${MOD} ↵`, "Capture what you typed"]] },
     { title: "Notes", rows: [[`${MOD} S`, "Save now (autosave runs anyway)"], ["[[", "Link a note (completion)"], ["@", "Cite a paper (completion)"]] },
-    { title: "Studio", rows: [[`${MOD} S`, "Save"], [`${MOD} ↵`, "Compile"], [`${MOD} ⇧ J`, "Locate the cursor in the PDF"], [`${MOD} B`, "Toggle the sidebar"], [`${MOD} \\`, "Toggle the PDF preview"], [`${MOD} J`, "Toggle the problems panel"], [`${MOD} P`, "Quick open a file or section"], [`${MOD} ⇧ P`, "Actions palette — every editor action with its key"]] },
+    { title: "Studio", rows: [[`${MOD} S`, "Save"], [`${MOD} ↵`, "Compile"], [`${MOD} ⇧ J`, "Locate the cursor in the PDF"], [`${MOD} ⇧ D`, "Go to definition — \\ref → its \\label, \\cite → its .bib entry"], [`${MOD} ⇧ F`, "Find in project"], [`${MOD} B`, "Toggle the sidebar"], [`${MOD} \\`, "Toggle the PDF preview"], [`${MOD} J`, "Toggle the problems panel"], [`${MOD} P`, "Quick open a file or section"], [`${MOD} ⇧ P`, "Actions palette — every editor action with its key"]] },
     { title: "Reader", rows: [["← / →", "Previous / next page"], ["select text", "Highlight it — the bar offers a note"]] },
   ];
 }

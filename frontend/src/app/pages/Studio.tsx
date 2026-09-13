@@ -196,6 +196,7 @@ function StudioInner({ m }: { m: Manuscript }) {
   const activeRef = useRef(activeId); activeRef.current = activeId;
   const settingsRef = useRef(settings); settingsRef.current = settings;
   const compileRef = useRef<() => void>(() => {});
+  const goToDefinitionRef = useRef<() => Promise<void>>(async () => {});
   const saveNowRef = useRef<() => void>(() => {});
 
   const markDirty = (fid: number, on: boolean) => { if (on) dirtyRef.current.add(fid); else dirtyRef.current.delete(fid); setDirty([...dirtyRef.current]); };
@@ -379,6 +380,43 @@ function StudioInner({ m }: { m: Manuscript }) {
 
   // --- compile + status polling ------------------------------------------------------
   // SyncTeX (#378): cursor line → PDF spot; PDF double-click → source line
+  // #477: go to definition — on \ref{key} (any ref macro) jump to its \label anywhere in the
+  // tree; on \cite{key} to the @entry in the tree's .bib, or the Bibliography tab when the
+  // bibliography is generated. The project search does the finding, so it works across files.
+  const goToDefinition = useCallback(async () => {
+    const ad = adRef.current; if (!ad) return;
+    const { line, col } = ad.getCursor();
+    const text = ad.lineText(line);
+    const token = /\\(ref|eqref|cref|Cref|autoref|pageref|vref|nameref|cite[a-zA-Z*]*)(?:\[[^\]]*\])*\{([^}]*)\}/g;
+    let hit: { kind: "ref" | "cite"; key: string } | null = null;
+    for (let m = token.exec(text); m; m = token.exec(text)) {
+      if (m.index < col && col <= m.index + m[0].length) {
+        const keys = m[2].split(",").map((k) => k.trim()).filter(Boolean);
+        // the key under the caret when several are listed, else the first
+        const keysStart = m.index + m[0].indexOf("{") + 1;
+        let offset = keysStart; let chosen = keys[0] ?? "";
+        for (const k of keys) { const at = text.indexOf(k, offset); if (col - 1 >= at && col - 1 <= at + k.length) { chosen = k; break; } offset = at + k.length; }
+        hit = { kind: m[1].startsWith("cite") ? "cite" : "ref", key: chosen };
+        break;
+      }
+    }
+    if (!hit || !hit.key) { setFlash("Put the caret on a \\ref{…} or \\cite{…} first."); return; }
+    const esc = hit.key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = hit.kind === "ref" ? `\\\\label\\{${esc}\\}` : `@\\w+\\{${esc}\\s*,`;
+    try {
+      const out = await api<{ hits: { file: string; line: number }[] }>(`/manuscripts/${m.id}/search/?q=${encodeURIComponent(pattern)}&regex=1&case=1`);
+      const first = out.hits[0];
+      if (first) {
+        const target = filesRef.current.find((f) => f.path === first.file);
+        if (target && target.id !== activeRef.current) await openFile(target.id);
+        ad.gotoLine(first.line); ad.focus();
+        setFlash(hit.kind === "ref" ? `\\label{${hit.key}} — ${first.file}:${first.line}` : `${hit.key} — ${first.file}:${first.line}`);
+      } else if (hit.kind === "cite") { setSidebarOpen(true); setTab("bib"); setFlash(`${hit.key} is not in a .bib file here — the bibliography is generated from the library.`); }
+      else setFlash(`No \\label{${hit.key}} anywhere in the sources.`);
+    } catch (e) { void errorDialog("Couldn't look that up", e); }
+  }, [m.id, openFile]);
+
+  goToDefinitionRef.current = goToDefinition;
   const locateInPdf = useCallback(() => {
     const ad = adRef.current; if (!ad) return;
     const path = filesRef.current.find((f) => f.id === ad.activeFile())?.path ?? "main.tex";
@@ -476,6 +514,7 @@ function StudioInner({ m }: { m: Manuscript }) {
       else if (k === "p" && !e.shiftKey) { e.preventDefault(); setQuickOpen(true); }
       else if (k === "p" && e.shiftKey) { e.preventDefault(); setActionsOpen(true); }
       else if (k === "f" && e.shiftKey) { e.preventDefault(); setSidebarOpen(true); setTab("search"); setSearchFocus((n) => n + 1); }
+      else if (k === "d" && e.shiftKey) { e.preventDefault(); void goToDefinitionRef.current(); }
     };
     window.addEventListener("keydown", onKey, true); return () => window.removeEventListener("keydown", onKey, true);
   }, []);
@@ -534,6 +573,7 @@ function StudioInner({ m }: { m: Manuscript }) {
     { label: "Save", keys: `${MOD} S`, run: () => saveNowRef.current() },
     { label: "Compile", keys: `${MOD} ↵`, run: () => { void doCompile(); } },
     { label: "Locate the cursor in the PDF", keys: `${MOD} ⇧ J`, run: () => locateInPdf() },
+    { label: "Go to definition", keys: `${MOD} ⇧ D`, hint: "\\ref → its \\label, \\cite → its .bib entry", run: () => { void goToDefinition(); } },
     { label: "Quick open a file or section", keys: `${MOD} P`, run: () => setQuickOpen(true) },
     { label: "Find in project", keys: `${MOD} ⇧ F`, hint: "search and replace across every file", run: () => { setSidebarOpen(true); setTab("search"); setSearchFocus((n) => n + 1); } },
     { label: `${sidebarOpen ? "Hide" : "Show"} the sidebar`, keys: `${MOD} B`, run: () => setSidebarOpen((v) => !v) },

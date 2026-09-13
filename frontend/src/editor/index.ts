@@ -257,6 +257,7 @@ export type EditorAdapter = {
   openFind: () => void;
   // --- cursor / lines (Slice B) ---
   getCursorLine: () => number; // 1-based
+  getCursor: () => { line: number; col: number }; // 1-based both (#477: go to definition)
   gotoLine: (line: number) => void; // 1-based, scrolls + focuses
   insertAtCursor: (text: string, caretOffset?: number) => void;
   lineText: (line: number) => string; // 1-based
@@ -383,6 +384,7 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
     openFind: () => openSearchPanel(view),
 
     getCursorLine: () => view.state.doc.lineAt(view.state.selection.main.head).number,
+    getCursor: () => { const head = view.state.selection.main.head; const ln = view.state.doc.lineAt(head); return { line: ln.number, col: head - ln.from + 1 }; },
     gotoLine: (line: number) => {
       const pos = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines)).from;
       view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
