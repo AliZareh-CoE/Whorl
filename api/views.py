@@ -412,7 +412,9 @@ class ProjectViewSet(AtlasViewSet):
                 # Overview v2 (slice 1): what changed, what is open, what is due
                 "week_digest": overview_extras.week_digest(project),
                 "questions": overview_extras.open_questions(project),
-                "manuscripts": overview_extras.manuscripts_glance(project),
+                "manuscripts": overview_extras.public_rows(
+                    overview_extras.manuscripts_glance(project)
+                ),
                 "literature": overview_extras.literature_glance(project),  # #480
                 "notebook": overview_extras.notebook_glance(project),  # #481
                 "pulse": overview_extras.pulse(project),  # #483

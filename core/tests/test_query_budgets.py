@@ -77,6 +77,21 @@ class TestQueryBudgets:
             response = client_logged_in.get(f"/api/v1/projects/{project.slug}/overview/")
         assert response.status_code == 200
 
+    def test_api_dashboard_budget(self, client_logged_in, django_assert_max_num_queries):
+        """Audit #27 (#488): the dashboard's cross-project panels (reading queue, writing)
+        must not grow a pre-flight per manuscript per project — only the rows shown get one."""
+        from writing.models import Manuscript
+
+        for i in range(3):
+            project = build_busy_project()
+            for j in range(3):
+                Manuscript.objects.create(project=project, title=f"P{i}{j}", status="drafting")
+        with django_assert_max_num_queries(100):
+            response = client_logged_in.get("/api/v1/dashboard/")
+        assert response.status_code == 200
+        rows = response.json()["writing"]["rows"]
+        assert len(rows) == 6 and sum(1 for r in rows if r["readiness"]) == 4
+
     def test_plan_page_budget(self, client_logged_in, django_assert_max_num_queries):
         project = build_busy_project()
         with django_assert_max_num_queries(12):

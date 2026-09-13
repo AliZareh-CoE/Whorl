@@ -97,20 +97,24 @@ def reading_queue_everywhere(today=None, limit: int = 5) -> dict:
     }
 
 
+READINESS_ROWS = 4  # Audit #27: pre-flights per dashboard load, most urgent first
+
+
 def writing_everywhere(today=None, limit: int = 6) -> dict:
     """#487: every live manuscript (not published, not shelved) across planning/active
     projects, the way the project overview shows them — status clock, nudge, pre-flight
     readiness, deadline — sorted by urgency: the nearest deadline first, then papers whose
     editor deserves a nudge, then the rest by id."""
-    from projects.overview import manuscripts_glance
+    from projects.overview import WORKING, manuscripts_glance, readiness_of
+    from writing.models import Manuscript
 
     today = today or timezone.localdate()
+    statuses = [Project.Status.PLANNING, Project.Status.ACTIVE]
     rows: list[dict] = []
-    live = 0
-    projects = Project.objects.filter(status__in=[Project.Status.PLANNING, Project.Status.ACTIVE])
-    for project in projects:
-        live += project.manuscripts.exclude(status__in=("published", "shelved")).count()
-        for m in manuscripts_glance(project, today=today, limit=limit):
+    for project in Project.objects.filter(status__in=statuses):
+        # Audit #27 (#488): no pre-flight yet — sort everything first, then run it only for
+        # the rows the dashboard shows, so the cost is bounded by `limit`, not by projects
+        for m in manuscripts_glance(project, today=today, limit=limit, readiness=False):
             m["project"] = project.name
             m["project_slug"] = project.slug
             rows.append(m)
@@ -121,7 +125,21 @@ def writing_everywhere(today=None, limit: int = 6) -> dict:
             m["id"],
         )
     )
-    return {"live": live, "rows": rows[:limit]}
+    shown = rows[:limit]
+    # ... and at most READINESS_ROWS pre-flights per dashboard load (each is ~10 queries /
+    # ~20 ms): the most urgent working papers get the verdict, the rest show none
+    budget_left = READINESS_ROWS
+    for m in shown:
+        manuscript = m.pop("_manuscript")
+        if manuscript.status in WORKING and budget_left > 0:
+            m["readiness"] = readiness_of(manuscript)
+            budget_left -= 1
+    live = (
+        Manuscript.objects.filter(project__status__in=statuses)
+        .exclude(status__in=("published", "shelved"))
+        .count()
+    )
+    return {"live": live, "rows": shown}
 
 
 def needs_attention(today=None, window_days=14):

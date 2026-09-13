@@ -874,6 +874,59 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #27 — 2026-09-13 (since #26: #479–#487 — the Project overview's third pass and its verdict, the Dashboard's first two slices)
+
+Ten cycles, nine feature slices, one performance pass, one honest look.
+
+**Dependencies — CLEAN.** `pip-audit` on the exported lock: *No known vulnerabilities found*.
+`npm audit --omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`: every row green (anon → 401
+across the API, pages → 302, catch-all 404, static MIME, `/app//evil.com` stays on-origin).
+
+**New surfaces since #26 — reviewed; one finding, fixed.**
+- *Auth:* `status-update`, the overview (now with `literature`, `notebook`, `pulse`) and the
+  dashboard (now with `reading`, `writing`) answer 401 anonymously and to a wrong key.
+- *Status update (#482):* `?days=` is clamped to 1–90 (`0`, `-5` → 1; `99999` → 90), a
+  non-integer (`abc`, `7.5`) is a 400. Titles and names go into markdown that is only ever
+  shown in a `<pre>` or copied to the clipboard — never rendered as HTML — so no injection
+  surface was added.
+- *Request-scoped memo (#484):* `enable_memo` is called in exactly one place (the API
+  overview); the cache lives on that request's model instance and dies with it, nothing is
+  shared across requests or threads, and instances that never opted in behave as before
+  (verified by the existing overview/plan tests, which mutate and re-ask).
+- *Decision deep links (#485):* `?id=` goes through `Number()` → `null` on garbage; the
+  highlight clears on the next pointer event and the listener is removed on unmount.
+- *Milestone check-off (#485), reading queue (#486), writing panel (#487):* the check-off
+  reuses the existing milestone PATCH through the CSRF-aware helper; the two panels are
+  read-only and scoped to planning/active projects.
+- *FINDING — the dashboard grew with the number of active projects (#487).* `writing_everywhere`
+  ran the pre-flight for every working manuscript in every active project before trimming to
+  six rows: 39 queries / 46 ms with the demo's one project, **102 queries / 104 ms** with three
+  more projects of three papers each (~20 queries per project). Fixed: the glance now takes
+  `readiness=False`, the dashboard sorts every project's papers first and runs the pre-flight
+  only for the rows it shows — at most four per load, most urgent first (`READINESS_ROWS`;
+  each pre-flight is ~10 queries / ~20 ms) — and the live count is one aggregate instead of
+  one per project → **78 queries / 91 ms** for the same four projects, the rest being the
+  per-project progress rows the dashboard has always listed. `test_api_dashboard_budget` pins
+  the API dashboard at ≤ 100 queries with three busy projects and nine drafting manuscripts
+  (six rows shown, four with a verdict). The model handle the glance rows now carry for that
+  purpose is stripped before the overview payload (`public_rows`).
+
+**Performance (warm, best of three, API key, demo data):** dashboard 69 ms (46 ms in-process)
+· project overview 98 ms (61 queries, budget ≤ 60 on a busy project after #484) · status update
+64 ms · references (50) 31 ms · plan 26 ms · search 65 ms · manuscripts 28 ms · manuscript
+detail 31 ms · pre-flight 36 ms · weekly review 29 ms · focus 23 ms. Everything at or under the
+100 ms bar; the overview sits at the bar and carries a pinned query budget so it cannot drift
+back to the 89 queries it had at #483.
+
+**Desktop CI — GREEN.** Runs 194–200 (0.1.194–0.1.200) all succeeded. Run 197 → 198 skipped a
+number for #484 because that commit touched only Python outside the paths the workflow watches
+(`desktop/**`, the workflow, the bundled Django sources) — expected, not a failure.
+
+**Product stance unchanged.** Single user, API key from the environment, no multi-tenancy;
+the risks accepted in #26 (user-supplied regex backtracking in project search) still stand.
+
+**Next audit due at #498.**
+
 ## Audit #26 — 2026-09-13 (since #25: #469–#477 — submit through the pre-flight, the style lint and its fixes, the figure audit, the status clock and the nudge, find and replace, go to definition)
 
 Back on the ten-cycle cadence. Nine feature slices, one honest look.

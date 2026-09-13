@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Audit #27: the dashboard's pre-flights are bounded (#488)
+
+**Decision.** `writing_everywhere` no longer asks the glance for readiness up front: it sorts every active project's live papers by urgency first, then runs the pre-flight only for the rows it will show, and for at most four of them per load (`READINESS_ROWS`, most urgent first); rows past that show no readiness pill. The live count is one aggregate query. `manuscripts_glance(readiness=False)` and `readiness_of()` expose the two halves; glance rows carry a private `_manuscript` handle that `public_rows()` strips before the overview payload.
+
+**Why.** The audit measured the dashboard at 39 queries with one project and 102 with four (three papers each): the pre-flight (~10 queries, ~20 ms) was running for every working paper in every project before the list was trimmed to six. Bounding it to the rows shown, and to four of those, keeps the dashboard under the 100 ms bar whatever the number of projects (78 queries / 91 ms for the same four). Four is the honest limit: a researcher with more than four papers in active drafting is rare, and the ones past the cut are the least urgent.
+
+**Alternatives.** Caching pre-flight verdicts on the manuscript (invalidation on every file save, compile and bibliography change — a lot of machinery for a dashboard glance; parked as backlog #311); running all six (over the bar with six drafting papers); dropping readiness from the dashboard (the pill is the point of the panel).
+
 ### 2026-09-13 — Dashboard: "Writing", everywhere (#487)
 
 **Decision.** `core/dashboard.py::writing_everywhere(limit=6)` — every live manuscript (not published, not shelved) across planning/active projects, each row exactly what the project overview's manuscripts glance shows (status, venue, deadline days, status clock with the nudge flag, pre-flight readiness while the paper is being worked on) plus the project; sorted by urgency: nearest deadline first, then papers whose editor deserves a nudge, then by id. On the dashboard payload as `writing` (MCP `get_dashboard` documents it). The page's *Deadlines* panel becomes *Writing* — the same rows the overview shows, cross-project, with the calendar-subscribe control kept in its header. The `deadlines` list stays in the payload for the calendar feed and older clients.
@@ -2492,6 +2500,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 ## Backlog
 
 308. ~~The `codemirror-lang-latex` package runs its own linter (missing `\documentclass`, per-file undefined `\ref`) whose underlines appear in the editor but never in the Problems panel, and whose per-file label check contradicts the cross-file one from #470 — either route its diagnostics through the panel with a `latex` tag or disable it in favour of `writing/lint.py` (idea added by #470)~~ (done 2026-09-12, #471: the package linter is off; its environment and brace checks live in writing/lint.py)
+311. Cache the pre-flight verdict on the manuscript (ready/fails/warns/summary + a source hash) so the overview and dashboard glances read it instead of re-running ~10 queries per paper; invalidate on file save, compile, bibliography change (idea added by Audit #27, #488)
 310. "Since your last visit" on the project overview — a per-project last-opened timestamp and a diff of what changed since (papers added by the watched folder, bot captures, milestones slipped); parked at #485 because the week digest + pulse cover the need without per-visit bookkeeping (idea added by cycle 485)
 309. `latexdiff` between two labeled revisions as a marked-up PDF — needs Perl (present on macOS/Linux, not Windows); vendor latexdiff.pl and run it through the compile pipeline when Perl is found, else say so (idea added by #477)
 307. Port `mcp_server/` to the mcp 2.x API (FastMCP → MCPServer, transport changes) so the `<2` pin from Audit #25 can go; keep the 102-tool contract and the README/docs guards unchanged (idea added by Audit #25)

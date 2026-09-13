@@ -62,10 +62,26 @@ def open_questions(project, limit: int = 6) -> list[dict]:
 WORKING = ("outlining", "drafting", "internal_review", "revision")  # #479: pre-flight shown
 
 
-def manuscripts_glance(project, today: date | None = None, limit: int = 4) -> list[dict]:
+def public_rows(rows: list[dict]) -> list[dict]:
+    """Strip the model handles glance rows carry for callers that need them (#488)."""
+    return [{k: v for k, v in row.items() if not k.startswith("_")} for row in rows]
+
+
+def readiness_of(manuscript) -> dict:
+    """#479: the pre-flight verdict, compressed to what a glance needs."""
+    from writing.preflight import preflight
+
+    r = preflight(manuscript)
+    return {"ready": r["ready"], "fails": r["fails"], "warns": r["warns"], "summary": r["summary"]}
+
+
+def manuscripts_glance(
+    project, today: date | None = None, limit: int = 4, readiness: bool = True
+) -> list[dict]:
+    """`readiness=False` (#488) skips the pre-flight — the dashboard sorts every project's
+    papers first and runs it only for the rows it will show."""
     from writing.budget import budget
     from writing.clock import WAITING, nudge, status_clock, venue_turnaround
-    from writing.preflight import preflight
 
     today = today or timezone.localdate()
     live = [
@@ -86,15 +102,6 @@ def manuscripts_glance(project, today: date | None = None, limit: int = 4) -> li
             if key not in turnarounds:
                 turnarounds[key] = venue_turnaround(m.target_venue)
             clock["nudge"] = nudge(m, clock, today, turnarounds[key])
-        readiness = None
-        if m.status in WORKING:
-            r = preflight(m)
-            readiness = {
-                "ready": r["ready"],
-                "fails": r["fails"],
-                "warns": r["warns"],
-                "summary": r["summary"],
-            }
         out.append(
             {
                 "id": m.pk,
@@ -105,7 +112,8 @@ def manuscripts_glance(project, today: date | None = None, limit: int = 4) -> li
                 "target_venue": m.target_venue,
                 "over": b["over"] if b else [],
                 "clock": clock,
-                "readiness": readiness,
+                "readiness": readiness_of(m) if readiness and m.status in WORKING else None,
+                "_manuscript": m,
             }
         )
     return out
