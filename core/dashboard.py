@@ -379,6 +379,76 @@ def monthly_stats(today=None):
     }
 
 
+TREND_MONTHS = 6
+
+
+def _month_starts(today, months: int) -> list[datetime.date]:
+    first = today.replace(day=1)
+    out = [first]
+    for _ in range(months - 1):
+        first = (first - datetime.timedelta(days=1)).replace(day=1)
+        out.append(first)
+    return list(reversed(out))
+
+
+def stats_trend(today=None, months: int = TREND_MONTHS) -> dict:
+    """#490: the monthly stats over the last `months` months (oldest first, the current month
+    last), one grouped query per stat, with the same definitions `monthly_stats` uses for
+    the current month — so the tile and its trend never disagree. `previous` is last month."""
+    from writing.models import WordCountSample
+
+    today = today or timezone.localdate()
+    starts = _month_starts(today, months)
+    window = starts[0]
+    index = {(d.year, d.month): i for i, d in enumerate(starts)}
+    series = {
+        k: [0] * months
+        for k in (
+            "papers_read",
+            "notes_written",
+            "milestones_done",
+            "experiments_logged",
+            "words_written",
+        )
+    }
+
+    def hit(key: str, day):
+        if isinstance(day, datetime.datetime):
+            day = timezone.localtime(day).date()
+        i = index.get((day.year, day.month))
+        if i is not None:
+            series[key][i] += 1
+
+    for when in ProjectReference.objects.filter(
+        reading_status__in=["read", "annotated"], updated_at__date__gte=window
+    ).values_list("updated_at", flat=True):
+        hit("papers_read", when)
+    for when in Note.objects.filter(created_at__date__gte=window).values_list(
+        "created_at", flat=True
+    ):
+        hit("notes_written", when)
+    for when in Milestone.objects.filter(completed_at__date__gte=window).values_list(
+        "completed_at", flat=True
+    ):
+        hit("milestones_done", when)
+    for when in ExperimentEntry.objects.filter(date__gte=window).values_list("date", flat=True):
+        hit("experiments_logged", when)
+    previous: dict[int, int] = {}
+    for manuscript_id, day, words in WordCountSample.objects.order_by(
+        "manuscript_id", "date"
+    ).values_list("manuscript_id", "date", "words"):
+        if manuscript_id in previous:
+            i = index.get((day.year, day.month))
+            if i is not None:
+                series["words_written"][i] += max(0, words - previous[manuscript_id])
+        previous[manuscript_id] = words
+    return {
+        "months": [d.strftime("%Y-%m") for d in starts],
+        "series": series,
+        "previous": {k: v[-2] if months >= 2 else 0 for k, v in series.items()},
+    }
+
+
 def words_written_since(start) -> int:
     """Words added to manuscripts since ``start`` (#418): the sum of positive day-to-day
     deltas of the daily word samples (#413), across every manuscript."""

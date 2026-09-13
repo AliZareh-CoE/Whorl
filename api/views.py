@@ -3048,6 +3048,7 @@ class DashboardAPIView(APIView):
             pulses_everywhere,
             quiet_projects,
             reading_queue_everywhere,
+            stats_trend,
             week_everywhere,
             writing_everywhere,
         )
@@ -3061,6 +3062,7 @@ class DashboardAPIView(APIView):
         return Response(
             {
                 "stats": data["stats"],
+                "trends": stats_trend(),  # #490: six months per stat, last month for the delta
                 "inbox_count": data["inbox_count"],
                 # Dashboard v2 slice 1: this week everywhere, per-project health, heatmap, today
                 "week": week_everywhere(),

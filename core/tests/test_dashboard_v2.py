@@ -225,3 +225,50 @@ def test_pulses_everywhere_bins_per_project_and_flags_quiet_ones(client_logged_i
         "attention.quiet",
     ):
         assert needle in tsx, needle
+
+
+def test_stats_trend_bins_six_months_with_the_current_month_last(client_logged_in):
+    """#490: one series per stat over six months, same definitions as the tiles, last month
+    as `previous`; API + TSX surfaces."""
+    from pathlib import Path
+
+    from core.dashboard import monthly_stats, stats_trend
+    from notes.models import Note
+    from writing.models import Manuscript, WordCountSample
+
+    today = D(2026, 9, 13)
+    project = ProjectFactory()
+    phase = PhaseFactory(project=project, order=1)
+    for day in (D(2026, 9, 2), D(2026, 8, 20), D(2026, 8, 3), D(2026, 4, 1), D(2026, 3, 31)):
+        m = MilestoneFactory(phase=phase, title=f"m{day}")
+        m.completed_at = timezone.make_aware(datetime.datetime.combine(day, datetime.time(12)))
+        m.save()
+    n = Note.objects.create(project=project, title="Now")
+    Note.objects.filter(pk=n.pk).update(
+        created_at=timezone.make_aware(datetime.datetime(2026, 7, 4, 9, 0))
+    )
+    paper = Manuscript.objects.create(project=project, title="P", status="drafting")
+    for day, words in (
+        (D(2026, 7, 1), 100),
+        (D(2026, 8, 1), 400),
+        (D(2026, 8, 15), 300),
+        (D(2026, 9, 1), 350),
+    ):
+        WordCountSample.objects.create(manuscript=paper, date=day, words=words)
+    out = stats_trend(today=today)
+    assert out["months"] == ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
+    assert out["series"]["milestones_done"] == [1, 0, 0, 0, 2, 1]  # March is outside
+    assert out["series"]["notes_written"] == [0, 0, 0, 1, 0, 0]
+    assert out["series"]["words_written"] == [0, 0, 0, 0, 300, 50]  # only positive deltas
+    assert out["previous"]["milestones_done"] == 2 and out["previous"]["words_written"] == 300
+    assert out["series"]["milestones_done"][-1] == monthly_stats(today=today)["milestones_done"]
+    body = client_logged_in.get("/api/v1/dashboard/").json()
+    assert len(body["trends"]["months"]) == 6 and "papers_read" in body["trends"]["series"]
+    tsx = Path("frontend/src/app/pages/Dashboard.tsx").read_text()
+    for needle in (
+        'data-testid="stat-trend"',
+        'data-testid="stat-delta"',
+        "trends?.series",
+        "trends?.previous",
+    ):
+        assert needle in tsx, needle

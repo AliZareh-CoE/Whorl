@@ -779,7 +779,8 @@ def get_dashboard() -> dict:
     nudge flag while a venue sits on it, the pre-flight readiness while it is being worked on,
     and the deadline (#487). Each active project carries its `pulse` (twelve weekly activity
     counts, total, quiet_weeks, last_activity) and `attention.quiet` lists active projects
-    silent for three weeks or more (#489)."""
+    silent for three weeks or more (#489). `trends` carries six months per stat (papers read,
+    notes, milestones, lab entries, words) and last month's value for a delta (#490)."""
     return client.get_dashboard()
 
 

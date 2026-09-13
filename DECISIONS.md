@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Dashboard: stat tiles with a six-month trend and a delta (#490)
+
+**Decision.** `core/dashboard.py::stats_trend(months=6)` bins each monthly stat — papers read, notes written, milestones done, lab entries, words written — into the last six calendar months with exactly the definitions `monthly_stats` uses for the current tile (so tile and trend cannot disagree), one grouped query per stat; `previous` is last month's value. The payload carries it as `trends`; each stat tile shows six slim bars (the current month brighter) and a calm "▲ 3 vs Aug" / "▼ 2 vs Aug" / "= vs Aug" line in stone grey — no green/red: a research month is not a sales quarter.
+
+**Why.** A number without context is a number; "8 papers read this month" says nothing about whether that is a good month for this researcher. The trend answers it against the only baseline that matters — their own last six months — and the delta says it in three characters. The stats already existed; this makes them legible.
+
+**Alternatives.** Colour-coded deltas (judgemental — a low month is often a fieldwork month); a separate "trends" page (the tiles are where the eye lands); twelve months (the tiles are 200 px wide; six bars stay readable).
+
 ### 2026-09-13 — Dashboard: every project card carries its pulse (#489)
 
 **Decision.** `core/dashboard.py::pulses_everywhere(projects)` computes the twelve-week pulse of #483 for every active project at once — one grouped `values_list` per event source (milestones done, papers added/read, notes, hypotheses, lab entries, decisions, documents, submission events, compiles), binned in Python into Monday-based weeks — so the cost is nine queries however many projects there are, not a timeline pass per project. Each row of `active` carries `pulse` (weeks, total, quiet_weeks, last_activity, days_since); the project card shows a 24-px-wide strip of twelve bars (square-root scale, hollow silent weeks, glowing peak) with "n in 12 wk" or "quiet n wk". `quiet_projects` turns any active project flat for three weeks or more into a *quiet* row in *Needs attention* ("nothing logged for 4 weeks · last activity 30 d ago"), and the all-clear state accounts for it.

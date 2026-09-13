@@ -43,6 +43,7 @@ type Dash = {
   milestones: { title: string; project: string; due_date: string | null; overdue: boolean; url: string }[];
   deadlines: { title: string; deadline: string | null; url: string }[];
   writing?: { live: number; rows: { id: number; title: string; status: string; deadline: string | null; days: number | null; target_venue: string; project: string; project_slug: string; over: string[]; clock: { days: number; label: string; nudge?: { due: boolean; waited: number; after_days: number; basis: string } } | null; readiness: { ready: boolean; fails: number; warns: number; summary: string } | null }[] };
+  trends?: { months: string[]; series: Record<string, number[]>; previous: Record<string, number> };
   reading?: { to_read: number; high_priority: number; projects: number; next: { id: number; title: string; first_author: string; year: number | null; priority: string; project: string; project_slug: string; waiting_days: number }[] };
 };
 
@@ -155,11 +156,25 @@ function OrbitRing({ percent, color, size = 44 }: { percent: number; color: stri
   );
 }
 
-function Stat({ value, label, i, to }: { value: number; label: string; i: number; to?: string }) {
+/** #490: a stat tile carries its six-month trend (bars, the current month last and brighter)
+ *  and how this month compares with the last — calm, no colour judgement: research months
+ *  are not sales quarters. */
+function Stat({ value, label, i, to, series, previous, months }: { value: number; label: string; i: number; to?: string; series?: number[]; previous?: number; months?: string[] }) {
+  const max = series ? Math.max(1, ...series) : 1;
+  const delta = previous == null ? null : value - previous;
+  const lastMonth = months && months.length >= 2 ? new Date(`${months[months.length - 2]}-01T00:00:00`).toLocaleDateString(undefined, { month: "short" }) : "last month";
   const inner = (
     <>
-      <p className="font-display text-gradient text-4xl font-bold tabular-nums leading-none">{value}</p>
+      <div className="flex items-end justify-between gap-2">
+        <p className="font-display text-gradient text-4xl font-bold tabular-nums leading-none">{value}</p>
+        {series && series.length > 0 && (
+          <span className="flex h-6 items-end gap-[3px]" data-testid="stat-trend" aria-hidden="true" title={series.map((n, k) => `${months?.[k] ?? k}: ${n}`).join(" · ")}>
+            {series.map((n, k) => <span key={k} className={`w-1.5 rounded-sm ${k === series.length - 1 ? "bg-indigo-500 dark:bg-indigo-400" : "bg-stone-300 dark:bg-stone-700"}`} style={{ height: n ? Math.max(3, Math.round((n / max) * 24)) : 2 }} />)}
+          </span>
+        )}
+      </div>
       <p className="mt-2 text-xs text-stone-400 dark:text-stone-400">{label}</p>
+      {delta != null && <p className="mt-0.5 text-[11px] tabular-nums text-stone-400 dark:text-stone-500" data-testid="stat-delta">{delta > 0 ? `▲ ${delta}` : delta < 0 ? `▼ ${-delta}` : "="} vs {lastMonth}</p>}
     </>
   );
   return (
@@ -373,10 +388,10 @@ export default function Dashboard() {
       {!calm && (
         <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <Stat value={data.todos_open} label="on today's list" i={2} to="/today" />
-          <Stat value={data.stats.papers_read} label="papers read this month" i={3} />
-          <Stat value={data.stats.notes_written} label="notes written this month" i={4} />
-          <Stat value={data.stats.words_written} label="words written this month" i={5} to="/writing" />
-          <Stat value={data.stats.milestones_done} label="milestones completed" i={6} />
+          <Stat value={data.stats.papers_read} label="papers read this month" i={3} series={data.trends?.series.papers_read} previous={data.trends?.previous.papers_read} months={data.trends?.months} />
+          <Stat value={data.stats.notes_written} label="notes written this month" i={4} series={data.trends?.series.notes_written} previous={data.trends?.previous.notes_written} months={data.trends?.months} />
+          <Stat value={data.stats.words_written} label="words written this month" i={5} to="/writing" series={data.trends?.series.words_written} previous={data.trends?.previous.words_written} months={data.trends?.months} />
+          <Stat value={data.stats.milestones_done} label="milestones completed" i={6} series={data.trends?.series.milestones_done} previous={data.trends?.previous.milestones_done} months={data.trends?.months} />
           <Stat value={data.inbox_count} label="inbox items to triage" i={7} to="/inbox" />
         </div>
       )}
