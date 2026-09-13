@@ -258,6 +258,34 @@ def writing_everywhere(today=None, limit: int = 6) -> dict:
     return {"live": live, "rows": shown}
 
 
+DAY_PROJECTS = 40  # #492: a day panel reads at most this many projects' timelines
+
+
+def day_activity(day: datetime.date) -> dict:
+    """#492: everything that happened on one day, across every project — the readable
+    events of the project timelines (milestones done, papers added or read, notes, decisions,
+    lab entries, hypotheses, documents, submission events, compiles), newest project first.
+    On demand (a click on the heatmap), so a timeline pass per project is acceptable."""
+    from core.timeline import project_timeline
+
+    iso = day.isoformat()
+    events: list[dict] = []
+    for project in Project.objects.order_by("-updated_at")[:DAY_PROJECTS]:
+        for e in project_timeline(project, bodies=False):
+            if e["date"] == iso:
+                events.append(
+                    {
+                        "kind": e["kind"],
+                        "label": e["label"],
+                        "detail": e.get("detail", ""),
+                        "url": e["url"],
+                        "project": project.name,
+                        "project_slug": project.slug,
+                    }
+                )
+    return {"date": iso, "count": len(events), "events": events}
+
+
 def needs_attention(today=None, window_days=14):
     """The lead of the dashboard ([REV] cycle 145): the ANSWER to "what should I
     work on today?", not just data. Overdue milestones, manuscript deadlines

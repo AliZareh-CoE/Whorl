@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_not_required
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
@@ -3045,6 +3046,28 @@ class DailyBriefAPIView(APIView):
         from core.brief import daily_brief
 
         return Response(daily_brief())
+
+
+class DayActivityAPIView(APIView):
+    """#492: what happened on one day, across every project."""
+
+    @extend_schema(
+        parameters=[OpenApiParameter("date", str, description="YYYY-MM-DD (default: today).")],
+        description="Everything that happened on one day across every project (#492): the "
+        "readable timeline events — milestones done, papers added or read, notes, decisions, "
+        "lab entries, hypotheses, documents, submission events, compiles — each with its "
+        "project and a link. Backs a click on the dashboard heatmap.",
+        responses={200: OpenApiResponse(description="{date, count, events}")},
+    )
+    def get(self, request):
+        from core.dashboard import day_activity
+
+        raw = request.query_params.get("date")
+        try:
+            day = datetime.date.fromisoformat(raw) if raw else timezone.localdate()
+        except ValueError:
+            return Response({"detail": "date must be YYYY-MM-DD"}, status=400)
+        return Response(day_activity(day))
 
 
 class DashboardAPIView(APIView):

@@ -623,3 +623,13 @@ def test_get_daily_brief_builds_request(capture):
 
     client.get_daily_brief()
     assert capture["method"] == "GET" and calls_url_has(capture, "/dashboard/brief/")
+
+
+def test_get_day_activity_builds_request(capture):
+    """#492"""
+    from mcp_server import client
+
+    client.get_day_activity("2026-09-08")
+    assert calls_url_has(capture, "/dashboard/day/") and "date=2026-09-08" in capture["url"]
+    client.get_day_activity()
+    assert "date=" not in capture["url"]

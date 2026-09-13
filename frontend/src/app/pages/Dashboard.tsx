@@ -573,8 +573,13 @@ function WeekEverywhere({ week }: { week: Dash["week"] }) {
 }
 
 /** GitHub-style activity heatmap over the last 26 weeks (created/updated rows across models). */
+type DayEvent = { kind: string; label: string; detail: string; url: string; project: string; project_slug: string };
+
 function Heatmap({ weeks }: { weeks: Dash["heatmap"] }) {
   const LEVEL = ["bg-stone-100 dark:bg-stone-800", "bg-indigo-500/25", "bg-indigo-500/45", "bg-indigo-500/70", "bg-indigo-400"];
+  // #492: a cell is a button; the chosen day's events come from /dashboard/day/ on demand
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const dayQ = useQuery({ queryKey: ["day-activity", selectedDay], queryFn: () => api<{ date: string; count: number; events: DayEvent[] }>(`/dashboard/day/?date=${selectedDay}`), enabled: !!selectedDay, staleTime: 60_000 });
   const total = weeks.flat().reduce((n, c) => n + c.count, 0);
   const months: { label: string; col: number }[] = [];
   weeks.forEach((w, i) => { const d = new Date(`${w[0].date}T00:00:00`); if (d.getDate() <= 7) months.push({ label: d.toLocaleDateString(undefined, { month: "short" }), col: i }); });
@@ -587,12 +592,34 @@ function Heatmap({ weeks }: { weeks: Dash["heatmap"] }) {
           <div className="mt-3 flex gap-[3px]">
             {weeks.map((w, i) => (
               <div key={i} className="flex flex-col gap-[3px]">
-                {w.map((c) => <span key={c.date} className={`block h-[11px] w-[11px] rounded-[2px] ${LEVEL[c.level] ?? LEVEL[0]}`} title={`${c.date} · ${c.count} change${c.count === 1 ? "" : "s"}`} />)}
+                {w.map((c) => <button key={c.date} type="button" onClick={() => setSelectedDay((d) => (d === c.date ? null : c.date))} aria-label={`${c.date}: ${c.count} change${c.count === 1 ? "" : "s"}`} aria-pressed={selectedDay === c.date} className={`block h-[11px] w-[11px] rounded-[2px] transition-shadow hover:ring-1 hover:ring-indigo-400 ${selectedDay === c.date ? "ring-1 ring-indigo-500 ring-offset-1 ring-offset-white dark:ring-offset-stone-900" : ""} ${LEVEL[c.level] ?? LEVEL[0]}`} title={`${c.date} · ${c.count} change${c.count === 1 ? "" : "s"} — click for the day`} data-testid="heatmap-day" />)}
               </div>
             ))}
           </div>
         </div>
       </div>
+      {selectedDay && (
+        <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm dark:border-stone-800 dark:bg-stone-950/30" data-testid="day-panel">
+          <div className="mb-1.5 flex items-baseline justify-between gap-3">
+            <p className="text-xs font-medium text-stone-700 dark:text-stone-200">{new Date(`${selectedDay}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}{dayQ.data ? ` · ${dayQ.data.count} event${dayQ.data.count === 1 ? "" : "s"}` : ""}</p>
+            <button type="button" onClick={() => setSelectedDay(null)} className="text-[11px] text-stone-400 hover:text-stone-700 dark:hover:text-stone-200">close</button>
+          </div>
+          {dayQ.isLoading && <p className="text-xs text-stone-400">Looking…</p>}
+          {dayQ.error && <p className="text-xs text-red-500">Couldn't load that day.</p>}
+          {dayQ.data && dayQ.data.count === 0 && <p className="text-xs text-stone-400">Nothing logged that day — the heatmap counts every change, including edits; the timeline lists the events.</p>}
+          {dayQ.data && dayQ.data.count > 0 && (
+            <ul className="space-y-0.5">
+              {dayQ.data.events.map((e, i) => (
+                <li key={i} className="flex items-baseline gap-2 text-xs">
+                  <span className="shrink-0 rounded-full bg-stone-200/70 px-1.5 text-[10px] text-stone-600 dark:bg-stone-800 dark:text-stone-300">{e.kind.replace("_", " ")}</span>
+                  <Link to={e.url} className="min-w-0 flex-1 truncate text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300" title={e.detail || e.label}>{e.label}</Link>
+                  <span className="shrink-0 text-stone-400">{e.project}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </section>
   );
 }

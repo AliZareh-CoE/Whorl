@@ -727,6 +727,11 @@ def get_daily_brief():
     return _request("GET", "/dashboard/brief/")
 
 
+def get_day_activity(date: str | None = None):
+    """#492: everything that happened on one day, across every project."""
+    return _request("GET", "/dashboard/day/", params={"date": date} if date else None)
+
+
 def list_inbox():
     """Untriaged captures with detected hints (paper / note / todo / …)."""
     return _request("GET", "/quick-capture/", params={"processed": "false", "page_size": 100})

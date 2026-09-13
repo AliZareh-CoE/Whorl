@@ -796,6 +796,15 @@ def get_daily_brief() -> dict:
 
 
 @mcp.tool()
+def get_day_activity(date: str = "") -> dict:
+    """What happened on one day, across every project (#492): milestones done, papers added
+    or read, notes, decisions, lab entries, hypotheses, documents, submission events and
+    compiles, each with its project and a link. `date` is YYYY-MM-DD (blank = today). Use it
+    for "what did I do on Tuesday?" or to fill in a lab notebook after the fact."""
+    return client.get_day_activity(date or None)
+
+
+@mcp.tool()
 def list_inbox() -> dict:
     """Captures waiting for triage, each with a `hint` (suggested target and any DOI / arXiv id /
     URL found in the text)."""

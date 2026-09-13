@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Dashboard: a clickable heatmap (#492)
+
+**Decision.** Every cell of the 26-week activity heatmap is a button: clicking a day opens a panel under the grid listing what happened that day across every project — the readable events of the project timelines (milestones done, papers added or read, notes, decisions, lab entries, hypotheses, documents, submission events, compiles), each with a kind chip, a link and its project — from `GET /dashboard/day/?date=` (`core/dashboard.py::day_activity`, a timeline pass per project on demand, capped at forty projects). MCP `get_day_activity(date)` (112 tools). The cell counts stay what they were — every change, edits included — and the empty-day panel says so, so a "3 changes" cell with no events is explained rather than confusing.
+
+**Why.** A GitHub-style graph that cannot answer "what did I do that Tuesday?" is decoration. The timeline had the answer per project; the dashboard is where the question is asked across all of them, and the lab-notebook use ("fill in Thursday after the fact") is a real one.
+
+**Alternatives.** Making the cell counts event-based (the heatmap has meant "changes" since the SPA's first dashboard; changing the definition would rewrite six months of a user's graph); a grouped cross-project query as for the pulses (labels and links per source would duplicate the timeline; a click can afford the pass); a hover popover (touch and keyboard users need the click; the button is focusable and pressed-state announced).
+
 ### 2026-09-13 — Dashboard: "Copy today's brief" (#491)
 
 **Decision.** `core/brief.py::daily_brief()` renders the dashboard as a paste-ready markdown note — *Needs you* (overdue milestones, deadlines inside two weeks, papers a venue has sat on, quiet projects, inbox count, a stale backup), *On your list* as `- [ ]` items, *This week, everywhere*, *Next to read*, *Writing* (status, project, deadline, clock, nudge, readiness), *Projects* (phase, milestones, rhythm) and *This month* with deltas against last month — from the same helpers the dashboard renders. `GET /dashboard/brief/` returns `{date, markdown, needs, todos, reading, writing}`; the hero gets *Copy today's brief* next to the ⌘K pill (clipboard + a wide preview, the preview being the fallback); MCP `get_daily_brief` (111 tools).

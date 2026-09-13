@@ -8,6 +8,8 @@
 
 - **Cadence change (2026-09-12, owner):** one shipped slice per hour — `/loop 1h /cycle` fires `/cycle` at the top of every hour; each firing ships one slice. The owner merged the branch into `main` via PR #1 (branch A1); this branch keeps receiving slices.
 
+- **Dashboard — slice 6 (2026-09-13, #492, 112 tools).** Clickable heatmap: cells are buttons (aria-pressed, ring), a day panel under the grid lists that day's timeline events across every project with kind chips, links and projects; `GET /dashboard/day/?date=` (`day_activity`, 400 on a bad date, today by default); MCP `get_day_activity`. Tests: core/tests/test_dashboard_v2.py (test_day_activity_lists_one_day_across_projects), mcp client test. Playwright: clicking 2026-09-12 lists the demo's milestones, papers and notes, both themes.
+
 - **Dashboard — slice 5 (2026-09-13, #491, 111 tools).** `core/brief.py::daily_brief` (needs you, on your list, this week everywhere, next to read, writing, projects with rhythm, this month with deltas → markdown), `GET /dashboard/brief/`, hero *Copy today's brief* (clipboard + wide preview), MCP `get_daily_brief`. Tests: core/tests/test_brief.py (3), mcp client test. Playwright: the button copies the demo brief ("Today's brief copied"), both themes; anonymous → 401.
 
 - **Dashboard — slice 4 (2026-09-13, #490).** `stats_trend` (six months per stat with the tiles' own definitions, `previous` = last month, one grouped query per stat) on the dashboard payload as `trends`; stat tiles show six trend bars and a calm "▲ n vs Aug" delta; MCP `get_dashboard` docstring. Tests: core/tests/test_dashboard_v2.py (test_stats_trend_bins_six_months_with_the_current_month_last). Playwright: the demo tiles show the bars with September brightest, both themes.

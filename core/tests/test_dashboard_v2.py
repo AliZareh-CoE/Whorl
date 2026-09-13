@@ -272,3 +272,51 @@ def test_stats_trend_bins_six_months_with_the_current_month_last(client_logged_i
         "trends?.previous",
     ):
         assert needle in tsx, needle
+
+
+def test_day_activity_lists_one_day_across_projects(client_logged_in):
+    """#492: the readable events of one day, every project, with links; the API validates
+    the date; the heatmap cells are buttons that open the day panel."""
+    from pathlib import Path
+
+    from core.dashboard import day_activity
+    from notes.models import Note
+    from projects.models import DecisionRecord
+
+    day = D(2026, 9, 8)
+    a = ProjectFactory(name="Alpha")
+    b = ProjectFactory(name="Beta")
+    phase = PhaseFactory(project=a, order=1)
+    m = MilestoneFactory(phase=phase, title="Pilot done")
+    m.completed_at = timezone.make_aware(datetime.datetime.combine(day, datetime.time(10)))
+    m.save()
+    DecisionRecord.objects.create(project=b, title="Go dual-task", decision="yes", decided_on=day)
+    DecisionRecord.objects.create(
+        project=b, title="Other day", decision="no", decided_on=day - datetime.timedelta(days=1)
+    )
+    n = Note.objects.create(project=a, title="Same-day note")
+    Note.objects.filter(pk=n.pk).update(
+        created_at=timezone.make_aware(datetime.datetime.combine(day, datetime.time(15)))
+    )
+    out = day_activity(day)
+    assert out["date"] == "2026-09-08" and out["count"] == 3
+    labels = {(e["kind"], e["label"], e["project"]) for e in out["events"]}
+    assert labels == {
+        ("milestone", "Pilot done", "Alpha"),
+        ("note", "Same-day note", "Alpha"),
+        ("decision", "Go dual-task", "Beta"),
+    }
+    assert all(e["url"] and e["project_slug"] for e in out["events"])
+    assert day_activity(D(2020, 1, 1))["count"] == 0
+    r = client_logged_in.get("/api/v1/dashboard/day/?date=2026-09-08")
+    assert r.status_code == 200 and r.json()["count"] == 3
+    assert client_logged_in.get("/api/v1/dashboard/day/?date=nope").status_code == 400
+    assert client_logged_in.get("/api/v1/dashboard/day/").status_code == 200
+    tsx = Path("frontend/src/app/pages/Dashboard.tsx").read_text()
+    for needle in (
+        'data-testid="heatmap-day"',
+        'data-testid="day-panel"',
+        "/dashboard/day/?date=",
+        "setSelectedDay",
+    ):
+        assert needle in tsx, needle
