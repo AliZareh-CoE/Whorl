@@ -8,6 +8,8 @@
 
 - **Cadence change (2026-09-12, owner):** one shipped slice per hour — `/loop 1h /cycle` fires `/cycle` at the top of every hour; each firing ships one slice. The owner merged the branch into `main` via PR #1 (branch A1); this branch keeps receiving slices.
 
+- **Project overview — slice 7 + verdict (2026-09-13, #485).** Next-milestones check-off on the overview (optimistic row removal + ring/count update, PATCH /milestones/{id}/), recent decisions deep-link into the log (`?id=` scroll + expand + ring). **Verdict:** the Project overview is judged best-in-field for a single-user tool (DECISIONS); current area → **Dashboard** from #486; Audit #27 due at #488. Tests: projects/tests/test_overview_v2.py (test_overview_polish_check_off_and_decision_deep_links).
+
 - **Project overview — slice 6 (2026-09-13, #484).** Performance pass on the API overview: `core/memo.py` request-scoped memo (timeline, roadmap, current phase, progress computed once per request), pre-flight bibliography N+1 fixed, deferred-field loads removed, question phases prefetched; 89 queries / 117 ms → 61 / 94 ms warm on the demo project; `test_api_overview_budget` pins ≤ 60 queries on a busy project. Tests: core/tests/test_query_budgets.py.
 
 - **Project overview — slice 5 (2026-09-13, #483).** `pulse` (12 Monday-based weeks: count + kinds, total, busiest, quiet_weeks, last_activity, days_since) on the overview payload; a *Pulse* bar strip in the header (sqrt scale, hollow silent weeks, glowing peak, per-week tooltips, caption "41 events in 12 wk · peak Sep 7" / "quiet n wk · last …"). Tests: projects/tests/test_overview_v2.py (test_pulse_bins_twelve_weeks_and_finds_the_quiet_streak). Playwright: 12 bars, the last titled "Sep 7 – Sep 13: 3 milestones, 22 papers added, …", both themes.

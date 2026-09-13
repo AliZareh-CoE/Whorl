@@ -269,3 +269,28 @@ def test_pulse_bins_twelve_weeks_and_finds_the_quiet_streak(client_logged_in):
         "pulse.busiest",
     ):
         assert needle in tsx, needle
+
+
+def test_overview_polish_check_off_and_decision_deep_links():
+    """#485: the Next milestones rows carry a tick that PATCHes the milestone; recent decisions
+    deep-link into the log, which scrolls to and rings the entry."""
+    from pathlib import Path
+
+    tsx = Path("frontend/src/app/pages/ProjectOverview.tsx").read_text()
+    for needle in (
+        'data-testid="next-milestone-done"',
+        "completeMilestone.mutate(m.id)",
+        "/milestones/${id}/",
+        'data-testid="recent-decision"',
+        "/decisions?id=${d.id}",
+    ):
+        assert needle in tsx, needle
+    decisions = Path("frontend/src/app/pages/Decisions.tsx").read_text()
+    for needle in (
+        "useSearchParams",
+        'searchParams.get("id")',
+        "id={`decision-${d.id}`}",
+        "scrollIntoView",
+        'data-highlighted={highlight === d.id ? "1" : undefined}',
+    ):
+        assert needle in decisions, needle

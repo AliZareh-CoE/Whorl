@@ -5,8 +5,8 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Activity, Archive, ArchiveRestore, BookOpen, ClipboardList, FileText, FlaskConical, HelpCircle, NotebookPen, PenLine, Settings2, Trash2 } from "lucide-react";
-import { api } from "../api";
+import { Activity, Archive, ArchiveRestore, BookOpen, Check, ClipboardList, FileText, FlaskConical, HelpCircle, NotebookPen, PenLine, Settings2, Trash2 } from "lucide-react";
+import { api, petReact } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 import { confirmDialog, errorDialog, noticeDialog } from "../../components/Dialog";
@@ -175,6 +175,15 @@ export default function ProjectOverview() {
   const [searchParams] = useSearchParams();
   const [settingsOpen, setSettingsOpen] = useState(searchParams.get("settings") === "1");
   const actions = useProjectActions(slug ?? "", data?.project.name ?? "", data?.project.status ?? "");
+  const queryClient = useQueryClient();
+  // #485: tick a milestone straight from the Next milestones list — the same PATCH the focus
+  // panel and the plan use; the row leaves the list at once and the page refetches behind it
+  const completeMilestone = useMutation({
+    mutationFn: (id: number) => api(`/milestones/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ completed_at: new Date().toISOString() }) }),
+    onMutate: (id) => { petReact("milestone"); queryClient.setQueryData<Overview>(["overview", slug], (old) => old ? { ...old, next_milestones: old.next_milestones.filter((m) => m.id !== id), progress: { ...old.progress, done: old.progress.done + 1, percent: old.progress.total ? Math.round(100 * (old.progress.done + 1) / old.progress.total) : 0 } } : old); },
+    onError: (e) => void errorDialog("Could not complete the milestone", e),
+    onSettled: () => { queryClient.invalidateQueries({ queryKey: ["overview", slug] }); queryClient.invalidateQueries({ queryKey: ["projects"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["focus", slug] }); queryClient.invalidateQueries({ queryKey: ["plan", slug] }); },
+  });
   if (isLoading) return <div role="status" aria-label="Loading" className="space-y-4"><Skeleton className="h-4 w-40" /><Skeleton className="h-8 w-72" /><SkeletonCard /><div className="grid gap-4 lg:grid-cols-2"><SkeletonCard /><SkeletonCard /></div></div>;
   if (error || !data) return <ErrorState message="Couldn't load this project." onRetry={() => refetch()} />;
   const { project, progress } = data;
@@ -306,7 +315,7 @@ export default function ProjectOverview() {
         <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 8 }}>
           <p className={h2}>Next milestones {data.next_milestones.length > 0 && <span className="normal-case tracking-normal">{data.next_milestones.length}</span>}</p>
           {data.next_milestones.length === 0 ? <p className="text-sm text-stone-400">No upcoming milestones. <Link to={`/projects/${project.slug}/plan`} className="text-indigo-600 hover:underline dark:text-indigo-300">Open the plan</Link> to add some.</p> : (
-            <ul className="space-y-2 text-sm">{data.next_milestones.map((m) => <li key={m.id} className="flex items-baseline gap-2.5"><span aria-hidden="true" className="text-[10px] text-indigo-400">◆</span><span className="min-w-0 flex-1 truncate text-stone-700 dark:text-stone-200">{m.title}<span className="ml-1.5 text-[11px] text-stone-400">{m.phase}</span></span>{m.due_date && <span className={`shrink-0 text-xs ${m.overdue ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{m.due_date}{m.overdue ? " · overdue" : ""}</span>}</li>)}</ul>
+            <ul className="space-y-2 text-sm">{data.next_milestones.map((m) => <li key={m.id} className="group flex items-baseline gap-2.5"><button type="button" onClick={() => completeMilestone.mutate(m.id)} disabled={completeMilestone.isPending} aria-label={`Complete ${m.title}`} title="Mark done" className="flex h-4 w-4 shrink-0 translate-y-0.5 items-center justify-center rounded-md border border-stone-300 text-transparent transition-colors hover:border-indigo-400 hover:text-indigo-500 dark:border-stone-600" data-testid="next-milestone-done"><Check className="h-2.5 w-2.5" aria-hidden="true" /></button><span className="min-w-0 flex-1 truncate text-stone-700 dark:text-stone-200">{m.title}<span className="ml-1.5 text-[11px] text-stone-400">{m.phase}</span></span>{m.due_date && <span className={`shrink-0 text-xs ${m.overdue ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{m.due_date}{m.overdue ? " · overdue" : ""}</span>}</li>)}</ul>
           )}
         </section>
         {/* #481: the notebook — notes and the lab log, the two places a researcher writes for themselves */}
@@ -353,7 +362,7 @@ export default function ProjectOverview() {
           <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 10 }}>
             <p className={h2}><BookOpen className="h-3 w-3" aria-hidden="true" />Recent decisions {data.recent_decisions.length > 0 && <span className="normal-case tracking-normal">{data.recent_decisions.length}</span>}</p>
             {data.recent_decisions.length === 0 ? <p className="text-sm text-stone-400">No decisions recorded. <Link to={`/projects/${project.slug}/decisions`} className="text-indigo-600 hover:underline dark:text-indigo-300">Record one</Link>.</p> : (
-              <ul className="space-y-1.5 text-sm">{data.recent_decisions.map((d) => <li key={d.id} className="flex items-baseline gap-2.5"><Link to={`/projects/${project.slug}/decisions`} className="min-w-0 flex-1 truncate text-stone-700 hover:text-indigo-700 dark:text-stone-200 dark:hover:text-indigo-300">{d.title}</Link><span className="shrink-0 text-xs text-stone-400">{d.decided_on}</span></li>)}</ul>
+              <ul className="space-y-1.5 text-sm">{data.recent_decisions.map((d) => <li key={d.id} className="flex items-baseline gap-2.5"><Link to={`/projects/${project.slug}/decisions?id=${d.id}`} data-testid="recent-decision" className="min-w-0 flex-1 truncate text-stone-700 hover:text-indigo-700 dark:text-stone-200 dark:hover:text-indigo-300">{d.title}</Link><span className="shrink-0 text-xs text-stone-400">{d.decided_on}</span></li>)}</ul>
             )}
           </section>
         </div>

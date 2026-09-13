@@ -1,7 +1,7 @@
 /** Decision log: list + create + edit + delete (SPA slice 9; CRUD sweep 2026-09-06). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
@@ -36,6 +36,20 @@ export default function Decisions() {
   const [decidedOn, setDecidedOn] = useState(new Date().toISOString().slice(0, 10));
   const [editing, setEditing] = useState<Decision | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  // #485: /projects/:slug/decisions?id=N (the overview's recent decisions, the status update)
+  // scrolls that entry into view and rings it until the next click anywhere
+  const [searchParams] = useSearchParams();
+  const wanted = Number(searchParams.get("id")) || null;
+  const [highlight, setHighlight] = useState<number | null>(wanted);
+  useEffect(() => { setHighlight(wanted); }, [wanted]);
+  useEffect(() => {
+    if (!highlight) return;
+    const el = document.getElementById(`decision-${highlight}`);
+    if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); setExpanded((prev) => new Set(prev).add(highlight)); }
+    const clear = () => setHighlight(null);
+    window.addEventListener("pointerdown", clear, { once: true });
+    return () => window.removeEventListener("pointerdown", clear);
+  }, [highlight]);
   const toggle = (id: number) => setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const menu = useMenu();
   const reset = () => { setTitle(""); setDecision(""); setContext(""); setAlternatives(""); setDecidedOn(new Date().toISOString().slice(0, 10)); setEditing(null); setFormOpen(false); };
@@ -167,10 +181,10 @@ export default function Decisions() {
       ) : (
         <ol className="relative space-y-4 border-l border-stone-200 pl-6 dark:border-stone-800">
           {decisions.map((d) => (
-            <li key={d.id} className="group relative" onContextMenu={(e) => menu.open(e, itemsFor(d))} data-testid="decision">
+            <li key={d.id} id={`decision-${d.id}`} className="group relative" onContextMenu={(e) => menu.open(e, itemsFor(d))} data-testid="decision" data-highlighted={highlight === d.id ? "1" : undefined}>
               <span aria-hidden="true"
                     className="absolute -left-[27px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-stone-50 bg-indigo-400 transition-colors group-hover:bg-indigo-600 dark:border-stone-950" />
-              <article className={`rounded border bg-white p-5 transition-colors hover:border-stone-300 dark:bg-stone-900 ${editing?.id === d.id ? "border-indigo-300 dark:border-indigo-500/50" : "border-stone-200 dark:border-stone-800"}`}>
+              <article className={`rounded border bg-white p-5 transition-colors hover:border-stone-300 dark:bg-stone-900 ${editing?.id === d.id || highlight === d.id ? "border-indigo-300 dark:border-indigo-500/50" : "border-stone-200 dark:border-stone-800"} ${highlight === d.id ? "ring-2 ring-indigo-400/40" : ""}`}>
                 <div className="flex items-baseline justify-between gap-3">
                   <h2 className="min-w-0 flex-1 text-sm font-medium text-stone-900 dark:text-stone-100">{d.title}</h2>
                   <time className="shrink-0 font-mono text-xs text-stone-400 dark:text-stone-400">{fmtDate(d.decided_on)}</time>
