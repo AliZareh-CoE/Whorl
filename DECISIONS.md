@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Project overview, third pass: the manuscripts glance says what the studio knows (#479)
+
+**Decision.** Each live manuscript on the Project overview now carries its status clock ("41 d revising"; amber with "· nudge?" when a polite note to the editor is fair) and, while the paper is being worked on (outlining, drafting, internal review, revision), the pre-flight verdict as a pill — "ready to submit", "ready · 4 to look at" or "1 blocking" — with the summary as the tooltip. Waiting papers get the nudge instead of a verdict; published and shelved papers were never listed. The payload is the same `manuscripts_glance` the API and MCP `get_project_overview` return, and the glance is capped at four papers so the pre-flight's ~16 queries each stay bounded.
+
+**Why.** The overview is where the owner looks first, and #466–#475 taught the studio things the overview did not say: whether the paper is ready, how long it has waited, whether to write to the editor. Alternatives: a readiness for every status (rejected — a verdict on a paper under review is noise); computing the pre-flight for every manuscript in the project (rejected — the cap keeps the page under the 100 ms bar).
+
 ### 2026-09-13 — Audit #26: clean dependencies, the new surfaces hold, one cap added (#478)
 
 **Decision.** The ten-cycle audit (AUDITS.md › #26) covered #469–#477. `pip-audit` and `npm audit --omit=dev` are clean with no bumps needed; `scripts/audit.sh` is green; every new endpoint answers 401 anonymously; replace only touches files whose path matches the tree exactly (`../../etc/passwd` is ignored); a lint fix with a forged span applies nothing; the figure audit reads at most 64 KB of an asset; every hot endpoint, old and new, is under 100 ms warm. One hardening: the project search now refuses a pattern longer than 500 characters (a 20 000-character query was accepted before). One accepted risk, recorded: a user-supplied regular expression can backtrack catastrophically — `(a+)+$` over a 26-character run already takes five seconds — and Python's `re` cannot be interrupted; the scan is per line and the only person who can send the pattern is the owner, so a hang would be self-inflicted and bounded by one request. Next audit due at #488.

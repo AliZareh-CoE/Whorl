@@ -56,15 +56,42 @@ def open_questions(project, limit: int = 6) -> list[dict]:
     ]
 
 
+WORKING = ("outlining", "drafting", "internal_review", "revision")  # #479: pre-flight shown
+
+
 def manuscripts_glance(project, today: date | None = None, limit: int = 4) -> list[dict]:
     from writing.budget import budget
+    from writing.clock import WAITING, nudge, status_clock, venue_turnaround
+    from writing.preflight import preflight
 
     today = today or timezone.localdate()
-    live = [m for m in project.manuscripts.all() if m.status not in ("published", "shelved")]
+    live = [
+        m
+        for m in project.manuscripts.prefetch_related("events")
+        if m.status not in ("published", "shelved")
+    ]
     live.sort(key=lambda m: (m.deadline is None, m.deadline or today, m.pk))
     out = []
+    turnarounds: dict[str, dict] = {}
     for m in live[:limit]:
         b = budget(m) if m.venue_limits else None
+        # #479: what the studio knows — the clock (and whether a nudge is fair) for a paper
+        # that waits on a venue, the pre-flight verdict for a paper being worked on
+        clock = status_clock(m, today)
+        if m.status in WAITING:
+            key = m.target_venue.strip().lower()
+            if key not in turnarounds:
+                turnarounds[key] = venue_turnaround(m.target_venue)
+            clock["nudge"] = nudge(m, clock, today, turnarounds[key])
+        readiness = None
+        if m.status in WORKING:
+            r = preflight(m)
+            readiness = {
+                "ready": r["ready"],
+                "fails": r["fails"],
+                "warns": r["warns"],
+                "summary": r["summary"],
+            }
         out.append(
             {
                 "id": m.pk,
@@ -74,6 +101,8 @@ def manuscripts_glance(project, today: date | None = None, limit: int = 4) -> li
                 "days": (m.deadline - today).days if m.deadline else None,
                 "target_venue": m.target_venue,
                 "over": b["over"] if b else [],
+                "clock": clock,
+                "readiness": readiness,
             }
         )
     return out

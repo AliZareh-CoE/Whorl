@@ -27,7 +27,8 @@ type Overview = {
   themes?: { label: string; weight: number }[];
   week_digest: { since: string; total: number; counts: { kind: string; label: string; count: number }[]; items: { date: string; kind: string; label: string; detail: string; url: string }[] };
   questions: { id: number; question: string; status: string; phases: string[] }[];
-  manuscripts: { id: number; title: string; status: string; deadline: string | null; days: number | null; target_venue: string; over: string[] }[];
+  // #479: the clock (+ nudge while waiting on a venue) and the pre-flight verdict while working
+  manuscripts: { id: number; title: string; status: string; deadline: string | null; days: number | null; target_venue: string; over: string[]; clock?: { label: string; days: number; nudge?: { due: boolean; waited: number | null; after_days: number | null; basis: string | null } }; readiness?: { ready: boolean; fails: number; warns: number; summary: string } | null }[];
   hypotheses: { total: number; by_status: Record<string, number> };
 };
 
@@ -188,7 +189,9 @@ export default function ProjectOverview() {
         <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 4 }} data-testid="manuscripts">
           <p className={h2}><PenLine className="h-3 w-3" aria-hidden="true" />Manuscripts <span className="normal-case tracking-normal">{data.counts.manuscripts}</span></p>
           {data.manuscripts.length === 0 ? <p className="text-xs text-stone-400">Nothing in the pipeline — <Link to="/writing" className="text-indigo-600 hover:underline dark:text-indigo-300">start a manuscript</Link>.</p> : (
-            <ul className="space-y-2 text-sm">{data.manuscripts.map((m) => <li key={m.id}><Link to={`/manuscripts/${m.id}`} className="block truncate text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300">{m.title}</Link><p className="flex flex-wrap items-center gap-x-2 text-[11px] text-stone-400"><span className="capitalize">{m.status.replace("_", " ")}</span>{m.target_venue && <span>· {m.target_venue}</span>}<span className={m.days != null && m.days <= 7 ? "font-medium text-red-600 dark:text-red-300" : ""}>· {when(m.days)}</span>{m.over.length > 0 && <span className="rounded-full bg-red-500/10 px-1.5 text-red-600 dark:text-red-300">over on {m.over.join(", ")}</span>}</p></li>)}</ul>
+            <ul className="space-y-2 text-sm">{data.manuscripts.map((m) => <li key={m.id}><Link to={`/manuscripts/${m.id}`} className="block truncate text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300">{m.title}</Link><p className="flex flex-wrap items-center gap-x-2 text-[11px] text-stone-400"><span className="capitalize">{m.status.replace("_", " ")}</span>{m.target_venue && <span>· {m.target_venue}</span>}<span className={m.days != null && m.days <= 7 ? "font-medium text-red-600 dark:text-red-300" : ""}>· {when(m.days)}</span>{m.over.length > 0 && <span className="rounded-full bg-red-500/10 px-1.5 text-red-600 dark:text-red-300">over on {m.over.join(", ")}</span>}
+              {m.clock && m.clock.days >= 1 && <span className={m.clock.nudge?.due ? "rounded-full bg-amber-500/10 px-1.5 font-medium text-amber-600 dark:text-amber-300" : "text-stone-400"} data-testid="glance-clock" title={m.clock.nudge?.due ? `${m.clock.nudge.waited} d with no word, usually ${m.clock.nudge.after_days} — a polite note to the editor is fair (${m.clock.nudge.basis})` : undefined}>· {m.clock.label}{m.clock.nudge?.due ? " · nudge?" : ""}</span>}
+              {m.readiness && <span className={`rounded-full px-1.5 ${m.readiness.ready ? (m.readiness.warns ? "bg-amber-500/10 text-amber-600 dark:text-amber-300" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300") : "bg-red-500/10 text-red-600 dark:text-red-300"}`} data-testid="glance-readiness" title={m.readiness.summary}>{m.readiness.ready ? (m.readiness.warns ? `ready · ${m.readiness.warns} to look at` : "ready to submit") : `${m.readiness.fails} blocking`}</span>}</p></li>)}</ul>
           )}
         </section>
       </div>

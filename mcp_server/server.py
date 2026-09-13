@@ -18,7 +18,10 @@ def list_projects() -> dict:
 
 @mcp.tool()
 def get_project_overview(slug: str) -> dict:
-    """One-glance overview of a project: current phase, progress, next milestones, counts."""
+    """One-glance overview of a project: current phase, progress, next milestones, counts,
+    and the manuscripts glance — each live paper with its status clock ("41 d revising"),
+    whether a nudge to the editor is fair while it waits on a venue, and the pre-flight
+    verdict (ready / fails / warns / summary) while it is being worked on (#479)."""
     return client.get_project_overview(slug)
 
 

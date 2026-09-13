@@ -2,11 +2,13 @@
 
 ## Current Status
 
-- **CI update (2026-09-13, #478):** GitHub Actions runners are back; the builds were then failing in the release-notes step — fixed in #478, first green run pending. The owner-report line below is kept for history.
+- **CI update (2026-09-13, #479):** GitHub Actions runners are back; the release-notes step was fixed in #478 and run 192 (desktop 0.1.192) is green — the first successful build since 0.1.139. The release feed should now carry it. The owner-report line below is kept for history.
 
 - **⚠ OWNER REPORT (2026-09-07, later): the newest installer they can get still opens a dark, empty window.** The release feed tops out at 0.1.139 (built 05:17 UTC); every push since is unbuildable — desktop-release runs 140–165 fail in four seconds with `runner_id: 0` (no runner assigned: GitHub Actions spending limit / billing on the account — owner action). #451 makes the watchdog fire on "no painted text" (the mounted flag was set before React drew anything) and report in-flight requests. The other items in that batch (project CRUD, open from disk, missing PDF, icon, achievements) shipped in 0.1.11x–0.1.139; if they still show, the installed build is older than it looks — Diagnostics says the version.
 
 - **Cadence change (2026-09-12, owner):** one shipped slice per hour — `/loop 1h /cycle` fires `/cycle` at the top of every hour; each firing ships one slice. The owner merged the branch into `main` via PR #1 (branch A1); this branch keeps receiving slices.
+
+- **Project overview, third pass — slice 1 (2026-09-13, #479).** `manuscripts_glance` rows carry `clock` (+ `nudge` while waiting) and `readiness` (pre-flight ready/fails/warns/summary while working); overview manuscript rows show the clock chip (amber "· nudge?") and a readiness pill; MCP `get_project_overview` docstring updated. **Desktop CI is green again:** run 192 (0.1.192) succeeded after the #478 fix — the first green build since 0.1.139. Tests: projects/tests/test_overview_v2.py.
 
 - **AUDIT #26 (2026-09-13, #478).** **Desktop CI finding fixed:** runners are back and every build since run 187 was red at *Write release notes* (`head -12` closed the pipe → grep "Broken pipe" under pipefail → unterminated heredoc); the pipeline no longer uses `head`. Also noticed: the GitHub repo is now named **Whorl** (owner's rename; URLs keep working through redirects; nothing renamed on our side). pip-audit clean, npm audit clean, `scripts/audit.sh` green; new surfaces since #468 probed (anon 401 everywhere, replace ignores paths outside the tree, forged lint spans skipped, bad regex → 400); hot endpoints 18–80 ms; one cap added (search pattern ≤ 500 chars, test); regex backtracking recorded as an accepted single-user risk. Report: AUDITS.md › Audit #26. **Next audit due at #488.**
 

@@ -100,3 +100,39 @@ def test_themes_weights_phrases_by_how_many_sources_carry_them(client, settings,
     assert data["themes"][0]["label"] == rows[0]["label"]
     empty = Project.objects.create(name="Empty", slug="empty")
     assert overview.themes(empty) == []
+
+
+def test_manuscripts_glance_carries_the_writing_signals():
+    """#479: the overview shows what the studio knows — clock, nudge, readiness."""
+    import datetime
+    from pathlib import Path
+
+    from writing.models import Manuscript, ManuscriptFile, SubmissionEvent
+
+    project = ProjectFactory()
+    waiting = Manuscript.objects.create(
+        project=project, title="Waiting", status="under_review", target_venue="Slow"
+    )
+    SubmissionEvent.objects.create(
+        manuscript=waiting, kind="submitted", date=datetime.date(2026, 1, 1)
+    )
+    working = Manuscript.objects.create(project=project, title="Working", status="drafting")
+    ManuscriptFile.objects.filter(manuscript=working).delete()
+    ManuscriptFile.objects.create(
+        manuscript=working, path="main.tex", kind="tex", content="x", is_main=True
+    )
+    rows = {
+        r["title"]: r
+        for r in overview.manuscripts_glance(project, today=datetime.date(2026, 9, 13))
+    }
+    assert rows["Waiting"]["clock"]["label"].endswith("d under review")
+    assert rows["Waiting"]["clock"]["nudge"]["due"] is True and rows["Waiting"]["readiness"] is None
+    assert "nudge" not in rows["Working"]["clock"]
+    assert (
+        rows["Working"]["readiness"]["ready"] is False
+        and rows["Working"]["readiness"]["fails"] >= 1
+    )
+    assert "blocking" in rows["Working"]["readiness"]["summary"]
+    tsx = Path("frontend/src/app/pages/ProjectOverview.tsx").read_text()
+    for needle in ('data-testid="glance-clock"', 'data-testid="glance-readiness"', "nudge?"):
+        assert needle in tsx, needle
