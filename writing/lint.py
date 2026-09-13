@@ -53,6 +53,8 @@ RULES: dict[str, str] = {
     "linebreak": "\\\\ at the end of a prose line is not a paragraph break; use a blank line.",
     "unlabeled-float": "A captioned float without a \\label cannot be referenced.",
     "abbrev": "e.g. / i.e. read better followed by a comma.",
+    "unmatched-env": "An environment is opened and never closed, or closed without being opened.",
+    "unclosed-brace": "A { is never closed, or a } closes nothing — the compile stops here.",
 }
 
 NBSP_REF = re.compile(
@@ -286,7 +288,97 @@ def lint_text(
                             f"This {fl['env']} has a caption but no \\label — it cannot be referenced.",
                         )
                     )
+    findings.extend(_structure(path, text))
     return findings, labels, refs
+
+
+def _structure(path: str, text: str) -> list[dict]:
+    """#471: the two checks a compile does report, but only as the first cryptic error —
+    environment pairing and brace balance across the whole file, comments and verbatim
+    skipped. Ported from the editor's per-file linter so the panel is the one place."""
+    out: list[dict] = []
+    env_stack: list[tuple[str, int]] = []
+    brace_stack: list[tuple[int, int]] = []  # (line, col)
+    skip: str | None = None
+    for n, raw in enumerate(text.splitlines(), 1):
+        if skip:
+            m = END.search(raw)
+            if m and m.group(1) == skip:
+                skip = None
+            continue
+        line = _strip_comment(URL_ARG.sub(lambda mm: " " * len(mm.group(0)), raw))
+        # \verb|...| and \verb#...# take everything between their delimiters literally
+        line = re.sub(r"\\verb\*?(\S)(.*?)\1", lambda mm: " " * len(mm.group(0)), line)
+        for m in re.finditer(r"\\(begin|end)\{([^}]*)\}", line):
+            kind, env = m.group(1), m.group(2).strip()
+            if kind == "begin":
+                if env in SKIP_ENVS:
+                    skip = env
+                    break
+                env_stack.append((env, n))
+            elif env_stack and env_stack[-1][0] == env:
+                env_stack.pop()
+            elif any(e == env for e, _ in env_stack):
+                # closes an outer environment: everything opened since is unclosed
+                while env_stack and env_stack[-1][0] != env:
+                    inner, at = env_stack.pop()
+                    out.append(
+                        _finding(
+                            path,
+                            at,
+                            1,
+                            "unmatched-env",
+                            "error",
+                            f"\\begin{{{inner}}} is closed by \\end{{{env}}} at line {n} — missing \\end{{{inner}}}.",
+                        )
+                    )
+                env_stack.pop()
+            else:
+                out.append(
+                    _finding(
+                        path,
+                        n,
+                        m.start() + 1,
+                        "unmatched-env",
+                        "error",
+                        f"\\end{{{env}}} without a matching \\begin{{{env}}}.",
+                    )
+                )
+        i = 0
+        while i < len(line):
+            ch = line[i]
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == "{":
+                brace_stack.append((n, i + 1))
+            elif ch == "}":
+                if brace_stack:
+                    brace_stack.pop()
+                else:
+                    out.append(
+                        _finding(
+                            path, n, i + 1, "unclosed-brace", "error", "This } closes nothing."
+                        )
+                    )
+            i += 1
+    for env, at in env_stack:
+        out.append(
+            _finding(path, at, 1, "unmatched-env", "error", f"\\begin{{{env}}} is never closed.")
+        )
+    if brace_stack:
+        ln, col = brace_stack[0]
+        out.append(
+            _finding(
+                path,
+                ln,
+                col,
+                "unclosed-brace",
+                "error",
+                f"{len(brace_stack)} unclosed {{ — the first is here.",
+            )
+        )
+    return out
 
 
 def lint_files(files: list[tuple[str, str]]) -> dict:

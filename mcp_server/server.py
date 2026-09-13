@@ -649,7 +649,9 @@ def lint_manuscript(manuscript_id: int) -> dict:
     \caption (numbers the wrong float), duplicate and undefined labels, a plain space before
     \ref or between a number and its unit (the number wraps), straight "quotes", three dots,
     $$ display math, \begin{center} inside a float, \\ used as a paragraph break, a captioned
-    float without a label, e.g./i.e. without a comma. Each finding has file, line, col, rule,
+    float without a label, e.g./i.e. without a comma, plus the structural pair — an environment
+    opened and never closed (or closed without a begin) and unbalanced braces. Each finding has
+    file, line, col, rule,
     level (error/warning), message and a suggested fix where one is obvious. Fix the errors
     first; they change what prints."""
     return client.lint_manuscript(manuscript_id)

@@ -316,7 +316,10 @@ export function mountEditor(host: HTMLElement, cfg: EditorCfg): EditorAdapter {
       // lang-latex: grammar + folding + bracket matching + auto-close \end tags + tooltips.
       // Autocomplete is composed explicitly so the Atlas cite source runs alongside the
       // library's built-in command/env/math source (rule #28: borrow the source, add cite).
-      latex({ enableAutocomplete: false, autoCloseTags: true, enableTooltips: true }),
+      // enableLinting: false (#471) — the package's per-file linter contradicted the cross-file lint
+      // from the server (a \ref defined in another file read as undefined) and drew underlines
+      // the Problems panel never listed; writing/lint.py now carries its structural checks too.
+      latex({ enableAutocomplete: false, autoCloseTags: true, enableTooltips: true, enableLinting: false }),
       autocompletion({
         override: [citeCompletionSource(cfg), contextAwareLatex(latexCompletionSource(true))],
       }),

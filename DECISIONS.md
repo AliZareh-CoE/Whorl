@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-12 — One linter in the Studio (#471, backlog #308)
+
+**Decision.** The `codemirror-lang-latex` package's own linter is switched off (`enableLinting: false`). Its two checks worth keeping — an environment opened and never closed (or closed without a begin) and unbalanced braces — are now `unmatched-env` and `unclosed-brace` error rules in `writing/lint.py`, so they reach the Problems panel, the pre-flight row, the API and MCP like every other finding. The checks it got wrong for a multi-file paper (a `\ref` defined in another file read as undefined, "missing \begin{document}" on every `\input` section, per-file duplicate labels) are gone with it; the server's cross-file rules cover them correctly.
+
+**Why.** Two linters over the same text disagreed, and only one of them was listed: the package underlined `Table \ref{tab:dprime}` in `sections/method.tex` as undefined while the panel said the reference resolved. One source, one panel — the answer to "where is what?" for a red underline must be the Problems panel. The cost is that brace and environment errors now appear on save (a few seconds after typing) rather than as you type; the autosave makes that a small gap.
+
 ### 2026-09-12 — A style lint for the mistakes a compile never reports (#470)
 
 **Decision.** `writing/lint.py` is a pure, dependency-free linter over the manuscript's `.tex` files with thirteen rules split into *errors* (text that prints wrong: an unescaped `%` after a number, `\label` before `\caption`, duplicate and undefined labels across the whole tree) and *warnings* (style: a plain space before `\ref` or between a number and its unit, straight quotes, `...`, `$$`, `\begin{center}` in a float, `\\` as a paragraph break, a captioned float without a label, `e.g.`/`i.e.` without a comma). Comments, `verbatim`-like environments, `\url{}` arguments and table/align bodies are skipped. It is served as `GET /manuscripts/{id}/lint/`, merged into the Studio's Problems panel next to the compile diagnostics (a `lint` chip toggles it, refreshed on every save, findings underline the line and jump on click), a *Style lint* pre-flight row that points at the first finding and never blocks, and MCP `lint_manuscript` (104 tools). The editor now keeps pushed diagnostics as line numbers and positions them per run, so a file switch cannot replay stale offsets. Not chktex: no external binary, no config file, and only rules whose fix is obvious.
@@ -2375,7 +2381,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 
 ## Backlog
 
-308. The `codemirror-lang-latex` package runs its own linter (missing `\documentclass`, per-file undefined `\ref`) whose underlines appear in the editor but never in the Problems panel, and whose per-file label check contradicts the cross-file one from #470 — either route its diagnostics through the panel with a `latex` tag or disable it in favour of `writing/lint.py` (idea added by #470)
+308. ~~The `codemirror-lang-latex` package runs its own linter (missing `\documentclass`, per-file undefined `\ref`) whose underlines appear in the editor but never in the Problems panel, and whose per-file label check contradicts the cross-file one from #470 — either route its diagnostics through the panel with a `latex` tag or disable it in favour of `writing/lint.py` (idea added by #470)~~ (done 2026-09-12, #471: the package linter is off; its environment and brace checks live in writing/lint.py)
 307. Port `mcp_server/` to the mcp 2.x API (FastMCP → MCPServer, transport changes) so the `<2` pin from Audit #25 can go; keep the 102-tool contract and the README/docs guards unchanged (idea added by Audit #25)
 306. Library v2 slice 7 candidates: ~~inline PDF preview pane in the workbench (needs pdf.js vendored for offline desktop)~~ (the in-workbench reader); ~~per-reference reading notes + highlights surfaced in the detail pane~~ (both in the detail pane; swept 2026-09-07); ~~"Find PDF" per row with a status pill (done 2026-09-07, #386)~~; ~~drag-to-reorder for smart views (done 2026-09-07, #400)~~.
 305. ~~Library v2 slice 6 (done 2026-09-06): duplicate clusters with a suggested keep, relation-preserving merge, Duplicates mode in the workbench, API + MCP. See the 2026-09-06 decision.~~

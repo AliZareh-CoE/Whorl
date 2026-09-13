@@ -39,7 +39,9 @@ def test_every_rule_fires_once_on_the_fixture():
             r"\end{table}",  # 19
             r"See \ref{fig:missing}.",  # 20 undefined-ref
             r"\label{fig:a}",  # 21 duplicate-label
-            r"\end{document}",  # 22
+            r"\end{itemize}",  # 22 unmatched-env
+            r"Open \textbf{brace",  # 23 unclosed-brace
+            r"\end{document}",  # 24
         ]
     )
     out = L.lint_files([("main.tex", tex)])
@@ -58,9 +60,11 @@ def test_every_rule_fires_once_on_the_fixture():
         ("unlabeled-float", 17),
         ("undefined-ref", 20),
         ("duplicate-label", 21),
+        ("unmatched-env", 22),
+        ("unclosed-brace", 23),
     }
     assert set(RULE for RULE, _ in got) == set(L.RULES)
-    assert out["errors"] == 4 and out["warnings"] == 9 and out["count"] == 13
+    assert out["errors"] == 6 and out["warnings"] == 9 and out["count"] == 15
     by = {f["rule"]: f for f in out["findings"]}
     assert by["nbsp-ref"]["fix"] == r"Figure~\ref{"
     assert by["percent"]["fix"] == r"0\%" and by["percent"]["level"] == "error"
@@ -158,3 +162,41 @@ def test_studio_merges_the_lint_into_the_problems_panel():
         "refreshWords(); void refreshLint();",
     ):
         assert needle in tsx, needle
+
+
+def test_structure_rules_pair_environments_and_braces():
+    """#471: the checks ported from the editor's per-file linter, now one source."""
+    tex = "\n".join(
+        [
+            r"\begin{document}",  # 1
+            r"\begin{figure}",  # 2: closed by \end{document} → missing \end{figure}
+            r"\caption{x}\label{f}",
+            r"\end{table}",  # 3: closes nothing
+            r"Text \verb|{| and \{ escaped and \% fine % { comment",
+            r"\begin{verbatim}",
+            r"\begin{itemize} { {",  # verbatim: ignored
+            r"\end{verbatim}",
+            r"Balanced {ok} then } stray",  # 8: } closes nothing
+            r"Open {one and {two",  # 9: two unclosed
+            r"\end{document}",  # 10
+        ]
+    )
+    got = [
+        (f["rule"], f["line"], f["message"])
+        for f in L.lint_files([("m.tex", tex)])["findings"]
+        if f["rule"] in ("unmatched-env", "unclosed-brace")
+    ]
+    assert [(r, ln) for r, ln, _ in got] == [
+        ("unmatched-env", 2),
+        ("unmatched-env", 4),
+        ("unclosed-brace", 9),
+        ("unclosed-brace", 10),
+    ]
+    assert "missing \\end{figure}" in got[0][2] and "2 unclosed {" in got[3][2]
+    clean = "\\begin{document}\\section{A {nested} one}\\begin{itemize}\\item x\\end{itemize}\\end{document}"
+    assert L.lint_files([("m.tex", clean)])["count"] == 0
+
+
+def test_the_editor_relies_on_the_one_lint():
+    src = Path("frontend/src/editor/index.ts").read_text()
+    assert "enableLinting: false" in src
