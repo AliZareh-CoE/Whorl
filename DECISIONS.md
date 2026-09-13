@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Dashboard: every project card carries its pulse (#489)
+
+**Decision.** `core/dashboard.py::pulses_everywhere(projects)` computes the twelve-week pulse of #483 for every active project at once — one grouped `values_list` per event source (milestones done, papers added/read, notes, hypotheses, lab entries, decisions, documents, submission events, compiles), binned in Python into Monday-based weeks — so the cost is nine queries however many projects there are, not a timeline pass per project. Each row of `active` carries `pulse` (weeks, total, quiet_weeks, last_activity, days_since); the project card shows a 24-px-wide strip of twelve bars (square-root scale, hollow silent weeks, glowing peak) with "n in 12 wk" or "quiet n wk". `quiet_projects` turns any active project flat for three weeks or more into a *quiet* row in *Needs attention* ("nothing logged for 4 weeks · last activity 30 d ago"), and the all-clear state accounts for it.
+
+**Why.** The dashboard listed active projects by progress and phase health — both about the plan — but said nothing about whether a project is *moving*. The overview's pulse answered that per project (#483); the dashboard is where the researcher compares projects, and a drifting one should announce itself before its first missed deadline does. Reusing `project_timeline` per project would have added ~11 queries per project (Audit #27 had just bounded the dashboard), hence the grouped variant with identical bins.
+
+**Alternatives.** Calling `pulse()` per project (linear cost, rejected by the audit's own finding); a heatmap per card (the dashboard already has the cross-project heatmap; the card needs one row); a quiet threshold of two weeks (a fortnight of reading with nothing logged is normal; three weeks is a drift).
+
 ### 2026-09-13 — Audit #27: the dashboard's pre-flights are bounded (#488)
 
 **Decision.** `writing_everywhere` no longer asks the glance for readiness up front: it sorts every active project's live papers by urgency first, then runs the pre-flight only for the rows it will show, and for at most four of them per load (`READINESS_ROWS`, most urgent first); rows past that show no readiness pill. The live count is one aggregate query. `manuscripts_glance(readiness=False)` and `readiness_of()` expose the two halves; glance rows carry a private `_manuscript` handle that `public_rows()` strips before the overview payload.

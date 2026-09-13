@@ -3045,6 +3045,8 @@ class DashboardAPIView(APIView):
         from core.dashboard import (
             dashboard_context,
             project_health,
+            pulses_everywhere,
+            quiet_projects,
             reading_queue_everywhere,
             week_everywhere,
             writing_everywhere,
@@ -3055,6 +3057,7 @@ class DashboardAPIView(APIView):
         data = dashboard_context()
         attention = data["attention"]
         health = project_health(data["active"])
+        pulses = pulses_everywhere([row["project"] for row in data["active"]])  # #489
         return Response(
             {
                 "stats": data["stats"],
@@ -3107,6 +3110,7 @@ class DashboardAPIView(APIView):
                     "inbox": [{"id": q.id, "text": q.text} for q in attention["inbox"]],
                     "backup": backup_status(),  # #424: a calm nudge when it has been a while
                     "waiting": waiting_manuscripts(),  # #475: papers a venue has sat on
+                    "quiet": quiet_projects(data["active"], pulses),  # #489: drifting projects
                 },
                 "active": [
                     {
@@ -3120,6 +3124,7 @@ class DashboardAPIView(APIView):
                         "percent": row["percent"],
                         "tree_size": row["tree_size"],
                         "health": health.get(row["project"].slug),
+                        "pulse": pulses.get(row["project"].pk),  # #489
                     }
                     for row in data["active"]
                 ],

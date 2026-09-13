@@ -11,6 +11,8 @@ import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton
 import { ErrorState } from "../../components/ErrorState";
 import { Constellation } from "../../components/Constellation";
 
+type PulseData = { weeks: number[]; total: number; quiet_weeks: number; last_activity: string | null; days_since: number | null };
+
 type Attention = {
   empty: boolean;
   overdue: { title: string; due_date: string; project: string; url: string }[];
@@ -19,6 +21,8 @@ type Attention = {
   // #475: papers that have waited on a venue longer than it usually takes
   waiting?: { id: number; title: string; project: string; venue: string; status: string; waited: number; after_days: number; basis: string; url: string }[];
   backup?: { last: { at: string; days_ago: number } | null; stale: boolean; has_data: boolean; stale_after_days: number };
+  // #489: active projects whose pulse has been flat for three weeks or more
+  quiet?: { name: string; slug: string; url: string; quiet_weeks: number; last_activity: string | null; days_since: number | null }[];
 };
 
 type WeekItem = { kind: "milestone" | "task"; id: number; title: string; due_date: string; days: number; project: string; project_name: string; color: string; phase: string };
@@ -34,6 +38,7 @@ type Dash = {
     name: string; slug: string; url: string; color: string;
     phase: string | null; done: number; total: number; percent: number;
     health: { state: string; label: string; forecast_end: string | null } | null;
+    pulse?: PulseData | null;
   }[];
   milestones: { title: string; project: string; due_date: string | null; overdue: boolean; url: string }[];
   deadlines: { title: string; deadline: string | null; url: string }[];
@@ -116,6 +121,24 @@ function TriageControls({ id, text, projects }: { id: number; text?: string; pro
 }
 
 /** Orbit ring: an SVG progress ring in the project's accent colour with a soft glow. */
+/** #489: the project's twelve-week pulse (#483) at card size — hollow silent weeks, the peak
+ *  glows, a "quiet n wk" chip when the strip has gone flat. */
+function MiniPulse({ pulse, color }: { pulse: PulseData; color: string }) {
+  const max = Math.max(1, ...pulse.weeks);
+  const scale = (n: number) => Math.sqrt(n / max);
+  return (
+    <span className="mt-1.5 flex items-center gap-2" data-testid="project-pulse" title={pulse.total ? `${pulse.total} events in 12 weeks${pulse.last_activity ? ` · last activity ${pulse.last_activity}` : ""}` : "No activity in the last 12 weeks"}>
+      <span className="flex h-3.5 w-24 items-end gap-px">
+        {pulse.weeks.map((n, i) => (
+          <span key={i} className={`flex-1 rounded-[1px] ${n ? "" : "border border-stone-300/70 dark:border-stone-700"}`}
+                style={{ height: n ? Math.max(3, Math.round(scale(n) * 14)) : 2, background: n ? color : "transparent", opacity: n ? 0.5 + 0.5 * scale(n) : 1, boxShadow: n && n === max ? `0 0 6px ${color}` : undefined }} />
+        ))}
+      </span>
+      {pulse.quiet_weeks >= 3 ? <span className="text-[10px] text-stone-400">quiet {pulse.quiet_weeks} wk</span> : pulse.total > 0 ? <span className="text-[10px] text-stone-400">{pulse.total} in 12 wk</span> : null}
+    </span>
+  );
+}
+
 function OrbitRing({ percent, color, size = 44 }: { percent: number; color: string; size?: number }) {
   const r = (size - 6) / 2;
   const c = 2 * Math.PI * r;
@@ -194,6 +217,7 @@ export default function Dashboard() {
   const attention = data.attention;
   const backupStale = !!attention.backup?.stale;
   const waiting = attention.waiting ?? [];
+  const quiet = attention.quiet ?? [];
   const needs = attention.overdue.length + attention.deadlines.length + attention.inbox.length + waiting.length + (backupStale ? 1 : 0);
   const anchors = data.active.map((p) => ({ label: p.name, color: p.color, weight: 0.35 + p.percent / 150 }));
 
@@ -283,7 +307,7 @@ export default function Dashboard() {
       )}
 
       {/* the answer first ([REV] cycle 145 → SPA #156): what needs me today */}
-      {attention.empty && !backupStale && waiting.length === 0 ? (
+      {attention.empty && !backupStale && waiting.length === 0 && quiet.length === 0 ? (
         <div className="rise mb-5 rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-4 text-sm text-stone-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300" style={{ ["--i" as string]: 1 }}>
           All clear — nothing overdue, no deadlines inside two weeks, inbox triaged.
         </div>
@@ -312,6 +336,14 @@ export default function Dashboard() {
                 <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-300">waiting</span>
                 <a href={w.url} className="min-w-0 flex-1 truncate hover:underline dark:text-stone-100">{w.title}</a>
                 <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400" title={w.basis}>{w.venue || w.project} · {w.waited} d, usually {w.after_days} — a nudge is fair</span>
+              </li>
+            ))}
+            {/* #489: a project that has gone flat — before a deadline says so */}
+            {quiet.map((q) => (
+              <li key={`q${q.slug}`} className="flex items-baseline gap-2" data-testid="attention-quiet">
+                <span className="shrink-0 rounded-full bg-stone-500/10 px-2 py-0.5 text-[11px] font-medium text-stone-500 dark:text-stone-300">quiet</span>
+                <Link to={q.url} className="min-w-0 flex-1 truncate hover:underline dark:text-stone-100">{q.name}</Link>
+                <span className="shrink-0 text-xs text-stone-400 dark:text-stone-400">nothing logged for {q.quiet_weeks} weeks{q.days_since != null ? ` · last activity ${q.days_since} d ago` : ""}</span>
               </li>
             ))}
             {/* #424: a calm nudge when the last backup is old or there has never been one */}
@@ -364,6 +396,7 @@ export default function Dashboard() {
                   {p.health && p.health.state !== "empty" && (
                     <span className={`mt-0.5 inline-block truncate rounded-full px-1.5 py-px text-[10px] ${HEALTH[p.health.state] ?? HEALTH.upcoming}`} title={p.health.forecast_end ? `Forecast finish ${p.health.forecast_end}` : undefined} data-testid="project-health">{p.health.label}</span>
                   )}
+                  {p.pulse && <MiniPulse pulse={p.pulse} color={p.color} />}
                 </span>
                 <span className="font-display shrink-0 text-sm font-semibold tabular-nums text-stone-500 dark:text-stone-300">{p.percent}%</span>
               </Link>

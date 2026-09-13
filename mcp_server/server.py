@@ -777,7 +777,9 @@ def get_dashboard() -> dict:
     then longest waiting) with the unread and high-priority counts (#486); and `writing` —
     every live manuscript across those projects by urgency, each with its status clock, a
     nudge flag while a venue sits on it, the pre-flight readiness while it is being worked on,
-    and the deadline (#487)."""
+    and the deadline (#487). Each active project carries its `pulse` (twelve weekly activity
+    counts, total, quiet_weeks, last_activity) and `attention.quiet` lists active projects
+    silent for three weeks or more (#489)."""
     return client.get_dashboard()
 
 

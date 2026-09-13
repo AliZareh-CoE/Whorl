@@ -86,7 +86,9 @@ class TestQueryBudgets:
             project = build_busy_project()
             for j in range(3):
                 Manuscript.objects.create(project=project, title=f"P{i}{j}", status="drafting")
-        with django_assert_max_num_queries(100):
+        # #489 added the per-project pulses as nine grouped queries (a fixed cost, not per
+        # project) → the pin moves from 100 to 110
+        with django_assert_max_num_queries(110):
             response = client_logged_in.get("/api/v1/dashboard/")
         assert response.status_code == 200
         rows = response.json()["writing"]["rows"]

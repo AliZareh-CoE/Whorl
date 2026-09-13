@@ -171,3 +171,57 @@ def test_writing_everywhere_sorts_live_manuscripts_by_urgency(client_logged_in):
         "m.readiness",
     ):
         assert needle in tsx, needle
+
+
+def test_pulses_everywhere_bins_per_project_and_flags_quiet_ones(client_logged_in):
+    """#489: grouped queries bin every project's events into twelve Monday-based weeks; a
+    project flat for three weeks is a needs-attention row."""
+    from pathlib import Path
+
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from core.dashboard import active_projects, pulses_everywhere, quiet_projects
+    from projects.models import DecisionRecord
+
+    today = D(2026, 9, 13)  # Sunday; this week starts 09-07, the window 06-22
+    busy = ProjectFactory(name="Busy", status="active")
+    drifting = ProjectFactory(name="Drifting", status="active")
+    ProjectFactory(name="Paused", status="paused")
+    phase = PhaseFactory(project=busy, order=1)
+    for delta in (0, 1, 20):
+        m = MilestoneFactory(phase=phase, title=f"m{delta}")
+        m.completed_at = timezone.make_aware(
+            datetime.datetime.combine(today - datetime.timedelta(days=delta), datetime.time(12))
+        )
+        m.save()
+    DecisionRecord.objects.create(
+        project=drifting, title="Old", decision="x", decided_on=today - datetime.timedelta(days=30)
+    )
+    DecisionRecord.objects.create(
+        project=busy, title="Ancient", decision="x", decided_on=D(2026, 1, 1)
+    )  # outside the window: counted nowhere, but not the last activity either
+    rows = active_projects()
+    with CaptureQueriesContext(connection) as ctx:
+        pulses = pulses_everywhere([r["project"] for r in rows], today=today)
+    assert len(ctx.captured_queries) <= 9  # grouped, not per project
+    b, d = pulses[busy.pk], pulses[drifting.pk]
+    assert len(b["weeks"]) == 12 and b["weeks"][-1] == 2 and b["weeks"][-3] == 1 and b["total"] == 3
+    assert b["quiet_weeks"] == 0 and b["last_activity"] == "2026-09-13" and b["days_since"] == 0
+    assert d["total"] == 1 and d["quiet_weeks"] == 4 and d["last_activity"] == "2026-08-14"
+    quiet = quiet_projects(rows, pulses)
+    assert [q["slug"] for q in quiet] == [drifting.slug] and quiet[0]["quiet_weeks"] == 4
+    assert quiet[0]["url"] == f"/projects/{drifting.slug}"
+    assert pulses_everywhere([], today=today) == {}
+    body = client_logged_in.get("/api/v1/dashboard/").json()
+    by_slug = {p["slug"]: p for p in body["active"]}
+    assert len(by_slug[busy.slug]["pulse"]["weeks"]) == 12
+    assert [q["slug"] for q in body["attention"]["quiet"]] == [drifting.slug]
+    tsx = Path("frontend/src/app/pages/Dashboard.tsx").read_text()
+    for needle in (
+        'data-testid="project-pulse"',
+        'data-testid="attention-quiet"',
+        "pulse.quiet_weeks >= 3",
+        "attention.quiet",
+    ):
+        assert needle in tsx, needle
