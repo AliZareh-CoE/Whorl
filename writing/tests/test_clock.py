@@ -120,3 +120,50 @@ def test_writing_pages_show_the_clock():
         "/manuscripts/venue-turnaround/",
     ):
         assert needle in tsx, needle
+
+
+# --- #475: the nudge -------------------------------------------------------------------
+
+
+def test_nudge_thresholds_and_the_logged_nudge_resets_the_count():
+    today = D(2026, 9, 13)
+    # history at the venue: one 40-day round → threshold max(60, 60) = 60
+    _paper("accepted", events=[("submitted", D(2026, 1, 1)), ("accepted", D(2026, 2, 10))])
+    m = _paper("under_review", events=[("submitted", D(2026, 6, 1))])  # waited 104
+    n = C.nudge(m, C.status_clock(m, today), today)
+    assert n["due"] and n["after_days"] == 60 and n["waited"] == 104 and n["last"] is None
+    assert "1.5× your median of 40 d" in n["basis"]
+    # a logged nudge restarts the count from its date
+    SubmissionEvent.objects.create(
+        manuscript=m, kind="note", date=D(2026, 9, 1), notes="Nudged the editor"
+    )
+    m = Manuscript.objects.get(pk=m.pk)
+    n = C.nudge(m, C.status_clock(m, today), today)
+    assert not n["due"] and n["waited"] == 12 and n["last"] == "2026-09-01"
+    # no history → 90 days; a paper not waiting → never
+    fresh = _paper("submitted", venue="Elsewhere", events=[("submitted", D(2026, 5, 1))])
+    n = C.nudge(fresh, C.status_clock(fresh, today), today)
+    assert n["due"] and n["after_days"] == 90 and n["basis"].startswith("no history")
+    rev = _paper("revision", events=[("reviews_received", D(2026, 1, 1))])
+    assert C.nudge(rev, C.status_clock(rev, today), today)["due"] is False
+
+
+def test_waiting_manuscripts_feeds_the_dashboard(client_logged_in):
+    today = D(2026, 9, 13)
+    due = _paper("under_review", venue="Slow", events=[("submitted", D(2026, 1, 1))])
+    _paper("under_review", venue="Slow", events=[("submitted", D(2026, 9, 1))])  # 12 d: fine
+    rows = C.waiting_manuscripts(today)
+    assert [r["id"] for r in rows] == [due.id] and rows[0]["after_days"] == 90
+    body = client_logged_in.get("/api/v1/dashboard/").json()
+    titles = [w["title"] for w in body["attention"]["waiting"]]
+    assert due.title in titles
+    detail = client_logged_in.get(f"/api/v1/manuscripts/{due.id}/").json()
+    assert detail["clock"]["nudge"]["due"] is True
+
+
+def test_nudge_surfaces_in_the_ui():
+    writing = Path("frontend/src/app/pages/Writing.tsx").read_text()
+    for needle in ('data-testid="nudge-hint"', 'data-testid="log-nudge"', "Nudged the editor"):
+        assert needle in writing, needle
+    dash = Path("frontend/src/app/pages/Dashboard.tsx").read_text()
+    assert 'data-testid="attention-waiting"' in dash and "waiting.length" in dash

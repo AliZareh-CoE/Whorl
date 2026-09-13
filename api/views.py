@@ -2931,6 +2931,7 @@ class DashboardAPIView(APIView):
         from core.backups import backup_status
         from core.dashboard import dashboard_context, project_health, week_everywhere
         from core.models import TodoItem
+        from writing.clock import waiting_manuscripts
 
         data = dashboard_context()
         attention = data["attention"]
@@ -2984,6 +2985,7 @@ class DashboardAPIView(APIView):
                     ],
                     "inbox": [{"id": q.id, "text": q.text} for q in attention["inbox"]],
                     "backup": backup_status(),  # #424: a calm nudge when it has been a while
+                    "waiting": waiting_manuscripts(),  # #475: papers a venue has sat on
                 },
                 "active": [
                     {

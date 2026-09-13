@@ -923,9 +923,11 @@ class ManuscriptSerializer(serializers.ModelSerializer):
         """#474: how long the paper has sat in its status — since (date), days, source
         (the event kind that started the clock, or "updated"), and a label like
         "42 d under review"."""
-        from writing.clock import status_clock
+        from writing.clock import nudge, status_clock
 
-        return status_clock(obj)
+        clock = status_clock(obj)
+        clock["nudge"] = nudge(obj, clock)  # #475: due / after_days / basis / waited / last
+        return clock
 
     class Meta:
         from writing.models import Manuscript

@@ -35,6 +35,11 @@ STATUS_PHRASE = {
 }
 SUBMISSION_KINDS = ("submitted", "revision_submitted")
 DECISION_KINDS = ("reviews_received", "desk_reject", "accepted", "rejected")
+WAITING = ("submitted", "under_review")
+NUDGE_FACTOR = 1.5  # a nudge is fair once the wait passes 1.5× the venue's usual round
+NUDGE_MIN_DAYS = 60  # ... but never before two months
+NUDGE_DEFAULT_DAYS = 90  # with no history at the venue, three months
+NUDGE_MARK = "nudge"  # a note event whose text mentions this restarts the count
 
 
 def status_clock(manuscript, today: date | None = None) -> dict:
@@ -114,3 +119,76 @@ def venue_turnaround(venue: str, exclude_id: int | None = None) -> dict:
         "fastest_days": min(all_days),
         "slowest_days": max(all_days),
     }
+
+
+def nudge(
+    manuscript, clock: dict, today: date | None = None, turnaround: dict | None = None
+) -> dict:
+    """#475: is a polite note to the editor fair now? Only while the paper waits on the venue.
+    The threshold is 1.5× your own median round at this venue (never under 60 days), or 90
+    days when you have no history there. A logged nudge (a note event mentioning "nudge")
+    restarts the count from its date, so the hint never nags."""
+    today = today or date.today()
+    if manuscript.status not in WAITING:
+        return {"due": False, "after_days": None, "basis": None, "waited": None, "last": None}
+    since = date.fromisoformat(clock["since"])
+    last = None
+    for e in manuscript.events.all():
+        if e.kind == "note" and NUDGE_MARK in (e.notes or "").lower() and e.date >= since:
+            if last is None or e.date > last:
+                last = e.date
+    start = last or since
+    waited = max(0, (today - start).days)
+    if turnaround is None:
+        turnaround = venue_turnaround(manuscript.target_venue)
+    median = turnaround.get("median_days") if turnaround else None
+    if median:
+        after = max(NUDGE_MIN_DAYS, int(round(median * NUDGE_FACTOR)))
+        basis = f"1.5× your median of {median} d at {turnaround['venue']}"
+    else:
+        after = NUDGE_DEFAULT_DAYS
+        basis = "no history at this venue yet — 90 d"
+    return {
+        "due": waited >= after,
+        "after_days": after,
+        "basis": basis,
+        "waited": waited,
+        "last": last.isoformat() if last else None,
+    }
+
+
+def waiting_manuscripts(today: date | None = None) -> list[dict]:
+    """#475: every paper whose nudge is due, for the dashboard's needs-attention list."""
+    from writing.models import Manuscript
+
+    today = today or date.today()
+    out = []
+    cache: dict[str, dict] = {}
+    qs = (
+        Manuscript.objects.filter(status__in=WAITING)
+        .select_related("project")
+        .prefetch_related("events")
+        .order_by("id")
+    )
+    for m in qs:
+        key = m.target_venue.strip().lower()
+        if key not in cache:
+            cache[key] = venue_turnaround(m.target_venue)
+        c = status_clock(m, today)
+        n = nudge(m, c, today, cache[key])
+        if n["due"]:
+            out.append(
+                {
+                    "id": m.id,
+                    "title": m.title,
+                    "project": m.project.name,
+                    "venue": m.target_venue,
+                    "status": m.status,
+                    "waited": n["waited"],
+                    "after_days": n["after_days"],
+                    "basis": n["basis"],
+                    "url": f"/manuscripts/{m.id}",
+                }
+            )
+    out.sort(key=lambda r: r["waited"] - r["after_days"], reverse=True)
+    return out

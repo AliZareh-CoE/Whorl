@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — The clock becomes actionable: when a nudge is fair (#475)
+
+**Decision.** While a paper is *submitted* or *under review*, `clock.nudge` says whether a polite note to the editor is fair yet: after 1.5× your own median round at the venue (never under 60 days), or 90 days when you have no history there. A logged nudge — a `note` event whose text mentions "nudge" — restarts the count from its date, so the hint never nags twice for the same wait. Surfaces: the manuscript-page chip turns amber with "96 d with no word, usually 82 — a polite note to the editor is fair" and a *Log a nudge* button that writes the note event; the board card says "· nudge?"; the dashboard's *Needs attention* gains *waiting* rows; the API carries it on every manuscript and the dashboard payload, so MCP sees it through `list_manuscripts` / `get_manuscript` and can log the note with `add_submission_event` (no new tool).
+
+**Why.** A clock that only counts is trivia; the decision it informs is "do I write to them now?", and the answer depends on what this venue usually does for you. Making the threshold your own history keeps it honest, the 60-day floor keeps it polite, and the reset-on-nudge keeps it quiet. Alternatives: a fixed 90 days for everyone (kept only as the no-history fallback); an email draft (rejected — Atlas does not send mail, and the note itself is what the timeline needs).
+
 ### 2026-09-13 — The status clock reads the timeline, and the venue's turnaround is your own (#474)
 
 **Decision.** Every manuscript now carries a `clock`: since when it has sat in its status, how many days, and which event started the count — *under review* from the last `submitted` / `revision_submitted`, *revision* from `reviews_received`, *submitted* from `submitted`, *accepted* / *published* from theirs; drafting-type statuses (and a waiting status with no matching event) count from the last change. The board cards say "41 d revising"; the manuscript page shows the chip next to the deadline and, while the paper waits on a venue, "your median here: 55 d to a decision" from `GET /manuscripts/venue-turnaround/?venue=…` — every submission event paired with the next decision across your manuscripts at that venue (case-insensitive) — the current paper's finished rounds count too, its open one never can; `exclude` is there for callers who want it. MCP `get_venue_turnaround` (107 tools).
