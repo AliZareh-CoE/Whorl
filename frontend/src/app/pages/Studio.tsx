@@ -19,11 +19,11 @@ import {
 } from "lucide-react";
 import { mountEditor, Split, type EditorAdapter } from "../../editor";
 import { api, csrfToken } from "../api";
-import { confirmDialog, promptDialog } from "../../components/Dialog";
+import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 
 type MFile = { id: number; path: string; kind: string; is_main: boolean; url?: string; size?: number };
 type Manuscript = { id: number; project: string; project_name: string; title: string; status: string; compile_status: string; compiled_at: string | null; files: MFile[] };
-type Diag = { level: string; file: string; line: number | null; message: string; source?: "lint"; rule?: string; fix?: string };
+type Diag = { level: string; file: string; line: number | null; message: string; source?: "lint"; rule?: string; fix?: string; col?: number };
 // #470: a style-lint finding as the API returns it
 type LintFinding = { file: string; line: number; col: number; rule: string; level: "error" | "warning"; message: string; fix?: string };
 type Compile = { status: string; diagnostics: Diag[]; compiled_at: string | null; pdf_url: string | null; log: string; synctex?: boolean };
@@ -205,7 +205,7 @@ function StudioInner({ m }: { m: Manuscript }) {
   const lintRef = useRef<Diag[]>([]); lintRef.current = lint;
   const [lintOn, setLintOn] = useState<boolean>(() => { try { return localStorage.getItem("atlas.studio.lint") !== "off"; } catch { return true; } });
   const lintOnRef = useRef(lintOn); lintOnRef.current = lintOn;
-  const refreshLint = useCallback(() => api<{ findings: LintFinding[] }>(`/manuscripts/${m.id}/lint/`).then((r) => { setLint(r.findings.map((f) => ({ level: f.level, file: f.file, line: f.line, message: f.message, source: "lint" as const, rule: f.rule, fix: f.fix }))); }).catch(() => {}), [m.id]);
+  const refreshLint = useCallback(() => api<{ findings: LintFinding[] }>(`/manuscripts/${m.id}/lint/`).then((r) => { setLint(r.findings.map((f) => ({ level: f.level, file: f.file, line: f.line, message: f.message, source: "lint" as const, rule: f.rule, fix: f.fix, col: f.col }))); }).catch(() => {}), [m.id]);
 
   const saveFile = useCallback(async (fid: number) => {
     const ad = adRef.current; if (!ad) return;
@@ -228,6 +228,24 @@ function StudioInner({ m }: { m: Manuscript }) {
   }, [base, refreshWords, refreshLint]);
 
   const saveAll = useCallback(async () => { await Promise.all([...dirtyRef.current].map((fid) => { window.clearTimeout(timers.current.get(fid)); return saveFile(fid); })); }, [saveFile]);
+  // #472: one-click lint fixes — save the buffers, let the server apply the mechanical
+  // replacements (verified against the text that is there), reload the changed files
+  const fixLint = useCallback(async (only?: { file: string; line: number; rule: string; col: number }[]) => {
+    const ad = adRef.current; if (!ad) return;
+    await saveAll();
+    try {
+      const r = await api<{ applied: number; skipped: number; files: string[] }>(`/manuscripts/${m.id}/lint/fix/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(only ? { only } : {}) });
+      for (const path of r.files) {
+        const f = filesRef.current.find((x) => x.path === path);
+        if (!f || !loaded.current.has(f.id)) continue;
+        const data = await wb<{ content?: string }>(`${base}files/${f.id}/`);
+        ad.setFileValue(f.id, data.content || "");
+        markDirty(f.id, false);
+      }
+      await refreshLint(); refreshWords();
+      setFlash(r.applied ? `Fixed ${r.applied} lint finding${r.applied === 1 ? "" : "s"}.` : "Nothing to fix.");
+    } catch (e) { void errorDialog("Couldn't apply the fixes", e); }
+  }, [base, m.id, saveAll, refreshLint, refreshWords]);
   saveNowRef.current = () => { void saveAll(); };
 
   const recomputeOutline = useCallback(() => {
@@ -522,6 +540,7 @@ function StudioInner({ m }: { m: Manuscript }) {
     ...(([["files", "Files"], ["outline", "Outline"], ["bib", "Bibliography"], ["history", "History"], ["comments", "Comments"], ["preflight", "Pre-flight"]] as [Tab, string][]).map(([key, name]) => ({ label: `Go to ${name}`, hint: "sidebar panel", run: () => { setSidebarOpen(true); setTab(key); } }))),
     { label: "Pre-flight check", hint: "is this paper ready to submit?", run: () => { setSidebarOpen(true); setTab("preflight"); } },
     { label: "Run the style lint", hint: "the mistakes a compile never reports", run: () => { setLintOn(true); void refreshLint().then(() => setProblemsOpen(true)); } },
+    { label: "Fix every lint finding it can", hint: "Figure~\\ref, 5\\,ms, ``quotes'', \\ldots, 50\\%", run: () => { void fixLint(); } },
     { label: "Editor settings", run: () => setSettingsOpen(true) },
     { label: `Keymap: ${settings.keymap === "vim" ? "default" : "vim"}`, hint: `now ${settings.keymap}`, run: () => setSettings((st) => ({ ...st, keymap: st.keymap === "vim" ? "default" : "vim" })) },
     { label: `Compile on save: ${settings.autoCompile ? "off" : "on"}`, run: () => setSettings((st) => ({ ...st, autoCompile: !st.autoCompile })) },
@@ -651,15 +670,17 @@ function StudioInner({ m }: { m: Manuscript }) {
             <div className="flex h-44 shrink-0 flex-col border-t text-xs" style={{ borderColor: "var(--studio-line)", background: "var(--studio-panel)" }} data-testid="problems">
               <div className="flex items-center gap-2 px-3 py-1 text-[10px] uppercase tracking-wider st-dim"><span>Problems</span><span className="normal-case tracking-normal">{errors} error{errors === 1 ? "" : "s"} · {warnings} warning{warnings === 1 ? "" : "s"}</span>
                 <button type="button" onClick={() => setLintOn((v) => !v)} aria-pressed={lintOn} data-testid="lint-toggle" className={`ml-2 rounded-full border px-2 py-px text-[10px] normal-case tracking-normal ${lintOn ? "st-fg" : "st-dim"}`} style={{ borderColor: "var(--studio-line)" }} title="Style lint: the mistakes a compile never reports (#470)">lint{lint.length ? ` · ${lint.length}` : ""}</button>
+                {lintOn && lint.some((d) => d.fix) && <button type="button" onClick={() => { void fixLint(); }} data-testid="lint-fix-all" className="rounded-full border border-indigo-400/40 px-2 py-px text-[10px] normal-case tracking-normal text-indigo-300 hover:bg-indigo-500/10" title="Apply every mechanical fix (#472)">Fix all {lint.filter((d) => d.fix).length}</button>}
                 <button type="button" onClick={() => setProblemsOpen(false)} className="ml-auto st-hover-fg" aria-label="Close problems"><X className="h-3.5 w-3.5" aria-hidden="true" /></button></div>
               <ul className="min-h-0 flex-1 overflow-y-auto">
                 {problems.length === 0 && <li className="px-3 py-1 st-dim">{compile.status === "failed" ? "The compile failed before producing diagnostics — see the log in the preview pane." : compile.status === "ok" ? (lintOn ? "No problems. Clean compile, clean lint." : "No problems. Clean compile.") : lintOn ? "Nothing from the lint. Compile to see problems here." : "Compile to see problems here."}</li>}
                 {problems.map((d, i) => (
-                  <li key={i}><button type="button" onClick={async () => { const target = files.find((f) => f.path === (d.file || "main.tex")); if (target && target.id !== activeId) await openFile(target.id); if (d.line) adRef.current?.gotoLine(d.line); }} className="flex w-full items-baseline gap-2 px-3 py-1 text-left st-hover-bg">
+                  <li key={i} className="flex items-stretch"><button type="button" onClick={async () => { const target = files.find((f) => f.path === (d.file || "main.tex")); if (target && target.id !== activeId) await openFile(target.id); if (d.line) adRef.current?.gotoLine(d.line); }} className="flex min-w-0 flex-1 items-baseline gap-2 px-3 py-1 text-left st-hover-bg">
                     <span className={`shrink-0 text-[10px] font-semibold uppercase ${d.level === "error" ? "text-red-400" : "text-amber-400"}`}>{d.level}</span>
                     {d.line && <span className="shrink-0 font-mono text-[10px] st-dim">{d.file && d.file !== pathOf(activeId) ? `${d.file} ` : ""}L{d.line}</span>}
                     <span className="min-w-0 flex-1 truncate st-text">{d.message}{d.fix ? <span className="st-dim"> → <code className="font-mono">{d.fix}</code></span> : null}</span>
-                    {d.source === "lint" && <span className="shrink-0 rounded-full border px-1.5 text-[9px] uppercase tracking-wider st-dim" style={{ borderColor: "var(--studio-line)" }} title={d.rule}>lint</span>}</button></li>
+                    {d.source === "lint" && <span className="shrink-0 rounded-full border px-1.5 text-[9px] uppercase tracking-wider st-dim" style={{ borderColor: "var(--studio-line)" }} title={d.rule}>lint</span>}</button>
+                    {d.source === "lint" && d.fix && d.line && d.col !== undefined && d.rule && <button type="button" onClick={() => { void fixLint([{ file: d.file, line: d.line as number, rule: d.rule as string, col: d.col as number }]); }} data-testid="lint-fix" className="shrink-0 px-2 text-[10px] font-medium text-indigo-300 hover:bg-indigo-500/10" title={`Replace with ${d.fix}`}>Fix</button>}</li>
                 ))}
               </ul>
             </div>

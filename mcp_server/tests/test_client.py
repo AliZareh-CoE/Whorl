@@ -572,3 +572,12 @@ def test_submit_manuscript_client_call(capture):
     assert json.loads(capture["body"]) == {"force": True, "notes": "n"}
     client.submit_manuscript(4, date="2026-09-10")
     assert json.loads(capture["body"])["date"] == "2026-09-10"
+
+
+def test_fix_lint_client_call(capture):
+    """#472: apply the lint's mechanical fixes; `only` rides only when given."""
+    client.fix_lint(4)
+    assert capture["url"].endswith("/manuscripts/4/lint/fix/") and capture["method"] == "POST"
+    assert json.loads(capture["body"]) == {}
+    client.fix_lint(4, only=[{"file": "main.tex", "line": 2, "rule": "unit-space", "col": 4}])
+    assert json.loads(capture["body"])["only"][0]["rule"] == "unit-space"

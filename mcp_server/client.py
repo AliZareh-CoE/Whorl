@@ -645,6 +645,15 @@ def lint_manuscript(manuscript_id: int):
     return _request("GET", f"/manuscripts/{manuscript_id}/lint/")
 
 
+def fix_lint(manuscript_id: int, only: list[dict] | None = None):
+    """#472: apply the lint's mechanical fixes (all, or the `only` ones)."""
+    return _request(
+        "POST",
+        f"/manuscripts/{manuscript_id}/lint/fix/",
+        json={"only": only} if only is not None else {},
+    )
+
+
 def preflight_manuscript(manuscript_id: int, network: bool = False):
     """#466: the submission readiness checks, ok/warn/fail/skip each, `ready` overall."""
     return _request(

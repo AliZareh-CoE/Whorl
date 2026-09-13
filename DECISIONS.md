@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Lint fixes are applied on the server, verified against the text that is there (#472)
+
+**Decision.** A lint finding that carries a `fix` now also carries `original`, the exact text at its `col`, so the replacement is mechanical: `writing/lint.py::apply_fixes` rewrites each file bottom-up (later spans first, so earlier columns stay valid), checks that `original` still sits at the span before touching it (a stale finding is skipped, never mis-applied), saves through `ManuscriptFile.save()` like an editor save, and returns the fresh lint. Seven rules fix themselves: `Figure~\ref`, `5\,ms`, ``` ``quotes'' ```, `\ldots`, `50\%`, `e.g.,` and a one-line `$$…$$` → `\[…\]`; `\begin{center}` in a float lost its fix (the matching `\end{center}` would have to go too). Surfaces: `POST /manuscripts/{id}/lint/fix/` (all, or `only` a chosen subset), a *Fix* button per row and *Fix all n* in the Problems panel (the editor saves its buffers first, then reloads the changed files), a palette action, MCP `fix_lint` (105 tools).
+
+**Why.** Applying edits in the browser would have left the API and MCP without the feature, and the server already holds the whole tree and the exact spans. Verifying the original text makes the operation safe against an editor buffer that moved on. Alternatives: CodeMirror `changes` from the client (rejected — two implementations of the same replacement); regenerating the file from the finding list without verification (rejected — one stale finding would corrupt a line).
+
 ### 2026-09-12 — One linter in the Studio (#471, backlog #308)
 
 **Decision.** The `codemirror-lang-latex` package's own linter is switched off (`enableLinting: false`). Its two checks worth keeping — an environment opened and never closed (or closed without a begin) and unbalanced braces — are now `unmatched-env` and `unclosed-brace` error rules in `writing/lint.py`, so they reach the Problems panel, the pre-flight row, the API and MCP like every other finding. The checks it got wrong for a multi-file paper (a `\ref` defined in another file read as undefined, "missing \begin{document}" on every `\input` section, per-file duplicate labels) are gone with it; the server's cross-file rules cover them correctly.

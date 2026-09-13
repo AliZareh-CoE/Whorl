@@ -2423,6 +2423,30 @@ class ManuscriptViewSet(AtlasViewSet):
 
         return Response(lint_manuscript(self.get_object()))
 
+    @extend_schema(
+        request=inline_serializer(
+            "LintFixRequest",
+            {"only": rf_serializers.ListField(child=rf_serializers.DictField(), required=False)},
+        ),
+        responses={
+            200: OpenApiResponse(
+                description="applied / skipped counts, the changed file paths and the fresh lint."
+            )
+        },
+        description="Apply the lint's mechanical fixes (#472) — every finding that carries a "
+        "`fix`, or only the ones listed in `only` as {file, line, rule, col}. Each replacement "
+        "is verified against the text actually there; the files are saved like an editor save.",
+    )
+    @action(detail=True, methods=["post"], url_path="lint/fix")
+    def lint_fix(self, request, pk=None):
+        from writing.lint import apply_fixes
+
+        data = request.data if isinstance(request.data, dict) else {}
+        only = data.get("only")
+        if only is not None and not isinstance(only, list):
+            return Response({"detail": "only must be a list."}, status=400)
+        return Response(apply_fixes(self.get_object(), only=only))
+
     @action(detail=True, methods=["get"])
     def preflight(self, request, pk=None):
         from writing.preflight import preflight

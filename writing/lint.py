@@ -93,7 +93,9 @@ def _strip_comment(line: str) -> str:
     return "".join(out)
 
 
-def _finding(path, line, col, rule, level, message, fix=None) -> dict:
+def _finding(path, line, col, rule, level, message, fix=None, original=None) -> dict:
+    """`fix` is the replacement for `original`, the exact text at (line, col) (#472): a fix
+    is only offered when the replacement is mechanical and the span is known."""
     out = {
         "file": path,
         "line": line,
@@ -102,8 +104,9 @@ def _finding(path, line, col, rule, level, message, fix=None) -> dict:
         "level": level,
         "message": message,
     }
-    if fix:
+    if fix is not None and original is not None:
         out["fix"] = fix
+        out["original"] = original
     return out
 
 
@@ -136,11 +139,12 @@ def lint_text(
                 _finding(
                     path,
                     n,
-                    cut + 1,
+                    cut,
                     "percent",
                     "error",
                     f"'{digit}%' — the rest of this line is a comment. Write {digit}\\%.",
                     f"{digit}\\%",
+                    f"{digit}%",
                 )
             )
         clean = URL_ARG.sub(lambda mm: " " * len(mm.group(0)), line)
@@ -158,7 +162,6 @@ def lint_text(
                         "center-env",
                         "warning",
                         f"\\begin{{center}} inside {floats[-1]['env']} — use \\centering.",
-                        "\\centering",
                     )
                 )
         if floats:
@@ -192,11 +195,12 @@ def lint_text(
                     _finding(
                         path,
                         n,
-                        m.start(2) + 1,
+                        m.start(1) + 1,
                         "nbsp-ref",
                         "warning",
                         f"'{m.group(1)} \\ref' — tie them with ~ so the number cannot wrap.",
                         f"{m.group(1)}~{m.group(3)}",
+                        m.group(0),
                     )
                 )
             for m in UNIT_SPACE.finditer(clean):
@@ -204,11 +208,12 @@ def lint_text(
                     _finding(
                         path,
                         n,
-                        m.start(2) + 1,
+                        m.start(1) + 1,
                         "unit-space",
                         "warning",
                         f"'{m.group(1)} {m.group(3)}' — use {m.group(1)}\\,{m.group(3)} or {m.group(1)}~{m.group(3)}.",
                         f"{m.group(1)}\\,{m.group(3)}",
+                        m.group(0),
                     )
                 )
             m = LINEBREAK.search(clean)
@@ -226,7 +231,14 @@ def lint_text(
         for m in ELLIPSIS.finditer(clean):
             findings.append(
                 _finding(
-                    path, n, m.start() + 1, "ellipsis", "warning", "'...' — use \\ldots.", "\\ldots"
+                    path,
+                    n,
+                    m.start() + 1,
+                    "ellipsis",
+                    "warning",
+                    "'...' — use \\ldots.",
+                    "\\ldots",
+                    "...",
                 )
             )
         for m in QUOTES.finditer(clean):
@@ -239,10 +251,12 @@ def lint_text(
                     "warning",
                     f"\"{m.group(1)[:30]}\" — LaTeX quotes are ``like this''.",
                     f"``{m.group(1)}''",
+                    m.group(0),
                 )
             )
         m = DISPLAY.search(clean)
         if m:
+            pair = re.search(r"(?<!\\)\$\$(.*?)(?<!\\)\$\$", clean)
             findings.append(
                 _finding(
                     path,
@@ -251,7 +265,8 @@ def lint_text(
                     "display-math",
                     "warning",
                     "$$ … $$ — use \\[ … \\].",
-                    "\\[",
+                    f"\\[{pair.group(1)}\\]" if pair else None,
+                    pair.group(0) if pair else None,
                 )
             )
         for m in ABBREV.finditer(clean):
@@ -264,6 +279,7 @@ def lint_text(
                     "warning",
                     f"'{m.group(1)}' — follow it with a comma.",
                     f"{m.group(1)},",
+                    m.group(1),
                 )
             )
         for m in END.finditer(clean):
@@ -439,3 +455,61 @@ def lint_manuscript(manuscript) -> dict:
     out = lint_files(pairs)
     out["manuscript"] = manuscript.id
     return out
+
+
+def apply_fixes(manuscript, only: list[dict] | None = None) -> dict:
+    """#472: apply every mechanical fix (or just the `only` ones, matched on file + line +
+    rule + col), bottom-up per file so earlier spans stay valid, each verified against the
+    text that is actually there. Saves through ManuscriptFile.save() like the editor does
+    and returns the fresh lint next to the counts."""
+    report = lint_manuscript(manuscript)
+    wanted = None
+    if only is not None:
+        wanted = {
+            (o.get("file"), int(o.get("line", 0)), o.get("rule"), int(o.get("col", 0)))
+            for o in only
+        }
+    todo = [
+        f
+        for f in report["findings"]
+        if "fix" in f and (wanted is None or (f["file"], f["line"], f["rule"], f["col"]) in wanted)
+    ]
+    by_file: dict[str, list[dict]] = {}
+    for f in todo:
+        by_file.setdefault(f["file"], []).append(f)
+    applied = skipped = 0
+    changed: list[str] = []
+    files = {f.path: f for f in manuscript.files.filter(kind="tex")}
+    for path, items in by_file.items():
+        mf = files.get(path)
+        if mf is None:
+            if path == "main.tex" and not files:
+                text = manuscript.latex_source or ""
+            else:
+                skipped += len(items)
+                continue
+        else:
+            text = mf.content
+        lines = text.split("\n")
+        for f in sorted(items, key=lambda x: (x["line"], x["col"]), reverse=True):
+            i, c = f["line"] - 1, f["col"] - 1
+            if i >= len(lines) or not lines[i].startswith(f["original"], c):
+                skipped += 1
+                continue
+            lines[i] = lines[i][:c] + f["fix"] + lines[i][c + len(f["original"]) :]
+            applied += 1
+        new_text = "\n".join(lines)
+        if new_text != text:
+            changed.append(path)
+            if mf is None:
+                manuscript.latex_source = new_text
+                manuscript.save(update_fields=["latex_source", "updated_at"])
+            else:
+                mf.content = new_text
+                mf.save()
+    return {
+        "applied": applied,
+        "skipped": skipped,
+        "files": changed,
+        "lint": lint_manuscript(manuscript) if changed else report,
+    }

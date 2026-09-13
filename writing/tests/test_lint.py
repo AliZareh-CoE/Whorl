@@ -200,3 +200,96 @@ def test_structure_rules_pair_environments_and_braces():
 def test_the_editor_relies_on_the_one_lint():
     src = Path("frontend/src/editor/index.ts").read_text()
     assert "enableLinting: false" in src
+
+
+# --- #472: one-click fixes -------------------------------------------------------------
+
+
+def test_every_fix_carries_the_exact_span_it_replaces():
+    tex = "\n".join(
+        [
+            r"As Figure \ref{fig:a} shows, 50% of trials.",
+            r'Each ran in 5 ms and were "fast"... e.g. this one.',
+            r"$$x=1$$ and a lone $$",
+            r"\begin{figure}\begin{center}\caption{a}\label{fig:a}\end{center}\end{figure}",
+        ]
+    )
+    lines = tex.split("\n")
+    out = L.lint_files([("m.tex", tex)])
+    fixable = {f["rule"]: f for f in out["findings"] if "fix" in f}
+    assert set(fixable) == {
+        "nbsp-ref",
+        "percent",
+        "unit-space",
+        "quotes",
+        "ellipsis",
+        "abbrev",
+        "display-math",
+    }
+    for f in fixable.values():
+        assert lines[f["line"] - 1].startswith(f["original"], f["col"] - 1), f
+    assert fixable["display-math"]["fix"] == r"\[x=1\]"
+    assert "fix" not in {f["rule"]: f for f in out["findings"]}["center-env"]
+    # a $$ pair split across lines has no mechanical fix
+    only_open = L.lint_files([("m.tex", "$$\nx\n$$")])["findings"]
+    assert [f["rule"] for f in only_open] == ["display-math", "display-math"]
+    assert all("fix" not in f for f in only_open)
+
+
+def test_apply_fixes_rewrites_the_files_bottom_up_and_relints():
+    m = Manuscript.objects.create(project=ProjectFactory(), title="P")
+    ManuscriptFile.objects.filter(manuscript=m).delete()
+    ManuscriptFile.objects.create(
+        manuscript=m,
+        path="main.tex",
+        kind="tex",
+        content='Figure \\ref{f} at 5 ms and 2.5 kHz, "so"... e.g. half of 50% done\n\\label{f}',
+    )
+    ManuscriptFile.objects.create(manuscript=m, path="b.tex", kind="tex", content="Clean here.")
+    out = L.apply_fixes(Manuscript.objects.get(pk=m.pk))
+    assert out["applied"] == 7 and out["skipped"] == 0 and out["files"] == ["main.tex"]
+    text = ManuscriptFile.objects.get(manuscript=m, path="main.tex").content
+    assert (
+        text
+        == "Figure~\\ref{f} at 5\\,ms and 2.5\\,kHz, ``so''\\ldots e.g., half of 50\\% done\n\\label{f}"
+    )
+    assert out["lint"]["count"] == 0
+
+
+def test_apply_fixes_only_a_subset_and_skips_stale_findings():
+    m = Manuscript.objects.create(project=ProjectFactory(), title="P")
+    ManuscriptFile.objects.filter(manuscript=m).delete()
+    ManuscriptFile.objects.create(
+        manuscript=m, path="main.tex", kind="tex", content="Run 5 ms then 7 ms."
+    )
+    report = L.lint_manuscript(Manuscript.objects.get(pk=m.pk))
+    second = report["findings"][1]
+    pick = {k: second[k] for k in ("file", "line", "rule", "col")}
+    out = L.apply_fixes(Manuscript.objects.get(pk=m.pk), only=[pick])
+    assert out["applied"] == 1
+    assert ManuscriptFile.objects.get(manuscript=m).content == "Run 5 ms then 7\\,ms."
+    # the first finding's col is now stale relative to a moved text: it is skipped, not mangled
+    ManuscriptFile.objects.filter(manuscript=m).update(content="Run 5 ms then 7\\,ms.")
+    stale = dict(pick, col=pick["col"] + 3)
+    out = L.apply_fixes(Manuscript.objects.get(pk=m.pk), only=[stale])
+    assert out["applied"] == 0 and out["skipped"] == 0 and out["files"] == []
+
+
+def test_lint_fix_api_and_guards(client_logged_in):
+    m = Manuscript.objects.create(project=ProjectFactory(), title="P")
+    ManuscriptFile.objects.filter(manuscript=m).delete()
+    ManuscriptFile.objects.create(manuscript=m, path="main.tex", kind="tex", content="in 5 ms")
+    bad = client_logged_in.post(
+        f"/api/v1/manuscripts/{m.id}/lint/fix/", {"only": "x"}, content_type="application/json"
+    )
+    assert bad.status_code == 400
+    r = client_logged_in.post(
+        f"/api/v1/manuscripts/{m.id}/lint/fix/", {}, content_type="application/json"
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["applied"] == 1 and body["files"] == ["main.tex"] and body["lint"]["count"] == 0
+    assert ManuscriptFile.objects.get(manuscript=m).content == "in 5\\,ms"
+    tsx = Path("frontend/src/app/pages/Studio.tsx").read_text()
+    for needle in ('data-testid="lint-fix-all"', 'data-testid="lint-fix"', "/lint/fix/`"):
+        assert needle in tsx, needle

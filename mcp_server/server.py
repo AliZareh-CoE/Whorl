@@ -658,6 +658,17 @@ def lint_manuscript(manuscript_id: int) -> dict:
 
 
 @mcp.tool()
+def fix_lint(manuscript_id: int, only: list[dict] | None = None) -> dict:
+    r"""Apply the style lint's mechanical fixes to the manuscript's .tex files: Figure~\ref,
+    5\,ms, ``quotes'', \ldots, 50\%, e.g., and \[ … \] for a one-line $$ pair. Pass `only`
+    as a list of {file, line, rule, col} taken from lint_manuscript to fix a chosen subset;
+    omit it to fix everything fixable. Every replacement is checked against the text actually
+    there, so a stale finding is skipped, never mis-applied. Returns applied / skipped counts,
+    the changed files and the fresh lint. Run lint_manuscript first to see what would change."""
+    return client.fix_lint(manuscript_id, only=only)
+
+
+@mcp.tool()
 def preflight_manuscript(manuscript_id: int, network: bool = False) -> dict:
     r"""Is this paper ready to submit? Every readiness check from real data: the compiled PDF
     is up to date with the source, no compile errors, no undefined citations/references, every
