@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CalendarClock, Check, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Sparkles, Trophy, Wand2 } from "lucide-react";
+import { AlertTriangle, BookOpen, CalendarClock, Check, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Sparkles, Trophy, Wand2 } from "lucide-react";
 import { confirmDialog } from "../../components/Dialog";
 import { api } from "../api";
 import { showUndo } from "../../components/UndoToast";
@@ -37,6 +37,7 @@ type Dash = {
   }[];
   milestones: { title: string; project: string; due_date: string | null; overdue: boolean; url: string }[];
   deadlines: { title: string; deadline: string | null; url: string }[];
+  reading?: { to_read: number; high_priority: number; projects: number; next: { id: number; title: string; first_author: string; year: number | null; priority: string; project: string; project_slug: string; waiting_days: number }[] };
 };
 
 // Observatory (2026-09-06): glass panels, display numerals, orbit-ring progress, a living
@@ -374,6 +375,7 @@ export default function Dashboard() {
           </div>
         </section>
 
+        <div className="space-y-4">
         <section className={`${panel} rise`} style={{ ["--i" as string]: 7 }}>
           <div className="flex items-baseline justify-between"><h2 className={h2}>Deadlines</h2><CalendarSubscribe /></div>
           <ul className="space-y-0.5 text-sm">
@@ -393,6 +395,30 @@ export default function Dashboard() {
             )}
           </ul>
         </section>
+        {/* #486: what to read today — the queue head across every active project */}
+        <section className={`${panel} rise`} style={{ ["--i" as string]: 7.5 }} data-testid="reading-next">
+          <div className="flex items-baseline justify-between"><h2 className={h2}><BookOpen className="mr-1 inline h-3 w-3 align-[-1px]" aria-hidden="true" />Next to read</h2>
+            {data.reading && data.reading.to_read > 0 && <span className="text-[11px] text-stone-400">{data.reading.to_read} unread{data.reading.high_priority > 0 ? ` · ${data.reading.high_priority} high priority` : ""}{data.reading.projects > 1 ? ` · ${data.reading.projects} projects` : ""}</span>}
+          </div>
+          <ul className="space-y-0.5 text-sm">
+            {(data.reading?.next ?? []).map((r) => (
+              <li key={r.id} data-testid="reading-row">
+                <Link to={`/library/${r.id}`} className={row} title={`${r.title}${r.first_author ? ` — ${r.first_author}` : ""}${r.year ? ` ${r.year}` : ""} · ${r.project}${r.waiting_days >= 1 ? ` · waiting ${r.waiting_days} d` : ""}`}>
+                  {r.priority === "high" ? <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">high</span> : <span aria-hidden="true" className="text-stone-300 dark:text-stone-500">·</span>}
+                  <span className="min-w-0 flex-1 truncate font-medium dark:text-stone-100">{r.title}</span>
+                  <span className="shrink-0 truncate text-xs text-stone-400 dark:text-stone-400" style={{ maxWidth: "9rem" }}>{[r.first_author, r.year].filter(Boolean).join(" ") || r.project}</span>
+                </Link>
+              </li>
+            ))}
+            {(!data.reading || data.reading.next.length === 0) && (
+              <li className="text-sm text-stone-400 dark:text-stone-400">
+                Nothing waiting to be read. <Link to="/library" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300">Open the Library →</Link>
+              </li>
+            )}
+          </ul>
+          {data.reading && data.reading.next.length > 0 && <p className="mt-2 text-[11px] text-stone-400"><Link to={`/projects/${data.reading.next[0].project_slug}/queue`} className="hover:text-indigo-600 dark:hover:text-indigo-300">Open the reading queue →</Link></p>}
+        </section>
+        </div>
 
         <section className={`${panel} rise`} style={{ ["--i" as string]: 8 }}>
           <h2 className={h2}>Upcoming milestones</h2>

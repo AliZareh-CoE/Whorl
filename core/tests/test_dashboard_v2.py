@@ -65,3 +65,62 @@ def test_project_health_and_dashboard_api(client, settings, django_user_model):
     assert [t["text"] for t in out["todos"]] == ["write intro"]  # #300: the open ones, in order
     assert len(out["heatmap"]) >= 26 and {"date", "count", "level"} <= set(out["heatmap"][0][0])
     assert out["week"]["overdue"] == [] and isinstance(out["week"]["due_this_week"], list)
+
+
+def test_reading_queue_everywhere_orders_by_priority_then_age(client_logged_in):
+    """#486: to-read links across planning/active projects only, high priority first, then the
+    oldest; counts and the API/TSX surfaces."""
+    from pathlib import Path
+
+    from core.dashboard import reading_queue_everywhere
+    from literature.models import ProjectReference
+    from literature.tests.factories import ReferenceFactory
+
+    a = ProjectFactory(name="Alpha", status="active")
+    b = ProjectFactory(name="Beta", status="planning")
+    paused = ProjectFactory(name="Paused", status="paused")
+    old = ProjectReference.objects.create(
+        project=a, reference=ReferenceFactory(title="Old normal"), reading_status="to_read"
+    )
+    ProjectReference.objects.filter(pk=old.pk).update(
+        created_at=timezone.now() - datetime.timedelta(days=30)
+    )
+    ProjectReference.objects.create(
+        project=b,
+        reference=ReferenceFactory(title="Urgent"),
+        reading_status="to_read",
+        priority="high",
+    )
+    ProjectReference.objects.create(
+        project=a,
+        reference=ReferenceFactory(title="Fresh low"),
+        reading_status="to_read",
+        priority="low",
+    )
+    ProjectReference.objects.create(
+        project=a, reference=ReferenceFactory(title="Done"), reading_status="read", priority="high"
+    )
+    ProjectReference.objects.create(
+        project=paused,
+        reference=ReferenceFactory(title="Parked"),
+        reading_status="to_read",
+        priority="high",
+    )
+    out = reading_queue_everywhere(today=timezone.localdate())
+    assert out["to_read"] == 3 and out["high_priority"] == 1 and out["projects"] == 2
+    assert [r["title"] for r in out["next"]] == ["Urgent", "Old normal", "Fresh low"]
+    assert out["next"][0]["project"] == "Beta" and out["next"][0]["project_slug"] == b.slug
+    assert out["next"][1]["waiting_days"] == 30 and out["next"][2]["waiting_days"] == 0
+    assert reading_queue_everywhere(limit=1)["next"][0]["title"] == "Urgent"
+    body = client_logged_in.get("/api/v1/dashboard/").json()
+    assert body["reading"]["to_read"] == 3 and body["reading"]["next"][0]["title"] == "Urgent"
+    empty = reading_queue_everywhere()
+    assert empty["to_read"] == 3  # same data; the shape holds with nothing too
+    tsx = Path("frontend/src/app/pages/Dashboard.tsx").read_text()
+    for needle in (
+        'data-testid="reading-next"',
+        'data-testid="reading-row"',
+        "reading.high_priority",
+        "/library/${r.id}",
+    ):
+        assert needle in tsx, needle

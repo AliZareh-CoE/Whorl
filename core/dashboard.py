@@ -55,6 +55,48 @@ def active_projects():
     return rows
 
 
+PRIORITY_RANK = {"high": 0, "normal": 1, "low": 2}
+
+
+def reading_queue_everywhere(today=None, limit: int = 5) -> dict:
+    """#486: the head of the reading queue across every planning/active project — highest
+    priority first, then the paper that has waited longest — plus how much is unread and how
+    much of that is high priority. The dashboard's answer to "what should I read today?"."""
+    from literature.models import ProjectReference
+
+    today = today or timezone.localdate()
+    links = list(
+        ProjectReference.objects.filter(
+            reading_status="to_read",
+            project__status__in=[Project.Status.PLANNING, Project.Status.ACTIVE],
+        )
+        .select_related("reference", "project")
+        .order_by("created_at")
+    )
+    queue = sorted(links, key=lambda link: (PRIORITY_RANK.get(link.priority, 1), link.created_at))
+    return {
+        "to_read": len(links),
+        "high_priority": sum(1 for link in links if link.priority == "high"),
+        "projects": len({link.project_id for link in links}),
+        "next": [
+            {
+                "id": link.reference_id,
+                "title": link.reference.title,
+                "first_author": (
+                    (link.reference.authors[0].get("family") if link.reference.authors else "")
+                    or ""
+                ),
+                "year": link.reference.year,
+                "priority": link.priority,
+                "project": link.project.name,
+                "project_slug": link.project.slug,
+                "waiting_days": (today - timezone.localtime(link.created_at).date()).days,
+            }
+            for link in queue[:limit]
+        ],
+    }
+
+
 def needs_attention(today=None, window_days=14):
     """The lead of the dashboard ([REV] cycle 145): the ANSWER to "what should I
     work on today?", not just data. Overdue milestones, manuscript deadlines

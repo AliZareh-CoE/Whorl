@@ -8,6 +8,8 @@
 
 - **Cadence change (2026-09-12, owner):** one shipped slice per hour — `/loop 1h /cycle` fires `/cycle` at the top of every hour; each firing ships one slice. The owner merged the branch into `main` via PR #1 (branch A1); this branch keeps receiving slices.
 
+- **Dashboard — slice 1 (2026-09-13, #486).** Area: **Dashboard** (from #486). `reading_queue_everywhere` (to_read, high_priority, projects, next[5] by priority then age across planning/active projects) on the dashboard payload as `reading`; *Next to read* panel under *Deadlines*; MCP `get_dashboard` docstring. Tests: core/tests/test_dashboard_v2.py (test_reading_queue_everywhere_orders_by_priority_then_age). Playwright: the demo shows "8 unread · 1 high priority", Draheim 2022 at the head, both themes. Audit #27 due at #488.
+
 - **Project overview — slice 7 + verdict (2026-09-13, #485).** Next-milestones check-off on the overview (optimistic row removal + ring/count update, PATCH /milestones/{id}/), recent decisions deep-link into the log (`?id=` scroll + expand + ring). **Verdict:** the Project overview is judged best-in-field for a single-user tool (DECISIONS); current area → **Dashboard** from #486; Audit #27 due at #488. Tests: projects/tests/test_overview_v2.py (test_overview_polish_check_off_and_decision_deep_links).
 
 - **Project overview — slice 6 (2026-09-13, #484).** Performance pass on the API overview: `core/memo.py` request-scoped memo (timeline, roadmap, current phase, progress computed once per request), pre-flight bibliography N+1 fixed, deferred-field loads removed, question phases prefetched; 89 queries / 117 ms → 61 / 94 ms warm on the demo project; `test_api_overview_budget` pins ≤ 60 queries on a busy project. Tests: core/tests/test_query_budgets.py.

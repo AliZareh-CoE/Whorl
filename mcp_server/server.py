@@ -772,7 +772,9 @@ def set_venue_limits(manuscript_id: int, limits: dict) -> dict:
 def get_dashboard() -> dict:
     """What should I work on today, everywhere? Needs-attention (overdue milestones, deadlines
     inside two weeks, untriaged inbox), this week's items across every active project, projects
-    with progress and phase health, monthly stats, upcoming milestones and deadlines."""
+    with progress and phase health, monthly stats, upcoming milestones and deadlines, and
+    `reading` — the head of the reading queue across every active project (highest priority,
+    then longest waiting) with the unread and high-priority counts (#486)."""
     return client.get_dashboard()
 
 

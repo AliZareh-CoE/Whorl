@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Dashboard: "Next to read", everywhere (#486)
+
+**Decision.** `core/dashboard.py::reading_queue_everywhere(limit=5)` — every `to_read` link across planning/active projects, highest priority first, then the paper that has waited longest — with the unread count, the high-priority share and how many projects the queue spans; on the dashboard payload as `reading` (MCP `get_dashboard` documents it). The page gets a *Next to read* panel stacked under *Deadlines* in the middle column: five rows (a "high" chip, title, first author + year, a tooltip with the project and the wait), a link into the reading queue of the project at the head.
+
+**Why.** The dashboard's question is "what should I work on today, everywhere?" and it answered for to-dos, milestones, deadlines and the inbox, but not for reading — the stat said "8 papers read this month" and nothing said which paper is next. Paperpile and Zotero have no cross-project queue at all; ResearchRabbit has no reading state. The ordering is the one the per-project queue already uses (#480), so the two never disagree.
+
+**Alternatives.** A fourth column in the projects/deadlines/milestones row (too narrow at 1440 for titles); a stat tile only (a number is not an answer); inline "mark read" on the row (a paper is read in the reader, not from a list — the row opens the paper).
+
 ### 2026-09-13 — Project overview: two small ones and the verdict (#485)
 
 **Decision.** (a) The *Next milestones* list on the overview gets a tick per row — the same PATCH the focus panel and the plan use; the row leaves the list at once, the ring and the milestone count move, the page refetches behind it. (b) *Recent decisions* deep-link into the log: `/projects/{slug}/decisions?id=N` scrolls that entry into view, expands it and rings it until the next click.

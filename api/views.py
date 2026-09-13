@@ -3031,14 +3031,20 @@ class DashboardAPIView(APIView):
     @extend_schema(
         description="Dashboard data: the needs-attention lead (overdue milestones, "
         "manuscript deadlines inside 14 days, untriaged inbox items), stats, active "
-        "projects with progress, upcoming milestones and deadlines, inbox count.",
+        "projects with progress, upcoming milestones and deadlines, inbox count, and the "
+        "reading queue head across every active project (#486).",
         responses={200: None},
     )
     def get(self, request):
         from django.urls import reverse
 
         from core.backups import backup_status
-        from core.dashboard import dashboard_context, project_health, week_everywhere
+        from core.dashboard import (
+            dashboard_context,
+            project_health,
+            reading_queue_everywhere,
+            week_everywhere,
+        )
         from core.models import TodoItem
         from writing.clock import waiting_manuscripts
 
@@ -3051,6 +3057,7 @@ class DashboardAPIView(APIView):
                 "inbox_count": data["inbox_count"],
                 # Dashboard v2 slice 1: this week everywhere, per-project health, heatmap, today
                 "week": week_everywhere(),
+                "reading": reading_queue_everywhere(),  # #486: what to read today
                 "todos_open": TodoItem.objects.filter(done=False).count(),
                 # backlog #300: the top of the Today list, tickable from the hero
                 "todos": [
