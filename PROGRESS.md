@@ -8,6 +8,8 @@
 
 - **Cadence change (2026-09-12, owner):** one shipped slice per hour — `/loop 1h /cycle` fires `/cycle` at the top of every hour; each firing ships one slice. The owner merged the branch into `main` via PR #1 (branch A1); this branch keeps receiving slices.
 
+- **Project overview — slice 3 (2026-09-13, #481).** `notebook_glance` (notes: total, edited_this_week, unlinked, last_edited, recent[3]; experiments: total, this_month, last, quiet ≥ 14 d; datasets) on the overview payload as `notebook`; a *Notebook* panel in the lower row (now three columns) with the three last-touched notes, the last lab entry and the quiet chip; MCP docstring. Tests: projects/tests/test_overview_v2.py (test_notebook_glance_notes_lab_log_and_datasets). Playwright: the demo shows 3 notes · 3 edited this week, 2 lab entries · 2 this month · 1 dataset, both themes.
+
 - **Project overview — slice 2 (2026-09-13, #480).** `literature_glance` (to_read, high_priority_unread, read_this_month, by_status, next_up, last_added) on the overview payload; *Literature* panel with the to-read link into the queue, the high-priority chip, reads this month and *Next up*; row grid 2/4 columns. Desktop run 193 green. Tests: projects/tests/test_overview_v2.py.
 
 - **Project overview, third pass — slice 1 (2026-09-13, #479).** `manuscripts_glance` rows carry `clock` (+ `nudge` while waiting) and `readiness` (pre-flight ready/fails/warns/summary while working); overview manuscript rows show the clock chip (amber "· nudge?") and a readiness pill; MCP `get_project_overview` docstring updated. **Desktop CI is green again:** run 192 (0.1.192) succeeded after the #478 fix — the first green build since 0.1.139. Tests: projects/tests/test_overview_v2.py.

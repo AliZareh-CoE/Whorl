@@ -149,6 +149,68 @@ def literature_glance(project, today: date | None = None) -> dict:
     }
 
 
+QUIET_LAB_DAYS = 14  # #481: a lab log with no entry for two weeks is worth a nudge
+
+
+def _note_row(note, today: date) -> dict:
+    day = timezone.localtime(note.updated_at).date()
+    return {
+        "id": note.pk,
+        "title": note.title,
+        "updated": day.isoformat(),
+        "days": (today - day).days,
+    }
+
+
+def notebook_glance(project, today: date | None = None) -> dict:
+    """#481: the writing-for-yourself state — notes (how many, edited this week, how many
+    sit unlinked, the last one touched), the lab log (entries, this month, the last entry
+    and how long ago, quiet when nothing was logged for two weeks) and the datasets."""
+    from notes.models import NoteLink
+
+    today = today or timezone.localdate()
+    week_ago = today - timedelta(days=7)
+    month_start = today.replace(day=1)
+    notes = list(project.notes.only("id", "title", "updated_at").order_by("-updated_at", "-id"))
+    linked: set[int] = set()
+    for src, dst in NoteLink.objects.filter(source__project=project).values_list(
+        "source_id", "target_id"
+    ):
+        linked.add(src)
+        linked.add(dst)
+    last_note = notes[0] if notes else None
+    entries = list(
+        project.experiment_entries.only("id", "date", "title").order_by("-date", "-created_at")
+    )
+    last_entry = entries[0] if entries else None
+    quiet_days = (today - last_entry.date).days if last_entry else None
+    return {
+        "notes": {
+            "total": len(notes),
+            "edited_this_week": sum(
+                1 for n in notes if timezone.localtime(n.updated_at).date() >= week_ago
+            ),
+            "unlinked": sum(1 for n in notes if n.pk not in linked),
+            "last_edited": _note_row(last_note, today) if last_note else None,
+            "recent": [_note_row(n, today) for n in notes[:3]],
+        },
+        "experiments": {
+            "total": len(entries),
+            "this_month": sum(1 for e in entries if e.date >= month_start),
+            "last": {
+                "id": last_entry.pk,
+                "title": last_entry.title,
+                "date": last_entry.date.isoformat(),
+                "days": quiet_days,
+            }
+            if last_entry
+            else None,
+            "quiet": bool(last_entry) and quiet_days >= QUIET_LAB_DAYS,
+        },
+        "datasets": {"total": project.datasets.count()},
+    }
+
+
 def hypotheses_summary(project) -> dict:
     counts = Counter(project.hypotheses.values_list("status", flat=True))
     return {"total": sum(counts.values()), "by_status": dict(counts)}

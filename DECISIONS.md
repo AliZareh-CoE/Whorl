@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Project overview: a Notebook glance (#481)
+
+**Decision.** The overview's lower row gains a *Notebook* panel between the milestones and the documents/decisions stack: notes (count, edited this week, an "n unlinked" chip when some note has no `[[link]]` in or out, the three last-touched notes with relative ages) and the lab log (entries, this month, the last entry and its age, an amber "quiet n d" chip once nothing was logged for 14 days) plus the dataset count. `projects/overview.py::notebook_glance` is in the overview payload as `notebook`, so MCP `get_project_overview` carries it too.
+
+**Why.** After #479/#480 the overview covered the plan, the literature, the manuscripts, the questions and the hypotheses — but not the two places a researcher writes for themselves. "Where is what, and how is it going?" was still missing the notes and the lab notebook. The *quiet* chip is the one nudge the panel makes: a lab log with a two-week hole is the classic sign that negative results went unrecorded.
+
+**Alternatives.** A separate "Research" glance (hypotheses + experiments + datasets) — hypotheses already sit under the questions panel; a fifth panel in the four-column glance row — too narrow at 1440; showing only the last note — the column had room for three and the third is often the one you forgot.
+
 ### 2026-09-13 — Project overview: a Literature glance (#480)
 
 **Decision.** The overview gains a *Literature* panel next to the research questions: how many linked papers are still to read (a link into the project's reading queue), how many of those are high priority, how many were read this month, and *Next up* — the head of the reading queue (highest priority, oldest first), linking to the paper. The payload (`literature_glance`) rides on the overview API and therefore on MCP `get_project_overview`. The three-panel row becomes four on wide screens (two on laptops).

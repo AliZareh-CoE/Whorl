@@ -23,7 +23,9 @@ def get_project_overview(slug: str) -> dict:
     whether a nudge to the editor is fair while it waits on a venue, and the pre-flight
     verdict (ready / fails / warns / summary) while it is being worked on (#479); and the
     literature glance — to-read count, high-priority unread, read this month, the next
-    paper up (top of the reading queue) and the last one added (#480)."""
+    paper up (top of the reading queue) and the last one added (#480); and the notebook
+    glance — notes (edited this week, unlinked, the three last touched), the lab log (last
+    entry, quiet after two weeks) and the dataset count (#481)."""
     return client.get_project_overview(slug)
 
 

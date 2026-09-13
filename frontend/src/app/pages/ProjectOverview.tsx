@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Activity, Archive, ArchiveRestore, BookOpen, FileText, FlaskConical, HelpCircle, PenLine, Settings2, Trash2 } from "lucide-react";
+import { Activity, Archive, ArchiveRestore, BookOpen, FileText, FlaskConical, HelpCircle, NotebookPen, PenLine, Settings2, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -28,6 +28,7 @@ type Overview = {
   week_digest: { since: string; total: number; counts: { kind: string; label: string; count: number }[]; items: { date: string; kind: string; label: string; detail: string; url: string }[] };
   questions: { id: number; question: string; status: string; phases: string[] }[];
   // #480: the project's reading state at a glance
+  notebook?: { notes: { total: number; edited_this_week: number; unlinked: number; last_edited: { id: number; title: string; updated: string; days: number } | null; recent: { id: number; title: string; updated: string; days: number }[] }; experiments: { total: number; this_month: number; last: { id: number; title: string; date: string; days: number } | null; quiet: boolean }; datasets: { total: number } };
   literature?: { total: number; by_status: Record<string, number>; to_read: number; high_priority_unread: number; read_this_month: number; next_up: { id: number; title: string; year: number | null; priority: string; first_author: string } | null; last_added: { id: number; title: string; year: number | null; priority: string; first_author: string } | null };
   // #479: the clock (+ nudge while waiting on a venue) and the pre-flight verdict while working
   manuscripts: { id: number; title: string; status: string; deadline: string | null; days: number | null; target_venue: string; over: string[]; clock?: { label: string; days: number; nudge?: { due: boolean; waited: number | null; after_days: number | null; basis: string | null } }; readiness?: { ready: boolean; fails: number; warns: number; summary: string } | null }[];
@@ -110,6 +111,7 @@ function ProjectSettings({ project, onClose }: { project: Overview["project"]; o
   );
 }
 
+function ago(days: number): string { if (days <= 0) return "today"; if (days === 1) return "yesterday"; if (days < 14) return `${days} d ago`; if (days < 60) return `${Math.round(days / 7)} wk ago`; return `${Math.round(days / 30)} mo ago`; }
 function when(days: number | null): string { if (days == null) return "no deadline"; if (days < 0) return `${-days} d overdue`; if (days === 0) return "due today"; return `${days} d left`; }
 
 export default function ProjectOverview() {
@@ -243,11 +245,45 @@ export default function ProjectOverview() {
         </p>
       )}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 8 }}>
           <p className={h2}>Next milestones {data.next_milestones.length > 0 && <span className="normal-case tracking-normal">{data.next_milestones.length}</span>}</p>
           {data.next_milestones.length === 0 ? <p className="text-sm text-stone-400">No upcoming milestones. <Link to={`/projects/${project.slug}/plan`} className="text-indigo-600 hover:underline dark:text-indigo-300">Open the plan</Link> to add some.</p> : (
             <ul className="space-y-2 text-sm">{data.next_milestones.map((m) => <li key={m.id} className="flex items-baseline gap-2.5"><span aria-hidden="true" className="text-[10px] text-indigo-400">◆</span><span className="min-w-0 flex-1 truncate text-stone-700 dark:text-stone-200">{m.title}<span className="ml-1.5 text-[11px] text-stone-400">{m.phase}</span></span>{m.due_date && <span className={`shrink-0 text-xs ${m.overdue ? "font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{m.due_date}{m.overdue ? " · overdue" : ""}</span>}</li>)}</ul>
+          )}
+        </section>
+        {/* #481: the notebook — notes and the lab log, the two places a researcher writes for themselves */}
+        <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 8.5 }} data-testid="notebook-glance">
+          <p className={h2}><NotebookPen className="h-3 w-3" aria-hidden="true" />Notebook <span className="normal-case tracking-normal">{data.counts.notes}</span></p>
+          {!data.notebook || (data.notebook.notes.total === 0 && data.notebook.experiments.total === 0) ? (
+            <p className="text-sm text-stone-400">Nothing written yet — <Link to={`/projects/${project.slug}/notes/new`} className="text-indigo-600 hover:underline dark:text-indigo-300">start a note</Link> or <Link to={`/projects/${project.slug}/research`} className="text-indigo-600 hover:underline dark:text-indigo-300">log an experiment</Link>.</p>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-stone-500 dark:text-stone-400">
+                  <Link to={`/projects/${project.slug}/notes`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-300">{data.notebook.notes.total} {data.notebook.notes.total === 1 ? "note" : "notes"}</Link>
+                  <span>· {data.notebook.notes.edited_this_week} edited this week</span>
+                  {data.notebook.notes.unlinked > 0 && data.notebook.notes.total > 1 && <span className="rounded-full bg-stone-500/10 px-1.5 text-stone-500 dark:text-stone-400" title="Notes with no [[link]] in or out — the graph cannot reach them">{data.notebook.notes.unlinked} unlinked</span>}
+                </p>
+                {data.notebook.notes.recent.length > 0 ? (
+                  <ul className="mt-1 space-y-1">{data.notebook.notes.recent.map((n, i) => <li key={n.id} className="flex items-baseline gap-2"><Link to={`/projects/${project.slug}/notes/${n.id}`} className="min-w-0 flex-1 truncate text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300" data-testid={i === 0 ? "notebook-last-note" : undefined} title={n.title}>{n.title}</Link><span className="shrink-0 text-[11px] text-stone-400">{ago(n.days)}</span></li>)}</ul>
+                ) : <p className="mt-1 text-xs text-stone-400">No notes yet — <Link to={`/projects/${project.slug}/notes/new`} className="text-indigo-600 hover:underline dark:text-indigo-300">start one</Link>.</p>}
+              </div>
+              <div>
+                <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-stone-500 dark:text-stone-400">
+                  <Link to={`/projects/${project.slug}/research`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-300">{data.notebook.experiments.total} lab {data.notebook.experiments.total === 1 ? "entry" : "entries"}</Link>
+                  {data.notebook.experiments.total > 0 && <span>· {data.notebook.experiments.this_month} this month</span>}
+                  {data.notebook.experiments.quiet && <span className="rounded-full bg-amber-500/10 px-1.5 text-amber-600 dark:text-amber-300" title="No lab entry for two weeks — worth a line even when nothing worked">quiet {data.notebook.experiments.last?.days} d</span>}
+                  {data.notebook.datasets.total > 0 && <span>· {data.notebook.datasets.total} {data.notebook.datasets.total === 1 ? "dataset" : "datasets"}</span>}
+                </p>
+                {data.notebook.experiments.last ? (
+                  <>
+                    <Link to={`/projects/${project.slug}/research`} className="mt-1 block truncate text-stone-800 hover:text-indigo-700 dark:text-stone-100 dark:hover:text-indigo-300" data-testid="notebook-last-entry" title={data.notebook.experiments.last.title}>{data.notebook.experiments.last.title}</Link>
+                    <p className="text-[11px] text-stone-400">{data.notebook.experiments.last.date} · {ago(data.notebook.experiments.last.days)}</p>
+                  </>
+                ) : <p className="mt-1 text-xs text-stone-400">Nothing logged yet — <Link to={`/projects/${project.slug}/research`} className="text-indigo-600 hover:underline dark:text-indigo-300">log the first experiment</Link>.</p>}
+              </div>
+            </div>
           )}
         </section>
         <div className="space-y-4">

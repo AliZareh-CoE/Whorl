@@ -178,3 +178,49 @@ def test_literature_glance_counts_and_queue_head(client_logged_in):
         'data-testid="literature-next"',
     ):
         assert needle in tsx, needle
+
+
+def test_notebook_glance_notes_lab_log_and_datasets(client_logged_in):
+    """#481: notes (edited this week, unlinked, last edited), the lab log (last entry, quiet
+    after two weeks, this month) and the dataset count."""
+    from pathlib import Path
+
+    from notes.models import Note, NoteLink
+    from research.models import Dataset, ExperimentEntry
+
+    today = datetime.date(2026, 9, 13)
+    project = ProjectFactory()
+    a = Note.objects.create(project=project, title="Alpha", body="[[Beta]]")
+    b = Note.objects.create(project=project, title="Beta")
+    c = Note.objects.create(project=project, title="Gamma, alone")
+    NoteLink.objects.get_or_create(source=a, target=b)
+    Note.objects.filter(pk=c.pk).update(updated_at=timezone.now() - datetime.timedelta(days=30))
+    ExperimentEntry.objects.create(project=project, date=datetime.date(2026, 8, 20), title="Old")
+    ExperimentEntry.objects.create(project=project, date=datetime.date(2026, 9, 2), title="Pilot")
+    Dataset.objects.create(project=project, name="raw", location="/data/raw")
+    out = overview.notebook_glance(project, today=today)
+    assert out["notes"]["total"] == 3 and out["notes"]["unlinked"] == 1
+    assert out["notes"]["edited_this_week"] == 2
+    assert out["notes"]["last_edited"]["title"] in ("Alpha", "Beta")
+    assert out["notes"]["last_edited"]["days"] == 0
+    assert [r["title"] for r in out["notes"]["recent"]][-1] == "Gamma, alone"
+    assert out["notes"]["recent"][-1]["days"] == 30 and len(out["notes"]["recent"]) == 3
+    ex = out["experiments"]
+    assert ex["total"] == 2 and ex["this_month"] == 1 and ex["last"]["title"] == "Pilot"
+    assert ex["last"]["days"] == 11 and ex["quiet"] is False
+    assert out["datasets"]["total"] == 1
+    quiet = overview.notebook_glance(project, today=datetime.date(2026, 9, 20))
+    assert quiet["experiments"]["quiet"] is True and quiet["experiments"]["last"]["days"] == 18
+    body = client_logged_in.get(f"/api/v1/projects/{project.slug}/overview/").json()
+    assert body["notebook"]["notes"]["unlinked"] == 1 and body["notebook"]["datasets"]["total"] == 1
+    empty = overview.notebook_glance(ProjectFactory(), today=today)
+    assert empty["notes"]["last_edited"] is None and empty["experiments"]["last"] is None
+    assert empty["experiments"]["quiet"] is False and empty["datasets"]["total"] == 0
+    tsx = Path("frontend/src/app/pages/ProjectOverview.tsx").read_text()
+    for needle in (
+        'data-testid="notebook-glance"',
+        'data-testid={i === 0 ? "notebook-last-note" : undefined}',
+        'data-testid="notebook-last-entry"',
+        "notebook.experiments.quiet",
+    ):
+        assert needle in tsx, needle
