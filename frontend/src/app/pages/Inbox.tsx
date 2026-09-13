@@ -12,7 +12,7 @@ import { ErrorState } from "../../components/ErrorState";
 import { Prose } from "../../components/Prose";
 import { Skeleton } from "../../components/Skeleton";
 
-type Hint = { suggested: "paper" | "note" | "todo" | "milestone" | "decision"; doi: string; arxiv_id: string; url: string; title: string };
+type Hint = { suggested: "paper" | "note" | "todo" | "milestone" | "decision"; doi: string; arxiv_id: string; url: string; title: string; project?: { slug: string; name: string; score: number; terms: string[] } | null };
 type Capture = { id: number; text: string; text_html: string; processed: boolean; project: string | null; hint: Hint; created_at: string };
 type Project = { name: string; slug: string; color: string };
 type Page<T> = { count: number; results: T[] };
@@ -153,7 +153,8 @@ function InboxBody({ open, projectRows, text, setText, capture, convert, triage,
 
 
 function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismiss }: { c: Capture; i: number; active: boolean; onFocus: () => void; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void }) {
-  const [project, setProject] = useState(c.project ?? projects[0]?.slug ?? "");
+  // #494: the project Atlas suggests from the capture's words wins over "the first project"
+  const [project, setProject] = useState(c.project ?? c.hint.project?.slug ?? projects[0]?.slug ?? "");
   useEffect(() => { if (!project && projects[0]) setProject(projects[0].slug); }, [projects, project]);
   const suggested = TARGETS.find((t) => t.key === c.hint.suggested)!;
   const chips: string[] = [];
@@ -168,6 +169,7 @@ function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismi
         <span className="text-stone-400">{ago(c.created_at)}</span>
         {c.processed && <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-emerald-700 dark:text-emerald-300" title="Already triaged">filed</span>}
         {chips.map((ch) => <span key={ch} className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-mono text-indigo-700 dark:text-indigo-200">{ch}</span>)}
+        {c.hint.project && !c.project && project === c.hint.project.slug && <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-emerald-700 dark:text-emerald-300" title={`Suggested from ${c.hint.project.terms.join(", ")}`} data-testid="suggested-project">suggested · {c.hint.project.name}</span>}
         <span className="ml-auto flex flex-wrap items-center gap-1">
           <select value={project} onChange={(e) => setProject(e.target.value)} aria-label="Project" className="rounded-md border border-stone-200 bg-white px-1.5 py-0.5 text-[11px] text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
             {projects.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}

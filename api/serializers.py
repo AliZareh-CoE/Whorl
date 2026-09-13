@@ -398,10 +398,18 @@ class QuickCaptureSerializer(RenderedBodyMixin, serializers.ModelSerializer):
 
     @extend_schema_field(serializers.DictField())
     def get_hint(self, obj):
-        """Inbox v2: what the capture looks like (paper / note / todo / …) and any ids found."""
-        from notes.capture import detect
+        """Inbox v2: what the capture looks like (paper / note / todo / …) and any ids found;
+        #494 adds `project` — the active project whose vocabulary the capture shares most
+        (slug, name, score, terms), or null. The project index is built once per request."""
+        from notes.capture import detect, project_index, suggest_project
 
-        return detect(obj.text)
+        hint = detect(obj.text)
+        index = self.context.get("_project_index")
+        if index is None:
+            index = project_index()
+            self.context["_project_index"] = index
+        hint["project"] = suggest_project(obj.text, index)
+        return hint
 
 
 class ConvertCaptureSerializer(serializers.Serializer):

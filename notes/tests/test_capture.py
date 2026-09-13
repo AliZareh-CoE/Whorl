@@ -95,3 +95,42 @@ def test_convert_api_and_hint(client, settings, django_user_model, monkeypatch):
         HTTP_X_API_KEY="k",
     )
     assert bad.status_code == 400
+
+
+def test_suggest_project_from_the_capture_words(client, settings, django_user_model):
+    """#494: the project whose vocabulary the capture shares most is suggested; a name word
+    weighs three; ties and weak matches give nothing; the hint carries it; the row uses it."""
+    from pathlib import Path
+
+    from notes.capture import project_index, suggest_project
+    from notes.models import Note, QuickCapture
+    from plans.tests.factories import ResearchQuestionFactory
+    from projects.tests.factories import ProjectFactory
+
+    attention = ProjectFactory(name="Attention and Working Memory", status="active")
+    ResearchQuestionFactory(project=attention, question="Does load reduce vigilance?")
+    Note.objects.create(project=attention, title="Load theory overview")
+    sleep = ProjectFactory(name="Sleep and Consolidation", status="active")
+    Note.objects.create(project=sleep, title="Slow-wave replay notes")
+    ProjectFactory(name="Archived thing", status="archived")
+    index = project_index()
+    assert [r["name"] for r in index] == [attention.name, sleep.name]
+    hit = suggest_project("Skim the two new load-theory papers on vigilance", index)
+    assert hit and hit["slug"] == attention.slug and hit["score"] >= 2
+    assert "load" in hit["terms"] and "vigilance" in hit["terms"]
+    by_name = suggest_project("todo: email the sleep lab", index)
+    assert by_name and by_name["slug"] == sleep.slug and by_name["score"] == 3  # a name word
+    assert suggest_project("Buy coffee", index) is None
+    assert suggest_project("", index) is None
+    assert suggest_project("attention", []) is None
+    ResearchQuestionFactory(project=sleep, question="Does load matter for replay?")
+    assert suggest_project("load", project_index()) is None  # a tie says nothing
+    user = django_user_model.objects.create_user("u", "u@example.com", "pw")
+    client.force_login(user)
+    QuickCapture.objects.create(text="Skim the two new load-theory papers on vigilance")
+    body = client.get("/api/v1/quick-capture/").json()
+    rows = body["results"] if isinstance(body, dict) else body
+    assert rows[0]["hint"]["project"]["slug"] == attention.slug
+    tsx = Path("frontend/src/app/pages/Inbox.tsx").read_text()
+    for needle in ('data-testid="suggested-project"', "c.hint.project?.slug"):
+        assert needle in tsx, needle

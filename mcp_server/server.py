@@ -806,8 +806,9 @@ def get_day_activity(date: str = "") -> dict:
 
 @mcp.tool()
 def list_inbox() -> dict:
-    """Captures waiting for triage, each with a `hint` (suggested target and any DOI / arXiv id /
-    URL found in the text)."""
+    """Captures waiting for triage, each with a `hint` (suggested target, any DOI / arXiv id /
+    URL found in the text, and since #494 `project` — the active project whose vocabulary the
+    capture shares most, with the matching terms, or null)."""
     return client.list_inbox()
 
 

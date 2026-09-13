@@ -50,6 +50,86 @@ def detect(text: str) -> dict:
     }
 
 
+MIN_SUGGEST_SCORE = 2  # #494: two matching terms (or one from the project's own name)
+NAME_WEIGHT = 3
+
+
+def _terms(text: str) -> set[str]:
+    from core.keywords import ALL_STOPWORDS, WORD_RE
+
+    out: set[str] = set()
+    for w in WORD_RE.findall(text or ""):
+        # a hyphenated word counts as itself and as its parts ("load-theory" → load, theory)
+        for part in (w, *w.split("-")):
+            part = part.lower()
+            if len(part) >= 3 and part not in ALL_STOPWORDS:
+                out.add(part)
+    return out
+
+
+def project_index(projects=None) -> list[dict]:
+    """#494: one term set per planning/active project — its name (weighted), description,
+    phase names, research questions, note titles, decision titles, paper titles and tags —
+    built with one grouped query per source so the cost does not grow with projects."""
+    from documents.models import Tag
+    from literature.models import ProjectReference
+    from notes.models import Note
+    from plans.models import Phase, ResearchQuestion
+    from projects.models import DecisionRecord, Project
+
+    if projects is None:
+        projects = list(
+            Project.objects.filter(status__in=[Project.Status.PLANNING, Project.Status.ACTIVE])
+        )
+    ids = [p.pk for p in projects]
+    rows = {
+        p.pk: {
+            "slug": p.slug,
+            "name": p.name,
+            "name_terms": _terms(p.name),
+            "terms": _terms(p.description),
+        }
+        for p in projects
+    }
+    if not ids:
+        return []
+    sources = (
+        Phase.objects.filter(project_id__in=ids).values_list("project_id", "name"),
+        ResearchQuestion.objects.filter(project_id__in=ids).values_list("project_id", "question"),
+        Note.objects.filter(project_id__in=ids).values_list("project_id", "title"),
+        DecisionRecord.objects.filter(project_id__in=ids).values_list("project_id", "title"),
+        Tag.objects.filter(project_id__in=ids).values_list("project_id", "name"),
+        ProjectReference.objects.filter(project_id__in=ids)
+        .order_by("-created_at")
+        .values_list("project_id", "reference__title")[:2000],
+    )
+    for source in sources:
+        for pid, text in source:
+            rows[pid]["terms"] |= _terms(text)
+    return list(rows.values())
+
+
+def suggest_project(text: str, index: list[dict]) -> dict | None:
+    """#494: the project whose vocabulary the capture shares most — a name word counts
+    three, any other term one; needs at least MIN_SUGGEST_SCORE and a clear winner."""
+    words = _terms(_title(text) + " " + (text or ""))
+    if not words or len(index) < 1:
+        return None
+    scored = []
+    for row in index:
+        hits = sorted(words & (row["terms"] | row["name_terms"]))
+        score = sum(NAME_WEIGHT if w in row["name_terms"] else 1 for w in hits)
+        if score:
+            scored.append((score, row, hits))
+    if not scored:
+        return None
+    scored.sort(key=lambda t: -t[0])
+    best = scored[0]
+    if best[0] < MIN_SUGGEST_SCORE or (len(scored) > 1 and scored[1][0] == best[0]):
+        return None
+    return {"slug": best[1]["slug"], "name": best[1]["name"], "score": best[0], "terms": best[2]}
+
+
 def _title(text: str) -> str:
     first = (text or "").strip().splitlines()[0] if (text or "").strip() else ""
     for pattern in (TODO_RE, DECISION_RE, NOTE_RE, MILESTONE_RE):

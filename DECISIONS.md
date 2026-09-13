@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-13 — Inbox: Atlas suggests the project (#494)
+
+**Decision.** `notes/capture.py::project_index()` builds one term set per planning/active project — its name (weighted three), description, phase names, research questions, note titles, decision titles, paper titles and tags — with one grouped query per source; `suggest_project(text, index)` scores a capture's words against each set and names the winner when it has at least two points and no tie. The capture serializer adds `hint.project` (slug, name, score, matching terms), building the index once per request; the Inbox row preselects the suggested project (a filed capture keeps its own) and shows a "suggested · Project" chip whose tooltip lists the terms that matched. MCP `list_inbox` carries it.
+
+**Why.** With more than one project, the project select on every row was the one click triage still demanded; the words of a capture usually say where it belongs ("load-theory papers on vigilance" is the attention project by its own notes and questions). Local, explainable and cheap: no model, the terms are shown, a tie or a weak overlap says nothing rather than guessing.
+
+**Alternatives.** Embeddings (a dependency and a model download for a hint); the most recently used project (wrong exactly when the mind wanders); suggesting for filed captures too (their project is the truth already).
+
 ### 2026-09-13 — Dashboard: narrow widths, and the verdict (#493)
 
 **Decision.** The dashboard's grids declare a single column below `lg` (`grid-cols-1`, panels `min-w-0`) so truncated titles no longer force the page open; the stat tiles stack under 480 px; needs-attention rows wrap; the week rows' and hero to-dos' project labels truncate. The document no longer scrolls sideways at 640 px or above. Below that the fixed 240-px sidebar leaves too little room — a shell concern, parked as backlog #312 (a collapsible sidebar under 640 px) rather than bent per page.

@@ -8,6 +8,8 @@
 
 - **Cadence change (2026-09-12, owner):** one shipped slice per hour — `/loop 1h /cycle` fires `/cycle` at the top of every hour; each firing ships one slice. The owner merged the branch into `main` via PR #1 (branch A1); this branch keeps receiving slices.
 
+- **Inbox — slice 1 (2026-09-13, #494).** Area: **Inbox / capture** (from #494). `project_index` + `suggest_project` (name ×3, description, phases, questions, notes, decisions, papers, tags; ≥ 2 points, no tie), `hint.project` on captures (index once per request), Inbox rows preselect it with a "suggested · Project" chip; MCP `list_inbox` docstring. Tests: notes/tests/test_capture.py (test_suggest_project_from_the_capture_words).
+
 - **Dashboard — slice 7 + verdict (2026-09-13, #493).** Narrow widths: single-column grids below `lg` with `min-w-0` panels, stat tiles stack under 480 px, attention rows wrap, project labels truncate — no sideways scroll from 640 px up (phone width is a shell concern, backlog #312). **Verdict:** the Dashboard is judged best-in-field for a single-user tool (DECISIONS); current area → **Inbox / capture** from #494; Audit #28 due at #498.
 
 - **Dashboard — slice 6 (2026-09-13, #492, 112 tools).** Clickable heatmap: cells are buttons (aria-pressed, ring), a day panel under the grid lists that day's timeline events across every project with kind chips, links and projects; `GET /dashboard/day/?date=` (`day_activity`, 400 on a bad date, today by default); MCP `get_day_activity`. Tests: core/tests/test_dashboard_v2.py (test_day_activity_lists_one_day_across_projects), mcp client test. Playwright: clicking 2026-09-12 lists the demo's milestones, papers and notes, both themes.
