@@ -5,7 +5,9 @@ from django.urls import reverse
 
 from .models import Note, NoteLink
 
-WIKI_LINK_RE = re.compile(r"\[\[([^\]\n]+)\]\]")
+# Audit #29: the title class excludes "[" as well, so a run of "[[" cannot make the engine
+# re-scan the rest of the body from every bracket (50k "[[" took 64 s; now < 1 ms)
+WIKI_LINK_RE = re.compile(r"\[\[([^\[\]\n]+)\]\]")
 # Pandoc-style citation keys: "@lavie2010attention" (not inside emails/urls/handles)
 CITE_RE = re.compile(r"(?<![\w@/.])@([A-Za-z][\w:.-]*\w)")
 

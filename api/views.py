@@ -2965,7 +2965,10 @@ class PromptViewSet(AtlasViewSet):
 
 
 class NoteViewSet(AtlasViewSet):
-    queryset = Note.objects.all()
+    # Audit #29: the list read the project, the backlinks and the cited papers once per row
+    queryset = Note.objects.select_related("project").prefetch_related(
+        "incoming_links__source", "references"
+    )
     serializer_class = serializers.NoteSerializer
     project_filter = "project__slug"
     q_fields = ("title", "body")  # Backlog #100: search opt-in

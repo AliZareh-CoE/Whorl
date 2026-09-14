@@ -874,6 +874,65 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #29 — 2026-09-14 (since #28: #499–#507 — the Inbox's last three slices and its verdict, the Notes + graph area's first six)
+
+Ten cycles, nine feature slices, two findings — both in text parsers, both fixed, both pinned.
+
+**Dependencies — CLEAN.** `pip-audit` on the exported lock: *No known vulnerabilities found*.
+`npm audit --omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`: every row green (anon → 401
+across the API, pages → 302, catch-all 404, static MIME, `/app//evil.com` stays on-origin).
+
+**New surfaces since #28 — reviewed.**
+- *Auth:* `notes/{id}/outline/`, `…/graph/`, `…/revisions/`, `…/revisions/{rid}/restore/`,
+  `…/link-mentions/`, `notes/tags/`, `projects/{slug}/graph/` and `quick-capture/{id}/enrich/`
+  answer 401 anonymously and to a wrong key.
+- *Link titles (#499):* the SSRF guard holds — `127.0.0.1`, `localhost`, `10.0.0.1`, `[::1]`,
+  `169.254.169.254`, `0.0.0.0`, the decimal (`2130706433`) and hex (`0x7f000001`) spellings
+  of loopback and `file://` are all refused before any socket opens (resolved addresses are
+  checked, not the spelling); through the API each comes back as `link_error`, never fetched.
+- *Dates (#500):* 45 k-character first lines and `"next " × 20 000` parse in ≤ 60 ms.
+- *Note graph (#503):* `depth` — `0` → 1, `4` / `99` → 3 (clamped; max `hops` observed 2 on the
+  demo), `abc` / `-1` / `1e2` → 400. The project graph with #506's filing dates: 12 queries /
+  19 ms; the note graph at depth 3: 13 / 21 ms.
+- *Tags (#504):* `?tag=` with `#`, quotes, brackets or 5 000 characters → 200 (a JSON
+  `contains`, never interpolated); `notes/tags/` without a project → 400.
+- *History (#505):* `rid` = `0`, `abc`, `-1`, `999999999999` → 404 (the route only accepts
+  digits; unknown ids are 404, foreign ids too); `restore` of an unknown revision → 404.
+- *Relink (#502):* `sources: ["a"]` → 400; 5 000 ids → 200, filtered to the project's notes.
+- *A 1 MB note (#507):* PATCH 0.30 s (snapshot + links + tags + citations), `outline/` 0.45 s,
+  `graph/` 75 ms, `revisions/` 49 ms. Acceptable for a body forty times any real note.
+- *FINDING 1 — catastrophic backtracking in the wiki-link and HTML-title readers.* A body of
+  50 000 `[[` made `parse_wiki_titles` (run on every note save, in the renderer, in the
+  outline) take **64 s**: the title class `[^\]\n]+` swallowed every following bracket and
+  re-scanned from each one. The og:title reader was worse from the other side of the wire:
+  256 KB of `<meta ` without a closing `>` — bytes the *page* chooses — took **96 s** to give
+  up, hanging the enrich request that #499 fires automatically on load. Fixed: the link
+  classes exclude `[` (`notes/services.py`, `notes/outline.py`; 50 k `[[` now 2 ms), and
+  `notes/links.py` walks at most 300 `<meta` tags, each as a bounded 2 000-character slice,
+  with a bounded `<title>` pattern (256 KB of open tags now 17 ms; 20 k `<title>` 285 ms).
+  `core/tests/test_regex_budgets.py` pins every text parser under a second on these inputs.
+- *FINDING 2 — the note list read three things per row.* `GET /notes/` cost 16 queries for
+  the demo's 3 notes and 47 for 40: the project slug, the backlinks and the cited papers each
+  went to the database per note — and the backlink accessor called `select_related()` on the
+  related manager, which builds a fresh queryset and bypasses any prefetch. Fixed with
+  `select_related("project")` + `prefetch_related("incoming_links__source", "references")`
+  on the viewset and `.all()` in the accessor (40 notes → 7 queries; the demo 16 → 7,
+  24 → 12 ms). `test_api_notes_list_budget` pins ≤ 12 queries for 40 linked notes.
+
+**Performance (warm, best of four, in-process with the API key, demo data):** project graph
+19 ms · note graph (depth 3) 21 ms · revisions 5 ms · outline 4 ms · tags 5 ms · notes 12 ms ·
+inbox 19 ms · inbox history 5 ms · dashboard 74 ms · project overview 91 ms. Everything under
+the 100 ms bar.
+
+**Desktop CI — GREEN.** Runs 209–219 (0.1.209–0.1.219) all succeeded.
+
+**Product stance unchanged.** Single user, API key from the environment, no multi-tenancy;
+the risks accepted in #26 (user-supplied regex backtracking in project search) still stand.
+Python-Markdown itself renders a 30 000-line body in ~7 s — the preview of a pathological
+note is slow but bounded and user-initiated; not a finding.
+
+**Next audit due at #518.**
+
 ## Audit #28 — 2026-09-14 (since #27: #489–#497 — the Dashboard's last five slices and its verdict, the Inbox's first four)
 
 Ten cycles, nine feature slices, one honest look.

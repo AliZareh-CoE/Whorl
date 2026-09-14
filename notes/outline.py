@@ -15,7 +15,7 @@ import re
 WORDS_PER_MINUTE = 200
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
 FENCE_RE = re.compile(r"^ {0,3}(```|~~~)")
-LINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]*)?\]\]")
+LINK_RE = re.compile(r"\[\[([^\[\]|\n]+)(?:\|[^\[\]\n]*)?\]\]")  # linear (Audit #29)
 CITE_RE = re.compile(r"(?<![\w@])@([A-Za-z][\w:-]*\w)")
 TASK_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\[([ xX])\]\s")
 

@@ -23,15 +23,30 @@ TIMEOUT = httpx.Timeout(4.0)
 MAX_BYTES = 256 * 1024
 MAX_REDIRECTS = 4
 USER_AGENT = "Atlas (research project manager; link titles)"
-TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
-OG_RE = re.compile(
-    r"""<meta[^>]+(?:property|name)=["']og:title["'][^>]*content=["']([^"']{1,300})["']""",
-    re.IGNORECASE,
-)
-OG_RE_REVERSED = re.compile(
-    r"""<meta[^>]+content=["']([^"']{1,300})["'][^>]*(?:property|name)=["']og:title["']""",
-    re.IGNORECASE,
-)
+# Audit #29: every pattern here is bounded — a page that never closes a tag (256 KB of
+# "<meta " took 96 s to give up) must cost milliseconds, since the page picks the bytes.
+TITLE_RE = re.compile(r"<title[^>]{0,200}>(.{0,1000}?)</title>", re.IGNORECASE | re.DOTALL)
+META_OPEN_RE = re.compile(r"<meta\b", re.IGNORECASE)
+META_TAG_MAX = 2000  # a <meta …> longer than this is not one we want
+META_TAGS_MAX = 300  # a head with more <meta> tags than this is not a page we want either
+OG_PROPERTY_RE = re.compile(r"""(?:property|name)\s*=\s*["']og:title["']""", re.IGNORECASE)
+OG_CONTENT_RE = re.compile(r"""\bcontent\s*=\s*["']([^"']{1,300})["']""", re.IGNORECASE)
+
+
+def og_title(head: str) -> str:
+    """The og:title of a page head — one bounded slice per <meta> tag, no backtracking."""
+    for count, m in enumerate(META_OPEN_RE.finditer(head)):
+        if count >= META_TAGS_MAX:
+            break
+        tag = head[m.end() : m.end() + META_TAG_MAX]
+        close = tag.find(">")
+        if close >= 0:
+            tag = tag[:close]
+        if OG_PROPERTY_RE.search(tag):
+            content = OG_CONTENT_RE.search(tag)
+            if content:
+                return content.group(1)
+    return ""
 
 
 class LinkError(Exception):
@@ -75,8 +90,7 @@ def title_from_html(body: str) -> str:
     """The page title: og:title when present and longer than a bare site name, else <title>."""
     head = body[:MAX_BYTES]
     plain = TITLE_RE.search(head)
-    og = OG_RE.search(head) or OG_RE_REVERSED.search(head)
-    candidates = [_clean(m.group(1)) for m in (og, plain) if m]
+    candidates = [_clean(og_title(head)), _clean(plain.group(1)) if plain else ""]
     candidates = [c for c in candidates if c]
     return candidates[0] if candidates else ""
 

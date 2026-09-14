@@ -713,9 +713,10 @@ class NoteSerializer(serializers.ModelSerializer):
         extra_kwargs = {"references": {"required": False}}
 
     def get_backlinks(self, note) -> list[dict]:
+        # `.all()` so the viewset's prefetch (incoming_links__source) is used — a
+        # select_related() here built a fresh queryset per row (Audit #29)
         return [
-            {"id": link.source_id, "title": link.source.title}
-            for link in note.incoming_links.select_related("source")
+            {"id": link.source_id, "title": link.source.title} for link in note.incoming_links.all()
         ]
 
 

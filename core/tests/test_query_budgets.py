@@ -207,3 +207,36 @@ def test_api_inbox_list_budget(client, settings, django_user_model):
         )
     assert r.status_code == 200 and len(r.json()["results"]) == 40
     assert len(ctx) <= 12, len(ctx)
+
+
+def test_api_notes_list_budget(client, settings, django_user_model):
+    """AUDIT #29: the note list must not grow with the number of notes — the project slug,
+    the backlinks and the cited papers were each read once per row (16 queries for 3 notes)."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from literature.tests.factories import ReferenceFactory
+    from notes.models import Note
+    from notes.services import sync_note_links
+
+    settings.ATLAS_API_KEY = "k"
+    django_user_model.objects.create_superuser("atlas", "a@b.c", "atlas")
+    project = ProjectFactory(slug="budget")
+    paper = ReferenceFactory(bibtex_key="budget2020paper")
+    notes = [
+        Note.objects.create(project=project, title=f"N{i}", body=f"[[N{i - 1}]]") for i in range(40)
+    ]
+    for note in notes:
+        sync_note_links(note)
+        note.references.add(paper)
+    client.get(
+        "/api/v1/notes/?project=budget&page_size=100", HTTP_X_API_KEY="k", HTTP_HOST="127.0.0.1"
+    )
+    with CaptureQueriesContext(connection) as ctx:
+        r = client.get(
+            "/api/v1/notes/?project=budget&page_size=100", HTTP_X_API_KEY="k", HTTP_HOST="127.0.0.1"
+        )
+    assert r.status_code == 200 and len(r.json()["results"]) == 40
+    rows = r.json()["results"]
+    assert any(row["backlinks"] for row in rows) and all(row["references_detail"] for row in rows)
+    assert len(ctx) <= 12, len(ctx)

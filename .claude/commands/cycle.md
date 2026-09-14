@@ -14,7 +14,7 @@ ends; the owner does not review in between and never wants to be asked "shall I�
    Linear, Overleaf, Obsidian…). Only when it is genuinely best-in-field move to the next area.
    Current area: **Notes + knowledge graph** (from #502 — the Inbox was judged best-in-field at
    #501 after #494–#501; the Dashboard at #493; the Project overview at #485; the Writing
-   studio at #477; #498 was Audit #28 and Audit #29 is due at #508). Next candidates, in
+   studio at #477; #508 was Audit #29 and Audit #30 is due at #518). Next candidates, in
    order: Plan, Library.
 2. **Worthy of a viral GitHub star.** Every slice must be something a researcher would
    screenshot and send to a colleague. Prefer the feature that makes someone say "finally".
