@@ -742,6 +742,13 @@ def list_inbox(snoozed: bool = False):
     )
 
 
+def enrich_capture(capture_id: int, force: bool = False):
+    """Fetch the page title behind a link capture (#499)."""
+    return _request(
+        "POST", f"/quick-capture/{capture_id}/enrich/", params={"force": "1"} if force else None
+    )
+
+
 def triage_captures(ids, action: str, project: str = "", until: str = ""):
     """Many captures, one action: file / dismiss / snooze / todo / wake (#497)."""
     payload = {"ids": list(ids), "action": action}

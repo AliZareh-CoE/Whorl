@@ -390,11 +390,13 @@ class QuickCaptureSerializer(RenderedBodyMixin, serializers.ModelSerializer):
             "snoozed_until",
             "became",
             "triaged_at",
+            "link_title",
+            "link_fetched_at",
             "hint",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["triaged_at"]
+        read_only_fields = ["triaged_at", "link_title", "link_fetched_at"]
 
     became = serializers.SerializerMethodField()
 

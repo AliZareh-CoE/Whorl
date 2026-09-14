@@ -65,6 +65,10 @@ class QuickCapture(TimeStampedModel):
     became_kind = models.CharField(max_length=20, blank=True)
     became_id = models.PositiveIntegerField(null=True, blank=True)
     triaged_at = models.DateTimeField(null=True, blank=True)
+    # #499: a capture that is (or carries) a link learns the page's title once; fetched_at is
+    # set even when the fetch failed so the inbox does not retry on every load
+    link_title = models.CharField(max_length=300, blank=True)
+    link_fetched_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

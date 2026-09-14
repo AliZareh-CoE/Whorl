@@ -231,6 +231,9 @@ def convert(capture, target: str, project=None, *, phase=None, due: date | None 
         from notes.services import sync_note_links, sync_note_references
 
         title = hints["title"]
+        # #499: a capture that is just a link takes the page's title, once it is known
+        if capture.link_title and hints["url"] and capture.text.strip() == hints["url"]:
+            title = capture.link_title[:300]
         base, k = title, 2
         while project.notes.filter(title__iexact=title).exists():
             title = f"{base} ({k})"

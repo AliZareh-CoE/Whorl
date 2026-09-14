@@ -477,6 +477,14 @@ class Command(BaseCommand):
             text="Look into that eye-tracker discount",
             defaults={"processed": True, "triaged_at": timezone.now() - datetime.timedelta(days=5)},
         )
+        # #499: a bare link capture that already knows its page
+        QuickCapture.objects.get_or_create(
+            text="https://arxiv.org/abs/1706.03762",
+            defaults={
+                "link_title": "Attention Is All You Need",
+                "link_fetched_at": timezone.now() - datetime.timedelta(hours=3),
+            },
+        )
         # #495: one capture asleep until next Monday — the snoozed list has something to show
         QuickCapture.objects.get_or_create(
             text="Ask the ethics office about the extended participant pool",

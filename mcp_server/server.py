@@ -815,6 +815,14 @@ def list_inbox(snoozed: bool = False) -> dict:
 
 
 @mcp.tool()
+def enrich_capture(capture_id: int, force: bool = False) -> dict:
+    """Look up the page behind a link capture and remember its title (#499): the reply is the
+    capture with `link_title` (and `link_error` when the fetch failed — private hosts, non-http
+    links and timeouts are refused). force=True fetches again."""
+    return client.enrich_capture(capture_id, force)
+
+
+@mcp.tool()
 def triage_captures(ids: list[int], action: str, project: str = "", until: str = "") -> dict:
     """Triage many captures in one call (#497): action 'file' (under project slug), 'dismiss',
     'snooze' (until: tomorrow / monday / next-week / weekend / YYYY-MM-DD), 'todo' (each

@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Inbox: link captures know their page (#499)
+
+**Decision.** A capture that carries a link learns the page's title once: `QuickCapture.link_title` / `link_fetched_at` (notes 0007), filled by `notes/links.py::enrich_capture` — http(s) only, private/loopback/unresolvable hosts refused (`check_url` resolves the host and rejects non-global addresses), four-second timeout, at most 256 KB streamed, four redirects, `og:title` then `<title>`, HTML only. `POST /quick-capture/{id}/enrich/` (`?force=1` to retry) returns the capture plus `link_error`; a failed fetch still stamps `link_fetched_at` so nothing retries on every load. The SPA enriches a fresh link capture the moment it lands and up to five old unfetched ones per page load; rows show "↗ Title — site" (the bare-URL text dims under it); a bare link converted to a note takes the page title. MCP `enrich_capture` (116 tools).
+
+**Why.** "https://arxiv.org/abs/1706.03762" says nothing at triage time; the title is what a researcher decides on. Fetching at capture time would put the network on the capture path (the one action that must be instant, and huey is `immediate` in dev and desktop) — so the client asks for it a moment later, and the answer is remembered.
+
+**Alternatives.** A huey task on create — rejected: immediate mode makes it synchronous where it matters most. Fetching in the list serializer on demand — rejected: a list must never do network I/O. Allowing any host — rejected: a single-user app on a laptop still has a LAN and cloud metadata addresses behind it; the fetcher resolves the host and refuses non-global addresses. Storing the whole page or its description — rejected: the title is the decision aid; the reader (Library) is where the page's content belongs, via Paper when it is a DOI or arXiv id.
+
 ### 2026-09-14 — Audit #28 (#498)
 
 **Decision.** The every-ten-cycles look: dependencies clean, every new endpoint since #488 gated and bounds-checked, hot endpoints under 100 ms. One finding fixed: the capture list read `capture.project` per row (36 queries for 61 captures); `select_related("project")` on the viewset and a pinned budget (`test_api_inbox_list_budget`, ≤ 12 for 40 rows). Accepted: bulk `todo` costs ≈ 5 queries per row under the 200-row ceiling; a far-future snooze date is allowed. Report in AUDITS.md › Audit #28. Next audit at #508.

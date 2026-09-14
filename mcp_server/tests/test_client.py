@@ -502,6 +502,9 @@ def test_inbox_client_calls(capture):
     assert "snoozed=false" in capture["url"]
     client.list_inbox(snoozed=True)
     assert "snoozed=true" in capture["url"]
+    client.enrich_capture(9, force=True)
+    assert capture["method"] == "POST" and calls_url_has(capture, "/quick-capture/9/enrich/")
+    assert "force=1" in capture["url"]
     client.triage_captures([1, 2], "file", project="deep")
     assert (
         capture["method"] == "POST"

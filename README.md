@@ -9,7 +9,7 @@ Atlas is a single-user, self-hosted research platform for people who find Jira-s
 and task-obsessed. It treats what researchers actually care about as first-class: a **plan** you
 write like a document, a **library** that reads your PDFs, **notes** that cite papers with `@key`,
 a **writing studio** that checks your citations and compiles LaTeX, and an **MCP server** so
-Claude Code can do all of it with you — 115 tools over the same API the UI uses.
+Claude Code can do all of it with you — 116 tools over the same API the UI uses.
 
 > Built like Django itself: boring technology, strong conventions, everything has exactly one
 > obvious place. No cloud, no telemetry. Runs as a web app or a one-click desktop app.
@@ -93,7 +93,7 @@ picks another port. Claude Code connects to this server exactly as to the deskto
 - ⌘K makes things too: `todo:` a task (with “at 3pm”), `paper:` a DOI or arXiv id (a bare id works as well — it lands in the project you are in), `capture:` a thought, `done:` a milestone, plus “New note”, “New manuscript”, “New project”, “Add a paper”.
 - Today: a dead-simple personal list for the day; “call Sam at 3pm” puts a time on it, the sidebar nudges when it comes close, and what you carried over from earlier days is counted. Research tools: a hypothesis ledger (evidence from papers, notes or documents; the balance suggests a status), experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Subscribe to milestones and manuscript deadlines from your calendar app (`/api/v1/calendar.ics`). Local extras: Piper read-aloud, extractive tl;dr — offline.
 
-**Claude / MCP** — 115 tools over the REST API plus four skills; your AI assistant operates the same contract you do. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
+**Claude / MCP** — 116 tools over the REST API plus four skills; your AI assistant operates the same contract you do. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
 
 ## Quick start (one command)
 
@@ -201,7 +201,7 @@ Writing progress: `get_writing_progress` (words per day, today's delta, streak, 
 From the matrix to the paper: `draft_related_work` (a `Related work` .tex section from the review matrix, every key in the bibliography).
 Automations: `list_bots`, `run_bot`, `toggle_bot` (the bots report to the Inbox).
 Today list: `list_todos`, `add_todo`, `complete_todo`, `reorder_todos`.
-Notes, search & review: `add_note`, `list_notes`, `get_note`, `update_note`, `get_note_links`, `create_note_from_template`, `export_note`, `quick_capture`, `list_inbox`, `triage_captures`, `get_inbox_history`, `snooze_capture`, `convert_capture`, `search`, `get_weekly_review`,
+Notes, search & review: `add_note`, `list_notes`, `get_note`, `update_note`, `get_note_links`, `create_note_from_template`, `export_note`, `quick_capture`, `list_inbox`, `enrich_capture`, `triage_captures`, `get_inbox_history`, `snooze_capture`, `convert_capture`, `search`, `get_weekly_review`,
 `list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,
 `list_manuscript_files`, `read_manuscript_file`, `write_manuscript_file`, `attach_manuscript_figure` (a local PNG/PDF into the source tree, with the `\includegraphics` snippet back), `set_main_file`, `duplicate_manuscript` (a fresh paper from an existing one — sources, assets, limits, bibliography),
 `compile_manuscript`, `get_compile_status`, `get_compile_diagnostics`, `compile_and_wait`,

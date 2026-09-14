@@ -8,9 +8,11 @@
  *  #496: "Recently triaged" answers "where did that thought go?" — each capture that left the
  *  inbox shows what it became (a link), where it was filed, or that it was dismissed; Put back.
  *  #497: batch triage — tick rows (checkbox, space, ⌘A), then File / Today / Later / Dismiss the
- *  whole selection from a floating bar; POST /quick-capture/bulk/; MCP triage_captures. */
+ *  whole selection from a floating bar; POST /quick-capture/bulk/; MCP triage_captures.
+ *  #499: a capture with a link learns the page's title (POST /quick-capture/{id}/enrich/, once) and
+ *  shows "↗ Title — site"; a bare link converted to a note takes that title. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { BookOpen, Check, Clock, FileText, Flag, History, Inbox as InboxIcon, ListChecks, Scale, X } from "lucide-react";
 import { api, petReact } from "../api";
@@ -21,7 +23,8 @@ import { Prose } from "../../components/Prose";
 import { Skeleton } from "../../components/Skeleton";
 
 type Hint = { suggested: "paper" | "note" | "todo" | "milestone" | "decision"; doi: string; arxiv_id: string; url: string; title: string; project?: { slug: string; name: string; score: number; terms: string[] } | null };
-type Capture = { id: number; text: string; text_html: string; processed: boolean; project: string | null; snoozed_until: string | null; hint: Hint; created_at: string };
+type Capture = { id: number; text: string; text_html: string; processed: boolean; project: string | null; snoozed_until: string | null; link_title: string; link_fetched_at: string | null; hint: Hint; created_at: string };
+const siteOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } };
 type Project = { name: string; slug: string; color: string };
 type Page<T> = { count: number; results: T[] };
 type Converted = { kind: string; id: number; title: string; app_url: string; created?: boolean };
@@ -53,9 +56,21 @@ export default function Inbox() {
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["inbox", runFilter], queryFn: () => api<Page<Capture>>(`/quick-capture/?page_size=200${runFilter ? `&run=${encodeURIComponent(runFilter)}` : ""}`) });
   const { data: projects } = useQuery({ queryKey: ["projects-brief"], queryFn: () => api<Page<Project>>("/projects/?page_size=100") });
   const refresh = () => { queryClient.invalidateQueries({ queryKey: ["inbox"] }); queryClient.invalidateQueries({ queryKey: ["inbox-history"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["todos"] }); };
+  // #499: a link capture asks for its page title right after it lands; older unfetched ones
+  // are looked up once per page load (a failed fetch is remembered, so this never loops)
+  const enrich = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) => api<Capture>(`/quick-capture/${id}/enrich/${force ? "?force=1" : ""}`, { method: "POST" }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["inbox"] }),
+  });
+  const enrichedRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    const todo = (data?.results ?? []).filter((c) => !c.processed && c.hint.url && !c.link_fetched_at && !enrichedRef.current.has(c.id)).slice(0, 5);
+    for (const c of todo) { enrichedRef.current.add(c.id); enrich.mutate({ id: c.id }); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
   const capture = useMutation({
-    mutationFn: () => api("/quick-capture/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }),
-    onSuccess: () => { setText(""); petReact("capture"); refresh(); },
+    mutationFn: () => api<Capture>("/quick-capture/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }),
+    onSuccess: (made) => { setText(""); petReact("capture"); refresh(); if (made?.hint?.url && made.id) { enrichedRef.current.add(made.id); enrich.mutate({ id: made.id }); } },
   });
   const triage = useMutation({
     mutationFn: ({ id, project }: { id: number; project?: string }) => api(`/quick-capture/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(project ? { processed: true, project } : { processed: true }) }),
@@ -125,7 +140,7 @@ export default function Inbox() {
     </div>
   ) : null;
   const projectRows = projects?.results ?? [];
-  return <InboxBody runBanner={runBanner} openCount={stillOpen} open={open} sleeping={sleeping} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} snooze={snooze} bulk={bulk} toast={toast} />;
+  return <InboxBody runBanner={runBanner} openCount={stillOpen} open={open} sleeping={sleeping} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} snooze={snooze} bulk={bulk} toast={toast} onRetryLink={(id) => enrich.mutate({ id, force: true })} />;
 }
 
 /* Keyboard triage (Inbox v2 slice 2): j/k or arrows move the cursor, Enter takes the
@@ -133,7 +148,7 @@ export default function Inbox() {
    inbox without touching the mouse. Keys are ignored while typing in the capture box. */
 const KEY_TARGETS = ["paper", "todo", "note", "milestone", "decision"] as const;
 
-function InboxBody({ open, sleeping, projectRows, text, setText, capture, convert, triage, snooze, bulk, toast, runBanner, openCount }: { runBanner?: ReactNode; openCount?: number; open: Capture[]; sleeping: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; snooze: { mutate: (v: { id: number; until: string }) => void; isPending: boolean }; bulk: { mutate: (v: { ids: number[]; action: string; project?: string; until?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
+function InboxBody({ open, sleeping, projectRows, text, setText, capture, convert, triage, snooze, bulk, toast, runBanner, openCount, onRetryLink }: { runBanner?: ReactNode; openCount?: number; onRetryLink?: (id: number) => void; open: Capture[]; sleeping: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; snooze: { mutate: (v: { id: number; until: string }) => void; isPending: boolean }; bulk: { mutate: (v: { ids: number[]; action: string; project?: string; until?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
   const [cursor, setCursor] = useState(0);
   const [legend, setLegend] = useState(false);
   const [showSleeping, setShowSleeping] = useState(false);
@@ -214,7 +229,7 @@ function InboxBody({ open, sleeping, projectRows, text, setText, capture, conver
         </div>
       ) : (
         <ul className="space-y-2" data-testid="inbox-list">
-          {open.map((c, i) => <Row key={c.id} c={c} i={i} active={i === cursor} onFocus={() => setCursor(i)} projects={projectRows} busy={convert.isPending || triage.isPending || snooze.isPending || bulk.isPending} onConvert={(target, project) => convert.mutate({ id: c.id, target, project })} onFile={(project) => triage.mutate({ id: c.id, project })} onDismiss={() => triage.mutate({ id: c.id })} onSnooze={(until) => snoozeUntil(c.id, until)} selected={selected.has(c.id)} onToggle={() => toggle(c.id)} />)}
+          {open.map((c, i) => <Row key={c.id} c={c} i={i} active={i === cursor} onFocus={() => setCursor(i)} projects={projectRows} busy={convert.isPending || triage.isPending || snooze.isPending || bulk.isPending} onConvert={(target, project) => convert.mutate({ id: c.id, target, project })} onFile={(project) => triage.mutate({ id: c.id, project })} onDismiss={() => triage.mutate({ id: c.id })} onSnooze={(until) => snoozeUntil(c.id, until)} selected={selected.has(c.id)} onToggle={() => toggle(c.id)} onRetryLink={onRetryLink ? () => onRetryLink(c.id) : undefined} />)}
         </ul>
       )}
       {selected.size > 0 && (
@@ -295,7 +310,7 @@ function RecentlyTriaged() {
   );
 }
 
-function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismiss, onSnooze, onWake, selected, onToggle }: { c: Capture; i: number; active: boolean; onFocus: () => void; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void; onSnooze: (until: string) => void; onWake?: () => void; selected?: boolean; onToggle?: () => void }) {
+function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismiss, onSnooze, onWake, selected, onToggle, onRetryLink }: { c: Capture; i: number; active: boolean; onFocus: () => void; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void; onSnooze: (until: string) => void; onWake?: () => void; selected?: boolean; onToggle?: () => void; onRetryLink?: () => void }) {
   // #494: the project Atlas suggests from the capture's words wins over "the first project"
   const [project, setProject] = useState(c.project ?? c.hint.project?.slug ?? projects[0]?.slug ?? "");
   const [later, setLater] = useState(false);
@@ -307,13 +322,28 @@ function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismi
   const chips: string[] = [];
   if (c.hint.doi) chips.push(`doi ${c.hint.doi}`);
   if (c.hint.arxiv_id) chips.push(`arXiv ${c.hint.arxiv_id}`);
-  if (c.hint.url && !c.hint.doi) chips.push("link");
+  if (c.hint.url && !c.hint.doi) chips.push(`link · ${siteOf(c.hint.url) || "web"}`);
+  const bareLink = Boolean(c.hint.url) && c.text.trim() === c.hint.url;
   return (
     <li className={`${panel} rise p-3 transition-shadow ${active ? "ring-2 ring-indigo-500/60" : ""} ${selected ? "bg-indigo-50/60 dark:bg-indigo-500/10" : ""} ${later ? "relative z-30" : ""}`} style={{ ["--i" as string]: i + 1 }} data-testid="inbox-row" data-active={active ? "1" : undefined} data-selected={selected ? "1" : undefined} onMouseEnter={onFocus}>
       <div className="flex items-start gap-2">
         {onToggle && <input type="checkbox" checked={Boolean(selected)} onChange={onToggle} aria-label="Select capture" className="mt-1 h-3.5 w-3.5 shrink-0 accent-indigo-600" data-testid="select-capture" />}
         {/* #407: [[note]] and @cite-key mentions in a capture are links */}
-        <Prose html={c.text_html} className="min-w-0 flex-1 break-words text-sm text-stone-800 dark:text-stone-100" testId="capture-text" />
+        <div className="min-w-0 flex-1">
+          <Prose html={c.text_html} className={`break-words text-sm text-stone-800 dark:text-stone-100 ${bareLink && c.link_title ? "text-[11px] text-stone-400" : ""}`} testId="capture-text" />
+          {c.hint.url && !c.hint.doi && (
+            <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-xs" data-testid="link-title">
+              {c.link_title ? (
+                <a href={c.hint.url} target="_blank" rel="noreferrer" className={`min-w-0 truncate font-medium text-indigo-600 hover:underline dark:text-indigo-300 ${bareLink ? "text-sm" : ""}`} title={c.hint.url}>↗ {c.link_title}</a>
+              ) : c.link_fetched_at ? (
+                <span className="text-stone-400">no title found{onRetryLink && <> · <button type="button" onClick={onRetryLink} className="hover:underline">try again</button></>}</span>
+              ) : (
+                <span className="text-stone-400">fetching the page title…</span>
+              )}
+              <span className="text-stone-400">{siteOf(c.hint.url)}</span>
+            </p>
+          )}
+        </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="text-stone-400">{ago(c.created_at)}</span>

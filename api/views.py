@@ -1992,6 +1992,31 @@ class QuickCaptureViewSet(AtlasViewSet):
         return Response({"results": triage_history(int(raw))})
 
     @extend_schema(
+        request=None,
+        parameters=[
+            OpenApiParameter(
+                "force", bool, description="Fetch again even if already tried.", required=False
+            )
+        ],
+        responses={200: serializers.QuickCaptureSerializer},
+        description="Look up the page behind the capture's link once and remember its title "
+        "(#499): http(s) only, private hosts refused, four seconds, 256 KB. The reply is the "
+        "capture with `link_title` / `link_fetched_at`; a failed fetch still stamps "
+        "`link_fetched_at` (so the inbox stops retrying) and the response carries "
+        "`link_error`.",
+    )
+    @action(detail=True, methods=["post"])
+    def enrich(self, request, pk=None):
+        from notes.links import enrich_capture
+
+        capture = self.get_object()
+        force = request.query_params.get("force") in ("1", "true")
+        out = enrich_capture(capture, force=force)
+        data = self.get_serializer(capture).data
+        data["link_error"] = out["error"]
+        return Response(data)
+
+    @extend_schema(
         request=serializers.BulkTriageSerializer,
         responses={
             200: inline_serializer(
