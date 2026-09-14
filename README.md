@@ -79,6 +79,7 @@ picks another port. Claude Code connects to this server exactly as to the deskto
 
 **Notes & graph** — `[[wiki-links]]` and Pandoc-style `@key` citations with autocomplete, live preview, autosave, backlinks and unlinked mentions. The same mentions work in decisions, experiment entries, protocols and captures — every markdown body renders through one resolver (`core/rendering.py`) and the API returns a rendered `*_html` companion next to the source.
 - Templates: a literature note built from any paper with its highlights, a daily note seeded with this week's focus, meeting, experiment. Export any note with a formatted bibliography.
+- Research markdown everywhere a body is rendered: `$math$` and `$$display$$` typeset with vendored KaTeX (offline in the desktop), `- [ ]` task boxes, `> [!warning]` callouts, footnotes, `==highlights==`.
 - Note outline and measure: headings as a clickable outline pane, a live words · minutes · tasks line, the same numbers over the API and MCP.
 - 3D/2D knowledge graph (vendored, works offline): search-to-focus, kind and link filters, neighbourhood focus, hubs, a time-lapse that replays the graph as it was filed, a #tag filter.
 

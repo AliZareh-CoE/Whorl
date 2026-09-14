@@ -121,3 +121,63 @@ def test_a_tag_at_the_start_of_a_line_is_not_a_heading():
     html = render_markdown("## Next\n\n#pilot #method\n\n# Title")
     assert "<h2>Next</h2>" in html and "<h1>Title</h1>" in html
     assert "<p>#pilot #method</p>" in html
+
+
+def test_research_markdown_math_is_lifted_and_marked_for_katex():
+    """#509: `$a_i$` keeps its underscores, display math becomes its own block, dollars in
+    prose and code stay dollars."""
+    html = render_markdown(
+        "Let $a_i + b_j$ hold and\n\n$$\nx^2_{ij} < \\alpha\n$$\n\ncosts $5 and $6, `$HOME`"
+    )
+    assert '<span class="math-inline">a_i + b_j</span>' in html
+    assert '<div class="math-display">x^2_{ij} &lt; \\alpha</div>' in html
+    assert "<em>" not in html
+    assert "costs $5 and $6" in html and "<code>$HOME</code>" in html
+
+
+def test_research_markdown_tasks_callouts_footnotes_and_highlights():
+    body = (
+        "- [ ] open\n- [x] done\n\n> [!warning] Careful\n> body here\n\n> [!wat]\n> unknown kind\n\n"
+        "Text[^1] with ==a mark==.\n\n[^1]: The note."
+    )
+    html = render_markdown(body)
+    assert '<li class="task"><input type="checkbox" disabled> open' in html
+    assert '<li class="task task-done"><input type="checkbox" disabled checked> done' in html
+    assert (
+        '<blockquote class="callout callout-warning"><p class="callout-title">Careful</p><p>body here'
+        in html
+    )
+    assert (
+        '<blockquote class="callout callout-note"><p class="callout-title">Note</p><p>unknown kind'
+        in html
+    )
+    assert '<sup id="fnref:1"><a class="footnote-ref" href="#fn:1"' in html
+    assert '<li id="fn:1">' in html and "<mark>a mark</mark>" in html
+
+
+def test_research_markdown_sanitizer_keeps_only_our_classes_and_ids():
+    html = render_markdown(
+        '<div class="callout" id="x" onclick="1">a</div><input type="text"><p class="evil<b>">d</p>'
+        '<sup id="fnref:9">c</sup><span class="a b">ok</span>'
+    )
+    assert '<div class="callout">a</div>' in html and "onclick" not in html and 'id="x"' not in html
+    assert "<input" not in html and "<p>d</p>" in html
+    assert '<sup id="fnref:9">c</sup>' in html and '<span class="a b">ok</span>' in html
+
+
+def test_katex_is_vendored_and_wired_into_prose():
+    from pathlib import Path
+
+    from django.conf import settings
+
+    root = Path(settings.BASE_DIR)
+    vendor = root / "static" / "vendor" / "katex"
+    assert (vendor / "katex.min.js").exists() and (vendor / "katex.min.css").exists()
+    assert len(list((vendor / "fonts").glob("*.woff2"))) >= 15
+    prose = (root / "frontend" / "src" / "components" / "Prose.tsx").read_text()
+    assert "vendor/katex/katex.min.js" in prose and ".math-inline, .math-display" in prose
+    assert (
+        "useMath(ref, html)" in prose.split("if (!html) return null")[0]
+    )  # hooks above the early return
+    notes = (root / "frontend" / "src" / "app" / "pages" / "Notes.tsx").read_text()
+    assert 'testId="note-preview"' in notes and "<Prose html={preview.data?.html" in notes

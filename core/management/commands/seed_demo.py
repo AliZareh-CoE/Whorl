@@ -417,9 +417,19 @@ class Command(BaseCommand):
             project=project,
             title="Strategic allocation hypothesis",
             defaults={
+                # #509: research markdown — a callout, math, a footnote, tasks, a highlight
                 "body": (
                     "If load effects are *strategic*, practice should modulate them. "
-                    "Contrast with the capacity view in [[Load theory overview]]."
+                    "Contrast with the capacity view in [[Load theory overview]].\n\n"
+                    "> [!question] Prediction\n"
+                    "> The practice slope $\\beta_{practice} < 0$ under high load only.\n\n"
+                    "The capacity account predicts a fixed limit,\n\n"
+                    "$$\nRT = \\alpha + \\beta \\cdot \\log_2(n) + \\epsilon\n$$\n\n"
+                    "where $n$ is the set size[^1]. ==Open question==: does the slope move "
+                    "with practice?\n\n"
+                    "- [x] fit the Hick–Hyman slope per session\n"
+                    "- [ ] compare slopes across blocks\n\n"
+                    "[^1]: Hick (1952); Hyman (1953)."
                 )
             },
         )

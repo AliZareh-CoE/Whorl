@@ -636,3 +636,22 @@
 @media (prefers-reduced-motion: reduce) {
   .mochi-egg-crack .mochi-svg, .mochi-born .mochi-svg { animation: none; }
 }
+
+
+/* #509: research markdown — callouts, task boxes, math, footnotes, highlights */
+.prose .callout { border-left: 3px solid var(--callout, #6366f1); background: color-mix(in srgb, var(--callout, #6366f1) 9%, transparent); padding: 0.55rem 0.9rem; border-radius: 0.5rem; font-style: normal; margin: 0.75rem 0; quotes: none; }
+.prose .callout p { margin: 0.2rem 0; }
+.prose .callout p::before, .prose .callout p::after { content: none; }
+.prose .callout-title { font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--callout, #6366f1); }
+.callout-note { --callout: #6366f1; } .callout-info { --callout: #0ea5e9; } .callout-tip, .callout-success { --callout: #10b981; }
+.callout-warning { --callout: #f59e0b; } .callout-danger, .callout-failure, .callout-bug { --callout: #ef4444; }
+.callout-question { --callout: #a855f7; } .callout-example { --callout: #14b8a6; } .callout-quote, .callout-abstract { --callout: #78716c; } .callout-todo { --callout: #3b82f6; }
+.prose li.task { list-style: none; margin-left: -1.25rem; }
+.prose li.task input { margin-right: 0.4rem; accent-color: #6366f1; vertical-align: -1px; }
+.prose li.task-done { color: #a8a29e; text-decoration: line-through; }
+.prose .math-display { text-align: center; margin: 0.75rem 0; overflow-x: auto; }
+.prose .math-inline, .prose .math-display { font-family: ui-serif, Georgia, serif; }
+.prose .footnote { font-size: 0.8rem; color: #78716c; margin-top: 1rem; }
+.prose .footnote hr { margin: 0.5rem 0; }
+.prose mark { background: #fde68a; color: inherit; padding: 0 0.15em; border-radius: 0.2em; }
+.dark .prose mark { background: #854d0e; color: #fef3c7; }

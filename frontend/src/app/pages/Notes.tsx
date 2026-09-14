@@ -19,6 +19,7 @@ import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 import MarkdownEditor, { type MdHandle } from "../notes/MarkdownEditor";
+import { Prose } from "../../components/Prose";
 import { listenTo, speakable, type Listener } from "../listen";
 
 type Backlink = { id: number; title: string };
@@ -409,7 +410,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
             <MarkdownEditor value={body} onChange={(v) => { setBody(v); queueSave(title, v); }} onSave={() => { window.clearTimeout(timer.current); save.mutate({ title, body: bodyRef.current }); }} suggest={suggest} handle={(h) => { editorHandle.current = h; }} placeholder="Write in Markdown. [[Another note]] links it; @lavie2010attention cites a paper and attaches it to this note." />
           </div>
           <div className="border-t border-stone-100 md:border-l md:border-t-0 dark:border-stone-800">
-            <div className="prose prose-sm prose-stone max-w-none px-5 py-4 dark:prose-invert" data-testid="note-preview" dangerouslySetInnerHTML={{ __html: preview.data?.html ?? "" }} />
+            <Prose html={preview.data?.html ?? ""} className="px-5 py-4" testId="note-preview" />
             {!body.trim() && <p className="px-5 pb-4 text-xs text-stone-400">The preview renders here as you type.</p>}
           </div>
         </div>
