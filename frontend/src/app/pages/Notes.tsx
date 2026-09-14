@@ -20,6 +20,7 @@ import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 import MarkdownEditor, { type MdHandle } from "../notes/MarkdownEditor";
 import { Prose } from "../../components/Prose";
+import { drawStar, drawStarfield, paintStarArea } from "../graph/stars";
 import { listenTo, speakable, type Listener } from "../listen";
 
 type Backlink = { id: number; title: string };
@@ -324,12 +325,13 @@ function LocalGraph({ slug, id }: { slug: string; id: number }) {
       .nodeId("id")
       .nodeLabel((n: GNode) => `${n.title}${n.type === "reference" ? ` · ${n.group.replace("_", " ")}` : ""}`)
       .nodeVal((n: GNode) => (n.id === me ? 6 : n.type === "reference" ? 2.5 : 3))
+      // #511: the same constellation renderer as the graph page
       .nodeCanvasObject((n: GNode & { x: number; y: number }, ctx: CanvasRenderingContext2D, scale: number) => {
         const r = n.id === me ? 5 : n.type === "reference" ? 3 : 3.5;
-        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 2 * Math.PI); ctx.fillStyle = n.type === "note" ? NODE_COLORS.note : NODE_COLORS[n.group] ?? "#94a3b8"; ctx.fill();
-        if (n.id === me) { ctx.lineWidth = 1.5; ctx.strokeStyle = isDark() ? "#e0e7ff" : "#312e81"; ctx.stroke(); }
-        if (scale > 1.4 || n.hops <= 1) { ctx.font = `${Math.max(3, 9 / scale)}px system-ui`; ctx.textAlign = "center"; ctx.fillStyle = isDark() ? "#cbd5e1" : "#44403c"; ctx.fillText(n.label.length > 22 ? `${n.label.slice(0, 21)}…` : n.label, n.x, n.y + r + 8 / scale); }
+        drawStar(ctx, n.x, n.y, r, n.type === "note" ? NODE_COLORS.note : NODE_COLORS[n.group] ?? "#94a3b8", { dark: isDark(), scale, ring: n.id === me ? (isDark() ? "#e0e7ff" : "#312e81") : null, label: n.label, showLabel: scale > 1.4 || n.hops <= 1 });
       })
+      .nodePointerAreaPaint((n: GNode & { x: number; y: number }, color: string, ctx: CanvasRenderingContext2D) => paintStarArea(ctx, n.x, n.y, n.id === me ? 5 : 3.5, color))
+      .onRenderFramePre((ctx: CanvasRenderingContext2D, scale: number) => drawStarfield(ctx, scale, isDark()))
       .linkColor((l: GLink) => (LINK_COLORS[l.kind] ?? "#94a3b8") + (isDark() ? "99" : "88"))
       .linkDirectionalArrowLength(2.5).linkDirectionalArrowRelPos(1).linkWidth(0.8)
       .onNodeClick((n: GNode) => { if (n.id === me) return; if (n.type === "note") navigate(`/projects/${slug}/notes/${n.id.replace("note-", "")}`); else if (n.app_url) navigate(n.app_url); })

@@ -9,13 +9,14 @@ import { Link, useParams } from "react-router-dom";
 import { Crosshair, ExternalLink, Pause, Play, RefreshCw, Search, X } from "lucide-react";
 import { api, csrfToken } from "../api";
 import { queryGate } from "../../components/QueryBoundary";
+import { drawStar, drawStarfield, glowSprite, paintStarArea } from "../graph/stars";
 
 type Node = { id: string; type: "reference" | "note"; label: string; title: string; group: string; size: number; url?: string; app_url?: string; year?: number | null; venue?: string; citations?: number | null; authors?: string; has_pdf?: boolean; highlights?: number; words?: number; updated_at?: string; created_at?: string | null; tags?: string[]; degree: number };
 type Edge = { source: string | { id: string }; target: string | { id: string }; kind: string };
 type Stats = { references: number; notes: number; links: number; first?: string | null; last?: string | null; by_kind: Record<string, number>; orphans: number; hubs: { id: string; label: string; degree: number }[] };
 type GraphData = { nodes: Node[]; links: Edge[]; stats: Stats };
 
-declare global { interface Window { ForceGraph3D?: any; ForceGraph?: any } }
+declare global { interface Window { ForceGraph3D?: any; ForceGraph?: any; THREE?: any } }
 
 const LIB = { "3d": "/static/vendor/forcegraph/3d-force-graph.min.js", "2d": "/static/vendor/forcegraph/force-graph.min.js" } as const;
 function loadScript(src: string): Promise<void> {
@@ -119,12 +120,17 @@ export default function Graph() {
   const play = () => { if (playing) { setPlaying(false); return; } if (cursor == null || cursor >= span) setCursor(0); setPlaying(true); };
 
   const isDark = () => document.documentElement.classList.contains("dark");
-  const nodeColor = useCallback((n: Node) => {
-    const base = COLORS[n.group] ?? "#a8a29e";
+  const isDim = useCallback((n: Node) => {
     const active = hovered ?? selected?.id ?? null;
-    const dim = (active && n.id !== active && !(neighbours.get(active)?.has(n.id))) || (matches.size > 0 && !matches.has(n.id)) || (tagged && !tagged.has(n.id));
-    return dim ? base + "33" : base;
+    return !!((active && n.id !== active && !(neighbours.get(active)?.has(n.id))) || (matches.size > 0 && !matches.has(n.id)) || (tagged && !tagged.has(n.id)));
   }, [hovered, selected, neighbours, matches, tagged]);
+  const nodeColor = useCallback((n: Node) => { const base = COLORS[n.group] ?? "#a8a29e"; return isDim(n) ? base + "33" : base; }, [isDim]);
+  const isDimRef = useRef(isDim); isDimRef.current = isDim; // the painters read the latest without a rebuild
+  const radius = (n: Node) => Math.min(13, 3 * Math.sqrt(Math.max(1, n.size))); // area ∝ val, capped so hubs stay stars, not suns
+  const paintNode = useCallback((n: Node & { x: number; y: number }, ctx: CanvasRenderingContext2D, scale: number) => {
+    const dim = isDimRef.current(n);
+    drawStar(ctx, n.x, n.y, radius(n), COLORS[n.group] ?? "#a8a29e", { dim, dark: isDark(), scale, label: n.label, showLabel: !dim && (scale > 2.6 || (n.degree >= 4 && scale > 1.7)) });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // build / rebuild the graph when the library or mode change; data changes flow through graphData() below
   useEffect(() => {
@@ -149,14 +155,24 @@ export default function Graph() {
         .onNodeClick((n: Node) => { setSelected(n); if (mode === "3d" && n && typeof (n as any).x === "number") { const d = 120; const { x, y, z } = n as any; const r = 1 + d / Math.hypot(x, y, z || 1); g.cameraPosition({ x: x * r, y: y * r, z: (z || 0) * r }, n, 900); } })
         .onNodeHover((n: Node | null) => setHovered(n?.id ?? null))
         .onBackgroundClick(() => setSelected(null));
-      if (mode === "3d") { g.backgroundColor(isDark() ? "#05070f" : "#fafaf9").linkOpacity(0.55).linkDirectionalParticles((l: Edge) => (l.kind === "citation" ? 1 : 0)).linkDirectionalParticleWidth(1.2).linkDirectionalParticleSpeed(0.004); }
-      else { g.backgroundColor(isDark() ? "#05070f" : "#fafaf9").linkDirectionalArrowLength(3).linkDirectionalArrowRelPos(1); }
+      if (mode === "3d") {
+        g.backgroundColor(isDark() ? "#05070f" : "#fafaf9").linkOpacity(0.55).linkDirectionalParticles((l: Edge) => (l.kind === "citation" ? 1 : 0)).linkDirectionalParticleWidth(1.2).linkDirectionalParticleSpeed(0.004);
+        // #511: glow sprites when the vendored bundle exposes THREE; the default spheres otherwise
+        if (window.THREE) g.nodeThreeObject((n: Node) => glowSprite(window.THREE, COLORS[n.group] ?? "#a8a29e", 6 + 3 * Math.sqrt(Math.max(1, n.size)), isDimRef.current(n)));
+      } else {
+        // #511: the constellation — glow stars, labels as you zoom, a seeded starfield behind the dark theme
+        g.backgroundColor(isDark() ? "#05070f" : "#fafaf9").linkDirectionalArrowLength(3).linkDirectionalArrowRelPos(1)
+          .nodeCanvasObject(paintNode)
+          .nodePointerAreaPaint((n: Node & { x: number; y: number }, color: string, ctx: CanvasRenderingContext2D) => paintStarArea(ctx, n.x, n.y, radius(n), color))
+          .onRenderFramePre((ctx: CanvasRenderingContext2D, scale: number) => drawStarfield(ctx, scale, isDark()));
+        g.d3Force("charge")?.strength(-110); g.d3Force("link")?.distance(42); // room between the stars
+      }
       graphRef.current = g; setReady(true);
     })();
     return () => { cancelled = true; };
   }, [mode, visible == null]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (ready && visible) graphRef.current?.graphData(visible); }, [visible, ready]);
-  useEffect(() => { graphRef.current?.nodeColor(nodeColor); }, [nodeColor]);
+  useEffect(() => { const g = graphRef.current; if (!g) return; g.nodeColor(nodeColor); if (mode === "3d" && window.THREE) g.nodeThreeObject(g.nodeThreeObject()); }, [nodeColor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { graphRef.current?._destructor?.(); }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { if (focus) setFocus(null); else setSelected(null); } };

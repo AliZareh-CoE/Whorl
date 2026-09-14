@@ -112,3 +112,24 @@ def test_graph_libraries_are_vendored_for_the_desktop():
     classic = (root / "templates" / "projects" / "graph.html").read_text()
     assert "unpkg.com" not in graph_tsx and "unpkg.com" not in classic
     assert "vendor/forcegraph/3d-force-graph.min.js" in graph_tsx
+
+
+def test_graph_pages_share_the_constellation_renderer():
+    """#511: one star painter for the 2D graph page and the note's local graph; the 3D page
+    uses glow sprites only when the vendored bundle exposes THREE."""
+    root = Path(settings.BASE_DIR) / "frontend" / "src" / "app"
+    stars = (root / "graph" / "stars.ts").read_text()
+    for name in (
+        "export function drawStar",
+        "export function drawStarfield",
+        "export function paintStarArea",
+        "export function glowSprite",
+        "export function hexAlpha",
+    ):
+        assert name in stars, name
+    graph = (root / "pages" / "Graph.tsx").read_text()
+    assert 'from "../graph/stars"' in graph and ".nodeCanvasObject(paintNode)" in graph
+    assert ".nodePointerAreaPaint(" in graph and ".onRenderFramePre(" in graph
+    assert "if (window.THREE) g.nodeThreeObject(" in graph  # never assumes THREE is there
+    notes = (root / "pages" / "Notes.tsx").read_text()
+    assert 'from "../graph/stars"' in notes and "drawStar(ctx, n.x, n.y, r" in notes
