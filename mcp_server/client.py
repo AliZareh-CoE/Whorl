@@ -590,6 +590,11 @@ def get_project_graph(slug: str):
     return _request("GET", f"/projects/{slug}/graph/")
 
 
+def get_related_notes(note_id: int, limit: int = 5):
+    """Unlinked notes this one is about, with reasons (#510)."""
+    return _request("GET", f"/notes/{note_id}/related/", params={"limit": limit})
+
+
 def get_note_outline(note_id: int):
     """Headings (with line numbers) and measure (words, minutes, tasks…) of a note (#507)."""
     return _request("GET", f"/notes/{note_id}/outline/")

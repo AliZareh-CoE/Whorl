@@ -3156,6 +3156,29 @@ class NoteViewSet(AtlasViewSet):
         return Response(note_outline(self.get_object()))
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter("limit", int, description="Rows to return, 1–20 (default 5).")
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="[{id, title, score, reasons: [str], url}] — strongest first"
+            )
+        },
+        description="Related notes (#510): the project's notes this one is about but does not "
+        "link to yet — scored by shared cited papers, shared #tags, shared link targets and "
+        "shared informative words, each with the reasons spelled out.",
+    )
+    @action(detail=True, methods=["get"])
+    def related(self, request, pk=None):
+        from notes.related import related_notes
+
+        try:
+            limit = int(request.query_params.get("limit", 5))
+        except ValueError:
+            return Response({"detail": "limit must be an integer."}, status=400)
+        return Response(related_notes(self.get_object(), limit=limit))
+
+    @extend_schema(
         request=inline_serializer(
             "LinkMentions",
             {

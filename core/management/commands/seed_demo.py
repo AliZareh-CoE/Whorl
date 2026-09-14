@@ -466,7 +466,22 @@ class Command(BaseCommand):
         ).update(  # etag: ok — seed backdates when demo papers were filed
             created_at=timezone.now() - datetime.timedelta(days=340)
         )
-        for note, days in ((hub, 200), (strategic, 120), (pilot_note, 30)):
+        # #510: a note that cites two of the hub's papers and shares its tag without linking to
+        # it — the Related panel has a suggestion to show
+        reading_list, _ = Note.objects.update_or_create(
+            project=project,
+            title="Capacity limits reading list",
+            defaults={
+                "body": (
+                    "Papers on capacity limits and distractor processing under perceptual "
+                    "load, to re-read before the load theory write-up. #method"
+                )
+            },
+        )
+        sync_note_links(reading_list)
+        sync_note_tags(reading_list)
+        reading_list.references.set(corpus_refs[:2])
+        for note, days in ((hub, 200), (strategic, 120), (pilot_note, 30), (reading_list, 10)):
             Note.objects.filter(pk=note.pk).update(  # etag: ok — seed backdates demo notes
                 created_at=timezone.now() - datetime.timedelta(days=days)
             )

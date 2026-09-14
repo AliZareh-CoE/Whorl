@@ -618,6 +618,15 @@ def get_project_graph(slug: str) -> dict:
 
 
 @mcp.tool()
+def get_related_notes(note_id: int, limit: int = 5) -> list:
+    """Notes in the same project this note is about but does not link to yet (#510) —
+    scored by shared cited papers, shared #tags, shared [[link]] targets and shared words,
+    strongest first, each with `reasons` ("cites 2 of the same papers", "#pilot", "both
+    link to X", "shares 5 terms: …"). Use `update_note` or `link_mentions` to make the link."""
+    return client.get_related_notes(note_id, limit)
+
+
+@mcp.tool()
 def get_note_outline(note_id: int) -> dict:
     """The shape and size of a note (#507): `outline` lists its headings (level, text, 1-based
     line — code fences skipped) so a long note can be navigated or summarised section by

@@ -438,6 +438,8 @@ def test_notes_client_calls(capture):
     assert calls_url_has(capture, "/notes/4/revisions/9/")
     client.restore_note_revision(4, 9)
     assert capture["method"] == "POST" and calls_url_has(capture, "/notes/4/revisions/9/restore/")
+    client.get_related_notes(4, limit=3)
+    assert calls_url_has(capture, "/notes/4/related/") and "limit=3" in capture["url"]
     client.get_note_outline(4)
     assert calls_url_has(capture, "/notes/4/outline/")
     client.get_project_graph("deep")

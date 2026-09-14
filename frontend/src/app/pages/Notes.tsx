@@ -77,6 +77,29 @@ function measureLabel(body: string): string {
   if (!m.words) return "";
   return `${m.words.toLocaleString()} words · ${m.minutes} min${m.total ? ` · ${m.done}/${m.total} tasks` : ""}`;
 }
+// #510: what else this note is about — unlinked neighbours with the reasons spelled out
+type RelatedRow = { id: number; title: string; score: number; reasons: string[]; url: string };
+function RelatedPanel({ id, onLink }: { id: number | string | undefined; onLink: (title: string) => void }) {
+  const related = useQuery({ queryKey: ["note-related", id], queryFn: () => api<RelatedRow[]>(`/notes/${id}/related/`), enabled: !!id });
+  const rows = related.data ?? [];
+  if (!rows.length) return null;
+  return (
+    <div className={`${panel} rise p-4`} style={{ ["--i" as string]: 4 }} data-testid="related-panel">
+      <p className={railH}><Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" />Related · not linked yet</p>
+      <ul className="space-y-1.5 text-xs">
+        {rows.map((r) => (
+          <li key={r.id} data-testid="related-row">
+            <div className="flex items-start gap-2">
+              <Link to={r.url} className="min-w-0 flex-1 truncate font-medium text-stone-700 hover:text-indigo-700 dark:text-stone-200 dark:hover:text-indigo-300">{r.title}</Link>
+              <button type="button" onClick={() => onLink(r.title)} className="shrink-0 rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] text-stone-500 hover:border-indigo-300 hover:text-indigo-600 dark:border-stone-700 dark:text-stone-400 dark:hover:text-indigo-300" title="Append “See also [[title]]” to this note" data-testid="related-link">Link</button>
+            </div>
+            <p className="truncate text-[11px] text-stone-400" title={r.reasons.join(" · ")}>{r.reasons.join(" · ")}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 function OutlinePanel({ body, onJump }: { body: string; onJump: (line: number) => void }) {
   const items = useMemo(() => parseOutline(body), [body]);
   if (items.length < 2) return null; // one heading is a title, not a structure
@@ -444,6 +467,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
             </div>
           )}
         </div>
+        <RelatedPanel id={id} onLink={(t) => { const h = editorHandle.current; if (!h) return; const now = h.getValue(); h.setValue(`${now.replace(/\s+$/, "")}\n\nSee also [[${t}]].`); setExported(`Linked to ${t}.`); setTimeout(() => setExported(""), 3000); }} />
         <LocalGraph slug={slug} id={id} />
         <HistoryPanel id={id} onRestored={(n) => { setTitle(n.title); setBody(n.body); setDirty(false); setSavedAt(Date.now()); setExported("Restored — the previous state is in the history."); setTimeout(() => setExported(""), 4000); editorHandle.current?.setValue?.(n.body); }} />
         <p className="px-1 text-[11px] text-stone-400">Edited {note.data ? ago(note.data.updated_at) : ""} ago · <Link to={`/projects/${slug}/graph`} className="hover:underline">see the graph</Link></p>
