@@ -12,7 +12,9 @@
  *  #499: a capture with a link learns the page's title (POST /quick-capture/{id}/enrich/, once) and
  *  shows "↗ Title — site"; a bare link converted to a note takes that title.
  *  #500: "by Friday 3pm" / "Oct 1" / "in 3 days" in the line become a due chip, the todo's due
- *  time (in this browser's zone, sent as `tz`) or the milestone's due date. */
+ *  time (in this browser's zone, sent as `tz`) or the milestone's due date.
+ *  #501: /inbox?capture=<text> captures that text once on arrival (a bookmarklet on the Connect
+ *  page sends "page title + URL" from any browser tab) and drops the parameter. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -78,9 +80,20 @@ export default function Inbox() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
   const capture = useMutation({
-    mutationFn: () => api<Capture>("/quick-capture/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }),
-    onSuccess: (made) => { setText(""); petReact("capture"); refresh(); if (made?.hint?.url && made.id) { enrichedRef.current.add(made.id); enrich.mutate({ id: made.id }); } },
+    mutationFn: (body?: string) => api<Capture>("/quick-capture/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: (body ?? text).trim() }) }),
+    onSuccess: (made, body) => { if (body === undefined) setText(""); petReact("capture"); refresh(); if (made?.hint?.url && made.id) { enrichedRef.current.add(made.id); enrich.mutate({ id: made.id }); } if (body !== undefined) flash("Captured from the browser — triage it when you have a minute."); },
   });
+  // #501: ?capture=<text> — sent by the bookmarklet; captured exactly once, then the parameter
+  // is dropped so a reload does not capture it again
+  const deepLinkRef = useRef(false);
+  useEffect(() => {
+    const incoming = searchParams.get("capture");
+    if (!incoming || deepLinkRef.current) return;
+    deepLinkRef.current = true;
+    const next = new URLSearchParams(searchParams); next.delete("capture"); setSearchParams(next, { replace: true });
+    if (incoming.trim()) capture.mutate(incoming);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const triage = useMutation({
     mutationFn: ({ id, project }: { id: number; project?: string }) => api(`/quick-capture/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(project ? { processed: true, project } : { processed: true }) }),
     onMutate: ({ id }) => {
@@ -157,7 +170,7 @@ export default function Inbox() {
    inbox without touching the mouse. Keys are ignored while typing in the capture box. */
 const KEY_TARGETS = ["paper", "todo", "note", "milestone", "decision"] as const;
 
-function InboxBody({ open, sleeping, projectRows, text, setText, capture, convert, triage, snooze, bulk, toast, runBanner, openCount, onRetryLink }: { runBanner?: ReactNode; openCount?: number; onRetryLink?: (id: number) => void; open: Capture[]; sleeping: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; snooze: { mutate: (v: { id: number; until: string }) => void; isPending: boolean }; bulk: { mutate: (v: { ids: number[]; action: string; project?: string; until?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
+function InboxBody({ open, sleeping, projectRows, text, setText, capture, convert, triage, snooze, bulk, toast, runBanner, openCount, onRetryLink }: { runBanner?: ReactNode; openCount?: number; onRetryLink?: (id: number) => void; open: Capture[]; sleeping: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: (body?: string) => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; snooze: { mutate: (v: { id: number; until: string }) => void; isPending: boolean }; bulk: { mutate: (v: { ids: number[]; action: string; project?: string; until?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
   const [cursor, setCursor] = useState(0);
   const [legend, setLegend] = useState(false);
   const [showSleeping, setShowSleeping] = useState(false);

@@ -39,12 +39,13 @@ export default function Connect() {
   const gate = queryGate(q, { message: "Could not load the connection details.", skeleton: <p className="text-sm text-stone-400">Loading…</p> });
   if (gate || !c) return gate;
   const installed = c.skills.filter((s) => s.up_to_date).length;
+  const bookmarklet = `javascript:(function(){window.open(${JSON.stringify(`${c.api_url}/inbox?capture=`)}+encodeURIComponent(document.title+" "+location.href),"atlas-capture","width=560,height=480")})()`;
 
   return (
     <div className="mx-auto max-w-4xl">
       <nav className="mb-4 flex items-center text-sm text-stone-400" aria-label="Breadcrumb">Connect Claude Code<Link to="/diagnostics" className="ml-auto inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-300"><Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />Diagnostics</Link></nav>
       <h1 className="text-3xl font-semibold tracking-tight"><span className="text-gradient">Claude</span> works inside Atlas</h1>
-      <p className="mt-2 max-w-2xl text-sm text-stone-500">Atlas ships an MCP server: register it once and Claude Code can list your projects, tick milestones, add papers by DOI, write notes, drive the manuscript studio and run bib checks — everything the API can do, 88 tools. Four skills teach it the workflows.</p>
+      <p className="mt-2 max-w-2xl text-sm text-stone-500">Atlas ships an MCP server: register it once and Claude Code can list your projects, tick milestones, add papers by DOI, write notes, drive the manuscript studio and run bib checks — everything the API can do, well over a hundred tools. Four skills teach it the workflows.</p>
 
       <div className={`${panel} mt-5 flex items-start gap-3 text-sm`} style={{ ["--i" as string]: 1 }}>
         <Plug className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" />
@@ -99,7 +100,18 @@ export default function Connect() {
         {install.error && <p className="mt-2 text-xs text-red-500">Could not install the skills — is the home folder writable?</p>}
       </section>
 
-      <section className={`${panel} mt-5`} style={{ ["--i" as string]: 5 }}>
+      {/* #501: capture from any browser tab — a bookmarklet that opens /inbox?capture=title + URL */}
+      <section className={`${panel} mt-5`} style={{ ["--i" as string]: 5 }} data-testid="connect-bookmarklet">
+        <p className={`${railH} mb-2`}>4 · Capture from any browser tab</p>
+        <p className="mb-3 text-sm text-stone-500">Reading something worth keeping? A bookmark with this address sends the page's title and link straight to the Inbox (Atlas fetches the title, reads DOIs and arXiv ids, and suggests the project). Create a bookmark, paste this as its address, and click it on any page.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="min-w-0 flex-1 break-all rounded bg-stone-100 px-2 py-1.5 text-xs dark:bg-stone-800" data-testid="bookmarklet-code">{bookmarklet}</code>
+          <CopyButton text={bookmarklet} label="copy" />
+        </div>
+        <p className="mt-2 text-xs text-stone-500">It opens a small Atlas window on <code className="rounded bg-stone-100 px-1 dark:bg-stone-800">{c.api_url}/inbox</code> with the capture already made — close it and carry on reading. From a terminal or a script, <code className="rounded bg-stone-100 px-1 dark:bg-stone-800">POST {c.api_url}/api/v1/quick-capture/</code> with the API key does the same.</p>
+      </section>
+
+      <section className={`${panel} mt-5`} style={{ ["--i" as string]: 6 }}>
         <p className={`${railH} mb-2`}>Connection details</p>
         <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
           <dt className="text-stone-500">API URL</dt><dd><code className="rounded bg-stone-100 px-1 text-xs dark:bg-stone-800">{c.api_url}/api/v1/</code></dd>

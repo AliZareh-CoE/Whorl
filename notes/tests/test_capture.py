@@ -388,3 +388,24 @@ def test_bulk_triage_files_dismisses_snoozes_and_converts(client, settings, djan
         "/quick-capture/bulk/",
     ):
         assert needle in tsx, needle
+
+
+def test_browser_capture_deep_link_and_bookmarklet_are_wired():
+    """#501: /inbox?capture=… captures once and drops the parameter; the Connect page offers
+    the bookmarklet that sends a page there."""
+    inbox = Path("frontend/src/app/pages/Inbox.tsx").read_text()
+    for needle in (
+        'searchParams.get("capture")',
+        "deepLinkRef",
+        'next.delete("capture")',
+        "Captured from the browser",
+    ):
+        assert needle in inbox, needle
+    connect = Path("frontend/src/app/pages/Connect.tsx").read_text()
+    for needle in (
+        'data-testid="connect-bookmarklet"',
+        'data-testid="bookmarklet-code"',
+        "/inbox?capture=",
+        "encodeURIComponent(document.title",
+    ):
+        assert needle in connect, needle

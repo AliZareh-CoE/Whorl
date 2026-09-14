@@ -12,10 +12,10 @@ ends; the owner does not review in between and never wants to be asked "shall I�
    work only inside it, slice after slice, until its UI/UX *and* functionality beat the
    profitable commercial products in that space (Zotero, Paperpile, ResearchRabbit, Notion,
    Linear, Overleaf, Obsidian…). Only when it is genuinely best-in-field move to the next area.
-   Current area: **Inbox / capture** (from #494 — the Dashboard was judged best-in-field at
-   #493 after #486–#493; the Project overview at #485; the Writing studio at #477; #498 is
-   Audit #28 and Audit #29 is due at #508). Next candidates, in order: Notes + knowledge
-   graph, Plan, Library.
+   Current area: **Notes + knowledge graph** (from #502 — the Inbox was judged best-in-field at
+   #501 after #494–#501; the Dashboard at #493; the Project overview at #485; the Writing
+   studio at #477; #498 was Audit #28 and Audit #29 is due at #508). Next candidates, in
+   order: Plan, Library.
 2. **Worthy of a viral GitHub star.** Every slice must be something a researcher would
    screenshot and send to a colleague. Prefer the feature that makes someone say "finally".
 3. **The Observatory identity** (dark-by-default, aurora, glass panels, constellation, display
