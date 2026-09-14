@@ -88,6 +88,11 @@ def get_plan(slug: str):
     return _request("GET", f"/projects/{slug}/plan/")
 
 
+def set_milestone_dependencies(milestone_id: int, blocked_by: list[int]):
+    """Replace what a milestone waits for (#512)."""
+    return _request("PATCH", f"/milestones/{milestone_id}/", json={"blocked_by": list(blocked_by)})
+
+
 def complete_milestone(milestone_id: int):
     return _request(
         "PATCH",

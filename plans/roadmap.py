@@ -81,6 +81,9 @@ def project_roadmap(project: Project, today: date | None = None) -> dict:
 
 
 def _project_roadmap(project: Project, today: date) -> dict:
+    from .dependencies import blocked_map
+
+    blocked = blocked_map(project)  # #512
     rows = []
     previous_end: date | None = None
     for phase in project.phases.prefetch_related("milestones"):
@@ -93,6 +96,7 @@ def _project_roadmap(project: Project, today: date) -> dict:
                 "due_date": m.due_date,
                 "done": bool(m.completed_at),
                 "overdue": m.is_overdue,
+                "blocked": bool(blocked.get(m.pk)) and m.completed_at is None,
             }
             for m in phase.milestones.all()
         ]

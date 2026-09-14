@@ -3,14 +3,15 @@
  *  /tasks/. */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import { Check, Lock, Plus, Trash2, X } from "lucide-react";
 import { confirmDialog } from "../../../components/Dialog";
 import { api } from "../../api";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
-export type DrawerMilestone = { id: number; title: string; due_date: string | null; completed_at: string | null; notes?: string; tasks: Task[]; phase: string };
+export type DrawerMilestone = { id: number; title: string; due_date: string | null; completed_at: string | null; notes?: string; tasks: Task[]; phase: string; blocked_by?: { id: number; title: string }[]; blocked?: boolean; blocks?: number[] };
+export type MilestoneOption = { id: number; title: string; phase: string; completed: boolean };
 
-export default function MilestoneDrawer({ slug, milestone, onClose }: { slug: string; milestone: DrawerMilestone; onClose: () => void }) {
+export default function MilestoneDrawer({ slug, milestone, onClose, options = [] }: { slug: string; milestone: DrawerMilestone; onClose: () => void; options?: MilestoneOption[] }) {
   const queryClient = useQueryClient();
   const invalidate = () => { queryClient.invalidateQueries({ queryKey: ["plan", slug] }); queryClient.invalidateQueries({ queryKey: ["focus", slug] }); queryClient.invalidateQueries({ queryKey: ["roadmap", slug] }); queryClient.invalidateQueries({ queryKey: ["overview", slug] }); };
   const [title, setTitle] = useState(milestone.title);
@@ -25,6 +26,16 @@ export default function MilestoneDrawer({ slug, milestone, onClose }: { slug: st
     onSettled: () => { setSaving(false); invalidate(); },
   });
   const queue = (body: Record<string, unknown>) => { setSaving(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => patch.mutate(body), 700); };
+  // #512: dependencies — the server checks same-project and loops; a 400 shows its reason
+  const [depError, setDepError] = useState("");
+  const setBlockers = useMutation({
+    mutationFn: (ids: number[]) => api(`/milestones/${milestone.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ blocked_by: ids }) }),
+    onSuccess: () => { setDepError(""); invalidate(); },
+    onError: (e: unknown) => { const msg = (e as { body?: { blocked_by?: string } })?.body?.blocked_by; setDepError(typeof msg === "string" ? msg : "That dependency is not allowed."); },
+  });
+  const blockers = milestone.blocked_by ?? [];
+  const blockerIds = new Set(blockers.map((b) => b.id));
+  const candidates = options.filter((o) => o.id !== milestone.id && !blockerIds.has(o.id) && !o.completed);
   const remove = useMutation({ mutationFn: () => api(`/milestones/${milestone.id}/`, { method: "DELETE" }), onSuccess: () => { invalidate(); onClose(); } });
   const addTask = useMutation({ mutationFn: (t: string) => api(`/tasks/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ milestone: milestone.id, title: t }) }), onSuccess: invalidate });
   const toggleTask = useMutation({ mutationFn: (t: Task) => api(`/tasks/${t.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: !t.done }) }), onSuccess: invalidate });
@@ -42,6 +53,21 @@ export default function MilestoneDrawer({ slug, milestone, onClose }: { slug: st
           <input type="date" value={due} onChange={(e) => { setDue(e.target.value); queue({ due_date: e.target.value || null }); }} className="rounded-md border border-stone-300 bg-white px-2 py-1 text-sm dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Due date" />
         </label>
         <button type="button" onClick={() => patch.mutate({ completed_at: milestone.completed_at ? null : new Date().toISOString() })} className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium ${milestone.completed_at ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "border border-stone-300 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"}`}><Check className="h-3 w-3" aria-hidden="true" />{milestone.completed_at ? "Completed — undo" : "Mark complete"}</button>
+      </div>
+      <div className="mt-5" data-testid="blocked-by">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400"><Lock className="mr-1 inline h-3 w-3" aria-hidden="true" />Waits for {blockers.length ? <span className="normal-case tracking-normal">{blockers.length}</span> : null}</p>
+        {blockers.length > 0 ? (
+          <ul className="mb-2 flex flex-wrap gap-1.5">
+            {blockers.map((b) => <li key={b.id} className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-800 dark:text-amber-200" data-testid="blocker-chip">{b.title}<button type="button" onClick={() => setBlockers.mutate(blockers.filter((x) => x.id !== b.id).map((x) => x.id))} aria-label={`Stop waiting for ${b.title}`} className="ml-0.5 text-amber-600 hover:text-red-500 dark:text-amber-300"><X className="h-3 w-3" aria-hidden="true" /></button></li>)}
+          </ul>
+        ) : <p className="mb-2 text-xs text-stone-400">Nothing — this milestone can be done now.</p>}
+        {candidates.length > 0 && (
+          <select value="" onChange={(e) => { const id = Number(e.target.value); if (id) setBlockers.mutate([...blockers.map((b) => b.id), id]); }} className="w-full rounded-md border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300" aria-label="Add a milestone this one waits for" data-testid="blocked-by-add">
+            <option value="">Add a milestone this one waits for…</option>
+            {candidates.map((o) => <option key={o.id} value={o.id}>{o.title} · {o.phase}</option>)}
+          </select>
+        )}
+        {depError && <p className="mt-1 text-xs text-red-600 dark:text-red-300" role="alert">{depError}</p>}
       </div>
       <div className="mt-5">
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Notes</p>

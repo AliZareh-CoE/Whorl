@@ -88,6 +88,13 @@ class PhaseSerializer(serializers.ModelSerializer):
 
 
 class MilestoneSerializer(serializers.ModelSerializer):
+    # #512: dependencies — ids of the milestones this one waits for; `blocked` is live
+    blocked_by = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Milestone.objects.all(), required=False
+    )
+    blocks = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    blocked = serializers.SerializerMethodField()
+
     class Meta:
         model = Milestone
         fields = [
@@ -97,9 +104,36 @@ class MilestoneSerializer(serializers.ModelSerializer):
             "due_date",
             "completed_at",
             "notes",
+            "blocked_by",
+            "blocks",
+            "blocked",
             "created_at",
             "updated_at",
         ]
+
+    def get_blocked(self, milestone) -> bool:
+        if milestone.completed_at:
+            return False
+        open_blockers = getattr(milestone, "open_blockers", None)  # annotated by the selectors
+        if open_blockers is not None:
+            return open_blockers > 0
+        return any(b.completed_at is None for b in milestone.blocked_by.all())
+
+    def validate(self, attrs):
+        blockers = attrs.get("blocked_by")
+        if blockers is not None:
+            from plans.dependencies import DependencyError, check_blockers
+
+            target = self.instance
+            if target is None:  # a new milestone: check against its phase's project
+                phase = attrs.get("phase")
+                target = Milestone(phase=phase)
+                target.pk = -1
+            try:
+                check_blockers(target, list(blockers))
+            except DependencyError as exc:
+                raise serializers.ValidationError({"blocked_by": str(exc)}) from exc
+        return attrs
 
 
 class TaskSerializer(serializers.ModelSerializer):

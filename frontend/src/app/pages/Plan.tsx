@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, CalendarRange, Check, FileText, HelpCircle, LayoutList, Loader2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarRange, Check, FileText, HelpCircle, LayoutList, Loader2, Lock, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { Kebab } from "../../components/Menu";
@@ -17,7 +17,7 @@ import Focus from "./plan/Focus";
 import MilestoneDrawer, { type DrawerMilestone } from "./plan/MilestoneDrawer";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
-type Milestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue: boolean; notes?: string; tasks: Task[] };
+type Milestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue: boolean; notes?: string; tasks: Task[]; blocked_by: { id: number; title: string }[]; blocked: boolean; blocks: number[] };
 type Question = { id: number; question: string; status: string };
 type Phase = { id: number; name: string; order: number; status: string; progress: number; objective: string; target_start: string | null; target_end: string | null; questions: Question[]; milestones: Milestone[] };
 type PlanData = { project: string; project_name: string; project_color: string; questions: Question[]; phases: Phase[] };
@@ -83,6 +83,14 @@ export default function Plan() {
     onMutate: async (m) => {
       if (!m.completed_at) petReact("milestone");
       patchPlan((plan) => ({ ...plan, phases: plan.phases.map((ph) => ({ ...ph, milestones: ph.milestones.map((x) => (x.id === m.id ? { ...x, completed_at: x.completed_at ? null : new Date().toISOString() } : x)) })) }));
+    },
+    // #512: completing a blocker frees the milestones that waited only on it
+    onSuccess: (_r, m) => {
+      if (m.completed_at) return;
+      const plan = queryClient.getQueryData<PlanData>(["plan", slug]); if (!plan) return;
+      const all = plan.phases.flatMap((ph) => ph.milestones);
+      const freed = all.filter((x) => x.id !== m.id && !x.completed_at && (x.blocked_by ?? []).some((b) => b.id === m.id) && (x.blocked_by ?? []).every((b) => b.id === m.id || all.find((y) => y.id === b.id)?.completed_at));
+      if (freed.length) { setToast(`Unblocked: ${freed.map((x) => x.title).join(", ")}`); window.setTimeout(() => setToast(""), 4000); }
     },
     onSettled: invalidate,
   });
@@ -219,7 +227,8 @@ export default function Plan() {
       )}
       {drawerId !== null && (() => {
         const found = data.phases.flatMap((ph) => ph.milestones.map((m) => ({ ...m, phase: ph.name }))).find((m) => m.id === drawerId);
-        return found ? <MilestoneDrawer slug={slug!} milestone={found as DrawerMilestone} onClose={() => setDrawerId(null)} /> : null;
+        const options = data.phases.flatMap((ph) => ph.milestones.map((m) => ({ id: m.id, title: m.title, phase: ph.name, completed: !!m.completed_at })));
+        return found ? <MilestoneDrawer slug={slug!} milestone={found as DrawerMilestone} onClose={() => setDrawerId(null)} options={options} /> : null;
       })()}
       {toast && <div role="status" className="fixed bottom-5 right-5 z-30 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm shadow-lg dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100">{toast}</div>}
     </div>
@@ -292,6 +301,7 @@ function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggl
               <div className="flex items-center gap-3">
                 <button type="button" aria-label="Toggle milestone" onClick={() => onToggleMilestone(m)} className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs transition-all after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${m.completed_at ? "border-indigo-500 bg-indigo-500 text-white shadow-[0_0_12px_rgb(99_102_241/.6)]" : "border-stone-300 bg-white text-transparent hover:border-indigo-400 dark:border-stone-600 dark:bg-stone-900 dark:hover:border-indigo-400"}`}><Check className="h-3 w-3" aria-hidden="true" /></button>
                 <button type="button" onClick={() => onOpen(m.id)} className={`min-w-0 flex-1 truncate text-left text-sm hover:text-indigo-700 dark:hover:text-indigo-300 ${m.completed_at ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-200"}`} title="Open: notes, due date, tasks">{m.title}{m.notes ? <span className="ml-1.5 align-middle text-[10px] text-stone-400">notes</span> : null}</button>
+                {m.blocked && !m.completed_at && <span className="inline-flex max-w-[14rem] shrink-0 items-center gap-1 truncate rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={`Waits for: ${(m.blocked_by ?? []).map((b) => b.title).join(", ")}`} data-testid="blocked-chip"><Lock className="h-3 w-3 shrink-0" aria-hidden="true" />waits for {(m.blocked_by ?? []).map((b) => b.title).join(", ")}</span>}
                 {m.due_date && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs ${isOverdue ? "bg-red-500/10 font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{isOverdue ? "overdue · " : "due "}{m.due_date}</span>}
                 <button type="button" onClick={() => { setTaskFor(taskFor === m.id ? null : m.id); setTaskDraft(""); }} className="shrink-0 text-[11px] text-stone-400 opacity-0 transition-opacity hover:text-indigo-600 group-hover:opacity-100 focus:opacity-100 dark:hover:text-indigo-300" aria-label={`Add a task to ${m.title}`}>+ task</button>
               </div>

@@ -45,6 +45,10 @@ class Milestone(TimeStampedModel):
     due_date = models.DateField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    # #512: dependencies — a milestone is blocked while any of these is not complete
+    blocked_by = models.ManyToManyField(
+        "self", symmetrical=False, blank=True, related_name="blocks"
+    )
 
     class Meta:
         ordering = ["due_date", "pk"]

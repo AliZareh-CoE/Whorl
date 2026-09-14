@@ -9,7 +9,7 @@ Atlas is a single-user, self-hosted research platform for people who find Jira-s
 and task-obsessed. It treats what researchers actually care about as first-class: a **plan** you
 write like a document, a **library** that reads your PDFs, **notes** that cite papers with `@key`,
 a **writing studio** that checks your citations and compiles LaTeX, and an **MCP server** so
-Claude Code can do all of it with you — 125 tools over the same API the UI uses.
+Claude Code can do all of it with you — 126 tools over the same API the UI uses.
 
 > Built like Django itself: boring technology, strong conventions, everything has exactly one
 > obvious place. No cloud, no telemetry. Runs as a web app or a one-click desktop app.
@@ -79,6 +79,7 @@ picks another port. Claude Code connects to this server exactly as to the deskto
 
 **Notes & graph** — `[[wiki-links]]` and Pandoc-style `@key` citations with autocomplete, live preview, autosave, backlinks and unlinked mentions. The same mentions work in decisions, experiment entries, protocols and captures — every markdown body renders through one resolver (`core/rendering.py`) and the API returns a rendered `*_html` companion next to the source.
 - Templates: a literature note built from any paper with its highlights, a daily note seeded with this week's focus, meeting, experiment. Export any note with a formatted bibliography.
+- Milestone dependencies: a milestone can wait for others (same project, no loops); blocked ones show a lock, sort after the ones that can be done now, and free themselves when their blockers complete.
 - Related notes: the notes this one is about but does not link to yet, scored by shared papers, tags, link targets and words, with the reasons spelled out and a one-click link.
 - Research markdown everywhere a body is rendered: `$math$` and `$$display$$` typeset with vendored KaTeX (offline in the desktop), `- [ ]` task boxes, `> [!warning]` callouts, footnotes, `==highlights==`.
 - Note outline and measure: headings as a clickable outline pane, a live words · minutes · tasks line, the same numbers over the API and MCP.
@@ -96,7 +97,7 @@ picks another port. Claude Code connects to this server exactly as to the deskto
 - ⌘K makes things too: `todo:` a task (with “at 3pm”), `paper:` a DOI or arXiv id (a bare id works as well — it lands in the project you are in), `capture:` a thought, `done:` a milestone, plus “New note”, “New manuscript”, “New project”, “Add a paper”.
 - Today: a dead-simple personal list for the day; “call Sam at 3pm” puts a time on it, the sidebar nudges when it comes close, and what you carried over from earlier days is counted. Research tools: a hypothesis ledger (evidence from papers, notes or documents; the balance suggests a status), experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Subscribe to milestones and manuscript deadlines from your calendar app (`/api/v1/calendar.ics`). Local extras: Piper read-aloud, extractive tl;dr — offline.
 
-**Claude / MCP** — 125 tools over the REST API plus four skills; your AI assistant operates the same contract you do. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
+**Claude / MCP** — 126 tools over the REST API plus four skills; your AI assistant operates the same contract you do. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
 
 ## Quick start (one command)
 
@@ -192,7 +193,7 @@ claude mcp add atlas \
 ```
 
 Tools — projects & plans: `get_dashboard`, `get_daily_brief`, `get_day_activity`, `get_diagnostics`, `take_snapshot`, `get_achievements`, `list_projects`, `get_project_overview`, `get_status_update`, `get_plan`,
-`complete_milestone`, `get_timeline`, `create_project`, `list_project_templates`, `get_plan_outline`, `set_plan_outline`, `get_roadmap`, `set_phase_dates`, `get_week_focus`.
+`complete_milestone`, `set_milestone_dependencies`, `get_timeline`, `create_project`, `list_project_templates`, `get_plan_outline`, `set_plan_outline`, `get_roadmap`, `set_phase_dates`, `get_week_focus`.
 Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,
 `set_reading_status`, `run_bib_check`, `get_review_matrix`, `set_review_mark`, `add_review_theme`, `suggest_review_themes`, `get_synthesis_scaffold`.

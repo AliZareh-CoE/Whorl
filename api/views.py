@@ -594,7 +594,12 @@ class ProjectViewSet(AtlasViewSet):
     def plan(self, request, slug=None):
         project = self.get_object()
         phases = []
-        for phase in project.phases.prefetch_related("milestones__tasks", "questions"):
+        from plans.dependencies import blocked_map
+
+        blocked = blocked_map(project)  # #512: open blockers per milestone, two queries
+        for phase in project.phases.prefetch_related(
+            "milestones__tasks", "milestones__blocks", "questions"
+        ):
             phases.append(
                 {
                     "id": phase.pk,
@@ -618,6 +623,9 @@ class ProjectViewSet(AtlasViewSet):
                             "completed_at": m.completed_at,
                             "overdue": m.is_overdue,
                             "notes": m.notes,
+                            "blocked_by": blocked.get(m.pk, []),
+                            "blocked": bool(blocked.get(m.pk)) and m.completed_at is None,
+                            "blocks": [b.pk for b in m.blocks.all()],
                             "tasks": [
                                 {"id": t.pk, "title": t.title, "done": t.done}
                                 for t in m.tasks.all()
@@ -927,7 +935,7 @@ class PhaseViewSet(AtlasViewSet):
 
 
 class MilestoneViewSet(AtlasViewSet):
-    queryset = Milestone.objects.all()
+    queryset = Milestone.objects.prefetch_related("blocked_by", "blocks")  # #512
     serializer_class = serializers.MilestoneSerializer
     project_filter = "phase__project__slug"
     q_fields = ("title",)  # Backlog #72

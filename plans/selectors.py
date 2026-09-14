@@ -46,8 +46,18 @@ def current_phase(project: Project) -> Phase | None:
 
 
 def upcoming_milestones(project: Project, limit: int = 5):
+    """Open milestones by due date — #512: the ones still blocked by another sort last, so
+    "next" means the next thing that can actually be done."""
+    from django.db.models import Case, Count, IntegerField, Q, When
+
     return (
         Milestone.objects.filter(phase__project=project, completed_at__isnull=True)
         .select_related("phase")
-        .order_by(F("due_date").asc(nulls_last=True), "pk")[:limit]
+        .annotate(
+            open_blockers=Count("blocked_by", filter=Q(blocked_by__completed_at__isnull=True)),
+        )
+        .annotate(
+            waiting=Case(When(open_blockers__gt=0, then=1), default=0, output_field=IntegerField())
+        )
+        .order_by("waiting", F("due_date").asc(nulls_last=True), "pk")[:limit]
     )

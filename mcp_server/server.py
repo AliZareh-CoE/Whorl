@@ -44,14 +44,25 @@ def get_status_update(slug: str, days: int = 7) -> dict:
 
 @mcp.tool()
 def get_plan(slug: str) -> dict:
-    """The project's full plan: ordered phases with milestones (ids, due dates, overdue flags) and tasks."""
+    """The project's full plan: ordered phases with milestones (ids, due dates, overdue flags,
+    #512 `blocked_by` / `blocked` / `blocks` dependencies) and tasks."""
     return client.get_plan(slug)
 
 
 @mcp.tool()
 def complete_milestone(milestone_id: int) -> dict:
-    """Mark a milestone complete (find ids via get_plan). Progress rolls up automatically."""
+    """Mark a milestone complete (find ids via get_plan). Progress rolls up automatically;
+    milestones that were only waiting on this one become unblocked (#512)."""
     return client.complete_milestone(milestone_id)
+
+
+@mcp.tool()
+def set_milestone_dependencies(milestone_id: int, blocked_by: list[int]) -> dict:
+    """Make a milestone wait for others (#512): `blocked_by` replaces the full list of
+    milestone ids it depends on (same project, no loops — a 400 explains otherwise; [] clears).
+    get_plan shows `blocked_by`, `blocked` and `blocks` per milestone; the overview's next
+    milestones and the roadmap sort blocked ones after the ones that can be done now."""
+    return client.set_milestone_dependencies(milestone_id, blocked_by)
 
 
 @mcp.tool()

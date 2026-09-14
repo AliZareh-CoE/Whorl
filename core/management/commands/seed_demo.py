@@ -138,6 +138,10 @@ class Command(BaseCommand):
         Milestone.objects.create(phase=collection, title="Full sample collected")
         Milestone.objects.create(phase=writing, title="Pre-registered analysis complete")
         Milestone.objects.create(phase=writing, title="Manuscript draft to co-authors")
+        # #512: a dependency — the full sample waits on the ethics amendment
+        Milestone.objects.get(phase__project=project, title="Full sample collected").blocked_by.set(
+            [Milestone.objects.get(phase__project=project, title="Ethics amendment approved")]
+        )
 
         Task.objects.create(milestone=overdue, title="Email participant pool", done=True, order=1)
         Task.objects.create(

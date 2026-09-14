@@ -77,6 +77,7 @@ class TestQueryBudgets:
             response = client_logged_in.get(f"/api/v1/projects/{project.slug}/overview/")
         assert response.status_code == 200
 
+    # #512: +1 grouped blocked_map query per active project's roadmap (three in this test)
     def test_api_dashboard_budget(self, client_logged_in, django_assert_max_num_queries):
         """Audit #27 (#488): the dashboard's cross-project panels (reading queue, writing)
         must not grow a pre-flight per manuscript per project — only the rows shown get one."""
@@ -88,7 +89,7 @@ class TestQueryBudgets:
                 Manuscript.objects.create(project=project, title=f"P{i}{j}", status="drafting")
         # #489 added the per-project pulses as nine grouped queries (a fixed cost, not per
         # project) → the pin moves from 100 to 110
-        with django_assert_max_num_queries(110):
+        with django_assert_max_num_queries(115):
             response = client_logged_in.get("/api/v1/dashboard/")
         assert response.status_code == 200
         rows = response.json()["writing"]["rows"]
