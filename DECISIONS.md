@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Notes: "Around this note" — a local graph in the editor (#503)
+
+**Decision.** `core/graph.py::note_neighbourhood(note, depth)` walks the project graph (`project_graph`) from the note over both link directions — notes it links to and from, papers it cites — up to `depth` hops (1–3, default 2), returning the same node/link shapes as the graph page plus `hops` per node and `stats`. `GET /notes/{id}/graph/?depth=`; MCP `get_note_graph` (118 tools). The editor's link rail gets an "Around this note" panel: a 200-px 2D force graph from the vendored force-graph build (already shipped for the desktop), the current note ringed in the middle, notes teal, papers coloured by reading status, arrows for direction, labels for the near ring, a 1 / 2 / 3 hop switch, click opens the node.
+
+**Why.** Obsidian's local graph is the feature people screenshot: the note's actual neighbourhood, not the whole hairball. Atlas already had the whole-project graph page; the two-hop view next to the text is where linking decisions are made.
+
+**Alternatives.** Filtering the project graph in the browser — rejected: the same view must be available to Claude Code, so it is an endpoint; the project graph is bounded (references + notes of one project) and one BFS over it is cheaper than a second query plan. Drawing with SVG — rejected: the vendored force-graph is offline-safe and already loaded on the graph page. Showing the 3D library — rejected: 200 px in a rail wants 2D.
+
 ### 2026-09-14 — Notes: link hygiene — renames follow their links, mentions become links (#502)
 
 **Decision.** Area: **Notes + knowledge graph** (from #502). `notes/relink.py`: `rename_links(project, old, new)` rewrites every `[[Old title]]` (case-insensitive, `|alias` kept) in the project's notes, decisions (context / decision / alternatives), lab-notebook entries and inbox captures — the bodies that render mentions (#407) — re-syncing changed notes' links; the note PATCH runs it when the title changes and replies with `relinked` counts. `link_mentions(note, sources)` wraps the first plain mention of the title in each mentioning note in `[[ ]]` (word-bounded, not inside an existing link) and re-syncs. `POST /notes/{id}/link-mentions/`; MCP `link_mentions` (117 tools); `update_note` documents the rename behaviour. The editor shows "Renamed — n links updated in …" and a Link button per unlinked mention plus Link all.

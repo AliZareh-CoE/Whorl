@@ -3011,6 +3011,30 @@ class NoteViewSet(AtlasViewSet):
         return response
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "depth", int, description="Hops from the note, 1–3 (default 2).", required=False
+            )
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="note, depth, nodes (with `hops`), links, stats — the same node and "
+                "link shapes as the project graph"
+            )
+        },
+        description="The subgraph around one note (#503): notes it links to and from, papers "
+        "it cites, and their neighbours up to `depth` hops. Obsidian's local graph, as data.",
+    )
+    @action(detail=True, methods=["get"])
+    def graph(self, request, pk=None):
+        from core.graph import note_neighbourhood
+
+        raw = request.query_params.get("depth", "2")
+        if not raw.isdigit():
+            return Response({"detail": "depth must be an integer"}, status=400)
+        return Response(note_neighbourhood(self.get_object(), int(raw)))
+
+    @extend_schema(
         request=inline_serializer(
             "LinkMentions",
             {

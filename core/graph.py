@@ -112,3 +112,45 @@ def project_graph(project: Project) -> dict:
         ],
     }
     return {"nodes": nodes, "links": links, "stats": stats}
+
+
+NEIGHBOURHOOD_DEPTH = 2
+NEIGHBOURHOOD_MAX_DEPTH = 3
+
+
+def note_neighbourhood(note, depth: int = NEIGHBOURHOOD_DEPTH) -> dict:
+    """#503: the subgraph within `depth` hops of one note — notes it links to and from,
+    papers it cites, and their neighbours in turn — built from the project graph so nodes and
+    links carry the same facts the graph page shows. Each node gets `hops` (0 for the note
+    itself); `stats` says how many notes and papers are in reach."""
+    depth = max(1, min(int(depth), NEIGHBOURHOOD_MAX_DEPTH))
+    whole = project_graph(note.project)
+    start = f"note-{note.pk}"
+    adjacency: dict[str, set[str]] = {}
+    for link in whole["links"]:
+        adjacency.setdefault(link["source"], set()).add(link["target"])
+        adjacency.setdefault(link["target"], set()).add(link["source"])
+    hops = {start: 0}
+    frontier = [start]
+    for d in range(1, depth + 1):
+        next_frontier = []
+        for node_id in frontier:
+            for neighbour in adjacency.get(node_id, ()):
+                if neighbour not in hops:
+                    hops[neighbour] = d
+                    next_frontier.append(neighbour)
+        frontier = next_frontier
+    nodes = [dict(n, hops=hops[n["id"]]) for n in whole["nodes"] if n["id"] in hops]
+    nodes.sort(key=lambda n: (n["hops"], n["type"], n["label"].lower()))
+    links = [link for link in whole["links"] if link["source"] in hops and link["target"] in hops]
+    return {
+        "note": {"id": note.pk, "title": note.title},
+        "depth": depth,
+        "nodes": nodes,
+        "links": links,
+        "stats": {
+            "notes": sum(1 for n in nodes if n["type"] == "note") - 1,
+            "references": sum(1 for n in nodes if n["type"] == "reference"),
+            "links": len(links),
+        },
+    }

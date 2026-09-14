@@ -563,6 +563,11 @@ def get_note(note_id: int):
     return _request("GET", f"/notes/{note_id}/")
 
 
+def get_note_graph(note_id: int, depth: int = 2):
+    """The subgraph within `depth` hops of a note (#503)."""
+    return _request("GET", f"/notes/{note_id}/graph/", params={"depth": depth})
+
+
 def link_mentions(note_id: int, sources=None):
     """Turn unlinked mentions of a note into [[links]] (#502)."""
     payload = {"sources": list(sources)} if sources else {}

@@ -3,7 +3,9 @@
  *  attaches them to the note), autosave, backlinks / unresolved / mentions, unwritten stubs.
  *  Everything here is also in the API (/notes/, /links/, /suggest/, /unwritten/, /preview/) and MCP.
  *  #502: renaming a note rewrites every [[old title]] in the project (the save reply's `relinked`
- *  says how many); "Mentions without a link" get a Link button each and "Link all". */
+ *  says how many); "Mentions without a link" get a Link button each and "Link all".
+ *  #503: "Around this note" — a small 2D force graph of the note's two-hop neighbourhood (notes and
+ *  cited papers) in the link rail; click a node to open it. GET /notes/{id}/graph/?depth=. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -22,6 +24,21 @@ type Note = { id: number; title: string; body: string; backlinks: Backlink[]; re
 type Page<T> = { count: number; results: T[] };
 type Links = { outgoing: Backlink[]; backlinks: Backlink[]; references: RefSummary[]; unresolved: string[]; unresolved_keys: string[]; mentions: Backlink[] };
 type Suggestion = { id: number; label: string; sublabel: string };
+type GNode = { id: string; type: "reference" | "note"; label: string; title: string; group: string; size: number; hops: number; app_url?: string; x?: number; y?: number };
+type GLink = { source: string | { id: string }; target: string | { id: string }; kind: string };
+type LocalGraphData = { note: { id: number; title: string }; depth: number; nodes: GNode[]; links: GLink[]; stats: { notes: number; references: number; links: number } };
+declare global { interface Window { ForceGraph?: any } }
+const FORCE_GRAPH_2D = "/static/vendor/forcegraph/force-graph.min.js";
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    const el = document.createElement("script"); el.src = src; el.onload = () => resolve(); el.onerror = reject; document.head.appendChild(el);
+  });
+}
+const NODE_COLORS: Record<string, string> = { to_read: "#f59e0b", skimmed: "#a5b4fc", read: "#7c6cff", annotated: "#34d399", note: "#2dd4bf" };
+const LINK_COLORS: Record<string, string> = { citation: "#7c6cff", "note-link": "#2dd4bf", "note-citation": "#c084fc" };
+const isDark = () => document.documentElement.classList.contains("dark");
+const endId = (e: string | { id: string }) => (typeof e === "string" ? e : e.id);
 
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
 const railH = "mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:text-stone-500";
@@ -155,6 +172,58 @@ function NewNote({ slug, onCreate, pending, onTemplate }: { slug: string; onCrea
   );
 }
 
+/* #503: the note's neighbourhood as a small live force graph — the note ringed in the middle,
+   notes teal, papers coloured by reading status, arrows for direction; click opens the node. */
+function LocalGraph({ slug, id }: { slug: string; id: number }) {
+  const navigate = useNavigate();
+  const boxRef = useRef<HTMLDivElement>(null);
+  const graphRef = useRef<any>(null);
+  const [depth, setDepth] = useState<1 | 2 | 3>(2);
+  const [ready, setReady] = useState(false);
+  const local = useQuery({ queryKey: ["note-graph", id, depth], queryFn: () => api<LocalGraphData>(`/notes/${id}/graph/?depth=${depth}`) });
+  useEffect(() => { let alive = true; loadScript(FORCE_GRAPH_2D).then(() => { if (alive) setReady(true); }).catch(() => undefined); return () => { alive = false; }; }, []);
+  const data = local.data;
+  useEffect(() => {
+    if (!ready || !data || !boxRef.current || !window.ForceGraph) return;
+    const box = boxRef.current;
+    const me = `note-${id}`;
+    const g = graphRef.current ?? (graphRef.current = window.ForceGraph()(box));
+    g.width(box.clientWidth).height(200)
+      .backgroundColor(isDark() ? "#0b0e1a" : "#fafaf9")
+      .graphData({ nodes: data.nodes.map((n) => ({ ...n })), links: data.links.map((l) => ({ source: endId(l.source), target: endId(l.target), kind: l.kind })) })
+      .nodeId("id")
+      .nodeLabel((n: GNode) => `${n.title}${n.type === "reference" ? ` · ${n.group.replace("_", " ")}` : ""}`)
+      .nodeVal((n: GNode) => (n.id === me ? 6 : n.type === "reference" ? 2.5 : 3))
+      .nodeCanvasObject((n: GNode & { x: number; y: number }, ctx: CanvasRenderingContext2D, scale: number) => {
+        const r = n.id === me ? 5 : n.type === "reference" ? 3 : 3.5;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 2 * Math.PI); ctx.fillStyle = n.type === "note" ? NODE_COLORS.note : NODE_COLORS[n.group] ?? "#94a3b8"; ctx.fill();
+        if (n.id === me) { ctx.lineWidth = 1.5; ctx.strokeStyle = isDark() ? "#e0e7ff" : "#312e81"; ctx.stroke(); }
+        if (scale > 1.4 || n.hops <= 1) { ctx.font = `${Math.max(3, 9 / scale)}px system-ui`; ctx.textAlign = "center"; ctx.fillStyle = isDark() ? "#cbd5e1" : "#44403c"; ctx.fillText(n.label.length > 22 ? `${n.label.slice(0, 21)}…` : n.label, n.x, n.y + r + 8 / scale); }
+      })
+      .linkColor((l: GLink) => (LINK_COLORS[l.kind] ?? "#94a3b8") + (isDark() ? "99" : "88"))
+      .linkDirectionalArrowLength(2.5).linkDirectionalArrowRelPos(1).linkWidth(0.8)
+      .onNodeClick((n: GNode) => { if (n.id === me) return; if (n.type === "note") navigate(`/projects/${slug}/notes/${n.id.replace("note-", "")}`); else if (n.app_url) navigate(n.app_url); })
+      .cooldownTicks(80);
+    g.d3Force("charge")?.strength(-60);
+    const t = window.setTimeout(() => { try { g.zoomToFit(300, 34); } catch { /* not yet laid out */ } }, 500);
+    return () => window.clearTimeout(t);
+  }, [ready, data, id, slug, navigate]);
+  useEffect(() => () => { try { graphRef.current?._destructor?.(); } catch { /* fine */ } graphRef.current = null; }, [id]);
+  const s = data?.stats;
+  return (
+    <div className={`${panel} rise overflow-hidden`} style={{ ["--i" as string]: 5 }} data-testid="local-graph">
+      <div className="flex items-center gap-2 px-4 pt-3">
+        <p className={`${railH} mb-0`}>Around this note</p>
+        <span className="ml-auto flex items-center gap-1 text-[10px] text-stone-400">
+          {[1, 2, 3].map((d) => <button key={d} type="button" onClick={() => setDepth(d as 1 | 2 | 3)} className={`rounded px-1 ${depth === d ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-300" : "hover:text-stone-600 dark:hover:text-stone-200"}`} aria-pressed={depth === d} title={`${d} hop${d === 1 ? "" : "s"}`}>{d}</button>)}
+        </span>
+      </div>
+      <div ref={boxRef} className="mt-1 h-[200px] w-full" aria-label="Local graph" />
+      <p className="px-4 pb-2 text-[10px] text-stone-400">{s ? (s.notes + s.references === 0 ? "Nothing linked yet — [[link]] a note or @cite a paper." : `${s.notes} note${s.notes === 1 ? "" : "s"} · ${s.references} paper${s.references === 1 ? "" : "s"} within ${data!.depth} hop${data!.depth === 1 ? "" : "s"} · click to open`) : local.error ? "Couldn't load the graph." : "…"}</p>
+    </div>
+  );
+}
+
 function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number; onDelete: () => void; onCreateStub: (title: string) => void }) {
   const queryClient = useQueryClient();
   const note = useQuery({ queryKey: ["note", id], queryFn: () => api<Note>(`/notes/${id}/`) });
@@ -264,6 +333,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
             </div>
           )}
         </div>
+        <LocalGraph slug={slug} id={id} />
         <p className="px-1 text-[11px] text-stone-400">Edited {note.data ? ago(note.data.updated_at) : ""} ago · <Link to={`/projects/${slug}/graph`} className="hover:underline">see the graph</Link></p>
       </aside>
     </div>

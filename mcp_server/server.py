@@ -578,6 +578,14 @@ def update_note(note_id: int, body: str = "", title: str = "") -> dict:
 
 
 @mcp.tool()
+def get_note_graph(note_id: int, depth: int = 2) -> dict:
+    """ "Around this note" (#503): the notes it links to and from, the papers it cites, and
+    their neighbours up to `depth` hops (1–3) — nodes carry `hops` and the same facts as the
+    project graph (reading status, citations, words); `stats` counts notes, papers, links."""
+    return client.get_note_graph(note_id, depth)
+
+
+@mcp.tool()
 def link_mentions(note_id: int, sources: list[int] | None = None) -> dict:
     """Turn unlinked mentions of a note into [[links]] (#502): the first plain occurrence of
     its title in each mentioning note (get_note_links → `mentions`; or only `sources`) is
