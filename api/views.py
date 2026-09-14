@@ -602,6 +602,7 @@ class ProjectViewSet(AtlasViewSet):
             slack_map,
         )
         from plans.drift import change_rows, milestone_drift, project_drift
+        from plans.review import review_state
 
         blocked = blocked_map(project)  # #512: open blockers per milestone, two queries
         graph = due_graph(project)  # #513–#515 share one load of the open dated milestones
@@ -666,6 +667,8 @@ class ProjectViewSet(AtlasViewSet):
                 "conflicts": date_conflicts(project, *graph),
                 # #515: the chain of dependencies that decides the plan's end, and its least slack
                 "critical_chain": critical_chain(project, *graph),
+                # #517: when the plan was last reviewed and whether a review is due
+                "review": review_state(project),
                 # #516: how far the plan has slipped from what was first written
                 "drift": {
                     k: v
@@ -711,6 +714,32 @@ class ProjectViewSet(AtlasViewSet):
         from plans.drift import drift_report
 
         return Response(drift_report(self.get_object()))
+
+    @extend_schema(
+        request=serializers.PlanReviewSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="GET: {state: {last, days_since, due, open, summary}, queue: [open "
+                "milestones in review order — overdue first, then by due date, undated last — "
+                "with phase, days, blocked/blocked_by, slack, conflict, baseline/moves/slipped, "
+                "open_tasks]}. POST: the new state after the sitting is recorded."
+            )
+        },
+        description="The plan review (#517): GET lists every open milestone with everything "
+        "Atlas knows about it, in the order to walk them; POST {kept, completed, moved, "
+        "skipped, note} records the sitting. Verdicts themselves are ordinary milestone "
+        "PATCHes (completed_at, due_date).",
+    )
+    @action(detail=True, methods=["get", "post"], url_path="plan/review")
+    def plan_review(self, request, slug=None):
+        from plans.review import finish_review, review_queue, review_state
+
+        project = self.get_object()
+        if request.method == "POST":
+            body = serializers.PlanReviewSerializer(data=request.data)
+            body.is_valid(raise_exception=True)
+            return Response(finish_review(project, **body.validated_data))
+        return Response({"state": review_state(project), "queue": review_queue(project)})
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Unread references, highest priority first")},

@@ -93,6 +93,28 @@ def get_plan_drift(slug: str):
     return _request("GET", f"/projects/{slug}/plan/drift/")
 
 
+def get_plan_review(slug: str):
+    """The plan review queue and when the plan was last reviewed (#517)."""
+    return _request("GET", f"/projects/{slug}/plan/review/")
+
+
+def finish_plan_review(
+    slug: str, kept: int = 0, completed: int = 0, moved: int = 0, skipped: int = 0, note: str = ""
+):
+    """Record a plan-review sitting (#517)."""
+    return _request(
+        "POST",
+        f"/projects/{slug}/plan/review/",
+        json={
+            "kept": kept,
+            "completed": completed,
+            "moved": moved,
+            "skipped": skipped,
+            "note": note,
+        },
+    )
+
+
 def fix_plan_conflicts(slug: str):
     """Push every due date that contradicts a dependency to the day after its blocker (#513)."""
     return _request("POST", f"/projects/{slug}/plan/reschedule-conflicts/")
@@ -101,6 +123,11 @@ def fix_plan_conflicts(slug: str):
 def set_milestone_dependencies(milestone_id: int, blocked_by: list[int]):
     """Replace what a milestone waits for (#512)."""
     return _request("PATCH", f"/milestones/{milestone_id}/", json={"blocked_by": list(blocked_by)})
+
+
+def move_milestone(milestone_id: int, due_date: str | None):
+    """Set (or clear, with None) a milestone's due date — the move is logged (#516)."""
+    return _request("PATCH", f"/milestones/{milestone_id}/", json={"due_date": due_date})
 
 
 def complete_milestone(milestone_id: int):

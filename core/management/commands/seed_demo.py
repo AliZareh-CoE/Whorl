@@ -10,7 +10,14 @@ from notes.capture import snooze_date
 from notes.models import Note, NoteRevision, QuickCapture
 from notes.services import sync_note_links
 from notes.tags import sync_note_tags
-from plans.models import Milestone, MilestoneDateChange, Phase, ResearchQuestion, Task
+from plans.models import (
+    Milestone,
+    MilestoneDateChange,
+    Phase,
+    PlanReview,
+    ResearchQuestion,
+    Task,
+)
 from projects.models import DecisionRecord, Project
 from prompts.models import Prompt
 from research.models import Dataset, Evidence, ExperimentEntry, Hypothesis
@@ -159,6 +166,15 @@ class Command(BaseCommand):
         # #515: the chain that decides the end — sample → pre-registered analysis → draft
         prereg.blocked_by.set([sample])
         draft.blocked_by.set([prereg])
+        # #517: the plan was last reviewed nine days ago — the header nudges for the next one
+        PlanReview.objects.create(
+            project=project,
+            reviewed_at=timezone.now() - datetime.timedelta(days=9),
+            kept=5,
+            completed=1,
+            moved=1,
+            note="Pilot recruitment is the risk; everything else holds.",
+        )
         # #516: the plan's drift — the pilot slipped twice, the sample once (backdated moves)
         now = timezone.now()
         MilestoneDateChange.objects.bulk_create(

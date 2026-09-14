@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, CalendarRange, Check, FileText, HelpCircle, History, LayoutList, Loader2, Lock, Pencil, Plus, Route, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarRange, Check, ClipboardCheck, FileText, HelpCircle, History, LayoutList, Loader2, Lock, Pencil, Plus, Route, Save, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { Kebab } from "../../components/Menu";
@@ -15,6 +15,7 @@ import Roadmap from "./plan/Roadmap";
 import Orbit from "./plan/Orbit";
 import Focus from "./plan/Focus";
 import MilestoneDrawer, { type DrawerMilestone } from "./plan/MilestoneDrawer";
+import Review, { reviewedLabel, type ReviewState } from "./plan/Review";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
 type Milestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue: boolean; notes?: string; tasks: Task[]; blocked_by: { id: number; title: string }[]; blocked: boolean; blocks: number[]; slack: number | null; baseline: string | null; moves: number; slipped: number | null; history: DateMove[] };
@@ -24,7 +25,7 @@ type Phase = { id: number; name: string; order: number; status: string; progress
 type Conflict = { id: number; title: string; due_date: string; blocker_id: number; blocker_title: string; blocker_due: string; suggested: string };
 type Chain = { ids: number[]; titles: string[]; from: string | null; to: string | null; days: number; slack: number | null }; // #515
 type Drift = { total: number; moved: number; most: { id: number; title: string; phase: string; slipped: number; baseline: string | null; due_date: string | null } | null; baseline_end: string | null; current_end: string | null }; // #516
-type PlanData = { project: string; project_name: string; project_color: string; questions: Question[]; phases: Phase[]; conflicts: Conflict[]; critical_chain: Chain; drift: Drift };
+type PlanData = { project: string; project_name: string; project_color: string; questions: Question[]; phases: Phase[]; conflicts: Conflict[]; critical_chain: Chain; drift: Drift; review: ReviewState };
 const TIGHT_DAYS = 7; // mirrors plans.dependencies.TIGHT_DAYS
 type Summary = { phases: number; milestones: number; tasks: number; created: string[]; renamed: string[]; deleted: string[]; errors: { line: number; message: string }[]; applied?: boolean; markdown?: string };
 
@@ -75,6 +76,7 @@ export default function Plan() {
   useEffect(() => { try { localStorage.setItem("atlas-plan-mode", mode); } catch { /* private mode */ } }, [mode]);
   const [toast, setToast] = useState("");
   const [drawerId, setDrawerId] = useState<number | null>(null);
+  const [reviewing, setReviewing] = useState(false); // #517: not a mode — never persisted
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 4000); };
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["plan", slug] });
@@ -201,6 +203,12 @@ export default function Plan() {
             {overdue > 0 && <span className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600 dark:text-red-300">{overdue} overdue</span>}
           </p>
         </div>
+        {data.phases.length > 0 && (
+          <button type="button" onClick={() => setReviewing(true)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${data.review?.due ? "border-amber-400/70 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200" : "border-stone-300 text-stone-600 hover:border-indigo-400 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-300 dark:hover:text-indigo-300"}`} title="Walk every open milestone with one key per verdict" data-testid="review-open">
+            <ClipboardCheck className="h-4 w-4" aria-hidden="true" />Review plan
+            <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-normal ${data.review?.due ? "bg-amber-500/15" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"}`} data-testid="review-chip">{reviewedLabel(data.review)}</span>
+          </button>
+        )}
         <div className="flex overflow-hidden rounded-lg border border-stone-300 text-sm dark:border-stone-700" role="tablist" aria-label="Plan view">
           {([["cards", "Phases", LayoutList], ["roadmap", "Roadmap", CalendarRange], ["outline", "Outline", FileText]] as const).map(([k, label, Icon]) => (
             <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors ${mode === k ? "bg-indigo-600 text-white" : "text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"}`} title={k === "outline" ? "Write the whole plan as a Markdown outline" : k === "roadmap" ? "Phases on a time axis — drag to reschedule" : "Phase cards with check-off and quick-add"}>
@@ -210,7 +218,7 @@ export default function Plan() {
         </div>
       </div>
 
-      {(data.critical_chain?.ids?.length ?? 0) > 1 && mode !== "roadmap" && (
+      {(data.critical_chain?.ids?.length ?? 0) > 1 && mode !== "roadmap" && !reviewing && (
         <p className="rise mb-4 flex min-w-0 items-center gap-2 text-xs text-stone-500 dark:text-stone-400" data-testid="critical-chain" title="The dependency chain that decides when the plan ends: from the milestone due last, back through the blocker with the least room at each step">
           <Route className="h-3.5 w-3.5 shrink-0 text-indigo-500 dark:text-indigo-300" aria-hidden="true" />
           <span className="shrink-0 font-medium text-stone-700 dark:text-stone-200">Critical chain</span>
@@ -219,7 +227,7 @@ export default function Plan() {
           <span className={`shrink-0 rounded-md px-1.5 py-0.5 ${(data.critical_chain.slack ?? 99) <= TIGHT_DAYS ? "bg-amber-500/10 text-amber-800 dark:text-amber-200" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"}`}>{data.critical_chain.slack == null ? "no dated dependants" : data.critical_chain.slack < 0 ? `${-data.critical_chain.slack} d over` : data.critical_chain.slack === 0 ? "no slack" : `${data.critical_chain.slack} d of slack`}</span>
         </p>
       )}
-      {(data.drift?.moved ?? 0) > 0 && mode !== "roadmap" && (
+      {(data.drift?.moved ?? 0) > 0 && mode !== "roadmap" && !reviewing && (
         <p className="rise mb-4 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-stone-500 dark:text-stone-400" data-testid="plan-drift" title="Every due-date change is logged; a milestone's baseline is the first date it was given">
           <History className="h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden="true" />
           <span className="shrink-0 font-medium text-stone-700 dark:text-stone-200">Drift</span>
@@ -229,7 +237,7 @@ export default function Plan() {
           {data.drift.baseline_end && data.drift.current_end && data.drift.baseline_end !== data.drift.current_end && <span className="shrink-0">· ends {data.drift.current_end}, first planned {data.drift.baseline_end}</span>}
         </p>
       )}
-      {(data.conflicts?.length ?? 0) > 0 && (
+      {(data.conflicts?.length ?? 0) > 0 && !reviewing && (
         <div className="rise mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-amber-300/60 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-500/40 dark:text-amber-100" role="status" data-testid="conflict-banner">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden="true" />
           <span className="font-medium">{data.conflicts.length} date{data.conflicts.length === 1 ? "" : "s"} contradict{data.conflicts.length === 1 ? "s" : ""} a dependency</span>
@@ -240,7 +248,9 @@ export default function Plan() {
           <button type="button" onClick={() => fixConflicts.mutate()} disabled={fixConflicts.isPending} className="shrink-0 rounded-md bg-amber-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50" data-testid="conflict-fix">{fixConflicts.isPending ? "Moving…" : "Push the dates"}</button>
         </div>
       )}
-      {mode === "roadmap" ? (
+      {reviewing ? (
+        <Review slug={slug!} onClose={() => setReviewing(false)} onFinished={(state) => { setReviewing(false); flash(`Plan reviewed — ${state.summary ? `${state.summary.kept} kept · ${state.summary.completed} completed · ${state.summary.moved} moved · ${state.summary.skipped} skipped` : "recorded"}.`); }} />
+      ) : mode === "roadmap" ? (
         <Roadmap slug={slug!} accent={accent} onChanged={invalidate} />
       ) : outlineMode ? (
         <OutlineEditor slug={slug!} empty={data.phases.length === 0} onSaved={(s) => { setOutlineMode(false); invalidate(); flash(`Plan updated — ${s.phases} phase${s.phases === 1 ? "" : "s"}, ${s.milestones} milestone${s.milestones === 1 ? "" : "s"}${s.created.length ? `, ${s.created.length} new` : ""}${s.deleted.length ? `, ${s.deleted.length} removed` : ""}.`); }} />
@@ -262,7 +272,7 @@ export default function Plan() {
         </div>
       )}
 
-      {mode === "cards" && (
+      {mode === "cards" && !reviewing && (
         <p className="mt-4 text-xs text-stone-400">
           Tick to complete · click a status to cycle it · type at the bottom of a phase to add a milestone · ⋯ on a phase to rename or delete it
         </p>

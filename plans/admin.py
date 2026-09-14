@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Milestone, MilestoneDateChange, Phase, ResearchQuestion, Task
+from .models import Milestone, MilestoneDateChange, Phase, PlanReview, ResearchQuestion, Task
 
 
 class MilestoneInline(admin.TabularInline):
@@ -38,3 +38,10 @@ class MilestoneDateChangeAdmin(admin.ModelAdmin):
     list_display = ["milestone", "from_date", "to_date", "changed_at", "reason"]
     list_filter = ["milestone__phase__project"]
     date_hierarchy = "changed_at"
+
+
+@admin.register(PlanReview)
+class PlanReviewAdmin(admin.ModelAdmin):
+    list_display = ["project", "reviewed_at", "kept", "completed", "moved", "skipped"]
+    list_filter = ["project"]
+    date_hierarchy = "reviewed_at"

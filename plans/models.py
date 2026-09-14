@@ -104,6 +104,25 @@ class MilestoneDateChange(models.Model):
         return f"{self.milestone_id}: {self.from_date} → {self.to_date}"
 
 
+class PlanReview(models.Model):
+    """#517: one sitting of the plan review — every open milestone looked at and given a
+    verdict. The record is what makes "reviewed 9 d ago" and the review-due nudge possible."""
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="plan_reviews")
+    reviewed_at = models.DateTimeField(default=timezone.now)
+    kept = models.PositiveIntegerField(default=0)
+    completed = models.PositiveIntegerField(default=0)
+    moved = models.PositiveIntegerField(default=0)
+    skipped = models.PositiveIntegerField(default=0)
+    note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-reviewed_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.project_id} reviewed {self.reviewed_at:%Y-%m-%d}"
+
+
 class Task(TimeStampedModel):
     """Optional leaf nodes only — never the center of the product."""
 

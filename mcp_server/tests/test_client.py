@@ -444,6 +444,21 @@ def test_notes_client_calls(capture):
     )
     client.get_plan_drift("deep")
     assert capture["method"] == "GET" and calls_url_has(capture, "/projects/deep/plan/drift/")
+    client.get_plan_review("deep")
+    assert capture["method"] == "GET" and calls_url_has(capture, "/projects/deep/plan/review/")
+    client.finish_plan_review("deep", kept=3, moved=1, note="ok")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/projects/deep/plan/review/")
+        and '"kept":3' in capture["body"]
+        and '"note":"ok"' in capture["body"]
+    )
+    client.move_milestone(9, "2026-10-01")
+    assert (
+        capture["method"] == "PATCH"
+        and calls_url_has(capture, "/milestones/9/")
+        and '"due_date":"2026-10-01"' in capture["body"]
+    )
     client.set_milestone_dependencies(9, [3, 4])
     assert (
         capture["method"] == "PATCH"

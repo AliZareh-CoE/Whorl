@@ -65,12 +65,41 @@ def get_plan_drift(slug: str) -> dict:
 
 
 @mcp.tool()
+def get_plan_review(slug: str) -> dict:
+    """The plan review (#517): `state` says when the plan was last reviewed (`last`,
+    `days_since`, `due` — never reviewed or a week old with open milestones — and the last
+    sitting's `summary`); `queue` lists every open milestone in review order — overdue first,
+    then by due date, undated last — with phase, days to due, blocked / blocked_by, slack,
+    conflict, baseline / moves / slipped and open_tasks. Walk it, decide each one with
+    complete_milestone or move_milestone, then call finish_plan_review."""
+    return client.get_plan_review(slug)
+
+
+@mcp.tool()
+def finish_plan_review(
+    slug: str, kept: int = 0, completed: int = 0, moved: int = 0, skipped: int = 0, note: str = ""
+) -> dict:
+    """Record a plan-review sitting (#517) with the counts of milestones kept as they were,
+    completed, moved to a new date and skipped, plus an optional note; returns the new review
+    state. The Plan page then reads "reviewed today"."""
+    return client.finish_plan_review(slug, kept, completed, moved, skipped, note)
+
+
+@mcp.tool()
 def fix_plan_conflicts(slug: str) -> dict:
     """Fix the plan's dependency date conflicts (#513): every open milestone due on or before
     the latest due date of a milestone it waits for is moved to the day after, blockers first
     so downstream dates follow; undated milestones are left alone. Returns `changes`
     [{id, title, from, to}] — read get_plan's `conflicts` first to see what will move."""
     return client.fix_plan_conflicts(slug)
+
+
+@mcp.tool()
+def move_milestone(milestone_id: int, due_date: str = "") -> dict:
+    """Give a milestone a new due date (ISO `YYYY-MM-DD`; "" clears it). The move is logged, so
+    get_plan / get_plan_drift show the baseline, the number of moves and the slip (#516); the
+    plan review (#517) counts it as `moved`."""
+    return client.move_milestone(milestone_id, due_date or None)
 
 
 @mcp.tool()
