@@ -5,7 +5,9 @@
  *  #502: renaming a note rewrites every [[old title]] in the project (the save reply's `relinked`
  *  says how many); "Mentions without a link" get a Link button each and "Link all".
  *  #503: "Around this note" — a small 2D force graph of the note's two-hop neighbourhood (notes and
- *  cited papers) in the link rail; click a node to open it. GET /notes/{id}/graph/?depth=. */
+ *  cited papers) in the link rail; click a node to open it. GET /notes/{id}/graph/?depth=.
+ *  #504: #tags written in the body are collected on save; the rail lists them with counts and filters
+ *  the list (?tag=), the editor header shows the note's tags, `#` autocompletes them. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -20,7 +22,8 @@ import { listenTo, speakable, type Listener } from "../listen";
 type Backlink = { id: number; title: string };
 type RefSummary = { id: number; bibtex_key: string; title: string; year: number | null };
 type Relinked = { links: number; notes: number; decisions: number; experiments: number; captures: number } | null;
-type Note = { id: number; title: string; body: string; backlinks: Backlink[]; references_detail: RefSummary[]; updated_at: string; relinked?: Relinked };
+type Note = { id: number; title: string; body: string; backlinks: Backlink[]; references_detail: RefSummary[]; updated_at: string; relinked?: Relinked; tags?: string[] };
+type TagCount = { tag: string; count: number };
 type Page<T> = { count: number; results: T[] };
 type Links = { outgoing: Backlink[]; backlinks: Backlink[]; references: RefSummary[]; unresolved: string[]; unresolved_keys: string[]; mentions: Backlink[] };
 type Suggestion = { id: number; label: string; sublabel: string };
@@ -61,7 +64,9 @@ export default function NotesWorkbench() {
   const selectedId = id ? Number(id) : null;
   const [q, setQ] = useState("");
   const dq = useDebounced(q, 200);
-  const list = useQuery({ queryKey: ["notes", slug, dq], queryFn: () => api<Page<Note>>(`/notes/?project=${slug}&page_size=200${dq ? `&q=${encodeURIComponent(dq)}` : ""}`) });
+  const [tag, setTag] = useState("");
+  const list = useQuery({ queryKey: ["notes", slug, dq, tag], queryFn: () => api<Page<Note>>(`/notes/?project=${slug}&page_size=200${dq ? `&q=${encodeURIComponent(dq)}` : ""}${tag ? `&tag=${encodeURIComponent(tag)}` : ""}`) });
+  const tagCounts = useQuery({ queryKey: ["note-tags", slug], queryFn: () => api<{ tags: TagCount[] }>(`/notes/tags/?project=${slug}`) });
   const unwritten = useQuery({ queryKey: ["notes-unwritten", slug], queryFn: () => api<{ titles: string[] }>(`/notes/unwritten/?project=${slug}`) });
   const notes = list.data?.results ?? [];
   const create = useMutation({
@@ -94,9 +99,16 @@ export default function NotesWorkbench() {
             <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" aria-hidden="true" />
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search notes…" className="w-full rounded-lg border border-stone-200 bg-white py-1.5 pl-7 pr-2 text-sm placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800" aria-label="Search notes" />
           </div>
+          {(tagCounts.data?.tags.length ?? 0) > 0 && (
+            <div className="flex flex-wrap gap-1 border-b border-stone-100 px-2 py-1.5 dark:border-stone-800" data-testid="tag-rail">
+              {tagCounts.data!.tags.map((t) => (
+                <button key={t.tag} type="button" onClick={() => setTag(tag === t.tag ? "" : t.tag)} className={`rounded-full px-1.5 py-0.5 text-[10px] transition-colors ${tag === t.tag ? "bg-indigo-600 text-white" : "bg-stone-100 text-stone-500 hover:bg-indigo-500/10 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-400 dark:hover:text-indigo-300"}`} aria-pressed={tag === t.tag} title={`${t.count} note${t.count === 1 ? "" : "s"}`} data-testid="tag-chip">#{t.tag} <span className="opacity-70">{t.count}</span></button>
+              ))}
+            </div>
+          )}
           <div className="flex-1 overflow-auto">
             {list.isLoading && <div className="space-y-2 p-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>}
-            {notes.length === 0 && !list.isLoading && <p className="p-4 text-xs text-stone-400">{dq ? "No notes match." : "No notes yet — write the first one."}</p>}
+            {notes.length === 0 && !list.isLoading && <p className="p-4 text-xs text-stone-400">{tag ? `No notes tagged #${tag}.` : dq ? "No notes match." : "No notes yet — write the first one."}</p>}
             <ul className="divide-y divide-stone-100 dark:divide-stone-800">
               {notes.map((n) => (
                 <li key={n.id}>
@@ -261,7 +273,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
   const save = useMutation({
     mutationFn: (payload: { title: string; body: string }) => api<Note>(`/notes/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
     onSuccess: (saved) => {
-      setDirty(false); setSavedAt(Date.now()); queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["note-links", id] }); queryClient.invalidateQueries({ queryKey: ["notes-unwritten", slug] }); queryClient.invalidateQueries({ queryKey: ["graph", slug] });
+      setDirty(false); setSavedAt(Date.now()); queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["note-links", id] }); queryClient.invalidateQueries({ queryKey: ["notes-unwritten", slug] }); queryClient.invalidateQueries({ queryKey: ["graph", slug] }); queryClient.invalidateQueries({ queryKey: ["note-tags", slug] }); queryClient.setQueryData<Note>(["note", id], (old) => (old ? { ...old, tags: saved.tags } : old));
       // #502: a rename carried its links along — say so
       const rl = saved?.relinked;
       if (rl && rl.links > 0) { const where = [rl.notes && `${rl.notes} note${rl.notes === 1 ? "" : "s"}`, rl.decisions && `${rl.decisions} decision${rl.decisions === 1 ? "" : "s"}`, rl.experiments && `${rl.experiments} lab entr${rl.experiments === 1 ? "y" : "ies"}`, rl.captures && `${rl.captures} capture${rl.captures === 1 ? "" : "s"}`].filter(Boolean).join(", "); setExported(`Renamed — ${rl.links} link${rl.links === 1 ? "" : "s"} updated in ${where}.`); setTimeout(() => setExported(""), 5000); }
@@ -275,7 +287,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
   const queueSave = useCallback((t: string, b: string) => { setDirty(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => save.mutate({ title: t, body: b }), 1200); }, [save]);
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); window.clearTimeout(timer.current); save.mutate({ title, body }); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [title, body, save]);
 
-  const suggest = useCallback(async (kind: "note" | "reference", q: string) => api<Suggestion[]>(`/notes/suggest/?project=${slug}&kind=${kind}&q=${encodeURIComponent(q)}`), [slug]);
+  const suggest = useCallback(async (kind: "note" | "reference" | "tag", q: string) => api<Suggestion[]>(`/notes/suggest/?project=${slug}&kind=${kind}&q=${encodeURIComponent(q)}`), [slug]);
 
   if (note.isLoading || !loaded) return <div className={`${panel} p-6`}><Skeleton className="mb-3 h-7 w-1/2" /><Skeleton className="h-64 w-full" /></div>;
   if (note.error) return <ErrorState message="Couldn't load this note." onRetry={() => note.refetch()} />;
@@ -295,6 +307,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
           <button type="button" onClick={async () => { if (await confirmDialog({ title: `Delete “${title}”?`, body: "Links from other notes to it become plain text.", danger: true, confirmLabel: "Delete note" })) onDelete(); }} className="inline-flex items-center gap-1 hover:text-red-500" aria-label="Delete note"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
         </div>
         <input value={title} onChange={(e) => { setTitle(e.target.value); queueSave(e.target.value, body); }} className="font-display w-full bg-transparent px-5 pt-4 text-2xl font-semibold text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Note title" />
+        {(note.data?.tags?.length ?? 0) > 0 && <p className="flex flex-wrap gap-1 px-5 pb-1 pt-1" data-testid="note-tags">{note.data!.tags!.map((t) => <span key={t} className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-700 dark:text-indigo-300">#{t}</span>)}</p>}
         <div className="grid md:grid-cols-2">
           <div className="relative">
             <MarkdownEditor value={body} onChange={(v) => { setBody(v); queueSave(title, v); }} onSave={() => { window.clearTimeout(timer.current); save.mutate({ title, body: bodyRef.current }); }} suggest={suggest} placeholder="Write in Markdown. [[Another note]] links it; @lavie2010attention cites a paper and attaches it to this note." />

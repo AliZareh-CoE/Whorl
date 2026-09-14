@@ -12,6 +12,8 @@ class Note(TimeStampedModel):
     title = models.CharField(max_length=300)
     body = models.TextField(blank=True)  # markdown; [[Title]] creates links
     references = models.ManyToManyField(Reference, blank=True, related_name="notes")
+    # #504: #tags collected from the body on save (lower-cased, sorted) — filter and count
+    tags = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["-updated_at"]

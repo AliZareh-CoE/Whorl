@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Notes: #tags written where the thought is (#504)
+
+**Decision.** A `#tag` in a note's prose is a tag: `notes/tags.py::parse_tags` reads inline tags (a letter first; `/`, `-`, `_` allowed; headings, code spans and blocks, URL anchors and `#123` skipped), `sync_note_tags` stores them lower-cased and sorted on `Note.tags` (JSON, notes 0008 with a backfill) on every create/update through the API; `project_tags` counts them. `?tag=` filters `/notes/`, `GET /notes/tags/?project=` lists counts, the suggest endpoint gains `kind=tag`, the editor autocompletes `#` from the project's own tags, the list rail shows every tag with its count (click filters, click again clears), the editor header shows the note's tags. MCP `list_notes(tag)` and `list_note_tags` (119 tools).
+
+**Why.** Obsidian, Logseq and Bear all agree: tags typed inline beat a separate field, because they are written at the moment of thinking and cost nothing. Reference tags (Library) exist for papers; notes had only links. With counts in the rail the project's vocabulary becomes visible — "#method 12, #pilot 4" says what the notebook is about.
+
+**Alternatives.** A separate `Tag` model with M2M — rejected: the source of truth is the text; a JSON list denormalised from it is enough for filter and count at this scale, and `tags__contains` works on Postgres and SQLite (desktop). Nested tags as a tree — deferred: `#pilot/v2` is stored as written; a hierarchy view can come when there are enough tags to need it. Tags in the graph — parked: a tag node type would double the node count; a colour-by-tag mode is the better next step.
+
 ### 2026-09-14 — Notes: "Around this note" — a local graph in the editor (#503)
 
 **Decision.** `core/graph.py::note_neighbourhood(note, depth)` walks the project graph (`project_graph`) from the note over both link directions — notes it links to and from, papers it cites — up to `depth` hops (1–3, default 2), returning the same node/link shapes as the graph page plus `hops` per node and `stats`. `GET /notes/{id}/graph/?depth=`; MCP `get_note_graph` (118 tools). The editor's link rail gets an "Around this note" panel: a 200-px 2D force graph from the vendored force-graph build (already shipped for the desktop), the current note ringed in the middle, notes teal, papers coloured by reading status, arrows for direction, labels for the near ring, a 1 / 2 / 3 hop switch, click opens the node.

@@ -5,7 +5,7 @@ from .models import Note, NoteLink, QuickCapture
 
 @admin.register(Note)
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ["title", "project", "updated_at"]
+    list_display = ["title", "project", "tags", "updated_at"]
     list_filter = ["project"]
     search_fields = ["title", "body"]
 

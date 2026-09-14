@@ -705,9 +705,11 @@ class NoteSerializer(serializers.ModelSerializer):
             "references",
             "references_detail",
             "backlinks",
+            "tags",
             "created_at",
             "updated_at",
         ]
+        read_only_fields = ["tags"]
         extra_kwargs = {"references": {"required": False}}
 
     def get_backlinks(self, note) -> list[dict]:

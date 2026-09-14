@@ -2983,13 +2983,45 @@ class NoteViewSet(AtlasViewSet):
         project = Project.objects.filter(slug=request.data.get("project", "")).first()
         return Response({"html": render_body(body, project)})
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        tag = (self.request.query_params.get("tag") or "").strip().lower().lstrip("#")
+        if tag:  # #504: notes carrying the tag
+            queryset = queryset.filter(tags__contains=[tag])
+        return queryset
+
+    @extend_schema(
+        parameters=[OpenApiParameter("project", str, description="Project slug.", required=True)],
+        responses={
+            200: inline_serializer(
+                "NoteTags",
+                {"tags": rf_serializers.ListField(child=rf_serializers.DictField())},
+            )
+        },
+        description="Every #tag used in the project's notes with a count, most used first "
+        "(#504). Filter the list with `?tag=`.",
+    )
+    @action(detail=False, methods=["get"])
+    def tags(self, request):
+        from notes.tags import project_tags
+        from projects.models import Project
+
+        project = Project.objects.filter(slug=request.query_params.get("project", "")).first()
+        if project is None:
+            return Response({"detail": "project is required"}, status=400)
+        return Response({"tags": project_tags(project)})
+
     def perform_create(self, serializer):
+        from notes.tags import sync_note_tags
+
         note = serializer.save()
         note_services.sync_note_links(note)
         note_services.sync_note_references(note)
+        sync_note_tags(note)
 
     def perform_update(self, serializer):
         from notes.relink import rename_links
+        from notes.tags import sync_note_tags
 
         old_title = serializer.instance.title
         note = serializer.save()
@@ -3001,6 +3033,7 @@ class NoteViewSet(AtlasViewSet):
         )
         note_services.sync_note_links(note)
         note_services.sync_note_references(note)
+        sync_note_tags(note)
 
     def update(self, request, *args, **kwargs):
         """PATCH/PUT reply carries `relinked` — how many [[links]] followed a rename (#502)."""
@@ -3082,7 +3115,7 @@ class NoteViewSet(AtlasViewSet):
         parameters=[
             OpenApiParameter("project", str, required=True),
             OpenApiParameter("q", str, description="Prefix typed so far"),
-            OpenApiParameter("kind", str, description="note (default) or reference"),
+            OpenApiParameter("kind", str, description="note (default), reference or tag (#504)"),
         ],
         responses={
             200: inline_serializer(
@@ -3100,7 +3133,9 @@ class NoteViewSet(AtlasViewSet):
     @action(detail=False, methods=["get"])
     def suggest(self, request):
         project = get_object_or_404(Project, slug=request.query_params.get("project", ""))
-        kind = "reference" if request.query_params.get("kind") == "reference" else "note"
+        kind = request.query_params.get("kind", "note")
+        if kind not in ("note", "reference", "tag"):  # #504 adds tag
+            kind = "note"
         return Response(
             note_services.suggest(project, request.query_params.get("q", "")[:100], kind)
         )

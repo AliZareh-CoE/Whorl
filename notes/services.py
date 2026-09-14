@@ -161,6 +161,19 @@ def note_links(note: Note) -> dict:
 def suggest(project, q: str, kind: str = "note", limit: int = 8) -> list[dict]:
     """Autocomplete rows for [[ (notes) and @ (references filed in the project)."""
     q = (q or "").strip()
+    if kind == "tag":  # #504: the project's tags, most used first
+        from notes.tags import project_tags
+
+        rows = [t for t in project_tags(project) if q.lower().lstrip("#") in t["tag"]]
+        rows.sort(key=lambda t: (not t["tag"].startswith(q.lower().lstrip("#")), -t["count"]))
+        return [
+            {
+                "id": i,
+                "label": t["tag"],
+                "sublabel": f"{t['count']} note{'s' if t['count'] != 1 else ''}",
+            }
+            for i, t in enumerate(rows[:limit])
+        ]
     if kind == "reference":
         from literature.models import Reference
 

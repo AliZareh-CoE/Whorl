@@ -557,9 +557,17 @@ def get_week_focus(slug: str) -> dict:
 
 
 @mcp.tool()
-def list_notes(project: str, q: str = "") -> dict:
-    """Notes in a project, newest edited first; `q` filters by title/body text."""
-    return client.list_notes(project, q)
+def list_notes(project: str, q: str = "", tag: str = "") -> dict:
+    """Notes of a project, newest edited first; `q` filters by text, `tag` by a #tag written
+    in the body (#504; notes carry `tags`)."""
+    return client.list_notes(project, q, tag)
+
+
+@mcp.tool()
+def list_note_tags(project: str) -> dict:
+    """Every #tag used in the project's notes with a count, most used first (#504) — the
+    project's own vocabulary; pass one to list_notes(tag=…)."""
+    return client.list_note_tags(project)
 
 
 @mcp.tool()

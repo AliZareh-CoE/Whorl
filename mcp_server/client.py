@@ -550,12 +550,19 @@ def get_week_focus(slug: str):
     return _request("GET", f"/projects/{slug}/focus/")
 
 
-def list_notes(project: str, q: str = ""):
-    """Notes of a project (newest edited first), optionally filtered by text."""
+def list_notes(project: str, q: str = "", tag: str = ""):
+    """Notes of a project (newest edited first), optionally filtered by text and/or #tag."""
     params = {"project": project, "page_size": 100}
     if q:
         params["q"] = q
+    if tag:
+        params["tag"] = tag.lstrip("#")
     return _request("GET", "/notes/", params=params)
+
+
+def list_note_tags(project: str):
+    """Every #tag in the project's notes with a count (#504)."""
+    return _request("GET", "/notes/tags/", params={"project": project})
 
 
 def get_note(note_id: int):

@@ -13,7 +13,7 @@ import { search, searchKeymap } from "@codemirror/search";
 import { tags as t } from "@lezer/highlight";
 
 export type Suggestion = { id: number; label: string; sublabel: string };
-export type SuggestFn = (kind: "note" | "reference", q: string) => Promise<Suggestion[]>;
+export type SuggestFn = (kind: "note" | "reference" | "tag", q: string) => Promise<Suggestion[]>;
 export type MdHandle = { insert: (text: string) => void; focus: () => void; getValue: () => string };
 
 const theme = EditorView.theme({
@@ -80,11 +80,21 @@ export default function MarkdownEditor({ value, onChange, onSave, suggest, place
       const rows = await suggestRef.current("reference", q);
       return { from: m.from + at, options: rows.map((r) => ({ label: `@${r.label}`, detail: r.sublabel, type: "keyword", apply: `@${r.label} ` })), filter: false, validFor: /^@[\w:.-]*$/ };
     };
+    // #504: `#tag` → the project's tags (most used first); a heading (`# `) never triggers
+    const tagSource = async (ctx: CompletionContext): Promise<CompletionResult | null> => {
+      const m = ctx.matchBefore(/(?:^|[\s(])#[A-Za-z][\w/-]*/);
+      if (!m) return null;
+      const hash = m.text.indexOf("#");
+      const q = m.text.slice(hash + 1);
+      const rows = await suggestRef.current("tag", q);
+      if (!rows.length) return null;
+      return { from: m.from + hash, options: rows.map((r) => ({ label: `#${r.label}`, detail: r.sublabel, type: "keyword", apply: `#${r.label} ` })), filter: false, validFor: /^#[\w/-]*$/ };
+    };
     const extensions: Extension[] = [
       history(), drawSelection(), highlightActiveLine(), EditorView.lineWrapping,
       markdown({ base: markdownLanguage }), theme, highlight, search(),
       cmPlaceholder(placeholder ?? "Write in Markdown."),
-      autocompletion({ override: [wikiSource, citeSource], activateOnTyping: true, icons: false }),
+      autocompletion({ override: [wikiSource, citeSource, tagSource], activateOnTyping: true, icons: false }),
       Prec.highest(keymap.of([
         { key: "Mod-s", run: () => { onSaveRef.current?.(); return true; } },
         { key: "Mod-b", run: (v) => wrapSelection(v, "**") },

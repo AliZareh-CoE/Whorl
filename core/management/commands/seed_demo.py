@@ -9,6 +9,7 @@ from literature.models import CitationEdge, ProjectReference, Reference, ReviewM
 from notes.capture import snooze_date
 from notes.models import Note, QuickCapture
 from notes.services import sync_note_links
+from notes.tags import sync_note_tags
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 from prompts.models import Prompt
@@ -427,11 +428,12 @@ class Command(BaseCommand):
             title="Pilot observations",
             defaults={
                 # #502: "Load theory overview" is mentioned without a link — the Link button
-                "body": "n=9 so far. Two participants reported chunking digits — relevant to [[Strategic allocation hypothesis]]. Worth re-reading the Load theory overview before the next session."
+                "body": "n=9 so far. Two participants reported chunking digits — relevant to [[Strategic allocation hypothesis]]. Worth re-reading the Load theory overview before the next session. #pilot #method"
             },
         )
         for note in (hub, strategic, pilot_note):
             sync_note_links(note)
+            sync_note_tags(note)
         hub.references.set(corpus_refs[:3])
         strategic.references.set(corpus_refs[3:5])
 

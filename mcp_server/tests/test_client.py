@@ -428,6 +428,10 @@ def test_notes_client_calls(capture):
     assert calls_url_has(capture, "/notes/") and "q=load" in capture["url"]
     client.get_note(4)
     assert calls_url_has(capture, "/notes/4/")
+    client.list_notes("deep", tag="#method")
+    assert "tag=method" in capture["url"]
+    client.list_note_tags("deep")
+    assert calls_url_has(capture, "/notes/tags/") and "project=deep" in capture["url"]
     client.get_note_graph(4, depth=3)
     assert calls_url_has(capture, "/notes/4/graph/") and "depth=3" in capture["url"]
     client.link_mentions(4, sources=[7, 9])
