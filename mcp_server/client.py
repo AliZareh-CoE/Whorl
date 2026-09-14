@@ -570,6 +570,21 @@ def get_note(note_id: int):
     return _request("GET", f"/notes/{note_id}/")
 
 
+def list_note_revisions(note_id: int):
+    """The note's history, newest first (#505)."""
+    return _request("GET", f"/notes/{note_id}/revisions/")
+
+
+def get_note_revision(note_id: int, revision_id: int):
+    """One revision's text and its diff against the note now (#505)."""
+    return _request("GET", f"/notes/{note_id}/revisions/{revision_id}/")
+
+
+def restore_note_revision(note_id: int, revision_id: int):
+    """Put a revision back on the note; the current state is filed first (#505)."""
+    return _request("POST", f"/notes/{note_id}/revisions/{revision_id}/restore/")
+
+
 def get_note_graph(note_id: int, depth: int = 2):
     """The subgraph within `depth` hops of a note (#503)."""
     return _request("GET", f"/notes/{note_id}/graph/", params={"depth": depth})

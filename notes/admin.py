@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Note, NoteLink, QuickCapture
+from .models import Note, NoteLink, NoteRevision, QuickCapture
 
 
 @admin.register(Note)
@@ -19,3 +19,9 @@ class NoteLinkAdmin(admin.ModelAdmin):
 class QuickCaptureAdmin(admin.ModelAdmin):
     list_display = ["__str__", "processed", "became_kind", "snoozed_until", "project", "created_at"]
     list_filter = ["processed", "project"]
+
+
+@admin.register(NoteRevision)
+class NoteRevisionAdmin(admin.ModelAdmin):
+    list_display = ["note", "title", "words", "created_at"]
+    list_filter = ["note__project"]

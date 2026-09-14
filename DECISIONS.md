@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Notes: history — what a note used to say, and a way back (#505)
+
+**Decision.** `NoteRevision` (notes 0009: title, body, words) is filed from the state a save is about to replace: the API update hook calls `notes/history.py::snapshot` when the title or body changes, and `snapshot` declines when the newest revision is under ten minutes old (a burst of autosaves is one edit) or already equals the note. The last fifty per note are kept. `GET /notes/{id}/revisions/` lists them newest first with word counts and deltas; `GET …/revisions/{rid}/` returns the text and a unified diff from then to now; `POST …/revisions/{rid}/restore/` files the current state first (forced, unless identical), puts the revision back, and re-syncs links, citations, tags and any `[[links]]` to a changed title. The editor rail gets a History panel (rows, inline diff, Restore behind a confirm, copy text); the editor is rewritten in place on restore. MCP `list_note_revisions`, `get_note_revision`, `restore_note_revision` (122 tools).
+
+**Why.** Autosave is a one-way door: Obsidian ships "file recovery", Notion has page history, and manuscripts in Atlas already keep revisions (#456). A research note is where a claim gets rewritten a dozen times; "what did I say on Tuesday" needs a record, and a restore that is itself undoable.
+
+**Alternatives.** Snapshots after the save (the new state) — rejected: the history should hold what was replaced; the note itself is the newest state. A full diff-based store — rejected: plain copies of small markdown bodies with a fifty-cap are cheap and simple to restore. Time-based snapshots from a scheduler — rejected: the edit is the event; coalescing by ten minutes gives the same granularity without a job.
+
 ### 2026-09-14 — Commit identity: AliZareh-CoE; and the update feed's first endpoint (owner messages)
 
 **Decision.** Every commit from here on is authored as `AliZareh-CoE <100804412+AliZareh-CoE@users.noreply.github.com>` (the repo-local git identity is set to it). The owner asked for all commits to be attributed to the GitHub account AliZareh-CoE; GitHub attributes by e-mail, and `ali.zareh.official@gmail.com` is linked to a different account (AliZareh-Official), which is why the history shows that avatar. Past commits — including the ones already merged through the first PR — are not rewritten (no history rewriting, no force-push, and a merged PR cannot be changed anyway); they flip to AliZareh-CoE the moment that e-mail is moved to the AliZareh-CoE account (GitHub → Settings → Emails on both accounts), because attribution is resolved at render time.

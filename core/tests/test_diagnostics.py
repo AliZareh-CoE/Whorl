@@ -26,7 +26,9 @@ def test_report_and_text(client_logged_in, monkeypatch, tmp_path, settings):
     assert data["engine"].endswith("tectonic") and data["jobs"].startswith("in-process")
     assert data["last_failed_compile"]["title"] == "Broken"
     assert "Atlas is running" in data["server_log"]
-    assert [r["status"] for r in data["update_feed"]] == [None, None]  # no network by default
+    assert [r["status"] for r in data["update_feed"]] == [
+        None
+    ] * 3  # three endpoints; no network by default
     text = data["text"]
     assert (
         "LaTeX engine:" in text

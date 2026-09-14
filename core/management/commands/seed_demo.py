@@ -7,7 +7,7 @@ from django.utils import timezone
 from documents.models import Document, Folder, Tag
 from literature.models import CitationEdge, ProjectReference, Reference, ReviewMark, ReviewTheme
 from notes.capture import snooze_date
-from notes.models import Note, QuickCapture
+from notes.models import Note, NoteRevision, QuickCapture
 from notes.services import sync_note_links
 from notes.tags import sync_note_tags
 from plans.models import Milestone, Phase, ResearchQuestion, Task
@@ -434,6 +434,19 @@ class Command(BaseCommand):
         for note in (hub, strategic, pilot_note):
             sync_note_links(note)
             sync_note_tags(note)
+        # #505: what the hub note said two days ago — the History panel has something to show
+        if not hub.revisions.exists():
+            old = NoteRevision.objects.create(
+                note=hub,
+                title=hub.title,
+                body="Central claim: perceptual load gates distractor processing. (First draft — expand.)",
+                words=10,
+            )
+            NoteRevision.objects.filter(
+                pk=old.pk
+            ).update(  # etag: ok — seed backdates a demo revision
+                created_at=timezone.now() - datetime.timedelta(days=2)
+            )
         hub.references.set(corpus_refs[:3])
         strategic.references.set(corpus_refs[3:5])
 

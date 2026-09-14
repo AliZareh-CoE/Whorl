@@ -432,6 +432,12 @@ def test_notes_client_calls(capture):
     assert "tag=method" in capture["url"]
     client.list_note_tags("deep")
     assert calls_url_has(capture, "/notes/tags/") and "project=deep" in capture["url"]
+    client.list_note_revisions(4)
+    assert calls_url_has(capture, "/notes/4/revisions/")
+    client.get_note_revision(4, 9)
+    assert calls_url_has(capture, "/notes/4/revisions/9/")
+    client.restore_note_revision(4, 9)
+    assert capture["method"] == "POST" and calls_url_has(capture, "/notes/4/revisions/9/restore/")
     client.get_note_graph(4, depth=3)
     assert calls_url_has(capture, "/notes/4/graph/") and "depth=3" in capture["url"]
     client.link_mentions(4, sources=[7, 9])

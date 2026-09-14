@@ -586,6 +586,28 @@ def update_note(note_id: int, body: str = "", title: str = "") -> dict:
 
 
 @mcp.tool()
+def list_note_revisions(note_id: int) -> dict:
+    """The note's history (#505), newest first: every state a save replaced, with when, the
+    word count and the delta. Read one with get_note_revision, put it back with
+    restore_note_revision."""
+    return client.list_note_revisions(note_id)
+
+
+@mcp.tool()
+def get_note_revision(note_id: int, revision_id: int) -> dict:
+    """One revision of a note: its title, body and a unified diff from it to the note as it
+    is now (#505)."""
+    return client.get_note_revision(note_id, revision_id)
+
+
+@mcp.tool()
+def restore_note_revision(note_id: int, revision_id: int) -> dict:
+    """Put a revision's title and body back on the note (#505). The current state is filed
+    as a revision first, so this is undoable; links, citations and tags are re-synced."""
+    return client.restore_note_revision(note_id, revision_id)
+
+
+@mcp.tool()
 def get_note_graph(note_id: int, depth: int = 2) -> dict:
     """ "Around this note" (#503): the notes it links to and from, the papers it cites, and
     their neighbours up to `depth` hops (1–3) — nodes carry `hops` and the same facts as the

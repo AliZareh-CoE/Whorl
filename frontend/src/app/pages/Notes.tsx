@@ -7,16 +7,18 @@
  *  #503: "Around this note" — a small 2D force graph of the note's two-hop neighbourhood (notes and
  *  cited papers) in the link rail; click a node to open it. GET /notes/{id}/graph/?depth=.
  *  #504: #tags written in the body are collected on save; the rail lists them with counts and filters
- *  the list (?tag=), the editor header shows the note's tags, `#` autocompletes them. */
+ *  the list (?tag=), the editor header shows the note's tags, `#` autocompletes them.
+ *  #505: History — every state a save replaced (autosaves coalesce), a diff against now, Restore
+ *  (which files the current state first). GET /notes/{id}/revisions/[{rid}/[restore/]]. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowUpRight, BookOpen, CalendarDays, FileDown, FlaskConical, Plus, Search, Sparkles, Square, Trash2, Users, Volume2 } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarDays, FileDown, FlaskConical, History, Plus, Search, Sparkles, Square, Trash2, Users, Volume2 } from "lucide-react";
 import { api, petReact } from "../api";
 import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
-import MarkdownEditor from "../notes/MarkdownEditor";
+import MarkdownEditor, { type MdHandle } from "../notes/MarkdownEditor";
 import { listenTo, speakable, type Listener } from "../listen";
 
 type Backlink = { id: number; title: string };
@@ -24,6 +26,8 @@ type RefSummary = { id: number; bibtex_key: string; title: string; year: number 
 type Relinked = { links: number; notes: number; decisions: number; experiments: number; captures: number } | null;
 type Note = { id: number; title: string; body: string; backlinks: Backlink[]; references_detail: RefSummary[]; updated_at: string; relinked?: Relinked; tags?: string[] };
 type TagCount = { tag: string; count: number };
+type RevisionRow = { id: number; created_at: string; title: string; words: number; delta_words: number; title_changed: boolean };
+type RevisionDetail = RevisionRow & { body: string; diff: string; added: number; removed: number; same: boolean };
 type Page<T> = { count: number; results: T[] };
 type Links = { outgoing: Backlink[]; backlinks: Backlink[]; references: RefSummary[]; unresolved: string[]; unresolved_keys: string[]; mentions: Backlink[] };
 type Suggestion = { id: number; label: string; sublabel: string };
@@ -184,6 +188,56 @@ function NewNote({ slug, onCreate, pending, onTemplate }: { slug: string; onCrea
   );
 }
 
+/* #505: the note's history — what it used to say, with a diff against now and Restore. */
+function HistoryPanel({ id, onRestored }: { id: number; onRestored: (n: Note) => void }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<number | null>(null);
+  const list = useQuery({ queryKey: ["note-revisions", id], queryFn: () => api<{ revisions: RevisionRow[] }>(`/notes/${id}/revisions/`), enabled: open });
+  const detail = useQuery({ queryKey: ["note-revision", id, picked], queryFn: () => api<RevisionDetail>(`/notes/${id}/revisions/${picked}/`), enabled: open && picked !== null });
+  const restore = useMutation({
+    mutationFn: (rid: number) => api<Note>(`/notes/${id}/revisions/${rid}/restore/`, { method: "POST" }),
+    onSuccess: (n) => { queryClient.invalidateQueries({ queryKey: ["note-revisions", id] }); queryClient.invalidateQueries({ queryKey: ["note", id] }); queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["note-links", id] }); queryClient.invalidateQueries({ queryKey: ["note-tags"] }); setPicked(null); onRestored(n); },
+  });
+  const rows = list.data?.revisions ?? [];
+  const when = (iso: string) => { const d = new Date(iso); return `${d.toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`; };
+  return (
+    <div className={`${panel} rise p-4`} style={{ ["--i" as string]: 6 }} data-testid="history-panel">
+      <button type="button" onClick={() => setOpen((v) => !v)} className={`${railH} mb-0 flex w-full items-center gap-1.5 text-left hover:text-stone-600 dark:hover:text-stone-200`} aria-expanded={open} data-testid="history-toggle"><History className="h-3 w-3" aria-hidden="true" />History <span className="ml-auto font-normal normal-case tracking-normal">{open ? "hide" : rows.length ? `${rows.length}` : "show"}</span></button>
+      {open && (list.isLoading ? <Skeleton className="mt-2 h-10 w-full" /> : rows.length === 0 ? (
+        <p className="mt-2 text-xs text-stone-400">No earlier versions yet — the state each save replaces is filed here (autosaves within ten minutes count as one edit).</p>
+      ) : (
+        <ul className="mt-2 space-y-0.5 text-xs">
+          {rows.map((rv) => (
+            <li key={rv.id}>
+              <button type="button" onClick={() => setPicked(picked === rv.id ? null : rv.id)} className={`flex w-full items-baseline gap-2 rounded px-1.5 py-1 text-left hover:bg-stone-100 dark:hover:bg-stone-800 ${picked === rv.id ? "bg-indigo-500/10" : ""}`} data-testid="revision-row" aria-pressed={picked === rv.id}>
+                <span className="tabular-nums text-stone-600 dark:text-stone-300">{when(rv.created_at)}</span>
+                <span className="text-stone-400">{rv.words} w</span>
+                {rv.delta_words !== 0 && <span className={rv.delta_words > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}>{rv.delta_words > 0 ? "+" : ""}{rv.delta_words}</span>}
+                {rv.title_changed && <span className="min-w-0 truncate text-stone-400" title={rv.title}>“{rv.title}”</span>}
+              </button>
+              {picked === rv.id && (
+                <div className="mt-1 rounded-lg border border-stone-200 p-2 dark:border-stone-700" data-testid="revision-diff">
+                  {detail.isLoading ? <Skeleton className="h-16 w-full" /> : detail.data ? (
+                    <>
+                      <p className="mb-1 text-[10px] text-stone-400">{detail.data.same ? "Identical to the note now." : `Then → now: +${detail.data.added} / −${detail.data.removed} lines`}</p>
+                      {!detail.data.same && <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-snug">{detail.data.diff.split("\n").slice(2).map((line, i) => <span key={i} className={`block ${line.startsWith("+") ? "text-emerald-700 dark:text-emerald-300" : line.startsWith("-") ? "text-red-600 dark:text-red-300" : line.startsWith("@@") ? "text-stone-400" : "text-stone-600 dark:text-stone-300"}`}>{line}</span>)}</pre>}
+                      <div className="mt-2 flex items-center gap-2">
+                        <button type="button" disabled={restore.isPending || detail.data.same} onClick={async () => { if (await confirmDialog({ title: "Restore this version?", body: "The note as it is now is filed in the history first, so you can come back.", confirmLabel: "Restore" })) restore.mutate(rv.id); }} className="rounded-md bg-indigo-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-700 disabled:opacity-40" data-testid="revision-restore">Restore</button>
+                        <button type="button" onClick={() => { void navigator.clipboard?.writeText(detail.data!.body); }} className="text-[11px] text-stone-500 hover:underline">copy text</button>
+                      </div>
+                    </>
+                  ) : <p className="text-[10px] text-red-500">Couldn't load this version.</p>}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      ))}
+    </div>
+  );
+}
+
 /* #503: the note's neighbourhood as a small live force graph — the note ringed in the middle,
    notes teal, papers coloured by reading status, arrows for direction; click opens the node. */
 function LocalGraph({ slug, id }: { slug: string; id: number }) {
@@ -247,6 +301,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [exported, setExported] = useState("");
+  const editorHandle = useRef<MdHandle | null>(null); // #505: restore rewrites the editor
   // #412: read this note to me — chunked, prefetched playback of the markdown-stripped body
   const [listening, setListening] = useState<{ index: number; total: number } | null>(null);
   const listenerRef = useRef<Listener | null>(null);
@@ -310,7 +365,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
         {(note.data?.tags?.length ?? 0) > 0 && <p className="flex flex-wrap gap-1 px-5 pb-1 pt-1" data-testid="note-tags">{note.data!.tags!.map((t) => <span key={t} className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-700 dark:text-indigo-300">#{t}</span>)}</p>}
         <div className="grid md:grid-cols-2">
           <div className="relative">
-            <MarkdownEditor value={body} onChange={(v) => { setBody(v); queueSave(title, v); }} onSave={() => { window.clearTimeout(timer.current); save.mutate({ title, body: bodyRef.current }); }} suggest={suggest} placeholder="Write in Markdown. [[Another note]] links it; @lavie2010attention cites a paper and attaches it to this note." />
+            <MarkdownEditor value={body} onChange={(v) => { setBody(v); queueSave(title, v); }} onSave={() => { window.clearTimeout(timer.current); save.mutate({ title, body: bodyRef.current }); }} suggest={suggest} handle={(h) => { editorHandle.current = h; }} placeholder="Write in Markdown. [[Another note]] links it; @lavie2010attention cites a paper and attaches it to this note." />
           </div>
           <div className="border-t border-stone-100 md:border-l md:border-t-0 dark:border-stone-800">
             <div className="prose prose-sm prose-stone max-w-none px-5 py-4 dark:prose-invert" data-testid="note-preview" dangerouslySetInnerHTML={{ __html: preview.data?.html ?? "" }} />
@@ -347,6 +402,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
           )}
         </div>
         <LocalGraph slug={slug} id={id} />
+        <HistoryPanel id={id} onRestored={(n) => { setTitle(n.title); setBody(n.body); setDirty(false); setSavedAt(Date.now()); setExported("Restored — the previous state is in the history."); setTimeout(() => setExported(""), 4000); editorHandle.current?.setValue?.(n.body); }} />
         <p className="px-1 text-[11px] text-stone-400">Edited {note.data ? ago(note.data.updated_at) : ""} ago · <Link to={`/projects/${slug}/graph`} className="hover:underline">see the graph</Link></p>
       </aside>
     </div>

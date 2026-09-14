@@ -77,3 +77,20 @@ class QuickCapture(TimeStampedModel):
 
     def __str__(self):
         return self.text[:60]
+
+
+class NoteRevision(TimeStampedModel):
+    """#505: a point-in-time copy of a note's title and body, taken from the state a save is
+    about to replace — so the history holds what the note *used to say*. Saves within ten
+    minutes of the last snapshot coalesce; the last fifty are kept."""
+
+    note = models.ForeignKey(Note, on_delete=models.CASCADE, related_name="revisions")
+    title = models.CharField(max_length=300)
+    body = models.TextField(blank=True)
+    words = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.title} @ {self.created_at:%Y-%m-%d %H:%M}"

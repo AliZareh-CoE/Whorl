@@ -3020,10 +3020,17 @@ class NoteViewSet(AtlasViewSet):
         sync_note_tags(note)
 
     def perform_update(self, serializer):
+        from notes.history import snapshot
         from notes.relink import rename_links
         from notes.tags import sync_note_tags
 
         old_title = serializer.instance.title
+        data = serializer.validated_data
+        # #505: file the state this save replaces (coalesced), so autosave is undoable
+        if ("body" in data and data["body"] != serializer.instance.body) or (
+            "title" in data and data["title"] != old_title
+        ):
+            snapshot(serializer.instance)
         note = serializer.save()
         # #502: a renamed note keeps its links — every [[Old title]] in the project follows
         self._relinked = (
@@ -3042,6 +3049,65 @@ class NoteViewSet(AtlasViewSet):
         if isinstance(response.data, dict):
             response.data["relinked"] = self._relinked
         return response
+
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                "NoteRevisions",
+                {"revisions": rf_serializers.ListField(child=rf_serializers.DictField())},
+            )
+        },
+        description="The note's history (#505), newest first: every state a save replaced "
+        "(autosaves within ten minutes coalesce; the last fifty are kept) with its word count "
+        "and delta. A revision's text and diff: GET …/revisions/{rid}/; put it back: POST "
+        "…/revisions/{rid}/restore/ (the current state is filed first).",
+    )
+    @action(detail=True, methods=["get"])
+    def revisions(self, request, pk=None):
+        from notes.history import revision_rows
+
+        return Response({"revisions": revision_rows(self.get_object())})
+
+    @extend_schema(
+        operation_id="v1_notes_revision_retrieve",
+        responses={
+            200: OpenApiResponse(
+                description="id, created_at, title, body, words, diff (unified, then → now), added, removed, same"
+            )
+        },
+        description="One revision of the note with a unified diff against the note as it is now (#505).",
+    )
+    @action(detail=True, methods=["get"], url_path=r"revisions/(?P<rid>\d+)")
+    def revision(self, request, pk=None, rid=None):
+        from notes.history import revision_diff
+
+        note = self.get_object()
+        revision = note.revisions.filter(pk=rid).first()
+        if revision is None:
+            return Response({"detail": "no such revision"}, status=404)
+        return Response(revision_diff(note, revision))
+
+    @extend_schema(
+        operation_id="v1_notes_revision_restore",
+        request=None,
+        responses={200: serializers.NoteSerializer},
+        description="Put a revision's title and body back on the note (#505). The current state "
+        "is filed as a revision first, so the restore is itself undoable; links, citations, "
+        "tags and [[links]] to a changed title are re-synced.",
+    )
+    @action(detail=True, methods=["post"], url_path=r"revisions/(?P<rid>\d+)/restore")
+    def restore_revision(self, request, pk=None, rid=None):
+        from notes.history import restore
+
+        note = self.get_object()
+        revision = note.revisions.filter(pk=rid).first()
+        if revision is None:
+            return Response({"detail": "no such revision"}, status=404)
+        out = restore(note, revision)
+        note.refresh_from_db()
+        data = self.get_serializer(note).data
+        data["restored"] = out
+        return Response(data)
 
     @extend_schema(
         parameters=[
