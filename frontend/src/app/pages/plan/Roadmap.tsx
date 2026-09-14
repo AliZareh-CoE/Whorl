@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { Skeleton } from "../../../components/Skeleton";
 
-type MilestoneRow = { id: number; title: string; due_date: string | null; done: boolean; overdue: boolean; blocked?: boolean; blocked_by?: number[]; conflict?: boolean; slack?: number | null };
+type MilestoneRow = { id: number; title: string; due_date: string | null; done: boolean; overdue: boolean; blocked?: boolean; blocked_by?: number[]; conflict?: boolean; slack?: number | null; baseline?: string | null; moves?: number; slipped?: number | null };
 type PhaseRow = { id: number; name: string; order: number; status: string; start: string; end: string; inferred: boolean; progress: number; milestones: MilestoneRow[]; state: string; label: string; forecast_end: string | null };
 type Chain = { ids: number[]; titles: string[]; from: string | null; to: string | null; days: number; slack: number | null }; // #515
 type RoadmapData = { project: string; today: string; range_start: string; range_end: string; phases: PhaseRow[]; critical_chain?: Chain };
@@ -159,7 +159,7 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
   return (
     <div className="rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900" data-testid="roadmap">
       <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-2 text-[11px] text-stone-400 dark:border-stone-800">
-        <span>drag a bar to move it · drag its edges to resize · slide a ◆ to change a due date · focus + ←/→ nudges a day, Shift a week · → waits for · dashed ◇ waiting · <span className="text-amber-600 dark:text-amber-300">◆</span> due before its blocker</span>
+        <span>drag a bar to move it · drag its edges to resize · slide a ◆ to change a due date · focus + ←/→ nudges a day, Shift a week · → waits for · dashed ◇ waiting · <span className="text-amber-600 dark:text-amber-300">◆</span> due before its blocker · dotted ◇ where a moved ◆ was first planned</span>
         <span className="ml-auto flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-sm bg-amber-500/75" />behind<span className="inline-block h-2 w-2 rounded-sm bg-red-500/75" />overdue<span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/70" />ahead / done<span className="inline-block h-2 w-3 rounded-sm border border-dashed border-stone-400" />suggested dates</span>
       </div>
       <div className="flex">
@@ -230,11 +230,21 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
                     <div onPointerDown={(e) => begin(e, { kind: "start", phase: p.id, originX: e.clientX, start: s, end: en })} className="absolute inset-y-0 left-0 w-2 cursor-ew-resize rounded-l-md hover:bg-white/40" aria-hidden="true" />
                     <div onPointerDown={(e) => begin(e, { kind: "end", phase: p.id, originX: e.clientX, start: s, end: en })} className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r-md hover:bg-white/40" aria-hidden="true" />
                   </div>
+                  {/* #516: ghost diamonds — where a moved milestone was first planned, tied to where it is now */}
+                  {p.milestones.filter((m) => m.due_date && m.baseline && m.slipped && !m.done && dayOf(m.baseline) >= range.from).map((m) => {
+                    const gx = x(dayOf(m.baseline as string)), cx = x(dayOf(m.due_date as string));
+                    return (
+                      <span key={`ghost-${m.id}`} className="pointer-events-none absolute inset-0" aria-hidden="true" data-testid="ghost-diamond">
+                        <span className="absolute top-[47px] h-px border-t border-dotted border-stone-400/70 dark:border-stone-500/70" style={{ left: Math.min(gx, cx), width: Math.abs(cx - gx) }} />
+                        <span className="absolute top-[42px] h-3 w-3 -translate-x-1/2 rotate-45 rounded-[2px] border border-dashed border-stone-400/80 dark:border-stone-500" style={{ left: gx }} />
+                      </span>
+                    );
+                  })}
                   {p.milestones.filter((m) => m.due_date).map((m) => (
                     <button
                       key={m.id} type="button" title={`${m.title} · due ${m.due_date}${m.done ? " · done" : m.overdue ? " · overdue" : ""}`} aria-label={`${m.title}, due ${m.due_date}`}
                       onPointerDown={(e) => begin(e, { kind: "milestone", id: m.id, phase: p.id, originX: e.clientX, day: dayOf(m.due_date as string) })} onKeyDown={(e) => onKey(e, p, m)}
-                      onMouseEnter={() => { setChainOf(m.id); setHover(`${m.title} · due ${m.due_date}${m.conflict ? " · due before a milestone it waits for" : m.blocked ? " · waiting on another milestone" : ""}${m.slack != null && !m.done ? (m.slack <= 0 ? " · no slack" : ` · ${m.slack} d slack`) : ""}${critical.has(m.id) ? " · on the critical chain" : ""}`); }} onMouseLeave={() => { setChainOf(null); setHover(""); }}
+                      onMouseEnter={() => { setChainOf(m.id); setHover(`${m.title} · due ${m.due_date}${m.conflict ? " · due before a milestone it waits for" : m.blocked ? " · waiting on another milestone" : ""}${m.slack != null && !m.done ? (m.slack <= 0 ? " · no slack" : ` · ${m.slack} d slack`) : ""}${critical.has(m.id) ? " · on the critical chain" : ""}${m.slipped && m.moves ? (m.slipped > 0 ? ` · slipped ${m.slipped} d from ${m.baseline}` : ` · pulled in ${-m.slipped} d from ${m.baseline}`) : ""}`); }} onMouseLeave={() => { setChainOf(null); setHover(""); }}
                       className={`absolute top-[42px] h-3 w-3 -translate-x-1/2 rotate-45 cursor-grab rounded-[2px] border transition-all hover:scale-125 ${chain && !chain.has(m.id) ? "opacity-25" : ""} ${critical.has(m.id) && !m.done ? "ring-2 ring-indigo-400/60 ring-offset-1 ring-offset-white dark:ring-offset-stone-900" : ""} ${m.done ? "border-emerald-500 bg-emerald-500" : m.conflict ? "border-amber-500 bg-amber-500 shadow-[0_0_8px_rgb(245_158_11/.6)]" : m.blocked ? "border-dashed border-indigo-400 bg-transparent dark:border-indigo-300" : m.overdue ? "border-red-500 bg-red-500 shadow-[0_0_8px_rgb(239_68_68/.8)]" : "border-indigo-400 bg-white dark:bg-stone-900"}`}
                       style={{ left: x(dayOf(m.due_date as string)) }} data-testid="milestone-diamond"
                     />

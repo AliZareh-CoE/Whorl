@@ -442,6 +442,8 @@ def test_notes_client_calls(capture):
     assert capture["method"] == "POST" and calls_url_has(
         capture, "/projects/deep/plan/reschedule-conflicts/"
     )
+    client.get_plan_drift("deep")
+    assert capture["method"] == "GET" and calls_url_has(capture, "/projects/deep/plan/drift/")
     client.set_milestone_dependencies(9, [3, 4])
     assert (
         capture["method"] == "PATCH"

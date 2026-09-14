@@ -601,13 +601,17 @@ class ProjectViewSet(AtlasViewSet):
             due_graph,
             slack_map,
         )
+        from plans.drift import change_rows, milestone_drift, project_drift
 
         blocked = blocked_map(project)  # #512: open blockers per milestone, two queries
         graph = due_graph(project)  # #513–#515 share one load of the open dated milestones
         slack = slack_map(project, *graph)  # #515
+        moves = change_rows(project)  # #516: every logged due-date move, one query
+        all_milestones = []
         for phase in project.phases.prefetch_related(
             "milestones__tasks", "milestones__blocks", "questions"
         ):
+            all_milestones.extend(phase.milestones.all())
             phases.append(
                 {
                     "id": phase.pk,
@@ -635,6 +639,8 @@ class ProjectViewSet(AtlasViewSet):
                             "blocked": bool(blocked.get(m.pk)) and m.completed_at is None,
                             "blocks": [b.pk for b in m.blocks.all()],
                             "slack": slack.get(m.pk, {}).get("slack"),
+                            # #516: where the date started, how often it moved, how far
+                            **milestone_drift(m, moves.get(m.pk, [])),
                             "tasks": [
                                 {"id": t.pk, "title": t.title, "done": t.done}
                                 for t in m.tasks.all()
@@ -660,6 +666,12 @@ class ProjectViewSet(AtlasViewSet):
                 "conflicts": date_conflicts(project, *graph),
                 # #515: the chain of dependencies that decides the plan's end, and its least slack
                 "critical_chain": critical_chain(project, *graph),
+                # #516: how far the plan has slipped from what was first written
+                "drift": {
+                    k: v
+                    for k, v in project_drift(project, all_milestones, moves).items()
+                    if k != "milestones"
+                },
             }
         )
 
@@ -680,6 +692,25 @@ class ProjectViewSet(AtlasViewSet):
         from plans.dependencies import resolve_conflicts
 
         return Response({"changes": resolve_conflicts(self.get_object())})
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="Plan drift (#516): total days slipped, milestones moved, the "
+                "milestone that slipped most, the plan's end as first written vs now, and "
+                "every milestone with baseline, moves, slipped and its date history"
+            )
+        },
+        description="How far the plan has drifted from what was first written (#516). Every "
+        "due-date change is logged when it is saved (UI, API, outline, roadmap drag, conflict "
+        "fix); a milestone's baseline is its first recorded date, `slipped` the days between "
+        "that and today's date (negative when pulled in), `history` the moves.",
+    )
+    @action(detail=True, methods=["get"], url_path="plan/drift")
+    def plan_drift(self, request, slug=None):
+        from plans.drift import drift_report
+
+        return Response(drift_report(self.get_object()))
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Unread references, highest priority first")},

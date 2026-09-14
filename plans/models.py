@@ -56,6 +56,26 @@ class Milestone(TimeStampedModel):
     def __str__(self):
         return self.title
 
+    # #516: the due date as it was loaded, so save() can log a move without a second query
+    _due_loaded = None
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        instance._due_loaded = instance.due_date if "due_date" in field_names else None
+        return instance
+
+    def save(self, *args, **kwargs):
+        existed = self.pk is not None
+        update_fields = kwargs.get("update_fields")
+        super().save(*args, **kwargs)
+        if existed and (update_fields is None or "due_date" in update_fields):
+            if self.due_date != self._due_loaded:
+                from .drift import record_move
+
+                record_move(self, self._due_loaded, self.due_date)
+        self._due_loaded = self.due_date
+
     @property
     def is_overdue(self):
         return bool(
@@ -65,6 +85,23 @@ class Milestone(TimeStampedModel):
     def toggle_completed(self):
         self.completed_at = None if self.completed_at else timezone.now()
         self.save(update_fields=["completed_at", "updated_at"])
+
+
+class MilestoneDateChange(models.Model):
+    """#516: one due-date move of a milestone — what the date was, what it became, when. The
+    first row's `from_date` is the milestone's baseline; the plan's drift is read from these."""
+
+    milestone = models.ForeignKey(Milestone, on_delete=models.CASCADE, related_name="date_changes")
+    from_date = models.DateField(null=True, blank=True)
+    to_date = models.DateField(null=True, blank=True)
+    changed_at = models.DateTimeField(default=timezone.now)
+    reason = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ["changed_at", "pk"]
+
+    def __str__(self):
+        return f"{self.milestone_id}: {self.from_date} → {self.to_date}"
 
 
 class Task(TimeStampedModel):

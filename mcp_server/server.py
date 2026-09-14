@@ -45,11 +45,23 @@ def get_status_update(slug: str, days: int = 7) -> dict:
 @mcp.tool()
 def get_plan(slug: str) -> dict:
     """The project's full plan: ordered phases with milestones (ids, due dates, overdue flags,
-    #512 `blocked_by` / `blocked` / `blocks` dependencies, #515 `slack` — days it can slip before
+    #512 `blocked_by` / `blocked` / `blocks` dependencies, #516 `baseline` / `moves` / `slipped` /
+    `history` (drift), #515 `slack` — days it can slip before
     it pushes a dated dependant) and tasks; `conflicts` lists the milestones due on or before a
     milestone they wait for, each with a `suggested` date (#513); `critical_chain` is the
     dependency chain that decides the plan's end (ids, titles, span, least slack)."""
     return client.get_plan(slug)
+
+
+@mcp.tool()
+def get_plan_drift(slug: str) -> dict:
+    """How far a plan has drifted from what was first written (#516). Every due-date change is
+    logged on save; returns `total` days slipped across dated milestones (pull-ins negative),
+    `moved` milestones, `most` — the milestone that slipped most — `baseline_end` vs
+    `current_end` (the plan's last due date then and now), and `milestones` sorted by slip
+    with baseline, moves, slipped and `history` [{from, to, at, reason}]. get_plan's rows carry
+    the same baseline / moves / slipped / history and its `drift` block the totals."""
+    return client.get_plan_drift(slug)
 
 
 @mcp.tool()

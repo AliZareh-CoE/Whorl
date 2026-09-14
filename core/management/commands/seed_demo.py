@@ -10,7 +10,7 @@ from notes.capture import snooze_date
 from notes.models import Note, NoteRevision, QuickCapture
 from notes.services import sync_note_links
 from notes.tags import sync_note_tags
-from plans.models import Milestone, Phase, ResearchQuestion, Task
+from plans.models import Milestone, MilestoneDateChange, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
 from prompts.models import Prompt
 from research.models import Dataset, Evidence, ExperimentEntry, Hypothesis
@@ -159,6 +159,32 @@ class Command(BaseCommand):
         # #515: the chain that decides the end — sample → pre-registered analysis → draft
         prereg.blocked_by.set([sample])
         draft.blocked_by.set([prereg])
+        # #516: the plan's drift — the pilot slipped twice, the sample once (backdated moves)
+        now = timezone.now()
+        MilestoneDateChange.objects.bulk_create(
+            [
+                MilestoneDateChange(
+                    milestone=overdue,
+                    from_date=today - datetime.timedelta(days=30),
+                    to_date=today - datetime.timedelta(days=12),
+                    changed_at=now - datetime.timedelta(days=25),
+                    reason="Recruitment slower than planned",
+                ),
+                MilestoneDateChange(
+                    milestone=overdue,
+                    from_date=today - datetime.timedelta(days=12),
+                    to_date=today - datetime.timedelta(days=3),
+                    changed_at=now - datetime.timedelta(days=10),
+                ),
+                MilestoneDateChange(
+                    milestone=sample,
+                    from_date=today + datetime.timedelta(days=20),
+                    to_date=today + datetime.timedelta(days=30),
+                    changed_at=now - datetime.timedelta(days=4),
+                    reason="Ethics amendment still pending",
+                ),
+            ]
+        )
 
         Task.objects.create(milestone=overdue, title="Email participant pool", done=True, order=1)
         Task.objects.create(

@@ -3,12 +3,12 @@
  *  /tasks/. */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Check, Lock, Plus, Trash2, X } from "lucide-react";
+import { Check, History, Lock, Plus, Trash2, X } from "lucide-react";
 import { confirmDialog } from "../../../components/Dialog";
 import { api } from "../../api";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
-export type DrawerMilestone = { id: number; title: string; due_date: string | null; completed_at: string | null; notes?: string; tasks: Task[]; phase: string; blocked_by?: { id: number; title: string }[]; blocked?: boolean; blocks?: number[] };
+export type DrawerMilestone = { id: number; title: string; due_date: string | null; completed_at: string | null; notes?: string; tasks: Task[]; phase: string; blocked_by?: { id: number; title: string }[]; blocked?: boolean; blocks?: number[]; baseline?: string | null; moves?: number; slipped?: number | null; history?: { from: string | null; to: string | null; at: string; reason: string }[] };
 export type MilestoneOption = { id: number; title: string; phase: string; completed: boolean };
 
 export default function MilestoneDrawer({ slug, milestone, onClose, options = [] }: { slug: string; milestone: DrawerMilestone; onClose: () => void; options?: MilestoneOption[] }) {
@@ -54,6 +54,14 @@ export default function MilestoneDrawer({ slug, milestone, onClose, options = []
         </label>
         <button type="button" onClick={() => patch.mutate({ completed_at: milestone.completed_at ? null : new Date().toISOString() })} className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium ${milestone.completed_at ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "border border-stone-300 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"}`}><Check className="h-3 w-3" aria-hidden="true" />{milestone.completed_at ? "Completed — undo" : "Mark complete"}</button>
       </div>
+      {(milestone.history?.length ?? 0) > 0 && (
+        <div className="mt-5" data-testid="date-history">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400"><History className="mr-1 inline h-3 w-3" aria-hidden="true" />Date history <span className="normal-case tracking-normal">{milestone.slipped != null && milestone.slipped !== 0 ? (milestone.slipped > 0 ? `· slipped ${milestone.slipped} d from ${milestone.baseline}` : `· pulled in ${-milestone.slipped} d from ${milestone.baseline}`) : ""}</span></p>
+          <ol className="space-y-0.5 text-xs text-stone-600 dark:text-stone-300">
+            {milestone.history!.map((h, i) => <li key={i} className="flex items-center gap-2"><span className="w-20 shrink-0 text-stone-400">{h.at.slice(0, 10)}</span><span className="whitespace-nowrap">{h.from ?? "undated"} → {h.to ?? "undated"}</span>{h.reason && <span className="truncate text-stone-400">— {h.reason}</span>}</li>)}
+          </ol>
+        </div>
+      )}
       <div className="mt-5" data-testid="blocked-by">
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400"><Lock className="mr-1 inline h-3 w-3" aria-hidden="true" />Waits for {blockers.length ? <span className="normal-case tracking-normal">{blockers.length}</span> : null}</p>
         {blockers.length > 0 ? (

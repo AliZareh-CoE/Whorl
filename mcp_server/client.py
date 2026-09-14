@@ -88,6 +88,11 @@ def get_plan(slug: str):
     return _request("GET", f"/projects/{slug}/plan/")
 
 
+def get_plan_drift(slug: str):
+    """How far the plan slipped from what was first written (#516)."""
+    return _request("GET", f"/projects/{slug}/plan/drift/")
+
+
 def fix_plan_conflicts(slug: str):
     """Push every due date that contradicts a dependency to the day after its blocker (#513)."""
     return _request("POST", f"/projects/{slug}/plan/reschedule-conflicts/")

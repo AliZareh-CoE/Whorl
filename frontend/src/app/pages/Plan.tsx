@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, CalendarRange, Check, FileText, HelpCircle, LayoutList, Loader2, Lock, Pencil, Plus, Route, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarRange, Check, FileText, HelpCircle, History, LayoutList, Loader2, Lock, Pencil, Plus, Route, Save, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { Kebab } from "../../components/Menu";
@@ -17,12 +17,14 @@ import Focus from "./plan/Focus";
 import MilestoneDrawer, { type DrawerMilestone } from "./plan/MilestoneDrawer";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
-type Milestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue: boolean; notes?: string; tasks: Task[]; blocked_by: { id: number; title: string }[]; blocked: boolean; blocks: number[]; slack: number | null };
+type Milestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue: boolean; notes?: string; tasks: Task[]; blocked_by: { id: number; title: string }[]; blocked: boolean; blocks: number[]; slack: number | null; baseline: string | null; moves: number; slipped: number | null; history: DateMove[] };
+type DateMove = { from: string | null; to: string | null; at: string; reason: string }; // #516
 type Question = { id: number; question: string; status: string };
 type Phase = { id: number; name: string; order: number; status: string; progress: number; objective: string; target_start: string | null; target_end: string | null; questions: Question[]; milestones: Milestone[] };
 type Conflict = { id: number; title: string; due_date: string; blocker_id: number; blocker_title: string; blocker_due: string; suggested: string };
 type Chain = { ids: number[]; titles: string[]; from: string | null; to: string | null; days: number; slack: number | null }; // #515
-type PlanData = { project: string; project_name: string; project_color: string; questions: Question[]; phases: Phase[]; conflicts: Conflict[]; critical_chain: Chain };
+type Drift = { total: number; moved: number; most: { id: number; title: string; phase: string; slipped: number; baseline: string | null; due_date: string | null } | null; baseline_end: string | null; current_end: string | null }; // #516
+type PlanData = { project: string; project_name: string; project_color: string; questions: Question[]; phases: Phase[]; conflicts: Conflict[]; critical_chain: Chain; drift: Drift };
 const TIGHT_DAYS = 7; // mirrors plans.dependencies.TIGHT_DAYS
 type Summary = { phases: number; milestones: number; tasks: number; created: string[]; renamed: string[]; deleted: string[]; errors: { line: number; message: string }[]; applied?: boolean; markdown?: string };
 
@@ -217,6 +219,16 @@ export default function Plan() {
           <span className={`shrink-0 rounded-md px-1.5 py-0.5 ${(data.critical_chain.slack ?? 99) <= TIGHT_DAYS ? "bg-amber-500/10 text-amber-800 dark:text-amber-200" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"}`}>{data.critical_chain.slack == null ? "no dated dependants" : data.critical_chain.slack < 0 ? `${-data.critical_chain.slack} d over` : data.critical_chain.slack === 0 ? "no slack" : `${data.critical_chain.slack} d of slack`}</span>
         </p>
       )}
+      {(data.drift?.moved ?? 0) > 0 && mode !== "roadmap" && (
+        <p className="rise mb-4 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-stone-500 dark:text-stone-400" data-testid="plan-drift" title="Every due-date change is logged; a milestone's baseline is the first date it was given">
+          <History className="h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden="true" />
+          <span className="shrink-0 font-medium text-stone-700 dark:text-stone-200">Drift</span>
+          <span className={`shrink-0 rounded-md px-1.5 py-0.5 ${data.drift.total > 0 ? "bg-amber-500/10 text-amber-800 dark:text-amber-200" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`}>{data.drift.total > 0 ? `+${data.drift.total} d` : data.drift.total < 0 ? `${data.drift.total} d` : "±0 d"} since the baseline</span>
+          <span className="shrink-0">· {data.drift.moved} milestone{data.drift.moved === 1 ? "" : "s"} moved</span>
+          {data.drift.most && <span className="min-w-0 truncate">· <span className="font-medium text-stone-700 dark:text-stone-200">{data.drift.most.title}</span> slipped most (+{data.drift.most.slipped} d)</span>}
+          {data.drift.baseline_end && data.drift.current_end && data.drift.baseline_end !== data.drift.current_end && <span className="shrink-0">· ends {data.drift.current_end}, first planned {data.drift.baseline_end}</span>}
+        </p>
+      )}
       {(data.conflicts?.length ?? 0) > 0 && (
         <div className="rise mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-amber-300/60 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-500/40 dark:text-amber-100" role="status" data-testid="conflict-banner">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden="true" />
@@ -332,6 +344,7 @@ function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggl
                 <button type="button" aria-label="Toggle milestone" onClick={() => onToggleMilestone(m)} className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs transition-all after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${m.completed_at ? "border-indigo-500 bg-indigo-500 text-white shadow-[0_0_12px_rgb(99_102_241/.6)]" : "border-stone-300 bg-white text-transparent hover:border-indigo-400 dark:border-stone-600 dark:bg-stone-900 dark:hover:border-indigo-400"}`}><Check className="h-3 w-3" aria-hidden="true" /></button>
                 <button type="button" onClick={() => onOpen(m.id)} className={`min-w-0 flex-1 truncate text-left text-sm hover:text-indigo-700 dark:hover:text-indigo-300 ${m.completed_at ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-200"}`} title="Open: notes, due date, tasks">{m.title}{m.notes ? <span className="ml-1.5 align-middle text-[10px] text-stone-400">notes</span> : null}</button>
                 {conflictIds?.has(m.id) && !m.completed_at && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title="Due on or before a milestone it waits for" data-testid="conflict-chip">due before its blocker</span>}
+                {m.moves > 0 && m.slipped != null && m.slipped !== 0 && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] ${m.slipped > 0 ? "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`} title={`First planned for ${m.baseline} · moved ${m.moves} time${m.moves === 1 ? "" : "s"}`} data-testid="slip-chip">{m.slipped > 0 ? `slipped ${m.slipped} d` : `pulled in ${-m.slipped} d`}{m.moves > 1 ? ` · ${m.moves}×` : ""}</span>}
                 {m.slack != null && m.slack >= 0 && m.slack <= TIGHT_DAYS && !m.completed_at && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={m.slack === 0 ? "Any slip pushes a milestone that waits for it" : `Can slip ${m.slack} day${m.slack === 1 ? "" : "s"} before it pushes a milestone that waits for it`} data-testid="slack-chip">{m.slack === 0 ? "no slack" : `${m.slack} d slack`}</span>}
                 {chainIds?.has(m.id) && !m.completed_at && <Route className="h-3.5 w-3.5 shrink-0 text-indigo-500 dark:text-indigo-300" aria-label="On the critical chain" data-testid="chain-mark" />}
                 {m.blocked && !m.completed_at && <span className="inline-flex max-w-[14rem] shrink-0 items-center gap-1 truncate rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={`Waits for: ${(m.blocked_by ?? []).map((b) => b.title).join(", ")}`} data-testid="blocked-chip"><Lock className="h-3 w-3 shrink-0" aria-hidden="true" />waits for {(m.blocked_by ?? []).map((b) => b.title).join(", ")}</span>}

@@ -89,8 +89,10 @@ def _project_roadmap(project: Project, today: date) -> dict:
         dependency_edges,
         slack_map,
     )
+    from .drift import change_rows, milestone_drift
 
     phases = list(project.phases.prefetch_related("milestones"))
+    moves = change_rows(project)  # #516: one query for the ghost diamonds
     facts = dependency_edges(project)  # one query for #512's flags, #513's conflicts, #514's arrows
     blocked = blocked_map(project, facts)
     edges = blocker_ids(project, facts)
@@ -115,6 +117,12 @@ def _project_roadmap(project: Project, today: date) -> dict:
                 "blocked_by": edges.get(m.pk, []),
                 "conflict": m.pk in conflicts,
                 "slack": slack.get(m.pk, {}).get("slack"),
+                # #516: baseline / moves / slipped (the history stays on the plan payload)
+                **{
+                    k: v
+                    for k, v in milestone_drift(m, moves.get(m.pk, [])).items()
+                    if k != "history"
+                },
             }
             for m in phase.milestones.all()
         ]
