@@ -563,8 +563,15 @@ def get_note(note_id: int):
     return _request("GET", f"/notes/{note_id}/")
 
 
+def link_mentions(note_id: int, sources=None):
+    """Turn unlinked mentions of a note into [[links]] (#502)."""
+    payload = {"sources": list(sources)} if sources else {}
+    return _request("POST", f"/notes/{note_id}/link-mentions/", json=payload)
+
+
 def update_note(note_id: int, body: str | None = None, title: str | None = None):
-    """Replace a note's body and/or title; [[links]] and @keys are re-synced."""
+    """Replace a note's body and/or title; [[links]] and @keys are re-synced (#502: a new
+    title rewrites every [[old title]] in the project — the reply's `relinked` says how many)."""
     payload = {}
     if body is not None:
         payload["body"] = body

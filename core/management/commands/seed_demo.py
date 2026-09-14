@@ -426,7 +426,8 @@ class Command(BaseCommand):
             project=project,
             title="Pilot observations",
             defaults={
-                "body": "n=9 so far. Two participants reported chunking digits — relevant to [[Strategic allocation hypothesis]]."
+                # #502: "Load theory overview" is mentioned without a link — the Link button
+                "body": "n=9 so far. Two participants reported chunking digits — relevant to [[Strategic allocation hypothesis]]. Worth re-reading the Load theory overview before the next session."
             },
         )
         for note in (hub, strategic, pilot_note):

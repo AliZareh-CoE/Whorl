@@ -428,6 +428,12 @@ def test_notes_client_calls(capture):
     assert calls_url_has(capture, "/notes/") and "q=load" in capture["url"]
     client.get_note(4)
     assert calls_url_has(capture, "/notes/4/")
+    client.link_mentions(4, sources=[7, 9])
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/notes/4/link-mentions/")
+        and '"sources":[7,9]' in capture["body"]
+    )
     client.update_note(4, body="new body")
     assert (
         capture["method"] == "PATCH"

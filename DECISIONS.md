@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Notes: link hygiene — renames follow their links, mentions become links (#502)
+
+**Decision.** Area: **Notes + knowledge graph** (from #502). `notes/relink.py`: `rename_links(project, old, new)` rewrites every `[[Old title]]` (case-insensitive, `|alias` kept) in the project's notes, decisions (context / decision / alternatives), lab-notebook entries and inbox captures — the bodies that render mentions (#407) — re-syncing changed notes' links; the note PATCH runs it when the title changes and replies with `relinked` counts. `link_mentions(note, sources)` wraps the first plain mention of the title in each mentioning note in `[[ ]]` (word-bounded, not inside an existing link) and re-syncs. `POST /notes/{id}/link-mentions/`; MCP `link_mentions` (117 tools); `update_note` documents the rename behaviour. The editor shows "Renamed — n links updated in …" and a Link button per unlinked mention plus Link all.
+
+**Why.** Obsidian's two link-hygiene features are the difference between a graph that stays true and one that rots: renaming without rewriting turns every inbound link into an "unwritten" stub, and prose that names a note without linking it is a missing edge. Both were already visible in the link panel (unresolved, mentions) — this makes them one click, or zero.
+
+**Alternatives.** Asking before rewriting (Obsidian's dialog) — rejected: a rename that breaks links is never what the owner wants, and the count is reported; "Put back" is a second rename. Aliases stored on the note (`[[Old]]` kept resolving) — rejected for now: a rewrite is simpler and the graph reflects the text. Linking every mention rather than the first — rejected: one link per note is how people write; the rest stay prose.
+
 ### 2026-09-14 — Inbox: capture from any browser tab, the narrow-width check, and the area verdict (#501)
 
 **Decision.** `/inbox?capture=<text>` captures that text exactly once on arrival (a ref guards re-renders, the parameter is replaced away so a reload does not capture again) and says so; the Connect page's new step 4 shows a bookmarklet that opens a small Atlas window on that route with the page's title and URL — the title fetch (#499), DOI/arXiv reading and project suggestion (#494) take it from there. The narrow-width pass found nothing to fix: at 640 px the rows' action buttons and the selection bar wrap cleanly and the page does not scroll sideways; the 420-px overflow is the shell's fixed rail (backlog #312), not the inbox. The Connect page's stale "88 tools" line now says "well over a hundred".

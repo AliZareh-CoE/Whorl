@@ -1,7 +1,9 @@
 /** Notes v2 (Observatory) — the notes workbench: list | editor with live preview | link panel.
  *  [[ autocompletes note titles, @ autocompletes cite keys of papers filed in the project (and
  *  attaches them to the note), autosave, backlinks / unresolved / mentions, unwritten stubs.
- *  Everything here is also in the API (/notes/, /links/, /suggest/, /unwritten/, /preview/) and MCP. */
+ *  Everything here is also in the API (/notes/, /links/, /suggest/, /unwritten/, /preview/) and MCP.
+ *  #502: renaming a note rewrites every [[old title]] in the project (the save reply's `relinked`
+ *  says how many); "Mentions without a link" get a Link button each and "Link all". */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -15,7 +17,8 @@ import { listenTo, speakable, type Listener } from "../listen";
 
 type Backlink = { id: number; title: string };
 type RefSummary = { id: number; bibtex_key: string; title: string; year: number | null };
-type Note = { id: number; title: string; body: string; backlinks: Backlink[]; references_detail: RefSummary[]; updated_at: string };
+type Relinked = { links: number; notes: number; decisions: number; experiments: number; captures: number } | null;
+type Note = { id: number; title: string; body: string; backlinks: Backlink[]; references_detail: RefSummary[]; updated_at: string; relinked?: Relinked };
 type Page<T> = { count: number; results: T[] };
 type Links = { outgoing: Backlink[]; backlinks: Backlink[]; references: RefSummary[]; unresolved: string[]; unresolved_keys: string[]; mentions: Backlink[] };
 type Suggestion = { id: number; label: string; sublabel: string };
@@ -188,7 +191,16 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
   });
   const save = useMutation({
     mutationFn: (payload: { title: string; body: string }) => api<Note>(`/notes/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
-    onSuccess: () => { setDirty(false); setSavedAt(Date.now()); queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["note-links", id] }); queryClient.invalidateQueries({ queryKey: ["notes-unwritten", slug] }); queryClient.invalidateQueries({ queryKey: ["graph", slug] }); },
+    onSuccess: (saved) => {
+      setDirty(false); setSavedAt(Date.now()); queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["note-links", id] }); queryClient.invalidateQueries({ queryKey: ["notes-unwritten", slug] }); queryClient.invalidateQueries({ queryKey: ["graph", slug] });
+      // #502: a rename carried its links along — say so
+      const rl = saved?.relinked;
+      if (rl && rl.links > 0) { const where = [rl.notes && `${rl.notes} note${rl.notes === 1 ? "" : "s"}`, rl.decisions && `${rl.decisions} decision${rl.decisions === 1 ? "" : "s"}`, rl.experiments && `${rl.experiments} lab entr${rl.experiments === 1 ? "y" : "ies"}`, rl.captures && `${rl.captures} capture${rl.captures === 1 ? "" : "s"}`].filter(Boolean).join(", "); setExported(`Renamed — ${rl.links} link${rl.links === 1 ? "" : "s"} updated in ${where}.`); setTimeout(() => setExported(""), 5000); }
+    },
+  });
+  const linkMentions = useMutation({
+    mutationFn: (sources?: number[]) => api<{ linked: Backlink[] }>(`/notes/${id}/link-mentions/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sources ? { sources } : {}) }),
+    onSuccess: (out) => { queryClient.invalidateQueries({ queryKey: ["note-links", id] }); queryClient.invalidateQueries({ queryKey: ["notes"] }); queryClient.invalidateQueries({ queryKey: ["graph", slug] }); setExported(out.linked.length ? `Linked from ${out.linked.map((n) => n.title).join(", ")}.` : "Nothing to link."); setTimeout(() => setExported(""), 4000); },
   });
   const timer = useRef<number>(0);
   const queueSave = useCallback((t: string, b: string) => { setDirty(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => save.mutate({ title: t, body: b }), 1200); }, [save]);
@@ -247,8 +259,8 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
           {L && L.backlinks.length ? <ul className="space-y-1 text-sm">{L.backlinks.map((n) => <li key={n.id}><Link to={`/projects/${slug}/notes/${n.id}`} className="block truncate hover:text-indigo-700 dark:text-stone-200 dark:hover:text-indigo-300">{n.title}</Link></li>)}</ul> : <p className="text-xs text-stone-400">Nothing links here yet.</p>}
           {L && L.mentions.length > 0 && (
             <div className="mt-2">
-              <p className="text-[11px] text-stone-400">Mentions without a link:</p>
-              <ul className="mt-0.5 space-y-0.5 text-xs">{L.mentions.map((n) => <li key={n.id}><Link to={`/projects/${slug}/notes/${n.id}`} className="inline-flex items-center gap-1 text-stone-500 hover:text-indigo-600 dark:text-stone-400 dark:hover:text-indigo-300">{n.title}<ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link></li>)}</ul>
+              <p className="flex items-center text-[11px] text-stone-400">Mentions without a link:{L.mentions.length > 1 && <button type="button" disabled={linkMentions.isPending} onClick={() => linkMentions.mutate(undefined)} className="ml-auto text-indigo-600 hover:underline disabled:opacity-40 dark:text-indigo-300" data-testid="link-all-mentions">Link all</button>}</p>
+              <ul className="mt-0.5 space-y-0.5 text-xs">{L.mentions.map((n) => <li key={n.id} className="flex items-center gap-1"><Link to={`/projects/${slug}/notes/${n.id}`} className="inline-flex min-w-0 items-center gap-1 truncate text-stone-500 hover:text-indigo-600 dark:text-stone-400 dark:hover:text-indigo-300">{n.title}<ArrowUpRight className="h-3 w-3 shrink-0" aria-hidden="true" /></Link><button type="button" disabled={linkMentions.isPending} onClick={() => linkMentions.mutate([n.id])} className="ml-auto shrink-0 rounded border border-stone-200 px-1.5 text-[10px] text-stone-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 dark:border-stone-700 dark:text-stone-400" title="Wrap the first mention in [[ ]] so it becomes a link" data-testid="link-mention">Link</button></li>)}</ul>
             </div>
           )}
         </div>

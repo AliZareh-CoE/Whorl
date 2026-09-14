@@ -2989,9 +2989,57 @@ class NoteViewSet(AtlasViewSet):
         note_services.sync_note_references(note)
 
     def perform_update(self, serializer):
+        from notes.relink import rename_links
+
+        old_title = serializer.instance.title
         note = serializer.save()
+        # #502: a renamed note keeps its links — every [[Old title]] in the project follows
+        self._relinked = (
+            rename_links(note.project, old_title, note.title)
+            if note.title.strip().lower() != old_title.strip().lower()
+            else None
+        )
         note_services.sync_note_links(note)
         note_services.sync_note_references(note)
+
+    def update(self, request, *args, **kwargs):
+        """PATCH/PUT reply carries `relinked` — how many [[links]] followed a rename (#502)."""
+        self._relinked = None
+        response = super().update(request, *args, **kwargs)
+        if isinstance(response.data, dict):
+            response.data["relinked"] = self._relinked
+        return response
+
+    @extend_schema(
+        request=inline_serializer(
+            "LinkMentions",
+            {
+                "sources": rf_serializers.ListField(
+                    child=rf_serializers.IntegerField(), required=False
+                )
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                "LinkedMentions",
+                {"linked": rf_serializers.ListField(child=rf_serializers.DictField())},
+            )
+        },
+        description="Turn unlinked mentions of this note into [[links]] (#502): the first "
+        "plain occurrence of the title in each mentioning note (all of them, or only the "
+        "note ids in `sources`) is wrapped in [[ ]] and that note's links are re-synced.",
+    )
+    @action(detail=True, methods=["post"], url_path="link-mentions")
+    def link_mentions(self, request, pk=None):
+        from notes.relink import link_mentions
+
+        note = self.get_object()
+        sources = request.data.get("sources")
+        if sources is not None and (
+            not isinstance(sources, list) or not all(isinstance(i, int) for i in sources)
+        ):
+            return Response({"detail": "sources must be a list of note ids"}, status=400)
+        return Response(link_mentions(note, sources))
 
     @extend_schema(
         responses={

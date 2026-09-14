@@ -571,8 +571,18 @@ def get_note(note_id: int) -> dict:
 @mcp.tool()
 def update_note(note_id: int, body: str = "", title: str = "") -> dict:
     """Rewrite a note's body and/or title (empty = unchanged). [[Note Title]] links other notes;
-    @bibtex_key cites a paper from the library and attaches it to the note."""
+    @bibtex_key cites a paper from the library and attaches it to the note. A new title
+    rewrites every [[old title]] across the project's notes, decisions, lab entries and
+    captures (#502) — the reply's `relinked` counts them."""
     return client.update_note(note_id, body or None, title or None)
+
+
+@mcp.tool()
+def link_mentions(note_id: int, sources: list[int] | None = None) -> dict:
+    """Turn unlinked mentions of a note into [[links]] (#502): the first plain occurrence of
+    its title in each mentioning note (get_note_links → `mentions`; or only `sources`) is
+    wrapped in [[ ]]. Returns the notes that were linked."""
+    return client.link_mentions(note_id, sources)
 
 
 @mcp.tool()
