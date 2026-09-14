@@ -440,6 +440,8 @@ class ConvertCaptureSerializer(serializers.Serializer):
     project = ProjectSlugField(required=False, allow_null=True)
     phase = serializers.IntegerField(required=False, allow_null=True)
     due = serializers.DateField(required=False, allow_null=True)
+    # #500: the caller's zone ("Europe/Berlin" or "+05:30") for a time written in the capture
+    tz = serializers.CharField(required=False, allow_blank=True, default="", max_length=64)
 
 
 class BulkTriageSerializer(serializers.Serializer):

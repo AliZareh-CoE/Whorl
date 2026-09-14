@@ -525,7 +525,10 @@ def test_inbox_client_calls(capture):
         capture["method"] == "POST"
         and calls_url_has(capture, "/quick-capture/5/convert/")
         and '"phase":3' in capture["body"]
+        and '"tz":"' in capture["body"]  # #500: the machine's offset unless given
     )
+    client.convert_capture(5, "todo", tz="Europe/Berlin")
+    assert '"tz":"Europe/Berlin"' in capture["body"]
 
 
 def test_review_matrix_client_calls(capture):

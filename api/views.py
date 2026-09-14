@@ -2084,7 +2084,10 @@ class QuickCaptureViewSet(AtlasViewSet):
         },
         description="Turn a capture into a first-class object and mark it processed: paper (by "
         "the DOI/arXiv id in the text, filed into `project` if given), note, todo (Today list), "
-        "milestone (into `phase` or the project's current phase, optional `due`), decision.",
+        "milestone (into `phase` or the project's current phase, optional `due`), decision. "
+        '#500: a date or time written into the line ("by Friday 3pm", "Oct 1", "in 3 '
+        "days\") becomes the todo's due_at — in `tz`, the caller's zone — or the milestone's "
+        "due date, and is dropped from the title; the hint shows it as `due` / `due_time`.",
     )
     @action(detail=True, methods=["post"])
     def convert(self, request, pk=None):
@@ -2099,7 +2102,12 @@ class QuickCaptureViewSet(AtlasViewSet):
         phase = Phase.objects.filter(pk=data.get("phase")).first() if data.get("phase") else None
         try:
             result = convert(
-                capture, data["target"], data.get("project"), phase=phase, due=data.get("due")
+                capture,
+                data["target"],
+                data.get("project"),
+                phase=phase,
+                due=data.get("due"),
+                tz=data.get("tz") or "",
             )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=400)

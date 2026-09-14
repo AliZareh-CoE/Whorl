@@ -808,7 +808,8 @@ def get_day_activity(date: str = "") -> dict:
 def list_inbox(snoozed: bool = False) -> dict:
     """Captures waiting for triage, each with a `hint` (suggested target, any DOI / arXiv id /
     URL found in the text, and since #494 `project` — the active project whose vocabulary the
-    capture shares most, with the matching terms, or null). Snoozed captures (#495) are left
+    capture shares most, with the matching terms, or null; and since #500 `due` / `due_time`
+    — a date or time read from the line). Snoozed captures (#495) are left
     out until their day comes; pass snoozed=True to list the sleeping ones with their
     `snoozed_until`."""
     return client.list_inbox(snoozed)
@@ -849,12 +850,15 @@ def snooze_capture(capture_id: int, until: str = "tomorrow") -> dict:
 
 @mcp.tool()
 def convert_capture(
-    capture_id: int, target: str, project: str = "", phase_id: int = 0, due: str = ""
+    capture_id: int, target: str, project: str = "", phase_id: int = 0, due: str = "", tz: str = ""
 ) -> dict:
     """Triage a capture into a first-class object and mark it processed. target: 'paper' (adds
     the DOI/arXiv paper, filed into project), 'note', 'todo' (Today list), 'milestone' (into
-    phase_id or the project's current phase; optional ISO due), or 'decision'."""
-    return client.convert_capture(capture_id, target, project, phase_id, due)
+    phase_id or the project's current phase; optional ISO due), or 'decision'. A date or time
+    written in the capture ("by Friday 3pm", "Oct 1", "in 3 days" — see the hint's `due` /
+    `due_time`) becomes the todo's due time or the milestone's due date (#500); `tz` is the
+    owner's zone ("Europe/Berlin" or "+05:30"), this machine's offset when blank."""
+    return client.convert_capture(capture_id, target, project, phase_id, due, tz)
 
 
 @mcp.tool()

@@ -769,11 +769,25 @@ def snooze_capture(capture_id: int, until: str = "tomorrow"):
     return _request("POST", f"/quick-capture/{capture_id}/snooze/", json={"until": until})
 
 
+def local_tz() -> str:
+    """The machine's UTC offset as "+HH:MM" — what a time written in a capture means here."""
+    from datetime import datetime
+
+    offset = datetime.now().astimezone().strftime("%z")
+    return f"{offset[:3]}:{offset[3:]}" if len(offset) == 5 else ""
+
+
 def convert_capture(
-    capture_id: int, target: str, project: str = "", phase_id: int = 0, due: str = ""
+    capture_id: int,
+    target: str,
+    project: str = "",
+    phase_id: int = 0,
+    due: str = "",
+    tz: str = "",
 ):
-    """Turn a capture into a paper / note / todo / milestone / decision."""
-    payload = {"target": target}
+    """Turn a capture into a paper / note / todo / milestone / decision (#500: `tz` for a time
+    written in the capture; the machine's offset when blank)."""
+    payload = {"target": target, "tz": tz or local_tz()}
     if project:
         payload["project"] = project
     if phase_id:

@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Inbox: dates in captures (#500)
+
+**Decision.** `notes/when.py::parse_when(text, today)` reads one date phrase and one time phrase from a capture's first line — today / tomorrow / day after tomorrow, weekdays ("by Friday", "next Monday"), next week / month, end of (the) week / month, "in 3 days|weeks|months", "Oct 1" / "October 1st, 2027" / "1 Oct", YYYY-MM-DD; "at 3pm", "3:30 pm", "15:30", noon, midnight — and returns the line without them. Weekdays and month dates need a lead-in (on / by / before / until / due) or must end the line, so "the Friday talk" is left alone; "at 3" alone is left alone. `detect()` exposes `due` / `due_time`; the inbox row shows a "due Fri, Sep 18 · 3 PM" chip. `convert()` gives a todo `due_at` (the date at the time; 09:00 when only a date; today when only a time) in the caller's zone — `tz` on the convert body, the browser's IANA zone from the SPA, the machine's offset from the MCP client — and a milestone its due date (an explicit `due` still wins); the phrase leaves the title. Bulk "todo" uses the server zone.
+
+**Why.** Today already reads "at 3pm" in the browser (#431); a capture is the same sentence written earlier, and a todo that lands on Today without the date it was written with is a lie by omission. Parsing on the server keeps the API and MCP paths honest; the zone travels with the request because the server keeps UTC and the owner's clock is wherever the browser or the MCP client runs.
+
+**Alternatives.** dateparser / dateutil — rejected: both are heavy, dateparser's fuzziness produces surprising dates, and the phrases researchers write are a small closed set. Parsing only in the browser — rejected: MCP and the API would not see the dates. Storing the phrase and resolving at convert time — rejected: the chip must show the date now, and "Friday" means a different day a week later; it is resolved at read time against today and again at convert, which is the same day in practice.
+
 ### 2026-09-14 — Inbox: link captures know their page (#499)
 
 **Decision.** A capture that carries a link learns the page's title once: `QuickCapture.link_title` / `link_fetched_at` (notes 0007), filled by `notes/links.py::enrich_capture` — http(s) only, private/loopback/unresolvable hosts refused (`check_url` resolves the host and rejects non-global addresses), four-second timeout, at most 256 KB streamed, four redirects, `og:title` then `<title>`, HTML only. `POST /quick-capture/{id}/enrich/` (`?force=1` to retry) returns the capture plus `link_error`; a failed fetch still stamps `link_fetched_at` so nothing retries on every load. The SPA enriches a fresh link capture the moment it lands and up to five old unfetched ones per page load; rows show "↗ Title — site" (the bare-URL text dims under it); a bare link converted to a note takes the page title. MCP `enrich_capture` (116 tools).

@@ -8,11 +8,13 @@ first-class object in one call and marks it processed.
 from __future__ import annotations
 
 import re
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
+
+from notes.when import parse_when
 
 DOI_RE = re.compile(r"\b(10\.\d{4,9}/[^\s\"<>]+)", re.IGNORECASE)
 ARXIV_RE = re.compile(r"(?:arxiv[:\s/]*(?:abs/)?|\b)(\d{4}\.\d{4,5}(?:v\d+)?)\b", re.IGNORECASE)
@@ -42,13 +44,50 @@ def detect(text: str) -> dict:
         suggested = "note"
     else:
         suggested = "todo"
+    when = parse_when(_title(text), timezone.localdate())  # #500: a date/time in the line
     return {
         "suggested": suggested,
         "doi": doi.group(1).rstrip(".,;)") if doi else "",
         "arxiv_id": arxiv.group(1) if arxiv else "",
         "url": url.group(0).rstrip(".,;)") if url else "",
         "title": _title(text),
+        "due": when["date"].isoformat() if when["date"] else "",
+        "due_time": when["time"].strftime("%H:%M") if when["time"] else "",
     }
+
+
+def _zone(tz: str):
+    """A tzinfo from an IANA name ("Europe/Berlin") or an offset ("+05:30"); the server's
+    current zone otherwise."""
+    import re as _re
+    from datetime import timedelta as _td
+    from datetime import timezone as _tz
+    from zoneinfo import ZoneInfo
+
+    tz = (tz or "").strip()
+    if not tz:
+        return timezone.get_current_timezone()
+    m = _re.fullmatch(r"([+-])(\d{2}):?(\d{2})", tz)
+    if m:
+        sign = 1 if m.group(1) == "+" else -1
+        return _tz(sign * _td(hours=int(m.group(2)), minutes=int(m.group(3))))
+    try:
+        return ZoneInfo(tz)
+    except Exception:  # an unknown name: fall back rather than refuse the triage
+        return timezone.get_current_timezone()
+
+
+def due_instant(when: dict, tz: str = ""):
+    """#500: the aware datetime a todo is due from a parsed {date, time}: the date at the
+    time (09:00 when only a date was written; today when only a time was), or None."""
+    from datetime import datetime as _dt
+    from datetime import time as _time
+
+    if not when["date"] and not when["time"]:
+        return None
+    zone = _zone(tz)
+    day = when["date"] or _dt.now(zone).date()
+    return _dt.combine(day, when["time"] or _time(9, 0), tzinfo=zone)
 
 
 SNOOZE_KEYWORDS = ("tomorrow", "monday", "next-week", "weekend")
@@ -202,11 +241,16 @@ def _title(text: str) -> str:
 
 
 @transaction.atomic
-def convert(capture, target: str, project=None, *, phase=None, due: date | None = None) -> dict:
-    """Turn a capture into a paper / note / todo / milestone / decision; mark it processed."""
+def convert(
+    capture, target: str, project=None, *, phase=None, due: date | None = None, tz: str = ""
+) -> dict:
+    """Turn a capture into a paper / note / todo / milestone / decision; mark it processed.
+    #500: a date/time written into the line becomes a todo's due_at (in the caller's `tz`)
+    or a milestone's due date (an explicit `due` wins), and leaves the title."""
     if target not in TARGETS:
         raise ValueError(f"target must be one of {TARGETS}")
     hints = detect(capture.text)
+    when = parse_when(hints["title"], timezone.localdate())
     if target in ("note", "milestone", "decision") and project is None:
         raise ValueError(f"a {target} needs a project")
     if target == "paper":
@@ -255,9 +299,18 @@ def convert(capture, target: str, project=None, *, phase=None, due: date | None 
 
         last = TodoItem.objects.order_by("-position").values_list("position", flat=True).first()
         todo = TodoItem.objects.create(
-            text=hints["title"][:300], project=project, position=(last or 0) + 1
+            text=(when["text"].splitlines()[0] if when["text"].strip() else hints["title"])[:300],
+            project=project,
+            position=(last or 0) + 1,
+            due_at=due_instant(when, tz),
         )
-        result = {"kind": "todo", "id": todo.pk, "title": todo.text, "app_url": "/today"}
+        result = {
+            "kind": "todo",
+            "id": todo.pk,
+            "title": todo.text,
+            "app_url": "/today",
+            "due_at": todo.due_at.astimezone(UTC).isoformat() if todo.due_at else None,
+        }
     elif target == "milestone":
         from plans.models import Milestone, Phase
 
@@ -271,8 +324,8 @@ def convert(capture, target: str, project=None, *, phase=None, due: date | None 
             )
         milestone = Milestone.objects.create(
             phase=phase,
-            title=hints["title"],
-            due_date=due,
+            title=(when["text"].splitlines()[0] if when["text"].strip() else hints["title"])[:300],
+            due_date=due or when["date"],
             notes=capture.text.strip() if "\n" in capture.text.strip() else "",
         )
         result = {
@@ -281,6 +334,7 @@ def convert(capture, target: str, project=None, *, phase=None, due: date | None 
             "title": milestone.title,
             "phase": phase.name,
             "app_url": f"/projects/{project.slug}/plan",
+            "due_date": milestone.due_date.isoformat() if milestone.due_date else None,
         }
     else:
         from projects.models import DecisionRecord

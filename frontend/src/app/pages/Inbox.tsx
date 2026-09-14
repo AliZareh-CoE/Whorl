@@ -10,7 +10,9 @@
  *  #497: batch triage — tick rows (checkbox, space, ⌘A), then File / Today / Later / Dismiss the
  *  whole selection from a floating bar; POST /quick-capture/bulk/; MCP triage_captures.
  *  #499: a capture with a link learns the page's title (POST /quick-capture/{id}/enrich/, once) and
- *  shows "↗ Title — site"; a bare link converted to a note takes that title. */
+ *  shows "↗ Title — site"; a bare link converted to a note takes that title.
+ *  #500: "by Friday 3pm" / "Oct 1" / "in 3 days" in the line become a due chip, the todo's due
+ *  time (in this browser's zone, sent as `tz`) or the milestone's due date. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -22,7 +24,14 @@ import { ErrorState } from "../../components/ErrorState";
 import { Prose } from "../../components/Prose";
 import { Skeleton } from "../../components/Skeleton";
 
-type Hint = { suggested: "paper" | "note" | "todo" | "milestone" | "decision"; doi: string; arxiv_id: string; url: string; title: string; project?: { slug: string; name: string; score: number; terms: string[] } | null };
+type Hint = { suggested: "paper" | "note" | "todo" | "milestone" | "decision"; doi: string; arxiv_id: string; url: string; title: string; due?: string; due_time?: string; project?: { slug: string; name: string; score: number; terms: string[] } | null };
+const BROWSER_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; } })();
+const whenLabel = (due?: string, due_time?: string) => {
+  const parts: string[] = [];
+  if (due) parts.push(new Date(`${due}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }));
+  if (due_time) { const [h, m] = due_time.split(":").map(Number); parts.push(new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: "numeric", minute: m ? "2-digit" : undefined })); }
+  return parts.join(" · ");
+};
 type Capture = { id: number; text: string; text_html: string; processed: boolean; project: string | null; snoozed_until: string | null; link_title: string; link_fetched_at: string | null; hint: Hint; created_at: string };
 const siteOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } };
 type Project = { name: string; slug: string; color: string };
@@ -90,7 +99,7 @@ export default function Inbox() {
     onSettled: refresh,
   });
   const convert = useMutation({
-    mutationFn: ({ id, target, project }: { id: number; target: string; project?: string }) => api<Converted>(`/quick-capture/${id}/convert/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(project ? { target, project } : { target }) }),
+    mutationFn: ({ id, target, project }: { id: number; target: string; project?: string }) => api<Converted>(`/quick-capture/${id}/convert/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target, tz: BROWSER_TZ, ...(project ? { project } : {}) }) }),
     onMutate: ({ id }) => { queryClient.setQueryData<Page<Capture>>(["inbox", runFilter], (old) => old ? { ...old, results: old.results.map((c) => (c.id === id ? { ...c, processed: true } : c)) } : old); },
     onSuccess: (out) => { refresh(); if (out.kind === "reference") petReact("paper"); if (out.kind === "note") petReact("note"); flash(`${out.kind === "reference" ? (out.created ? "Added the paper" : "Paper already in the library") : out.kind === "todo" ? "On today's list" : `Created the ${out.kind}`}: ${out.title}`, out.app_url); },
     onError: (e) => { refresh(); flash(`Could not convert — ${(e as Error).message}`); },
@@ -323,6 +332,7 @@ function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismi
   if (c.hint.doi) chips.push(`doi ${c.hint.doi}`);
   if (c.hint.arxiv_id) chips.push(`arXiv ${c.hint.arxiv_id}`);
   if (c.hint.url && !c.hint.doi) chips.push(`link · ${siteOf(c.hint.url) || "web"}`);
+  const when = whenLabel(c.hint.due, c.hint.due_time);
   const bareLink = Boolean(c.hint.url) && c.text.trim() === c.hint.url;
   return (
     <li className={`${panel} rise p-3 transition-shadow ${active ? "ring-2 ring-indigo-500/60" : ""} ${selected ? "bg-indigo-50/60 dark:bg-indigo-500/10" : ""} ${later ? "relative z-30" : ""}`} style={{ ["--i" as string]: i + 1 }} data-testid="inbox-row" data-active={active ? "1" : undefined} data-selected={selected ? "1" : undefined} onMouseEnter={onFocus}>
@@ -351,6 +361,7 @@ function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismi
         {sleeping && <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-300" data-testid="snoozed-chip">back {wakeDay(c.snoozed_until!)}</span>}
         {wokeToday && <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-300" title={`Snoozed until ${wakeDay(c.snoozed_until!)}`} data-testid="woke-chip">back from snooze</span>}
         {chips.map((ch) => <span key={ch} className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-mono text-indigo-700 dark:text-indigo-200">{ch}</span>)}
+        {when && <span className="rounded-full bg-sky-500/10 px-1.5 py-0.5 text-sky-700 dark:text-sky-300" title={c.hint.suggested === "milestone" ? "Read from the line — becomes the milestone's due date" : "Read from the line — becomes the due time on Today"} data-testid="when-chip">due {when}</span>}
         {c.hint.project && !c.project && project === c.hint.project.slug && <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-emerald-700 dark:text-emerald-300" title={`Suggested from ${c.hint.project.terms.join(", ")}`} data-testid="suggested-project">suggested · {c.hint.project.name}</span>}
         <span className="ml-auto flex flex-wrap items-center gap-1">
           <select value={project} onChange={(e) => setProject(e.target.value)} aria-label="Project" className="rounded-md border border-stone-200 bg-white px-1.5 py-0.5 text-[11px] text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">

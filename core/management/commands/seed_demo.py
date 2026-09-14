@@ -477,6 +477,10 @@ class Command(BaseCommand):
             text="Look into that eye-tracker discount",
             defaults={"processed": True, "triaged_at": timezone.now() - datetime.timedelta(days=5)},
         )
+        # #500: a capture with a date and a time in it — the row shows what Atlas read
+        QuickCapture.objects.get_or_create(
+            text="todo: send the ethics amendment to the office by Friday 3pm"
+        )
         # #499: a bare link capture that already knows its page
         QuickCapture.objects.get_or_create(
             text="https://arxiv.org/abs/1706.03762",
