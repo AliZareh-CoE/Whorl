@@ -618,6 +618,15 @@ def get_project_graph(slug: str) -> dict:
 
 
 @mcp.tool()
+def get_note_outline(note_id: int) -> dict:
+    """The shape and size of a note (#507): `outline` lists its headings (level, text, 1-based
+    line — code fences skipped) so a long note can be navigated or summarised section by
+    section; `measure` counts words, characters, reading minutes (200 wpm), headings, [[links]],
+    @citations and task boxes (done/total)."""
+    return client.get_note_outline(note_id)
+
+
+@mcp.tool()
 def get_note_graph(note_id: int, depth: int = 2) -> dict:
     """ "Around this note" (#503): the notes it links to and from, the papers it cites, and
     their neighbours up to `depth` hops (1–3) — nodes carry `hops` and the same facts as the

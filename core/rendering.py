@@ -15,12 +15,16 @@ import nh3
 
 from notes.services import CITE_RE, WIKI_LINK_RE, parse_cite_keys
 
+TAG_AT_LINE_START_RE = re.compile(r"^( {0,3})#(?=[A-Za-z])", re.MULTILINE)
+
 
 def render_markdown(text: str, *, soft_breaks: bool = False) -> str:
     """Markdown → sanitized HTML (fenced code + tables; optional newline = <br>)."""
     if not text:
         return ""
     extensions = ["fenced_code", "tables"] + (["nl2br"] if soft_breaks else [])
+    # #507: a line that starts with a #tag (no space after the hash) is a tag, not a heading
+    text = TAG_AT_LINE_START_RE.sub(r"\1\\#", text)
     return nh3.clean(md.markdown(text, extensions=extensions))
 
 

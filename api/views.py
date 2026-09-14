@@ -3135,6 +3135,24 @@ class NoteViewSet(AtlasViewSet):
         return Response(note_neighbourhood(self.get_object(), int(raw)))
 
     @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="outline: [{level, text, line}] — the headings outside code fences; "
+                "measure: {words, characters, minutes, headings, links, citations, "
+                "tasks: {done, total}}"
+            )
+        },
+        description="The shape and size of a note (#507): its headings as an outline with "
+        "1-based line numbers, and what it is made of — words, a reading time at 200 words a "
+        "minute, [[links]], @citations and task boxes.",
+    )
+    @action(detail=True, methods=["get"])
+    def outline(self, request, pk=None):
+        from notes.outline import note_outline
+
+        return Response(note_outline(self.get_object()))
+
+    @extend_schema(
         request=inline_serializer(
             "LinkMentions",
             {

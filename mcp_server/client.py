@@ -590,6 +590,11 @@ def get_project_graph(slug: str):
     return _request("GET", f"/projects/{slug}/graph/")
 
 
+def get_note_outline(note_id: int):
+    """Headings (with line numbers) and measure (words, minutes, tasks…) of a note (#507)."""
+    return _request("GET", f"/notes/{note_id}/outline/")
+
+
 def get_note_graph(note_id: int, depth: int = 2):
     """The subgraph within `depth` hops of a note (#503)."""
     return _request("GET", f"/notes/{note_id}/graph/", params={"depth": depth})

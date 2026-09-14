@@ -3,7 +3,7 @@ experiment entries, protocols and captures as they do in notes."""
 
 import pytest
 
-from core.rendering import render_body, resolve_mentions
+from core.rendering import render_body, render_markdown, resolve_mentions
 from literature.models import Reference
 from notes.models import Note, QuickCapture
 from projects.models import DecisionRecord, Project
@@ -114,3 +114,10 @@ def test_ui_wiring():
     for needle in ('testId="experiment-body"', 'testId="protocol-body"', "body_html"):
         assert needle in research, needle
     assert 'testId="capture-text"' in (pages / "Inbox.tsx").read_text()
+
+
+def test_a_tag_at_the_start_of_a_line_is_not_a_heading():
+    """#507: `#pilot #method` on its own line stays prose; real headings still render."""
+    html = render_markdown("## Next\n\n#pilot #method\n\n# Title")
+    assert "<h2>Next</h2>" in html and "<h1>Title</h1>" in html
+    assert "<p>#pilot #method</p>" in html

@@ -428,7 +428,16 @@ class Command(BaseCommand):
             title="Pilot observations",
             defaults={
                 # #502: "Load theory overview" is mentioned without a link — the Link button
-                "body": "n=9 so far. Two participants reported chunking digits — relevant to [[Strategic allocation hypothesis]]. Worth re-reading the Load theory overview before the next session. #pilot #method"
+                # #507: headings and task boxes so the outline pane and the measure line show
+                "body": (
+                    "## Setup\n\nn=9 so far. Dual-task paradigm, digit spans of 3 and 7, "
+                    "distractor onset jittered.\n\n## Observations\n\nTwo participants "
+                    "reported chunking digits — relevant to [[Strategic allocation hypothesis]]. "
+                    "Worth re-reading the Load theory overview before the next session.\n\n"
+                    "### Anomalies\n\nP4's RTs bimodal — check the log timestamps.\n\n"
+                    "## Next\n\n- [x] counterbalance the block order\n- [ ] re-run P4\n"
+                    "- [ ] write up the pilot for the lab meeting\n\n#pilot #method"
+                ),
             },
         )
         for note in (hub, strategic, pilot_note):

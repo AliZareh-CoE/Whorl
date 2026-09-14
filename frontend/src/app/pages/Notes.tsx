@@ -11,7 +11,7 @@
  *  #505: History — every state a save replaced (autosaves coalesce), a diff against now, Restore
  *  (which files the current state first). GET /notes/{id}/revisions/[{rid}/[restore/]]. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowUpRight, BookOpen, CalendarDays, FileDown, FlaskConical, History, Plus, Search, Sparkles, Square, Trash2, Users, Volume2 } from "lucide-react";
 import { api, petReact } from "../api";
@@ -49,6 +49,46 @@ const endId = (e: string | { id: string }) => (typeof e === "string" ? e : e.id)
 
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
 const railH = "mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:text-stone-500";
+
+// #507: the shape and size of a note — mirrors notes/outline.py (headings outside code fences;
+// words by whitespace like the history; 200 words a minute; task boxes)
+type Heading = { level: number; text: string; line: number };
+const HEADING_RE = /^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/;
+const FENCE_RE = /^ {0,3}(```|~~~)/;
+const TASK_RE = /^\s*(?:[-*+]|\d+[.)])\s+\[([ xX])\]\s/;
+export function parseOutline(body: string): Heading[] {
+  const out: Heading[] = []; let inCode = false;
+  body.split("\n").forEach((line, i) => {
+    if (FENCE_RE.test(line)) { inCode = !inCode; return; }
+    if (inCode) return;
+    const m = HEADING_RE.exec(line); if (m && m[2].trim()) out.push({ level: m[1].length, text: m[2].trim(), line: i + 1 });
+  });
+  return out;
+}
+export function measureNote(body: string): { words: number; minutes: number; done: number; total: number } {
+  const words = body.trim() ? body.trim().split(/\s+/).length : 0;
+  let done = 0, total = 0, inCode = false;
+  for (const line of body.split("\n")) { if (FENCE_RE.test(line)) { inCode = !inCode; continue; } if (inCode) continue; const m = TASK_RE.exec(line); if (m) { total += 1; if (m[1] !== " ") done += 1; } }
+  return { words, minutes: words ? Math.ceil(words / 200) : 0, done, total };
+}
+function measureLabel(body: string): string {
+  const m = measureNote(body);
+  if (!m.words) return "";
+  return `${m.words.toLocaleString()} words · ${m.minutes} min${m.total ? ` · ${m.done}/${m.total} tasks` : ""}`;
+}
+function OutlinePanel({ body, onJump }: { body: string; onJump: (line: number) => void }) {
+  const items = useMemo(() => parseOutline(body), [body]);
+  if (items.length < 2) return null; // one heading is a title, not a structure
+  const top = Math.min(...items.map((h) => h.level));
+  return (
+    <div className={`${panel} rise p-4`} style={{ ["--i" as string]: 0 }} data-testid="outline-panel">
+      <p className={railH}>Outline <span className="normal-case tracking-normal text-stone-400">{items.length}</span></p>
+      <ul className="space-y-0.5 text-xs">
+        {items.map((h) => <li key={`${h.line}-${h.text}`}><button type="button" onClick={() => onJump(h.line)} className={`block w-full truncate rounded px-1 py-0.5 text-left hover:bg-stone-100 hover:text-indigo-700 dark:hover:bg-stone-800 dark:hover:text-indigo-300 ${h.level === top ? "font-medium text-stone-700 dark:text-stone-200" : "text-stone-500 dark:text-stone-400"}`} style={{ paddingLeft: 4 + (h.level - top) * 12 }} title={`Line ${h.line}`} data-testid="outline-row">{h.text}</button></li>)}
+      </ul>
+    </div>
+  );
+}
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -118,7 +158,7 @@ export default function NotesWorkbench() {
                 <li key={n.id}>
                   <Link to={`/projects/${slug}/notes/${n.id}`} className={`block px-3 py-2 transition-colors ${selectedId === n.id ? "bg-indigo-50 dark:bg-indigo-500/10" : "hover:bg-stone-50 dark:hover:bg-stone-800/60"}`} data-testid="note-row">
                     <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">{n.title}</p>
-                    <p className="mt-0.5 flex items-center gap-2 text-[11px] text-stone-400"><span className="truncate">{(n.body || "").trim().split("\n")[0].slice(0, 60) || "empty"}</span><span className="ml-auto shrink-0 tabular-nums">{ago(n.updated_at)}</span></p>
+                    <p className="mt-0.5 flex items-center gap-2 text-[11px] text-stone-400"><span className="truncate">{(n.body || "").trim().split("\n")[0].replace(/^#{1,6}\s+/, "").slice(0, 60) || "empty"}</span><span className="ml-auto shrink-0 tabular-nums">{ago(n.updated_at)}</span></p>
                   </Link>
                 </li>
               ))}
@@ -353,7 +393,8 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
       <div className={`${panel} rise overflow-hidden`} style={{ ["--i" as string]: 1 }} data-testid="note-editor">
         <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-2 text-[11px] text-stone-400 dark:border-stone-800">
           <span className="font-mono">[[</span><span>link a note</span><span className="font-mono">@</span><span>cite a paper</span><span>· ⌘S saves</span>
-          <span className="ml-auto tabular-nums" data-testid="save-state">{save.isPending ? "saving…" : dirty ? "editing…" : savedAt ? "saved" : ""}</span>
+          <span className="ml-auto tabular-nums text-stone-400" title="words · reading time · tasks" data-testid="note-measure">{measureLabel(body)}</span>
+          <span className="tabular-nums" data-testid="save-state">{save.isPending ? "saving…" : dirty ? "editing…" : savedAt ? "saved" : ""}</span>
           <button type="button" onClick={() => void listen()} className={`inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300 ${listening ? "text-indigo-600 dark:text-indigo-300" : ""}`} title={listening ? "Stop reading" : "Read this note aloud (local voice)"} data-testid="note-listen" aria-pressed={!!listening}>
             {listening ? <Square className="h-3.5 w-3.5" aria-hidden="true" /> : <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />}
             {listening ? (listening.total ? `stop · ${Math.min(listening.index + 1, listening.total)}/${listening.total}` : "stop") : "listen"}
@@ -374,6 +415,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
         </div>
       </div>
       <aside className="space-y-3" data-testid="link-panel">
+        <OutlinePanel body={body} onJump={(line) => editorHandle.current?.goToLine(line)} />
         <div className={`${panel} rise p-4`} style={{ ["--i" as string]: 2 }}>
           <p className={railH}>Cites</p>
           {L && L.references.length ? (

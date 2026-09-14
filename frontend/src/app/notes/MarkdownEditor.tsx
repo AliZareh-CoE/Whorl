@@ -14,7 +14,7 @@ import { tags as t } from "@lezer/highlight";
 
 export type Suggestion = { id: number; label: string; sublabel: string };
 export type SuggestFn = (kind: "note" | "reference" | "tag", q: string) => Promise<Suggestion[]>;
-export type MdHandle = { insert: (text: string) => void; focus: () => void; getValue: () => string; setValue: (text: string) => void };
+export type MdHandle = { insert: (text: string) => void; focus: () => void; getValue: () => string; setValue: (text: string) => void; goToLine: (line: number) => void };
 
 const theme = EditorView.theme({
   "&": { backgroundColor: "transparent", color: "var(--md-fg)", fontSize: "13px" },
@@ -106,7 +106,7 @@ export default function MarkdownEditor({ value, onChange, onSave, suggest, place
     ];
     const view = new EditorView({ state: EditorState.create({ doc: value, extensions }), parent: host.current });
     viewRef.current = view;
-    handle?.({ insert: (text) => { const at = view.state.selection.main.head; view.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length } }); view.focus(); }, focus: () => view.focus(), getValue: () => view.state.doc.toString(), setValue: (text: string) => { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }); } });
+    handle?.({ insert: (text) => { const at = view.state.selection.main.head; view.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length } }); view.focus(); }, focus: () => view.focus(), getValue: () => view.state.doc.toString(), setValue: (text: string) => { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }); }, goToLine: (line: number) => { const n = Math.min(Math.max(1, line), view.state.doc.lines); const pos = view.state.doc.line(n).from; view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "start", yMargin: 24 }) }); view.focus(); } });
     return () => { handle?.(null); view.destroy(); viewRef.current = null; };
     // mount once per note; the parent re-keys on note change
     // eslint-disable-next-line react-hooks/exhaustive-deps
