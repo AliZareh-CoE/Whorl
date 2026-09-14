@@ -104,6 +104,13 @@ def test_review_over_the_api(owner):
         client.post("/api/v1/projects/deep/plan/review/", {"kept": -1}, format="json").status_code
         == 400
     )
+    # Audit #30: a count past the column's range is a 400, not a database error
+    assert (
+        client.post(
+            "/api/v1/projects/deep/plan/review/", {"kept": 2**40}, format="json"
+        ).status_code
+        == 400
+    )
     state = client.post(
         "/api/v1/projects/deep/plan/review/", {"kept": 4, "moved": 1, "note": "ok"}, format="json"
     ).json()

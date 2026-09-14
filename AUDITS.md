@@ -874,6 +874,67 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #30 — 2026-09-14 (since #29: #509–#517 — the Notes + graph area's last three slices and its verdict, the Plan area's first six, the Edge 152 boot hotfix)
+
+Ten cycles, nine feature slices and a hotfix, two findings — one a database error on a bad
+count, one a quadratic restore in the markdown renderer — both fixed, both pinned.
+
+**Dependencies — CLEAN.** `pip-audit` on the exported lock: *No known vulnerabilities found*.
+`npm audit --omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`: every row green (anon → 401
+across the API, pages → 302, catch-all 404, static MIME, `/app//evil.com` stays on-origin).
+
+**New surfaces since #29 — reviewed.**
+- *Auth:* `projects/{slug}/plan/drift/`, `…/plan/review/` (GET and POST),
+  `…/plan/reschedule-conflicts/`, `notes/{id}/related/` and `PATCH milestones/{id}/` answer
+  401 anonymously and to a wrong key.
+- *Dependencies (#512):* `blocked_by` with itself, an unknown id, a non-integer or a loop
+  through a second milestone → 400 with the reason ("That would make a loop — a milestone
+  would block itself"); the check is a walk over one query, not a query per hop.
+- *Dates (#513–#516):* `due_date` `junk` / `2026-13-45` → 400, `null` → 200 (undated, logged
+  as a move); the drift log folds nudges within ten minutes and deletes an undo, so a drag
+  storm cannot grow the table by more than one row per ten minutes per milestone.
+- *Related notes (#510):* `limit` `0` / `-1` / `99` → 200 (clamped to 1–20), `abc` / `1e2` /
+  empty → 400.
+- *Review (#517):* `kept` `abc` / `1.5` / `-1` → 400; a 2 001-character note → 400.
+- *FINDING 1 — a count past the column's range was a database error.* `POST …/plan/review/`
+  with `kept: 2**40` returned **500**: the serializer bounded the counts below (`min_value=0`)
+  but not above, and `PositiveIntegerField` is 32-bit. Fixed: `max_value=100_000` on all four
+  counts (`api/serializers.py::PlanReviewSerializer`) → 400; `plans/tests/test_review.py` pins
+  it.
+- *Rendering (#509) — XSS:* a note body carrying `<input onclick>`, a callout kind with a
+  `<script>`, `<img onerror>`, `<b onmouseover>` inside `==…==`, `<script>` and
+  `\href{javascript:…}` inside `$…$`, a `<div class="task-done" id="javascript:x" onclick>`,
+  and a footnote with a `javascript:` link renders with **no handler, no script and no
+  `javascript:` href** — nh3 strips the attributes, the task box is rebuilt after the
+  sanitizer, math text is HTML-escaped. The only `javascript:` left is *inside the escaped
+  TeX*, where KaTeX renders it as text: `Prose.tsx` calls `katex.render` without `trust`, so
+  `\href` / `\url` / `\includegraphics` stay refused. `core/tests/test_rendering.py` now
+  pins that no `trust` option is ever passed.
+- *FINDING 2 — the math restore was quadratic.* `render_markdown("$" * 100_000)` took
+  **8.7 s**: the lifter produced 20 000 display segments in 30 ms and Markdown rendered them
+  in 110 ms, but `_restore_math` ran a `str.replace` over the whole HTML per segment (9.3 s).
+  Fixed: one `re.sub` pass over a token pattern (`MATH_TOKEN_RE`), the paragraph wrapper
+  handled in the callback; 100 k dollars now render in ~0.2 s. `core/tests/test_regex_budgets.py`
+  gains the #509 parsers — dollars, display math, highlights, callouts, task boxes — each
+  under a second on a 50–100 k-character run (task boxes at 10 k lines: Python-Markdown itself
+  spends ~50 µs per list item, linearly).
+- *Preload helper (hotfix):* `core/tests/test_preload_helper.py` pins the three-token module
+  that replaced Vite's helper after the Edge 152 blank boot; desktop runs 225–229 built green.
+
+**Query counts on the demo** (one project, six open milestones): `plan/review/` 10,
+`plan/drift/` 4, `plan/` 14, `roadmap/` 6, `notes/{id}/related/` 13 — all grouped queries,
+none per row; the dashboard budget moved 115 → 116 in #516 (one drift-log read per active
+project's roadmap) and is pinned.
+
+**Hot endpoints (in-process, demo data):** plan 72 ms, roadmap 44 ms, plan review 40 ms,
+plan drift 28 ms, focus 31 ms, overview 157 ms, dashboard 167 ms.
+
+**Verdict.** Two findings, both in code written in the last ten cycles, both the kind the
+next feature would have hidden (a Claude-driven review with a wild count; a note with many
+formulas). Nothing exploitable across the wire: the API-key gate holds on every new route, the
+sanitizer holds against handler and protocol injection, KaTeX stays untrusted. **Next audit
+due at #528.**
+
 ## Audit #29 — 2026-09-14 (since #28: #499–#507 — the Inbox's last three slices and its verdict, the Notes + graph area's first six)
 
 Ten cycles, nine feature slices, two findings — both in text parsers, both fixed, both pinned.

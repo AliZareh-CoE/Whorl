@@ -175,6 +175,8 @@ def test_katex_is_vendored_and_wired_into_prose():
     assert (vendor / "katex.min.js").exists() and (vendor / "katex.min.css").exists()
     assert len(list((vendor / "fonts").glob("*.woff2"))) >= 15
     prose = (root / "frontend" / "src" / "components" / "Prose.tsx").read_text()
+    # Audit #30: KaTeX must stay untrusted — `trust: true` would let \\href carry javascript:
+    assert "trust" not in prose
     assert "vendor/katex/katex.min.js" in prose and ".math-inline, .math-display" in prose
     assert (
         "useMath(ref, html)" in prose.split("if (!html) return null")[0]

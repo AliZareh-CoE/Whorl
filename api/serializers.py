@@ -481,10 +481,11 @@ class ConvertCaptureSerializer(serializers.Serializer):
 class PlanReviewSerializer(serializers.Serializer):
     """#517: the counts of a plan-review sitting and an optional note."""
 
-    kept = serializers.IntegerField(required=False, min_value=0, default=0)
-    completed = serializers.IntegerField(required=False, min_value=0, default=0)
-    moved = serializers.IntegerField(required=False, min_value=0, default=0)
-    skipped = serializers.IntegerField(required=False, min_value=0, default=0)
+    # Audit #30: bounded — a count past the column's range was a 500, now a 400
+    kept = serializers.IntegerField(required=False, min_value=0, max_value=100_000, default=0)
+    completed = serializers.IntegerField(required=False, min_value=0, max_value=100_000, default=0)
+    moved = serializers.IntegerField(required=False, min_value=0, max_value=100_000, default=0)
+    skipped = serializers.IntegerField(required=False, min_value=0, max_value=100_000, default=0)
     note = serializers.CharField(required=False, allow_blank=True, default="", max_length=2000)
 
 

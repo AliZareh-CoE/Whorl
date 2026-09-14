@@ -51,3 +51,10 @@ def test_other_text_parsers_stay_under_budget():
     _under_budget("parse_cite_keys", lambda: parse_cite_keys("@" * 50_000))
     _under_budget("parse_when", lambda: parse_when("next " * 20_000, today))
     _under_budget("render tag lines", lambda: render_markdown("#tag line\n" * 2_000))
+    # Audit #30: the #509 research-markdown parsers — math, highlights, callouts, task boxes
+    _under_budget("render dollars", lambda: render_markdown("$" * 100_000))
+    _under_budget("render display math", lambda: render_markdown("$$" * 50_000))
+    _under_budget("render highlights", lambda: render_markdown("==" * 50_000))
+    _under_budget("render callouts", lambda: render_markdown("> [!note] " * 20_000))
+    # Python-Markdown itself spends ~50 µs per list item (linear); 10 k keeps the check honest
+    _under_budget("render task boxes", lambda: render_markdown("- [ ] a\n" * 10_000))

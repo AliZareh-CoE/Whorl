@@ -83,16 +83,28 @@ def _lift_math(text: str) -> tuple[str, list[tuple[str, bool]]]:
     return "".join(out), stash
 
 
+MATH_TOKEN_RE = re.compile(r"(<p>)?ATLASMATH(\d+)X(</p>)?")
+
+
 def _restore_math(html_text: str, stash: list[tuple[str, bool]]) -> str:
-    for index, (tex, display) in enumerate(stash):
-        token = MATH_TOKEN.format(index)
+    """One pass over the HTML (Audit #30: a `str.replace` per segment was quadratic — 20 000
+    formulas took nine seconds). A display block swallows the paragraph Markdown wrapped it in."""
+
+    def restore(match: re.Match) -> str:
+        index = int(match.group(2))
+        if index >= len(stash):
+            return match.group(0)  # not ours: the text happened to contain a token
+        tex, display = stash[index]
         escaped = html.escape(tex)
         if display:
-            block = f'<div class="math-display">{escaped}</div>'
-            html_text = html_text.replace(f"<p>{token}</p>", block).replace(token, block)
-        else:
-            html_text = html_text.replace(token, f'<span class="math-inline">{escaped}</span>')
-    return html_text
+            return f'<div class="math-display">{escaped}</div>'
+        return (
+            (match.group(1) or "")
+            + f'<span class="math-inline">{escaped}</span>'
+            + (match.group(3) or "")
+        )
+
+    return MATH_TOKEN_RE.sub(restore, html_text)
 
 
 def _callouts(match: re.Match) -> str:
