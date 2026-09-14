@@ -157,6 +157,12 @@ def _ordered(milestones: dict, blockers: dict) -> list[int]:
     return out
 
 
+def due_graph(project):
+    """Public name for the (milestones, blockers) load that `date_conflicts`, `slack_map` and
+    `critical_chain` accept, so a view computes it once and passes it to all three."""
+    return _due_graph(project)
+
+
 def date_conflicts(project, milestones=None, blockers=None) -> list[dict]:
     """Open milestones due on or before the latest due date of an open blocker, with the
     day after that blocker as the suggestion. Blockers without a date cannot conflict.
@@ -202,3 +208,71 @@ def resolve_conflicts(project) -> list[dict]:
             m.due_date = floor
             m.save(update_fields=["due_date", "updated_at"])
     return changes
+
+
+# #515: slack and the critical chain
+
+TIGHT_DAYS = 7  # a blocker with this little room before its dependant is worth a chip
+
+
+def slack_map(project, milestones=None, blockers=None) -> dict[int, dict]:
+    """Per open dated milestone: {slack, tight_dependant} — slack is the fewest days it can
+    slip before it pushes a dated dependant (dependant due − own due − 1; negative when the
+    dates already contradict, #513). None when nothing dated waits on it."""
+    if milestones is None or blockers is None:
+        milestones, blockers = _due_graph(project)
+    dependants: dict[int, list[int]] = defaultdict(list)
+    for mid, bs in blockers.items():
+        for b in bs:
+            dependants[b].append(mid)
+    out: dict[int, dict] = {}
+    for mid, m in milestones.items():
+        if not m.due_date:
+            continue
+        best = None
+        for d in dependants.get(mid, ()):
+            dep = milestones.get(d)
+            if dep is None or not dep.due_date:
+                continue
+            gap = (dep.due_date - m.due_date).days - 1
+            if best is None or gap < best[0]:
+                best = (gap, d)
+        out[mid] = {
+            "slack": best[0] if best else None,
+            "tight_dependant": best[1] if best else None,
+        }
+    return out
+
+
+def critical_chain(project, milestones=None, blockers=None) -> dict:
+    """The chain that decides the plan's end: from the open dated milestone due last, walk
+    upstream through the blocker with the least room each step. Returns ids (upstream →
+    downstream), titles, the span in days, and the chain's least slack (None for no chain)."""
+    if milestones is None or blockers is None:
+        milestones, blockers = _due_graph(project)
+    dated = [m for m in milestones.values() if m.due_date]
+    if not dated:
+        return {"ids": [], "titles": [], "from": None, "to": None, "days": 0, "slack": None}
+    end = max(dated, key=lambda m: (m.due_date, -m.pk))
+    chain, seen, least = [end], {end.pk}, None
+    current = end
+    while True:
+        options = [milestones[b] for b in blockers.get(current.pk, ()) if milestones[b].due_date]
+        options = [b for b in options if b.pk not in seen]
+        if not options:
+            break
+        step = max(options, key=lambda b: (b.due_date, -b.pk))  # the tightest: due latest
+        gap = (current.due_date - step.due_date).days - 1
+        least = gap if least is None else min(least, gap)
+        chain.append(step)
+        seen.add(step.pk)
+        current = step
+    chain.reverse()
+    return {
+        "ids": [m.pk for m in chain],
+        "titles": [m.title for m in chain],
+        "from": chain[0].due_date,
+        "to": chain[-1].due_date,
+        "days": (chain[-1].due_date - chain[0].due_date).days,
+        "slack": least,
+    }

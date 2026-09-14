@@ -45,8 +45,10 @@ def get_status_update(slug: str, days: int = 7) -> dict:
 @mcp.tool()
 def get_plan(slug: str) -> dict:
     """The project's full plan: ordered phases with milestones (ids, due dates, overdue flags,
-    #512 `blocked_by` / `blocked` / `blocks` dependencies) and tasks; `conflicts` lists the
-    milestones due on or before a milestone they wait for, each with a `suggested` date (#513)."""
+    #512 `blocked_by` / `blocked` / `blocks` dependencies, #515 `slack` — days it can slip before
+    it pushes a dated dependant) and tasks; `conflicts` lists the milestones due on or before a
+    milestone they wait for, each with a `suggested` date (#513); `critical_chain` is the
+    dependency chain that decides the plan's end (ids, titles, span, least slack)."""
     return client.get_plan(slug)
 
 
@@ -560,7 +562,7 @@ def set_plan_outline(slug: str, markdown: str, dry_run: bool = False) -> dict:
 def get_roadmap(slug: str) -> dict:
     """The plan as a timeline: each phase's window (real or inferred from milestones), its
     milestones with due dates, a health state (behind / on_track / ahead / blocked / overdue /
-    upcoming / done) with a one-line reason, and a finish forecast from the completion pace. Milestone rows carry `blocked`, `blocked_by` (ids) and `conflict` (#514).
+    upcoming / done) with a one-line reason, and a finish forecast from the completion pace. Milestone rows carry `blocked`, `blocked_by` (ids), `conflict` (#514) and `slack` (#515); `critical_chain` names the chain that decides the end.
     """
     return client.get_roadmap(slug)
 

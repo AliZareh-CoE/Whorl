@@ -9,9 +9,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { Skeleton } from "../../../components/Skeleton";
 
-type MilestoneRow = { id: number; title: string; due_date: string | null; done: boolean; overdue: boolean; blocked?: boolean; blocked_by?: number[]; conflict?: boolean };
+type MilestoneRow = { id: number; title: string; due_date: string | null; done: boolean; overdue: boolean; blocked?: boolean; blocked_by?: number[]; conflict?: boolean; slack?: number | null };
 type PhaseRow = { id: number; name: string; order: number; status: string; start: string; end: string; inferred: boolean; progress: number; milestones: MilestoneRow[]; state: string; label: string; forecast_end: string | null };
-type RoadmapData = { project: string; today: string; range_start: string; range_end: string; phases: PhaseRow[] };
+type Chain = { ids: number[]; titles: string[]; from: string | null; to: string | null; days: number; slack: number | null }; // #515
+type RoadmapData = { project: string; today: string; range_start: string; range_end: string; phases: PhaseRow[]; critical_chain?: Chain };
 
 const DAY = 864e5;
 const PX_PER_DAY = 5;
@@ -140,6 +141,9 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
     }
     return { centres, edges, up, down };
   }, [view, range]);
+  // #515: the critical chain — the edges that decide the plan's end are drawn heavier
+  const critical = useMemo(() => new Set<number>(view?.critical_chain?.ids ?? []), [view]);
+  const onChain = (from: number, to: number) => critical.has(from) && critical.has(to);
   const chain = useMemo(() => {
     if (chainOf == null) return null;
     const ids = new Set<number>([chainOf]);
@@ -196,7 +200,8 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
                   const dir = b.x >= a.x ? 1 : -1; // a conflict runs right-to-left: the blocker is due later
                   const dx = Math.max(24, Math.abs(b.x - a.x) / 2) * dir;
                   const d = `M${a.x + 7 * dir},${a.y} C${a.x + dx},${a.y} ${b.x - dx},${b.y} ${b.x - 9 * dir},${b.y}`;
-                  return <path key={`${e.from}-${e.to}`} d={d} fill="none" stroke={e.conflict ? "#f59e0b" : "#818cf8"} strokeWidth={lit && chain ? 2 : 1.25} markerEnd={e.conflict ? "url(#dep-arrow-amber)" : "url(#dep-arrow-indigo)"} className="transition-opacity" style={{ opacity: lit ? (e.conflict ? 0.95 : 0.7) : 0.15 }} data-testid="dependency-arrow" />;
+                  const heavy = onChain(e.from, e.to);
+                  return <path key={`${e.from}-${e.to}`} d={d} fill="none" stroke={e.conflict ? "#f59e0b" : "#818cf8"} strokeWidth={heavy ? (lit && chain ? 3 : 2.5) : lit && chain ? 2 : 1.25} markerEnd={e.conflict ? "url(#dep-arrow-amber)" : "url(#dep-arrow-indigo)"} className="transition-opacity" style={{ opacity: lit ? (e.conflict || heavy ? 0.95 : 0.7) : 0.15 }} data-testid="dependency-arrow" data-critical={heavy || undefined} />;
                 })}
               </svg>
             )}
@@ -229,8 +234,8 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
                     <button
                       key={m.id} type="button" title={`${m.title} · due ${m.due_date}${m.done ? " · done" : m.overdue ? " · overdue" : ""}`} aria-label={`${m.title}, due ${m.due_date}`}
                       onPointerDown={(e) => begin(e, { kind: "milestone", id: m.id, phase: p.id, originX: e.clientX, day: dayOf(m.due_date as string) })} onKeyDown={(e) => onKey(e, p, m)}
-                      onMouseEnter={() => { setChainOf(m.id); setHover(`${m.title} · due ${m.due_date}${m.conflict ? " · due before a milestone it waits for" : m.blocked ? " · waiting on another milestone" : ""}`); }} onMouseLeave={() => { setChainOf(null); setHover(""); }}
-                      className={`absolute top-[42px] h-3 w-3 -translate-x-1/2 rotate-45 cursor-grab rounded-[2px] border transition-all hover:scale-125 ${chain && !chain.has(m.id) ? "opacity-25" : ""} ${m.done ? "border-emerald-500 bg-emerald-500" : m.conflict ? "border-amber-500 bg-amber-500 shadow-[0_0_8px_rgb(245_158_11/.6)]" : m.blocked ? "border-dashed border-indigo-400 bg-transparent dark:border-indigo-300" : m.overdue ? "border-red-500 bg-red-500 shadow-[0_0_8px_rgb(239_68_68/.8)]" : "border-indigo-400 bg-white dark:bg-stone-900"}`}
+                      onMouseEnter={() => { setChainOf(m.id); setHover(`${m.title} · due ${m.due_date}${m.conflict ? " · due before a milestone it waits for" : m.blocked ? " · waiting on another milestone" : ""}${m.slack != null && !m.done ? (m.slack <= 0 ? " · no slack" : ` · ${m.slack} d slack`) : ""}${critical.has(m.id) ? " · on the critical chain" : ""}`); }} onMouseLeave={() => { setChainOf(null); setHover(""); }}
+                      className={`absolute top-[42px] h-3 w-3 -translate-x-1/2 rotate-45 cursor-grab rounded-[2px] border transition-all hover:scale-125 ${chain && !chain.has(m.id) ? "opacity-25" : ""} ${critical.has(m.id) && !m.done ? "ring-2 ring-indigo-400/60 ring-offset-1 ring-offset-white dark:ring-offset-stone-900" : ""} ${m.done ? "border-emerald-500 bg-emerald-500" : m.conflict ? "border-amber-500 bg-amber-500 shadow-[0_0_8px_rgb(245_158_11/.6)]" : m.blocked ? "border-dashed border-indigo-400 bg-transparent dark:border-indigo-300" : m.overdue ? "border-red-500 bg-red-500 shadow-[0_0_8px_rgb(239_68_68/.8)]" : "border-indigo-400 bg-white dark:bg-stone-900"}`}
                       style={{ left: x(dayOf(m.due_date as string)) }} data-testid="milestone-diamond"
                     />
                   ))}
@@ -240,7 +245,7 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
           </div>
         </div>
       </div>
-      <div className="flex h-7 items-center border-t border-stone-100 px-4 text-[11px] text-stone-400 dark:border-stone-800">{hover || (savePhase.isPending || saveMilestone.isPending ? "saving…" : `${view.phases.filter((p) => p.state === "behind" || p.state === "overdue").length} phase(s) need attention`)}</div>
+      <div className="flex h-7 items-center border-t border-stone-100 px-4 text-[11px] text-stone-400 dark:border-stone-800">{hover || (savePhase.isPending || saveMilestone.isPending ? "saving…" : `${view.phases.filter((p) => p.state === "behind" || p.state === "overdue").length} phase(s) need attention`)}{!hover && (view.critical_chain?.ids?.length ?? 0) > 1 && <span className="ml-3 truncate" data-testid="roadmap-chain">· heavy arrows: the critical chain, {view.critical_chain!.titles[0]} → {view.critical_chain!.titles[view.critical_chain!.titles.length - 1]}, {view.critical_chain!.slack == null ? "no dated dependants" : view.critical_chain!.slack < 0 ? `${-view.critical_chain!.slack} d over` : view.critical_chain!.slack === 0 ? "no slack" : `${view.critical_chain!.slack} d of slack`}</span>}</div>
     </div>
   );
 }

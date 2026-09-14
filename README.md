@@ -79,6 +79,7 @@ picks another port. Claude Code connects to this server exactly as to the deskto
 
 **Notes & graph** — `[[wiki-links]]` and Pandoc-style `@key` citations with autocomplete, live preview, autosave, backlinks and unlinked mentions. The same mentions work in decisions, experiment entries, protocols and captures — every markdown body renders through one resolver (`core/rendering.py`) and the API returns a rendered `*_html` companion next to the source.
 - Templates: a literature note built from any paper with its highlights, a daily note seeded with this week's focus, meeting, experiment. Export any note with a formatted bibliography.
+- Slack and the critical chain: each open milestone knows how many days it can slip before it pushes something that waits for it (a chip at seven days or fewer), and the plan names the chain of dependencies that decides when it ends — heavier arrows on the roadmap, a line above the phases with its span and least slack.
 - Dependencies on the roadmap: arrows from each milestone to the ones that wait for it, hollow diamonds for waiting milestones, amber for date conflicts, and hovering a diamond lights its whole chain.
 - Dependency date conflicts: a milestone due on or before something it waits for is called out on the plan with a suggested date, and one click pushes every such date, blockers first.
 - Milestone dependencies: a milestone can wait for others (same project, no loops); blocked ones show a lock, sort after the ones that can be done now, and free themselves when their blockers complete.

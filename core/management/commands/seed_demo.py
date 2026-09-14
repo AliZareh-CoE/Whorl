@@ -141,12 +141,24 @@ class Command(BaseCommand):
             # #513: due before the ethics amendment it waits for — a date conflict to show
             due_date=today + datetime.timedelta(days=30),
         )
-        Milestone.objects.create(phase=writing, title="Pre-registered analysis complete")
-        Milestone.objects.create(phase=writing, title="Manuscript draft to co-authors")
+        prereg = Milestone.objects.create(
+            phase=writing,
+            title="Pre-registered analysis complete",
+            due_date=today + datetime.timedelta(days=90),
+        )
+        draft = Milestone.objects.create(
+            phase=writing,
+            title="Manuscript draft to co-authors",
+            due_date=today + datetime.timedelta(days=96),
+        )
         # #512: a dependency — the full sample waits on the ethics amendment
-        Milestone.objects.get(phase__project=project, title="Full sample collected").blocked_by.set(
+        sample = Milestone.objects.get(phase__project=project, title="Full sample collected")
+        sample.blocked_by.set(
             [Milestone.objects.get(phase__project=project, title="Ethics amendment approved")]
         )
+        # #515: the chain that decides the end — sample → pre-registered analysis → draft
+        prereg.blocked_by.set([sample])
+        draft.blocked_by.set([prereg])
 
         Task.objects.create(milestone=overdue, title="Email participant pool", done=True, order=1)
         Task.objects.create(

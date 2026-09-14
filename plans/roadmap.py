@@ -81,7 +81,14 @@ def project_roadmap(project: Project, today: date | None = None) -> dict:
 
 
 def _project_roadmap(project: Project, today: date) -> dict:
-    from .dependencies import blocked_map, blocker_ids, date_conflicts, dependency_edges
+    from .dependencies import (
+        blocked_map,
+        blocker_ids,
+        critical_chain,
+        date_conflicts,
+        dependency_edges,
+        slack_map,
+    )
 
     phases = list(project.phases.prefetch_related("milestones"))
     facts = dependency_edges(project)  # one query for #512's flags, #513's conflicts, #514's arrows
@@ -90,6 +97,8 @@ def _project_roadmap(project: Project, today: date) -> dict:
     open_ms = {m.pk: m for ph in phases for m in ph.milestones.all() if m.completed_at is None}
     open_blockers = {mid: [b for b in edges.get(mid, ()) if b in open_ms] for mid in open_ms}
     conflicts = {c["id"] for c in date_conflicts(project, open_ms, open_blockers)}
+    slack = slack_map(project, open_ms, open_blockers)  # #515
+    chain = critical_chain(project, open_ms, open_blockers)
     rows = []
     previous_end: date | None = None
     for phase in phases:
@@ -105,6 +114,7 @@ def _project_roadmap(project: Project, today: date) -> dict:
                 "blocked": bool(blocked.get(m.pk)) and m.completed_at is None,
                 "blocked_by": edges.get(m.pk, []),
                 "conflict": m.pk in conflicts,
+                "slack": slack.get(m.pk, {}).get("slack"),
             }
             for m in phase.milestones.all()
         ]
@@ -131,4 +141,5 @@ def _project_roadmap(project: Project, today: date) -> dict:
         "range_start": min(starts + [today]) if rows else today,
         "range_end": max(ends + [today]) if rows else today + timedelta(weeks=12),
         "phases": rows,
+        "critical_chain": chain,  # #515
     }

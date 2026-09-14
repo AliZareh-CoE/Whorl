@@ -594,9 +594,17 @@ class ProjectViewSet(AtlasViewSet):
     def plan(self, request, slug=None):
         project = self.get_object()
         phases = []
-        from plans.dependencies import blocked_map, date_conflicts
+        from plans.dependencies import (
+            blocked_map,
+            critical_chain,
+            date_conflicts,
+            due_graph,
+            slack_map,
+        )
 
         blocked = blocked_map(project)  # #512: open blockers per milestone, two queries
+        graph = due_graph(project)  # #513–#515 share one load of the open dated milestones
+        slack = slack_map(project, *graph)  # #515
         for phase in project.phases.prefetch_related(
             "milestones__tasks", "milestones__blocks", "questions"
         ):
@@ -626,6 +634,7 @@ class ProjectViewSet(AtlasViewSet):
                             "blocked_by": blocked.get(m.pk, []),
                             "blocked": bool(blocked.get(m.pk)) and m.completed_at is None,
                             "blocks": [b.pk for b in m.blocks.all()],
+                            "slack": slack.get(m.pk, {}).get("slack"),
                             "tasks": [
                                 {"id": t.pk, "title": t.title, "done": t.done}
                                 for t in m.tasks.all()
@@ -648,7 +657,9 @@ class ProjectViewSet(AtlasViewSet):
                 "project_color": project.color,
                 "phases": phases,
                 # #513: milestones due on or before an open blocker's due date, with a suggestion
-                "conflicts": date_conflicts(project),
+                "conflicts": date_conflicts(project, *graph),
+                # #515: the chain of dependencies that decides the plan's end, and its least slack
+                "critical_chain": critical_chain(project, *graph),
             }
         )
 
