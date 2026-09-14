@@ -874,6 +874,56 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #28 — 2026-09-14 (since #27: #489–#497 — the Dashboard's last five slices and its verdict, the Inbox's first four)
+
+Ten cycles, nine feature slices, one honest look.
+
+**Dependencies — CLEAN.** `pip-audit` on the exported lock: *No known vulnerabilities found*.
+`npm audit --omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`: every row green (anon → 401
+across the API, pages → 302, catch-all 404, static MIME, `/app//evil.com` stays on-origin).
+
+**New surfaces since #27 — reviewed; one finding, fixed.**
+- *Auth:* `dashboard/brief/`, `dashboard/day/`, `quick-capture/history/`, `…/snooze/` and
+  `…/bulk/` answer 401 anonymously and to a wrong key.
+- *Day activity (#492):* `?date=` — `2026-13-40`, `abc` → 400; blank → today; `0001-01-01` →
+  an empty day (bounded: the timeline pass is capped at `DAY_PROJECTS = 40` projects).
+- *Pulses and trends (#489, #490):* grouped `values_list` queries per source, never one
+  timeline per project; the dashboard budget test still pins ≤ 100 queries with three busy
+  projects (53 queries / 60 ms in-process on the demo today).
+- *Daily brief (#491):* markdown built from the same helpers as the dashboard; shown in a
+  `<pre>` and copied to the clipboard, never rendered as HTML — 47 queries / 52 ms.
+- *Project suggestion (#494):* the index is built once per request (serializer context), from
+  grouped `values_list` reads with reference titles capped at 2000; matched terms are shown
+  as plain text in a chip tooltip.
+- *Snooze (#495):* `until` — `2026-02-30`, `tomorrow; drop table` → 400 (the word list, else
+  `date.fromisoformat`); a past day → 400; `" Monday "` is accepted (trimmed, lower-cased); a
+  far-future date (`9999-12-31`) is accepted — the user's choice, no cost attached.
+- *History (#496):* `?limit=` — `0` → 1, `999999` → 200, `-3` / `1e3` → 400; the titles of
+  what captures became come from one query per kind (4 queries / 7 ms for 200 rows).
+- *Bulk triage (#497):* 250 ids are cut to 200; a string id or an unknown project is a 400
+  from the serializer; ids that are not untriaged captures are ignored and reported by
+  omission. Cost is per row — file 30 → 35 queries / 26 ms, snooze 60 → 64 / 42 ms, wake 60
+  → 4 / 4 ms; `todo` converts each capture (≈ 5 queries per row: 155 / 78 ms for 30), so the
+  200-row ceiling bounds the worst case at roughly half a second — accepted, it is the one
+  action that creates objects.
+- *FINDING — the capture list read the project once per row.* `GET /quick-capture/` with 61
+  open captures, half filed under a project: **36 queries / 54 ms** — the slug field and the
+  #496 `became` urls each touch `capture.project`. Fixed with `select_related("project")` on
+  the viewset (→ 6 queries); `test_api_inbox_list_budget` pins ≤ 12 queries for 40 captures.
+
+**Performance (warm, best of four, API key, demo data):** dashboard 83 ms · daily brief 73 ms
+· day activity 31 ms · project overview 90 ms · status update 62 ms · inbox (200) 29 ms ·
+inbox history 17 ms · references (50) 30 ms · plan 26 ms · search 64 ms · manuscripts 28 ms ·
+pre-flight 15 ms · weekly review 26 ms. Everything under the 100 ms bar.
+
+**Desktop CI — GREEN.** Runs 201–208 (0.1.201–0.1.208) all succeeded; 209 (#497) was in
+progress at audit time.
+
+**Product stance unchanged.** Single user, API key from the environment, no multi-tenancy;
+the risks accepted in #26 (user-supplied regex backtracking in project search) still stand.
+
+**Next audit due at #508.**
+
 ## Audit #27 — 2026-09-13 (since #26: #479–#487 — the Project overview's third pass and its verdict, the Dashboard's first two slices)
 
 Ten cycles, nine feature slices, one performance pass, one honest look.

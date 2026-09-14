@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Audit #28 (#498)
+
+**Decision.** The every-ten-cycles look: dependencies clean, every new endpoint since #488 gated and bounds-checked, hot endpoints under 100 ms. One finding fixed: the capture list read `capture.project` per row (36 queries for 61 captures); `select_related("project")` on the viewset and a pinned budget (`test_api_inbox_list_budget`, ≤ 12 for 40 rows). Accepted: bulk `todo` costs ≈ 5 queries per row under the 200-row ceiling; a far-future snooze date is allowed. Report in AUDITS.md › Audit #28. Next audit at #508.
+
+**Why.** The Inbox slices added five endpoints and three list-shaped payloads in four cycles; a list that scales with the number of filed captures is exactly the kind of drift the audits exist to catch before an inbox has hundreds of rows.
+
 ### 2026-09-14 — Inbox: batch triage (#497)
 
 **Decision.** The SPA inbox gets a selection: a checkbox per row, `space` on the highlighted row, `⌘A` for every open capture, `Esc` to clear; a sticky bar over the list ("n selected · all · none") offers File under [project], Today, Later… and Dismiss for the whole selection. One service, `bulk_triage(ids, action, project, until)` (actions file / dismiss / snooze / todo / wake, untriaged captures only, at most 200, ids actually changed returned), serves `POST /quick-capture/bulk/`, the classic `inbox_bulk` view and MCP `triage_captures` (115 tools). File, dismiss and snooze batches get the six-second undo (put back / wake by id).

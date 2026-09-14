@@ -1941,7 +1941,8 @@ class TodoItemViewSet(AtlasViewSet):
 
 
 class QuickCaptureViewSet(AtlasViewSet):
-    queryset = QuickCapture.objects.all()
+    # AUDIT #28: the project is read per row (slug field, #496 `became` urls) — join it once
+    queryset = QuickCapture.objects.select_related("project")
     serializer_class = serializers.QuickCaptureSerializer
     project_filter = "project__slug"
 

@@ -184,3 +184,26 @@ class TestApiBudgets:
             response = client_logged_in.get("/api/v1/references/?page_size=50")
         assert response.status_code == 200 and len(response.json()["results"]) == 40
         assert all(isinstance(r["tags"], list) for r in response.json()["results"])
+
+
+def test_api_inbox_list_budget(client, settings, django_user_model):
+    """AUDIT #28: the capture list must not grow with the number of filed captures — the
+    project used to be read once per row (36 queries for 61 captures, half filed)."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from notes.models import QuickCapture
+    from projects.tests.factories import ProjectFactory
+
+    settings.ATLAS_API_KEY = "k"
+    django_user_model.objects.create_superuser("atlas", "a@b.c", "atlas")
+    project = ProjectFactory()
+    for i in range(40):
+        QuickCapture.objects.create(text=f"capture {i}", project=project if i % 2 else None)
+    client.get("/api/v1/quick-capture/?page_size=100", HTTP_X_API_KEY="k", HTTP_HOST="127.0.0.1")
+    with CaptureQueriesContext(connection) as ctx:
+        r = client.get(
+            "/api/v1/quick-capture/?page_size=100", HTTP_X_API_KEY="k", HTTP_HOST="127.0.0.1"
+        )
+    assert r.status_code == 200 and len(r.json()["results"]) == 40
+    assert len(ctx) <= 12, len(ctx)
