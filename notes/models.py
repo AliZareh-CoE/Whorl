@@ -59,6 +59,12 @@ class QuickCapture(TimeStampedModel):
     )
     # #495: "not now" — hidden from the inbox and every untriaged count until this day
     snoozed_until = models.DateField(null=True, blank=True)
+    # #496: what the capture became when it was converted (reference / note / todo /
+    # milestone / decision + that object's id) and when it left the inbox, so "what happened
+    # to that thought?" has an answer
+    became_kind = models.CharField(max_length=20, blank=True)
+    became_id = models.PositiveIntegerField(null=True, blank=True)
+    triaged_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

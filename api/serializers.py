@@ -388,10 +388,30 @@ class QuickCaptureSerializer(RenderedBodyMixin, serializers.ModelSerializer):
             "processed",
             "project",
             "snoozed_until",
+            "became",
+            "triaged_at",
             "hint",
             "created_at",
             "updated_at",
         ]
+        read_only_fields = ["triaged_at"]
+
+    became = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.DictField(allow_null=True))
+    def get_became(self, obj):
+        """#496: {kind, id, app_url} when the capture was converted, else null."""
+        from notes.capture import became
+
+        return became(obj)
+
+    def update(self, instance, validated_data):
+        """Filing or dismissing stamps `triaged_at`; putting it back clears it (#496)."""
+        from django.utils import timezone
+
+        if "processed" in validated_data and validated_data["processed"] != instance.processed:
+            instance.triaged_at = timezone.now() if validated_data["processed"] else None
+        return super().update(instance, validated_data)
 
     @extend_schema_field(serializers.CharField())
     def get_text_html(self, obj):

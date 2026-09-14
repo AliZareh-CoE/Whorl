@@ -4,11 +4,13 @@
  *  API: /quick-capture/ (hint per item), /quick-capture/{id}/convert/, /quick-capture/{id}/snooze/;
  *  MCP list_inbox, convert_capture, snooze_capture.
  *  #495: "Later" parks a capture until tomorrow / Monday / next week / a date — it leaves the inbox
- *  and every untriaged count until that day, then comes back with a "back from snooze" chip. */
+ *  and every untriaged count until that day, then comes back with a "back from snooze" chip.
+ *  #496: "Recently triaged" answers "where did that thought go?" — each capture that left the
+ *  inbox shows what it became (a link), where it was filed, or that it was dismissed; Put back. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { BookOpen, Check, Clock, FileText, Flag, Inbox as InboxIcon, ListChecks, Scale, X } from "lucide-react";
+import { BookOpen, Check, Clock, FileText, Flag, History, Inbox as InboxIcon, ListChecks, Scale, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { promptDialog } from "../../components/Dialog";
 import { showUndo } from "../../components/UndoToast";
@@ -21,6 +23,8 @@ type Capture = { id: number; text: string; text_html: string; processed: boolean
 type Project = { name: string; slug: string; color: string };
 type Page<T> = { count: number; results: T[] };
 type Converted = { kind: string; id: number; title: string; app_url: string; created?: boolean };
+type HistoryRow = { id: number; text: string; project: string | null; project_name: string; outcome: "converted" | "filed" | "dismissed"; became: { kind: string; id: number; title: string; app_url: string; exists: boolean } | null; triaged_at: string };
+const KIND_LABEL: Record<string, string> = { reference: "Paper", note: "Note", todo: "Today", milestone: "Milestone", decision: "Decision" };
 
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
 const TARGETS: { key: Hint["suggested"]; label: string; icon: typeof BookOpen; needsProject: boolean; hint: string }[] = [
@@ -46,7 +50,7 @@ export default function Inbox() {
   const runFilter = searchParams.get("run");
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["inbox", runFilter], queryFn: () => api<Page<Capture>>(`/quick-capture/?page_size=200${runFilter ? `&run=${encodeURIComponent(runFilter)}` : ""}`) });
   const { data: projects } = useQuery({ queryKey: ["projects-brief"], queryFn: () => api<Page<Project>>("/projects/?page_size=100") });
-  const refresh = () => { queryClient.invalidateQueries({ queryKey: ["inbox"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["todos"] }); };
+  const refresh = () => { queryClient.invalidateQueries({ queryKey: ["inbox"] }); queryClient.invalidateQueries({ queryKey: ["inbox-history"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); queryClient.invalidateQueries({ queryKey: ["todos"] }); };
   const capture = useMutation({
     mutationFn: () => api("/quick-capture/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }),
     onSuccess: () => { setText(""); petReact("capture"); refresh(); },
@@ -185,6 +189,7 @@ function InboxBody({ open, sleeping, projectRows, text, setText, capture, conver
           )}
         </section>
       )}
+      {!runBanner && <RecentlyTriaged />}
       {toast && (
         <div role="status" className="fixed bottom-5 right-5 z-30 flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm shadow-lg dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100">
           <span className="max-w-md truncate">{toast.msg}</span>{toast.url && <Link to={toast.url} className="shrink-0 font-medium text-indigo-600 hover:underline dark:text-indigo-300">open →</Link>}
@@ -194,6 +199,45 @@ function InboxBody({ open, sleeping, projectRows, text, setText, capture, conver
   );
 }
 
+
+/* #496: the captures that left the inbox, newest first — what each became, with a link. */
+function RecentlyTriaged() {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const { data, isLoading } = useQuery({ queryKey: ["inbox-history"], queryFn: () => api<{ results: HistoryRow[] }>("/quick-capture/history/?limit=30"), enabled: open });
+  const putBack = useMutation({
+    mutationFn: (id: number) => api(`/quick-capture/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ processed: false }) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["inbox"] }); queryClient.invalidateQueries({ queryKey: ["inbox-history"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); },
+  });
+  const rows = data?.results ?? [];
+  return (
+    <section className="mt-8" data-testid="inbox-history">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-stone-400 hover:text-stone-600 dark:hover:text-stone-200" data-testid="history-toggle" aria-expanded={open}>
+        <History className="h-3.5 w-3.5" aria-hidden="true" />Recently triaged <span className="font-normal normal-case tracking-normal">{open ? "· hide" : "· where did it go?"}</span>
+      </button>
+      {open && (isLoading ? <Skeleton className="h-16 w-full" /> : rows.length === 0 ? (
+        <p className="text-xs text-stone-400">Nothing has left the inbox yet.</p>
+      ) : (
+        <ul className={`${panel} divide-y divide-stone-100 text-xs dark:divide-stone-800`}>
+          {rows.map((h) => (
+            <li key={h.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2" data-testid="history-row" data-outcome={h.outcome}>
+              <span className="min-w-0 flex-1 truncate text-stone-700 dark:text-stone-200" title={h.text}>{h.text}</span>
+              <span className="shrink-0 text-stone-400">{ago(h.triaged_at)}</span>
+              {h.outcome === "converted" && h.became && (h.became.exists ? (
+                <Link to={h.became.app_url} className="shrink-0 font-medium text-indigo-600 hover:underline dark:text-indigo-300" data-testid="history-link">→ {KIND_LABEL[h.became.kind] ?? h.became.kind} · <span className="font-normal">{h.became.title}</span></Link>
+              ) : (
+                <span className="shrink-0 text-stone-400" title="The object it became was deleted since">→ {KIND_LABEL[h.became.kind] ?? h.became.kind} (deleted)</span>
+              ))}
+              {h.outcome === "filed" && <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-emerald-700 dark:text-emerald-300">filed under {h.project_name || h.project}</span>}
+              {h.outcome === "dismissed" && <span className="shrink-0 rounded-full bg-stone-500/10 px-1.5 py-0.5 text-stone-500 dark:text-stone-400">dismissed</span>}
+              {h.outcome !== "converted" && <button type="button" disabled={putBack.isPending} onClick={() => putBack.mutate(h.id)} className="shrink-0 rounded-md border border-stone-200 px-1.5 py-0.5 text-stone-600 hover:border-indigo-300 disabled:opacity-40 dark:border-stone-700 dark:text-stone-300" data-testid="history-put-back">Put back</button>}
+            </li>
+          ))}
+        </ul>
+      ))}
+    </section>
+  );
+}
 
 function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismiss, onSnooze, onWake }: { c: Capture; i: number; active: boolean; onFocus: () => void; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void; onSnooze: (until: string) => void; onWake?: () => void }) {
   // #494: the project Atlas suggests from the capture's words wins over "the first project"

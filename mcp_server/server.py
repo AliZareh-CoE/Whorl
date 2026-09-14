@@ -815,6 +815,14 @@ def list_inbox(snoozed: bool = False) -> dict:
 
 
 @mcp.tool()
+def get_inbox_history(limit: int = 30) -> dict:
+    """ "Where did that thought go?" — the last captures that left the inbox, newest first,
+    each with its outcome: converted (with `became` — kind, id, title, app_url and whether the
+    object still exists), filed under a project, or dismissed; plus when (#496)."""
+    return client.get_inbox_history(limit)
+
+
+@mcp.tool()
 def snooze_capture(capture_id: int, until: str = "tomorrow") -> dict:
     """ "Not now": park a capture until `until` — tomorrow, monday, next-week, weekend or a
     YYYY-MM-DD after today. It leaves the inbox and every untriaged count and comes back on

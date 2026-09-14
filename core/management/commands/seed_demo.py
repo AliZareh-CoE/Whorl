@@ -459,6 +459,24 @@ class Command(BaseCommand):
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
         )
+        # #496: two captures that already left the inbox — one became the first note, one was
+        # dismissed — so "Recently triaged" has something to show
+        first_note = Note.objects.filter(project=project).order_by("id").first()
+        if first_note is not None:
+            QuickCapture.objects.get_or_create(
+                text="idea: write up the pilot lessons before they fade",
+                defaults={
+                    "processed": True,
+                    "project": project,
+                    "became_kind": "note",
+                    "became_id": first_note.pk,
+                    "triaged_at": timezone.now() - datetime.timedelta(days=2),
+                },
+            )
+        QuickCapture.objects.get_or_create(
+            text="Look into that eye-tracker discount",
+            defaults={"processed": True, "triaged_at": timezone.now() - datetime.timedelta(days=5)},
+        )
         # #495: one capture asleep until next Monday — the snoozed list has something to show
         QuickCapture.objects.get_or_create(
             text="Ask the ethics office about the extended participant pool",

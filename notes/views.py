@@ -149,11 +149,13 @@ def triage(request, pk):
     if action == "assign":
         capture.project = get_object_or_404(Project, slug=request.POST.get("project"))
         capture.processed = True
+        capture.triaged_at = timezone.now()
         capture.save()
         messages.success(request, f"Filed to {capture.project.name}.")
     elif action == "dismiss":
         capture.processed = True
-        capture.save(update_fields=["processed", "updated_at"])
+        capture.triaged_at = timezone.now()
+        capture.save(update_fields=["processed", "triaged_at", "updated_at"])
         messages.success(request, "Dismissed.")
     # the dashboard's attention lead triages inline (#157) — bounce back to it
     next_url = request.POST.get("next", "")
@@ -171,11 +173,13 @@ def inbox_bulk(request):
     if not count:
         messages.error(request, "Nothing selected.")
     elif action == "dismiss":
-        captures.update(processed=True, updated_at=timezone.now())
+        captures.update(processed=True, triaged_at=timezone.now(), updated_at=timezone.now())
         messages.success(request, f"Dismissed {count} item(s).")
     elif action == "assign":
         project = get_object_or_404(Project, slug=request.POST.get("project"))
-        captures.update(project=project, processed=True, updated_at=timezone.now())
+        captures.update(
+            project=project, processed=True, triaged_at=timezone.now(), updated_at=timezone.now()
+        )
         messages.success(request, f"Filed {count} item(s) to {project.name}.")
     else:
         messages.error(request, "Unknown bulk action.")

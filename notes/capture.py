@@ -11,6 +11,7 @@ import re
 from datetime import date, timedelta
 
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 DOI_RE = re.compile(r"\b(10\.\d{4,9}/[^\s\"<>]+)", re.IGNORECASE)
@@ -296,7 +297,115 @@ def convert(capture, target: str, project=None, *, phase=None, due: date | None 
             "app_url": f"/projects/{project.slug}/decisions",
         }
     capture.processed = True
+    capture.became_kind = result["kind"]
+    capture.became_id = result["id"]
+    capture.triaged_at = timezone.now()
     if project is not None:
         capture.project = project
-    capture.save(update_fields=["processed", "project", "updated_at"])
+    capture.save(
+        update_fields=[
+            "processed",
+            "became_kind",
+            "became_id",
+            "triaged_at",
+            "project",
+            "updated_at",
+        ]
+    )
     return result
+
+
+BECAME_KINDS = ("reference", "note", "todo", "milestone", "decision")
+HISTORY_LIMIT = 30
+
+
+def _became_url(kind: str, obj_id: int, slug: str | None) -> str:
+    if kind == "reference":
+        return f"/references/{obj_id}"
+    if kind == "todo":
+        return "/today"
+    if not slug:
+        return "/inbox"
+    if kind == "note":
+        return f"/projects/{slug}/notes/{obj_id}"
+    if kind == "milestone":
+        return f"/projects/{slug}/plan"
+    return f"/projects/{slug}/decisions?id={obj_id}"
+
+
+def became(capture) -> dict | None:
+    """#496: {kind, id, app_url} for a converted capture (no title — see triage_history for
+    the resolved objects), None for one that was filed or dismissed."""
+    if not capture.became_kind or capture.became_id is None:
+        return None
+    slug = capture.project.slug if capture.project_id else None
+    return {
+        "kind": capture.became_kind,
+        "id": capture.became_id,
+        "app_url": _became_url(capture.became_kind, capture.became_id, slug),
+    }
+
+
+def _resolve_became(captures) -> dict[tuple[str, int], str]:
+    """Titles of the objects a batch of captures became — one query per kind, not per row."""
+    from core.models import TodoItem
+    from literature.models import Reference
+    from notes.models import Note
+    from plans.models import Milestone
+    from projects.models import DecisionRecord
+
+    wanted: dict[str, set[int]] = {}
+    for c in captures:
+        if c.became_kind in BECAME_KINDS and c.became_id is not None:
+            wanted.setdefault(c.became_kind, set()).add(c.became_id)
+    models = {
+        "reference": (Reference, "title"),
+        "note": (Note, "title"),
+        "todo": (TodoItem, "text"),
+        "milestone": (Milestone, "title"),
+        "decision": (DecisionRecord, "title"),
+    }
+    titles: dict[tuple[str, int], str] = {}
+    for kind, ids in wanted.items():
+        model, field = models[kind]
+        for pk, title in model.objects.filter(pk__in=ids).values_list("pk", field):
+            titles[(kind, pk)] = title
+    return titles
+
+
+def triage_history(limit: int = HISTORY_LIMIT) -> list[dict]:
+    """#496: the last `limit` captures that left the inbox, newest first — each with its
+    outcome ("converted" with what it became and whether that object still exists, "filed"
+    under a project, or "dismissed")."""
+    from notes.models import QuickCapture
+
+    limit = max(1, min(int(limit), 200))
+    rows = list(
+        QuickCapture.objects.filter(processed=True)
+        .select_related("project")
+        .order_by(F("triaged_at").desc(nulls_last=True), "-updated_at", "-id")[:limit]
+    )
+    titles = _resolve_became(rows)
+    out = []
+    for c in rows:
+        made = became(c)
+        if made is not None:
+            key = (c.became_kind, c.became_id)
+            made["title"] = titles.get(key, "")
+            made["exists"] = key in titles
+            outcome = "converted"
+        else:
+            outcome = "filed" if c.project_id else "dismissed"
+        out.append(
+            {
+                "id": c.pk,
+                "text": c.text,
+                "project": c.project.slug if c.project_id else None,
+                "project_name": c.project.name if c.project_id else "",
+                "outcome": outcome,
+                "became": made,
+                "triaged_at": (c.triaged_at or c.updated_at).isoformat(),
+                "created_at": c.created_at.isoformat(),
+            }
+        )
+    return out

@@ -1963,6 +1963,34 @@ class QuickCaptureViewSet(AtlasViewSet):
         return queryset
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "limit", int, description="Rows to return, 1–200 (default 30).", required=False
+            )
+        ],
+        responses={
+            200: inline_serializer(
+                "CaptureHistory",
+                {
+                    "results": rf_serializers.ListField(child=rf_serializers.DictField()),
+                },
+            )
+        },
+        description="What happened to the captures that left the inbox (#496): newest first, "
+        "each with `outcome` — `converted` (with `became` {kind, id, title, app_url, exists}), "
+        '`filed` (under `project`) or `dismissed` — and when. Answers "where did that '
+        'thought go?".',
+    )
+    @action(detail=False, methods=["get"])
+    def history(self, request):
+        from notes.capture import triage_history
+
+        raw = request.query_params.get("limit", "30")
+        if not raw.isdigit():
+            return Response({"detail": "limit must be an integer"}, status=400)
+        return Response({"results": triage_history(int(raw))})
+
+    @extend_schema(
         request=serializers.SnoozeCaptureSerializer,
         responses={200: serializers.QuickCaptureSerializer},
         description="Snooze a capture (#495): it leaves the inbox and every untriaged count until "

@@ -742,6 +742,11 @@ def list_inbox(snoozed: bool = False):
     )
 
 
+def get_inbox_history(limit: int = 30):
+    """What the captures that left the inbox became (#496)."""
+    return _request("GET", "/quick-capture/history/", params={"limit": limit})
+
+
 def snooze_capture(capture_id: int, until: str = "tomorrow"):
     """Park a capture until tomorrow / monday / next-week / weekend / YYYY-MM-DD; "" wakes it."""
     return _request("POST", f"/quick-capture/{capture_id}/snooze/", json={"until": until})

@@ -1,5 +1,7 @@
 """Inbox v2 slice 1 — smart capture triage."""
 
+from pathlib import Path
+
 import pytest
 
 from core.models import TodoItem
@@ -216,3 +218,91 @@ def test_snoozed_captures_leave_the_untriaged_counts():
         text="asleep", snoozed_until=timezone.localdate() + timedelta(days=3)
     )
     assert [c.text for c in needs_attention()["inbox"]] == ["awake"]
+
+
+@pytest.mark.django_db
+def test_captures_remember_what_they_became(client, settings, django_user_model):
+    """#496: convert records the object, triage stamps the time, the history resolves titles
+    in batched lookups and flags objects that were deleted since."""
+    from django.utils import timezone
+
+    from notes.capture import became, triage_history
+
+    project = ProjectFactory(name="Attention", slug="attention")
+    PhaseFactory(project=project, name="Pilot", status="in_progress")
+    c_note = QuickCapture.objects.create(text="idea: Write up the pilot lessons")
+    c_ms = QuickCapture.objects.create(text="milestone: Freeze the design")
+    c_todo = QuickCapture.objects.create(text="todo: Email the pool")
+    c_dec = QuickCapture.objects.create(text="decision: Drop the third block")
+    c_filed = QuickCapture.objects.create(text="Filed under attention", project=project)
+    c_gone = QuickCapture.objects.create(text="Dismissed")
+    cap.convert(c_note, "note", project)
+    cap.convert(c_ms, "milestone", project)
+    cap.convert(c_todo, "todo", project)
+    cap.convert(c_dec, "decision", project)
+    for c in (c_filed, c_gone):
+        c.processed = True
+        c.triaged_at = timezone.now()
+        c.save()
+    c_note.refresh_from_db()
+    assert c_note.became_kind == "note" and c_note.became_id and c_note.triaged_at
+    assert became(c_note) == {
+        "kind": "note",
+        "id": c_note.became_id,
+        "app_url": f"/projects/attention/notes/{c_note.became_id}",
+    }
+    assert became(c_filed) is None and became(c_gone) is None
+    Milestone.objects.filter(pk=c_ms.became_id).delete()  # the object may vanish later
+
+    rows = {r["id"]: r for r in triage_history()}
+    assert rows[c_note.id]["outcome"] == "converted"
+    assert rows[c_note.id]["became"]["title"] == "Write up the pilot lessons"
+    assert rows[c_note.id]["became"]["exists"] is True
+    assert rows[c_ms.id]["became"]["exists"] is False and rows[c_ms.id]["became"]["title"] == ""
+    assert rows[c_todo.id]["became"]["app_url"] == "/today"
+    assert rows[c_dec.id]["became"]["app_url"].startswith("/projects/attention/decisions?id=")
+    assert rows[c_filed.id]["outcome"] == "filed" and rows[c_filed.id]["project"] == "attention"
+    assert rows[c_gone.id]["outcome"] == "dismissed" and rows[c_gone.id]["became"] is None
+    assert [r["id"] for r in triage_history(limit=2)] == sorted(rows)[-2:][::-1]
+
+    # API: the history action, its limit guard, `became` on the row, and PATCH stamping
+    settings.ATLAS_API_KEY = "k"
+    django_user_model.objects.create_superuser("atlas", "a@b.c", "atlas")
+    r = client.get(
+        "/api/v1/quick-capture/history/?limit=3", HTTP_X_API_KEY="k", HTTP_HOST="127.0.0.1"
+    )
+    assert r.status_code == 200 and len(r.json()["results"]) == 3
+    assert (
+        client.get(
+            "/api/v1/quick-capture/history/?limit=x", HTTP_X_API_KEY="k", HTTP_HOST="127.0.0.1"
+        ).status_code
+        == 400
+    )
+    r = client.get(f"/api/v1/quick-capture/{c_note.id}/", HTTP_X_API_KEY="k", HTTP_HOST="127.0.0.1")
+    assert r.json()["became"]["kind"] == "note" and r.json()["triaged_at"]
+    fresh = QuickCapture.objects.create(text="fresh")
+    r = client.patch(
+        f"/api/v1/quick-capture/{fresh.id}/",
+        {"processed": True},
+        content_type="application/json",
+        HTTP_X_API_KEY="k",
+        HTTP_HOST="127.0.0.1",
+    )
+    assert r.status_code == 200 and r.json()["triaged_at"] is not None
+    r = client.patch(
+        f"/api/v1/quick-capture/{fresh.id}/",
+        {"processed": False},
+        content_type="application/json",
+        HTTP_X_API_KEY="k",
+        HTTP_HOST="127.0.0.1",
+    )
+    assert r.json()["triaged_at"] is None
+    tsx = Path("frontend/src/app/pages/Inbox.tsx").read_text()
+    for needle in (
+        'data-testid="history-toggle"',
+        'data-testid="history-row"',
+        'data-testid="history-link"',
+        'data-testid="history-put-back"',
+        "/quick-capture/history/?limit=30",
+    ):
+        assert needle in tsx, needle

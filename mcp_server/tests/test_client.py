@@ -502,6 +502,8 @@ def test_inbox_client_calls(capture):
     assert "snoozed=false" in capture["url"]
     client.list_inbox(snoozed=True)
     assert "snoozed=true" in capture["url"]
+    client.get_inbox_history(12)
+    assert calls_url_has(capture, "/quick-capture/history/") and "limit=12" in capture["url"]
     client.snooze_capture(5, "monday")
     assert (
         capture["method"] == "POST"

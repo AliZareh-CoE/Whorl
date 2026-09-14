@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Inbox: captures remember what they became (#496)
+
+**Decision.** `QuickCapture` gains `became_kind` / `became_id` (set by `convert`) and `triaged_at` (set by convert, by filing or dismissing over the API, the classic views and the bulk view; cleared when a capture is put back). `became(capture)` returns {kind, id, app_url}; `triage_history(limit)` lists the last captures that left the inbox with their outcome — `converted` (title resolved in one query per kind, `exists` false when the object was deleted since), `filed` under a project, or `dismissed`. `GET /quick-capture/history/?limit=` serves it; the Inbox has a "Recently triaged · where did it go?" toggle with a link to what each capture became and *Put back* for filed/dismissed ones. MCP `get_inbox_history` (114 tools).
+
+**Why.** Undo (#440) covers six seconds; "what happened to that thought I captured last Tuesday?" needs a record. Every convert result was already returned to the caller and then forgotten — recording two fields makes it permanent and lets the history link straight to the note, paper, milestone, decision or to-do.
+
+**Alternatives.** A generic foreign key — rejected: five kinds with stable routes do not need contenttypes, and a plain kind + id survives the object being deleted (which the history reports rather than hides). Deleting the capture on convert — rejected: the capture is the provenance of the object. A separate `TriageEvent` log — rejected for now: one outcome per capture is the whole story; a re-triage after "put back" simply overwrites it.
+
 ### 2026-09-14 — Inbox: snooze a capture (#495)
 
 **Decision.** "Not now" is a first-class inbox verb: `QuickCapture.snoozed_until` (a date, notes 0005). A snoozed capture leaves the inbox and every untriaged count (dashboard attention lead and `inbox_count`, the daily brief through them, achievements' `captures_open`, the classic inbox, MCP `list_inbox`) until that day, then comes back with a "back from snooze" chip. `POST /quick-capture/{id}/snooze/ {until}` accepts `tomorrow`, `monday`, `next-week`, `weekend` or a `YYYY-MM-DD` after today; an empty `until` wakes it. `?snoozed=true|false` filters the list; the SPA shows the sleeping ones under a "n snoozed · next back Mon 21 Sep" toggle with a Wake button. Keys: `s` tomorrow, `w` next week. MCP `snooze_capture` (113 tools).

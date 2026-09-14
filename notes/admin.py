@@ -17,5 +17,5 @@ class NoteLinkAdmin(admin.ModelAdmin):
 
 @admin.register(QuickCapture)
 class QuickCaptureAdmin(admin.ModelAdmin):
-    list_display = ["__str__", "processed", "snoozed_until", "project", "created_at"]
+    list_display = ["__str__", "processed", "became_kind", "snoozed_until", "project", "created_at"]
     list_filter = ["processed", "project"]
