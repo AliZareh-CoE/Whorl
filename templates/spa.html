@@ -38,7 +38,7 @@
       function push(kind, msg) { if (errs.length < 12) errs.push(kind + ": " + msg); }
       window.addEventListener("error", function (e) {
         if (!e.message && e.target && e.target !== window) return; // a resource error: __atlasScriptFailed covers the script
-        var where = e.filename ? " @ " + String(e.filename).replace(location.origin, "") + ":" + e.lineno : "";
+        var where = e.filename ? " @ " + String(e.filename).replace(location.origin, "") + ":" + e.lineno + ":" + e.colno : "";
         push("error", (e.message || String(e.error || "")) + where);
       }, true);
       window.addEventListener("unhandledrejection", function (e) {

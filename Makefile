@@ -41,7 +41,7 @@ tectonic:
 	chmod +x $(TECTONIC)
 
 js:  ## build the React islands (Node only needed for island development)
-	cd frontend && npm install && node_modules/.bin/vite build
+	cd frontend && npm install && node_modules/.bin/vite build && node scripts/simplify-preload.mjs
 
 assets-check: css js  ## rebuild assets and fail if committed outputs are stale
 	git diff --exit-code static/css/app.css static/js || \
