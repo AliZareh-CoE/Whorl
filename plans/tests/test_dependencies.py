@@ -72,6 +72,13 @@ def test_upcoming_and_roadmap_sort_blocked_milestones_last():
         "Pilot": True,
         "Full sample": True,
     }
+    # #514: every edge for the arrows, and the date conflict (pilot is due before ethics)
+    by = {r["title"]: r for r in rows}
+    assert by["Pilot"]["blocked_by"] == [ethics.pk] and by["Full sample"]["blocked_by"] == [
+        ethics.pk,
+        pilot.pk,
+    ]
+    assert by["Pilot"]["conflict"] is True and by["Ethics"]["conflict"] is False
 
 
 def test_dependencies_over_the_api(owner):
@@ -128,3 +135,17 @@ def test_plan_page_shows_locks_and_the_drawer_edits_dependencies():
         "blocked_by: ids",
     ):
         assert needle in drawer, needle
+
+
+def test_roadmap_draws_the_dependency_arrows():
+    tsx = (
+        Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "pages" / "plan" / "Roadmap.tsx"
+    ).read_text()
+    for needle in (
+        'data-testid="dependency-arrows"',
+        'data-testid="dependency-arrow"',
+        "markerEnd",
+        "chain",
+        "conflict",
+    ):
+        assert needle in tsx, needle

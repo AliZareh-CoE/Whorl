@@ -81,12 +81,18 @@ def project_roadmap(project: Project, today: date | None = None) -> dict:
 
 
 def _project_roadmap(project: Project, today: date) -> dict:
-    from .dependencies import blocked_map
+    from .dependencies import blocked_map, blocker_ids, date_conflicts, dependency_edges
 
-    blocked = blocked_map(project)  # #512
+    phases = list(project.phases.prefetch_related("milestones"))
+    facts = dependency_edges(project)  # one query for #512's flags, #513's conflicts, #514's arrows
+    blocked = blocked_map(project, facts)
+    edges = blocker_ids(project, facts)
+    open_ms = {m.pk: m for ph in phases for m in ph.milestones.all() if m.completed_at is None}
+    open_blockers = {mid: [b for b in edges.get(mid, ()) if b in open_ms] for mid in open_ms}
+    conflicts = {c["id"] for c in date_conflicts(project, open_ms, open_blockers)}
     rows = []
     previous_end: date | None = None
-    for phase in project.phases.prefetch_related("milestones"):
+    for phase in phases:
         start, end, inferred = _phase_window(phase, previous_end, today)
         previous_end = end
         milestones = [
@@ -97,6 +103,8 @@ def _project_roadmap(project: Project, today: date) -> dict:
                 "done": bool(m.completed_at),
                 "overdue": m.is_overdue,
                 "blocked": bool(blocked.get(m.pk)) and m.completed_at is None,
+                "blocked_by": edges.get(m.pk, []),
+                "conflict": m.pk in conflicts,
             }
             for m in phase.milestones.all()
         ]

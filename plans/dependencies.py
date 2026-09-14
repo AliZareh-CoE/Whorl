@@ -70,18 +70,40 @@ def is_blocked(milestone: Milestone) -> bool:
     return bool(milestone.completed_at is None and open_blockers(milestone))
 
 
-def blocked_map(project) -> dict[int, list[dict]]:
-    """{milestone id: [{id, title} of its *open* blockers]} for a project, in two queries."""
-    rows = (
-        Milestone.blocked_by.through.objects.filter(
-            from_milestone__phase__project=project, to_milestone__completed_at__isnull=True
+def dependency_edges(project) -> list[tuple[int, int, str, bool]]:
+    """Every dependency of a project in one query: (dependant id, blocker id, blocker title,
+    blocker done) in a stable order — the input to every map below."""
+    return [
+        (source_id, target_id, title, done is not None)
+        for source_id, target_id, title, done in Milestone.blocked_by.through.objects.filter(
+            from_milestone__phase__project=project
         )
-        .order_by("to_milestone_id")  # a stable order for payloads and tests
-        .values_list("from_milestone_id", "to_milestone_id", "to_milestone__title")
-    )
+        .order_by("to_milestone_id")
+        .values_list(
+            "from_milestone_id",
+            "to_milestone_id",
+            "to_milestone__title",
+            "to_milestone__completed_at",
+        )
+    ]
+
+
+def blocked_map(project, edges=None) -> dict[int, list[dict]]:
+    """{milestone id: [{id, title} of its *open* blockers]} for a project (one query)."""
     out: dict[int, list[dict]] = defaultdict(list)
-    for source_id, target_id, title in rows:
-        out[source_id].append({"id": target_id, "title": title})
+    for source_id, target_id, title, done in dependency_edges(project) if edges is None else edges:
+        if not done:
+            out[source_id].append({"id": target_id, "title": title})
+    return out
+
+
+def blocker_ids(project, edges=None) -> dict[int, list[int]]:
+    """{milestone id: [every blocker id, done or not]} for a project — the roadmap's arrows."""
+    out: dict[int, list[int]] = defaultdict(list)
+    for source_id, target_id, _title, _done in (
+        dependency_edges(project) if edges is None else edges
+    ):
+        out[source_id].append(target_id)
     return out
 
 
@@ -135,10 +157,13 @@ def _ordered(milestones: dict, blockers: dict) -> list[int]:
     return out
 
 
-def date_conflicts(project) -> list[dict]:
+def date_conflicts(project, milestones=None, blockers=None) -> list[dict]:
     """Open milestones due on or before the latest due date of an open blocker, with the
-    day after that blocker as the suggestion. Blockers without a date cannot conflict."""
-    milestones, blockers = _due_graph(project)
+    day after that blocker as the suggestion. Blockers without a date cannot conflict.
+    `milestones` ({id: open Milestone}) and `blockers` ({id: [open blocker ids]}) may be
+    passed by a caller that already has them (the roadmap), else two queries fetch them."""
+    if milestones is None or blockers is None:
+        milestones, blockers = _due_graph(project)
     rows = []
     for mid in _ordered(milestones, blockers):
         m = milestones[mid]

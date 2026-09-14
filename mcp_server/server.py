@@ -560,7 +560,8 @@ def set_plan_outline(slug: str, markdown: str, dry_run: bool = False) -> dict:
 def get_roadmap(slug: str) -> dict:
     """The plan as a timeline: each phase's window (real or inferred from milestones), its
     milestones with due dates, a health state (behind / on_track / ahead / blocked / overdue /
-    upcoming / done) with a one-line reason, and a finish forecast from the completion pace."""
+    upcoming / done) with a one-line reason, and a finish forecast from the completion pace. Milestone rows carry `blocked`, `blocked_by` (ids) and `conflict` (#514).
+    """
     return client.get_roadmap(slug)
 
 

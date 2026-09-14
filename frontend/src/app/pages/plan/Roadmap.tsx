@@ -1,13 +1,15 @@
 /** Plan v2 slice 2 — the roadmap: phases as draggable bars on a time axis, milestones as
  *  diamonds you can slide to a new due date, a today line, and an honest health reading per
  *  phase (behind / on track / ahead / overdue …) with a finish forecast from the completion pace.
- *  Data: GET /projects/{slug}/roadmap/; edits go through PATCH /phases/{id}/ and /milestones/{id}/. */
+ *  Data: GET /projects/{slug}/roadmap/; edits go through PATCH /phases/{id}/ and /milestones/{id}/.
+ *  #514: dependencies are drawn as arrows between diamonds (blocker → dependant); a waiting
+ *  milestone is hollow, a date conflict amber; hovering a diamond lights its whole chain. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { Skeleton } from "../../../components/Skeleton";
 
-type MilestoneRow = { id: number; title: string; due_date: string | null; done: boolean; overdue: boolean };
+type MilestoneRow = { id: number; title: string; due_date: string | null; done: boolean; overdue: boolean; blocked?: boolean; blocked_by?: number[]; conflict?: boolean };
 type PhaseRow = { id: number; name: string; order: number; status: string; start: string; end: string; inferred: boolean; progress: number; milestones: MilestoneRow[]; state: string; label: string; forecast_end: string | null };
 type RoadmapData = { project: string; today: string; range_start: string; range_end: string; phases: PhaseRow[] };
 
@@ -49,6 +51,7 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
   const drag = useRef<Drag | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<string>("");
+  const [chainOf, setChainOf] = useState<number | null>(null); // #514: the hovered milestone's dependency chain
   const invalidate = () => { queryClient.invalidateQueries({ queryKey: ["roadmap", slug] }); onChanged(); };
   const savePhase = useMutation({
     mutationFn: ({ id, start, end }: { id: number; start: string; end: string }) => api(`/phases/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target_start: start, target_end: end }) }),
@@ -124,6 +127,27 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
   };
   const begin = (e: React.PointerEvent, d: Drag) => { e.preventDefault(); e.stopPropagation(); drag.current = d; document.body.style.cursor = d.kind === "move" || d.kind === "milestone" ? "grabbing" : "ew-resize"; };
 
+  // #514: diamond centres and dependency edges for the arrow overlay
+  const geometry = useMemo(() => {
+    if (!view || !range) return { centres: new Map<number, { x: number; y: number }>(), edges: [] as { from: number; to: number; conflict: boolean }[], up: new Map<number, number[]>(), down: new Map<number, number[]>() };
+    const centres = new Map<number, { x: number; y: number }>();
+    const up = new Map<number, number[]>(), down = new Map<number, number[]>();
+    view.phases.forEach((p, i) => p.milestones.forEach((m) => { if (m.due_date) centres.set(m.id, { x: (dayOf(m.due_date) - range.from) * PX_PER_DAY, y: 32 + i * ROW_H + 48 }); }));
+    const edges: { from: number; to: number; conflict: boolean }[] = [];
+    for (const p of view.phases) for (const m of p.milestones) for (const b of m.blocked_by ?? []) {
+      up.set(m.id, [...(up.get(m.id) ?? []), b]); down.set(b, [...(down.get(b) ?? []), m.id]);
+      if (centres.has(b) && centres.has(m.id)) edges.push({ from: b, to: m.id, conflict: !!m.conflict });
+    }
+    return { centres, edges, up, down };
+  }, [view, range]);
+  const chain = useMemo(() => {
+    if (chainOf == null) return null;
+    const ids = new Set<number>([chainOf]);
+    const walk = (start: number, next: Map<number, number[]>) => { const stack = [start]; while (stack.length) { const cur = stack.pop()!; for (const n of next.get(cur) ?? []) if (!ids.has(n)) { ids.add(n); stack.push(n); } } };
+    walk(chainOf, geometry.up); walk(chainOf, geometry.down);
+    return ids;
+  }, [chainOf, geometry]);
+
   if (isLoading || !view || !range) return <div className="space-y-3"><Skeleton className="h-8 w-full" />{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>;
   const months = monthStarts(range.from, range.to);
   const todayX = x(dayOf(view.today));
@@ -131,7 +155,7 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
   return (
     <div className="rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900" data-testid="roadmap">
       <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-2 text-[11px] text-stone-400 dark:border-stone-800">
-        <span>drag a bar to move it · drag its edges to resize · slide a ◆ to change a due date · focus + ←/→ nudges a day, Shift a week</span>
+        <span>drag a bar to move it · drag its edges to resize · slide a ◆ to change a due date · focus + ←/→ nudges a day, Shift a week · → waits for · dashed ◇ waiting · <span className="text-amber-600 dark:text-amber-300">◆</span> due before its blocker</span>
         <span className="ml-auto flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-sm bg-amber-500/75" />behind<span className="inline-block h-2 w-2 rounded-sm bg-red-500/75" />overdue<span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/70" />ahead / done<span className="inline-block h-2 w-3 rounded-sm border border-dashed border-stone-400" />suggested dates</span>
       </div>
       <div className="flex">
@@ -158,6 +182,24 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
             <div className="absolute top-0 h-full w-px" style={{ left: todayX, background: accent, boxShadow: `0 0 8px ${accent}` }} data-testid="today-line">
               <span className="absolute -left-4 top-[34px] rounded px-1 text-[9px] font-semibold uppercase tracking-wider text-white" style={{ background: accent }}>today</span>
             </div>
+            {/* #514: dependency arrows, blocker → dependant; under the diamonds */}
+            {geometry.edges.length > 0 && (
+              <svg className="pointer-events-none absolute inset-0" width={range.width} height={32 + ROW_H * view.phases.length} data-testid="dependency-arrows" aria-hidden="true">
+                <defs>
+                  {/* markers do not inherit the path's colour in every engine: one per colour */}
+                  <marker id="dep-arrow-indigo" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#818cf8" /></marker>
+                  <marker id="dep-arrow-amber" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#f59e0b" /></marker>
+                </defs>
+                {geometry.edges.map((e) => {
+                  const a = geometry.centres.get(e.from)!, b = geometry.centres.get(e.to)!;
+                  const lit = !chain || (chain.has(e.from) && chain.has(e.to));
+                  const dir = b.x >= a.x ? 1 : -1; // a conflict runs right-to-left: the blocker is due later
+                  const dx = Math.max(24, Math.abs(b.x - a.x) / 2) * dir;
+                  const d = `M${a.x + 7 * dir},${a.y} C${a.x + dx},${a.y} ${b.x - dx},${b.y} ${b.x - 9 * dir},${b.y}`;
+                  return <path key={`${e.from}-${e.to}`} d={d} fill="none" stroke={e.conflict ? "#f59e0b" : "#818cf8"} strokeWidth={lit && chain ? 2 : 1.25} markerEnd={e.conflict ? "url(#dep-arrow-amber)" : "url(#dep-arrow-indigo)"} className="transition-opacity" style={{ opacity: lit ? (e.conflict ? 0.95 : 0.7) : 0.15 }} data-testid="dependency-arrow" />;
+                })}
+              </svg>
+            )}
             {/* rows */}
             {view.phases.map((p, i) => {
               const s = dayOf(p.start), en = dayOf(p.end);
@@ -187,7 +229,8 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
                     <button
                       key={m.id} type="button" title={`${m.title} · due ${m.due_date}${m.done ? " · done" : m.overdue ? " · overdue" : ""}`} aria-label={`${m.title}, due ${m.due_date}`}
                       onPointerDown={(e) => begin(e, { kind: "milestone", id: m.id, phase: p.id, originX: e.clientX, day: dayOf(m.due_date as string) })} onKeyDown={(e) => onKey(e, p, m)}
-                      className={`absolute top-[42px] h-3 w-3 -translate-x-1/2 rotate-45 cursor-grab rounded-[2px] border transition-transform hover:scale-125 ${m.done ? "border-emerald-500 bg-emerald-500" : m.overdue ? "border-red-500 bg-red-500 shadow-[0_0_8px_rgb(239_68_68/.8)]" : "border-indigo-400 bg-white dark:bg-stone-900"}`}
+                      onMouseEnter={() => { setChainOf(m.id); setHover(`${m.title} · due ${m.due_date}${m.conflict ? " · due before a milestone it waits for" : m.blocked ? " · waiting on another milestone" : ""}`); }} onMouseLeave={() => { setChainOf(null); setHover(""); }}
+                      className={`absolute top-[42px] h-3 w-3 -translate-x-1/2 rotate-45 cursor-grab rounded-[2px] border transition-all hover:scale-125 ${chain && !chain.has(m.id) ? "opacity-25" : ""} ${m.done ? "border-emerald-500 bg-emerald-500" : m.conflict ? "border-amber-500 bg-amber-500 shadow-[0_0_8px_rgb(245_158_11/.6)]" : m.blocked ? "border-dashed border-indigo-400 bg-transparent dark:border-indigo-300" : m.overdue ? "border-red-500 bg-red-500 shadow-[0_0_8px_rgb(239_68_68/.8)]" : "border-indigo-400 bg-white dark:bg-stone-900"}`}
                       style={{ left: x(dayOf(m.due_date as string)) }} data-testid="milestone-diamond"
                     />
                   ))}
