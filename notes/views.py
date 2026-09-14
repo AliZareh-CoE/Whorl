@@ -9,6 +9,7 @@ from projects.models import Project
 from projects.views import ProjectScopedMixin
 
 from . import services
+from .capture import open_captures, snoozed_captures
 from .forms import NoteForm
 from .models import Note, QuickCapture
 
@@ -131,7 +132,8 @@ def inbox(request):
         request,
         "notes/inbox.html",
         {
-            "captures": QuickCapture.objects.filter(processed=False),
+            "captures": open_captures(),
+            "snoozed": snoozed_captures(),
             "processed_recent": QuickCapture.objects.filter(processed=True)[:10],
             "projects": Project.objects.exclude(status="archived"),
         },

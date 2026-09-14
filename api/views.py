@@ -2,7 +2,7 @@ import datetime
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -1953,7 +1953,35 @@ class QuickCaptureViewSet(AtlasViewSet):
         run = self.request.query_params.get("run")  # #423: what one bot run filed
         if run and run.isdigit():
             queryset = queryset.filter(bot_run_id=int(run))
+        snoozed = self.request.query_params.get("snoozed")  # #495: asleep past today, or not
+        if snoozed == "true":
+            queryset = queryset.filter(snoozed_until__gt=timezone.localdate())
+        elif snoozed == "false":
+            queryset = queryset.filter(
+                Q(snoozed_until__isnull=True) | Q(snoozed_until__lte=timezone.localdate())
+            )
         return queryset
+
+    @extend_schema(
+        request=serializers.SnoozeCaptureSerializer,
+        responses={200: serializers.QuickCaptureSerializer},
+        description="Snooze a capture (#495): it leaves the inbox and every untriaged count until "
+        "`until` — tomorrow, monday, next-week, weekend or YYYY-MM-DD (a day after today); an "
+        "empty `until` wakes it now. Snoozed captures list with `?snoozed=true`; "
+        "`?processed=false&snoozed=false` is exactly what the inbox shows.",
+    )
+    @action(detail=True, methods=["post"])
+    def snooze(self, request, pk=None):
+        from notes.capture import snooze
+
+        capture = self.get_object()
+        serializer = serializers.SnoozeCaptureSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            snooze(capture, serializer.validated_data.get("until", ""))
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(self.get_serializer(capture).data)
 
     @extend_schema(
         request=serializers.ConvertCaptureSerializer,

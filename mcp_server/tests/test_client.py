@@ -499,6 +499,15 @@ def test_dashboard_client_call(capture):
 def test_inbox_client_calls(capture):
     client.list_inbox()
     assert calls_url_has(capture, "/quick-capture/") and "processed=false" in capture["url"]
+    assert "snoozed=false" in capture["url"]
+    client.list_inbox(snoozed=True)
+    assert "snoozed=true" in capture["url"]
+    client.snooze_capture(5, "monday")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/quick-capture/5/snooze/")
+        and '"until":"monday"' in capture["body"]
+    )
     client.convert_capture(5, "milestone", project="deep", phase_id=3, due="2026-10-01")
     assert (
         capture["method"] == "POST"

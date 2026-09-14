@@ -732,9 +732,19 @@ def get_day_activity(date: str | None = None):
     return _request("GET", "/dashboard/day/", params={"date": date} if date else None)
 
 
-def list_inbox():
-    """Untriaged captures with detected hints (paper / note / todo / …)."""
-    return _request("GET", "/quick-capture/", params={"processed": "false", "page_size": 100})
+def list_inbox(snoozed: bool = False):
+    """Untriaged captures with detected hints (paper / note / todo / …); snoozed=True lists
+    the ones asleep instead (#495)."""
+    return _request(
+        "GET",
+        "/quick-capture/",
+        params={"processed": "false", "snoozed": "true" if snoozed else "false", "page_size": 100},
+    )
+
+
+def snooze_capture(capture_id: int, until: str = "tomorrow"):
+    """Park a capture until tomorrow / monday / next-week / weekend / YYYY-MM-DD; "" wakes it."""
+    return _request("POST", f"/quick-capture/{capture_id}/snooze/", json={"until": until})
 
 
 def convert_capture(

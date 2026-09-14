@@ -675,6 +675,7 @@ def gather_facts(
         Reference,
         SavedView,
     )
+    from notes.capture import open_captures
     from notes.models import Note, NoteLink, QuickCapture
     from plans.models import Milestone, Phase, ResearchQuestion
     from projects.models import DecisionRecord, Project
@@ -744,7 +745,7 @@ def gather_facts(
         "early_bird": any(5 <= h < 7 for h in hours),
         "weekend": any(d >= 5 for d in weekdays),
         "captures_done": QuickCapture.objects.filter(processed=True).count(),
-        "captures_open": QuickCapture.objects.filter(processed=False).count(),
+        "captures_open": open_captures().count(),
         "papers": Reference.objects.count(),
         "read": ProjectReference.objects.filter(reading_status__in=["read", "annotated"]).count(),
         "annotated": ProjectReference.objects.filter(reading_status="annotated").count(),

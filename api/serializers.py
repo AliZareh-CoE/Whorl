@@ -387,6 +387,7 @@ class QuickCaptureSerializer(RenderedBodyMixin, serializers.ModelSerializer):
             "text_html",
             "processed",
             "project",
+            "snoozed_until",
             "hint",
             "created_at",
             "updated_at",
@@ -417,6 +418,12 @@ class ConvertCaptureSerializer(serializers.Serializer):
     project = ProjectSlugField(required=False, allow_null=True)
     phase = serializers.IntegerField(required=False, allow_null=True)
     due = serializers.DateField(required=False, allow_null=True)
+
+
+class SnoozeCaptureSerializer(serializers.Serializer):
+    """#495: `until` is tomorrow / monday / next-week / weekend / YYYY-MM-DD; blank wakes it."""
+
+    until = serializers.CharField(required=False, allow_blank=True, default="")
 
 
 class TodoItemSerializer(serializers.ModelSerializer):

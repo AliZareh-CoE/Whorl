@@ -1,19 +1,23 @@
 /** Inbox v2 (Observatory): capture anything, triage it into a first-class object. Every row
  *  shows what Atlas detected (a DOI → paper, "todo:" → Today, "decision:" → decision log …) and
  *  converts in one click; filing to a project and dismissing stay one click too.
- *  API: /quick-capture/ (hint per item), /quick-capture/{id}/convert/; MCP list_inbox, convert_capture. */
+ *  API: /quick-capture/ (hint per item), /quick-capture/{id}/convert/, /quick-capture/{id}/snooze/;
+ *  MCP list_inbox, convert_capture, snooze_capture.
+ *  #495: "Later" parks a capture until tomorrow / Monday / next week / a date — it leaves the inbox
+ *  and every untriaged count until that day, then comes back with a "back from snooze" chip. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { BookOpen, Check, FileText, Flag, Inbox as InboxIcon, ListChecks, Scale, X } from "lucide-react";
+import { BookOpen, Check, Clock, FileText, Flag, Inbox as InboxIcon, ListChecks, Scale, X } from "lucide-react";
 import { api, petReact } from "../api";
+import { promptDialog } from "../../components/Dialog";
 import { showUndo } from "../../components/UndoToast";
 import { ErrorState } from "../../components/ErrorState";
 import { Prose } from "../../components/Prose";
 import { Skeleton } from "../../components/Skeleton";
 
 type Hint = { suggested: "paper" | "note" | "todo" | "milestone" | "decision"; doi: string; arxiv_id: string; url: string; title: string; project?: { slug: string; name: string; score: number; terms: string[] } | null };
-type Capture = { id: number; text: string; text_html: string; processed: boolean; project: string | null; hint: Hint; created_at: string };
+type Capture = { id: number; text: string; text_html: string; processed: boolean; project: string | null; snoozed_until: string | null; hint: Hint; created_at: string };
 type Project = { name: string; slug: string; color: string };
 type Page<T> = { count: number; results: T[] };
 type Converted = { kind: string; id: number; title: string; app_url: string; created?: boolean };
@@ -26,6 +30,10 @@ const TARGETS: { key: Hint["suggested"]; label: string; icon: typeof BookOpen; n
   { key: "milestone", label: "Milestone", icon: Flag, needsProject: true, hint: "Add a milestone to the project's current phase" },
   { key: "decision", label: "Decision", icon: Scale, needsProject: true, hint: "Record it in the project's decision log" },
 ];
+const SNOOZE_OPTIONS: { key: string; label: string }[] = [{ key: "tomorrow", label: "Tomorrow" }, { key: "monday", label: "Monday" }, { key: "next-week", label: "Next week" }, { key: "weekend", label: "Weekend" }];
+const todayISO = () => new Date().toLocaleDateString("sv"); // YYYY-MM-DD, local
+const isSleeping = (c: Capture) => Boolean(c.snoozed_until && c.snoozed_until > todayISO());
+const wakeDay = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 function ago(iso: string): string { const d = (Date.now() - new Date(iso).getTime()) / 60000; if (d < 1) return "just now"; if (d < 60) return `${Math.round(d)} min ago`; if (d < 1440) return `${Math.round(d / 60)} h ago`; return `${Math.round(d / 1440)} d ago`; }
 
 export default function Inbox() {
@@ -66,12 +74,27 @@ export default function Inbox() {
     onSuccess: (out) => { refresh(); if (out.kind === "reference") petReact("paper"); if (out.kind === "note") petReact("note"); flash(`${out.kind === "reference" ? (out.created ? "Added the paper" : "Paper already in the library") : out.kind === "todo" ? "On today's list" : `Created the ${out.kind}`}: ${out.title}`, out.app_url); },
     onError: (e) => { refresh(); flash(`Could not convert — ${(e as Error).message}`); },
   });
+  // #495: snooze = "not now"; the row leaves at once and the undo toast wakes it again
+  const snooze = useMutation({
+    mutationFn: ({ id, until }: { id: number; until: string }) => api<Capture>(`/quick-capture/${id}/snooze/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ until }) }),
+    onMutate: ({ id, until }) => {
+      const before = queryClient.getQueryData<Page<Capture>>(["inbox", runFilter])?.results.find((c) => c.id === id);
+      queryClient.setQueryData<Page<Capture>>(["inbox", runFilter], (old) => old ? { ...old, results: old.results.map((c) => (c.id === id ? { ...c, snoozed_until: until ? "9999-12-31" : null } : c)) } : old);
+      return { before };
+    },
+    onSuccess: (out, { id, until }, ctx) => {
+      if (until) showUndo(`Snoozed until ${out.snoozed_until ? wakeDay(out.snoozed_until) : "later"} — “${(ctx?.before?.text ?? "").slice(0, 50)}”`, async () => { await api(`/quick-capture/${id}/snooze/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ until: "" }) }); refresh(); });
+    },
+    onError: (e) => flash(`Could not snooze — ${(e as Error).message}`),
+    onSettled: refresh,
+  });
 
   if (isLoading) return <div className="mx-auto max-w-3xl"><Skeleton className="mb-4 h-8 w-40" /><Skeleton className="mb-6 h-24 w-full" /><Skeleton className="h-40 w-full" /></div>;
   if (error || !data) return <ErrorState message="Couldn't load the inbox." onRetry={() => refetch()} />;
   // in run mode everything the run filed is shown, triaged or not — that is the question asked
-  const open = runFilter ? data.results : data.results.filter((c) => !c.processed);
-  const stillOpen = data.results.filter((c) => !c.processed).length;
+  const open = runFilter ? data.results : data.results.filter((c) => !c.processed && !isSleeping(c));
+  const sleeping = runFilter ? [] : data.results.filter((c) => !c.processed && isSleeping(c));
+  const stillOpen = open.filter((c) => !c.processed).length;
   const runBanner = runFilter ? (
     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-800 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200" data-testid="inbox-run-filter">
       <span>Showing what one automation run filed — {data.results.length} capture{data.results.length === 1 ? "" : "s"}, {stillOpen} still open.</span>
@@ -79,7 +102,7 @@ export default function Inbox() {
     </div>
   ) : null;
   const projectRows = projects?.results ?? [];
-  return <InboxBody runBanner={runBanner} openCount={stillOpen} open={open} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} toast={toast} />;
+  return <InboxBody runBanner={runBanner} openCount={stillOpen} open={open} sleeping={sleeping} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} snooze={snooze} toast={toast} />;
 }
 
 /* Keyboard triage (Inbox v2 slice 2): j/k or arrows move the cursor, Enter takes the
@@ -87,9 +110,15 @@ export default function Inbox() {
    inbox without touching the mouse. Keys are ignored while typing in the capture box. */
 const KEY_TARGETS = ["paper", "todo", "note", "milestone", "decision"] as const;
 
-function InboxBody({ open, projectRows, text, setText, capture, convert, triage, toast, runBanner, openCount }: { runBanner?: ReactNode; openCount?: number; open: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
+function InboxBody({ open, sleeping, projectRows, text, setText, capture, convert, triage, snooze, toast, runBanner, openCount }: { runBanner?: ReactNode; openCount?: number; open: Capture[]; sleeping: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; snooze: { mutate: (v: { id: number; until: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
   const [cursor, setCursor] = useState(0);
   const [legend, setLegend] = useState(false);
+  const [showSleeping, setShowSleeping] = useState(false);
+  const snoozeUntil = async (id: number, until: string) => {
+    if (until !== "date") { snooze.mutate({ id, until }); return; }
+    const picked = await promptDialog({ title: "Snooze until", label: "Day it comes back (YYYY-MM-DD)", initial: todayISO(), validate: (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v.trim()) && v.trim() > todayISO() ? null : "A date after today, as YYYY-MM-DD") });
+    if (picked) snooze.mutate({ id, until: picked.trim() });
+  };
   const projectFor = (c: Capture) => c.project ?? projectRows[0]?.slug ?? undefined;
   useEffect(() => { if (cursor > open.length - 1) setCursor(Math.max(0, open.length - 1)); }, [open.length, cursor]);
   useEffect(() => {
@@ -105,6 +134,8 @@ function InboxBody({ open, projectRows, text, setText, capture, convert, triage,
       else if (/^[1-5]$/.test(e.key)) { const target = KEY_TARGETS[Number(e.key) - 1]; if (target === "paper" && !(c.hint.doi || c.hint.arxiv_id)) return; e.preventDefault(); convert.mutate({ id: c.id, target, project: projectFor(c) }); }
       else if (e.key === "x" || e.key === "Delete") { e.preventDefault(); triage.mutate({ id: c.id }); }
       else if (e.key === "f") { const p = projectFor(c); if (p) { e.preventDefault(); triage.mutate({ id: c.id, project: p }); } }
+      else if (e.key === "s") { e.preventDefault(); snooze.mutate({ id: c.id, until: "tomorrow" }); }
+      else if (e.key === "w") { e.preventDefault(); snooze.mutate({ id: c.id, until: "next-week" }); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -128,19 +159,31 @@ function InboxBody({ open, projectRows, text, setText, capture, convert, triage,
       {open.length > 0 && (
         <p className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-400" data-testid="inbox-legend">
           <button type="button" onClick={() => setLegend((v) => !v)} className="rounded border border-stone-200 px-1.5 font-mono dark:border-stone-700" title="Keyboard triage">?</button>
-          {legend ? <><span><kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> move</span><span><kbd className="font-mono">↵</kbd> suggested</span><span><kbd className="font-mono">1</kbd> paper · <kbd className="font-mono">2</kbd> today · <kbd className="font-mono">3</kbd> note · <kbd className="font-mono">4</kbd> milestone · <kbd className="font-mono">5</kbd> decision</span><span><kbd className="font-mono">f</kbd> file</span><span><kbd className="font-mono">x</kbd> dismiss</span></> : <span>keyboard triage: j/k · ↵ · 1–5 · x</span>}
+          {legend ? <><span><kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> move</span><span><kbd className="font-mono">↵</kbd> suggested</span><span><kbd className="font-mono">1</kbd> paper · <kbd className="font-mono">2</kbd> today · <kbd className="font-mono">3</kbd> note · <kbd className="font-mono">4</kbd> milestone · <kbd className="font-mono">5</kbd> decision</span><span><kbd className="font-mono">f</kbd> file</span><span><kbd className="font-mono">x</kbd> dismiss</span><span><kbd className="font-mono">s</kbd> tomorrow · <kbd className="font-mono">w</kbd> next week</span></> : <span>keyboard triage: j/k · ↵ · 1–5 · x · s</span>}
         </p>
       )}
       {open.length === 0 ? (
         <div className={`${panel} rise p-10 text-center`} style={{ ["--i" as string]: 1 }}>
           <InboxIcon className="mx-auto mb-2 h-7 w-7 text-indigo-400" aria-hidden="true" />
           <p className="font-medium text-stone-700 dark:text-stone-100">Inbox zero.</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-stone-400">Capture from anywhere with ⌘K, or from Claude with the quick_capture tool. Triage here when you have a minute.</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-stone-400">{sleeping.length > 0 ? `${sleeping.length} capture${sleeping.length === 1 ? " is" : "s are"} snoozed and will come back on ${sleeping.length === 1 ? "its" : "their"} day. ` : ""}Capture from anywhere with ⌘K, or from Claude with the quick_capture tool. Triage here when you have a minute.</p>
         </div>
       ) : (
         <ul className="space-y-2" data-testid="inbox-list">
-          {open.map((c, i) => <Row key={c.id} c={c} i={i} active={i === cursor} onFocus={() => setCursor(i)} projects={projectRows} busy={convert.isPending || triage.isPending} onConvert={(target, project) => convert.mutate({ id: c.id, target, project })} onFile={(project) => triage.mutate({ id: c.id, project })} onDismiss={() => triage.mutate({ id: c.id })} />)}
+          {open.map((c, i) => <Row key={c.id} c={c} i={i} active={i === cursor} onFocus={() => setCursor(i)} projects={projectRows} busy={convert.isPending || triage.isPending || snooze.isPending} onConvert={(target, project) => convert.mutate({ id: c.id, target, project })} onFile={(project) => triage.mutate({ id: c.id, project })} onDismiss={() => triage.mutate({ id: c.id })} onSnooze={(until) => snoozeUntil(c.id, until)} />)}
         </ul>
+      )}
+      {sleeping.length > 0 && (
+        <section className="mt-8" data-testid="inbox-snoozed">
+          <button type="button" onClick={() => setShowSleeping((v) => !v)} className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-stone-400 hover:text-stone-600 dark:hover:text-stone-200" data-testid="snoozed-toggle" aria-expanded={showSleeping}>
+            <Clock className="h-3.5 w-3.5" aria-hidden="true" />{sleeping.length} snoozed · next back {wakeDay(sleeping.map((c) => c.snoozed_until!).sort()[0])} <span className="font-normal normal-case tracking-normal">{showSleeping ? "· hide" : "· show"}</span>
+          </button>
+          {showSleeping && (
+            <ul className="space-y-2">
+              {sleeping.map((c, i) => <Row key={c.id} c={c} i={i} active={false} onFocus={() => undefined} projects={projectRows} busy={convert.isPending || triage.isPending || snooze.isPending} onConvert={(target, project) => convert.mutate({ id: c.id, target, project })} onFile={(project) => triage.mutate({ id: c.id, project })} onDismiss={() => triage.mutate({ id: c.id })} onSnooze={(until) => snoozeUntil(c.id, until)} onWake={() => snooze.mutate({ id: c.id, until: "" })} />)}
+            </ul>
+          )}
+        </section>
       )}
       {toast && (
         <div role="status" className="fixed bottom-5 right-5 z-30 flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm shadow-lg dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100">
@@ -152,9 +195,13 @@ function InboxBody({ open, projectRows, text, setText, capture, convert, triage,
 }
 
 
-function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismiss }: { c: Capture; i: number; active: boolean; onFocus: () => void; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void }) {
+function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismiss, onSnooze, onWake }: { c: Capture; i: number; active: boolean; onFocus: () => void; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void; onSnooze: (until: string) => void; onWake?: () => void }) {
   // #494: the project Atlas suggests from the capture's words wins over "the first project"
   const [project, setProject] = useState(c.project ?? c.hint.project?.slug ?? projects[0]?.slug ?? "");
+  const [later, setLater] = useState(false);
+  useEffect(() => { if (!later) return; const close = () => setLater(false); document.addEventListener("click", close); return () => document.removeEventListener("click", close); }, [later]);
+  const sleeping = isSleeping(c);
+  const wokeToday = Boolean(c.snoozed_until) && !sleeping && !c.processed;
   useEffect(() => { if (!project && projects[0]) setProject(projects[0].slug); }, [projects, project]);
   const suggested = TARGETS.find((t) => t.key === c.hint.suggested)!;
   const chips: string[] = [];
@@ -162,12 +209,14 @@ function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismi
   if (c.hint.arxiv_id) chips.push(`arXiv ${c.hint.arxiv_id}`);
   if (c.hint.url && !c.hint.doi) chips.push("link");
   return (
-    <li className={`${panel} rise p-3 transition-shadow ${active ? "ring-2 ring-indigo-500/60" : ""}`} style={{ ["--i" as string]: i + 1 }} data-testid="inbox-row" data-active={active ? "1" : undefined} onMouseEnter={onFocus}>
+    <li className={`${panel} rise p-3 transition-shadow ${active ? "ring-2 ring-indigo-500/60" : ""} ${later ? "relative z-30" : ""}`} style={{ ["--i" as string]: i + 1 }} data-testid="inbox-row" data-active={active ? "1" : undefined} onMouseEnter={onFocus}>
       {/* #407: [[note]] and @cite-key mentions in a capture are links */}
       <Prose html={c.text_html} className="break-words text-sm text-stone-800 dark:text-stone-100" testId="capture-text" />
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="text-stone-400">{ago(c.created_at)}</span>
         {c.processed && <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-emerald-700 dark:text-emerald-300" title="Already triaged">filed</span>}
+        {sleeping && <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-300" data-testid="snoozed-chip">back {wakeDay(c.snoozed_until!)}</span>}
+        {wokeToday && <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-300" title={`Snoozed until ${wakeDay(c.snoozed_until!)}`} data-testid="woke-chip">back from snooze</span>}
         {chips.map((ch) => <span key={ch} className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-mono text-indigo-700 dark:text-indigo-200">{ch}</span>)}
         {c.hint.project && !c.project && project === c.hint.project.slug && <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-emerald-700 dark:text-emerald-300" title={`Suggested from ${c.hint.project.terms.join(", ")}`} data-testid="suggested-project">suggested · {c.hint.project.name}</span>}
         <span className="ml-auto flex flex-wrap items-center gap-1">
@@ -180,6 +229,19 @@ function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismi
             </button>
           ))}
           <button type="button" disabled={busy || !project} onClick={() => onFile(project)} title="Keep it as a capture, filed under the project" className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-0.5 text-stone-600 hover:border-indigo-300 disabled:opacity-40 dark:border-stone-700 dark:text-stone-300"><Check className="h-3 w-3" aria-hidden="true" />File</button>
+          {sleeping && onWake ? (
+            <button type="button" disabled={busy} onClick={onWake} title="Back to the inbox now" className="inline-flex items-center gap-1 rounded-md border border-amber-300/60 px-2 py-0.5 text-amber-700 hover:border-amber-400 disabled:opacity-40 dark:text-amber-300" data-testid="wake"><Clock className="h-3 w-3" aria-hidden="true" />Wake</button>
+          ) : (
+            <span className="relative">
+              <button type="button" disabled={busy} onClick={(e) => { e.stopPropagation(); setLater((v) => !v); }} title="Not now — hide it until a day you pick (s = tomorrow, w = next week)" className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-0.5 text-stone-600 hover:border-indigo-300 disabled:opacity-40 dark:border-stone-700 dark:text-stone-300" data-testid="snooze-menu" aria-expanded={later}><Clock className="h-3 w-3" aria-hidden="true" />Later</button>
+              {later && (
+                <span className="absolute right-0 top-full z-20 mt-1 flex w-36 flex-col rounded-lg border border-stone-200 bg-white p-1 text-left shadow-lg dark:border-stone-700 dark:bg-stone-900" role="menu" data-testid="snooze-options">
+                  {SNOOZE_OPTIONS.map((o) => <button key={o.key} type="button" role="menuitem" onClick={() => { setLater(false); onSnooze(o.key); }} className="rounded px-2 py-1 text-left text-xs text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800" data-testid={`snooze-${o.key}`}>{o.label}</button>)}
+                  <button type="button" role="menuitem" onClick={() => { setLater(false); onSnooze("date"); }} className="rounded px-2 py-1 text-left text-xs text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800" data-testid="snooze-date">Pick a date…</button>
+                </span>
+              )}
+            </span>
+          )}
           <button type="button" disabled={busy} onClick={onDismiss} title="Dismiss" className="rounded-md px-1.5 py-0.5 text-stone-400 hover:text-red-500" aria-label="Dismiss"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>
         </span>
       </div>

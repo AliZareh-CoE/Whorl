@@ -57,6 +57,8 @@ class QuickCapture(TimeStampedModel):
     bot_run = models.ForeignKey(
         "bots.BotRun", on_delete=models.SET_NULL, null=True, blank=True, related_name="captures"
     )
+    # #495: "not now" — hidden from the inbox and every untriaged count until this day
+    snoozed_until = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

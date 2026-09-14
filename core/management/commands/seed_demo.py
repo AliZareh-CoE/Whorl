@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from documents.models import Document, Folder, Tag
 from literature.models import CitationEdge, ProjectReference, Reference, ReviewMark, ReviewTheme
+from notes.capture import snooze_date
 from notes.models import Note, QuickCapture
 from notes.services import sync_note_links
 from plans.models import Milestone, Phase, ResearchQuestion, Task
@@ -457,6 +458,11 @@ class Command(BaseCommand):
             TodoItem.objects.get_or_create(text=text, defaults={"position": i, "project": project})
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
+        )
+        # #495: one capture asleep until next Monday — the snoozed list has something to show
+        QuickCapture.objects.get_or_create(
+            text="Ask the ethics office about the extended participant pool",
+            defaults={"snoozed_until": snooze_date("monday")},
         )
 
         # Literature review matrix: themes × papers with a few marks

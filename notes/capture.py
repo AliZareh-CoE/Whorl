@@ -8,7 +8,7 @@ first-class object in one call and marks it processed.
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, timedelta
 
 from django.db import transaction
 from django.utils import timezone
@@ -48,6 +48,69 @@ def detect(text: str) -> dict:
         "url": url.group(0).rstrip(".,;)") if url else "",
         "title": _title(text),
     }
+
+
+SNOOZE_KEYWORDS = ("tomorrow", "monday", "next-week", "weekend")
+
+
+def snooze_date(until: str | date | None, today: date | None = None) -> date | None:
+    """#495: turn "tomorrow" / "monday" / "next-week" / "weekend" / an ISO date into the day
+    the capture comes back; "" or None clears the snooze. Raises ValueError on anything else
+    or on a day that is not in the future."""
+    today = today or timezone.localdate()
+    if until is None or until == "":
+        return None
+    if isinstance(until, date):
+        day = until
+    else:
+        key = until.strip().lower().replace(" ", "-").replace("_", "-")
+        if key == "tomorrow":
+            day = today + timedelta(days=1)
+        elif key in ("monday", "next-monday"):
+            day = today + timedelta(days=(7 - today.weekday()) % 7 or 7)
+        elif key == "next-week":
+            day = today + timedelta(days=7)
+        elif key in ("weekend", "saturday"):
+            day = today + timedelta(days=(5 - today.weekday()) % 7 or 7)
+        else:
+            try:
+                day = date.fromisoformat(key)
+            except ValueError:
+                raise ValueError(
+                    "until must be tomorrow, monday, next-week, weekend or YYYY-MM-DD"
+                ) from None
+    if day <= today:
+        raise ValueError("a snooze ends on a day after today")
+    return day
+
+
+def snooze(capture, until: str | date | None, today: date | None = None):
+    """Park the capture until `until` (see snooze_date); "" wakes it. Returns the capture."""
+    capture.snoozed_until = snooze_date(until, today)
+    capture.save(update_fields=["snoozed_until", "updated_at"])
+    return capture
+
+
+def open_captures(queryset=None, today: date | None = None):
+    """Untriaged captures that are due now: not processed and not snoozed past today."""
+    from django.db.models import Q
+
+    from notes.models import QuickCapture
+
+    today = today or timezone.localdate()
+    queryset = QuickCapture.objects.all() if queryset is None else queryset
+    return queryset.filter(processed=False).filter(
+        Q(snoozed_until__isnull=True) | Q(snoozed_until__lte=today)
+    )
+
+
+def snoozed_captures(queryset=None, today: date | None = None):
+    """Untriaged captures still asleep (snoozed past today), soonest first."""
+    from notes.models import QuickCapture
+
+    today = today or timezone.localdate()
+    queryset = QuickCapture.objects.all() if queryset is None else queryset
+    return queryset.filter(processed=False, snoozed_until__gt=today).order_by("snoozed_until")
 
 
 MIN_SUGGEST_SCORE = 2  # #494: two matching terms (or one from the project's own name)

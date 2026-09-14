@@ -61,6 +61,15 @@
   </div>
 {% endif %}
 
+{% if snoozed %}
+  <h2 class="mb-2 mt-10 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Snoozed</h2>
+  <ul class="max-w-2xl space-y-1 text-sm text-stone-400 dark:text-stone-400">
+    {% for capture in snoozed %}
+      <li>{{ capture.text|truncatechars:80 }} — back {{ capture.snoozed_until|date:"D j M" }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
 {% if processed_recent %}
   <h2 class="mb-2 mt-10 text-sm font-medium uppercase tracking-wide text-stone-400 dark:text-stone-400">Recently processed</h2>
   <ul class="max-w-2xl space-y-1 text-sm text-stone-400 dark:text-stone-400">

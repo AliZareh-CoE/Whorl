@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Inbox: snooze a capture (#495)
+
+**Decision.** "Not now" is a first-class inbox verb: `QuickCapture.snoozed_until` (a date, notes 0005). A snoozed capture leaves the inbox and every untriaged count (dashboard attention lead and `inbox_count`, the daily brief through them, achievements' `captures_open`, the classic inbox, MCP `list_inbox`) until that day, then comes back with a "back from snooze" chip. `POST /quick-capture/{id}/snooze/ {until}` accepts `tomorrow`, `monday`, `next-week`, `weekend` or a `YYYY-MM-DD` after today; an empty `until` wakes it. `?snoozed=true|false` filters the list; the SPA shows the sleeping ones under a "n snoozed · next back Mon 21 Sep" toggle with a Wake button. Keys: `s` tomorrow, `w` next week. MCP `snooze_capture` (113 tools).
+
+**Why.** Every inbox people actually keep at zero (Gmail, Things, Todoist) has snooze; without it a capture that is not actionable today is either dismissed (lost) or left to rot (the count never reaches zero and stops meaning anything).
+
+**Alternatives.** A datetime with a time of day — rejected: captures are day-granular ("Monday"), and a date compares cleanly against `localdate()` with no timezone edge. Storing the keyword and resolving it later — rejected: the resolved day is what the user was shown. Reusing `processed=True` with a wake job — rejected: it would corrupt "done" counts and need a scheduler; a filter is enough because the row wakes itself the moment today reaches the date.
+
 ### 2026-09-13 — Inbox: Atlas suggests the project (#494)
 
 **Decision.** `notes/capture.py::project_index()` builds one term set per planning/active project — its name (weighted three), description, phase names, research questions, note titles, decision titles, paper titles and tags — with one grouped query per source; `suggest_project(text, index)` scores a capture's words against each set and names the winner when it has at least two points and no tie. The capture serializer adds `hint.project` (slug, name, score, matching terms), building the index once per request; the Inbox row preselects the suggested project (a filed capture keeps its own) and shows a "suggested · Project" chip whose tooltip lists the terms that matched. MCP `list_inbox` carries it.

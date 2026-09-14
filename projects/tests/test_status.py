@@ -21,7 +21,9 @@ def _project():
     MilestoneFactory(
         phase=phase,
         title="Paradigm built",
-        completed_at=timezone.now() - datetime.timedelta(days=2),
+        completed_at=timezone.make_aware(
+            datetime.datetime.combine(TODAY - datetime.timedelta(days=2), datetime.time(12))
+        ),
     )
     MilestoneFactory(
         phase=phase, title="Data collected", due_date=TODAY - datetime.timedelta(days=4)
@@ -72,7 +74,8 @@ def test_status_update_api(client_logged_in):
     r = client_logged_in.get(f"/api/v1/projects/{project.slug}/status-update/?days=14")
     assert r.status_code == 200
     body = r.json()
-    assert body["days"] == 14 and body["markdown"].startswith("# Attention — status, 2026-08-30")
+    since = (timezone.localdate() - datetime.timedelta(days=14)).isoformat()
+    assert body["days"] == 14 and body["markdown"].startswith(f"# Attention — status, {since}")
     assert (
         client_logged_in.get(f"/api/v1/projects/{project.slug}/status-update/?days=x").status_code
         == 400

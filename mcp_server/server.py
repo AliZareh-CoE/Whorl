@@ -805,11 +805,21 @@ def get_day_activity(date: str = "") -> dict:
 
 
 @mcp.tool()
-def list_inbox() -> dict:
+def list_inbox(snoozed: bool = False) -> dict:
     """Captures waiting for triage, each with a `hint` (suggested target, any DOI / arXiv id /
     URL found in the text, and since #494 `project` — the active project whose vocabulary the
-    capture shares most, with the matching terms, or null)."""
-    return client.list_inbox()
+    capture shares most, with the matching terms, or null). Snoozed captures (#495) are left
+    out until their day comes; pass snoozed=True to list the sleeping ones with their
+    `snoozed_until`."""
+    return client.list_inbox(snoozed)
+
+
+@mcp.tool()
+def snooze_capture(capture_id: int, until: str = "tomorrow") -> dict:
+    """ "Not now": park a capture until `until` — tomorrow, monday, next-week, weekend or a
+    YYYY-MM-DD after today. It leaves the inbox and every untriaged count and comes back on
+    that day; an empty `until` wakes it immediately (#495)."""
+    return client.snooze_capture(capture_id, until)
 
 
 @mcp.tool()

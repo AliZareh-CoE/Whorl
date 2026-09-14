@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from documents.models import Document
 from literature.models import ProjectReference, Reference
+from notes.capture import open_captures
 from notes.models import Note, QuickCapture
 from plans.models import Milestone
 from plans.selectors import current_phase, project_progress
@@ -307,7 +308,7 @@ def needs_attention(today=None, window_days=14):
         .select_related("project")
         .order_by("deadline")
     )
-    inbox = list(QuickCapture.objects.filter(processed=False).order_by("created_at")[:5])
+    inbox = list(open_captures().order_by("created_at")[:5])  # #495: snoozed ones sleep
     return {
         "overdue": overdue,
         "deadlines": deadlines,
@@ -502,7 +503,7 @@ def dashboard_context():
         "deadlines": upcoming_deadlines(),
         "heatmap": activity_heatmap(),
         "stats": monthly_stats(),
-        "inbox_count": QuickCapture.objects.filter(processed=False).count(),
+        "inbox_count": open_captures().count(),
     }
 
 

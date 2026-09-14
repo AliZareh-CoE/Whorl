@@ -134,3 +134,85 @@ def test_suggest_project_from_the_capture_words(client, settings, django_user_mo
     tsx = Path("frontend/src/app/pages/Inbox.tsx").read_text()
     for needle in ('data-testid="suggested-project"', "c.hint.project?.slug"):
         assert needle in tsx, needle
+
+
+@pytest.mark.django_db
+def test_snooze_parses_keywords_and_hides_the_capture_until_its_day(
+    client, settings, django_user_model
+):
+    from datetime import date
+
+    from notes.capture import open_captures, snooze, snooze_date, snoozed_captures
+
+    wed = date(2026, 9, 16)  # a Wednesday
+    assert snooze_date("tomorrow", wed) == date(2026, 9, 17)
+    assert snooze_date("monday", wed) == date(2026, 9, 21)
+    assert snooze_date("next-week", wed) == date(2026, 9, 23)
+    assert snooze_date("weekend", wed) == date(2026, 9, 19)
+    assert snooze_date("2026-10-01", wed) == date(2026, 10, 1)
+    assert snooze_date("", wed) is None and snooze_date(None, wed) is None
+    assert snooze_date("monday", date(2026, 9, 14)) == date(2026, 9, 21)  # on a Monday: next one
+    with pytest.raises(ValueError):
+        snooze_date("someday", wed)
+    with pytest.raises(ValueError):
+        snooze_date("2026-09-16", wed)  # not after today
+
+    c = QuickCapture.objects.create(text="Ask the ethics office")
+    snooze(c, "next-week", wed)
+    assert c.snoozed_until == date(2026, 9, 23)
+    assert list(open_captures(today=wed)) == []
+    assert list(snoozed_captures(today=wed)) == [c]
+    assert list(open_captures(today=date(2026, 9, 23))) == [c]  # its day: back in the inbox
+    snooze(c, "", wed)
+    assert c.snoozed_until is None and list(open_captures(today=wed)) == [c]
+
+    # API: the action, its validation, and the filters the inbox uses
+    settings.ATLAS_API_KEY = "k"
+    django_user_model.objects.create_superuser("atlas", "a@b.c", "atlas")
+    r = client.post(
+        f"/api/v1/quick-capture/{c.id}/snooze/",
+        {"until": "tomorrow"},
+        content_type="application/json",
+        HTTP_X_API_KEY="k",
+        HTTP_HOST="127.0.0.1",
+    )
+    assert r.status_code == 200 and r.json()["snoozed_until"] is not None
+    r = client.get(
+        "/api/v1/quick-capture/?processed=false&snoozed=false",
+        HTTP_X_API_KEY="k",
+        HTTP_HOST="127.0.0.1",
+    )
+    assert c.id not in [row["id"] for row in r.json()["results"]]
+    r = client.get("/api/v1/quick-capture/?snoozed=true", HTTP_X_API_KEY="k", HTTP_HOST="127.0.0.1")
+    assert [row["id"] for row in r.json()["results"]] == [c.id]
+    r = client.post(
+        f"/api/v1/quick-capture/{c.id}/snooze/",
+        {"until": "someday"},
+        content_type="application/json",
+        HTTP_X_API_KEY="k",
+        HTTP_HOST="127.0.0.1",
+    )
+    assert r.status_code == 400 and "until" in r.json()["detail"]
+    r = client.post(
+        f"/api/v1/quick-capture/{c.id}/snooze/",
+        {"until": ""},
+        content_type="application/json",
+        HTTP_X_API_KEY="k",
+        HTTP_HOST="127.0.0.1",
+    )
+    assert r.status_code == 200 and r.json()["snoozed_until"] is None
+
+
+@pytest.mark.django_db
+def test_snoozed_captures_leave_the_untriaged_counts():
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from core.dashboard import needs_attention
+
+    QuickCapture.objects.create(text="awake")
+    QuickCapture.objects.create(
+        text="asleep", snoozed_until=timezone.localdate() + timedelta(days=3)
+    )
+    assert [c.text for c in needs_attention()["inbox"]] == ["awake"]
