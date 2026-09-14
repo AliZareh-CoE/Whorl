@@ -15,9 +15,10 @@ def project_graph(project: Project) -> dict:
     references = list(
         Reference.objects.filter(project_links__project=project).prefetch_related("project_links")
     )
-    status_by_ref = {
-        link.reference_id: link.reading_status for link in project.project_references.all()
-    }
+    status_by_ref, added_by_ref = {}, {}
+    for link in project.project_references.all():
+        status_by_ref[link.reference_id] = link.reading_status
+        added_by_ref[link.reference_id] = link.created_at.date().isoformat()  # #506
     highlight_counts = Counter(
         Highlight.objects.filter(reference__in=[r.pk for r in references]).values_list(
             "reference_id", flat=True
@@ -44,6 +45,7 @@ def project_graph(project: Project) -> dict:
                 "has_pdf": bool(ref.pdf),
                 "highlights": highlight_counts.get(ref.pk, 0),
                 "app_url": f"/references/{ref.pk}",
+                "created_at": added_by_ref.get(ref.pk),  # the day it was filed here
             }
         )
 
@@ -63,6 +65,8 @@ def project_graph(project: Project) -> dict:
                 "url": note.get_absolute_url(),
                 "words": words,
                 "updated_at": note.updated_at.date().isoformat(),
+                "created_at": note.created_at.date().isoformat(),  # #506
+                "tags": list(note.tags or []),  # #506
                 "app_url": f"/projects/{project.slug}/notes/{note.pk}",
             }
         )
@@ -101,10 +105,13 @@ def project_graph(project: Project) -> dict:
     for node in nodes:
         node["degree"] = degree.get(node["id"], 0)
     hubs = sorted(nodes, key=lambda n: (-n["degree"], n["label"]))[:5]
+    days = sorted(n["created_at"] for n in nodes if n.get("created_at"))
     stats = {
         "references": len(ref_ids),
         "notes": len(note_ids),
         "links": len(links),
+        "first": days[0] if days else None,  # #506: the time-lapse's range
+        "last": days[-1] if days else None,
         "by_kind": dict(Counter(link["kind"] for link in links)),
         "orphans": sum(1 for n in nodes if n["degree"] == 0),
         "hubs": [

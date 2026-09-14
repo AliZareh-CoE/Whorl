@@ -434,6 +434,23 @@ class Command(BaseCommand):
         for note in (hub, strategic, pilot_note):
             sync_note_links(note)
             sync_note_tags(note)
+        # #506: the graph's time-lapse replays when things were filed — spread the demo's
+        # papers over the past year (the featured four first) and the notes over the spring
+        for index, reference in enumerate(corpus_refs):
+            ProjectReference.objects.filter(
+                project=project, reference=reference
+            ).update(  # etag: ok — seed backdates when demo papers were filed
+                created_at=timezone.now() - datetime.timedelta(days=300 - index * 13)
+            )
+        ProjectReference.objects.filter(
+            project=project, reference__bibtex_key__in=[r["bibtex_key"] for r in demo_refs]
+        ).update(  # etag: ok — seed backdates when demo papers were filed
+            created_at=timezone.now() - datetime.timedelta(days=340)
+        )
+        for note, days in ((hub, 200), (strategic, 120), (pilot_note, 30)):
+            Note.objects.filter(pk=note.pk).update(  # etag: ok — seed backdates demo notes
+                created_at=timezone.now() - datetime.timedelta(days=days)
+            )
         # #505: what the hub note said two days ago — the History panel has something to show
         if not hub.revisions.exists():
             old = NoteRevision.objects.create(

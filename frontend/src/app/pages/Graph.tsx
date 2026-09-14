@@ -1,17 +1,18 @@
 /** Knowledge graph v2 (Observatory) — 3d-force-graph / force-graph from the vendored build (works
  *  offline in the desktop app). Search-to-focus, kind and link filters, neighbourhood focus mode,
- *  hover highlighting, a side panel with the node's facts and neighbours, hubs and orphans stats.
+ *  hover highlighting, a side panel with the node's facts and neighbours, hubs and orphans stats,
+ *  a time-lapse from the first filing day to today and a #tag filter (#506).
  *  Data: GET /projects/{slug}/graph/ (nodes, links, stats). */
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Crosshair, ExternalLink, RefreshCw, Search, X } from "lucide-react";
+import { Crosshair, ExternalLink, Pause, Play, RefreshCw, Search, X } from "lucide-react";
 import { api, csrfToken } from "../api";
 import { queryGate } from "../../components/QueryBoundary";
 
-type Node = { id: string; type: "reference" | "note"; label: string; title: string; group: string; size: number; url?: string; app_url?: string; year?: number | null; venue?: string; citations?: number | null; authors?: string; has_pdf?: boolean; highlights?: number; words?: number; updated_at?: string; degree: number };
+type Node = { id: string; type: "reference" | "note"; label: string; title: string; group: string; size: number; url?: string; app_url?: string; year?: number | null; venue?: string; citations?: number | null; authors?: string; has_pdf?: boolean; highlights?: number; words?: number; updated_at?: string; created_at?: string | null; tags?: string[]; degree: number };
 type Edge = { source: string | { id: string }; target: string | { id: string }; kind: string };
-type Stats = { references: number; notes: number; links: number; by_kind: Record<string, number>; orphans: number; hubs: { id: string; label: string; degree: number }[] };
+type Stats = { references: number; notes: number; links: number; first?: string | null; last?: string | null; by_kind: Record<string, number>; orphans: number; hubs: { id: string; label: string; degree: number }[] };
 type GraphData = { nodes: Node[]; links: Edge[]; stats: Stats };
 
 declare global { interface Window { ForceGraph3D?: any; ForceGraph?: any } }
@@ -28,6 +29,14 @@ const LINK_COLORS: Record<string, string> = { citation: "#7c6cff", "note-link": 
 const LEGEND: [string, string][] = [["to_read", "To read"], ["skimmed", "Skimmed"], ["read", "Read"], ["annotated", "Annotated"], ["note", "Note"]];
 const LINK_LEGEND: [string, string][] = [["citation", "cites"], ["note-link", "note → note"], ["note-citation", "note → paper"]];
 const endId = (e: string | { id: string }) => (typeof e === "string" ? e : e.id);
+// #506: the time-lapse works in whole days from the first filing day to today
+const DAY = 86_400_000;
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+const todayIso = () => isoDay(new Date());
+const daysBetween = (a: string, b: string) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / DAY));
+const addDays = (a: string, n: number) => isoDay(new Date(Date.parse(a) + n * DAY));
+const monthLabel = (iso: string) => new Date(Date.parse(iso)).toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" });
+const PLAY_STEPS = 90; // a full replay takes ~6 s whatever the span
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
 
 export default function Graph() {
@@ -44,10 +53,25 @@ export default function Graph() {
   const [hideOrphans, setHideOrphans] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [ready, setReady] = useState(false);
+  // #506: time-lapse cursor (days after the first filing day; null = today, no time filter) + tag filter
+  const [cursor, setCursor] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [tag, setTag] = useState<string | null>(null);
+  const nodeCache = useRef(new Map<string, Node>()); // same node objects across data changes → positions persist
   useEffect(() => { try { localStorage.setItem("atlas-graph-mode", mode); } catch { /* private mode */ } }, [mode]);
 
   const graph = useQuery({ queryKey: ["graph", slug], queryFn: () => api<GraphData>(`/projects/${slug}/graph/`) });
   const data = graph.data;
+  const cachedFor = useRef<GraphData | undefined>(undefined);
+  const first = data?.stats.first ?? null;
+  const today = todayIso();
+  const span = first ? daysBetween(first, today) : 0;
+  const cursorIso = first && cursor != null && cursor < span ? addDays(first, cursor) : null; // null = no time filter
+  const noteTags = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const n of data?.nodes ?? []) if (n.type === "note") for (const t of n.tags ?? []) m.set(t, (m.get(t) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [data]);
 
   // neighbours index
   const neighbours = useMemo(() => {
@@ -59,9 +83,16 @@ export default function Graph() {
     const needle = q.trim().toLowerCase(); if (!needle) return new Set<string>();
     return new Set((data?.nodes ?? []).filter((n) => n.label.toLowerCase().includes(needle) || n.title.toLowerCase().includes(needle) || (n.authors ?? "").toLowerCase().includes(needle)).map((n) => n.id));
   }, [q, data]);
+  // #506: with a tag chosen, notes carrying it and the papers they cite stay lit; the rest dims
+  const tagged = useMemo(() => {
+    if (!tag || !data) return null;
+    const lit = new Set<string>();
+    for (const n of data.nodes) if (n.type === "note" && (n.tags ?? []).includes(tag)) { lit.add(n.id); for (const nb of neighbours.get(n.id) ?? []) if (nb.startsWith("ref-")) lit.add(nb); }
+    return lit;
+  }, [tag, data, neighbours]);
   const visible = useMemo(() => {
     if (!data) return null;
-    let ids = new Set(data.nodes.filter((n) => kinds.has(n.type)).map((n) => n.id));
+    let ids = new Set(data.nodes.filter((n) => kinds.has(n.type) && (!cursorIso || !n.created_at || n.created_at <= cursorIso)).map((n) => n.id));
     if (focus) {
       const keep = new Set<string>([focus.id]); let frontier = [focus.id];
       for (let d = 0; d < focus.depth; d++) { const next: string[] = []; for (const id of frontier) for (const nb of neighbours.get(id) ?? []) if (!keep.has(nb)) { keep.add(nb); next.push(nb); } frontier = next; }
@@ -69,21 +100,35 @@ export default function Graph() {
     }
     const links = data.links.filter((l) => linkKinds.has(l.kind) && ids.has(endId(l.source)) && ids.has(endId(l.target)));
     if (hideOrphans) { const linked = new Set<string>(); for (const l of links) { linked.add(endId(l.source)); linked.add(endId(l.target)); } ids = new Set([...ids].filter((id) => linked.has(id) || id === focus?.id)); }
-    // fresh copies: force-graph mutates nodes/links in place
-    return { nodes: data.nodes.filter((n) => ids.has(n.id)).map((n) => ({ ...n })), links: links.map((l) => ({ source: endId(l.source), target: endId(l.target), kind: l.kind })) };
-  }, [data, kinds, linkKinds, hideOrphans, focus, neighbours]);
+    // copies (force-graph mutates nodes in place), cached by id so a time-lapse tick or a filter keeps every node where it was
+    const cache = nodeCache.current;
+    if (cachedFor.current !== data) { cache.clear(); cachedFor.current = data; } // fresh facts after a refetch
+    const nodes = data.nodes.filter((n) => ids.has(n.id)).map((n) => cache.get(n.id) ?? (cache.set(n.id, { ...n }), cache.get(n.id)!));
+    return { nodes, links: links.map((l) => ({ source: endId(l.source), target: endId(l.target), kind: l.kind })) };
+  }, [data, kinds, linkKinds, hideOrphans, focus, neighbours, cursorIso]);
+  const visibleRef = useRef(visible); visibleRef.current = visible;
+  const shown = useMemo(() => ({ papers: visible?.nodes.filter((n) => n.type === "reference").length ?? 0, notes: visible?.nodes.filter((n) => n.type === "note").length ?? 0 }), [visible]);
+
+  // #506: play advances the cursor from the first day to today in ~PLAY_STEPS ticks
+  useEffect(() => {
+    if (!playing) return;
+    const step = Math.max(1, Math.ceil(span / PLAY_STEPS));
+    const id = window.setInterval(() => setCursor((c) => { const next = (c ?? 0) + step; if (next >= span) { setPlaying(false); return null; } return next; }), 70);
+    return () => window.clearInterval(id);
+  }, [playing, span]);
+  const play = () => { if (playing) { setPlaying(false); return; } if (cursor == null || cursor >= span) setCursor(0); setPlaying(true); };
 
   const isDark = () => document.documentElement.classList.contains("dark");
   const nodeColor = useCallback((n: Node) => {
     const base = COLORS[n.group] ?? "#a8a29e";
     const active = hovered ?? selected?.id ?? null;
-    const dim = (active && n.id !== active && !(neighbours.get(active)?.has(n.id))) || (matches.size > 0 && !matches.has(n.id));
+    const dim = (active && n.id !== active && !(neighbours.get(active)?.has(n.id))) || (matches.size > 0 && !matches.has(n.id)) || (tagged && !tagged.has(n.id));
     return dim ? base + "33" : base;
-  }, [hovered, selected, neighbours, matches]);
+  }, [hovered, selected, neighbours, matches, tagged]);
 
-  // build / rebuild the graph when the library, mode or visible data change
+  // build / rebuild the graph when the library or mode change; data changes flow through graphData() below
   useEffect(() => {
-    if (!visible || !containerRef.current) return;
+    if (!visibleRef.current || !containerRef.current) return;
     let cancelled = false;
     (async () => {
       await loadScript(LIB[mode]);
@@ -93,7 +138,7 @@ export default function Graph() {
       graphRef.current?._destructor?.();
       containerRef.current.innerHTML = "";
       const g = factory()(containerRef.current)
-        .graphData(visible)
+        .graphData(visibleRef.current)
         .nodeLabel((n: Node) => `<div style="font:12px system-ui;max-width:260px"><b>${n.label}</b><br/>${n.title}</div>`)
         .nodeVal((n: Node) => n.size)
         .nodeColor(nodeColor)
@@ -109,7 +154,8 @@ export default function Graph() {
       graphRef.current = g; setReady(true);
     })();
     return () => { cancelled = true; };
-  }, [visible, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, visible == null]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (ready && visible) graphRef.current?.graphData(visible); }, [visible, ready]);
   useEffect(() => { graphRef.current?.nodeColor(nodeColor); }, [nodeColor]);
   useEffect(() => () => { graphRef.current?._destructor?.(); }, []);
   useEffect(() => {
@@ -162,7 +208,24 @@ export default function Graph() {
         {focus && <button type="button" onClick={() => setFocus(null)} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-indigo-700 dark:text-indigo-200"><Crosshair className="h-3 w-3" aria-hidden="true" />focused · depth {focus.depth} <button type="button" onClick={(e) => { e.stopPropagation(); setFocus({ ...focus, depth: focus.depth === 1 ? 2 : 1 }); }} className="underline">{focus.depth === 1 ? "widen" : "narrow"}</button><X className="h-3 w-3" aria-hidden="true" /></button>}
       </div>
 
-      <div className={`${panel} rise relative overflow-hidden`} style={{ ["--i" as string]: 1 }}>
+      {first && span > 0 && (
+        <div className={`${panel} rise mb-3 flex flex-wrap items-center gap-3 px-3 py-2 text-xs`} style={{ ["--i" as string]: 1 }} data-testid="graph-timeline">
+          <button type="button" onClick={play} data-testid="timeline-play" aria-label={playing ? "Pause the time-lapse" : "Play the time-lapse"} className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700">{playing ? <Pause className="h-3.5 w-3.5" aria-hidden="true" /> : <Play className="h-3.5 w-3.5" aria-hidden="true" />}</button>
+          <span className="tabular-nums text-stone-400">{monthLabel(first)}</span>
+          <input type="range" min={0} max={span} value={cursor ?? span} onChange={(e) => { setPlaying(false); const v = Number(e.target.value); setCursor(v >= span ? null : v); }} data-testid="timeline-slider" aria-label="Time-lapse position" className="min-w-40 flex-1 accent-indigo-500" />
+          <span className="tabular-nums text-stone-400">{monthLabel(today)}</span>
+          <span className="min-w-52 font-medium text-stone-600 dark:text-stone-300" data-testid="timeline-caption">{monthLabel(cursorIso ?? today)} · {shown.papers} paper{shown.papers === 1 ? "" : "s"} · {shown.notes} note{shown.notes === 1 ? "" : "s"}{cursorIso ? <button type="button" onClick={() => { setPlaying(false); setCursor(null); }} className="ml-2 text-indigo-600 underline dark:text-indigo-300">today</button> : null}</span>
+        </div>
+      )}
+      {noteTags.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5 px-1 text-xs" data-testid="tag-filter">
+          <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Tags</span>
+          {noteTags.map(([t, count]) => <button key={t} type="button" onClick={() => setTag(tag === t ? null : t)} aria-pressed={tag === t} className={`rounded-full border px-2 py-0.5 transition-colors ${tag === t ? "border-teal-400 bg-teal-500/15 text-teal-800 dark:text-teal-200" : "border-stone-200 text-stone-500 hover:border-teal-300 dark:border-stone-700 dark:text-stone-400"}`}>#{t} <span className="tabular-nums opacity-70">{count}</span></button>)}
+          {tag && <button type="button" onClick={() => setTag(null)} className="ml-1 text-stone-400 underline">clear</button>}
+        </div>
+      )}
+
+      <div className={`${panel} rise relative overflow-hidden`} style={{ ["--i" as string]: 2 }}>
         {/* the library owns everything inside this div — React must never render children here */}
         <div ref={containerRef} style={{ height: 600 }} data-testid="graph-canvas" />
         {isEmpty ? (
@@ -185,9 +248,9 @@ export default function Graph() {
             <p className="mb-1 flex items-center gap-1.5 pr-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400"><span className="inline-block h-2 w-2 rounded-full" style={{ background: COLORS[selected.group] }} />{selected.type === "reference" ? (selected.group.replace("_", " ")) : "note"}</p>
             <p className="font-display text-sm font-semibold leading-snug text-stone-900 dark:text-stone-100">{selected.title}</p>
             {selected.type === "reference" ? (
-              <p className="mt-1 text-[11px] text-stone-400">{[selected.authors, selected.year, selected.venue].filter(Boolean).join(" · ")}{selected.citations != null ? ` · ${selected.citations} citations` : ""}{selected.highlights ? ` · ${selected.highlights} highlight${selected.highlights === 1 ? "" : "s"}` : ""}{selected.has_pdf ? " · PDF" : ""}</p>
+              <p className="mt-1 text-[11px] text-stone-400">{[selected.authors, selected.year, selected.venue].filter(Boolean).join(" · ")}{selected.citations != null ? ` · ${selected.citations} citations` : ""}{selected.highlights ? ` · ${selected.highlights} highlight${selected.highlights === 1 ? "" : "s"}` : ""}{selected.has_pdf ? " · PDF" : ""}{selected.created_at ? ` · filed ${selected.created_at}` : ""}</p>
             ) : (
-              <p className="mt-1 text-[11px] text-stone-400">{selected.words} words · edited {selected.updated_at}</p>
+              <p className="mt-1 text-[11px] text-stone-400">{selected.words} words · edited {selected.updated_at}{selected.tags?.length ? ` · ${selected.tags.map((t) => "#" + t).join(" ")}` : ""}</p>
             )}
             <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
               {selected.app_url && <Link to={selected.app_url} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700">Open<ExternalLink className="h-3 w-3" aria-hidden="true" /></Link>}
@@ -201,7 +264,7 @@ export default function Graph() {
           </aside>
         )}
       </div>
-      <p className="mt-2 text-xs text-stone-400">Node size = citations (papers) or length (notes) · colour = reading status · hover highlights neighbours · click for details · Esc clears</p>
+      <p className="mt-2 text-xs text-stone-400">Node size = citations (papers) or length (notes) · colour = reading status · hover highlights neighbours · click for details · Esc clears · ▶ replays the graph as it was filed</p>
     </div>
   );
 }

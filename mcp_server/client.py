@@ -585,6 +585,11 @@ def restore_note_revision(note_id: int, revision_id: int):
     return _request("POST", f"/notes/{note_id}/revisions/{revision_id}/restore/")
 
 
+def get_project_graph(slug: str):
+    """The project's knowledge graph: nodes with filing dates and tags, links, stats (#506)."""
+    return _request("GET", f"/projects/{slug}/graph/")
+
+
 def get_note_graph(note_id: int, depth: int = 2):
     """The subgraph within `depth` hops of a note (#503)."""
     return _request("GET", f"/notes/{note_id}/graph/", params={"depth": depth})

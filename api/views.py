@@ -226,8 +226,9 @@ class ProjectViewSet(AtlasViewSet):
         },
         description=(
             "The project's knowledge graph. Nodes are references and notes "
-            "(id, type, label, group, size); links are citations, note-links, "
-            "and note→reference citations (source, target, kind)."
+            "(id, type, label, group, size, created_at — the day it was filed here; "
+            "notes also carry tags); links are citations, note-links, and note→reference "
+            "citations (source, target, kind). stats.first/last bound the time-lapse."
         ),
     )
     @action(detail=True, methods=["get"])

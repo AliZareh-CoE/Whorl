@@ -608,6 +608,16 @@ def restore_note_revision(note_id: int, revision_id: int) -> dict:
 
 
 @mcp.tool()
+def get_project_graph(slug: str) -> dict:
+    """The project's knowledge graph (#506): `nodes` are papers (reading status, year,
+    citations, highlights) and notes (words, `tags`), each with `created_at` — the day it was
+    filed into the project — so the graph can be replayed in time; `links` are citations,
+    note→note links and note→paper citations; `stats` counts them, names the hubs and the
+    orphans, and gives `first`/`last` filing days."""
+    return client.get_project_graph(slug)
+
+
+@mcp.tool()
 def get_note_graph(note_id: int, depth: int = 2) -> dict:
     """ "Around this note" (#503): the notes it links to and from, the papers it cites, and
     their neighbours up to `depth` hops (1–3) — nodes carry `hops` and the same facts as the
