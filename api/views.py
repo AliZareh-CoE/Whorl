@@ -1991,6 +1991,38 @@ class QuickCaptureViewSet(AtlasViewSet):
         return Response({"results": triage_history(int(raw))})
 
     @extend_schema(
+        request=serializers.BulkTriageSerializer,
+        responses={
+            200: inline_serializer(
+                "BulkTriaged",
+                {
+                    "action": rf_serializers.CharField(),
+                    "count": rf_serializers.IntegerField(),
+                    "ids": rf_serializers.ListField(child=rf_serializers.IntegerField()),
+                },
+            )
+        },
+        description="Triage many captures in one call (#497): `action` is file (under "
+        "`project`), dismiss, snooze (`until` as for /snooze/, default tomorrow), todo (each "
+        "becomes a Today item) or wake. Only untriaged captures among `ids` change (at most "
+        "200); the reply lists the ids that did.",
+    )
+    @action(detail=False, methods=["post"])
+    def bulk(self, request):
+        from notes.capture import bulk_triage
+
+        serializer = serializers.BulkTriageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            out = bulk_triage(
+                data["ids"], data["action"], data.get("project"), data.get("until") or None
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(out)
+
+    @extend_schema(
         request=serializers.SnoozeCaptureSerializer,
         responses={200: serializers.QuickCaptureSerializer},
         description="Snooze a capture (#495): it leaves the inbox and every untriaged count until "

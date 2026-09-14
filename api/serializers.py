@@ -440,6 +440,16 @@ class ConvertCaptureSerializer(serializers.Serializer):
     due = serializers.DateField(required=False, allow_null=True)
 
 
+class BulkTriageSerializer(serializers.Serializer):
+    """#497: many captures, one action — file (needs project), dismiss, snooze (until), todo,
+    wake."""
+
+    ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
+    action = serializers.ChoiceField(choices=["file", "dismiss", "snooze", "todo", "wake"])
+    project = ProjectSlugField(required=False, allow_null=True)
+    until = serializers.CharField(required=False, allow_blank=True, default="")
+
+
 class SnoozeCaptureSerializer(serializers.Serializer):
     """#495: `until` is tomorrow / monday / next-week / weekend / YYYY-MM-DD; blank wakes it."""
 

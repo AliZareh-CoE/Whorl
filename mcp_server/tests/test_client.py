@@ -502,6 +502,13 @@ def test_inbox_client_calls(capture):
     assert "snoozed=false" in capture["url"]
     client.list_inbox(snoozed=True)
     assert "snoozed=true" in capture["url"]
+    client.triage_captures([1, 2], "file", project="deep")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/quick-capture/bulk/")
+        and '"ids":[1,2]' in capture["body"]
+        and '"project":"deep"' in capture["body"]
+    )
     client.get_inbox_history(12)
     assert calls_url_has(capture, "/quick-capture/history/") and "limit=12" in capture["url"]
     client.snooze_capture(5, "monday")

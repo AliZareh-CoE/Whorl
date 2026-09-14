@@ -742,6 +742,16 @@ def list_inbox(snoozed: bool = False):
     )
 
 
+def triage_captures(ids, action: str, project: str = "", until: str = ""):
+    """Many captures, one action: file / dismiss / snooze / todo / wake (#497)."""
+    payload = {"ids": list(ids), "action": action}
+    if project:
+        payload["project"] = project
+    if until:
+        payload["until"] = until
+    return _request("POST", "/quick-capture/bulk/", json=payload)
+
+
 def get_inbox_history(limit: int = 30):
     """What the captures that left the inbox became (#496)."""
     return _request("GET", "/quick-capture/history/", params={"limit": limit})

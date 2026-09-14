@@ -306,3 +306,85 @@ def test_captures_remember_what_they_became(client, settings, django_user_model)
         "/quick-capture/history/?limit=30",
     ):
         assert needle in tsx, needle
+
+
+@pytest.mark.django_db
+def test_bulk_triage_files_dismisses_snoozes_and_converts(client, settings, django_user_model):
+    """#497: one action over many ids; only untriaged captures change; the classic bulk view
+    and the API share the service."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from notes.capture import bulk_triage
+
+    project = ProjectFactory(name="Attention", slug="attention")
+    a, b, c, d = (QuickCapture.objects.create(text=f"todo: thing {i}") for i in range(4))
+    done = QuickCapture.objects.create(text="already", processed=True)
+    out = bulk_triage([a.id, b.id, done.id], "file", project)
+    assert out == {"action": "file", "count": 2, "ids": [a.id, b.id]} or set(out["ids"]) == {
+        a.id,
+        b.id,
+    }
+    a.refresh_from_db()
+    assert a.processed and a.project == project and a.triaged_at
+    out = bulk_triage([c.id], "snooze", until="next-week")
+    c.refresh_from_db()
+    assert out["count"] == 1 and c.snoozed_until == timezone.localdate() + timedelta(days=7)
+    assert bulk_triage([c.id], "wake")["count"] == 1
+    c.refresh_from_db()
+    assert c.snoozed_until is None
+    out = bulk_triage([d.id], "todo", project)
+    d.refresh_from_db()
+    assert out["count"] == 1 and d.became_kind == "todo" and d.processed
+    assert TodoItem.objects.filter(pk=d.became_id, text="thing 3").exists()
+    assert bulk_triage([c.id], "dismiss")["count"] == 1
+    with pytest.raises(ValueError):
+        bulk_triage([c.id], "file")  # needs a project
+    with pytest.raises(ValueError):
+        bulk_triage([c.id], "explode")
+
+    settings.ATLAS_API_KEY = "k"
+    django_user_model.objects.create_superuser("atlas", "a@b.c", "atlas")
+    e, f = (QuickCapture.objects.create(text=f"more {i}") for i in range(2))
+    r = client.post(
+        "/api/v1/quick-capture/bulk/",
+        {"ids": [e.id, f.id], "action": "file", "project": "attention"},
+        content_type="application/json",
+        HTTP_X_API_KEY="k",
+        HTTP_HOST="127.0.0.1",
+    )
+    assert r.status_code == 200 and r.json()["count"] == 2
+    r = client.post(
+        "/api/v1/quick-capture/bulk/",
+        {"ids": [e.id], "action": "snooze", "until": "someday"},
+        content_type="application/json",
+        HTTP_X_API_KEY="k",
+        HTTP_HOST="127.0.0.1",
+    )
+    assert r.status_code == 400
+    r = client.post(
+        "/api/v1/quick-capture/bulk/",
+        {"ids": [], "action": "dismiss"},
+        content_type="application/json",
+        HTTP_X_API_KEY="k",
+        HTTP_HOST="127.0.0.1",
+    )
+    assert r.status_code == 400
+
+    # the classic bulk view
+    client.login(username="atlas", password="atlas")
+    g = QuickCapture.objects.create(text="classic")
+    r = client.post("/inbox/bulk/", {"ids": [g.id], "action": "dismiss"}, HTTP_HOST="127.0.0.1")
+    assert r.status_code == 302
+    g.refresh_from_db()
+    assert g.processed and g.triaged_at
+    tsx = Path("frontend/src/app/pages/Inbox.tsx").read_text()
+    for needle in (
+        'data-testid="select-capture"',
+        'data-testid="bulk-bar"',
+        'data-testid="bulk-file"',
+        'data-testid="bulk-dismiss"',
+        "/quick-capture/bulk/",
+    ):
+        assert needle in tsx, needle

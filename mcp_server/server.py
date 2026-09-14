@@ -815,6 +815,15 @@ def list_inbox(snoozed: bool = False) -> dict:
 
 
 @mcp.tool()
+def triage_captures(ids: list[int], action: str, project: str = "", until: str = "") -> dict:
+    """Triage many captures in one call (#497): action 'file' (under project slug), 'dismiss',
+    'snooze' (until: tomorrow / monday / next-week / weekend / YYYY-MM-DD), 'todo' (each
+    becomes a Today item, project optional) or 'wake'. Only untriaged captures change; the
+    reply lists the ids that did. Use list_inbox first to pick the ids."""
+    return client.triage_captures(ids, action, project, until)
+
+
+@mcp.tool()
 def get_inbox_history(limit: int = 30) -> dict:
     """ "Where did that thought go?" — the last captures that left the inbox, newest first,
     each with its outcome: converted (with `became` — kind, id, title, app_url and whether the

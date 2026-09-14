@@ -315,6 +315,52 @@ def convert(capture, target: str, project=None, *, phase=None, due: date | None 
     return result
 
 
+BULK_ACTIONS = ("file", "dismiss", "snooze", "todo", "wake")
+BULK_LIMIT = 200
+
+
+def bulk_triage(ids, action: str, project=None, until: str | None = None) -> dict:
+    """#497: one motion over many captures — file under a project, dismiss, snooze until a
+    day, wake, or turn each into a Today item. Only untriaged captures in `ids` are touched;
+    returns {action, count, ids} with the ids actually changed."""
+    from notes.models import QuickCapture
+
+    if action not in BULK_ACTIONS:
+        raise ValueError(f"action must be one of {BULK_ACTIONS}")
+    ids = [int(i) for i in list(ids)[:BULK_LIMIT]]
+    if action == "file" and project is None:
+        raise ValueError("filing needs a project")
+    captures = list(QuickCapture.objects.filter(pk__in=ids, processed=False).order_by("pk"))
+    now = timezone.now()
+    done: list[int] = []
+    with transaction.atomic():
+        if action == "snooze":
+            day = snooze_date(until or "tomorrow")
+            for c in captures:
+                c.snoozed_until = day
+                c.save(update_fields=["snoozed_until", "updated_at"])
+                done.append(c.pk)
+        elif action == "wake":
+            for c in captures:
+                if c.snoozed_until is not None:
+                    c.snoozed_until = None
+                    c.save(update_fields=["snoozed_until", "updated_at"])
+                    done.append(c.pk)
+        elif action == "todo":
+            for c in captures:
+                convert(c, "todo", project)
+                done.append(c.pk)
+        else:
+            for c in captures:
+                c.processed = True
+                c.triaged_at = now
+                if action == "file":
+                    c.project = project
+                c.save(update_fields=["processed", "triaged_at", "project", "updated_at"])
+                done.append(c.pk)
+    return {"action": action, "count": len(done), "ids": done}
+
+
 BECAME_KINDS = ("reference", "note", "todo", "milestone", "decision")
 HISTORY_LIMIT = 30
 

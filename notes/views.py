@@ -166,20 +166,20 @@ def triage(request, pk):
 
 @require_POST
 def inbox_bulk(request):
-    """Triage many captures at once: dismiss or assign to a project (Owner idea #18)."""
-    captures = QuickCapture.objects.filter(pk__in=request.POST.getlist("ids"), processed=False)
+    """Triage many captures at once: dismiss or assign to a project (Owner idea #18); #497
+    routes it through the same service as the API."""
+    from .capture import bulk_triage
+
+    ids = request.POST.getlist("ids")
     action = request.POST.get("action")
-    count = captures.count()
-    if not count:
+    if not ids:
         messages.error(request, "Nothing selected.")
     elif action == "dismiss":
-        captures.update(processed=True, triaged_at=timezone.now(), updated_at=timezone.now())
+        count = bulk_triage(ids, "dismiss")["count"]
         messages.success(request, f"Dismissed {count} item(s).")
     elif action == "assign":
         project = get_object_or_404(Project, slug=request.POST.get("project"))
-        captures.update(
-            project=project, processed=True, triaged_at=timezone.now(), updated_at=timezone.now()
-        )
+        count = bulk_triage(ids, "file", project)["count"]
         messages.success(request, f"Filed {count} item(s) to {project.name}.")
     else:
         messages.error(request, "Unknown bulk action.")

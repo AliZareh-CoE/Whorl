@@ -555,6 +555,14 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Inbox: batch triage (#497)
+
+**Decision.** The SPA inbox gets a selection: a checkbox per row, `space` on the highlighted row, `⌘A` for every open capture, `Esc` to clear; a sticky bar over the list ("n selected · all · none") offers File under [project], Today, Later… and Dismiss for the whole selection. One service, `bulk_triage(ids, action, project, until)` (actions file / dismiss / snooze / todo / wake, untriaged captures only, at most 200, ids actually changed returned), serves `POST /quick-capture/bulk/`, the classic `inbox_bulk` view and MCP `triage_captures` (115 tools). File, dismiss and snooze batches get the six-second undo (put back / wake by id).
+
+**Why.** Bots (#417/#423) and a busy week can leave twenty captures; triaging them one click each is the reason people abandon inboxes. The classic UI has had bulk dismiss/assign since owner idea #18; the SPA — the real front door — did not.
+
+**Alternatives.** Converting a batch to notes/decisions — rejected: those need per-item judgement (a title, a phase); only Today is safe to fan out. Drag-select — rejected: checkboxes plus the keyboard cover it and stay accessible. A separate "bulk mode" toggle — rejected: the bar appears the moment one row is ticked, nothing to switch on.
+
 ### 2026-09-14 — Inbox: captures remember what they became (#496)
 
 **Decision.** `QuickCapture` gains `became_kind` / `became_id` (set by `convert`) and `triaged_at` (set by convert, by filing or dismissing over the API, the classic views and the bulk view; cleared when a capture is put back). `became(capture)` returns {kind, id, app_url}; `triage_history(limit)` lists the last captures that left the inbox with their outcome — `converted` (title resolved in one query per kind, `exists` false when the object was deleted since), `filed` under a project, or `dismissed`. `GET /quick-capture/history/?limit=` serves it; the Inbox has a "Recently triaged · where did it go?" toggle with a link to what each capture became and *Put back* for filed/dismissed ones. MCP `get_inbox_history` (114 tools).

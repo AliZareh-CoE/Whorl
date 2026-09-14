@@ -6,7 +6,9 @@
  *  #495: "Later" parks a capture until tomorrow / Monday / next week / a date — it leaves the inbox
  *  and every untriaged count until that day, then comes back with a "back from snooze" chip.
  *  #496: "Recently triaged" answers "where did that thought go?" — each capture that left the
- *  inbox shows what it became (a link), where it was filed, or that it was dismissed; Put back. */
+ *  inbox shows what it became (a link), where it was filed, or that it was dismissed; Put back.
+ *  #497: batch triage — tick rows (checkbox, space, ⌘A), then File / Today / Later / Dismiss the
+ *  whole selection from a floating bar; POST /quick-capture/bulk/; MCP triage_captures. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -78,6 +80,23 @@ export default function Inbox() {
     onSuccess: (out) => { refresh(); if (out.kind === "reference") petReact("paper"); if (out.kind === "note") petReact("note"); flash(`${out.kind === "reference" ? (out.created ? "Added the paper" : "Paper already in the library") : out.kind === "todo" ? "On today's list" : `Created the ${out.kind}`}: ${out.title}`, out.app_url); },
     onError: (e) => { refresh(); flash(`Could not convert — ${(e as Error).message}`); },
   });
+  // #497: one action over the selection; file/dismiss/snooze can be undone as a batch
+  const bulk = useMutation({
+    mutationFn: ({ ids, action, project, until }: { ids: number[]; action: string; project?: string; until?: string }) => api<{ action: string; count: number; ids: number[] }>("/quick-capture/bulk/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, action, ...(project ? { project } : {}), ...(until ? { until } : {}) }) }),
+    onSuccess: (out, { action, project }) => {
+      refresh();
+      const n = out.count;
+      const label = action === "file" ? `Filed ${n} under ${projects?.results.find((p) => p.slug === project)?.name ?? project}` : action === "dismiss" ? `Dismissed ${n}` : action === "snooze" ? `Snoozed ${n}` : action === "todo" ? `${n} on today's list` : `Woke ${n}`;
+      if (action === "todo") { petReact("capture"); flash(label, "/today"); return; }
+      if (action === "wake") { flash(label); return; }
+      showUndo(`${label} capture${n === 1 ? "" : "s"}`, async () => {
+        if (action === "snooze") await api("/quick-capture/bulk/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: out.ids, action: "wake" }) });
+        else await Promise.all(out.ids.map((id) => api(`/quick-capture/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ processed: false }) })));
+        refresh();
+      });
+    },
+    onError: (e) => { refresh(); flash(`Could not triage — ${(e as Error).message}`); },
+  });
   // #495: snooze = "not now"; the row leaves at once and the undo toast wakes it again
   const snooze = useMutation({
     mutationFn: ({ id, until }: { id: number; until: string }) => api<Capture>(`/quick-capture/${id}/snooze/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ until }) }),
@@ -106,7 +125,7 @@ export default function Inbox() {
     </div>
   ) : null;
   const projectRows = projects?.results ?? [];
-  return <InboxBody runBanner={runBanner} openCount={stillOpen} open={open} sleeping={sleeping} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} snooze={snooze} toast={toast} />;
+  return <InboxBody runBanner={runBanner} openCount={stillOpen} open={open} sleeping={sleeping} projectRows={projectRows} text={text} setText={setText} capture={capture} convert={convert} triage={triage} snooze={snooze} bulk={bulk} toast={toast} />;
 }
 
 /* Keyboard triage (Inbox v2 slice 2): j/k or arrows move the cursor, Enter takes the
@@ -114,10 +133,26 @@ export default function Inbox() {
    inbox without touching the mouse. Keys are ignored while typing in the capture box. */
 const KEY_TARGETS = ["paper", "todo", "note", "milestone", "decision"] as const;
 
-function InboxBody({ open, sleeping, projectRows, text, setText, capture, convert, triage, snooze, toast, runBanner, openCount }: { runBanner?: ReactNode; openCount?: number; open: Capture[]; sleeping: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; snooze: { mutate: (v: { id: number; until: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
+function InboxBody({ open, sleeping, projectRows, text, setText, capture, convert, triage, snooze, bulk, toast, runBanner, openCount }: { runBanner?: ReactNode; openCount?: number; open: Capture[]; sleeping: Capture[]; projectRows: Project[]; text: string; setText: (t: string) => void; capture: { mutate: () => void; isPending: boolean }; convert: { mutate: (v: { id: number; target: string; project?: string }) => void; isPending: boolean }; triage: { mutate: (v: { id: number; project?: string }) => void; isPending: boolean }; snooze: { mutate: (v: { id: number; until: string }) => void; isPending: boolean }; bulk: { mutate: (v: { ids: number[]; action: string; project?: string; until?: string }) => void; isPending: boolean }; toast: { msg: string; url?: string } | null }) {
   const [cursor, setCursor] = useState(0);
   const [legend, setLegend] = useState(false);
   const [showSleeping, setShowSleeping] = useState(false);
+  // #497: the selection — ids of open rows; cleared when they leave the list
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkProject, setBulkProject] = useState("");
+  useEffect(() => { setSelected((prev) => { const live = new Set(open.map((c) => c.id)); const next = new Set([...prev].filter((id) => live.has(id))); return next.size === prev.size ? prev : next; }); }, [open]);
+  useEffect(() => { if (!bulkProject && projectRows[0]) setBulkProject(projectRows[0].slug); }, [projectRows, bulkProject]);
+  const toggle = (id: number) => setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const runBulk = async (action: string) => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (action === "snooze") {
+      const picked = await promptDialog({ title: `Snooze ${ids.length} capture${ids.length === 1 ? "" : "s"} until`, label: "tomorrow · monday · next-week · weekend · YYYY-MM-DD", initial: "tomorrow", validate: (v) => (/^(tomorrow|monday|next-week|weekend|\d{4}-\d{2}-\d{2})$/.test(v.trim().toLowerCase()) ? null : "tomorrow, monday, next-week, weekend or a date") });
+      if (!picked) return;
+      bulk.mutate({ ids, action, until: picked.trim().toLowerCase() });
+    } else bulk.mutate({ ids, action, project: action === "file" || action === "todo" ? bulkProject || undefined : undefined });
+    setSelected(new Set());
+  };
   const snoozeUntil = async (id: number, until: string) => {
     if (until !== "date") { snooze.mutate({ id, until }); return; }
     const picked = await promptDialog({ title: "Snooze until", label: "Day it comes back (YYYY-MM-DD)", initial: todayISO(), validate: (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v.trim()) && v.trim() > todayISO() ? null : "A date after today, as YYYY-MM-DD") });
@@ -128,7 +163,11 @@ function InboxBody({ open, sleeping, projectRows, text, setText, capture, conver
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
-      if (e.metaKey || e.ctrlKey || e.altKey || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const onCheckbox = tag === "INPUT" && (e.target as HTMLInputElement).type === "checkbox";
+      if ((tag === "INPUT" && !onCheckbox) || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.metaKey || e.ctrlKey) && e.key === "a" && open.length) { e.preventDefault(); setSelected(new Set(open.map((c) => c.id))); return; }
+      if (e.key === "Escape" && selected.size) { setSelected(new Set()); (e.target as HTMLElement | null)?.blur?.(); return; }
+      if (onCheckbox || e.metaKey || e.ctrlKey || e.altKey) return; // a focused checkbox keeps its own space
       const c = open[cursor];
       if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); setCursor((i) => Math.min(open.length - 1, i + 1)); }
       else if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); setCursor((i) => Math.max(0, i - 1)); }
@@ -138,13 +177,14 @@ function InboxBody({ open, sleeping, projectRows, text, setText, capture, conver
       else if (/^[1-5]$/.test(e.key)) { const target = KEY_TARGETS[Number(e.key) - 1]; if (target === "paper" && !(c.hint.doi || c.hint.arxiv_id)) return; e.preventDefault(); convert.mutate({ id: c.id, target, project: projectFor(c) }); }
       else if (e.key === "x" || e.key === "Delete") { e.preventDefault(); triage.mutate({ id: c.id }); }
       else if (e.key === "f") { const p = projectFor(c); if (p) { e.preventDefault(); triage.mutate({ id: c.id, project: p }); } }
+      else if (e.key === " ") { e.preventDefault(); toggle(c.id); }
       else if (e.key === "s") { e.preventDefault(); snooze.mutate({ id: c.id, until: "tomorrow" }); }
       else if (e.key === "w") { e.preventDefault(); snooze.mutate({ id: c.id, until: "next-week" }); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, cursor, projectRows]);
+  }, [open, cursor, projectRows, selected]);
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-4">
@@ -163,7 +203,7 @@ function InboxBody({ open, sleeping, projectRows, text, setText, capture, conver
       {open.length > 0 && (
         <p className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-400" data-testid="inbox-legend">
           <button type="button" onClick={() => setLegend((v) => !v)} className="rounded border border-stone-200 px-1.5 font-mono dark:border-stone-700" title="Keyboard triage">?</button>
-          {legend ? <><span><kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> move</span><span><kbd className="font-mono">↵</kbd> suggested</span><span><kbd className="font-mono">1</kbd> paper · <kbd className="font-mono">2</kbd> today · <kbd className="font-mono">3</kbd> note · <kbd className="font-mono">4</kbd> milestone · <kbd className="font-mono">5</kbd> decision</span><span><kbd className="font-mono">f</kbd> file</span><span><kbd className="font-mono">x</kbd> dismiss</span><span><kbd className="font-mono">s</kbd> tomorrow · <kbd className="font-mono">w</kbd> next week</span></> : <span>keyboard triage: j/k · ↵ · 1–5 · x · s</span>}
+          {legend ? <><span><kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> move</span><span><kbd className="font-mono">↵</kbd> suggested</span><span><kbd className="font-mono">1</kbd> paper · <kbd className="font-mono">2</kbd> today · <kbd className="font-mono">3</kbd> note · <kbd className="font-mono">4</kbd> milestone · <kbd className="font-mono">5</kbd> decision</span><span><kbd className="font-mono">f</kbd> file</span><span><kbd className="font-mono">x</kbd> dismiss</span><span><kbd className="font-mono">s</kbd> tomorrow · <kbd className="font-mono">w</kbd> next week</span><span><kbd className="font-mono">space</kbd> select · <kbd className="font-mono">⌘A</kbd> all</span></> : <span>keyboard triage: j/k · ↵ · 1–5 · x · s · space</span>}
         </p>
       )}
       {open.length === 0 ? (
@@ -174,8 +214,24 @@ function InboxBody({ open, sleeping, projectRows, text, setText, capture, conver
         </div>
       ) : (
         <ul className="space-y-2" data-testid="inbox-list">
-          {open.map((c, i) => <Row key={c.id} c={c} i={i} active={i === cursor} onFocus={() => setCursor(i)} projects={projectRows} busy={convert.isPending || triage.isPending || snooze.isPending} onConvert={(target, project) => convert.mutate({ id: c.id, target, project })} onFile={(project) => triage.mutate({ id: c.id, project })} onDismiss={() => triage.mutate({ id: c.id })} onSnooze={(until) => snoozeUntil(c.id, until)} />)}
+          {open.map((c, i) => <Row key={c.id} c={c} i={i} active={i === cursor} onFocus={() => setCursor(i)} projects={projectRows} busy={convert.isPending || triage.isPending || snooze.isPending || bulk.isPending} onConvert={(target, project) => convert.mutate({ id: c.id, target, project })} onFile={(project) => triage.mutate({ id: c.id, project })} onDismiss={() => triage.mutate({ id: c.id })} onSnooze={(until) => snoozeUntil(c.id, until)} selected={selected.has(c.id)} onToggle={() => toggle(c.id)} />)}
         </ul>
+      )}
+      {selected.size > 0 && (
+        <div className="sticky bottom-4 z-20 mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-indigo-300/60 bg-white/95 px-3 py-2 text-xs shadow-lg backdrop-blur dark:border-indigo-500/40 dark:bg-stone-900/95" data-testid="bulk-bar" role="toolbar" aria-label="Selection">
+          <span className="font-medium text-stone-700 dark:text-stone-100" data-testid="bulk-count">{selected.size} selected</span>
+          <button type="button" onClick={() => setSelected(new Set(open.map((c) => c.id)))} className="text-stone-500 hover:underline dark:text-stone-400">all {open.length}</button>
+          <button type="button" onClick={() => setSelected(new Set())} className="text-stone-500 hover:underline dark:text-stone-400">none</button>
+          <span className="ml-auto flex flex-wrap items-center gap-1">
+            <select value={bulkProject} onChange={(e) => setBulkProject(e.target.value)} aria-label="Project for the selection" className="rounded-md border border-stone-200 bg-white px-1.5 py-0.5 text-[11px] text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
+              {projectRows.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
+            </select>
+            <button type="button" disabled={bulk.isPending || !bulkProject} onClick={() => runBulk("file")} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-40" data-testid="bulk-file"><Check className="h-3 w-3" aria-hidden="true" />File</button>
+            <button type="button" disabled={bulk.isPending} onClick={() => runBulk("todo")} className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-0.5 text-stone-600 hover:border-indigo-300 disabled:opacity-40 dark:border-stone-700 dark:text-stone-300" data-testid="bulk-todo"><ListChecks className="h-3 w-3" aria-hidden="true" />Today</button>
+            <button type="button" disabled={bulk.isPending} onClick={() => runBulk("snooze")} className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-0.5 text-stone-600 hover:border-indigo-300 disabled:opacity-40 dark:border-stone-700 dark:text-stone-300" data-testid="bulk-snooze"><Clock className="h-3 w-3" aria-hidden="true" />Later…</button>
+            <button type="button" disabled={bulk.isPending} onClick={() => runBulk("dismiss")} className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-0.5 text-stone-600 hover:border-red-300 hover:text-red-600 disabled:opacity-40 dark:border-stone-700 dark:text-stone-300" data-testid="bulk-dismiss"><X className="h-3 w-3" aria-hidden="true" />Dismiss</button>
+          </span>
+        </div>
       )}
       {sleeping.length > 0 && (
         <section className="mt-8" data-testid="inbox-snoozed">
@@ -239,7 +295,7 @@ function RecentlyTriaged() {
   );
 }
 
-function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismiss, onSnooze, onWake }: { c: Capture; i: number; active: boolean; onFocus: () => void; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void; onSnooze: (until: string) => void; onWake?: () => void }) {
+function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismiss, onSnooze, onWake, selected, onToggle }: { c: Capture; i: number; active: boolean; onFocus: () => void; projects: Project[]; busy: boolean; onConvert: (target: string, project?: string) => void; onFile: (project: string) => void; onDismiss: () => void; onSnooze: (until: string) => void; onWake?: () => void; selected?: boolean; onToggle?: () => void }) {
   // #494: the project Atlas suggests from the capture's words wins over "the first project"
   const [project, setProject] = useState(c.project ?? c.hint.project?.slug ?? projects[0]?.slug ?? "");
   const [later, setLater] = useState(false);
@@ -253,9 +309,12 @@ function Row({ c, i, active, onFocus, projects, busy, onConvert, onFile, onDismi
   if (c.hint.arxiv_id) chips.push(`arXiv ${c.hint.arxiv_id}`);
   if (c.hint.url && !c.hint.doi) chips.push("link");
   return (
-    <li className={`${panel} rise p-3 transition-shadow ${active ? "ring-2 ring-indigo-500/60" : ""} ${later ? "relative z-30" : ""}`} style={{ ["--i" as string]: i + 1 }} data-testid="inbox-row" data-active={active ? "1" : undefined} onMouseEnter={onFocus}>
-      {/* #407: [[note]] and @cite-key mentions in a capture are links */}
-      <Prose html={c.text_html} className="break-words text-sm text-stone-800 dark:text-stone-100" testId="capture-text" />
+    <li className={`${panel} rise p-3 transition-shadow ${active ? "ring-2 ring-indigo-500/60" : ""} ${selected ? "bg-indigo-50/60 dark:bg-indigo-500/10" : ""} ${later ? "relative z-30" : ""}`} style={{ ["--i" as string]: i + 1 }} data-testid="inbox-row" data-active={active ? "1" : undefined} data-selected={selected ? "1" : undefined} onMouseEnter={onFocus}>
+      <div className="flex items-start gap-2">
+        {onToggle && <input type="checkbox" checked={Boolean(selected)} onChange={onToggle} aria-label="Select capture" className="mt-1 h-3.5 w-3.5 shrink-0 accent-indigo-600" data-testid="select-capture" />}
+        {/* #407: [[note]] and @cite-key mentions in a capture are links */}
+        <Prose html={c.text_html} className="min-w-0 flex-1 break-words text-sm text-stone-800 dark:text-stone-100" testId="capture-text" />
+      </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="text-stone-400">{ago(c.created_at)}</span>
         {c.processed && <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-emerald-700 dark:text-emerald-300" title="Already triaged">filed</span>}
