@@ -8,6 +8,7 @@ the roadmap carry the flags from grouped queries so no page asks per row.
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import timedelta
 
 from django.db.models import Q
 
@@ -92,3 +93,87 @@ def unblocked_by(milestone: Milestone) -> list[Milestone]:
         if not others.exists():
             out.append(dependant)
     return out
+
+
+# #513: dates that contradict the dependencies
+
+
+def _due_graph(project):
+    """Open milestones of a project with their open blockers: {id: milestone}, {id: [blocker ids]}."""
+    milestones = {
+        m.pk: m
+        for m in Milestone.objects.filter(phase__project=project, completed_at__isnull=True)
+        .select_related("phase")
+        .order_by("pk")
+    }
+    blockers: dict[int, list[int]] = defaultdict(list)
+    for source_id, target_id in (
+        Milestone.blocked_by.through.objects.filter(
+            from_milestone_id__in=milestones, to_milestone_id__in=milestones
+        )
+        .order_by("to_milestone_id")
+        .values_list("from_milestone_id", "to_milestone_id")
+    ):
+        blockers[source_id].append(target_id)
+    return milestones, blockers
+
+
+def _ordered(milestones: dict, blockers: dict) -> list[int]:
+    """Milestone ids with every blocker before its dependant (the graph is loop-free)."""
+    out, seen = [], set()
+
+    def visit(mid: int) -> None:
+        if mid in seen:
+            return
+        seen.add(mid)
+        for b in blockers.get(mid, ()):
+            visit(b)
+        out.append(mid)
+
+    for mid in milestones:
+        visit(mid)
+    return out
+
+
+def date_conflicts(project) -> list[dict]:
+    """Open milestones due on or before the latest due date of an open blocker, with the
+    day after that blocker as the suggestion. Blockers without a date cannot conflict."""
+    milestones, blockers = _due_graph(project)
+    rows = []
+    for mid in _ordered(milestones, blockers):
+        m = milestones[mid]
+        dated = [milestones[b] for b in blockers.get(mid, ()) if milestones[b].due_date]
+        if not m.due_date or not dated:
+            continue
+        latest = max(dated, key=lambda b: b.due_date)
+        if m.due_date <= latest.due_date:
+            rows.append(
+                {
+                    "id": m.pk,
+                    "title": m.title,
+                    "due_date": m.due_date,
+                    "blocker_id": latest.pk,
+                    "blocker_title": latest.title,
+                    "blocker_due": latest.due_date,
+                    "suggested": latest.due_date + timedelta(days=1),
+                }
+            )
+    return rows
+
+
+def resolve_conflicts(project) -> list[dict]:
+    """Push every conflicting due date to the day after its latest blocker, in dependency
+    order so a push cascades downstream. Returns [{id, title, from, to}]."""
+    milestones, blockers = _due_graph(project)
+    changes = []
+    for mid in _ordered(milestones, blockers):
+        m = milestones[mid]
+        dated = [milestones[b] for b in blockers.get(mid, ()) if milestones[b].due_date]
+        if not m.due_date or not dated:
+            continue
+        floor = max(b.due_date for b in dated) + timedelta(days=1)
+        if m.due_date < floor:
+            changes.append({"id": m.pk, "title": m.title, "from": m.due_date, "to": floor})
+            m.due_date = floor
+            m.save(update_fields=["due_date", "updated_at"])
+    return changes

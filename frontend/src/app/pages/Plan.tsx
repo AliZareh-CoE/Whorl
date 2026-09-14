@@ -20,7 +20,8 @@ type Task = { id: number; title: string; done: boolean; due_date?: string | null
 type Milestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue: boolean; notes?: string; tasks: Task[]; blocked_by: { id: number; title: string }[]; blocked: boolean; blocks: number[] };
 type Question = { id: number; question: string; status: string };
 type Phase = { id: number; name: string; order: number; status: string; progress: number; objective: string; target_start: string | null; target_end: string | null; questions: Question[]; milestones: Milestone[] };
-type PlanData = { project: string; project_name: string; project_color: string; questions: Question[]; phases: Phase[] };
+type Conflict = { id: number; title: string; due_date: string; blocker_id: number; blocker_title: string; blocker_due: string; suggested: string };
+type PlanData = { project: string; project_name: string; project_color: string; questions: Question[]; phases: Phase[]; conflicts: Conflict[] };
 type Summary = { phases: number; milestones: number; tasks: number; created: string[]; renamed: string[]; deleted: string[]; errors: { line: number; message: string }[]; applied?: boolean; markdown?: string };
 
 const STATUS_ORDER = ["not_started", "in_progress", "blocked", "done"];
@@ -78,6 +79,12 @@ export default function Plan() {
   };
   function patchPlan(update: (plan: PlanData) => PlanData) { queryClient.setQueryData<PlanData>(["plan", slug], (old) => (old ? update(old) : old)); }
 
+  // #513: dates that contradict the dependencies — one click pushes them, blockers first
+  const fixConflicts = useMutation({
+    mutationFn: () => api<{ changes: { id: number; title: string; from: string; to: string }[] }>(`/projects/${slug}/plan/reschedule-conflicts/`, { method: "POST" }),
+    onSuccess: (out) => { invalidate(); setToast(out.changes.length ? `Moved ${out.changes.map((c) => `${c.title} → ${c.to}`).join(", ")}` : "Nothing to move."); window.setTimeout(() => setToast(""), 5000); },
+  });
+  const conflictIds = new Set((data?.conflicts ?? []).map((c) => c.id));
   const toggleMilestone = useMutation({
     mutationFn: (m: Milestone) => api(`/milestones/${m.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ completed_at: m.completed_at ? null : new Date().toISOString() }) }),
     onMutate: async (m) => {
@@ -198,6 +205,17 @@ export default function Plan() {
         </div>
       </div>
 
+      {(data.conflicts?.length ?? 0) > 0 && (
+        <div className="rise mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-amber-300/60 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-500/40 dark:text-amber-100" role="status" data-testid="conflict-banner">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden="true" />
+          <span className="font-medium">{data.conflicts.length} date{data.conflicts.length === 1 ? "" : "s"} contradict{data.conflicts.length === 1 ? "s" : ""} a dependency</span>
+          <ul className="min-w-0 flex-1 text-xs">
+            {data.conflicts.slice(0, 3).map((c) => <li key={c.id} className="truncate"><span className="font-medium">{c.title}</span> is due {c.due_date} but waits for <span className="font-medium">{c.blocker_title}</span> (due {c.blocker_due}) — suggest {c.suggested}</li>)}
+            {data.conflicts.length > 3 && <li className="text-amber-700/80 dark:text-amber-200/80">…and {data.conflicts.length - 3} more</li>}
+          </ul>
+          <button type="button" onClick={() => fixConflicts.mutate()} disabled={fixConflicts.isPending} className="shrink-0 rounded-md bg-amber-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50" data-testid="conflict-fix">{fixConflicts.isPending ? "Moving…" : "Push the dates"}</button>
+        </div>
+      )}
       {mode === "roadmap" ? (
         <Roadmap slug={slug!} accent={accent} onChanged={invalidate} />
       ) : outlineMode ? (
@@ -214,7 +232,7 @@ export default function Plan() {
           <Orbit phases={data.phases} accent={accent} onOpen={(id) => document.getElementById(`phase-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} />
           <Focus slug={slug!} onChanged={invalidate} />
           {data.phases.map((phase, pi) => (
-            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} onDropPhase={(dragged) => dropPhaseBefore(dragged, phase.id)} onDropMilestone={(id) => moveMilestone.mutate({ id, phase: phase.id })} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onRename={async () => { const name = await promptDialog({ title: "Rename phase", label: "Name", initial: phase.name, validate: (v) => (v.trim() ? null : "Name the phase.") }); if (name && name.trim() !== phase.name) renamePhase.mutate({ id: phase.id, name: name.trim() }); }} onDelete={async () => { const n = phase.milestones.length; if (await confirmDialog({ title: `Delete the phase “${phase.name}”?`, body: n ? `Its ${n} milestone${n === 1 ? "" : "s"} and their tasks go with it.` : "The phase has no milestones.", danger: true, confirmLabel: "Delete phase" })) deletePhase.mutate(phase.id); }} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
+            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} conflictIds={conflictIds} onDropPhase={(dragged) => dropPhaseBefore(dragged, phase.id)} onDropMilestone={(id) => moveMilestone.mutate({ id, phase: phase.id })} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onRename={async () => { const name = await promptDialog({ title: "Rename phase", label: "Name", initial: phase.name, validate: (v) => (v.trim() ? null : "Name the phase.") }); if (name && name.trim() !== phase.name) renamePhase.mutate({ id: phase.id, name: name.trim() }); }} onDelete={async () => { const n = phase.milestones.length; if (await confirmDialog({ title: `Delete the phase “${phase.name}”?`, body: n ? `Its ${n} milestone${n === 1 ? "" : "s"} and their tasks go with it.` : "The phase has no milestones.", danger: true, confirmLabel: "Delete phase" })) deletePhase.mutate(phase.id); }} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
           ))}
           <button type="button" onClick={() => void askAddPhase()} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-stone-300 px-3 py-2 text-sm text-stone-500 hover:border-indigo-400 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-indigo-300" data-testid="add-phase"><Plus className="h-4 w-4" aria-hidden="true" />Add a phase</button>
         </div>
@@ -235,7 +253,7 @@ export default function Plan() {
   );
 }
 
-function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen, allQuestions, onPatchPhase, onRename, onDelete, onAttachQuestion }: { onRename: () => void; onDelete: () => void; onDropPhase: (draggedPhaseId: number) => void; onDropMilestone: (milestoneId: number) => void; phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void; allQuestions: Question[]; onPatchPhase: (body: { objective?: string; target_start?: string | null; target_end?: string | null }) => void; onAttachQuestion: (question: number, attach: boolean) => void }) {
+function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen, allQuestions, onPatchPhase, onRename, onDelete, onAttachQuestion, conflictIds }: { conflictIds?: Set<number>; onRename: () => void; onDelete: () => void; onDropPhase: (draggedPhaseId: number) => void; onDropMilestone: (milestoneId: number) => void; phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void; allQuestions: Question[]; onPatchPhase: (body: { objective?: string; target_start?: string | null; target_end?: string | null }) => void; onAttachQuestion: (question: number, attach: boolean) => void }) {
   const [draft, setDraft] = useState("");
   const [taskFor, setTaskFor] = useState<number | null>(null);
   const [taskDraft, setTaskDraft] = useState("");
@@ -301,6 +319,7 @@ function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggl
               <div className="flex items-center gap-3">
                 <button type="button" aria-label="Toggle milestone" onClick={() => onToggleMilestone(m)} className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs transition-all after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${m.completed_at ? "border-indigo-500 bg-indigo-500 text-white shadow-[0_0_12px_rgb(99_102_241/.6)]" : "border-stone-300 bg-white text-transparent hover:border-indigo-400 dark:border-stone-600 dark:bg-stone-900 dark:hover:border-indigo-400"}`}><Check className="h-3 w-3" aria-hidden="true" /></button>
                 <button type="button" onClick={() => onOpen(m.id)} className={`min-w-0 flex-1 truncate text-left text-sm hover:text-indigo-700 dark:hover:text-indigo-300 ${m.completed_at ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-200"}`} title="Open: notes, due date, tasks">{m.title}{m.notes ? <span className="ml-1.5 align-middle text-[10px] text-stone-400">notes</span> : null}</button>
+                {conflictIds?.has(m.id) && !m.completed_at && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title="Due on or before a milestone it waits for" data-testid="conflict-chip">due before its blocker</span>}
                 {m.blocked && !m.completed_at && <span className="inline-flex max-w-[14rem] shrink-0 items-center gap-1 truncate rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={`Waits for: ${(m.blocked_by ?? []).map((b) => b.title).join(", ")}`} data-testid="blocked-chip"><Lock className="h-3 w-3 shrink-0" aria-hidden="true" />waits for {(m.blocked_by ?? []).map((b) => b.title).join(", ")}</span>}
                 {m.due_date && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs ${isOverdue ? "bg-red-500/10 font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{isOverdue ? "overdue · " : "due "}{m.due_date}</span>}
                 <button type="button" onClick={() => { setTaskFor(taskFor === m.id ? null : m.id); setTaskDraft(""); }} className="shrink-0 text-[11px] text-stone-400 opacity-0 transition-opacity hover:text-indigo-600 group-hover:opacity-100 focus:opacity-100 dark:hover:text-indigo-300" aria-label={`Add a task to ${m.title}`}>+ task</button>

@@ -594,7 +594,7 @@ class ProjectViewSet(AtlasViewSet):
     def plan(self, request, slug=None):
         project = self.get_object()
         phases = []
-        from plans.dependencies import blocked_map
+        from plans.dependencies import blocked_map, date_conflicts
 
         blocked = blocked_map(project)  # #512: open blockers per milestone, two queries
         for phase in project.phases.prefetch_related(
@@ -647,8 +647,28 @@ class ProjectViewSet(AtlasViewSet):
                 "project_name": project.name,
                 "project_color": project.color,
                 "phases": phases,
+                # #513: milestones due on or before an open blocker's due date, with a suggestion
+                "conflicts": date_conflicts(project),
             }
         )
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(
+                description="changes: [{id, title, from, to}] — every due date pushed to the "
+                "day after its latest open blocker, in dependency order (a push cascades)"
+            )
+        },
+        description="Fix the plan's dependency date conflicts (#513): each open milestone due "
+        "on or before the latest due date of a milestone it waits for is moved to the day "
+        "after, blockers first, so downstream dates follow. Undated milestones are left alone.",
+    )
+    @action(detail=True, methods=["post"], url_path="plan/reschedule-conflicts")
+    def reschedule_conflicts(self, request, slug=None):
+        from plans.dependencies import resolve_conflicts
+
+        return Response({"changes": resolve_conflicts(self.get_object())})
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Unread references, highest priority first")},

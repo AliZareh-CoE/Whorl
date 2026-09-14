@@ -135,7 +135,12 @@ class Command(BaseCommand):
             title="Ethics amendment approved",
             due_date=today + datetime.timedelta(days=40),
         )
-        Milestone.objects.create(phase=collection, title="Full sample collected")
+        Milestone.objects.create(
+            phase=collection,
+            title="Full sample collected",
+            # #513: due before the ethics amendment it waits for — a date conflict to show
+            due_date=today + datetime.timedelta(days=30),
+        )
         Milestone.objects.create(phase=writing, title="Pre-registered analysis complete")
         Milestone.objects.create(phase=writing, title="Manuscript draft to co-authors")
         # #512: a dependency — the full sample waits on the ethics amendment

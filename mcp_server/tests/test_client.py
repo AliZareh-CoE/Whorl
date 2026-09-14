@@ -438,6 +438,10 @@ def test_notes_client_calls(capture):
     assert calls_url_has(capture, "/notes/4/revisions/9/")
     client.restore_note_revision(4, 9)
     assert capture["method"] == "POST" and calls_url_has(capture, "/notes/4/revisions/9/restore/")
+    client.fix_plan_conflicts("deep")
+    assert capture["method"] == "POST" and calls_url_has(
+        capture, "/projects/deep/plan/reschedule-conflicts/"
+    )
     client.set_milestone_dependencies(9, [3, 4])
     assert (
         capture["method"] == "PATCH"

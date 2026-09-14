@@ -45,8 +45,18 @@ def get_status_update(slug: str, days: int = 7) -> dict:
 @mcp.tool()
 def get_plan(slug: str) -> dict:
     """The project's full plan: ordered phases with milestones (ids, due dates, overdue flags,
-    #512 `blocked_by` / `blocked` / `blocks` dependencies) and tasks."""
+    #512 `blocked_by` / `blocked` / `blocks` dependencies) and tasks; `conflicts` lists the
+    milestones due on or before a milestone they wait for, each with a `suggested` date (#513)."""
     return client.get_plan(slug)
+
+
+@mcp.tool()
+def fix_plan_conflicts(slug: str) -> dict:
+    """Fix the plan's dependency date conflicts (#513): every open milestone due on or before
+    the latest due date of a milestone it waits for is moved to the day after, blockers first
+    so downstream dates follow; undated milestones are left alone. Returns `changes`
+    [{id, title, from, to}] — read get_plan's `conflicts` first to see what will move."""
+    return client.fix_plan_conflicts(slug)
 
 
 @mcp.tool()
