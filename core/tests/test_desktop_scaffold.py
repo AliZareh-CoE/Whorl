@@ -214,8 +214,9 @@ def test_in_app_updates_are_live_wired():
     # the PUBLIC mirror feed first (this repo is private: an unauthenticated app gets 404 from
     # its releases), then this repo's own feed for the day it goes public
     assert updater["endpoints"] == [
-        "https://github.com/alizareh-coe/atlas-releases/releases/download/desktop-preview/latest.json",
+        "https://github.com/AliZareh-CoE/Whorl/releases/download/desktop-preview/latest.json",
         "https://github.com/alizareh-coe/project-manager/releases/download/desktop-preview/latest.json",
+        "https://github.com/alizareh-coe/atlas-releases/releases/download/desktop-preview/latest.json",
     ]
     assert cfg["bundle"]["createUpdaterArtifacts"] is False  # CI flips it when the secret exists
     wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()

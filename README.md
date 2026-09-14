@@ -273,7 +273,7 @@ pieces, in order:
    `desktop-preview` release, so the fetch returns 404 and the sidebar shows
    *Updates unavailable — why?*. Two ways out, either works:
    - create a **public** repository named `atlas-releases` under the same owner, add the secrets
-     `RELEASES_REPO` (`Owner/atlas-releases`) and `RELEASES_TOKEN` (a fine-grained personal
+     `RELEASES_REPO` (`Owner/atlas-releases`; optional — the repository is public now, so the in-app updater reads its releases directly) and `RELEASES_TOKEN` (a fine-grained personal
      access token with *Contents: read and write* on that repo) — the `mirror` job then copies
      each build's installers, signatures and feed there, and apps update from it; or
    - make this repository public.

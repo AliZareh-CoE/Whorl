@@ -555,6 +555,12 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 ## Decisions
 
+### 2026-09-14 — Commit identity: AliZareh-CoE; and the update feed's first endpoint (owner messages)
+
+**Decision.** Every commit from here on is authored as `AliZareh-CoE <100804412+AliZareh-CoE@users.noreply.github.com>` (the repo-local git identity is set to it). The owner asked for all commits to be attributed to the GitHub account AliZareh-CoE; GitHub attributes by e-mail, and `ali.zareh.official@gmail.com` is linked to a different account (AliZareh-Official), which is why the history shows that avatar. Past commits — including the ones already merged through the first PR — are not rewritten (no history rewriting, no force-push, and a merged PR cannot be changed anyway); they flip to AliZareh-CoE the moment that e-mail is moved to the AliZareh-CoE account (GitHub → Settings → Emails on both accounts), because attribution is resolved at render time.
+
+**Update feed.** The owner's Diagnostics dump showed a desktop app still on 0.1.139. The feed itself is healthy: `latest.json` on the (now public, renamed) repository answers 0.1.214 anonymously and the Windows installer downloads. The updater's first endpoint was the never-created `atlas-releases` mirror (404); the plugin falls through to the next endpoint, but the working feed now comes first and is spelled with the repository's current name (`AliZareh-CoE/Whorl`), the old name second (GitHub redirects it), the mirror last.
+
 ### 2026-09-14 — Notes: #tags written where the thought is (#504)
 
 **Decision.** A `#tag` in a note's prose is a tag: `notes/tags.py::parse_tags` reads inline tags (a letter first; `/`, `-`, `_` allowed; headings, code spans and blocks, URL anchors and `#123` skipped), `sync_note_tags` stores them lower-cased and sorted on `Note.tags` (JSON, notes 0008 with a backfill) on every create/update through the API; `project_tags` counts them. `?tag=` filters `/notes/`, `GET /notes/tags/?project=` lists counts, the suggest endpoint gains `kind=tag`, the editor autocompletes `#` from the project's own tags, the list rail shows every tag with its count (click filters, click again clears), the editor header shows the note's tags. MCP `list_notes(tag)` and `list_note_tags` (119 tools).
