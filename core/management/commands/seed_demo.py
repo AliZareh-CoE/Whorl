@@ -426,8 +426,21 @@ class Command(BaseCommand):
                 # Library's "Continue reading" rail lists it
                 reference.last_page, reference.page_count = 5, 12
                 reference.last_read_at = timezone.now() - datetime.timedelta(days=2)
+                # #544: the demo PDF reads as found by the sweep — the rail's "found this
+                # month" line and the detail pane's "via arXiv" both show
+                reference.pdf_source = "arxiv"
+                reference.pdf_checked_at = timezone.now() - datetime.timedelta(days=2)
+                reference.extra = {**reference.extra, "oa_pdf": "PDF attached (412 KB) via arXiv."}
                 reference.save(
-                    update_fields=["last_page", "page_count", "last_read_at", "updated_at"]
+                    update_fields=[
+                        "last_page",
+                        "page_count",
+                        "last_read_at",
+                        "pdf_source",
+                        "pdf_checked_at",
+                        "extra",
+                        "updated_at",
+                    ]
                 )
         # #523: honest started / finished dates on the demo links (the backfill only knows
         # updated_at; a fresh seed would stamp everything "today")

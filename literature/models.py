@@ -88,6 +88,11 @@ class Reference(TimeStampedModel):
     published_checked_at = models.DateTimeField(null=True, blank=True)
     # #530: the citation watch — when OpenAlex was last asked who newly cites this paper.
     cited_by_checked_at = models.DateTimeField(null=True, blank=True)
+    # #544: the PDF finder's stamp — when a source last answered for this paper (null: never
+    # looked, so the nightly sweep looks first) and which source served the PDF (arxiv /
+    # unpaywall / s2 / openalex; blank when the PDF was uploaded or none was found)
+    pdf_checked_at = models.DateTimeField(null=True, blank=True)
+    pdf_source = models.CharField(max_length=20, blank=True, default="")
     tags = models.ManyToManyField(LibraryTag, blank=True, related_name="references")
 
     class Meta:

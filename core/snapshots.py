@@ -240,6 +240,21 @@ def start_scheduler(directory: Path | None = None) -> bool:
                     log.exception("feed sweep failed")
                 finally:
                     close_old_connections()
+                try:
+                    # #544: the PDF sweep — a few papers without a PDF per tick, a short wall
+                    # clock, and off when the owner turned automatic downloads off.
+                    from django.conf import settings
+
+                    if settings.ATLAS_AUTO_FETCH_PDF:
+                        from literature import oa
+
+                        oa.sweep_missing(
+                            limit=oa.DESKTOP_LIMIT, budget_seconds=oa.DESKTOP_BUDGET_SECONDS
+                        )
+                except Exception:  # noqa: BLE001
+                    log.exception("pdf sweep failed")
+                finally:
+                    close_old_connections()
                 wait = CHECK_EVERY_SECONDS
 
         _THREAD = threading.Thread(target=loop, name="atlas-snapshots", daemon=True)

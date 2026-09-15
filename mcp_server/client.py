@@ -851,9 +851,24 @@ def set_reading_notes(project_reference_id: int, notes: str):
     return _request("PATCH", f"/project-references/{project_reference_id}/", json={"notes": notes})
 
 
-def fetch_pdf(reference_id: int):
-    """Try to attach an open-access PDF (arXiv, then Unpaywall)."""
-    return _request("POST", f"/references/{reference_id}/fetch-pdf/")
+def fetch_pdf(reference_id: int = 0, reference_ids=None, days: int = 30, limit: int = 20):
+    """One paper: POST /references/{id}/fetch-pdf/. Otherwise the sweep (#544): POST
+    /references/find-pdfs/ over chosen ids (≤ 20) or the stale papers without a PDF."""
+    if reference_id:
+        return _request("POST", f"/references/{int(reference_id)}/fetch-pdf/")
+    if reference_ids:
+        payload: dict = {"ids": [int(i) for i in reference_ids][:20]}
+    else:
+        payload = {
+            "stale": True,
+            "days": int(days or 30),
+            "limit": max(1, min(int(limit or 20), 20)),
+        }
+    return _request("POST", "/references/find-pdfs/", json=payload)
+
+
+def pdf_sweep_status():
+    return _request("GET", "/references/find-pdfs/")
 
 
 def search_pdf_text(query: str, project: str = "", limit: int = 30):

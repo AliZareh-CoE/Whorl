@@ -2277,6 +2277,64 @@ class ReferenceViewSet(AtlasViewSet):
         return Response(out)
 
     @extend_schema(
+        request=inline_serializer(
+            "FindPdfs",
+            fields={
+                "ids": rf_serializers.ListField(
+                    child=rf_serializers.IntegerField(), required=False, max_length=20
+                ),
+                "stale": rf_serializers.BooleanField(required=False),
+                "days": rf_serializers.IntegerField(required=False),
+                "limit": rf_serializers.IntegerField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(
+                description="{checked, attached: [{id, bibtex_key, title, source}], not_found, "
+                "errors, skipped, stopped ('' | 'offline' | 'budget'), status: {missing, "
+                "lookable, unchecked, found_30d, last_checked_at}}"
+            ),
+            400: OpenApiResponse(description="Bad ids"),
+        },
+        description="The PDF sweep (#544): run the four-source finder (arXiv, Unpaywall, "
+        "Semantic Scholar, OpenAlex) over papers without a PDF and attach what it finds. Body: "
+        "`ids` (≤ 20) for chosen papers, or `stale: true` for the papers never looked at or "
+        "not asked about for `days` (30), `limit` (≤ 20 here; the nightly sweep does 25). A "
+        "paper no source answered for is not stamped and counts in `errors`; three in a row "
+        "stop the run (`stopped: offline`), as does a two-minute wall clock (`budget`). GET "
+        "with no body returns the sweep's status only.",
+    )
+    @action(detail=False, methods=["get", "post"], url_path="find-pdfs")
+    def find_pdfs(self, request):
+        from literature import oa
+
+        if request.method == "GET":
+            return Response({"status": oa.watch_status()})
+        body = request.data if isinstance(request.data, dict) else {}
+        ids = body.get("ids")
+        if ids is not None:
+            if not isinstance(ids, list) or len(ids) > oa.API_LIMIT:
+                return Response({"ids": [f"Give up to {oa.API_LIMIT} ids."]}, status=400)
+            try:
+                ids = parse_ids(ids, limit=oa.API_LIMIT, strict=True)
+            except ValueError:
+                return Response({"ids": ["Ids must be integers."]}, status=400)
+            refs = list(Reference.objects.filter(pk__in=ids).order_by("pk"))
+            out = oa.find_pdfs(refs, oa.API_BUDGET_SECONDS)
+        else:
+            try:
+                days = int(body.get("days", oa.STALE_DAYS))
+                limit = int(body.get("limit", oa.API_LIMIT))
+            except (TypeError, ValueError):
+                return Response({"detail": ["days and limit must be integers."]}, status=400)
+            out = oa.find_pdfs(
+                oa.stale_missing(max(1, days), max(1, min(oa.API_LIMIT, limit))),
+                oa.API_BUDGET_SECONDS,
+            )
+        out["status"] = oa.watch_status()
+        return Response(out)
+
+    @extend_schema(
         request=None,
         responses={
             200: inline_serializer(

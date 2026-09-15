@@ -53,6 +53,19 @@ def check_citations_task():
     return check_stale()
 
 
+@db_periodic_task(crontab(hour=5, minute=20))
+def find_pdfs_task():
+    """#544: the nightly PDF sweep — papers without a PDF, never looked at first, then the
+    ones not asked about for thirty days; off when ATLAS_AUTO_FETCH_PDF is false."""
+    from django.conf import settings
+
+    if not settings.ATLAS_AUTO_FETCH_PDF:
+        return None
+    from .oa import sweep_missing
+
+    return sweep_missing()
+
+
 @db_periodic_task(crontab(hour="*/6", minute=20))
 def refresh_feeds_task():
     """#531: the feed sweep — feeds not fetched for twelve hours, every six hours."""

@@ -26,6 +26,8 @@ class ReferenceAdmin(admin.ModelAdmin):
         "doi",
         "citation_count",
         "retraction_kind",
+        "pdf_source",
+        "pdf_checked_at",
     ]
     search_fields = ["title", "bibtex_key", "doi"]
     list_filter = ["entry_type", "retraction_kind"]

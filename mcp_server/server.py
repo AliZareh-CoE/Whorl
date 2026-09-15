@@ -853,13 +853,18 @@ def set_reading_notes(project_reference_id: int, notes: str) -> dict:
 
 
 @mcp.tool()
-def fetch_pdf(reference_id: int) -> dict:
-    """Find and attach a free PDF for a paper. Sources are asked in order until one serves a
-    real PDF: arXiv, Unpaywall, Semantic Scholar (which also fills in the arXiv id of a
-    published paper), OpenAlex. Returns `outcome`, `attached`, `pdf`, `source` (arxiv /
-    unpaywall / s2 / openalex) and `arxiv_id`. Use when a paper in browse_library has
-    has_pdf false, before reading or indexing it."""
-    return client.fetch_pdf(reference_id)
+def fetch_pdf(
+    reference_id: int = 0, reference_ids: list[int] | None = None, days: int = 30, limit: int = 20
+) -> dict:
+    """Find and attach free PDFs. Sources are asked in order until one serves a real PDF:
+    arXiv, Unpaywall, Semantic Scholar (which also fills in a published paper's arXiv id),
+    OpenAlex. One `reference_id` returns `outcome`, `attached`, `pdf`, `source` and `arxiv_id`.
+    Without it the sweep runs: `reference_ids` (≤ 20) or the stale papers without a PDF (never
+    looked at first, then older than `days`, up to `limit`), returning `checked`, `attached`
+    [{id, bibtex_key, title, source}], `not_found`, `errors` (no source answered: not stamped),
+    `stopped` (offline / budget) and `status`. Use when browse_library shows has_pdf false,
+    or for "get me the PDFs I am missing"."""
+    return client.fetch_pdf(reference_id, reference_ids, days, limit)
 
 
 @mcp.tool()
