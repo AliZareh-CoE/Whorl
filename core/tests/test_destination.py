@@ -175,3 +175,16 @@ def test_diagnostics_page_shows_the_destination():
         'data-testid="destination-attach"',
     ):
         assert needle in tsx, needle
+
+
+def test_audit32_long_path_is_refused_not_a_crash(client_logged_in, home):
+    # Audit #32: a 10 000-character `dir` raised OSError (ENAMETOOLONG) out of is_dir → 500.
+    with pytest.raises(ValueError, match="too long"):
+        destination.save_config("/" + "a" * 10_000)
+    with pytest.raises(ValueError, match="not a folder"):
+        destination.save_config("/" + "a" * 300)
+    r = client_logged_in.post(
+        "/api/v1/backup-destination/", {"dir": "/" + "a" * 10_000}, content_type="application/json"
+    )
+    assert r.status_code == 400 and "too long" in r.json()["dir"][0]
+    assert destination.load_config()["dir"] == ""

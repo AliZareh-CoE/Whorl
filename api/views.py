@@ -221,6 +221,8 @@ class ProjectViewSet(AtlasViewSet):
         only = data.get("only") or None
         if only is not None and not isinstance(only, list):
             only = [str(only)]
+        if only is not None:
+            only = [str(o) for o in only[:500] if o is not None]  # Audit #32: never a crash
         pdfs = data.get("pdfs") or "library"
         markdown = data.get("markdown") or "notes"
         if pdfs not in importer.PDFS_CHOICES or markdown not in importer.MARKDOWN_CHOICES:

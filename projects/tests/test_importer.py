@@ -238,3 +238,30 @@ def test_import_page_is_wired_in_the_spa():
     assert 'data-testid="import-folder-link"' in projects and "/projects/import" in projects
     assert 'path="projects/import"' in Path("frontend/src/app/main.tsx").read_text()
     assert "Import a folder of projects" in Path("frontend/src/app/CommandBar.tsx").read_text()
+
+
+def test_audit32_long_paths_and_junk_only_are_refused_not_crashes(
+    client_logged_in, tmp_path, no_network
+):
+    # Audit #32: a 10 000-character path raised OSError (ENAMETOOLONG) out of is_dir → 500;
+    # `only: [1, null]` from JSON raised AttributeError on .strip() → 500. Both are 400s now.
+    from projects import importer
+
+    with pytest.raises(ValueError, match="too long"):
+        importer.resolve_root("/" + "a" * 10_000)
+    with pytest.raises(ValueError, match="not a folder"):
+        importer.resolve_root("/" + "a" * 300)  # under the cap, over the OS's
+    with pytest.raises(ValueError, match="No such folder"):
+        importer.plan(tmp_path, only=[1, None])
+    r = client_logged_in.post(
+        "/api/v1/projects/import-folder/",
+        {"path": "/" + "a" * 10_000},
+        content_type="application/json",
+    )
+    assert r.status_code == 400 and "too long" in r.json()["detail"]
+    r = client_logged_in.post(
+        "/api/v1/projects/import-folder/",
+        {"path": str(tmp_path), "only": [1, None]},
+        content_type="application/json",
+    )
+    assert r.status_code == 400 and "No such folder" in r.json()["detail"]

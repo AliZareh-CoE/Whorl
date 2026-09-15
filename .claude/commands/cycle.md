@@ -16,7 +16,7 @@ ends; the owner does not review in between and never wants to be asked "shall Iâ
    #522 after #512â€“#522; Notes + knowledge graph at #511; the Inbox at #501; the Dashboard at
    #493; the Project overview at #485; the Writing studio at #477; #518 was Audit #30, #523
    shipped reading progress, #524 the author lens + browse_library, #525 export in every format, #526 every view has an
-   address, #527 the retraction watch, #528 was Audit #31, #529 the preprint watch, #530 the citation watch, #531 journal and arXiv feeds, #532 an address for every mode, #533 the watches on the dashboard and in the brief, #534 the update-feed verdict (owner ask), #535 the projects-folder import (owner ask), #536 the backup destination (owner ask), #537 the softer Crossref notices, and Audit #32 is due at #538). Next candidates, in order: a second pass over the earliest
+   address, #527 the retraction watch, #528 was Audit #31, #529 the preprint watch, #530 the citation watch, #531 journal and arXiv feeds, #532 an address for every mode, #533 the watches on the dashboard and in the brief, #534 the update-feed verdict (owner ask), #535 the projects-folder import (owner ask), #536 the backup destination (owner ask), #537 the softer Crossref notices, #538 Audit #32; #539 is the next Library slice and Audit #33 is due at #548). Next candidates, in order: a second pass over the earliest
    areas (Today, Files, Prompts, Diagnostics), then a third pass wherever the owner reports.
 2. **Worthy of a viral GitHub star.** Every slice must be something a researcher would
    screenshot and send to a colleague. Prefer the feature that makes someone say "finally".

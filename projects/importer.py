@@ -51,7 +51,8 @@ JUNK_FILES = {".DS_Store", "Thumbs.db", "desktop.ini"}
 README_NAMES = ("readme.md", "readme.markdown", "readme.txt", "readme.rst", "readme")
 MARKDOWN_SUFFIXES = {".md", ".markdown"}
 BIB_SUFFIXES = {".bib", ".bibtex", ".ris"}
-MAX_FILES = 2000  # per project: a monorepo must not hang the import
+MAX_FILES = 2000
+MAX_PATH = 4096  # longer than any real folder path; a longer one is refused, not tried  # per project: a monorepo must not hang the import
 MAX_DESCRIPTION = 20_000
 MAX_NOTE_BYTES = 2 * 1024 * 1024
 PDFS_CHOICES = ("library", "documents")
@@ -272,8 +273,14 @@ def resolve_root(path: str) -> Path:
     text = (path or "").strip()
     if not text:
         raise ValueError("Give the path of the folder that holds your projects.")
-    root = Path(text).expanduser()
-    if not root.is_dir():
+    if len(text) > MAX_PATH:  # Audit #32: a 10 000-character path was an OSError, not a 400
+        raise ValueError("That path is too long.")
+    try:
+        root = Path(text).expanduser()
+        exists = root.is_dir()
+    except (OSError, ValueError) as exc:  # a name too long for the filesystem, an embedded NUL
+        raise ValueError(f"{text[:200]} is not a folder that exists.") from exc
+    if not exists:
         raise ValueError(f"{text} is not a folder that exists.")
     return root
 
@@ -284,7 +291,8 @@ def plan(
     """The dry run: one row per project folder (or per name in `only`)."""
     folders = list_folders(root)
     if only:
-        wanted = {o.strip() for o in only if o and o.strip()}
+        # Audit #32: names arrive from JSON — an int or a null is text or nothing, never a crash
+        wanted = {str(o).strip() for o in only if o is not None and str(o).strip()}
         missing = sorted(wanted - set(folders))
         if missing:
             raise ValueError(f"No such folder under {root}: {', '.join(missing)}")

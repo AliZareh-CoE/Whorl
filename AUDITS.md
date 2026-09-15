@@ -874,6 +874,103 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #32 — 2026-09-15 (since #31: #529–#537 — the Library return pass's last six slices, three owner asks: the updater verdict, the projects-folder import, the backup destination)
+
+Ten cycles, nine slices, three findings — all the same shape: an untyped or unbounded value
+from the request reaching the filesystem or a string method — fixed, pinned. Nothing across
+the wire.
+
+**Dependencies — CLEAN.** `pip-audit` on the exported lock: *No known vulnerabilities found*.
+`npm audit --omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`: every row green (anon → 401
+across the API, pages → 302, catch-all 404, static MIME, `/app//evil.com` stays on-origin).
+
+**New surfaces since #31 — reviewed.**
+- *Auth:* `references/check-published/`, `references/{id}/upgrade/`, `references/new-citations/`
+  (+ `check/`, `dismiss/`), `feeds/` (+ `refresh/`, `{id}/refresh/`, `items/`, `items/add/`,
+  `items/dismiss/`), `projects/import-folder/`, `backup-destination/` (+ `sync/`) and
+  `references/?notices=1` answer 401 anonymously and to a wrong key — fourteen routes.
+- *Bounds (#529, #530, #531):* 51 ids → 400 on `check-published` / `new-citations/check`, 21
+  → 400 on `feeds/refresh`, 501 → 400 on the two dismisses, `[]` → 400; `["a"]` / `"1"` →
+  400; `[10²⁰]` → 200 with nothing touched (`parse_ids` drops it before the SQL);
+  `days: 10²⁰` and `hours: 10²⁰` → 200 (clamped, the Audit #31 rule); `limit=abc` → 400,
+  `limit=10²⁰` / `reference=10²⁰` / `feed=10²⁰` → 400 "out of range" (`MAX_PK`); `items/add`
+  with `"abc"` / `{}` / `10²⁰` → 400, an unknown id → 404; `upgrade` on a paper without a
+  published version → 400 with the reason, an unknown or 10²⁰ id → 404.
+- *SSRF on feed addresses (#531):* `file:///etc/passwd` and `javascript:` → "only http(s)
+  links are fetched"; `127.0.0.1:8000`, `169.254.169.254`, `[::1]`, `0x7f000001`,
+  `2130706433` (decimal) and `localtest.me` (a public name resolving to loopback) → "that
+  host is private or unresolvable" — `check_url` resolves the name and refuses private,
+  loopback, link-local and reserved ranges, and `_download` re-checks every redirect hop
+  by hand (a public host answering `302 → http://127.0.0.1/…` is refused, not fetched), caps
+  the body at 2 MB and the hops at five. A 5 000-character path on a public host is fetched
+  once and answered "the address answered 404" (not stored).
+- *Filters (#529, #537):* `notices=%00`, `notices=10²⁰`, `preprints=1e20`,
+  `published_available=x` are ignored (a flag is `1`/`true` or nothing). The `notices`
+  filter and facet use an index-0 JSON key transform and were exercised on SQLite through
+  Django's compiler (last cycle) and again here.
+- *Projects-folder import (#535):* `/etc/passwd`, a relative path and a missing folder →
+  400 naming the path; `pdfs` / `markdown` outside their choices → 400; `only` as a bare
+  string is wrapped; a name not under the root → 400 "No such folder under …". An embedded
+  NUL → 400. *Accepted:* with the owner's key, `dry_run` lists the sub-folder names of any
+  readable directory (`/proc/self` with `only: ["fd"]` answers a plan row) — the same shape
+  as the watched folder and the backup destination: the API key is the owner's, on a
+  single-user install, and the plan reads names, never contents; an apply imports files the
+  process can read, which is what the feature is for.
+- **FINDING 1 — a 10 000-character path was a 500 on the import.** `POST
+  projects/import-folder/ {path: "/aaaa…"}` raised `OSError [Errno 36] File name too long`
+  out of `Path.is_dir()` → **500**. Fixed in `projects/importer.py::resolve_root`: paths over
+  `MAX_PATH` (4 096) are refused as "That path is too long.", and `is_dir` is wrapped so a
+  name the filesystem rejects (too long for one component, an embedded NUL) is "not a folder
+  that exists." → 400 either way. Pinned in
+  `test_audit32_long_paths_and_junk_only_are_refused_not_crashes`.
+- **FINDING 2 — the same path was a 500 on the backup destination.** `POST
+  backup-destination/ {dir: "/aaaa…"}` — the same `OSError` out of `save_config`. Fixed the
+  same way in `core/destination.py::save_config` (`MAX_PATH`, the wrapped `is_dir`);
+  `/proc` (a directory that refuses a write) already answered 400 "Atlas cannot write into
+  /proc". Pinned in `test_audit32_long_path_is_refused_not_a_crash`.
+- **FINDING 3 — a non-string in `only` was a 500.** `{path: "/tmp", only: [1, null]}` raised
+  `AttributeError: 'int' object has no attribute 'strip'` in `importer.plan` → **500**.
+  Fixed twice over: the view coerces every entry to text and drops nulls (capped at 500
+  names), and `plan` itself does the same, so the MCP tool and the command share the guard;
+  an unknown name is still 400 "No such folder under …". Pinned in the same importer test.
+- *Backup destination (#536):* `dir: 5` / `["x"]` → 400 (stringified, not a folder);
+  `/etc/passwd` → 400; `sync/` with nothing attached → 400 "No backup destination is
+  attached."; `dir: ""` detaches (200, `enabled: false`). *Accepted:* the owner's key can
+  point the destination at any writable folder — that is the feature; the write probe is a
+  16-byte file removed at once, and copies never overwrite (`.partial` + rename).
+- *Updater verdict (#534):* the check is a GET of a public `latest.json` over httpx with a
+  timeout; the response is compared, never executed; the bundled public key is read from
+  the app's own `tauri.conf.json`.
+
+**SQLite (the desktop) — repeated per the Audit #31 rule.** On a SQLite database with the
+desktop settings: `check-published` / `new-citations/check` / `dismiss` / `feeds/items/dismiss`
+/ `feeds/refresh` with `[10²⁰]` → 200 (nothing touched), `items/add {id: 10²⁰}` → 400,
+`references/10²⁰/upgrade/` and `feeds/10²⁰/` → 404, `new-citations?reference=10²⁰` and
+`feeds/items?feed=10²⁰` → 400, `?notices=1`, `facets/`, `?year_min=10²⁰`, `days: 10²⁰`,
+`hours: 10²⁰` and the dashboard → 200. No `OverflowError` anywhere.
+
+**Query counts on the demo** (in-process): `references/?notices=1` 7, `?preprints=1` 7,
+`?published_available=1` 7, `facets/` 22 (was 18: the notices, preprint, published and
+new-citation counts), `references/{id}/` 9, `check-published/` (GET) 5,
+`new-citations/` 9, `new-citations/check/` (GET) 6, `feeds/` 4, `feeds/items/` 8 (with
+`feed=` 8), `feeds/refresh/` (GET) 6, `dashboard/` 64 (pinned budget 122), `dashboard/brief/`
+56, `manuscripts/{id}/preflight/` 17, `backup-destination/` 1, `import-folder/` (dry run) 5,
+`diagnostics/` 7 — all grouped, none per row.
+
+**Hot endpoints (in-process, demo data):** notices filter 15 ms, preprints 13 ms, facets
+56 ms, detail 15 ms, published-check status 6 ms, new citations 11 ms, feeds 11 ms, feed
+items 10 ms, dashboard 94 ms, brief 80 ms, pre-flight 29 ms, backup destination 3 ms,
+import dry run 7 ms, diagnostics 17 ms.
+
+**Verdict.** Three findings, one shape: a request value reaching the filesystem or a string
+method without a type or length check — two of them the first paths in Atlas that take a
+filesystem path from the API (the owner asks of this window), the third a JSON list assumed
+to hold strings. All three refused with a reason instead of a traceback; the length cap and
+the coercion live in the service functions so the MCP tools and the commands share them.
+Nothing exploitable across the wire: the API-key gate holds on every new route, the feed
+fetcher refuses private hosts on the typed address and on every redirect, every id and range
+is bounded before the SQL on both databases. **Next audit due at #548.**
+
 ## Audit #31 — 2026-09-15 (since #30: #519–#527 — the Plan area's last four slices and its verdict, the Library return pass's first five)
 
 Ten cycles, nine feature slices, three findings — each an unbounded integer reaching the

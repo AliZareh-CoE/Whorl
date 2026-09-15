@@ -28,7 +28,8 @@ log = logging.getLogger("atlas.destination")
 CONFIG_NAME = "backup-destination.json"
 STATE_NAME = "backup-destination-state.json"
 SUBFOLDER = "Atlas backups"
-KEEP = 14  # a sync folder has room for two weeks; the data folder keeps seven (#462)
+KEEP = 14
+MAX_PATH = 4096  # longer than any real folder path; a longer one is refused, not tried  # a sync folder has room for two weeks; the data folder keeps seven (#462)
 CHUNK = 4 * 1024 * 1024
 
 # what a path says about where it goes — first match wins, most specific first
@@ -147,8 +148,14 @@ def save_config(dir_path: str, enabled: bool = True, data_dir: Path | None = Non
     """Validate and persist. The folder must exist and be writable; an empty folder detaches."""
     dir_path = (dir_path or "").strip()
     if dir_path:
-        folder = Path(dir_path).expanduser()
-        if not folder.is_dir():
+        if len(dir_path) > MAX_PATH:  # Audit #32: a 10 000-character path was an OSError
+            raise ValueError("That path is too long.")
+        try:
+            folder = Path(dir_path).expanduser()
+            exists = folder.is_dir()
+        except (OSError, ValueError) as exc:  # too long for the filesystem, an embedded NUL
+            raise ValueError(f"{dir_path[:200]} is not a folder that exists.") from exc
+        if not exists:
             raise ValueError(f"{dir_path} is not a folder that exists.")
         probe = folder / ".atlas-write-check"
         try:
