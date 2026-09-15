@@ -250,9 +250,15 @@ def test_release_workflow_mirrors_to_the_public_feed():
     button = (
         Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "UpdaterButton.tsx"
     ).read_text()
-    assert "private GitHub repository" in button and "Updates unavailable" in button
+    assert "Diagnostics › Update check" in button and "Updates unavailable" in button
+    # #534: every release link names the repository as it is called now (renamed to Whorl)
+    assert (
+        'RELEASES = "https://github.com/AliZareh-CoE/Whorl/releases/tag/desktop-preview"' in button
+    )
     readme = (Path(settings.BASE_DIR) / "README.md").read_text()
     assert "## Auto-update" in readme and "RELEASES_REPO" in readme
+    assert "github.com/AliZareh-CoE/Whorl/releases/tag/desktop-preview" in readme
+    assert "github.com/AliZareh-CoE/project-manager/releases" not in readme
 
 
 def test_external_links_open_in_the_os_browser():

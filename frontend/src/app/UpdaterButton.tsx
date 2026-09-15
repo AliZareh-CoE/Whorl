@@ -20,7 +20,7 @@ const RECHECK_MS = 6 * 60 * 60 * 1000; // backlog #304: look again while the app
 function mb(n: number): string { return `${(n / 1048576).toFixed(1)} MB`; }
 
 const isDesktop = typeof window !== "undefined" && "__TAURI__" in window;
-const RELEASES = "https://github.com/alizareh-coe/project-manager/releases/tag/desktop-preview";
+const RELEASES = "https://github.com/AliZareh-CoE/Whorl/releases/tag/desktop-preview";
 
 type State =
   | { kind: "idle" }
@@ -34,7 +34,7 @@ type State =
 /** Turn the updater's raw error into the one sentence that says what to do. */
 function explain(raw: string): string {
   if (/not allowed by ACL/i.test(raw)) return "This build's shell blocked the command (a capability bug fixed in 0.1.79+). Install the newest build from the releases page once; after that updates work in-app.";
-  if (/404|not found/i.test(raw)) return "The update feed answered 404. The releases live in a private GitHub repository, which the app cannot read — publish them to the public feed (README › Auto-update).";
+  if (/404|not found/i.test(raw)) return "The update feed answered 404 — the release carries no latest.json yet, or this build's feed address moved. Diagnostics › Update check says which; the releases page always has the newest build.";
   if (/signature|verify|pubkey|public key/i.test(raw)) return "The download's signature did not match this app's public key. The release was signed with a different key — reinstall from the releases page.";
   if (/dns|resolve|connect|network|timed? ?out|offline/i.test(raw)) return "Could not reach GitHub to check for updates (offline?).";
   return raw;

@@ -10,12 +10,13 @@ import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { isDesktop, openDevtools, revealPath } from "../external";
 import { ErrorState } from "../../components/ErrorState";
 
-type Feed = { url: string; status: number | string | null };
+type Feed = { url: string; status: number | string | null; version: string | null; platforms: string[]; key_match: boolean | null };
+type Verdict = { state: "unchecked" | "offline" | "unreachable" | "unsigned" | "wrong_key" | "current" | "available" | "unknown_version"; text: string };
 type RestoreState = { pending: { created_at?: string; staged_at: string | null; media_files: number; has_sqlite: boolean; has_json: boolean; size_bytes: number } | null; last_result: { ok: boolean; detail: string; applied_at: string; kept_previous_in: string } | null; data_dir: string };
 type Latex = { state: "idle" | "running" | "ok" | "failed" | "unknown"; log: string; seconds: number | null; dir: string; warm: boolean; size_mb: number };
 type Report = {
   version: string; desktop: boolean; platform: string; frozen: boolean; settings_module: string; data_dir: string | null; database: string;
-  engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; update_feed: Feed[];
+  engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; update_feed: Feed[]; update_verdict?: Verdict;
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
   backups?: { last: { at: string; days_ago: number; size_bytes: number } | null; stale: boolean; has_data: boolean; stale_after_days: number };
   // #462: the zips Atlas keeps on its own in <data dir>/backups
@@ -123,7 +124,8 @@ export default function Diagnostics() {
               )}
               <Row label="Background jobs" value={r.jobs} />
               <Row label="API key" value={r.api_key_configured ? "configured" : "missing — the API and Claude cannot connect"} ok={r.api_key_configured} />
-              {r.update_feed.map((f) => <Row key={f.url} label="Update feed" value={<><code className="text-xs">{f.url.replace("https://github.com/", "")}</code>{f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (private repository or missing feed)" : ""}</span>}</>} ok={f.status === null ? null : f.status === 200} />)}
+              {r.update_verdict && <Row label="Update check" value={<span data-testid="update-verdict" data-state={r.update_verdict.state}>{r.update_verdict.text}</span>} ok={r.update_verdict.state === "unchecked" || r.update_verdict.state === "unknown_version" ? null : r.update_verdict.state === "current" || r.update_verdict.state === "available"} />}
+              {r.update_feed.map((f) => <Row key={f.url} label="Update feed" value={<><code className="text-xs">{f.url.replace("https://github.com/", "")}</code>{f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (no feed at this address)" : ""}{f.version ? ` · offers ${f.version}` : ""}{f.key_match === false ? " · signed with a different key" : f.key_match ? " · signed for this app" : ""}</span>}</>} ok={f.status === null ? null : f.status === 200 && f.key_match !== false} />)}
             </dl>
           </section>
           {r.access?.summary && (

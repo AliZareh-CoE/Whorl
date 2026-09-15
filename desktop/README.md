@@ -146,15 +146,14 @@ that touches the desktop build publishes `latest.json`, and installed apps start
 every command (terminal, updater, file picker, external links) is refused with "not allowed
 by ACL". A test pins this.
 
-**Private repository = no feed.** The app fetches `latest.json` without credentials, and
-GitHub answers 404 for a private repo's release assets — signing is fine, but nothing is ever
-found. The release workflow's `mirror` job fixes this by copying each build's installers,
-`.sig` files and a URL-rewritten `latest.json` into a **public** releases repository: create
-`atlas-releases` (public, empty) under the same owner and add the secrets `RELEASES_REPO`
-(`Owner/atlas-releases`) and `RELEASES_TOKEN` (fine-grained PAT, *Contents: read and write*
-on that repo). The app tries the public feed first and this repo's feed second, so making
-this repository public also works. Until one of those is done the sidebar shows
-*Updates unavailable — why?* with the reason.
+**Is it working? Ask Diagnostics (#534).** Tick *Probe the update feed* on `/diagnostics`
+(or run `manage.py doctor`): the **Update check** row fetches `latest.json` the way the app
+does and gives one verdict — a newer build is available and signed for this app, up to date,
+signed with a different key (install that build once from the releases page), unsigned,
+unreachable, or offline. The repository is public, so the app reads the feed directly; the
+workflow's optional `mirror` job (secrets `RELEASES_REPO` + `RELEASES_TOKEN`) exists only for
+the day it is made private again. Older builds carried the old repository address,
+which GitHub redirects, so they still find updates.
 
 Losing the private key means generating a new pair, committing the new public key, and
 shipping one more manual install; keep it somewhere safe. `manage.py doctor` reports the

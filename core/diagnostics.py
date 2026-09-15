@@ -23,26 +23,166 @@ def _tail(path: Path, lines: int = 120) -> str:
     return "\n".join(text.splitlines()[-lines:])
 
 
-def update_feed_status(check_network: bool = False) -> list[dict]:
-    conf = Path(settings.BASE_DIR) / "desktop" / "tauri.conf.json"
-    rows: list[dict] = []
+FEED_MAX_BYTES = 256 * 1024  # a latest.json is a few KB; never read a runaway body
+
+
+def _key_id(minisign_b64: str) -> str:
+    """The 8-byte key id inside a minisign public key or signature (both are base64 of a
+    two-line minisign file; the id follows the two-byte algorithm tag)."""
+    import base64
+
     try:
-        import json
-
-        endpoints = json.loads(conf.read_text())["plugins"]["updater"]["endpoints"]
+        lines = base64.b64decode(minisign_b64).decode().splitlines()
+        raw = base64.b64decode(lines[1])
+        return raw[2:10].hex()
     except Exception:
-        return rows
-    for url in endpoints:
-        row = {"url": url, "status": None}
-        if check_network:
-            try:
-                import httpx
+        return ""
 
-                row["status"] = httpx.head(url, follow_redirects=True, timeout=4).status_code
-            except Exception as exc:  # offline, DNS, proxy
-                row["status"] = exc.__class__.__name__
-        rows.append(row)
+
+def _version_tuple(version: str) -> tuple[int, ...] | None:
+    parts = (version or "").strip().lstrip("v").split(".")
+    try:
+        return tuple(int(p) for p in parts)
+    except ValueError:
+        return None
+
+
+def _probe_feed(url: str, pubkey_id: str) -> dict:
+    """GET one updater endpoint the way the app does and read what it says (#534)."""
+    import json
+
+    import httpx
+
+    row: dict = {"url": url, "status": None, "version": None, "platforms": [], "key_match": None}
+    try:
+        with httpx.stream("GET", url, follow_redirects=True, timeout=6) as resp:
+            row["status"] = resp.status_code
+            if resp.status_code != 200:
+                return row
+            body = b""
+            for chunk in resp.iter_bytes():
+                body += chunk
+                if len(body) > FEED_MAX_BYTES:
+                    row["status"] = "too large"
+                    return row
+    except Exception as exc:  # offline, DNS, proxy
+        row["status"] = exc.__class__.__name__
+        return row
+    try:
+        feed = json.loads(body)
+        row["version"] = str(feed.get("version") or "")
+        platforms = feed.get("platforms") or {}
+        row["platforms"] = sorted(platforms)
+        sigs = [
+            _key_id(p["signature"])
+            for p in platforms.values()
+            if isinstance(p, dict) and p.get("signature")
+        ]
+        if sigs and pubkey_id:  # no signatures at all → None → "unsigned"
+            row["key_match"] = all(k == pubkey_id for k in sigs)
+    except Exception:
+        row["status"] = "not a feed"
+    return row
+
+
+# What desktop/tauri.conf.json says, for an install whose bundle lacks the file (an older
+# frozen server, or a source checkout without desktop/). test_diagnostics pins it to the conf.
+UPDATER_FALLBACK = {
+    "endpoints": [
+        "https://github.com/AliZareh-CoE/Whorl/releases/download/desktop-preview/latest.json",
+        "https://github.com/alizareh-coe/project-manager/releases/download/desktop-preview/latest.json",
+        "https://github.com/alizareh-coe/atlas-releases/releases/download/desktop-preview/latest.json",
+    ],
+    "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERDRTg1OEIzRjNCNUYyNzEKUldSeDhyWHpzMWpvM0JOMFVNRGlxOGlEOTRhdDNPTHNoSzJlaVh6RkF5WEoyRnNGNlR5SXVtMHAK",
+}
+
+
+def updater_config() -> dict:
+    """The updater block of desktop/tauri.conf.json, or the pinned copy when the file is not
+    beside the server (#534)."""
+    import json
+
+    conf = Path(settings.BASE_DIR) / "desktop" / "tauri.conf.json"
+    try:
+        updater = json.loads(conf.read_text())["plugins"]["updater"]
+        return {"endpoints": list(updater["endpoints"]), "pubkey": updater.get("pubkey", "")}
+    except Exception:
+        return UPDATER_FALLBACK
+
+
+def update_feed_status(check_network: bool = False) -> list[dict]:
+    """The app's updater endpoints, and — with the network — what each answers: the HTTP
+    status, the build the feed offers, its platforms, and whether its signatures were made
+    with the key this app trusts (#534: "the update link doesn't work" needs a verdict, not a
+    status code)."""
+    updater = updater_config()
+    pubkey_id = _key_id(updater["pubkey"])
+    rows: list[dict] = []
+    for url in updater["endpoints"]:
+        if check_network:
+            rows.append(_probe_feed(url, pubkey_id))
+        else:
+            rows.append(
+                {"url": url, "status": None, "version": None, "platforms": [], "key_match": None}
+            )
     return rows
+
+
+def update_verdict(rows: list[dict], version: str) -> dict:
+    """One sentence for the researcher: can this install update, and if not, why. `state`
+    is one of unchecked / offline / unreachable / unsigned / wrong_key / current / available /
+    unknown_version."""
+    probed = [r for r in rows if r["status"] is not None]
+    if not probed:
+        return {"state": "unchecked", "text": 'not checked — tick "Probe the update feed"'}
+    feeds = [r for r in probed if r["status"] == 200 and r["version"]]
+    if not feeds:
+        if all(
+            isinstance(r["status"], str) and r["status"] not in ("too large", "not a feed")
+            for r in probed
+        ):
+            return {
+                "state": "offline",
+                "text": "could not reach GitHub — offline, or a proxy in the way",
+            }
+        codes = ", ".join(f"{r['url'].split('/')[4]}: {r['status']}" for r in probed)
+        return {
+            "state": "unreachable",
+            "text": f"no endpoint answered with a feed ({codes}) — the release has no latest.json "
+            "yet (CI publishes one when the signing secret is set) or the address moved",
+        }
+    feed = feeds[0]  # the app takes the first endpoint that answers, the same way
+    if feed["key_match"] is False:
+        return {
+            "state": "wrong_key",
+            "text": f"the feed offers {feed['version']} but it is signed with a different key than "
+            "this app trusts — install that build once from the releases page; updates work "
+            "in-app after that",
+        }
+    if feed["key_match"] is None:
+        return {
+            "state": "unsigned",
+            "text": f"the feed offers {feed['version']} without signatures — the app refuses "
+            "unsigned updates; CI signs them when TAURI_SIGNING_PRIVATE_KEY is set",
+        }
+    mine, theirs = _version_tuple(version), _version_tuple(feed["version"])
+    if mine is None:
+        return {
+            "state": "unknown_version",
+            "text": f"the feed offers {feed['version']} (signed for this app); this build reports "
+            f'"{version or "dev"}", so the app cannot compare — a server or source install '
+            "does not update itself",
+        }
+    if theirs is not None and theirs > mine:
+        return {
+            "state": "available",
+            "text": f"{feed['version']} is available and signed for this app (you run {version}) — "
+            'the sidebar offers it; click "Check for updates" if it does not',
+        }
+    return {
+        "state": "current",
+        "text": f"up to date — the feed offers {feed['version']}, you run {version}",
+    }
 
 
 def _latex_state() -> dict:
@@ -76,8 +216,10 @@ def collect(check_network: bool = False) -> dict:
         .first()
     )
     db = settings.DATABASES["default"]
+    version = os.environ.get("ATLAS_VERSION", "dev")
+    feed_rows = update_feed_status(check_network)
     return {
-        "version": os.environ.get("ATLAS_VERSION", "dev"),
+        "version": version,
         "desktop": bool(getattr(settings, "ATLAS_DESKTOP", False)),
         "platform": f"{platform.system()} {platform.release()} · Python {sys.version.split()[0]}",
         "frozen": bool(getattr(sys, "frozen", False)),
@@ -88,7 +230,8 @@ def collect(check_network: bool = False) -> dict:
         "latex": _latex_state(),
         "jobs": "in-process (immediate)" if settings.HUEY.get("immediate") else "worker (huey)",
         "api_key_configured": bool(settings.ATLAS_API_KEY),
-        "update_feed": update_feed_status(check_network),
+        "update_feed": feed_rows,
+        "update_verdict": update_verdict(feed_rows, version),  # #534
         "last_failed_compile": (
             {
                 "manuscript": failed["id"],
@@ -138,9 +281,15 @@ def as_text(report: dict) -> str:
         f"jobs: {report['jobs']} · API key configured: {report['api_key_configured']}",
     ]
     for row in report["update_feed"]:
-        lines.append(
-            f"update feed: {row['url']} → {row['status'] if row['status'] is not None else 'not checked'}"
-        )
+        answer = row["status"] if row["status"] is not None else "not checked"
+        if row.get("version"):
+            answer = (
+                f"{answer} · offers {row['version']} · signed for this app: {row.get('key_match')}"
+            )
+        lines.append(f"update feed: {row['url']} → {answer}")
+    verdict = report.get("update_verdict")
+    if verdict:
+        lines.append(f"update check: {verdict['text']}")
     if report["last_failed_compile"]:
         f = report["last_failed_compile"]
         lines += ["", f"last failed compile: #{f['manuscript']} {f['title']} ({f['at']})", f["log"]]

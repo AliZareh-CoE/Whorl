@@ -61,36 +61,24 @@ class Command(BaseCommand):
             )
 
     def _check_update_feed(self, base):
-        """Auto-update feed reachability (#347): a private repo answers 404 to the app."""
-        tauri_conf = base / "desktop" / "tauri.conf.json"
-        if not tauri_conf.exists():
-            return
-        import json
+        """Auto-update feed (#347, #534): fetch what the app fetches and say whether this
+        install can update — or exactly why not."""
+        import os
 
-        try:
-            endpoints = json.loads(tauri_conf.read_text())["plugins"]["updater"]["endpoints"]
-        except Exception:
-            return
-        try:
-            import httpx
+        from core.diagnostics import update_feed_status, update_verdict
 
-            statuses = [
-                httpx.head(url, follow_redirects=True, timeout=4).status_code for url in endpoints
-            ]
-        except Exception as exc:
-            self.warn(f"update feed not checked (network: {exc.__class__.__name__})")
+        if not (base / "desktop" / "tauri.conf.json").exists():
             return
-        if any(code == 200 for code in statuses):
-            self.ok("update feed reachable — installed apps can find new builds")
+        rows = update_feed_status(check_network=True)
+        if not rows:
+            return
+        verdict = update_verdict(rows, os.environ.get("ATLAS_VERSION", "dev"))
+        if verdict["state"] in ("available", "current", "unknown_version"):
+            self.ok(f"update feed — {verdict['text']}")
+        elif verdict["state"] == "offline":
+            self.warn(f"update feed not checked — {verdict['text']}")
         else:
-            self.warn(
-                "update feed unreachable ("
-                + ", ".join(
-                    f"{u.split('/')[3]}: {c}" for u, c in zip(endpoints, statuses, strict=True)
-                )
-                + ") — a private repo answers 404; create the public atlas-releases feed or "
-                "make the repo public (README › Auto-update)"
-            )
+            self.warn(f"update feed — {verdict['text']}")
 
     def handle(self, *args, **options):
         self.failures = self.warnings = 0

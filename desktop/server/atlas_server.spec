@@ -52,6 +52,9 @@ hiddenimports = []
 datas = [
     (os.path.join(ROOT, "templates"), "templates"),
     (os.path.join(ROOT, "static"), "static"),
+    # #534: Diagnostics reads the updater endpoints + public key from the Tauri config so the
+    # "Update check" verdict on an installed app looks at the same feed the app does.
+    (os.path.join(ROOT, "desktop", "tauri.conf.json"), "desktop"),
 ]
 # The LaTeX engine (Tectonic) rides along when the release workflow fetched it into bin/,
 # so Recompile works out of the box on an installed desktop app (writing/compile.py looks

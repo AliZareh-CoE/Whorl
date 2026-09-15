@@ -1,7 +1,7 @@
 # Atlas 🗺️ — the self-hosted research workbench
 
-![CI](https://github.com/AliZareh-CoE/project-manager/actions/workflows/ci.yml/badge.svg)
-![Desktop release](https://github.com/AliZareh-CoE/project-manager/actions/workflows/desktop-release.yml/badge.svg)
+![CI](https://github.com/AliZareh-CoE/Whorl/actions/workflows/ci.yml/badge.svg)
+![Desktop release](https://github.com/AliZareh-CoE/Whorl/actions/workflows/desktop-release.yml/badge.svg)
 
 **Plans, papers, notes and manuscripts in one calm place — with Claude built in.**
 
@@ -14,7 +14,7 @@ Claude Code can do all of it with you — 151 tools over the same API the UI use
 > Built like Django itself: boring technology, strong conventions, everything has exactly one
 > obvious place. No cloud, no telemetry. Runs as a web app or a one-click desktop app.
 
-**Download:** [Atlas desktop preview](https://github.com/AliZareh-CoE/project-manager/releases/tag/desktop-preview)
+**Download:** [Atlas desktop preview](https://github.com/AliZareh-CoE/Whorl/releases/tag/desktop-preview)
 (Windows `.exe`/`.msi`, Linux `.deb`/`.rpm`) · login `atlas` / `atlas` after `seed_demo`, or create your own user.
 
 ![A 40-second tour of Atlas: dashboard, plan, library, reader, notes, graph, LaTeX studio, review matrix, Claude Code](docs/demo.gif)
@@ -276,16 +276,18 @@ pieces, in order:
    workflow also produces a `.sig` per installer and a `latest.json` feed, signed with that key.
    The matching public key is baked into the app (`desktop/tauri.conf.json`), so a tampered
    feed is rejected.
-2. The app fetches `latest.json` from its updater endpoints, compares versions, and offers the
-   download.
-3. **The catch: an app cannot read a private repository.** The feed lives on the private repo's
-   `desktop-preview` release, so the fetch returns 404 and the sidebar shows
-   *Updates unavailable — why?*. Two ways out, either works:
-   - create a **public** repository named `atlas-releases` under the same owner, add the secrets
-     `RELEASES_REPO` (`Owner/atlas-releases`; optional — the repository is public now, so the in-app updater reads its releases directly) and `RELEASES_TOKEN` (a fine-grained personal
-     access token with *Contents: read and write* on that repo) — the `mirror` job then copies
-     each build's installers, signatures and feed there, and apps update from it; or
-   - make this repository public.
+2. The app fetches `latest.json` from its updater endpoints (this repository's
+   `desktop-preview` release), compares versions, and offers the download. The repository is
+   public, so the app reads the feed directly; the workflow's optional `mirror` job (secrets
+   `RELEASES_REPO` + `RELEASES_TOKEN`) copies each build into a separate public releases
+   repository only if you ever make this one private again.
+3. **When it seems not to work, ask Diagnostics.** Tick *Probe the update feed* on
+   `/diagnostics` (or run `manage.py doctor`): the **Update check** row fetches the feed the
+   way the app does and gives one verdict — a newer build is available and signed for this
+   app, up to date, the feed is signed with a different key (install that build once from the
+   releases page), unsigned, unreachable, or offline. Older builds only looked at the
+   old repository address, which now redirects, so they still find updates; a build older
+   than the feed's signing key needs one manual install, after which updates work in-app.
 
 `cargo tauri signer generate` makes the key pair; keep the private key only in the GitHub
 secret. Rotating it means users must reinstall once, because the old public key no longer
