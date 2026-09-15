@@ -413,6 +413,14 @@ def test_plan_outline_client_calls(capture):
 def test_roadmap_client_calls(capture):
     client.get_roadmap("deep")
     assert calls_url_has(capture, "/projects/deep/roadmap/")
+    client.get_phase_report(3)
+    assert capture["method"] == "GET" and calls_url_has(capture, "/phases/3/report/")
+    client.close_phase(3, lessons="Recruit earlier.")
+    assert (
+        capture["method"] == "POST"
+        and calls_url_has(capture, "/phases/3/close/")
+        and '"lessons":"Recruit earlier."' in capture["body"]
+    )
     client.set_phase_dates(3, start="2026-09-01")
     assert capture["method"] == "PATCH" and calls_url_has(capture, "/phases/3/")
     assert '"target_start":"2026-09-01"' in capture["body"] and "target_end" not in capture["body"]

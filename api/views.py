@@ -629,6 +629,10 @@ class ProjectViewSet(AtlasViewSet):
                     "target_end": phase.target_end,
                     # #519: the latest realistic date among the phase's open milestones
                     "likely_end": phase_likely_end(list(phase.milestones.all()), cal),
+                    # #521: every milestone done but the phase not yet closed
+                    "closable": bool(phase.milestones.all())
+                    and all(m.completed_at for m in phase.milestones.all())
+                    and phase.status != Phase.Status.DONE,
                     "questions": [
                         {"id": q.pk, "question": q.question, "status": q.status}
                         for q in phase.questions.all()
@@ -1055,6 +1059,49 @@ class PhaseViewSet(AtlasViewSet):
     queryset = Phase.objects.all()
     serializer_class = serializers.PhaseSerializer
     project_filter = "project__slug"
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="The phase's report card (#521): planned_start / planned_end vs "
+                "actual_end and the overrun, counts {total, done, open, on_time}, median_late, "
+                "drift, moves, every milestone with baseline / landed / late / late_first / "
+                "bucket, the attached questions, `closable` and a paste-ready `markdown`"
+            )
+        },
+        description="How a phase went (#521): its planned window against when its milestones "
+        "actually landed, drift and moves, the questions it carried — the report that closes "
+        "the phase.",
+    )
+    @action(detail=True, methods=["get"])
+    def report(self, request, pk=None):
+        from plans.closeout import phase_report
+
+        return Response(phase_report(self.get_object()))
+
+    @extend_schema(
+        request=serializers.PhaseCloseSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="{report, decision_id}: the phase is done and a decision record "
+                "'Phase closed: <name>' keeps the report as context and the lessons as the "
+                "decision"
+            )
+        },
+        description="Close a phase (#521): status → done and a decision record files the "
+        "report with `lessons` — what the phase taught — so the next plan can learn from it.",
+    )
+    @action(detail=True, methods=["post"])
+    def close(self, request, pk=None):
+        from plans.closeout import close_phase
+
+        phase = self.get_object()
+        if phase.status == Phase.Status.DONE:
+            # a second close would file a second decision — the log stays one record per phase
+            raise rf_serializers.ValidationError({"status": ["This phase is already closed."]})
+        body = serializers.PhaseCloseSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        return Response(close_phase(phase, **body.validated_data))
 
 
 class MilestoneViewSet(AtlasViewSet):

@@ -25,6 +25,8 @@ rolls up from milestones. Questions and decisions hang off the project.
    (created / updated / removed). Apply only after a "yes".
 3. `set_phase_dates` for target windows; `complete_milestone` when the user says a
    milestone is done (never on your own inference).
+4. When every milestone of a phase is done, offer `get_phase_report` and, with the user's
+   lessons in their words, `close_phase` — the report becomes a decision record.
 
 ## Questions and decisions
 

@@ -623,6 +623,25 @@ def get_roadmap(slug: str) -> dict:
 
 
 @mcp.tool()
+def get_phase_report(phase_id: int) -> dict:
+    """A phase's report card (#521): `planned_start` / `planned_end` (target end, else the last
+    first-given date) against `actual_end` (the latest completion) and the `overrun` in days,
+    `counts` {total, done, open, on_time}, `median_late`, `drift` and `moves`, every milestone
+    with baseline / landed / late / late_first / bucket, the attached research questions,
+    `closable` (all milestones done, phase not yet closed) and a paste-ready `markdown`. Read
+    it before close_phase, and quote it when the user asks how a phase went."""
+    return client.get_phase_report(phase_id)
+
+
+@mcp.tool()
+def close_phase(phase_id: int, lessons: str = "") -> dict:
+    """Close a phase (#521): status → done and a decision record "Phase closed: <name>" files
+    the report as context with `lessons` — what the phase taught, in the user's words — as the
+    decision. Ask for the lessons first; only close when the user says the phase is over."""
+    return client.close_phase(phase_id, lessons)
+
+
+@mcp.tool()
 def set_phase_dates(phase_id: int, start: str = "", end: str = "") -> dict:
     """Reschedule a phase: ISO dates for its target start and/or end (empty = unchanged)."""
     return client.set_phase_dates(phase_id, start or None, end or None)

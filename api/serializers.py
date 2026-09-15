@@ -478,6 +478,12 @@ class ConvertCaptureSerializer(serializers.Serializer):
     tz = serializers.CharField(required=False, allow_blank=True, default="", max_length=64)
 
 
+class PhaseCloseSerializer(serializers.Serializer):
+    """#521: what the phase taught — becomes the closing decision's text."""
+
+    lessons = serializers.CharField(required=False, allow_blank=True, max_length=4000, default="")
+
+
 class PlanReviewSerializer(serializers.Serializer):
     """#517: the counts of a plan-review sitting and an optional note."""
 

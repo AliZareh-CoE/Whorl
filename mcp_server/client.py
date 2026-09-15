@@ -582,6 +582,16 @@ def get_roadmap(slug: str):
     return _request("GET", f"/projects/{slug}/roadmap/")
 
 
+def get_phase_report(phase_id: int):
+    """The phase's report card — planned vs actual, landings, drift, questions (#521)."""
+    return _request("GET", f"/phases/{phase_id}/report/")
+
+
+def close_phase(phase_id: int, lessons: str = ""):
+    """Close a phase: status done + a decision record with the report and the lessons (#521)."""
+    return _request("POST", f"/phases/{phase_id}/close/", json={"lessons": lessons})
+
+
 def set_phase_dates(phase_id: int, start: str | None = None, end: str | None = None):
     """Reschedule a phase (ISO dates; omit one to leave it unchanged)."""
     payload = {}

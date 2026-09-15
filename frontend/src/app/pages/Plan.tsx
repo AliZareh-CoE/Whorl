@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, CalendarRange, Check, ClipboardCheck, Crosshair, FileText, HelpCircle, History, LayoutList, Loader2, Lock, Pencil, Plus, Route, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarRange, Check, ClipboardCheck, Crosshair, FileCheck, FileText, HelpCircle, History, LayoutList, Loader2, Lock, Pencil, Plus, Route, Save, Trash2, X } from "lucide-react";
 import { api, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { Kebab } from "../../components/Menu";
@@ -16,12 +16,13 @@ import Orbit from "./plan/Orbit";
 import Focus from "./plan/Focus";
 import MilestoneDrawer, { type DrawerMilestone } from "./plan/MilestoneDrawer";
 import Review, { reviewedLabel, type ReviewState } from "./plan/Review";
+import PhaseReport from "./plan/PhaseReport"; // #521
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
 type Milestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue: boolean; notes?: string; tasks: Task[]; blocked_by: { id: number; title: string }[]; blocked: boolean; blocks: number[]; slack: number | null; likely: string | null; baseline: string | null; moves: number; slipped: number | null; history: DateMove[] };
 type DateMove = { from: string | null; to: string | null; at: string; reason: string }; // #516
 type Question = { id: number; question: string; status: string };
-type Phase = { id: number; name: string; order: number; status: string; progress: number; objective: string; target_start: string | null; target_end: string | null; likely_end: string | null; questions: Question[]; milestones: Milestone[] };
+type Phase = { id: number; name: string; order: number; status: string; progress: number; objective: string; target_start: string | null; target_end: string | null; likely_end: string | null; closable: boolean; questions: Question[]; milestones: Milestone[] };
 type Conflict = { id: number; title: string; due_date: string; blocker_id: number; blocker_title: string; blocker_due: string; suggested: string };
 type Chain = { ids: number[]; titles: string[]; from: string | null; to: string | null; days: number; slack: number | null }; // #515
 type Drift = { total: number; moved: number; most: { id: number; title: string; phase: string; slipped: number; baseline: string | null; due_date: string | null } | null; baseline_end: string | null; current_end: string | null }; // #516
@@ -79,6 +80,7 @@ export default function Plan() {
   const [toast, setToast] = useState("");
   const [drawerId, setDrawerId] = useState<number | null>(null);
   const [reviewing, setReviewing] = useState(false); // #517: not a mode — never persisted
+  const [reportId, setReportId] = useState<number | null>(null); // #521: the phase report panel
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 4000); };
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["plan", slug] });
@@ -279,7 +281,7 @@ export default function Plan() {
           <Orbit phases={data.phases} accent={accent} onOpen={(id) => document.getElementById(`phase-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} />
           <Focus slug={slug!} onChanged={invalidate} />
           {data.phases.map((phase, pi) => (
-            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} conflictIds={conflictIds} chainIds={chainIds} shift={data.calibration?.shift ?? null} onDropPhase={(dragged) => dropPhaseBefore(dragged, phase.id)} onDropMilestone={(id) => moveMilestone.mutate({ id, phase: phase.id })} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onRename={async () => { const name = await promptDialog({ title: "Rename phase", label: "Name", initial: phase.name, validate: (v) => (v.trim() ? null : "Name the phase.") }); if (name && name.trim() !== phase.name) renamePhase.mutate({ id: phase.id, name: name.trim() }); }} onDelete={async () => { const n = phase.milestones.length; if (await confirmDialog({ title: `Delete the phase “${phase.name}”?`, body: n ? `Its ${n} milestone${n === 1 ? "" : "s"} and their tasks go with it.` : "The phase has no milestones.", danger: true, confirmLabel: "Delete phase" })) deletePhase.mutate(phase.id); }} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
+            <PhaseCard key={phase.id} phase={phase} index={pi} accent={accent} conflictIds={conflictIds} chainIds={chainIds} shift={data.calibration?.shift ?? null} onReport={() => setReportId(phase.id)} onDropPhase={(dragged) => dropPhaseBefore(dragged, phase.id)} onDropMilestone={(id) => moveMilestone.mutate({ id, phase: phase.id })} onToggleMilestone={(m) => toggleMilestone.mutate(m)} onToggleTask={(t) => toggleTask.mutate(t)} onCycleStatus={() => setStatus.mutate({ id: phase.id, status: STATUS_ORDER[(STATUS_ORDER.indexOf(phase.status) + 1) % STATUS_ORDER.length] })} onAddMilestone={(title) => addMilestone.mutate({ phase: phase.id, title })} onAddTask={(milestone, title) => addTask.mutate({ milestone, title })} onOpen={(id) => setDrawerId(id)} allQuestions={data.questions} onPatchPhase={(body) => patchPhase.mutate({ id: phase.id, ...body })} onRename={async () => { const name = await promptDialog({ title: "Rename phase", label: "Name", initial: phase.name, validate: (v) => (v.trim() ? null : "Name the phase.") }); if (name && name.trim() !== phase.name) renamePhase.mutate({ id: phase.id, name: name.trim() }); }} onDelete={async () => { const n = phase.milestones.length; if (await confirmDialog({ title: `Delete the phase “${phase.name}”?`, body: n ? `Its ${n} milestone${n === 1 ? "" : "s"} and their tasks go with it.` : "The phase has no milestones.", danger: true, confirmLabel: "Delete phase" })) deletePhase.mutate(phase.id); }} onAttachQuestion={(qid, attach) => { const q = data.questions.find((x) => x.id === qid); const current = data.phases.filter((ph) => ph.questions.some((x) => x.id === qid)).map((ph) => ph.id); if (!q) return; attachQuestion.mutate({ question: qid, phases: attach ? [...new Set([...current, phase.id])] : current.filter((id) => id !== phase.id) }); }} />
           ))}
           <button type="button" onClick={() => void askAddPhase()} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-stone-300 px-3 py-2 text-sm text-stone-500 hover:border-indigo-400 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-indigo-300" data-testid="add-phase"><Plus className="h-4 w-4" aria-hidden="true" />Add a phase</button>
         </div>
@@ -290,6 +292,7 @@ export default function Plan() {
           Tick to complete · click a status to cycle it · type at the bottom of a phase to add a milestone · ⋯ on a phase to rename or delete it
         </p>
       )}
+      {reportId !== null && <PhaseReport slug={slug!} phaseId={reportId} onClose={() => setReportId(null)} onClosed={(name) => { setReportId(null); flash(`Phase closed — “${name}”. The report is in the decision log.`); }} />}
       {drawerId !== null && (() => {
         const found = data.phases.flatMap((ph) => ph.milestones.map((m) => ({ ...m, phase: ph.name }))).find((m) => m.id === drawerId);
         const options = data.phases.flatMap((ph) => ph.milestones.map((m) => ({ id: m.id, title: m.title, phase: ph.name, completed: !!m.completed_at })));
@@ -300,7 +303,7 @@ export default function Plan() {
   );
 }
 
-function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen, allQuestions, onPatchPhase, onRename, onDelete, onAttachQuestion, conflictIds, chainIds, shift }: { conflictIds?: Set<number>; chainIds?: Set<number>; shift?: number | null; onRename: () => void; onDelete: () => void; onDropPhase: (draggedPhaseId: number) => void; onDropMilestone: (milestoneId: number) => void; phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void; allQuestions: Question[]; onPatchPhase: (body: { objective?: string; target_start?: string | null; target_end?: string | null }) => void; onAttachQuestion: (question: number, attach: boolean) => void }) {
+function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggleMilestone, onToggleTask, onCycleStatus, onAddMilestone, onAddTask, onOpen, allQuestions, onPatchPhase, onRename, onDelete, onAttachQuestion, conflictIds, chainIds, shift, onReport }: { conflictIds?: Set<number>; chainIds?: Set<number>; shift?: number | null; onReport: () => void; onRename: () => void; onDelete: () => void; onDropPhase: (draggedPhaseId: number) => void; onDropMilestone: (milestoneId: number) => void; phase: Phase; index: number; accent: string; onToggleMilestone: (m: Milestone) => void; onToggleTask: (t: Task) => void; onCycleStatus: () => void; onAddMilestone: (title: string) => void; onAddTask: (milestone: number, title: string) => void; onOpen: (id: number) => void; allQuestions: Question[]; onPatchPhase: (body: { objective?: string; target_start?: string | null; target_end?: string | null }) => void; onAttachQuestion: (question: number, attach: boolean) => void }) {
   const [draft, setDraft] = useState("");
   const [taskFor, setTaskFor] = useState<number | null>(null);
   const [taskDraft, setTaskDraft] = useState("");
@@ -327,9 +330,10 @@ function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggl
           →
           <input type="date" value={phase.target_end ?? ""} onChange={(e) => onPatchPhase({ target_end: e.target.value || null })} className="w-[7.5rem] rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-stone-400 hover:border-stone-300 focus:border-indigo-400 focus:outline-none dark:hover:border-stone-700" aria-label={`${phase.name} end`} />
         </label>
+        {phase.closable && <button type="button" onClick={onReport} className="shrink-0 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300" title="Every milestone is done — read the report and close the phase" data-testid="close-nudge">all done — close the phase</button>}
         {phase.likely_end && phase.target_end && phase.likely_end > phase.target_end && phase.status !== "done" && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={`At your pace the phase's last open milestone lands ${phase.likely_end}, ${daysBetween(phase.likely_end, phase.target_end)} d after the target end ${phase.target_end}`} data-testid="likely-end">likely ends {phase.likely_end} · {daysBetween(phase.likely_end, phase.target_end)} d past target</span>}
         <button type="button" onClick={onCycleStatus} className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs transition-colors hover:ring-2 hover:ring-indigo-400/40 ${statusCls[phase.status] ?? statusCls.not_started}`} title="Click to cycle the status">{STATUS_LABEL[phase.status] ?? phase.status}</button>
-        <Kebab label={`Actions for ${phase.name}`} className="self-center" items={[{ label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: onRename }, "-", { label: "Delete phase…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: onDelete }]} />
+        <Kebab label={`Actions for ${phase.name}`} className="self-center" items={[{ label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: onRename }, { label: phase.status === "done" ? "Phase report…" : "Phase report / close…", icon: <FileCheck className="h-3.5 w-3.5" />, onSelect: onReport }, "-", { label: "Delete phase…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: onDelete }]} />
       </div>
       {dates && <p className="-mt-2 mb-2 text-[11px] text-stone-400 sm:hidden">{dates}</p>}
       <div className="mb-3 rounded-xl border border-stone-100 bg-stone-50/60 px-3 py-2 text-sm dark:border-stone-800 dark:bg-stone-950/30" data-testid="phase-context">
