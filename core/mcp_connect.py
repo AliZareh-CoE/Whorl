@@ -145,9 +145,11 @@ def test_connection(request, *, fetch=None, run=None, which=None) -> dict:
                 parsed = None
         if proc.returncode == 0 and parsed and parsed.get("ok"):
             mcp_ok = True
-            mcp_detail = (
-                f"{parsed.get('tools', '?')} tools · sees {parsed.get('projects', '?')} project(s)"
-            )
+            loaded = parsed.get("tools", "?")
+            total = parsed.get("tools_total")
+            # #540: only the core toolset is loaded by default — say so, not "tools vanished"
+            tools = f"{loaded} of {total} tools loaded" if total else f"{loaded} tools"
+            mcp_detail = f"{tools} · sees {parsed.get('projects', '?')} project(s)"
         else:
             err = (
                 (parsed or {}).get("error")

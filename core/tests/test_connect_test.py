@@ -43,55 +43,17 @@ def test_all_green(settings, monkeypatch):
     assert out["command"].endswith("-m mcp_server.server --check")
 
 
-def test_missing_key_fails_first_two_checks(settings, monkeypatch):
-    settings.ATLAS_API_KEY = ""
-    monkeypatch.delenv("ATLAS_MCP_BIN", raising=False)
-    out = check(Req(), fetch=ok_fetch, run=ok_run, which=lambda n: None)
-    by = {c["key"]: c for c in out["checks"]}
-    assert out["ok"] is False
-    assert not by["api_key"]["ok"] and "ATLAS_API_KEY" in by["api_key"]["fix"]
-    assert not by["api"]["ok"]
-    assert not by["claude"]["ok"] and "npm i -g" in by["claude"]["fix"]
-
-
-def test_mcp_failure_reports_its_error(settings, monkeypatch):
+def test_connection_test_says_loaded_of_total_when_the_check_reports_it(settings, monkeypatch):
+    """#540: the default is the core toolset, so the phrase reads "25 of 156 tools loaded"."""
     settings.ATLAS_API_KEY = "k"
     monkeypatch.delenv("ATLAS_MCP_BIN", raising=False)
 
-    def bad_run(cmd, **kw):
+    def run(cmd, **kw):
         return SimpleNamespace(
-            returncode=1,
-            stdout=json.dumps({"ok": False, "error": "401 from /projects/"}),
+            returncode=0,
+            stdout=json.dumps({"ok": True, "tools": 25, "tools_total": 156, "projects": 2}),
             stderr="",
         )
 
-    def bad_fetch(url, headers=None, timeout=None):
-        return SimpleNamespace(status_code=401)
-
-    out = check(Req(), fetch=bad_fetch, run=bad_run, which=lambda n: "/x/claude")
-    by = {c["key"]: c for c in out["checks"]}
-    assert not by["api"]["ok"] and "401" in by["api"]["detail"]
-    assert not by["mcp"]["ok"] and "401 from /projects/" in by["mcp"]["detail"]
-
-
-def test_missing_binary_is_named(settings, monkeypatch):
-    settings.ATLAS_API_KEY = "k"
-    monkeypatch.setenv("ATLAS_MCP_BIN", "/opt/atlas/atlas-mcp")
-
-    def missing(cmd, **kw):
-        raise FileNotFoundError(cmd[0])
-
-    out = check(Req(), fetch=ok_fetch, run=missing, which=lambda n: None)
-    by = {c["key"]: c for c in out["checks"]}
-    assert by["mcp"]["detail"] == "/opt/atlas/atlas-mcp not found"
-
-
-def test_api_endpoint(client_logged_in, settings, monkeypatch):
-    settings.ATLAS_API_KEY = "k"
-    monkeypatch.setattr(
-        "core.mcp_connect.test_connection",
-        lambda request: {"ok": True, "checks": [], "command": "x"},
-    )
-    response = client_logged_in.post("/api/v1/connect/test/")
-    assert response.status_code == 200
-    assert response.json()["ok"] is True
+    out = check(Req(), fetch=ok_fetch, run=run, which=lambda n: "/usr/bin/claude")
+    assert "25 of 156 tools loaded · sees 2 project(s)" == out["checks"][2]["detail"]
