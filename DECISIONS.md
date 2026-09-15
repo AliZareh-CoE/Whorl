@@ -563,6 +563,36 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 **Alternatives rejected.** Catching `DataError` / `OverflowError` in the view (hides the cause; the reason should name the field). A `BigIntegerField` for page counts (a hundred thousand pages is already a novel, not a paper). Refusing DOIs with commas at import (legal DOIs; the lookup's error path already handles them).
 
+### 2026-09-15 — Owner ask (#540): toolsets — 25 tools loaded by default, the other 131 one `enable_toolset` away
+
+Owner: "that 154 tool is too much! it should be simpler for claude to use it! claude will
+probably not use all those 154 tools." True on two counts: every tool definition is context
+spent on every turn, and a long list makes the picker miss. The daily loop touches about twenty.
+
+**Decision.** `mcp_server/toolsets.py`: every tool belongs to exactly one *area* (plan 24,
+library 46, notes 18, writing 17, studio 15, inbox 15, research 7, files 4, ops 10 — a guard test
+pins "exactly one" and "every registered tool"), and **core** is a curated 25-tool cross-cut
+(projects and plan, check-off, dashboard and brief, search, capture and inbox, to-dos, papers and
+the reading queue, notes, manuscripts, diagnostics, plus the two meta tools). All 156 stay
+registered; `main()` prunes the live registry to `ATLAS_MCP_TOOLSETS` (`core` by default, `all`,
+or a list) with the public `remove_tool`, and `enable_toolset(name)` puts an area back with the
+public `add_tool` and sends `tools/list_changed`. FastMCP's own `run()` announces
+`listChanged: false`, so `main()` runs the stdio loop itself with
+`NotificationOptions(tools_changed=True)`; the SDK-client test asserts the capability, the
+notification and the grown list. The server's `instructions` (sent at initialize) state the
+contract; each skill names its toolset.
+
+**Why toolsets and not one meta-tool** (`atlas(action, payload)`): a single dispatcher hides
+every schema behind a string and moves the picking problem into free text, where it is worse;
+named tools with typed arguments are what the client validates and what the model reads best.
+**Why prune in `main()` and not at import:** every test that imports `server` still sees the
+whole registry, and `--check` reports both `tools` (loaded) and `tools_total`. **Why drop unknown
+names to stderr and fall back to core, never to zero:** stdout is the transport, and a typo in
+the env variable must not produce a silent, toolless server. **Why not rename or merge tools this
+slice:** the count matters less than the default; merging the pairs that are ours, not the user's
+(the two PDF searches, the four watch checks, the compile trio) and a "use when" first line on
+every docstring are backlog 337–339, one at a time.
+
 ### 2026-09-15 — Owner ask (#539): Atlas as a tab inside OpenManus — an allow-list of frame ancestors, not SAMEORIGIN and not a proxy
 
 Owner: "I want to see if I can add the whole project to this as a tab in it" (OpenManus) → "we need
@@ -2934,6 +2964,9 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 
 ## Backlog
 
+339. MCP docstrings: a one-line "use when" at the top of every tool docstring (the picker reads the first sentence; several open with the #-number or a data description).
+338. MCP merges, batch two: `compile_manuscript` / `get_compile_status` / `compile_and_wait` → one `compile_manuscript(wait=)`; `search_pdf_text` + `search_in_pdf` → one `search_pdfs(reference=)`; keep the old names one release as aliases.
+337. MCP merges, batch one: the four watch checks (`check_retractions`, `check_preprints`, `check_citations`, `refresh_feeds`) → one `run_watch(kind, …)`; `get_new_citations` / `get_feed_items` → `get_watch_items(kind)`.
 336. The other direction — OpenManus (or any local web app) as a tab inside Atlas: an "Apps" page with an iframe per configured address (`ATLAS_EMBED_APPS=name=url,…`), rendered in the desktop web view too; the OpenManus dev server sends no framing header, so it needs nothing on its side (#539 guide §4).
 335. Notices, the sweep's re-check: a paper whose Crossref notice list changes (a correction after an expression of concern) is only re-read on the 30-day stale cycle; a "check now" from the detail pane already covers it, so nothing to build unless the cadence proves too slow (idea added by #537).
 334. Backup destination suggestions under WSL: `/mnt/c` and `/mnt/wsl` are offered as "Attached drive" though `/mnt/c` is the boot disk, and the Syncthing pattern (`Sync\b`) labels `/mnt/sync-backup` as Syncthing; neither changes the copy, only the chip (idea added by #536).

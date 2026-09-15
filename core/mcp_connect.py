@@ -16,7 +16,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-from mcp_server import desktop_config
+from mcp_server import desktop_config, toolsets
 
 SERVER_NAME = "atlas"
 
@@ -77,6 +77,8 @@ def connection_info(request) -> dict:
         "claude_command": claude_command,
         "mcp_json": mcp_json,
         "data_dir": str(getattr(settings, "DATA_DIR", "")) or None,
+        "toolsets": toolsets.describe(),  # #540: what is on by default, what Claude can enable
+        "tools_total": len(toolsets.all_tools()),
     }
 
 

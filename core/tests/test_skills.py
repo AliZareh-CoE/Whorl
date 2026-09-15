@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 
 def _tool_names() -> set[str]:
     src = (ROOT / "mcp_server" / "server.py").read_text()
-    return set(re.findall(r"@mcp\.tool\(\)\s*\ndef\s+([a-z_]+)\s*\(", src))
+    return set(re.findall(r"@mcp\.tool\(\)\s*\n(?:async\s+)?def\s+([a-z_]+)\s*\(", src))
 
 
 def test_every_skill_has_frontmatter_and_only_real_tools():

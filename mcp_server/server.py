@@ -3,11 +3,20 @@
 Run with:  ATLAS_API_URL=http://127.0.0.1:8000 ATLAS_API_KEY=... python -m mcp_server.server
 """
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 
-from . import client
+from . import client, toolsets
 
-mcp = FastMCP("atlas")
+INSTRUCTIONS = (
+    "Atlas is the user's research workbench (projects, plans, library, notes, manuscripts). "
+    "Only the core toolset is loaded by default — the daily set. More tools exist in named "
+    "toolsets (plan, library, notes, writing, studio, inbox, research, files, ops): call "
+    "list_toolsets to see them and enable_toolset(name) to load one when the task needs it "
+    "(e.g. enable_toolset('studio') before compiling or editing LaTeX). The user can also "
+    "start the server with ATLAS_MCP_TOOLSETS=all."
+)
+
+mcp = FastMCP("atlas", instructions=INSTRUCTIONS)
 
 
 @mcp.tool()
@@ -1441,6 +1450,83 @@ def get_achievements() -> dict:
 # Keep this at the very end: `python -m mcp_server.server` runs the module as __main__, and
 # any tool declared below the entry point would never be registered (29 of 88 tools were
 # missing that way until 2026-09-06).
+@mcp.tool()
+def list_toolsets() -> dict:
+    """Which Atlas tools are loaded and which toolsets can be enabled. Only `core` (the daily
+    set) is loaded by default; each other toolset — plan, library, notes, writing, studio,
+    inbox, research, files, ops — lists its tools, a one-line "use when", and whether it is
+    loaded. Call `enable_toolset(name)` to load one; nothing is unloaded."""
+    loaded = {t.name for t in mcp._tool_manager.list_tools()}
+    return {
+        "loaded": len(loaded),
+        "total": len(toolsets.all_tools()),
+        "toolsets": toolsets.describe(loaded),
+    }
+
+
+@mcp.tool()
+async def enable_toolset(name: str, ctx: Context) -> dict:
+    """Load one more toolset for the rest of this session: `plan`, `library`, `notes`,
+    `writing`, `studio`, `inbox`, `research`, `files` or `ops` (see `list_toolsets`). The
+    tools appear in the client's tool list right away (the server sends tools/list_changed);
+    `added` names them. Use it the moment a task needs a tool that is not loaded — e.g.
+    `enable_toolset("studio")` to compile LaTeX, `enable_toolset("library")` for feeds,
+    watches, highlights or the review matrix."""
+    key = (name or "").strip().lower()
+    if key not in toolsets.NAMES:
+        return {"ok": False, "error": f"unknown toolset {name!r}", "toolsets": list(toolsets.NAMES)}
+    added = _load(toolsets.tools_for(key))
+    if added:
+        await ctx.session.send_tool_list_changed()
+    loaded = {t.name for t in mcp._tool_manager.list_tools()}
+    return {"ok": True, "toolset": key, "added": added, "loaded": len(loaded)}
+
+
+# Every @mcp.tool above registered itself; this is the full registry, kept so a pruned tool
+# can be put back by name (public add_tool with the original function and description).
+_REGISTRY = {t.name: t for t in mcp._tool_manager.list_tools()}
+
+
+def _load(names) -> list[str]:
+    """Add the named tools that are not loaded; returns the ones actually added, in order."""
+    loaded = {t.name for t in mcp._tool_manager.list_tools()}
+    added: list[str] = []
+    for name in names:
+        tool = _REGISTRY.get(name)
+        if tool is None or name in loaded:
+            continue
+        mcp.add_tool(
+            tool.fn,
+            name=tool.name,
+            title=tool.title,
+            description=tool.description,
+            annotations=tool.annotations,
+        )
+        added.append(name)
+    return added
+
+
+def apply_toolsets(spec: str | None) -> list[str]:
+    """Prune the registry down to the toolsets in `spec` (the ATLAS_MCP_TOOLSETS value).
+
+    Called from main() — not at import — so tests and `--check` still see everything until
+    they ask otherwise. Diagnostics go to stderr: stdout is the MCP transport."""
+    import sys
+
+    names = toolsets.parse(spec)
+    for bad in toolsets.unknown(spec):
+        print(
+            f"atlas-mcp: unknown toolset {bad!r} ignored (known: {', '.join(toolsets.NAMES)})",
+            file=sys.stderr,
+        )
+    keep = toolsets.resolve(names)
+    for name in list(_REGISTRY):
+        if name not in keep and mcp._tool_manager.get_tool(name) is not None:
+            mcp.remove_tool(name)
+    _load([n for n in _REGISTRY if n in keep])
+    return names
+
+
 def self_check() -> dict:
     """Prove the wiring end to end without an MCP client: reach the API with the configured
     URL + key and count the tools this server offers. Used by `--check` (the Connect page's
@@ -1459,19 +1545,44 @@ def self_check() -> dict:
         else len(projects)
     )
     tools = asyncio.run(mcp.list_tools())
-    return {"ok": True, "api_url": base, "projects": count, "tools": len(tools)}
+    return {
+        "ok": True,
+        "api_url": base,
+        "projects": count,
+        "tools": len(tools),
+        "tools_total": len(_REGISTRY),
+        "toolsets": toolsets.from_env(),
+    }
+
+
+async def _serve() -> None:
+    """stdio, with the tools/list_changed capability announced — FastMCP's own run() leaves it
+    off, and a client that was told "never" may ignore the notification enable_toolset sends."""
+    from mcp.server.lowlevel.server import NotificationOptions
+    from mcp.server.stdio import stdio_server
+
+    low = mcp._mcp_server
+    async with stdio_server() as (read_stream, write_stream):
+        await low.run(
+            read_stream,
+            write_stream,
+            low.create_initialization_options(NotificationOptions(tools_changed=True)),
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
+    import asyncio
     import json
+    import os
     import sys
 
     args = sys.argv[1:] if argv is None else argv
+    apply_toolsets(os.environ.get(toolsets.ENV))
     if "--check" in args:
         result = self_check()
         print(json.dumps(result))
         return 0 if result["ok"] else 1
-    mcp.run()
+    asyncio.run(_serve())
     return 0
 
 

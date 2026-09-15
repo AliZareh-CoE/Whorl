@@ -8,6 +8,8 @@ description: Shape and track a research plan in Atlas — phases, milestones, ta
 A project is driven by a written plan: phases → milestones → optional tasks. Progress
 rolls up from milestones. Questions and decisions hang off the project.
 
+**Toolsets.** Only the core tools are loaded by default; this playbook uses the plan toolset. If a tool named below is missing, call `enable_toolset` with "plan" first (`list_toolsets` shows what is loaded).
+
 ## Read the plan
 
 - `get_project_overview` — current phase, next milestones, recent decisions, health.

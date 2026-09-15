@@ -8,6 +8,8 @@ description: Start or close a research day in Atlas — read the dashboard, pick
 Atlas is the user's research project manager; you reach it through the `atlas` MCP tools.
 Every object lives in exactly one project (a slug like `attention-and-memory`).
 
+**Toolsets.** Only the core tools are loaded by default; this playbook uses the inbox toolset. If a tool named below is missing, call `enable_toolset` with "inbox" first (`list_toolsets` shows what is loaded).
+
 ## Morning: "what should I work on?"
 
 1. `get_dashboard` — active projects with health, this week's overdue and due items

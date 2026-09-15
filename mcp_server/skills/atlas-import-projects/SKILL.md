@@ -12,6 +12,8 @@ files are imported into the library, and every other file becomes a workspace do
 the same folder structure. Re-running never duplicates: an existing project is reused and
 only what is missing is added.
 
+**Toolsets.** Only the core tools are loaded by default; this playbook uses the plan toolset. If a tool named below is missing, call `enable_toolset` with "plan" first (`list_toolsets` shows what is loaded).
+
 ## Steps
 
 1. Get the folder path from the user (the folder that *contains* the projects, not one

@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def _tool_names() -> set[str]:
     src = (ROOT / "mcp_server" / "server.py").read_text()
     # every function decorated with @mcp.tool() is a tool the README should list
-    return set(re.findall(r"@mcp\.tool\(\)\s*\ndef\s+([a-z_]+)\s*\(", src))
+    return set(re.findall(r"@mcp\.tool\(\)\s*\n(?:async\s+)?def\s+([a-z_]+)\s*\(", src))
 
 
 def test_readme_documents_every_mcp_tool():

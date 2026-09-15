@@ -8,6 +8,8 @@ description: Drive a manuscript in Atlas from draft to submission — files, bib
 Manuscripts have LaTeX files, a bibliography drawn from the library, and a submission
 timeline. The Atlas studio (the in-app editor) and these tools edit the same files.
 
+**Toolsets.** Only the core tools are loaded by default; this playbook uses the writing and studio toolsets. If a tool named below is missing, call `enable_toolset` with "writing" then "studio" first (`list_toolsets` shows what is loaded).
+
 ## Orient
 
 `list_manuscripts` (per project or everywhere) → `get_manuscript` for status, venue,

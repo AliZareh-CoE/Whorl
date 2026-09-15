@@ -13,7 +13,8 @@ type CheckRow = { key: string; label: string; ok: boolean; detail: string; fix: 
 type TestResult = { ok: boolean; checks: CheckRow[]; command: string };
 type Skill = { name: string; description: string; folder: string; installed: boolean; up_to_date: boolean };
 type Tool = { key: string; label: string; found: boolean; path: string | null; version: string; install: string };
-type Conn = { tools: Tool[]; desktop: boolean; api_url: string; api_key: string; api_key_configured: boolean; command: string; args: string[]; env: Record<string, string>; claude_command: string; mcp_json: string; data_dir: string | null; skills: Skill[]; skills_dir: string };
+type Toolset = { name: string; use_when: string; tools: string[]; count: number; default: boolean };
+type Conn = { tools: Tool[]; toolsets?: Toolset[]; tools_total?: number; desktop: boolean; api_url: string; api_key: string; api_key_configured: boolean; command: string; args: string[]; env: Record<string, string>; claude_command: string; mcp_json: string; data_dir: string | null; skills: Skill[]; skills_dir: string };
 
 const panel = "rise rounded-2xl border border-stone-200 bg-white/70 p-5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/60";
 const railH = "text-[11px] font-semibold uppercase tracking-wider text-stone-400";
@@ -55,6 +56,15 @@ export default function Connect() {
         {c.tools.map((t) => <li key={t.key} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${t.found ? "border-emerald-300/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "border-stone-200 text-stone-500 dark:border-stone-700"}`} title={t.found ? `${t.path}${t.version ? ` · ${t.version}` : ""}` : `Not found on PATH — ${t.install}`}>{t.found ? <Check className="h-3 w-3" aria-hidden="true" /> : <span aria-hidden="true">·</span>}{t.label}{t.found && t.version && <span className="opacity-70">{t.version.replace(/^[^0-9]*/, "").split(" ")[0]}</span>}{!t.found && <span className="opacity-70">not found</span>}</li>)}
       </ul>
       {c.tools.some((t) => t.key === "claude" && !t.found) && <p className="mt-2 text-xs text-stone-500">Claude Code is not on this machine's PATH yet — install it with <code className="rounded bg-stone-100 px-1 dark:bg-stone-800">npm i -g @anthropic-ai/claude-code</code>, then reopen this page.</p>}
+      {c.toolsets && c.toolsets.length > 0 && (
+        <div className="mt-4" data-testid="toolsets">
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Toolsets · {c.tools_total} tools, {c.toolsets[0].count} loaded by default</p>
+          <p className="mt-1 max-w-2xl text-xs text-stone-500">A long tool list costs Claude context on every turn, so only <strong>core</strong> is loaded when the server starts. Claude enables another toolset the moment a task needs it (<code className="rounded bg-stone-100 px-1 dark:bg-stone-800">enable_toolset("studio")</code>); to start with more, add <code className="rounded bg-stone-100 px-1 dark:bg-stone-800">--env ATLAS_MCP_TOOLSETS=core,library</code> (or <code className="rounded bg-stone-100 px-1 dark:bg-stone-800">all</code>) to the command above.</p>
+          <ul className="mt-2 flex flex-wrap gap-2 text-xs" aria-label="Toolsets">
+            {c.toolsets.map((t) => <li key={t.name} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${t.default ? "border-indigo-300/60 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300" : "border-stone-200 text-stone-600 dark:border-stone-700 dark:text-stone-300"}`} title={`${t.use_when}\n\n${t.tools.join(", ")}`} data-testid={`toolset-${t.name}`}>{t.name}<span className="opacity-70">{t.count}</span>{t.default && <span className="opacity-70">· on by default</span>}</li>)}
+          </ul>
+        </div>
+      )}
       {!c.api_key_configured && <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">No API key is configured, so the API rejects every request. Set <code>ATLAS_API_KEY</code> in <code>.env</code> (or run <code>manage.py rotate_api_key</code>), restart, then come back.</div>}
 
       <section className={`${panel} mt-5`} style={{ ["--i" as string]: 2 }} data-testid="connect-step-1">

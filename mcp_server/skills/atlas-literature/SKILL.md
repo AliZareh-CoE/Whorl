@@ -7,6 +7,8 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
 
 ## Add papers
 
+**Toolsets.** Only the core tools are loaded by default; this playbook uses the library toolset. If a tool named below is missing, call `enable_toolset` with "library" first (`list_toolsets` shows what is loaded).
+
 - `add_reference_by_doi` (accepts DOIs and arXiv ids) with the project slug. Metadata
   comes from Crossref/OpenAlex; the reference joins the global library and is linked to
   the project with reading status *to read*.
