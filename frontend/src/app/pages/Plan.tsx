@@ -198,8 +198,8 @@ export default function Plan() {
 
       <div className="mb-5 flex flex-wrap items-center gap-4">
         <Ring percent={percent} color={accent} />
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-3xl font-bold tracking-tight dark:text-stone-100">
+        <div className="min-w-52 flex-1">
+          <h1 className="font-display text-2xl font-bold tracking-tight md:text-3xl dark:text-stone-100">
             Plan {totalMilestones > 0 && <span className="text-gradient">· {doneMilestones}/{totalMilestones} milestones</span>}
           </h1>
           <p className="mt-0.5 text-sm text-stone-400">
@@ -256,7 +256,7 @@ export default function Plan() {
         <div className="rise mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-amber-300/60 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-500/40 dark:text-amber-100" role="status" data-testid="conflict-banner">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden="true" />
           <span className="font-medium">{data.conflicts.length} date{data.conflicts.length === 1 ? "" : "s"} contradict{data.conflicts.length === 1 ? "s" : ""} a dependency</span>
-          <ul className="min-w-0 flex-1 text-xs">
+          <ul className="min-w-52 flex-1 text-xs">
             {data.conflicts.slice(0, 3).map((c) => <li key={c.id} className="truncate"><span className="font-medium">{c.title}</span> is due {c.due_date} but waits for <span className="font-medium">{c.blocker_title}</span> (due {c.blocker_due}) — suggest {c.suggested}</li>)}
             {data.conflicts.length > 3 && <li className="text-amber-700/80 dark:text-amber-200/80">…and {data.conflicts.length - 3} more</li>}
           </ul>
@@ -321,10 +321,12 @@ function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggl
       onDragOver={(e) => { const k = kindOf(e.dataTransfer); if (!k) return; if (k === "phase" && Number(e.dataTransfer.getData(PHASE_MIME)) === phase.id) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOver(k); }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null); }}
       onDrop={(e) => { const k = kindOf(e.dataTransfer); setOver(null); if (!k) return; e.preventDefault(); if (k === "phase") { const id = Number(e.dataTransfer.getData(PHASE_MIME)); if (id && id !== phase.id) onDropPhase(id); } else { const id = Number(e.dataTransfer.getData(MS_MIME)); if (id && !phase.milestones.some((m) => m.id === id)) onDropMilestone(id); } }}>
-      <div className="mb-3 flex items-baseline gap-3">
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {/* #429: the number is the drag handle — drop on another phase card to reorder */}
         <span draggable onDragStart={(e) => { e.dataTransfer.setData(PHASE_MIME, String(phase.id)); e.dataTransfer.effectAllowed = "move"; }} className="font-display cursor-grab select-none text-2xl font-bold leading-none text-stone-300 active:cursor-grabbing dark:text-stone-600" title="Drag to reorder phases" data-testid="phase-handle">{String(phase.order).padStart(2, "0")}</span>
-        <h2 className="font-display min-w-0 flex-1 text-lg font-semibold text-stone-900 dark:text-stone-100">{phase.name}</h2>
+        <h2 className="font-display min-w-0 flex-1 text-lg font-semibold text-stone-900 lg:min-w-52 dark:text-stone-100">{phase.name}</h2>
+        {/* #522: below lg the window, the close nudge and the likely-end chip take their own line under the title */}
+        <div className="order-last flex min-w-0 basis-full flex-wrap items-center gap-2 lg:order-none lg:basis-auto" data-testid="phase-meta">
         <label className="hidden shrink-0 items-center gap-1 text-[11px] text-stone-400 sm:flex" title="Target window">
           <input type="date" value={phase.target_start ?? ""} onChange={(e) => onPatchPhase({ target_start: e.target.value || null })} className="w-[7.5rem] rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-stone-400 hover:border-stone-300 focus:border-indigo-400 focus:outline-none dark:hover:border-stone-700" aria-label={`${phase.name} start`} />
           →
@@ -332,6 +334,7 @@ function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggl
         </label>
         {phase.closable && <button type="button" onClick={onReport} className="shrink-0 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300" title="Every milestone is done — read the report and close the phase" data-testid="close-nudge">all done — close the phase</button>}
         {phase.likely_end && phase.target_end && phase.likely_end > phase.target_end && phase.status !== "done" && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={`At your pace the phase's last open milestone lands ${phase.likely_end}, ${daysBetween(phase.likely_end, phase.target_end)} d after the target end ${phase.target_end}`} data-testid="likely-end">likely ends {phase.likely_end} · {daysBetween(phase.likely_end, phase.target_end)} d past target</span>}
+        </div>
         <button type="button" onClick={onCycleStatus} className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs transition-colors hover:ring-2 hover:ring-indigo-400/40 ${statusCls[phase.status] ?? statusCls.not_started}`} title="Click to cycle the status">{STATUS_LABEL[phase.status] ?? phase.status}</button>
         <Kebab label={`Actions for ${phase.name}`} className="self-center" items={[{ label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: onRename }, { label: phase.status === "done" ? "Phase report…" : "Phase report / close…", icon: <FileCheck className="h-3.5 w-3.5" />, onSelect: onReport }, "-", { label: "Delete phase…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: onDelete }]} />
       </div>
@@ -366,18 +369,29 @@ function PhaseCard({ phase, index, accent, onDropPhase, onDropMilestone, onToggl
       <ul className="divide-y divide-stone-100 dark:divide-stone-800">
         {phase.milestones.map((m) => {
           const isOverdue = m.overdue && !m.completed_at;
+          const showConflict = Boolean(conflictIds?.has(m.id)) && !m.completed_at;
+          const slipped = m.slipped ?? 0;
+          const showSlip = m.moves > 0 && slipped !== 0;
+          const showLikely = Boolean(m.likely && m.due_date && m.likely !== m.due_date && !m.completed_at && !isOverdue);
+          const showSlack = m.slack != null && m.slack >= 0 && m.slack <= TIGHT_DAYS && !m.completed_at;
+          const showChain = Boolean(chainIds?.has(m.id)) && !m.completed_at;
+          const showBlocked = m.blocked && !m.completed_at;
+          const hasMeta = showConflict || showSlip || showLikely || showSlack || showChain || showBlocked || Boolean(m.due_date);
           return (
             <li key={m.id} className="group py-2.5" draggable onDragStart={(e) => { e.dataTransfer.setData(MS_MIME, String(m.id)); e.dataTransfer.effectAllowed = "move"; e.stopPropagation(); }} title="Drag onto another phase to move this milestone" data-testid="milestone-row">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <button type="button" aria-label="Toggle milestone" onClick={() => onToggleMilestone(m)} className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs transition-all after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${m.completed_at ? "border-indigo-500 bg-indigo-500 text-white shadow-[0_0_12px_rgb(99_102_241/.6)]" : "border-stone-300 bg-white text-transparent hover:border-indigo-400 dark:border-stone-600 dark:bg-stone-900 dark:hover:border-indigo-400"}`}><Check className="h-3 w-3" aria-hidden="true" /></button>
-                <button type="button" onClick={() => onOpen(m.id)} className={`min-w-0 flex-1 truncate text-left text-sm hover:text-indigo-700 dark:hover:text-indigo-300 ${m.completed_at ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-200"}`} title="Open: notes, due date, tasks">{m.title}{m.notes ? <span className="ml-1.5 align-middle text-[10px] text-stone-400">notes</span> : null}</button>
-                {conflictIds?.has(m.id) && !m.completed_at && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title="Due on or before a milestone it waits for" data-testid="conflict-chip">due before its blocker</span>}
-                {m.moves > 0 && m.slipped != null && m.slipped !== 0 && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] ${m.slipped > 0 ? "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`} title={`First planned for ${m.baseline} · moved ${m.moves} time${m.moves === 1 ? "" : "s"}`} data-testid="slip-chip">{m.slipped > 0 ? `slipped ${m.slipped} d` : `pulled in ${-m.slipped} d`}{m.moves > 1 ? ` · ${m.moves}×` : ""}</span>}
-                {m.likely && m.due_date && m.likely !== m.due_date && !m.completed_at && !isOverdue && <span className="shrink-0 rounded-md border border-dashed border-stone-300 px-1.5 py-0.5 text-[11px] text-stone-500 dark:border-stone-600 dark:text-stone-400" title={`Your milestones land a median ${Math.abs(shift ?? 0)} d ${(shift ?? 0) > 0 ? "after" : "before"} their date — so this one likely lands ${m.likely}`} data-testid="likely-chip">likely {m.likely}</span>}
-                {m.slack != null && m.slack >= 0 && m.slack <= TIGHT_DAYS && !m.completed_at && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={m.slack === 0 ? "Any slip pushes a milestone that waits for it" : `Can slip ${m.slack} day${m.slack === 1 ? "" : "s"} before it pushes a milestone that waits for it`} data-testid="slack-chip">{m.slack === 0 ? "no slack" : `${m.slack} d slack`}</span>}
-                {chainIds?.has(m.id) && !m.completed_at && <Route className="h-3.5 w-3.5 shrink-0 text-indigo-500 dark:text-indigo-300" aria-label="On the critical chain" data-testid="chain-mark" />}
-                {m.blocked && !m.completed_at && <span className="inline-flex max-w-[14rem] shrink-0 items-center gap-1 truncate rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={`Waits for: ${(m.blocked_by ?? []).map((b) => b.title).join(", ")}`} data-testid="blocked-chip"><Lock className="h-3 w-3 shrink-0" aria-hidden="true" />waits for {(m.blocked_by ?? []).map((b) => b.title).join(", ")}</span>}
+                <button type="button" onClick={() => onOpen(m.id)} className={`min-w-0 flex-1 truncate text-left text-sm hover:text-indigo-700 lg:min-w-52 dark:hover:text-indigo-300 ${m.completed_at ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-200"}`} title="Open: notes, due date, tasks">{m.title}{m.notes ? <span className="ml-1.5 align-middle text-[10px] text-stone-400">notes</span> : null}</button>
+                {/* #522: below lg the chips and the due date take their own line, indented under the title */}
+                {hasMeta && <span className="order-last flex min-w-0 basis-full flex-wrap items-center gap-x-3 gap-y-1 pl-8 lg:order-none lg:basis-auto lg:pl-0" data-testid="milestone-meta">
+                {showConflict && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title="Due on or before a milestone it waits for" data-testid="conflict-chip">due before its blocker</span>}
+                {showSlip && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] ${slipped > 0 ? "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`} title={`First planned for ${m.baseline} · moved ${m.moves} time${m.moves === 1 ? "" : "s"}`} data-testid="slip-chip">{slipped > 0 ? `slipped ${slipped} d` : `pulled in ${-slipped} d`}{m.moves > 1 ? ` · ${m.moves}×` : ""}</span>}
+                {showLikely && <span className="shrink-0 rounded-md border border-dashed border-stone-300 px-1.5 py-0.5 text-[11px] text-stone-500 dark:border-stone-600 dark:text-stone-400" title={`Your milestones land a median ${Math.abs(shift ?? 0)} d ${(shift ?? 0) > 0 ? "after" : "before"} their date — so this one likely lands ${m.likely}`} data-testid="likely-chip">likely {m.likely}</span>}
+                {showSlack && <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={m.slack === 0 ? "Any slip pushes a milestone that waits for it" : `Can slip ${m.slack} day${m.slack === 1 ? "" : "s"} before it pushes a milestone that waits for it`} data-testid="slack-chip">{m.slack === 0 ? "no slack" : `${m.slack} d slack`}</span>}
+                {showChain && <Route className="h-3.5 w-3.5 shrink-0 text-indigo-500 dark:text-indigo-300" aria-label="On the critical chain" data-testid="chain-mark" />}
+                {showBlocked && <span className="inline-flex max-w-[14rem] shrink-0 items-center gap-1 truncate rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-800 dark:text-amber-200" title={`Waits for: ${(m.blocked_by ?? []).map((b) => b.title).join(", ")}`} data-testid="blocked-chip"><Lock className="h-3 w-3 shrink-0" aria-hidden="true" />waits for {(m.blocked_by ?? []).map((b) => b.title).join(", ")}</span>}
                 {m.due_date && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs ${isOverdue ? "bg-red-500/10 font-medium text-red-600 dark:text-red-300" : "text-stone-400"}`}>{isOverdue ? "overdue · " : "due "}{m.due_date}</span>}
+                </span>}
                 <button type="button" onClick={() => { setTaskFor(taskFor === m.id ? null : m.id); setTaskDraft(""); }} className="shrink-0 text-[11px] text-stone-400 opacity-0 transition-opacity hover:text-indigo-600 group-hover:opacity-100 focus:opacity-100 dark:hover:text-indigo-300" aria-label={`Add a task to ${m.title}`}>+ task</button>
               </div>
               {(m.tasks.length > 0 || taskFor === m.id) && (

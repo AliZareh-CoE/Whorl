@@ -67,3 +67,29 @@ def test_shortcuts_sheet():
     assert 'el.closest(".cm-editor")' in sheet  # typing ? in the editor never opens it
     assert "installShortcutsKey();" in (BASE / "frontend/src/app/Layout.tsx").read_text()
     assert 'label: "Keyboard shortcuts"' in (BASE / "frontend/src/app/CommandBar.tsx").read_text()
+
+
+def test_plan_narrow_width_groups():
+    """#522: the Plan cards view wraps below lg instead of scrolling sideways — the phase
+    header's meta and the milestone row's chips are wrap-aware groups, the page title keeps a
+    floor, the conflict banner's list takes its own line, and the utilities really compiled."""
+    plan = (BASE / "frontend/src/app/pages/Plan.tsx").read_text()
+    assert plan.count("order-last flex min-w-0 basis-full flex-wrap") == 2
+    assert 'data-testid="phase-meta"' in plan and 'data-testid="milestone-meta"' in plan
+    assert "lg:pl-0" in plan and "{hasMeta && <span" in plan  # no empty line under a bare row
+    assert '<div className="min-w-52 flex-1">' in plan  # the title block's floor
+    assert '<ul className="min-w-52 flex-1 text-xs">' in plan  # the conflict banner's list
+    assert '<div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">' in plan
+    assert '<div className="flex flex-wrap items-center gap-x-3 gap-y-1">' in plan
+    # inline from lg, the titles keep a floor so a full chip row shrinks and wraps, not the title
+    assert plan.count("lg:min-w-52") == 2
+    built = (BASE / "static/css/app.css").read_text()
+    for cls in (
+        ".basis-full",
+        ".order-last",
+        ".lg\\:basis-auto",
+        ".lg\\:order-none",
+        ".lg\\:pl-0",
+        ".lg\\:min-w-52",
+    ):
+        assert cls in built, cls  # a class nobody used before renders unstyled until `make css`
