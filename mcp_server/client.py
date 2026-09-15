@@ -388,9 +388,15 @@ def refresh_feeds(feed_ids=None, hours: int = 12, limit: int = 20):
 
 
 def get_feed_items(
-    feed_id: int = 0, project: str = "", dismissed: bool = False, q: str = "", limit: int = 50
+    feed_id: int = 0,
+    project: str = "",
+    dismissed: bool = False,
+    q: str = "",
+    limit: int = 50,
+    muted: bool = False,
 ):
-    """The feeds' entries not in the library (#531), newest first."""
+    """The feeds' entries not in the library (#531), newest first; dismissed or muted (#543)
+    ones on request."""
     params: dict = {"limit": max(1, min(int(limit or 50), 500))}
     if feed_id:
         params["feed"] = int(feed_id)
@@ -400,9 +406,17 @@ def get_feed_items(
         params["q"] = q
     if dismissed:
         params["dismissed"] = "1"
+    elif muted:
+        params["muted"] = "1"
     data = _request("GET", "/feeds/items/", params=params)
     if isinstance(data, dict):
-        data["url"] = library_url(feeds=1, feed=feed_id, seen=int(bool(dismissed)), fq=q)
+        data["url"] = library_url(
+            feeds=1,
+            feed=feed_id,
+            seen=int(bool(dismissed)),
+            muted=int(bool(muted and not dismissed)),
+            fq=q,
+        )
     return data
 
 

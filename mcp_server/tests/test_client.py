@@ -394,6 +394,8 @@ def test_reading_client_calls(capture):
     assert capture["method"] == "PATCH" and calls_url_has(capture, "/project-references/4/")
     client.fetch_pdf(7)
     assert capture["method"] == "POST" and calls_url_has(capture, "/references/7/fetch-pdf/")
+    client.get_feed_items(3, muted=True)
+    assert "muted=1" in capture["url"] and "dismissed" not in capture["url"]
     client.update_feed(3, mute=["benchmark", "author:Doe"])
     assert capture["method"] == "PATCH" and calls_url_has(capture, "/feeds/3/")
     assert '"mute"' in capture["body"] and '"title"' not in capture["body"]

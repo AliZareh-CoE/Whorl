@@ -333,22 +333,28 @@ def refresh_feeds(feed_ids: list[int] | None = None, hours: int = 12, limit: int
     """Fetch the followed feeds now so get_feed_items and the Library's Feeds list show
     today's announcements. With `feed_ids` (≤ 20): those feeds. Without: the ones not fetched
     in `hours` (default 12), up to `limit` (≤ 20; the six-hourly sweep does the rest). Returns
-    `feeds` (fetched), `new`, `seen`, `unchanged` (304), `errors` (a feed that did not answer
-    keeps its entries and records the reason) and `status`."""
+    `feeds` (fetched), `new`, `seen`, `muted` (hidden by the feeds' mute lists), `unchanged`
+    (304), `errors` (a feed that did not answer keeps its entries and records the reason) and
+    `status`."""
     return client.refresh_feeds(feed_ids, hours, limit)
 
 
 @mcp.tool()
 def get_feed_items(
-    feed_id: int = 0, project: str = "", dismissed: bool = False, q: str = "", limit: int = 50
+    feed_id: int = 0,
+    project: str = "",
+    dismissed: bool = False,
+    q: str = "",
+    limit: int = 50,
+    muted: bool = False,
 ) -> dict:
     """New entries from the followed feeds that are not in the library, newest first — the daily
     arXiv or journal skim. Narrow with `feed_id`, `project` or `q`; dismissed=True lists the
-    seen ones. Rows carry title, authors, summary, doi / arxiv_id, link, published_on, `feed`
-    and `addable`; add one with add_feed_item, mark the rest seen with dismiss_feed_items.
-    `status` says when the feeds were last fetched; refresh_feeds fetches. `url` opens the view
-    in the app."""
-    return client.get_feed_items(feed_id, project, dismissed, q, limit)
+    seen ones, muted=True the ones a feed's mute list hid (each with `muted_by`, the term). Rows
+    carry title, authors, summary, doi / arxiv_id, link, published_on, `feed` and `addable`; add
+    one with add_feed_item, mark the rest seen with dismiss_feed_items. `status` says when the
+    feeds were last fetched; refresh_feeds fetches. `url` opens the view in the app."""
+    return client.get_feed_items(feed_id, project, dismissed, q, limit, muted)
 
 
 @mcp.tool()
