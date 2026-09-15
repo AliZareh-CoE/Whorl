@@ -2988,6 +2988,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 
 ## Backlog
 
+340. Desktop release trigger: `on.push.paths` lists `desktop/**`, `mcp_server/**`, `static/**`, `templates/**` and two files, so a Python-only push to `core/`, `projects/`, `literature/`… (e.g. #538's path guards) rebuilds no installer until a later push touches a listed path — the frozen server bundles every app. Add `"**/*.py"` (or the app packages) to the list; check at Audit #33.
 ~~339. MCP docstrings: a one-line "use when" at the top of every tool docstring (the picker reads the first sentence; several open with the #-number or a data description).~~ Done 2026-09-15 (#541).
 338. MCP merges, batch two: `compile_manuscript` / `get_compile_status` / `compile_and_wait` → one `compile_manuscript(wait=)`; `search_pdf_text` + `search_in_pdf` → one `search_pdfs(reference=)`; keep the old names one release as aliases.
 337. MCP merges, batch one: the four watch checks (`check_retractions`, `check_preprints`, `check_citations`, `refresh_feeds`) → one `run_watch(kind, …)`; `get_new_citations` / `get_feed_items` → `get_watch_items(kind)`.
