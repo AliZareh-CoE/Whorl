@@ -109,8 +109,9 @@ existing `lucide-react` import):
       - VITE_ATLAS_URL=http://localhost:8001
 ```
 
-Then `docker compose up --build frontend` (the front-end image copies the source at build time,
-and the Vite dev server it runs reads `VITE_*` from the environment). Open
+Then `docker compose up -d frontend` to recreate the container with the new variable (the
+front-end source is bind-mounted, so the page and the route appear under the Vite dev server
+without a rebuild; only the `environment:` change needs the recreate). Open
 `http://localhost:3000`, click **Atlas** in the sidebar: the Atlas login appears inside the tab,
 and after that the dashboard.
 
