@@ -326,11 +326,96 @@ def _download(url: str, headers: dict, client: httpx.Client) -> tuple[int, dict,
     raise FeedError("the feed redirects too many times")
 
 
-def _store_entry(feed: Feed, entry: dict) -> tuple[FeedItem, bool]:
+MUTE_TERMS_MAX = 50
+MUTE_TERM_MAX = 60
+
+
+def clean_mute(terms) -> list[str]:
+    """The mute list as stored: stripped, at most MUTE_TERM_MAX chars each, no blanks, no
+    case-insensitive duplicates, at most MUTE_TERMS_MAX terms, first come first kept."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in terms if isinstance(terms, list | tuple) else []:
+        term = " ".join(str(raw).split())[:MUTE_TERM_MAX]
+        key = term.lower()
+        if key.startswith("author:") and not key[7:].strip():
+            continue
+        if len(term) < 2 or key in seen:
+            continue
+        seen.add(key)
+        out.append(term)
+        if len(out) >= MUTE_TERMS_MAX:
+            break
+    return out
+
+
+def mute_matcher(terms):
+    """A matcher over the feed's mute list, compiled once per fetch: `match(title, summary,
+    authors)` → the term that hides the entry, or "". A single word matches on word
+    boundaries in the title or abstract ("LLM" does not hide "film"), a phrase matches as a
+    substring, and `author:Name` matches a substring of any author. Case-insensitive.
+    None when the list is empty."""
+    rules: list[tuple[str, object, str]] = []
+    for term in clean_mute(terms):
+        low = term.lower()
+        if low.startswith("author:"):
+            rules.append(("author", low[7:].strip(), term))
+        elif " " in low:
+            rules.append(("phrase", low, term))
+        else:
+            rules.append(("word", re.compile(r"(?<!\w)" + re.escape(low) + r"(?!\w)"), term))
+    if not rules:
+        return None
+
+    def match(title: str, summary: str, authors) -> str:
+        text = f"{title or ''}\n{summary or ''}".lower()
+        names = " | ".join(str(a) for a in (authors or [])).lower()
+        for kind, needle, term in rules:
+            if kind == "author":
+                if needle in names:
+                    return term
+            elif kind == "phrase":
+                if needle in text:
+                    return term
+            elif needle.search(text):
+                return term
+        return ""
+
+    return match
+
+
+def apply_mute(feed: Feed) -> dict:
+    """Re-read the feed's stored entries against its mute list (after the list changed):
+    open entries that now match are muted, muted entries that no term matches any more come
+    back. Dismissed entries and the library's own papers are left alone. Returns
+    {muted, unmuted}."""
+    match = mute_matcher(feed.mute)
+    now = timezone.now()
+    out = {"muted": 0, "unmuted": 0}
+    for item in feed.items.filter(dismissed_at__isnull=True, reference__isnull=True):
+        term = match(item.title, item.summary, item.authors) if match else ""
+        if term and item.muted_at is None:
+            item.muted_at, item.muted_by = now, term
+            item.save(update_fields=["muted_at", "muted_by", "updated_at"])
+            out["muted"] += 1
+        elif not term and item.muted_at is not None:
+            item.muted_at, item.muted_by = None, ""
+            item.save(update_fields=["muted_at", "muted_by", "updated_at"])
+            out["unmuted"] += 1
+    if out["muted"]:
+        feed.muted_total = (feed.muted_total or 0) + out["muted"]
+        feed.save(update_fields=["muted_total", "updated_at"])
+    return out
+
+
+def _store_entry(feed: Feed, entry: dict, match=None) -> tuple[FeedItem, bool, bool]:
     """Upsert one entry; the first-seen stamp never moves, changed metadata is taken, a paper
-    already in the library is recorded against its reference."""
+    already in the library is recorded against its reference. With `match` (the feed's mute
+    matcher) a new or still-open entry that matches is stored muted; the third value says so.
+    A dismissed entry, a muted one and the library's own are never re-stamped."""
     defaults = {k: v for k, v in entry.items() if k != "guid"}
     row, created = FeedItem.objects.get_or_create(feed=feed, guid=entry["guid"], defaults=defaults)
+    muted = False
     if not created:
         changed = [k for k, v in defaults.items() if getattr(row, k) != v]
         if changed:
@@ -338,16 +423,27 @@ def _store_entry(feed: Feed, entry: dict) -> tuple[FeedItem, bool]:
                 setattr(row, k, defaults[k])
             row.save(update_fields=changed + ["updated_at"])
     if row.reference_id is None and (row.doi or row.arxiv_id):
-        match = Q(pk__in=[])
+        own_match = Q(pk__in=[])
         if row.doi:
-            match |= Q(doi__iexact=row.doi)
+            own_match |= Q(doi__iexact=row.doi)
         if row.arxiv_id:
-            match |= Q(arxiv_id__iexact=row.arxiv_id)
-        own = Reference.objects.filter(match).first()
+            own_match |= Q(arxiv_id__iexact=row.arxiv_id)
+        own = Reference.objects.filter(own_match).first()
         if own is not None:
             row.reference = own
             row.save(update_fields=["reference", "updated_at"])
-    return row, created
+    if (
+        match is not None
+        and row.reference_id is None
+        and row.dismissed_at is None
+        and row.muted_at is None
+    ):
+        term = match(row.title, row.summary, row.authors)
+        if term:
+            row.muted_at, row.muted_by = timezone.now(), term
+            row.save(update_fields=["muted_at", "muted_by", "updated_at"])
+            muted = True
+    return row, created, muted
 
 
 def _prune(feed: Feed) -> int:
@@ -371,7 +467,7 @@ def fetch_feed(feed: Feed, client: httpx.Client | None = None) -> dict:
     own = client is None
     client = client or _client()
     now = timezone.now()
-    out = {"new": 0, "seen": 0, "unchanged": False, "error": ""}
+    out = {"new": 0, "seen": 0, "unchanged": False, "error": "", "muted": 0}
     headers = {}
     if feed.etag:
         headers["If-None-Match"] = feed.etag
@@ -401,10 +497,15 @@ def fetch_feed(feed: Feed, client: httpx.Client | None = None) -> dict:
     finally:
         if own:
             client.close()
+    match = mute_matcher(feed.mute)
     for entry in parsed["entries"]:
-        _, created = _store_entry(feed, entry)
+        _, created, muted = _store_entry(feed, entry, match)
         out["new" if created else "seen"] += 1
+        out["muted"] += int(muted)
     fields = ["last_fetched_at", "last_ok_at", "last_error", "etag", "last_modified", "updated_at"]
+    if out["muted"]:
+        feed.muted_total = (feed.muted_total or 0) + out["muted"]
+        fields.append("muted_total")
     feed.last_fetched_at = feed.last_ok_at = now
     feed.last_error = ""
     lower = {k.lower(): v for k, v in response_headers.items()}
@@ -426,7 +527,15 @@ def refresh(feeds, client: httpx.Client | None = None) -> dict:
     breaker stops after MAX_CONSECUTIVE_ERRORS feeds in a row that did not answer at all."""
     own = client is None
     client = client or _client()
-    out = {"feeds": 0, "new": 0, "seen": 0, "unchanged": 0, "errors": 0, "stopped": False}
+    out = {
+        "feeds": 0,
+        "new": 0,
+        "seen": 0,
+        "unchanged": 0,
+        "errors": 0,
+        "stopped": False,
+        "muted": 0,
+    }
     streak = 0
     try:
         for feed in feeds:
@@ -435,6 +544,7 @@ def refresh(feeds, client: httpx.Client | None = None) -> dict:
             out["new"] += result["new"]
             out["seen"] += result["seen"]
             out["unchanged"] += int(result["unchanged"])
+            out["muted"] += result.get("muted", 0)
             if result["error"]:
                 out["errors"] += 1
                 streak = streak + 1 if "did not answer" in result["error"] else 0
@@ -531,15 +641,22 @@ def status() -> dict:
         "feeds": Feed.objects.count(),
         "new": open_items().count(),
         "dismissed": FeedItem.objects.filter(dismissed_at__isnull=False).count(),
+        "muted": muted_items().count(),
         "errors": Feed.objects.exclude(last_error="").count(),
         "last_fetched_at": newest,
     }
 
 
 def open_items(qs=None):
-    """Entries that are news: not dismissed, not (yet) in the library."""
+    """Entries that are news: not dismissed, not muted, not (yet) in the library."""
     qs = FeedItem.objects.all() if qs is None else qs
-    return qs.filter(dismissed_at__isnull=True, reference__isnull=True)
+    return qs.filter(dismissed_at__isnull=True, muted_at__isnull=True, reference__isnull=True)
+
+
+def muted_items(qs=None):
+    """Entries the mute list hid and nothing else has settled: not dismissed, not in the library."""
+    qs = FeedItem.objects.all() if qs is None else qs
+    return qs.filter(dismissed_at__isnull=True, muted_at__isnull=False, reference__isnull=True)
 
 
 def feeds_with_counts():
@@ -547,7 +664,19 @@ def feeds_with_counts():
     return Feed.objects.select_related("project").annotate(
         new_count=Count(
             "items",
-            filter=Q(items__dismissed_at__isnull=True, items__reference__isnull=True),
+            filter=Q(
+                items__dismissed_at__isnull=True,
+                items__muted_at__isnull=True,
+                items__reference__isnull=True,
+            ),
+        ),
+        muted_count=Count(
+            "items",
+            filter=Q(
+                items__dismissed_at__isnull=True,
+                items__muted_at__isnull=False,
+                items__reference__isnull=True,
+            ),
         ),
         item_count=Count("items"),
     )
@@ -563,6 +692,9 @@ def feed_row(feed: Feed) -> dict:
         "position": feed.position,
         "new": getattr(feed, "new_count", None),
         "items": getattr(feed, "item_count", None),
+        "mute": list(feed.mute or []),
+        "muted": getattr(feed, "muted_count", None),
+        "muted_total": feed.muted_total,
         "last_fetched_at": feed.last_fetched_at,
         "last_ok_at": feed.last_ok_at,
         "last_error": feed.last_error,
@@ -588,6 +720,8 @@ def _row(item: FeedItem) -> dict:
         "published_on": item.published_on.isoformat() if item.published_on else None,
         "first_seen_at": item.created_at,
         "dismissed_at": item.dismissed_at,
+        "muted_at": item.muted_at,
+        "muted_by": item.muted_by,
         "in_library": item.reference_id,
         "addable": bool(item.doi or item.arxiv_id) and item.reference_id is None,
         "url": url,
@@ -600,14 +734,19 @@ def items(
     dismissed: bool = False,
     q: str = "",
     limit: int = 100,
+    muted: bool = False,
 ) -> dict:
-    """The list: entries not in the library, open (default) or dismissed, newest first;
-    narrowed to one feed, to the feeds of one project, or by a word in the title / abstract.
-    Across feeds the same paper (an arXiv cross-list, a journal's two feeds) is shown once."""
+    """The list: entries not in the library, open (default), dismissed or muted (hidden by the
+    feed's mute list), newest first; narrowed to one feed, to the feeds of one project, or by
+    a word in the title / abstract. Across feeds the same paper (an arXiv cross-list, a
+    journal's two feeds) is shown once."""
     qs = FeedItem.objects.filter(reference__isnull=True).select_related("feed")
-    qs = (
-        qs.filter(dismissed_at__isnull=False) if dismissed else qs.filter(dismissed_at__isnull=True)
-    )
+    if dismissed:
+        qs = qs.filter(dismissed_at__isnull=False)
+    elif muted:
+        qs = qs.filter(dismissed_at__isnull=True, muted_at__isnull=False)
+    else:
+        qs = qs.filter(dismissed_at__isnull=True, muted_at__isnull=True)
     if feed_id:
         qs = qs.filter(feed_id=feed_id)
     if project:

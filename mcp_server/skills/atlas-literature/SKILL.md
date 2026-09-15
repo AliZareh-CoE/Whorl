@@ -39,7 +39,7 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
   Lavie?" — the feed is stored by the daily OpenAlex sweep; `check_citations` when the user wants
   it fresher (one request per 50 papers); `add_reference_by_doi` for a row worth keeping,
   `dismiss_citations` for the rest.
-- `list_feeds` / `add_feed` when the user wants to follow an arXiv category or a journal
+- `list_feeds` / `add_feed` when the user wants to follow an arXiv category or a journal; `update_feed(mute=[…])` when they say "stop showing me X from this feed" (words, phrases, `author:Name`)
   ("follow q-bio.NC", "add the Nature Human Behaviour feed to this project"); `get_feed_items`
   for "anything new on arXiv today?" — the entries are stored by the six-hourly sweep,
   `refresh_feeds` when the user wants them fresher; `add_feed_item` for a paper worth keeping

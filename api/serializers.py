@@ -658,6 +658,20 @@ class FeedSerializer(serializers.ModelSerializer):
     )
     new = serializers.IntegerField(source="new_count", read_only=True, default=0)
     items = serializers.IntegerField(source="item_count", read_only=True, default=0)
+    mute = serializers.ListField(
+        child=serializers.CharField(min_length=2, max_length=60),
+        max_length=50,
+        required=False,
+        help_text="Words, phrases and author:Name terms that hide an entry (#543); a matching "
+        "entry is stored muted and can be listed with /feeds/items/?muted=1.",
+    )
+    muted = serializers.IntegerField(source="muted_count", read_only=True, default=0)
+    muted_total = serializers.IntegerField(read_only=True)
+
+    def validate_mute(self, value):
+        from literature.feeds import clean_mute
+
+        return clean_mute(value)
 
     class Meta:
         model = Feed
@@ -670,6 +684,9 @@ class FeedSerializer(serializers.ModelSerializer):
             "position",
             "new",
             "items",
+            "mute",
+            "muted",
+            "muted_total",
             "last_fetched_at",
             "last_ok_at",
             "last_error",

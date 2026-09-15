@@ -2540,6 +2540,24 @@ class FeedViewSet(AtlasViewSet):
 
         return feeds_with_counts()
 
+    def update(self, request, *args, **kwargs):
+        """PATCH {mute: [...]} re-reads the stored entries against the new list (#543): open
+        entries that match are hidden, hidden ones no term matches any more come back. The
+        response carries the fresh `muted` count."""
+        from literature import feeds
+
+        instance = self.get_object()
+        before = list(instance.mute or [])
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=kwargs.pop("partial", False)
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        if "mute" in serializer.validated_data and serializer.validated_data["mute"] != before:
+            feeds.apply_mute(instance)
+        fresh = feeds.feeds_with_counts().get(pk=instance.pk)
+        return Response(serializers.FeedSerializer(fresh, context={"request": request}).data)
+
     def create(self, request, *args, **kwargs):
         from literature import feeds
 
@@ -2633,14 +2651,20 @@ class FeedViewSet(AtlasViewSet):
             OpenApiParameter(
                 "dismissed", str, description="1: the entries marked seen instead of the open ones"
             ),
+            OpenApiParameter(
+                "muted",
+                str,
+                description="1: the entries the feeds' mute lists hid (#543) instead of the open ones",
+            ),
             OpenApiParameter("limit", int, description="Max rows (default 100, max 500)"),
         ],
         responses={
             200: OpenApiResponse(
                 description=(
                     "{count, results: [{id, feed: {id, title}, guid, title, authors, summary, "
-                    "link, doi, arxiv_id, published_on, first_seen_at, dismissed_at, in_library, "
-                    "addable, url}], status: {feeds, new, dismissed, errors, last_fetched_at}}"
+                    "link, doi, arxiv_id, published_on, first_seen_at, dismissed_at, muted_at, "
+                    "muted_by, in_library, addable, url}], status: {feeds, new, dismissed, "
+                    "muted, errors, last_fetched_at}}"
                 )
             )
         },
@@ -2669,6 +2693,7 @@ class FeedViewSet(AtlasViewSet):
             dismissed=params.get("dismissed") in ("1", "true"),
             q=str(params.get("q") or "")[:200],
             limit=max(1, min(500, limit)),
+            muted=params.get("muted") in ("1", "true"),
         )
         out["status"] = feeds.status()
         return Response(out)

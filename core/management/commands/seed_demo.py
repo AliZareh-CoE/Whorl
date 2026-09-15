@@ -633,7 +633,22 @@ class Command(BaseCommand):
                 "url": "https://rss.arxiv.org/atom/q-bio.NC",
                 "title": "q-bio.NC updates on arXiv.org",
                 "site_url": "https://arxiv.org/list/q-bio.NC/new",
+                # #543: the feed's mute list — one entry below is hidden by it
+                "mute": ["benchmark", "author:Doe"],
+                "muted_total": 1,
                 "items": [
+                    {
+                        "guid": "oai:arXiv.org:2609.00108v1",
+                        "title": "A benchmark suite for attention models: 40 tasks, 12 baselines",
+                        "authors": ["Priya Natarajan", "Owen Blake"],
+                        "summary": "We release a benchmark of forty attention tasks with twelve "
+                        "baseline models and a leaderboard.",
+                        "link": "https://arxiv.org/abs/2609.00108",
+                        "arxiv_id": "2609.00108",
+                        "published_on": today - datetime.timedelta(days=1),
+                        "muted_at": timezone.now() - datetime.timedelta(days=1),
+                        "muted_by": "benchmark",
+                    },
                     {
                         "guid": "oai:arXiv.org:2609.00101v1",
                         "title": "Perceptual load and the precision of working-memory guidance: "
@@ -725,7 +740,13 @@ class Command(BaseCommand):
                 FeedItem.objects.update_or_create(
                     feed=feed,
                     guid=guid,
-                    defaults={"dismissed_at": None, **item, "reference": own},
+                    defaults={
+                        "dismissed_at": None,
+                        "muted_at": None,
+                        "muted_by": "",
+                        **item,
+                        "reference": own,
+                    },
                 )
         for i, citing in enumerate(corpus_refs):
             for j in {(i * 7 + 1) % i if i else None, (i * 3 + 2) % i if i else None}:

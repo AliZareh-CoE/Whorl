@@ -5,8 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, MessageSquareWarning, Pencil, ShieldAlert, ShieldCheck, ArrowUpCircle, Radar, Rss, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
-} from "lucide-react";
+  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, MessageSquareWarning, Pencil, ShieldAlert, ShieldCheck, ArrowUpCircle, Radar, Rss, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X, VolumeX } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { useMenu, type MenuItem } from "../../components/Menu";
@@ -57,9 +56,9 @@ type DupGroup = { keep: number; reasons: string[]; members: DupMember[] };
 type CitingRow = { id: number; openalex_id: string; doi: string; title: string; authors: string[]; year: number | null; published_on: string | null; venue: string; cited_by_count: number | null; cites: { id: number; bibtex_key: string; title: string }[]; first_seen_at: string; dismissed_at: string | null; addable: boolean; url: string };
 type CitingFeed = { count: number; results: CitingRow[]; status: { new: number; dismissed: number; watched: number; unchecked: number; last_checked_at: string | null } };
 // #531: journal / arXiv feeds followed inside the Library
-type FeedRow = { id: number; url: string; title: string; site_url: string; project: string | null; position: number; new: number; items: number; last_fetched_at: string | null; last_ok_at: string | null; last_error: string };
-type FeedItemRow = { id: number; feed: { id: number; title: string }; guid: string; title: string; authors: string[]; summary: string; link: string; doi: string; arxiv_id: string; published_on: string | null; first_seen_at: string; dismissed_at: string | null; in_library: number | null; addable: boolean; url: string };
-type FeedItems = { count: number; results: FeedItemRow[]; status: { feeds: number; new: number; dismissed: number; errors: number; last_fetched_at: string | null } };
+type FeedRow = { id: number; url: string; title: string; site_url: string; project: string | null; position: number; new: number; items: number; mute: string[]; muted: number; muted_total: number; last_fetched_at: string | null; last_ok_at: string | null; last_error: string };
+type FeedItemRow = { id: number; feed: { id: number; title: string }; guid: string; title: string; authors: string[]; summary: string; link: string; doi: string; arxiv_id: string; published_on: string | null; first_seen_at: string; dismissed_at: string | null; muted_at: string | null; muted_by: string; in_library: number | null; addable: boolean; url: string };
+type FeedItems = { count: number; results: FeedItemRow[]; status: { feeds: number; new: number; dismissed: number; muted: number; errors: number; last_fetched_at: string | null } };
 type DiscoverRow = {
   openalex_id: string; doi: string; title: string; year: number | null; venue: string; authors: string[];
   more_authors: number; citations: number | null; in_library: boolean; library_id: number | null; addable: boolean;
@@ -152,7 +151,7 @@ function viewQuery(f: Filters): string {
 // duplicates when an address names more than one.
 type Mode =
   | { kind: "list" }
-  | { kind: "feeds"; feed: number | null; seen: boolean; fq: string }
+  | { kind: "feeds"; feed: number | null; seen: boolean; muted: boolean; fq: string }
   | { kind: "citing"; reference: number | null; seen: boolean }
   | { kind: "duplicates" };
 const LIST_MODE: Mode = { kind: "list" };
@@ -160,7 +159,7 @@ function modeFromUrl(search: string): Mode {
   try {
     const p = new URLSearchParams(search);
     const id = (k: string) => { const v = Number(p.get(k)); return Number.isInteger(v) && v > 0 ? v : null; };
-    if (p.get("feeds") === "1") return { kind: "feeds", feed: id("feed"), seen: p.get("seen") === "1", fq: (p.get("fq") ?? "").slice(0, 200) };
+    if (p.get("feeds") === "1") return { kind: "feeds", feed: id("feed"), seen: p.get("seen") === "1", muted: p.get("muted") === "1", fq: (p.get("fq") ?? "").slice(0, 200) };
     if (p.get("citing") === "1") return { kind: "citing", reference: id("reference"), seen: p.get("seen") === "1" };
     if (p.get("duplicates") === "1") return { kind: "duplicates" };
   } catch { /* no URL access */ }
@@ -168,7 +167,7 @@ function modeFromUrl(search: string): Mode {
 }
 function addressOf(f: Filters, m: Mode): string {
   const p = new URLSearchParams(viewQuery(f));
-  if (m.kind === "feeds") { p.set("feeds", "1"); if (m.feed) p.set("feed", String(m.feed)); if (m.seen) p.set("seen", "1"); if (m.fq) p.set("fq", m.fq); }
+  if (m.kind === "feeds") { p.set("feeds", "1"); if (m.feed) p.set("feed", String(m.feed)); if (m.seen) p.set("seen", "1"); if (m.muted) p.set("muted", "1"); if (m.fq) p.set("fq", m.fq); }
   else if (m.kind === "citing") { p.set("citing", "1"); if (m.reference) p.set("reference", String(m.reference)); if (m.seen) p.set("seen", "1"); }
   else if (m.kind === "duplicates") p.set("duplicates", "1");
   return p.toString();
@@ -235,25 +234,28 @@ export default function Library() {
   const [feedMode, setFeedMode] = useState(mode0.kind === "feeds");
   const [feedId, setFeedId] = useState<number | null>(mode0.kind === "feeds" ? mode0.feed : null);
   const [showSeenFeed, setShowSeenFeed] = useState(mode0.kind === "feeds" && mode0.seen);
+  // #543: the entries a feed's mute list hid, listed on request
+  const [showMutedFeed, setShowMutedFeed] = useState(mode0.kind === "feeds" && mode0.muted);
+  const [muteInput, setMuteInput] = useState("");
   const [feedQInput, setFeedQInput] = useState(mode0.kind === "feeds" ? mode0.fq : "");
   const feedQ = useDebounced(feedQInput, 220);
   // #532: what the address bar should say for the open mode (a feed id the rail does not know
   // — unfollowed, or someone else's — drops the narrow once the feeds arrive, not the mode)
   const mode: Mode = useMemo<Mode>(() => {
-    if (feedMode) return { kind: "feeds", feed: feedId, seen: showSeenFeed, fq: feedQ };
+    if (feedMode) return { kind: "feeds", feed: feedId, seen: showSeenFeed, muted: showMutedFeed && !showSeenFeed, fq: feedQ };
     if (citeMode) return { kind: "citing", reference: citeRef, seen: showDismissed };
     if (dupMode) return { kind: "duplicates" };
     return LIST_MODE;
-  }, [feedMode, feedId, showSeenFeed, feedQ, citeMode, citeRef, showDismissed, dupMode]);
+  }, [feedMode, feedId, showSeenFeed, showMutedFeed, feedQ, citeMode, citeRef, showDismissed, dupMode]);
   const applyMode = (m: Mode) => {
     setFeedMode(m.kind === "feeds"); setCiteMode(m.kind === "citing"); setDupMode(m.kind === "duplicates");
-    setFeedId(m.kind === "feeds" ? m.feed : null); setShowSeenFeed(m.kind === "feeds" && m.seen); setFeedQInput(m.kind === "feeds" ? m.fq : "");
+    setFeedId(m.kind === "feeds" ? m.feed : null); setShowSeenFeed(m.kind === "feeds" && m.seen); setShowMutedFeed(m.kind === "feeds" && m.muted); setFeedQInput(m.kind === "feeds" ? m.fq : "");
     setCiteRef(m.kind === "citing" ? m.reference : null); setShowDismissed(m.kind === "citing" && m.seen);
   };
   const [feedFormOpen, setFeedFormOpen] = useState(false);
   const [feedUrl, setFeedUrl] = useState("");
   const [feedError, setFeedError] = useState("");
-  const openFeeds = (id: number | null) => { setFeedId(id); setShowSeenFeed(false); setDupMode(false); setCiteMode(false); setFeedMode(true); };
+  const openFeeds = (id: number | null) => { setFeedId(id); setShowSeenFeed(false); setShowMutedFeed(false); setDupMode(false); setCiteMode(false); setFeedMode(true); };
   const [readerId, setReaderId] = useState<number | null>(null);
   // Cards view (#397, Observatory): the same rows as cover-style cards; remembered per browser
   const [view, setView] = useState<"list" | "cards">(() => { try { return localStorage.getItem("atlas-library-view") === "cards" ? "cards" : "list"; } catch { return "list"; } });
@@ -276,8 +278,8 @@ export default function Library() {
   });
   const feedsList = useQuery({ queryKey: ["feeds"], queryFn: () => api<Page<FeedRow>>("/feeds/?page_size=200").then((p) => p.results), staleTime: 30_000 });
   const feedItems = useQuery({
-    queryKey: ["feed-items", feedId, showSeenFeed, feedQ, filters.project],
-    queryFn: () => api<FeedItems>(`/feeds/items/?limit=200${showSeenFeed ? "&dismissed=1" : ""}${feedId ? `&feed=${feedId}` : ""}${feedQ ? `&q=${encodeURIComponent(feedQ)}` : ""}${filters.project && !feedId ? `&project=${encodeURIComponent(filters.project)}` : ""}`),
+    queryKey: ["feed-items", feedId, showSeenFeed, showMutedFeed, feedQ, filters.project],
+    queryFn: () => api<FeedItems>(`/feeds/items/?limit=200${showSeenFeed ? "&dismissed=1" : showMutedFeed ? "&muted=1" : ""}${feedId ? `&feed=${feedId}` : ""}${feedQ ? `&q=${encodeURIComponent(feedQ)}` : ""}${filters.project && !feedId ? `&project=${encodeURIComponent(filters.project)}` : ""}`),
     enabled: feedMode,
   });
   const refreshFeedQueries = () => { queryClient.invalidateQueries({ queryKey: ["feeds"] }); queryClient.invalidateQueries({ queryKey: ["feed-items"] }); };
@@ -296,17 +298,23 @@ export default function Library() {
     onSuccess: (f) => { setFeedError(""); setFeedUrl(""); setFeedFormOpen(false); refreshFeedQueries(); openFeeds(f.id); flash(`Following “${f.title}” · ${f.new} new entr${f.new === 1 ? "y" : "ies"}.`); },
     onError: (e: Error) => setFeedError(e.message.charAt(0).toUpperCase() + e.message.slice(1) + (e.message.endsWith(".") ? "" : ".")),
   });
+  // #543: the feed's mute list — PATCH replaces it; the server re-reads the stored entries
+  const setFeedMute = useMutation({
+    mutationFn: ({ id, mute }: { id: number; mute: string[] }) => api<FeedRow>(`/feeds/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mute }) }),
+    onSuccess: (row, { mute }) => { refreshFeedQueries(); setMuteInput(""); flash(mute.length ? `Muting ${mute.length} term${mute.length === 1 ? "" : "s"} · ${row.muted} entr${row.muted === 1 ? "y" : "ies"} hidden.` : "Mute list cleared."); },
+    onError: () => flash("Could not change the mute list (2–60 characters per term, at most 50)."),
+  });
   const unfollowFeed = useMutation({
     mutationFn: (id: number) => api<void>(`/feeds/${id}/`, { method: "DELETE" }),
     onSuccess: () => { setFeedId(null); refreshFeedQueries(); flash("Stopped following the feed."); },
     onError: () => flash("Could not remove the feed."),
   });
   const refreshFeeds = useMutation({
-    mutationFn: (ids: number[] | null) => api<{ feeds: number; new: number; seen: number; unchanged: number; errors: number; stopped: boolean }>("/feeds/refresh/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ids ? { ids } : { hours: 1, limit: 20 }) }),
+    mutationFn: (ids: number[] | null) => api<{ feeds: number; new: number; seen: number; unchanged: number; errors: number; stopped: boolean; muted?: number }>("/feeds/refresh/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ids ? { ids } : { hours: 1, limit: 20 }) }),
     onSuccess: (out, ids) => {
       refreshFeedQueries();
       if (!ids && out.feeds === 0) { flash("Every feed was fetched in the last hour."); return; }
-      flash(`Fetched ${out.feeds} feed${out.feeds === 1 ? "" : "s"} · ${out.new} new entr${out.new === 1 ? "y" : "ies"}${out.errors ? ` · ${out.errors} did not answer` : ""}.`);
+      flash(`Fetched ${out.feeds} feed${out.feeds === 1 ? "" : "s"} · ${out.new} new entr${out.new === 1 ? "y" : "ies"}${out.muted ? ` · ${out.muted} muted` : ""}${out.errors ? ` · ${out.errors} did not answer` : ""}.`);
     },
     onError: () => flash("Could not refresh the feeds."),
   });
@@ -938,12 +946,13 @@ export default function Library() {
                 <>
                   <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 px-4 py-2.5 text-xs dark:border-stone-800">
                     <Rss className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
-                    <span className="font-medium text-stone-700 dark:text-stone-100">{showSeenFeed ? "Seen entries" : feed ? feed.title : "Feeds"}</span>
+                    <span className="font-medium text-stone-700 dark:text-stone-100">{showSeenFeed ? "Seen entries" : showMutedFeed ? `Muted entries${feed ? ` · ${feed.title}` : ""}` : feed ? feed.title : "Feeds"}</span>
                     {feed && <button type="button" onClick={() => setFeedId(null)} className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-700 dark:text-emerald-200" title="Show every feed">one feed <X className="h-3 w-3" aria-hidden="true" /></button>}
                     <span className="hidden text-stone-400 sm:inline">{feed ? (feed.last_error ? `last fetch failed — ${feed.last_error}` : feed.last_ok_at ? `fetched ${new Date(feed.last_ok_at).toLocaleString()}` : "not fetched yet") : `what your feeds announced · newest first${feedItems.data?.status.last_fetched_at ? ` · fetched ${new Date(feedItems.data.status.last_fetched_at).toLocaleDateString()}` : ""}`}</span>
                     <div className="ml-auto flex flex-wrap items-center gap-2">
                       <div className="relative"><Search className="pointer-events-none absolute left-1.5 top-1.5 h-3 w-3 text-stone-400" aria-hidden="true" /><input data-testid="feed-filter" value={feedQInput} onChange={(e) => setFeedQInput(e.target.value)} placeholder="Filter titles and abstracts" className="w-44 rounded-md border border-stone-200 bg-transparent py-0.5 pl-6 pr-2 text-xs outline-none focus:border-emerald-400 dark:border-stone-700" /></div>
-                      <button type="button" data-testid="feed-toggle-seen" onClick={() => setShowSeenFeed((v) => !v)} className="text-stone-400 hover:underline">{showSeenFeed ? "back to new" : `seen${feedItems.data ? ` (${feedItems.data.status.dismissed})` : ""}`}</button>
+                      <button type="button" data-testid="feed-toggle-seen" onClick={() => { setShowMutedFeed(false); setShowSeenFeed((v) => !v); }} className="text-stone-400 hover:underline">{showSeenFeed ? "back to new" : `seen${feedItems.data ? ` (${feedItems.data.status.dismissed})` : ""}`}</button>
+                      {!showSeenFeed && (feed ? feed.muted > 0 || feed.mute.length > 0 : (feedItems.data?.status.muted ?? 0) > 0) && <button type="button" data-testid="feed-toggle-muted" onClick={() => setShowMutedFeed((v) => !v)} className="text-stone-400 hover:underline" title="The entries the mute list hid">{showMutedFeed ? "back to new" : `muted (${feed ? feed.muted : feedItems.data?.status.muted ?? 0})`}</button>}
                       {!showSeenFeed && rows.length > 1 && <button type="button" data-testid="feed-dismiss-all" disabled={dismissFeedItems.isPending} onClick={() => dismissFeedItems.mutate({ ids: rows.map((r) => r.id) })} className="text-stone-400 hover:underline disabled:opacity-50">mark all seen</button>}
                       <button type="button" disabled={refreshFeeds.isPending} onClick={() => refreshFeeds.mutate(feed ? [feed.id] : null)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-stone-600 hover:border-emerald-400 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300">{refreshFeeds.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Rss className="h-3 w-3" aria-hidden="true" />}Refresh now</button>
                       {feed && <button type="button" data-testid="unfollow-feed" onClick={async () => { if (await confirmDialog({ title: `Stop following “${feed.title}”?`, body: "Its entries go; papers you added stay in the library.", danger: true, confirmLabel: "Stop following" })) unfollowFeed.mutate(feed.id); }} className="text-stone-400 hover:text-rose-500" title="Stop following this feed"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>}
@@ -951,13 +960,27 @@ export default function Library() {
                       <button type="button" onClick={() => setFeedMode(false)} className="text-stone-400 hover:underline">back to the list</button>
                     </div>
                   </div>
+                  {feed && !showSeenFeed && (
+                    <div className="flex flex-wrap items-center gap-1.5 border-b border-stone-100 px-4 py-2 text-[11px] dark:border-stone-800" data-testid="feed-mute" title="Entries whose title, abstract or authors match a term are hidden — kept, not deleted, and back the moment the term goes">
+                      <VolumeX className="h-3 w-3 text-stone-400" aria-hidden="true" />
+                      <span className="text-stone-400">Mute</span>
+                      {feed.mute.map((term) => (
+                        <span key={term} data-testid="feed-mute-term" className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                          {term}
+                          <button type="button" aria-label={`Stop muting ${term}`} disabled={setFeedMute.isPending} onClick={() => setFeedMute.mutate({ id: feed.id, mute: feed.mute.filter((t) => t !== term) })} className="text-stone-400 hover:text-rose-500"><X className="h-3 w-3" aria-hidden="true" /></button>
+                        </span>
+                      ))}
+                      <input data-testid="feed-mute-input" value={muteInput} onChange={(e) => setMuteInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const term = muteInput.trim(); if (term.length >= 2 && !feed.mute.some((t) => t.toLowerCase() === term.toLowerCase())) setFeedMute.mutate({ id: feed.id, mute: [...feed.mute, term] }); else if (term.length < 2) flash("A mute term needs at least two characters."); else setMuteInput(""); } }} placeholder={feed.mute.length ? "another word, phrase or author:Name" : "a word, phrase or author:Name — Enter"} maxLength={60} className="min-w-[14rem] flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-[11px] outline-none placeholder:text-stone-400 focus:border-stone-300 dark:focus:border-stone-700" />
+                      {feed.muted_total > 0 && <span className="ml-auto text-stone-400" data-testid="feed-mute-total">{feed.muted_total} hidden so far</span>}
+                    </div>
+                  )}
                   <div className="flex-1 overflow-auto">
                     {feedItems.isLoading && <p className="p-4 text-sm text-stone-400">Reading the feeds…</p>}
                     {feedItems.data && rows.length === 0 && (
                       <div className="px-4 py-16 text-center">
                         <Rss className="mx-auto mb-2 h-6 w-6 text-emerald-400" aria-hidden="true" />
-                        <p className="text-sm font-medium text-stone-700 dark:text-stone-100">{showSeenFeed ? "Nothing marked seen yet." : feedQ ? "No entry matches." : feedItems.data.status.feeds === 0 ? "No feeds followed yet." : "Nothing new from your feeds."}</p>
-                        <p className="mt-1 text-xs text-stone-400">{feedItems.data.status.feeds === 0 ? "Follow an arXiv category or a journal from the rail — every new paper it announces lands here, with Add and Dismiss." : "The feeds are fetched every six hours; Refresh now asks them straight away."}</p>
+                        <p className="text-sm font-medium text-stone-700 dark:text-stone-100">{showSeenFeed ? "Nothing marked seen yet." : showMutedFeed ? "Nothing muted." : feedQ ? "No entry matches." : feedItems.data.status.feeds === 0 ? "No feeds followed yet." : "Nothing new from your feeds."}</p>
+                        <p className="mt-1 text-xs text-stone-400">{showMutedFeed ? "Add a word, a phrase or author:Name to the feed's mute list and the entries it matches land here instead of the list." : feedItems.data.status.feeds === 0 ? "Follow an arXiv category or a journal from the rail — every new paper it announces lands here, with Add and Dismiss." : "The feeds are fetched every six hours; Refresh now asks them straight away."}</p>
                       </div>
                     )}
                     <ul className="divide-y divide-stone-100 dark:divide-stone-800">
@@ -965,13 +988,13 @@ export default function Library() {
                         <li key={row.id} data-testid="feed-row" className="rise flex flex-wrap items-start gap-3 px-4 py-3 sm:flex-nowrap" style={{ ["--i" as string]: Math.min(i, 12) }}>
                           <div className="min-w-0 flex-1">
                             <a href={row.url || undefined} target="_blank" rel="noreferrer" className="text-sm text-stone-900 hover:underline dark:text-stone-100">{row.title}</a>
-                            <p className="mt-0.5 text-[11px] text-stone-400">{[row.authors.slice(0, 3).join(", ") + (row.authors.length > 3 ? ` +${row.authors.length - 3}` : ""), feedId ? null : row.feed.title, row.published_on ? new Date(row.published_on).toLocaleDateString() : null, row.doi ? `doi ${row.doi}` : row.arxiv_id ? `arXiv ${row.arxiv_id}` : null].filter(Boolean).join(" · ")}</p>
+                            <p className="mt-0.5 text-[11px] text-stone-400">{[row.authors.slice(0, 3).join(", ") + (row.authors.length > 3 ? ` +${row.authors.length - 3}` : ""), feedId ? null : row.feed.title, row.published_on ? new Date(row.published_on).toLocaleDateString() : null, row.doi ? `doi ${row.doi}` : row.arxiv_id ? `arXiv ${row.arxiv_id}` : null, row.muted_at ? `muted by “${row.muted_by}”` : null].filter(Boolean).join(" · ")}</p>
                             {row.summary && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-stone-500 dark:text-stone-400" title={row.summary}>{row.summary}</p>}
                           </div>
                           <div className="flex shrink-0 items-center gap-1 text-[11px]">
-                            {row.addable && !showSeenFeed && <button type="button" data-testid="feed-add" disabled={addFeedItem.isPending} onClick={() => addFeedItem.mutate(row)} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-50" title={filters.project ? "Add to the library and this project" : feed?.project ? `Add to the library and ${feed.project}` : "Add to the library"}><Plus className="h-3 w-3" aria-hidden="true" />Add</button>}
-                            {!row.addable && !showSeenFeed && <span className="rounded-md border border-stone-200 px-2 py-1 text-stone-400 dark:border-stone-700" title="No DOI or arXiv id in the feed — open it to judge, add by hand if it matters">no id</span>}
-                            <button type="button" data-testid="feed-dismiss" disabled={dismissFeedItems.isPending} onClick={() => dismissFeedItems.mutate({ ids: [row.id], undo: showSeenFeed })} className="rounded-md border border-stone-300 px-2 py-1 text-stone-500 hover:border-stone-400 hover:text-stone-700 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300">{showSeenFeed ? "Restore" : "Dismiss"}</button>
+                            {row.addable && !showSeenFeed && !showMutedFeed && <button type="button" data-testid="feed-add" disabled={addFeedItem.isPending} onClick={() => addFeedItem.mutate(row)} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-50" title={filters.project ? "Add to the library and this project" : feed?.project ? `Add to the library and ${feed.project}` : "Add to the library"}><Plus className="h-3 w-3" aria-hidden="true" />Add</button>}
+                            {!row.addable && !showSeenFeed && !showMutedFeed && <span className="rounded-md border border-stone-200 px-2 py-1 text-stone-400 dark:border-stone-700" title="No DOI or arXiv id in the feed — open it to judge, add by hand if it matters">no id</span>}
+                            {!showMutedFeed && <button type="button" data-testid="feed-dismiss" disabled={dismissFeedItems.isPending} onClick={() => dismissFeedItems.mutate({ ids: [row.id], undo: showSeenFeed })} className="rounded-md border border-stone-300 px-2 py-1 text-stone-500 hover:border-stone-400 hover:text-stone-700 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300">{showSeenFeed ? "Restore" : "Dismiss"}</button>}
                           </div>
                         </li>
                       ))}

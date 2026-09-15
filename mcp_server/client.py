@@ -357,6 +357,21 @@ def add_feed(url: str, project: str = "", title: str = ""):
     return _request("POST", "/feeds/", json=payload)
 
 
+def update_feed(feed_id: int, title: str = "", project: str = "", mute=None):
+    """Rename a feed, move it to a project, or set its mute list (#543): PATCH /feeds/{id}/."""
+    payload: dict = {}
+    if title:
+        payload["title"] = title
+    if project:
+        payload["project"] = project
+    if mute is not None:
+        payload["mute"] = [str(t) for t in mute][:50]
+    row = _request("PATCH", f"/feeds/{int(feed_id)}/", json=payload)
+    if isinstance(row, dict) and row.get("id"):
+        row["url"] = library_url(feeds=1, feed=row["id"])
+    return row
+
+
 def remove_feed(feed_id: int):
     """Stop following a feed (#531); its entries go with it."""
     _request("DELETE", f"/feeds/{int(feed_id)}/")

@@ -97,14 +97,31 @@ class CitingWorkAdmin(admin.ModelAdmin):
 
 @admin.register(Feed)
 class FeedAdmin(admin.ModelAdmin):
-    list_display = ["title", "url", "project", "last_fetched_at", "last_ok_at", "last_error"]
+    list_display = [
+        "title",
+        "url",
+        "project",
+        "last_fetched_at",
+        "last_ok_at",
+        "last_error",
+        "muted_total",
+    ]
     search_fields = ["title", "url"]
     raw_id_fields = ["project"]
 
 
 @admin.register(FeedItem)
 class FeedItemAdmin(admin.ModelAdmin):
-    list_display = ["title", "feed", "published_on", "doi", "arxiv_id", "reference", "dismissed_at"]
+    list_display = [
+        "title",
+        "feed",
+        "published_on",
+        "doi",
+        "arxiv_id",
+        "reference",
+        "dismissed_at",
+        "muted_by",
+    ]
     search_fields = ["title", "doi", "arxiv_id", "guid"]
     list_filter = ["feed"]
     raw_id_fields = ["feed", "reference"]

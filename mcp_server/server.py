@@ -291,8 +291,8 @@ def dismiss_citations(work_ids: list[int], undo: bool = False) -> dict:
 @mcp.tool()
 def list_feeds() -> dict:
     """The journal and arXiv feeds the user follows inside the Library: `feeds`
-    [{id, url, title, project, new, items, last_fetched_at, last_ok_at, last_error}] and
-    `status` {feeds, new, dismissed, errors, last_fetched_at}. `new` is how many entries of a
+    [{id, url, title, project, new, items, mute, muted, last_fetched_at, last_ok_at,
+    last_error}] and `status` {feeds, new, dismissed, muted, errors, last_fetched_at}. `new` is how many entries of a
     feed are still to look at; `last_error` is set when the last fetch did not answer with a
     feed. Every row and the answer carry `url`, the feed (or all feeds) opened in the app. Use it for "what am I following?" and before add_feed."""
     return client.list_feeds()
@@ -307,6 +307,18 @@ def add_feed(url: str, project: str = "", title: str = "") -> dict:
     feed. `project` (slug) is where add_feed_item files papers by default; `title` overrides
     the feed's own. Returns the feed row with its entry counts."""
     return client.add_feed(url, project, title)
+
+
+@mcp.tool()
+def update_feed(
+    feed_id: int, title: str = "", project: str = "", mute: list[str] | None = None
+) -> dict:
+    """Rename a feed, move it to a project, or set what it mutes. `mute` replaces the feed's
+    mute list: words ("benchmark"), phrases ("large language model") and `author:Name` terms;
+    a matching entry is hidden from get_feed_items and the dashboard, not deleted, and comes
+    back when the term goes. Use for "stop showing me X from this feed". Returns the feed row
+    with `mute`, `muted` (hidden now) and `muted_total`."""
+    return client.update_feed(feed_id, title, project, mute)
 
 
 @mcp.tool()

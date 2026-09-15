@@ -223,7 +223,7 @@ class TestFetch:
             )
         }
         out = feeds.fetch_feed(feed, server(routes, log))
-        assert out == {"new": 1, "seen": 0, "unchanged": False, "error": ""}
+        assert out == {"new": 1, "seen": 0, "unchanged": False, "error": "", "muted": 0}
         feed.refresh_from_db()
         assert feed.title == "q-bio.NC updates on arXiv.org" and feed.etag == '"abc"'
         assert feed.site_url == "https://arxiv.org/list/q-bio.NC/new"
@@ -330,6 +330,7 @@ class TestFetch:
             "unchanged": 0,
             "errors": 1,
             "stopped": False,
+            "muted": 0,
         }
         monkeypatch.setattr(feeds, "_client", lambda: server({}))
         Feed.objects.filter(pk__in=[b.pk, c.pk]).delete()
@@ -423,6 +424,7 @@ class TestList:
             "feeds": 2,
             "new": 3,
             "dismissed": 1,
+            "muted": 0,
             "errors": 0,
             "last_fetched_at": None,
         }
@@ -604,9 +606,174 @@ def test_ui_is_wired():
         'data-testid="feed-dismiss"',
         'data-testid="feed-filter"',
         'data-testid="unfollow-feed"',
+        'data-testid="feed-mute"',
+        'data-testid="feed-mute-input"',
+        'data-testid="feed-toggle-muted"',
+        "&muted=1",
         "/feeds/items/",
         "/feeds/items/add/",
         "/feeds/items/dismiss/",
         "/feeds/refresh/",
     ):
         assert needle in lib, needle
+
+
+@pytest.mark.django_db
+class TestMute:
+    """#543: a feed's mute list hides entries — at fetch time and, when the list changes, over
+    the stored ones — without deleting them, so a term can be taken back."""
+
+    def test_clean_mute_and_matcher(self):
+        assert feeds.clean_mute(["  LLM ", "llm", "", "a", "author:", "large  language model"]) == [
+            "LLM",
+            "large language model",
+        ]
+        assert len(feeds.clean_mute([f"t{i}" for i in range(80)])) == feeds.MUTE_TERMS_MAX
+        assert len(feeds.clean_mute(["x" * 200])[0]) == feeds.MUTE_TERM_MAX
+        assert feeds.clean_mute("benchmark") == []  # not a list
+        assert feeds.mute_matcher([]) is None
+        match = feeds.mute_matcher(["LLM", "large language model", "author:Doe", "c++"])
+        assert match("A film about attention", "", []) == ""  # word boundary: film ≠ LLM
+        assert match("An llm study", "", []) == "LLM"
+        assert match("Scaling", "we train a Large Language Model", []) == "large language model"
+        assert match("Plain", "", ["Jane Doe", "A. Smith"]) == "author:Doe"
+        assert match("Fast C++ kernels", "", []) == "c++"
+        assert match("Nothing here", "nothing", ["Nobody"]) == ""
+
+    def test_fetch_stores_matching_entries_muted(self, public_hosts):
+        feed = Feed.objects.create(url="https://a.example/rss", mute=["benchmark"])
+        body = RSS_ARXIV.replace(
+            b"<item>",
+            b"<item><title>A benchmark for load</title><guid>mute-1</guid></item><item>",
+            1,
+        )
+        out = feeds.fetch_feed(feed, server({feed.url: body}))
+        assert out["muted"] == 1 and out["new"] == 3
+        feed.refresh_from_db()
+        assert feed.muted_total == 1
+        hidden = feed.items.get(guid="mute-1")
+        assert hidden.muted_at is not None and hidden.muted_by == "benchmark"
+        assert feed.items.filter(muted_at__isnull=True).count() == 2
+        # the feed's counts and the list leave muted entries out; ?muted=1 lists them
+        row = feeds.feed_row(feeds.feeds_with_counts().get(pk=feed.pk))
+        assert (row["new"], row["muted"], row["mute"], row["muted_total"]) == (
+            2,
+            1,
+            ["benchmark"],
+            1,
+        )
+        assert [r["title"] for r in feeds.items(muted=True)["results"]] == ["A benchmark for load"]
+        assert feeds.items(muted=True)["results"][0]["muted_by"] == "benchmark"
+        assert all(r["muted_at"] is None for r in feeds.items()["results"])
+        assert feeds.status()["muted"] == 1 and feeds.status()["new"] == 2
+        assert feeds.open_items().count() == 2
+        # a second fetch re-stamps nothing and counts nothing
+        out = feeds.fetch_feed(feed, server({feed.url: body}))
+        assert out["muted"] == 0 and out["seen"] == 3
+        assert Feed.objects.get(pk=feed.pk).muted_total == 1
+
+    def test_apply_mute_both_ways_and_precedence(self):
+        feed = Feed.objects.create(url="https://b.example/rss")
+        rows = [
+            FeedItem.objects.create(feed=feed, guid=f"g{i}", title=t, authors=a)
+            for i, (t, a) in enumerate(
+                [
+                    ("A benchmark paper", []),
+                    ("Attention and load", ["Jane Doe"]),
+                    ("Plain paper", []),
+                    ("Dismissed benchmark", []),
+                ]
+            )
+        ]
+        rows[3].dismissed_at = timezone.now()
+        rows[3].save(update_fields=["dismissed_at"])
+        own = ReferenceFactory()
+        rows[2].reference = own
+        rows[2].save(update_fields=["reference"])
+        feed.mute = ["benchmark", "author:doe"]
+        feed.save(update_fields=["mute"])
+        assert feeds.apply_mute(feed) == {"muted": 2, "unmuted": 0}
+        by = {r.guid: FeedItem.objects.get(pk=r.pk) for r in rows}
+        assert by["g0"].muted_by == "benchmark" and by["g1"].muted_by == "author:doe"
+        assert by["g2"].muted_at is None and by["g3"].muted_at is None  # library / dismissed
+        assert Feed.objects.get(pk=feed.pk).muted_total == 2
+        # take one term back: only the entries no other term matches come back
+        feed.mute = ["author:doe"]
+        feed.save(update_fields=["mute"])
+        assert feeds.apply_mute(feed) == {"muted": 0, "unmuted": 1}
+        assert FeedItem.objects.get(pk=rows[0].pk).muted_at is None
+        assert FeedItem.objects.get(pk=rows[1].pk).muted_by == "author:doe"
+        feed.mute = []
+        feed.save(update_fields=["mute"])
+        assert feeds.apply_mute(feed) == {"muted": 0, "unmuted": 1}
+
+    def test_api_patch_mute_applies_and_validates(self, client, owner, settings):
+        settings.ATLAS_API_KEY = "k"
+        headers = {"HTTP_X_API_KEY": "k"}
+        feed = Feed.objects.create(url="https://c.example/rss", title="C")
+        FeedItem.objects.create(feed=feed, guid="x1", title="A benchmark study")
+        FeedItem.objects.create(feed=feed, guid="x2", title="Something else")
+        out = client.patch(
+            f"/api/v1/feeds/{feed.pk}/",
+            {"mute": [" Benchmark ", "benchmark", "author:"]},
+            content_type="application/json",
+            **headers,
+        )
+        assert out.status_code == 200, out.content
+        body = out.json()
+        assert body["mute"] == ["Benchmark"] and body["muted"] == 1 and body["new"] == 1
+        assert body["muted_total"] == 1
+        listed = client.get("/api/v1/feeds/items/?muted=1", **headers).json()
+        assert [r["title"] for r in listed["results"]] == ["A benchmark study"]
+        assert listed["results"][0]["muted_by"] == "Benchmark"
+        assert listed["status"]["muted"] == 1
+        assert client.get("/api/v1/feeds/items/", **headers).json()["count"] == 1
+        # too many terms, a too-short or blank term, not a list → 400; a rename alone touches no entry
+        assert (
+            client.patch(
+                f"/api/v1/feeds/{feed.pk}/",
+                {"mute": [f"t{i}" for i in range(60)]},
+                content_type="application/json",
+                **headers,
+            ).status_code
+            == 400
+        )
+        assert (
+            client.patch(
+                f"/api/v1/feeds/{feed.pk}/",
+                {"mute": ["a"]},
+                content_type="application/json",
+                **headers,
+            ).status_code
+            == 400
+        )
+        assert (
+            client.patch(
+                f"/api/v1/feeds/{feed.pk}/",
+                {"mute": ["benchmark", ""]},
+                content_type="application/json",
+                **headers,
+            ).status_code
+            == 400
+        )
+        assert (
+            client.patch(
+                f"/api/v1/feeds/{feed.pk}/",
+                {"mute": "benchmark"},
+                content_type="application/json",
+                **headers,
+            ).status_code
+            == 400
+        )
+        out = client.patch(
+            f"/api/v1/feeds/{feed.pk}/",
+            {"title": "C renamed"},
+            content_type="application/json",
+            **headers,
+        )
+        assert out.status_code == 200 and out.json()["muted"] == 1
+        out = client.patch(
+            f"/api/v1/feeds/{feed.pk}/", {"mute": []}, content_type="application/json", **headers
+        )
+        assert out.json()["muted"] == 0 and out.json()["new"] == 2
+        assert client.get("/api/v1/feeds/", **headers).json()["results"][0]["mute"] == []

@@ -252,6 +252,11 @@ class Feed(TimeStampedModel):
     last_ok_at = models.DateTimeField(null=True, blank=True)
     last_error = models.CharField(max_length=300, blank=True, default="")
     position = models.PositiveIntegerField(default=0)
+    # #543: the mute list — words, phrases and "author:Name" terms; an entry that matches is
+    # stored muted (hidden from the list, the dashboard and Claude) rather than dropped, so a
+    # term can be taken back. `muted_total` counts every entry ever muted at fetch time.
+    mute = models.JSONField(default=list, blank=True)
+    muted_total = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ["position", "pk"]
@@ -282,6 +287,9 @@ class FeedItem(TimeStampedModel):
         related_name="feed_items",
     )
     dismissed_at = models.DateTimeField(null=True, blank=True)
+    # #543: set when the feed's mute list hid the entry; `muted_by` is the term that matched
+    muted_at = models.DateTimeField(null=True, blank=True)
+    muted_by = models.CharField(max_length=60, blank=True, default="")
 
     class Meta:
         ordering = ["-published_on", "pk"]  # newest day first; the feed's own order within it

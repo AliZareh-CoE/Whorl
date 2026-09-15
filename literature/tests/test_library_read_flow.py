@@ -119,7 +119,7 @@ def test_library_address_ui_wiring():
         # #532: the modes have addresses — read on arrival, written on change, cleared by /library
         "function modeFromUrl(",
         "function addressOf(",
-        'if (p.get("feeds") === "1") return { kind: "feeds", feed: id("feed"), seen: p.get("seen") === "1", fq:',
+        'if (p.get("feeds") === "1") return { kind: "feeds", feed: id("feed"), seen: p.get("seen") === "1", muted: p.get("muted") === "1", fq:',
         'if (p.get("citing") === "1") return { kind: "citing", reference: id("reference"), seen: p.get("seen") === "1" };',
         'if (p.get("duplicates") === "1") return { kind: "duplicates" };',
         "const qs = addressOf(effective, mode);",

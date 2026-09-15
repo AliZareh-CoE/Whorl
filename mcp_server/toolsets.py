@@ -65,6 +65,7 @@ AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
             "dismiss_citations",
             "list_feeds",
             "add_feed",
+            "update_feed",
             "remove_feed",
             "refresh_feeds",
             "get_feed_items",
