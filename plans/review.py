@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from projects.models import Project
 
+from .calibration import calibration, likely_date
 from .dependencies import blocked_map, date_conflicts, due_graph, slack_map
 from .drift import change_rows, milestone_drift
 from .models import Milestone, PlanReview
@@ -51,7 +52,7 @@ def review_state(project: Project, today: date | None = None) -> dict:
 def review_queue(project: Project, today: date | None = None) -> list[dict]:
     """Every open milestone in review order — overdue first (latest first), then dated by due
     date, undated last — each with its phase, days to due, open blockers, slack, conflict,
-    drift and open-task count."""
+    drift, the likely landing (#520) and open-task count."""
     today = today or timezone.localdate()
     milestones = list(
         Milestone.objects.filter(phase__project=project, completed_at__isnull=True)
@@ -64,6 +65,7 @@ def review_queue(project: Project, today: date | None = None) -> list[dict]:
     slack = slack_map(project, *graph)
     conflicts = {c["id"] for c in date_conflicts(project, *graph)}
     moves = change_rows(project)
+    cal = calibration(project, rows=moves)  # #520: one read of the completed milestones
     rows = []
     for m in milestones:
         drift = milestone_drift(m, moves.get(m.pk, []))
@@ -85,6 +87,7 @@ def review_queue(project: Project, today: date | None = None) -> list[dict]:
                 "baseline": drift["baseline"],
                 "moves": drift["moves"],
                 "slipped": drift["slipped"],
+                "likely": likely_date(m.due_date, cal, today),  # #520
                 "open_tasks": sum(1 for t in m.tasks.all() if not t.done),
                 "tasks": sum(1 for _ in m.tasks.all()),
             }

@@ -81,6 +81,7 @@ def project_roadmap(project: Project, today: date | None = None) -> dict:
 
 
 def _project_roadmap(project: Project, today: date) -> dict:
+    from .calibration import calibration, likely_date, phase_likely_end
     from .dependencies import (
         blocked_map,
         blocker_ids,
@@ -93,6 +94,8 @@ def _project_roadmap(project: Project, today: date) -> dict:
 
     phases = list(project.phases.prefetch_related("milestones"))
     moves = change_rows(project)  # #516: one query for the ghost diamonds
+    # #519/#520: the landing habit from the milestones already loaded — no extra query
+    cal = calibration(project, [m for ph in phases for m in ph.milestones.all()], moves)
     facts = dependency_edges(project)  # one query for #512's flags, #513's conflicts, #514's arrows
     blocked = blocked_map(project, facts)
     edges = blocker_ids(project, facts)
@@ -117,6 +120,8 @@ def _project_roadmap(project: Project, today: date) -> dict:
                 "blocked_by": edges.get(m.pk, []),
                 "conflict": m.pk in conflicts,
                 "slack": slack.get(m.pk, {}).get("slack"),
+                # #520: where it will likely land at this project's pace (open, dated, ahead)
+                "likely": likely_date(m.due_date, cal, today) if m.completed_at is None else None,
                 # #516: baseline / moves / slipped (the history stays on the plan payload)
                 **{
                     k: v
@@ -138,11 +143,14 @@ def _project_roadmap(project: Project, today: date) -> dict:
                 "inferred": inferred,
                 "progress": phase.progress,
                 "milestones": milestones,
+                "likely_end": phase_likely_end(list(phase.milestones.all()), cal, today),  # #520
                 **health,
             }
         )
     starts = [r["start"] for r in rows]
-    ends = [r["end"] for r in rows] + [r["forecast_end"] for r in rows if r["forecast_end"]]
+    ends = [r["end"] for r in rows] + [
+        r[k] for r in rows for k in ("forecast_end", "likely_end") if r[k]
+    ]
     return {
         "project": project.slug,
         "today": today,

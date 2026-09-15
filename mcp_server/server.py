@@ -84,7 +84,7 @@ def get_plan_review(slug: str) -> dict:
     `days_since`, `due` — never reviewed or a week old with open milestones — and the last
     sitting's `summary`); `queue` lists every open milestone in review order — overdue first,
     then by due date, undated last — with phase, days to due, blocked / blocked_by, slack,
-    conflict, baseline / moves / slipped and open_tasks. Walk it, decide each one with
+    conflict, baseline / moves / slipped, `likely` (#520) and open_tasks. Walk it, decide each one with
     complete_milestone or move_milestone, then call finish_plan_review."""
     return client.get_plan_review(slug)
 
@@ -617,7 +617,7 @@ def set_plan_outline(slug: str, markdown: str, dry_run: bool = False) -> dict:
 def get_roadmap(slug: str) -> dict:
     """The plan as a timeline: each phase's window (real or inferred from milestones), its
     milestones with due dates, a health state (behind / on_track / ahead / blocked / overdue /
-    upcoming / done) with a one-line reason, and a finish forecast from the completion pace. Milestone rows carry `blocked`, `blocked_by` (ids), `conflict` (#514) and `slack` (#515); `critical_chain` names the chain that decides the end.
+    upcoming / done) with a one-line reason, and a finish forecast from the completion pace. Milestone rows carry `blocked`, `blocked_by` (ids), `conflict` (#514), `slack` (#515) and `likely` — where an open milestone will land at the project's measured pace (#520, see get_plan_calibration); phases carry `likely_end`; `critical_chain` names the chain that decides the end.
     """
     return client.get_roadmap(slug)
 

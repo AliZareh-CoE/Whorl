@@ -147,6 +147,15 @@ def test_calibration_over_the_api(owner):
     assert plan["phases"][0]["likely_end"] == "2026-11-21"
     assert plan["phases"][0]["target_end"] == "2026-11-20"
     assert client.get("/api/v1/projects/nope/plan/calibration/").status_code == 404
+    # #520: the roadmap and the review queue carry the same likely dates
+    road = client.get("/api/v1/projects/deep/roadmap/").json()
+    rows = {m["title"]: m for m in road["phases"][0]["milestones"]}
+    assert rows["Open near"]["likely"] == "2026-11-13" and rows["Month"]["likely"] is None
+    assert road["phases"][0]["likely_end"] == "2026-11-21"
+    assert road["range_end"] >= "2026-11-21"
+    queue = client.get("/api/v1/projects/deep/plan/review/").json()["queue"]
+    by = {r["title"]: r for r in queue}
+    assert by["Open far"]["likely"] == "2026-11-21" and by["Open undated"]["likely"] is None
 
 
 def test_plan_page_shows_the_calibration():
@@ -161,3 +170,6 @@ def test_plan_page_shows_the_calibration():
         assert needle in plan, needle
     drawer = (root / "plan" / "MilestoneDrawer.tsx").read_text()
     assert 'data-testid="likely-line"' in drawer and "likely" in drawer
+    road = (root / "plan" / "Roadmap.tsx").read_text()  # #520
+    assert 'data-testid="likely-mark"' in road and "likely_end" in road
+    assert '"likely"' in (root / "plan" / "Review.tsx").read_text()

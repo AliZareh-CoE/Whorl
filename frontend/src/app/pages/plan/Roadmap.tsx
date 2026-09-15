@@ -9,8 +9,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { Skeleton } from "../../../components/Skeleton";
 
-type MilestoneRow = { id: number; title: string; due_date: string | null; done: boolean; overdue: boolean; blocked?: boolean; blocked_by?: number[]; conflict?: boolean; slack?: number | null; baseline?: string | null; moves?: number; slipped?: number | null };
-type PhaseRow = { id: number; name: string; order: number; status: string; start: string; end: string; inferred: boolean; progress: number; milestones: MilestoneRow[]; state: string; label: string; forecast_end: string | null };
+type MilestoneRow = { id: number; title: string; due_date: string | null; done: boolean; overdue: boolean; blocked?: boolean; blocked_by?: number[]; conflict?: boolean; slack?: number | null; baseline?: string | null; moves?: number; slipped?: number | null; likely?: string | null };
+type PhaseRow = { id: number; name: string; order: number; status: string; start: string; end: string; inferred: boolean; progress: number; milestones: MilestoneRow[]; state: string; label: string; forecast_end: string | null; likely_end?: string | null };
 type Chain = { ids: number[]; titles: string[]; from: string | null; to: string | null; days: number; slack: number | null }; // #515
 type RoadmapData = { project: string; today: string; range_start: string; range_end: string; phases: PhaseRow[]; critical_chain?: Chain };
 
@@ -159,7 +159,7 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
   return (
     <div className="rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900" data-testid="roadmap">
       <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-2 text-[11px] text-stone-400 dark:border-stone-800">
-        <span>drag a bar to move it · drag its edges to resize · slide a ◆ to change a due date · focus + ←/→ nudges a day, Shift a week · → waits for · dashed ◇ waiting · <span className="text-amber-600 dark:text-amber-300">◆</span> due before its blocker · dotted ◇ where a moved ◆ was first planned</span>
+        <span>drag a bar to move it · drag its edges to resize · slide a ◆ to change a due date · focus + ←/→ nudges a day, Shift a week · → waits for · dashed ◇ waiting · <span className="text-amber-600 dark:text-amber-300">◆</span> due before its blocker · dotted ◇ where a moved ◆ was first planned · dotted ○ where a ◆ will likely land at your pace</span>
         <span className="ml-auto flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-sm bg-amber-500/75" />behind<span className="inline-block h-2 w-2 rounded-sm bg-red-500/75" />overdue<span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/70" />ahead / done<span className="inline-block h-2 w-3 rounded-sm border border-dashed border-stone-400" />suggested dates</span>
       </div>
       <div className="flex">
@@ -221,7 +221,7 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
                   <div
                     role="slider" tabIndex={0} aria-label={`${p.name}: ${p.start} to ${p.end}`} aria-valuetext={`${p.start} → ${p.end}`} onKeyDown={(e) => onKey(e, p)}
                     onPointerDown={(e) => begin(e, { kind: "move", phase: p.id, originX: e.clientX, start: s, end: en })}
-                    onMouseEnter={() => setHover(`${p.name} · ${p.start} → ${p.end}${p.inferred ? " (suggested)" : ""}`)} onMouseLeave={() => setHover("")}
+                    onMouseEnter={() => setHover(`${p.name} · ${p.start} → ${p.end}${p.inferred ? " (suggested)" : ""}${p.likely_end && p.likely_end > p.end ? ` · likely ends ${p.likely_end} at your pace` : ""}`)} onMouseLeave={() => setHover("")}
                     className={`group absolute top-4 h-6 cursor-grab select-none rounded-md ${STATE_BAR[p.state] ?? STATE_BAR.empty} ${p.inferred ? "border border-dashed border-stone-400/80 dark:border-stone-400/60" : ""} shadow-[0_0_10px_rgb(0_0_0/.08)] transition-shadow hover:shadow-[0_0_14px_rgb(124_108_255/.45)] active:cursor-grabbing`}
                     style={{ left: x(s), width: w }} data-testid="phase-bar"
                   >
@@ -240,11 +240,21 @@ export default function Roadmap({ slug, accent, onChanged }: { slug: string; acc
                       </span>
                     );
                   })}
+                  {/* #520: likely marks — where an open milestone will land at this project's measured pace */}
+                  {p.milestones.filter((m) => m.due_date && m.likely && m.likely !== m.due_date && !m.done && !m.overdue).map((m) => {
+                    const cx = x(dayOf(m.due_date as string)), lx = x(dayOf(m.likely as string));
+                    return (
+                      <span key={`likely-${m.id}`} className="pointer-events-none absolute inset-0" aria-hidden="true" data-testid="likely-mark">
+                        <span className="absolute top-[47px] h-px border-t border-dotted border-indigo-400/70 dark:border-indigo-300/60" style={{ left: Math.min(cx, lx), width: Math.abs(lx - cx) }} />
+                        <span className="absolute top-[42px] h-3 w-3 -translate-x-1/2 rounded-full border border-dotted border-indigo-400 dark:border-indigo-300" style={{ left: lx }} />
+                      </span>
+                    );
+                  })}
                   {p.milestones.filter((m) => m.due_date).map((m) => (
                     <button
                       key={m.id} type="button" title={`${m.title} · due ${m.due_date}${m.done ? " · done" : m.overdue ? " · overdue" : ""}`} aria-label={`${m.title}, due ${m.due_date}`}
                       onPointerDown={(e) => begin(e, { kind: "milestone", id: m.id, phase: p.id, originX: e.clientX, day: dayOf(m.due_date as string) })} onKeyDown={(e) => onKey(e, p, m)}
-                      onMouseEnter={() => { setChainOf(m.id); setHover(`${m.title} · due ${m.due_date}${m.conflict ? " · due before a milestone it waits for" : m.blocked ? " · waiting on another milestone" : ""}${m.slack != null && !m.done ? (m.slack <= 0 ? " · no slack" : ` · ${m.slack} d slack`) : ""}${critical.has(m.id) ? " · on the critical chain" : ""}${m.slipped && m.moves ? (m.slipped > 0 ? ` · slipped ${m.slipped} d from ${m.baseline}` : ` · pulled in ${-m.slipped} d from ${m.baseline}`) : ""}`); }} onMouseLeave={() => { setChainOf(null); setHover(""); }}
+                      onMouseEnter={() => { setChainOf(m.id); setHover(`${m.title} · due ${m.due_date}${m.conflict ? " · due before a milestone it waits for" : m.blocked ? " · waiting on another milestone" : ""}${m.slack != null && !m.done ? (m.slack <= 0 ? " · no slack" : ` · ${m.slack} d slack`) : ""}${critical.has(m.id) ? " · on the critical chain" : ""}${m.slipped && m.moves ? (m.slipped > 0 ? ` · slipped ${m.slipped} d from ${m.baseline}` : ` · pulled in ${-m.slipped} d from ${m.baseline}`) : ""}${m.likely && m.likely !== m.due_date && !m.done ? ` · likely lands ${m.likely}` : ""}`); }} onMouseLeave={() => { setChainOf(null); setHover(""); }}
                       className={`absolute top-[42px] h-3 w-3 -translate-x-1/2 rotate-45 cursor-grab rounded-[2px] border transition-all hover:scale-125 ${chain && !chain.has(m.id) ? "opacity-25" : ""} ${critical.has(m.id) && !m.done ? "ring-2 ring-indigo-400/60 ring-offset-1 ring-offset-white dark:ring-offset-stone-900" : ""} ${m.done ? "border-emerald-500 bg-emerald-500" : m.conflict ? "border-amber-500 bg-amber-500 shadow-[0_0_8px_rgb(245_158_11/.6)]" : m.blocked ? "border-dashed border-indigo-400 bg-transparent dark:border-indigo-300" : m.overdue ? "border-red-500 bg-red-500 shadow-[0_0_8px_rgb(239_68_68/.8)]" : "border-indigo-400 bg-white dark:bg-stone-900"}`}
                       style={{ left: x(dayOf(m.due_date as string)) }} data-testid="milestone-diamond"
                     />

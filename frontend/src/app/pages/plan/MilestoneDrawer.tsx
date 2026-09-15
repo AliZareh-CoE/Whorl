@@ -8,7 +8,7 @@ import { confirmDialog } from "../../../components/Dialog";
 import { api } from "../../api";
 
 type Task = { id: number; title: string; done: boolean; due_date?: string | null };
-export type DrawerMilestone = { id: number; title: string; due_date: string | null; completed_at: string | null; notes?: string; tasks: Task[]; phase: string; blocked_by?: { id: number; title: string }[]; blocked?: boolean; blocks?: number[]; likely?: string | null; baseline?: string | null; moves?: number; slipped?: number | null; history?: { from: string | null; to: string | null; at: string; reason: string }[] };
+export type DrawerMilestone = { id: number; title: string; due_date: string | null; completed_at: string | null; overdue?: boolean; notes?: string; tasks: Task[]; phase: string; blocked_by?: { id: number; title: string }[]; blocked?: boolean; blocks?: number[]; likely?: string | null; baseline?: string | null; moves?: number; slipped?: number | null; history?: { from: string | null; to: string | null; at: string; reason: string }[] };
 export type MilestoneOption = { id: number; title: string; phase: string; completed: boolean };
 
 export default function MilestoneDrawer({ slug, milestone, onClose, options = [] }: { slug: string; milestone: DrawerMilestone; onClose: () => void; options?: MilestoneOption[] }) {
@@ -54,7 +54,7 @@ export default function MilestoneDrawer({ slug, milestone, onClose, options = []
         </label>
         <button type="button" onClick={() => patch.mutate({ completed_at: milestone.completed_at ? null : new Date().toISOString() })} className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium ${milestone.completed_at ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "border border-stone-300 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"}`}><Check className="h-3 w-3" aria-hidden="true" />{milestone.completed_at ? "Completed — undo" : "Mark complete"}</button>
       </div>
-      {milestone.likely && milestone.due_date && milestone.likely !== milestone.due_date && !milestone.completed_at && (
+      {milestone.likely && milestone.due_date && milestone.likely !== milestone.due_date && !milestone.completed_at && !milestone.overdue && (
         <p className="mt-2 text-xs text-stone-500 dark:text-stone-400" data-testid="likely-line" title="The median lateness of this project's completed milestones, added to the date this one holds">
           Likely lands <span className="font-medium text-stone-700 dark:text-stone-200">{milestone.likely}</span> — your milestones land a median {Math.abs(Math.round((Date.parse(milestone.likely) - Date.parse(milestone.due_date)) / 86_400_000))} d {milestone.likely > milestone.due_date ? "after" : "before"} their dates.
         </p>

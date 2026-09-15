@@ -10,7 +10,7 @@ import { promptDialog } from "../../../components/Dialog";
 import { api, petReact } from "../../api";
 import { ErrorState } from "../../../components/ErrorState";
 
-export type ReviewRow = { id: number; title: string; phase: string; phase_id: number; due_date: string | null; days: number | null; overdue: boolean; notes: string; blocked: boolean; blocked_by: string[]; slack: number | null; conflict: boolean; baseline: string | null; moves: number; slipped: number | null; open_tasks: number; tasks: number };
+export type ReviewRow = { id: number; title: string; phase: string; phase_id: number; due_date: string | null; days: number | null; overdue: boolean; notes: string; blocked: boolean; blocked_by: string[]; slack: number | null; conflict: boolean; baseline: string | null; moves: number; slipped: number | null; likely?: string | null; open_tasks: number; tasks: number };
 export type ReviewState = { last: string | null; days_since: number | null; due: boolean; open: number; summary: { kept: number; completed: number; moved: number; skipped: number; note: string } | null };
 type ReviewData = { state: ReviewState; queue: ReviewRow[] };
 type Verdict = "kept" | "completed" | "moved" | "skipped";
@@ -84,6 +84,7 @@ export default function Review({ slug, onClose, onFinished }: { slug: string; on
     if (m.conflict) out.push(chip("bg-amber-500/10 text-amber-800 dark:text-amber-200", "due before its blocker", "conflict"));
     if (m.slack != null && m.slack >= 0 && m.slack <= 7) out.push(chip("bg-amber-500/10 text-amber-800 dark:text-amber-200", m.slack === 0 ? "no slack" : `${m.slack} d slack`, "slack"));
     if (m.moves > 0 && m.slipped) out.push(chip("bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400", `${m.slipped > 0 ? `slipped ${m.slipped} d` : `pulled in ${-m.slipped} d`}${m.moves > 1 ? ` · ${m.moves}×` : ""}`, "slip"));
+    if (m.likely && m.due_date && m.likely !== m.due_date && !m.overdue) out.push(chip("border border-dashed border-stone-300 text-stone-500 dark:border-stone-600 dark:text-stone-400", `likely ${m.likely}`, "likely")); // #520
     if (m.tasks > 0) out.push(chip("bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400", `${m.tasks - m.open_tasks}/${m.tasks} tasks`, "tasks"));
     return out;
   };
