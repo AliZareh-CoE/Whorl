@@ -300,7 +300,10 @@ def get_new_citations(
         params["reference"] = int(reference_id)
     if dismissed:
         params["dismissed"] = "1"
-    return _request("GET", "/references/new-citations/", params=params)
+    data = _request("GET", "/references/new-citations/", params=params)
+    if isinstance(data, dict):
+        data["url"] = library_url(citing=1, reference=reference_id, seen=int(bool(dismissed)))
+    return data
 
 
 def check_citations(reference_ids=None, days: int = 7, limit: int = 50):
@@ -334,8 +337,11 @@ def list_feeds():
     status."""
     page = _request("GET", "/feeds/", params={"page_size": 200})
     feeds = page.get("results", page) if isinstance(page, dict) else page
+    for row in feeds:
+        if isinstance(row, dict) and row.get("id"):
+            row["url"] = library_url(feeds=1, feed=row["id"])  # #532: the feed in the app
     status = _request("GET", "/feeds/refresh/").get("status", {})
-    return {"feeds": feeds, "status": status}
+    return {"feeds": feeds, "status": status, "url": library_url(feeds=1)}
 
 
 def add_feed(url: str, project: str = "", title: str = ""):
@@ -377,7 +383,10 @@ def get_feed_items(
         params["q"] = q
     if dismissed:
         params["dismissed"] = "1"
-    return _request("GET", "/feeds/items/", params=params)
+    data = _request("GET", "/feeds/items/", params=params)
+    if isinstance(data, dict):
+        data["url"] = library_url(feeds=1, feed=feed_id, seen=int(bool(dismissed)), fq=q)
+    return data
 
 
 def add_feed_item(item_id: int, project: str = ""):

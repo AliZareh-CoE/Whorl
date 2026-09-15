@@ -138,6 +138,34 @@ function viewQuery(f: Filters): string {
   (Object.keys(EMPTY) as (keyof Filters)[]).forEach((k) => { if (f[k] && !(k === "sort" && f[k] === "added")) p.set(k, f[k]); });
   return p.toString();
 }
+// #532: the modes have addresses too — /library?feeds=1[&feed=<id>][&seen=1][&fq=<words>],
+// /library?citing=1[&reference=<id>][&seen=1], /library?duplicates=1 — so a feed, the citation
+// watch or the duplicates workbench can be linked from a note, the brief, ⌘K or Claude, and the
+// back button leaves the mode the way it leaves a filter. One mode at a time: feeds > citing >
+// duplicates when an address names more than one.
+type Mode =
+  | { kind: "list" }
+  | { kind: "feeds"; feed: number | null; seen: boolean; fq: string }
+  | { kind: "citing"; reference: number | null; seen: boolean }
+  | { kind: "duplicates" };
+const LIST_MODE: Mode = { kind: "list" };
+function modeFromUrl(search: string): Mode {
+  try {
+    const p = new URLSearchParams(search);
+    const id = (k: string) => { const v = Number(p.get(k)); return Number.isInteger(v) && v > 0 ? v : null; };
+    if (p.get("feeds") === "1") return { kind: "feeds", feed: id("feed"), seen: p.get("seen") === "1", fq: (p.get("fq") ?? "").slice(0, 200) };
+    if (p.get("citing") === "1") return { kind: "citing", reference: id("reference"), seen: p.get("seen") === "1" };
+    if (p.get("duplicates") === "1") return { kind: "duplicates" };
+  } catch { /* no URL access */ }
+  return LIST_MODE;
+}
+function addressOf(f: Filters, m: Mode): string {
+  const p = new URLSearchParams(viewQuery(f));
+  if (m.kind === "feeds") { p.set("feeds", "1"); if (m.feed) p.set("feed", String(m.feed)); if (m.seen) p.set("seen", "1"); if (m.fq) p.set("fq", m.fq); }
+  else if (m.kind === "citing") { p.set("citing", "1"); if (m.reference) p.set("reference", String(m.reference)); if (m.seen) p.set("seen", "1"); }
+  else if (m.kind === "duplicates") p.set("duplicates", "1");
+  return p.toString();
+}
 function fromUrl(search: string): Filters {
   const picked: Partial<Filters> = {};
   try {
@@ -187,18 +215,33 @@ export default function Library() {
   const [bulkProject, setBulkProject] = useState("");
   const [citeStyle, setCiteStyleState] = useState<string>(readStyle);
   const [viewName, setViewName] = useState<string | null>(null);
-  const [dupMode, setDupMode] = useState(false);
+  // #532: the modes start from the address too (see modeFromUrl); one mode is open at a time
+  const mode0 = useRef(modeFromUrl(window.location.search)).current;
+  const [dupMode, setDupMode] = useState(mode0.kind === "duplicates");
   // #530: the New citations feed (a mode like Duplicates), optionally narrowed to one paper
-  const [citeMode, setCiteMode] = useState(false);
-  const [citeRef, setCiteRef] = useState<number | null>(null);
-  const [showDismissed, setShowDismissed] = useState(false);
+  const [citeMode, setCiteMode] = useState(mode0.kind === "citing");
+  const [citeRef, setCiteRef] = useState<number | null>(mode0.kind === "citing" ? mode0.reference : null);
+  const [showDismissed, setShowDismissed] = useState(mode0.kind === "citing" && mode0.seen);
   const openCiting = (ref: number | null) => { setCiteRef(ref); setShowDismissed(false); setDupMode(false); setFeedMode(false); setCiteMode(true); };
   // #531: the Feeds list (a mode like New citations), optionally narrowed to one feed
-  const [feedMode, setFeedMode] = useState(false);
-  const [feedId, setFeedId] = useState<number | null>(null);
-  const [showSeenFeed, setShowSeenFeed] = useState(false);
-  const [feedQInput, setFeedQInput] = useState("");
+  const [feedMode, setFeedMode] = useState(mode0.kind === "feeds");
+  const [feedId, setFeedId] = useState<number | null>(mode0.kind === "feeds" ? mode0.feed : null);
+  const [showSeenFeed, setShowSeenFeed] = useState(mode0.kind === "feeds" && mode0.seen);
+  const [feedQInput, setFeedQInput] = useState(mode0.kind === "feeds" ? mode0.fq : "");
   const feedQ = useDebounced(feedQInput, 220);
+  // #532: what the address bar should say for the open mode (a feed id the rail does not know
+  // — unfollowed, or someone else's — drops the narrow once the feeds arrive, not the mode)
+  const mode: Mode = useMemo<Mode>(() => {
+    if (feedMode) return { kind: "feeds", feed: feedId, seen: showSeenFeed, fq: feedQ };
+    if (citeMode) return { kind: "citing", reference: citeRef, seen: showDismissed };
+    if (dupMode) return { kind: "duplicates" };
+    return LIST_MODE;
+  }, [feedMode, feedId, showSeenFeed, feedQ, citeMode, citeRef, showDismissed, dupMode]);
+  const applyMode = (m: Mode) => {
+    setFeedMode(m.kind === "feeds"); setCiteMode(m.kind === "citing"); setDupMode(m.kind === "duplicates");
+    setFeedId(m.kind === "feeds" ? m.feed : null); setShowSeenFeed(m.kind === "feeds" && m.seen); setFeedQInput(m.kind === "feeds" ? m.fq : "");
+    setCiteRef(m.kind === "citing" ? m.reference : null); setShowDismissed(m.kind === "citing" && m.seen);
+  };
   const [feedFormOpen, setFeedFormOpen] = useState(false);
   const [feedUrl, setFeedUrl] = useState("");
   const [feedError, setFeedError] = useState("");
@@ -369,24 +412,33 @@ export default function Library() {
   const lastWritten = useRef<string | null>(null);
   useEffect(() => {
     const current = location.search.replace(/^\?/, "");
-    if (lastWritten.current === null) { lastWritten.current = viewQuery(fromUrl(location.search)); return; } // the mount: state came from this address
+    if (lastWritten.current === null) { lastWritten.current = addressOf(fromUrl(location.search), modeFromUrl(location.search)); return; } // the mount: state came from this address
     if (current === lastWritten.current) return;
     const next = fromUrl(location.search);
-    lastWritten.current = viewQuery(next);
+    const nextMode = modeFromUrl(location.search);
+    lastWritten.current = addressOf(next, nextMode);
     try {
       const p = new URLSearchParams(location.search);
       const r = p.get("read"); if (r) readParam.current = Number(r);
       if (p.get("add") !== null) doiRef.current?.focus();
     } catch { /* no URL access */ }
-    setFilters(next); setQInput(next.q);
+    setFilters(next); setQInput(next.q); applyMode(nextMode);
   }, [location.search]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (qInput !== q) return; // let the debounce settle so a keystroke is not a route change
-    const qs = viewQuery(effective);
+    if (qInput !== q || feedQInput !== feedQ) return; // let the debounce settle so a keystroke is not a route change
+    const qs = addressOf(effective, mode);
     if (qs === lastWritten.current) return;
     lastWritten.current = qs;
     navigate(qs ? `/library?${qs}` : "/library", { replace: true });
-  }, [effective, qInput, q]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effective, qInput, q, mode, feedQInput, feedQ]); // eslint-disable-line react-hooks/exhaustive-deps
+  // #532: a narrow to a feed the rail does not list (unfollowed, or a link from another
+  // library) widens to every feed; the address follows.
+  useEffect(() => {
+    if (feedMode && feedId !== null && feedsList.data && !feedsList.data.some((f) => f.id === feedId)) setFeedId(null);
+  }, [feedMode, feedId, feedsList.data]);
+  // #526/#532: the link to this view — filters and the open mode, the same text as the address bar
+  const copyLink = async () => { const qs = addressOf(effective, mode); await navigator.clipboard?.writeText(`${window.location.origin}/library${qs ? `?${qs}` : ""}`); flash("Copied a link to this view."); };
+  const modeCopyLink = <button type="button" data-testid="mode-copy-link" onClick={copyLink} className="inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy a link to this view — paste it in a note, a message, or hand it to Claude"><Link2 className="h-3 w-3" aria-hidden="true" />Copy link</button>;
   const total = list.data?.pages[0]?.count ?? 0;
   const detail = rows.find((r) => r.id === detailId) ?? null;
 
@@ -886,6 +938,7 @@ export default function Library() {
                       {!showSeenFeed && rows.length > 1 && <button type="button" data-testid="feed-dismiss-all" disabled={dismissFeedItems.isPending} onClick={() => dismissFeedItems.mutate({ ids: rows.map((r) => r.id) })} className="text-stone-400 hover:underline disabled:opacity-50">mark all seen</button>}
                       <button type="button" disabled={refreshFeeds.isPending} onClick={() => refreshFeeds.mutate(feed ? [feed.id] : null)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-stone-600 hover:border-emerald-400 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300">{refreshFeeds.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Rss className="h-3 w-3" aria-hidden="true" />}Refresh now</button>
                       {feed && <button type="button" data-testid="unfollow-feed" onClick={async () => { if (await confirmDialog({ title: `Stop following “${feed.title}”?`, body: "Its entries go; papers you added stay in the library.", danger: true, confirmLabel: "Stop following" })) unfollowFeed.mutate(feed.id); }} className="text-stone-400 hover:text-rose-500" title="Stop following this feed"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>}
+                      {modeCopyLink}
                       <button type="button" onClick={() => setFeedMode(false)} className="text-stone-400 hover:underline">back to the list</button>
                     </div>
                   </div>
@@ -934,6 +987,7 @@ export default function Library() {
                 <button type="button" data-testid="citing-toggle-dismissed" onClick={() => setShowDismissed((v) => !v)} className="text-stone-400 hover:underline">{showDismissed ? "back to new" : `seen${citingFeed.data ? ` (${citingFeed.data.status.dismissed})` : ""}`}</button>
                 {!showDismissed && (citingFeed.data?.results.length ?? 0) > 1 && <button type="button" data-testid="citing-dismiss-all" disabled={dismissCiting.isPending} onClick={() => dismissCiting.mutate({ ids: citingFeed.data!.results.map((r) => r.id) })} className="text-stone-400 hover:underline disabled:opacity-50">mark all seen</button>}
                 <button type="button" disabled={checkCitations.isPending} onClick={() => checkCitations.mutate(null)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-stone-600 hover:border-sky-400 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300">{checkCitations.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Radar className="h-3 w-3" aria-hidden="true" />}Check now</button>
+                {modeCopyLink}
                 <button type="button" onClick={() => setCiteMode(false)} className="text-stone-400 hover:underline">back to the list</button>
               </div>
             </div>
@@ -969,12 +1023,13 @@ export default function Library() {
             </div>
           </section>
         ) : dupMode ? (
-          <section className={`${panel} rise flex min-h-[60vh] flex-col overflow-hidden`} style={{ ["--i" as string]: 1 }}>
+          <section className={`${panel} rise flex min-h-[60vh] flex-col overflow-hidden`} style={{ ["--i" as string]: 1 }} data-testid="dup-panel">
             <div className="flex items-center gap-2 border-b border-stone-100 px-4 py-2.5 text-xs dark:border-stone-800">
               <CopyCheck className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
               <span className="font-medium text-stone-700 dark:text-stone-100">Duplicates</span>
               <span className="text-stone-400">same DOI or arXiv id, or near-identical titles · the most complete record is pre-selected to keep</span>
-              <button type="button" onClick={() => setDupMode(false)} className="ml-auto text-stone-400 hover:underline">back to the list</button>
+              <span className="ml-auto">{modeCopyLink}</span>
+              <button type="button" onClick={() => setDupMode(false)} className="text-stone-400 hover:underline">back to the list</button>
             </div>
             <div className="flex-1 space-y-4 overflow-auto p-4">
               {dups.isLoading && <p className="text-sm text-stone-400">Scanning the library…</p>}
@@ -1025,7 +1080,7 @@ export default function Library() {
             {activeChips.length > 0 && <button type="button" onClick={() => setFilters({ ...EMPTY, sort: filters.sort })} className="text-stone-400 hover:underline">clear</button>}
             <Link to={`/library/read?${toQuery(effective, 1)}`} className="ml-auto inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Read this view as a flow — one paper at a time, status keys, notes" data-testid="read-these">Read these →</Link>
             <ExportLinks query={toQuery(effective, 1)} what="this view" className="ml-3" />
-            <button type="button" data-testid="copy-link" onClick={async () => { const qs = viewQuery(effective); await navigator.clipboard?.writeText(`${window.location.origin}/library${qs ? `?${qs}` : ""}`); flash("Copied a link to this view."); }} className="inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy a link to this view — paste it in a note, a message, or hand it to Claude"><Link2 className="h-3 w-3" aria-hidden="true" />Copy link</button>
+            <button type="button" data-testid="copy-link" onClick={copyLink} className="inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy a link to this view — paste it in a note, a message, or hand it to Claude"><Link2 className="h-3 w-3" aria-hidden="true" />Copy link</button>
             <span className="hidden text-stone-400 lg:inline">· j/k move · enter open · x select · shift-x / shift-click range · ⌘A all · o pdf</span>
             <span className="ml-1 inline-flex overflow-hidden rounded-md border border-stone-200 dark:border-stone-700" role="tablist" aria-label="Library view">
               <button type="button" role="tab" aria-selected={view === "list"} onClick={() => switchView("list")} className={`px-1.5 py-0.5 ${view === "list" ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-200" : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"}`} title="List" data-testid="view-list"><LayoutList className="h-3.5 w-3.5" aria-hidden="true" /></button>

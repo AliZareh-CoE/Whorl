@@ -808,12 +808,14 @@ def test_check_preprints_client_calls(capture):
 def test_citation_watch_client_calls(capture):
     """#530: the citation watch — the feed with its filters, the check (ids or stale), dismiss."""
     capture["response"] = {"count": 0, "results": [], "status": {"new": 0}}
-    client.get_new_citations()
+    out = client.get_new_citations()
     assert capture["method"] == "GET" and calls_url_has(capture, "/references/new-citations/")
     assert calls_url_has(capture, "limit=50") and not calls_url_has(capture, "project=")
-    client.get_new_citations(project="p", reference_id=4, dismissed=True, limit=9000)
+    assert out["url"] == "http://testserver/library?citing=1"  # #532
+    out = client.get_new_citations(project="p", reference_id=4, dismissed=True, limit=9000)
     for part in ("project=p", "reference=4", "dismissed=1", "limit=500"):
         assert calls_url_has(capture, part), part
+    assert out["url"] == "http://testserver/library?citing=1&reference=4&seen=1"
     capture["response"] = {"checked": 1, "new": [], "seen": 0, "errors": 0, "skipped": 0}
     client.check_citations([3, 4])
     assert capture["method"] == "POST" and calls_url_has(
@@ -836,7 +838,10 @@ def test_feeds_client_calls(capture):
     add an entry, dismiss + undo."""
     capture["response"] = {"results": [{"id": 1, "title": "A"}], "status": {"feeds": 1}}
     out = client.list_feeds()
-    assert out["feeds"] == [{"id": 1, "title": "A"}] and out["status"] == {"feeds": 1}
+    assert out["feeds"] == [
+        {"id": 1, "title": "A", "url": "http://testserver/library?feeds=1&feed=1"}
+    ]
+    assert out["status"] == {"feeds": 1} and out["url"] == "http://testserver/library?feeds=1"
     assert capture["method"] == "GET" and calls_url_has(capture, "/feeds/refresh/")
     capture["response"] = {"id": 2, "new": 3}
     client.add_feed("https://rss.arxiv.org/atom/q-bio.NC", project="p", title="t")
@@ -859,12 +864,14 @@ def test_feeds_client_calls(capture):
     client.refresh_feeds(None, hours=3, limit=99)
     assert json.loads(capture["body"]) == {"hours": 3, "limit": 20}
     capture["response"] = {"count": 0, "results": [], "status": {}}
-    client.get_feed_items()
+    out = client.get_feed_items()
     assert capture["method"] == "GET" and calls_url_has(capture, "/feeds/items/")
     assert calls_url_has(capture, "limit=50") and not calls_url_has(capture, "feed=")
-    client.get_feed_items(feed_id=4, project="p", dismissed=True, q="load", limit=9000)
+    assert out["url"] == "http://testserver/library?feeds=1"  # #532
+    out = client.get_feed_items(feed_id=4, project="p", dismissed=True, q="load", limit=9000)
     for part in ("feed=4", "project=p", "dismissed=1", "q=load", "limit=500"):
         assert calls_url_has(capture, part), part
+    assert out["url"] == "http://testserver/library?feeds=1&feed=4&seen=1&fq=load"
     capture["response"] = {"id": 9, "bibtex_key": "k"}
     client.add_feed_item(7, project="p")
     assert calls_url_has(capture, "/feeds/items/add/")

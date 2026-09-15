@@ -287,7 +287,8 @@ def get_new_citations(
     authors, year, published_on, venue, cited_by_count, doi, url and `addable` (has a DOI) —
     add one with add_reference_by_doi (it leaves the feed by itself), mark the rest seen with
     dismiss_citations. `status` {new, dismissed, watched, unchecked, last_checked_at} says how
-    fresh the feed is; call check_citations when the user wants it fresher."""
+    fresh the feed is; call check_citations when the user wants it fresher. `url` opens the same
+    view in the app (#532)."""
     return client.get_new_citations(project, reference_id, dismissed, limit)
 
 
@@ -317,7 +318,8 @@ def list_feeds() -> dict:
     [{id, url, title, project, new, items, last_fetched_at, last_ok_at, last_error}] and
     `status` {feeds, new, dismissed, errors, last_fetched_at}. `new` is how many entries of a
     feed are still to look at; `last_error` is set when the last fetch did not answer with a
-    feed. Use it for "what am I following?" and before add_feed."""
+    feed. Every row and the answer carry `url`, the feed (or all feeds) opened in the app
+    (#532). Use it for "what am I following?" and before add_feed."""
     return client.list_feeds()
 
 
@@ -360,7 +362,7 @@ def get_feed_items(
     published_on, `feed` {id, title} and `addable` (has a DOI or arXiv id) — add one with
     add_feed_item, mark the rest seen with dismiss_feed_items. The same paper in two feeds is
     listed once. `status` says when the feeds were last fetched; call refresh_feeds for
-    fresher."""
+    fresher. `url` opens the same view in the app (#532)."""
     return client.get_feed_items(feed_id, project, dismissed, q, limit)
 
 
