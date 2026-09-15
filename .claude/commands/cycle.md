@@ -15,8 +15,8 @@ ends; the owner does not review in between and never wants to be asked "shall I�
    Current area: **Library (return pass)** (from #523 — the Plan was judged best-in-field at
    #522 after #512–#522; Notes + knowledge graph at #511; the Inbox at #501; the Dashboard at
    #493; the Project overview at #485; the Writing studio at #477; #518 was Audit #30, #523
-   shipped reading progress, #524 the author lens + browse_library, #525 export in every format, and
-   Audit #31 is due at #528). Next candidates, in order: a second pass over the earliest
+   shipped reading progress, #524 the author lens + browse_library, #525 export in every format, #526 every view has an
+   address, and Audit #31 is due at #528). Next candidates, in order: a second pass over the earliest
    areas (Today, Files, Prompts, Diagnostics), then a third pass wherever the owner reports.
 2. **Worthy of a viral GitHub star.** Every slice must be something a researcher would
    screenshot and send to a colleague. Prefer the feature that makes someone say "finally".

@@ -84,7 +84,7 @@ def test_no_django_imports():
         elif isinstance(node, ast.ImportFrom) and node.module:
             imported.add(node.module.split(".")[0])
     assert "django" not in imported
-    assert imported <= {"os", "datetime", "httpx", "mimetypes"}  # stdlib only, plus httpx
+    assert imported <= {"os", "datetime", "httpx", "mimetypes", "urllib"}  # stdlib only, plus httpx
 
 
 class TestETagCache:
@@ -756,9 +756,21 @@ def test_browse_library_client_calls(capture):
     assert calls_url_has(capture, "author=lavie") and calls_url_has(capture, "sort=added")
     assert not calls_url_has(capture, "year=") and not calls_url_has(capture, "tag=")
     assert out["count"] == 1
+    assert out["url"] == "http://testserver/library?author=lavie"
     row = out["results"][0]
     assert row["authors"] == ["Lavie, Nilli"] and row["has_pdf"] is True
     assert "abstract" not in row and row["progress"]["percent"] == 42
+
+
+def test_library_url_matches_the_address_bar(env):
+    """#526: the link Claude hands back equals what the page writes in its own address bar —
+    empties, zeros and the default sort left out, values URL-encoded, no limit."""
+    assert client.library_url() == "http://testserver/library"
+    assert client.library_url(sort="added", q="", year=0, untagged=False) == (
+        "http://testserver/library"
+    )
+    url = client.library_url(author="van der Berg", tag="load", sort="-year", year_min=2020)
+    assert url == "http://testserver/library?author=van+der+Berg&tag=load&sort=-year&year_min=2020"
 
 
 def test_export_references_client_calls(monkeypatch, env):

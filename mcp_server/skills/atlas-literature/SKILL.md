@@ -25,7 +25,8 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
   explicit ids or the same filters as browse_library; save the returned text to a file.
 - `browse_library` for "what do I have by X?", "unread papers tagged Y", "papers with no PDF" —
   every filter the Library rail offers (author, q, year range, venue, tag, project + status,
-  has_pdf, untagged / unfiled / needs_metadata, sort); rows are compact and carry `progress`.
+  has_pdf, untagged / unfiled / needs_metadata, sort); rows are compact and carry `progress`,
+  and `url` is the same view in the app — hand it to the user (every Library view has an address).
 - `get_reading_progress` for "where was I?" (a paper's remembered page, or with no id the papers
   the user is in the middle of); `set_reading_position` when they tell you the page they reached.
 - `list_highlights` / `get_highlights_markdown` to quote what the user marked;

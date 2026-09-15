@@ -98,3 +98,26 @@ def test_author_lens_ui_wiring():
         'author: ""',
     ):
         assert needle in lib, needle
+
+
+def test_library_address_ui_wiring():
+    """#526: every Library view has an address — the filters come from the URL and go back to
+    it (replace, after the search debounce), an incoming address resets them, the year range
+    has chips, and the header offers "Copy link"."""
+    lib = (
+        Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "pages" / "Library.tsx"
+    ).read_text()
+    for needle in (
+        "function viewQuery(",
+        "function fromUrl(",
+        'k === "sort" && f[k] === "added"',
+        "useState<Filters>(() => fromUrl(window.location.search))",
+        'navigate(qs ? `/library?${qs}` : "/library", { replace: true })',
+        "if (qInput !== q) return;",
+        "}, [location.search]);",
+        'year_min: "", year_max: ""',
+        'if (k === "year_min") return `from ${v}`;',
+        'data-testid="copy-link"',
+        "Copied a link to this view.",
+    ):
+        assert needle in lib, needle

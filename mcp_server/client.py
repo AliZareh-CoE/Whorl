@@ -7,6 +7,7 @@ Configuration comes from ATLAS_API_URL and ATLAS_API_KEY environment variables.
 import mimetypes
 import os
 from datetime import UTC, datetime
+from urllib.parse import urlencode
 
 import httpx
 
@@ -198,16 +199,35 @@ def _library_row(row: dict) -> dict:
     }
 
 
+def _app_base() -> str:
+    return os.environ.get("ATLAS_API_URL", "http://127.0.0.1:8000").rstrip("/")
+
+
+def library_url(**filters) -> str:
+    """The address of a Library view (#526): the app's /library page with the same filters the
+    address bar carries — empty values and the default sort are left out, so the link equals what
+    the page shows in its own address bar once it loads."""
+    params = {
+        k: v
+        for k, v in filters.items()
+        if v not in ("", None, 0, False) and not (k == "sort" and v == "added")
+    }
+    query = urlencode(params)
+    return f"{_app_base()}/library" + (f"?{query}" if query else "")
+
+
 def browse_library(limit: int = 20, **filters):
     """The Library workbench over the API (#524): GET /references/ with the rail's filters
     (q, author, year, year_min, year_max, entry_type, venue, tag, project, reading_status,
-    has_pdf, untagged, unfiled, needs_metadata, sort). Rows are trimmed to what a listing needs."""
+    has_pdf, untagged, unfiled, needs_metadata, sort). Rows are trimmed to what a listing needs;
+    `url` is the same view in the app (#526)."""
     params = {k: v for k, v in filters.items() if v not in ("", None, 0, False)}
     limit = max(1, min(int(limit or 20), 50))
     data = _request("GET", "/references/", params=params)
     rows = data.get("results", []) if isinstance(data, dict) else list(data)
     return {
         "count": data.get("count", len(rows)) if isinstance(data, dict) else len(rows),
+        "url": library_url(**params),
         "results": [_library_row(r) for r in rows[:limit]],
     }
 
@@ -454,9 +474,8 @@ def export_references(
         if project:
             params["project"] = project
         params.update({k: v for k, v in filters.items() if v not in ("", None, 0, False)})
-    base_url = os.environ.get("ATLAS_API_URL", "http://127.0.0.1:8000").rstrip("/")
     with _client() as client:
-        response = client.get(f"{base_url}/api/v1/references/export/", params=params)
+        response = client.get(f"{_app_base()}/api/v1/references/export/", params=params)
     if response.status_code >= 400:
         raise AtlasClientError(f"Atlas API {response.status_code} on /references/export/")
     return response.text

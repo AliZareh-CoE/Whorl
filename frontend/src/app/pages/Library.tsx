@@ -3,9 +3,9 @@
  *  (/references/, /facets/, /bulk/, /import/, /import-zotero/, /find-metadata/) and MCP. */
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Pencil, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, Pencil, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
@@ -51,11 +51,11 @@ type DiscoverRow = {
 type ImportResult = { title: string; reference_id: number | null; created: boolean; source: string; error: string; needs_metadata: boolean };
 type ImportSummary = { created: number; existing: number; failed: number; results: ImportResult[] };
 type Filters = {
-  q: string; year: string; entry_type: string; venue: string; author: string; has_pdf: string; needs_metadata: string;
+  q: string; year: string; year_min: string; year_max: string; entry_type: string; venue: string; author: string; has_pdf: string; needs_metadata: string;
   project: string; unfiled: string; reading_status: string; tag: string; untagged: string; sort: string;
 };
 
-const EMPTY: Filters = { q: "", year: "", entry_type: "", venue: "", author: "", has_pdf: "", needs_metadata: "", project: "", unfiled: "", reading_status: "", tag: "", untagged: "", sort: "added" };
+const EMPTY: Filters = { q: "", year: "", year_min: "", year_max: "", entry_type: "", venue: "", author: "", has_pdf: "", needs_metadata: "", project: "", unfiled: "", reading_status: "", tag: "", untagged: "", sort: "added" };
 const STYLES: [string, string][] = [["apa", "APA 7"], ["mla", "MLA 9"], ["chicago", "Chicago"], ["harvard", "Harvard"], ["vancouver", "Vancouver"], ["ieee", "IEEE"]];
 function readStyle(): string { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } }
 type Citation = { style: string; label: string; text: string; html: string; intext: string };
@@ -121,6 +121,29 @@ function toQuery(f: Filters, page: number): string {
   if (page > 1) p.set("page", String(page));
   return p.toString();
 }
+// #526: every view has an address. The address bar carries the workbench's filters (a clean
+// library is a clean /library), and any /library?… link — the sidebar, ⌘K, a note, the brief,
+// Claude's browse_library — sets them on arrival. Same keys as the API's list filters.
+function viewQuery(f: Filters): string {
+  const p = new URLSearchParams();
+  (Object.keys(EMPTY) as (keyof Filters)[]).forEach((k) => { if (f[k] && !(k === "sort" && f[k] === "added")) p.set(k, f[k]); });
+  return p.toString();
+}
+function fromUrl(search: string): Filters {
+  const picked: Partial<Filters> = {};
+  try {
+    const p = new URLSearchParams(search);
+    (Object.keys(EMPTY) as (keyof Filters)[]).forEach((k) => { const v = p.get(k); if (v) picked[k] = v.slice(0, 200); });
+  } catch { /* no URL access */ }
+  return { ...EMPTY, ...picked };
+}
+function chipLabel(k: keyof Filters, v: string): string {
+  if (k === "author") return `by ${v}`;
+  if (k === "year_min") return `from ${v}`;
+  if (k === "year_max") return `to ${v}`;
+  if (k === "reading_status") return `reading status: ${STATUS_LABEL[v] ?? v}`;
+  return `${k.replace("_", " ")}: ${v}`;
+}
 
 async function postForm<T>(path: string, form: FormData): Promise<T> {
   const response = await fetch(`/api/v1${path}`, { method: "POST", body: form, headers: { "X-CSRFToken": csrfToken(), Accept: "application/json" }, credentials: "same-origin" });
@@ -131,8 +154,9 @@ async function postForm<T>(path: string, form: FormData): Promise<T> {
 export default function Library() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<Filters>(EMPTY);
-  const [qInput, setQInput] = useState(() => { try { return new URLSearchParams(window.location.search).get("q") ?? ""; } catch { return ""; } });
+  const location = useLocation();
+  const [filters, setFilters] = useState<Filters>(() => fromUrl(window.location.search));
+  const [qInput, setQInput] = useState(() => fromUrl(window.location.search).q);
   const q = useDebounced(qInput, 220);
   const effective = useMemo(() => ({ ...filters, q }), [filters, q]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -260,7 +284,31 @@ export default function Library() {
     const row = rows.find((r) => r.id === id);
     if (row?.pdf) { readParam.current = null; openReader(row); }
     else if (row) { readParam.current = null; setDetailId(row.id); }
-  }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, location.search]); // eslint-disable-line react-hooks/exhaustive-deps
+  // #526: the URL follows the filters (replace, so the back button leaves the page, not the
+  // filter history), and an address that is not the one we wrote — the sidebar's /library, a
+  // link from ⌘K, a note, the brief or Claude — resets the filters, q, and the read/add asks.
+  const lastWritten = useRef<string | null>(null);
+  useEffect(() => {
+    const current = location.search.replace(/^\?/, "");
+    if (lastWritten.current === null) { lastWritten.current = viewQuery(fromUrl(location.search)); return; } // the mount: state came from this address
+    if (current === lastWritten.current) return;
+    const next = fromUrl(location.search);
+    lastWritten.current = viewQuery(next);
+    try {
+      const p = new URLSearchParams(location.search);
+      const r = p.get("read"); if (r) readParam.current = Number(r);
+      if (p.get("add") !== null) doiRef.current?.focus();
+    } catch { /* no URL access */ }
+    setFilters(next); setQInput(next.q);
+  }, [location.search]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (qInput !== q) return; // let the debounce settle so a keystroke is not a route change
+    const qs = viewQuery(effective);
+    if (qs === lastWritten.current) return;
+    lastWritten.current = qs;
+    navigate(qs ? `/library?${qs}` : "/library", { replace: true });
+  }, [effective, qInput, q]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = list.data?.pages[0]?.count ?? 0;
   const detail = rows.find((r) => r.id === detailId) ?? null;
 
@@ -715,11 +763,12 @@ export default function Library() {
           <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 px-3 py-2 text-xs dark:border-stone-800">
             <label className="flex items-center gap-1.5 text-stone-500"><input type="checkbox" checked={allSelectedOnPage} onChange={() => setSelected(allSelectedOnPage ? new Set() : new Set(rows.map((r) => r.id)))} className="accent-indigo-500" />{total} result{total === 1 ? "" : "s"}</label>
             {activeChips.map((k) => (
-              <button key={k} type="button" onClick={() => set({ [k]: "" } as Partial<Filters>)} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-indigo-700 dark:text-indigo-200">{k === "author" ? "by" : k.replace("_", " ")}{k === "author" ? " " : ": "}{k === "reading_status" ? STATUS_LABEL[filters[k]] : filters[k]}<X className="h-3 w-3" aria-hidden="true" /></button>
+              <button key={k} type="button" onClick={() => set({ [k]: "" } as Partial<Filters>)} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-indigo-700 dark:text-indigo-200">{chipLabel(k, filters[k])}<X className="h-3 w-3" aria-hidden="true" /></button>
             ))}
             {activeChips.length > 0 && <button type="button" onClick={() => setFilters({ ...EMPTY, sort: filters.sort })} className="text-stone-400 hover:underline">clear</button>}
             <Link to={`/library/read?${toQuery(effective, 1)}`} className="ml-auto inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Read this view as a flow — one paper at a time, status keys, notes" data-testid="read-these">Read these →</Link>
             <ExportLinks query={toQuery(effective, 1)} what="this view" className="ml-3" />
+            <button type="button" data-testid="copy-link" onClick={async () => { const qs = viewQuery(effective); await navigator.clipboard?.writeText(`${window.location.origin}/library${qs ? `?${qs}` : ""}`); flash("Copied a link to this view."); }} className="inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Copy a link to this view — paste it in a note, a message, or hand it to Claude"><Link2 className="h-3 w-3" aria-hidden="true" />Copy link</button>
             <span className="hidden text-stone-400 lg:inline">· j/k move · enter open · x select · shift-x / shift-click range · ⌘A all · o pdf</span>
             <span className="ml-1 inline-flex overflow-hidden rounded-md border border-stone-200 dark:border-stone-700" role="tablist" aria-label="Library view">
               <button type="button" role="tab" aria-selected={view === "list"} onClick={() => switchView("list")} className={`px-1.5 py-0.5 ${view === "list" ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-200" : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"}`} title="List" data-testid="view-list"><LayoutList className="h-3.5 w-3.5" aria-hidden="true" /></button>

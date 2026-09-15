@@ -193,10 +193,12 @@ def browse_library(
     abstract, authors, DOI and the PDF text; `venue` is exact; `tag` a tag name; `project` a
     slug and `reading_status` (to_read / skimmed / read / annotated) the state in that project;
     `has_pdf` "true" or "false"; `untagged` / `unfiled` / `needs_metadata` are hygiene views;
-    `sort` added, -added, year, -year, title, -title or citations. Returns `count` (all matches)
-    and up to `limit` (≤ 50) compact rows: id, bibtex_key, title, authors ["Family, Given"],
-    year, venue, doi, has_pdf, citation_count, tags, projects [{slug, reading_status, …}] and
-    `progress`. Use it for "what do I have by X?", "unread papers tagged Y", "papers with no PDF"."""
+    `sort` added, -added, year, -year, title, -title or citations. Returns `count` (all matches),
+    `url` — the same view in the app (`/library?author=lavie&tag=load`; every Library view has
+    an address, hand it to the user or paste it in a note, #526) — and up to `limit` (≤ 50)
+    compact rows: id, bibtex_key, title, authors ["Family, Given"], year, venue, doi, has_pdf,
+    citation_count, tags, projects [{slug, reading_status, …}] and `progress`. Use it for
+    "what do I have by X?", "unread papers tagged Y", "papers with no PDF"."""
     return client.browse_library(
         limit=limit,
         q=q,
