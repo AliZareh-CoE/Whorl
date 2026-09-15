@@ -43,7 +43,7 @@
     <form method="post" action="{% url 'literature:fetch_pdf' reference.pk %}" class="inline">
       {% csrf_token %}
       <button type="submit" class="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-stone-100"
-              title="{{ reference.extra.oa_pdf|default:'Searches arXiv and Unpaywall for a free PDF' }}">
+              title="{{ reference.extra.oa_pdf|default:'Looks for a free PDF — arXiv, Unpaywall, Semantic Scholar, then OpenAlex' }}">
         ⤓ Fetch open-access PDF
       </button>
     </form>
