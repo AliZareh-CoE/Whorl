@@ -147,12 +147,207 @@ class TestSurfaces:
 
 def test_non_https_oa_url_rejected(patch_http):
     ref = ReferenceFactory(doi="10.1/sketchy")
+    hosts = []
 
     def handler(request):
-        assert request.url.host == "api.unpaywall.org", "must not follow the http URL"
-        return httpx.Response(
-            200, json={"best_oa_location": {"url_for_pdf": "http://evil.example/x.pdf"}}
-        )
+        hosts.append(request.url.host)
+        if request.url.host == "api.unpaywall.org":
+            return httpx.Response(
+                200, json={"best_oa_location": {"url_for_pdf": "http://evil.example/x.pdf"}}
+            )
+        return httpx.Response(200, json={})  # Semantic Scholar / OpenAlex: nothing
 
     patch_http["handler"] = handler
     assert oa.fetch_and_attach_pdf(ref) == "No open-access PDF found."
+    assert "evil.example" not in hosts, "must not follow the http URL"
+
+
+def _fake_pdf(request):
+    return httpx.Response(200, content=FAKE_PDF)
+
+
+class TestFourSources:
+    """The finder asks arXiv, Unpaywall, Semantic Scholar and OpenAlex in turn, and stops at
+    the first source whose link serves a real PDF."""
+
+    def test_unpaywall_second_location_is_tried_and_s2_never_asked(self, patch_http):
+        ref = ReferenceFactory(doi="10.1/two-locations")
+        hosts = []
+
+        def handler(request):
+            hosts.append(request.url.host)
+            if request.url.host == "api.unpaywall.org":
+                return httpx.Response(
+                    200,
+                    json={
+                        "best_oa_location": {"url_for_pdf": "https://wall.example/a.pdf"},
+                        "oa_locations": [
+                            {"url_for_pdf": "https://wall.example/a.pdf"},
+                            {"url_for_pdf": None},
+                            {"url_for_pdf": "https://repo.example/b.pdf"},
+                        ],
+                    },
+                )
+            if request.url.host == "wall.example":
+                return httpx.Response(200, content=b"<html>login</html>")
+            return _fake_pdf(request)
+
+        patch_http["handler"] = handler
+        outcome = oa.fetch_and_attach_pdf(ref)
+        ref.refresh_from_db()
+        assert outcome.endswith("via Unpaywall.") and ref.pdf
+        assert ref.extra["oa_source"] == "unpaywall"
+        assert ref.extra["oa_tried"] == ["Unpaywall"]
+        assert "api.semanticscholar.org" not in hosts and "api.openalex.org" not in hosts
+
+    def test_s2_fills_the_arxiv_id_and_the_arxiv_pdf_wins(self, patch_http, settings):
+        settings.ATLAS_S2_API_KEY = "s2-key"
+        ref = ReferenceFactory(doi="10.1109/CVPR.2016.90", arxiv_id="")
+        seen = {}
+
+        def handler(request):
+            if request.url.host == "api.unpaywall.org":
+                return httpx.Response(200, json={"best_oa_location": None, "oa_locations": []})
+            if request.url.host == "api.semanticscholar.org":
+                seen["s2_key"] = request.headers.get("x-api-key")
+                assert "DOI:10.1109/CVPR.2016.90" in str(request.url)
+                return httpx.Response(
+                    200,
+                    json={
+                        "externalIds": {"ArXiv": "1512.03385", "DOI": "10.1109/CVPR.2016.90"},
+                        "openAccessPdf": {"url": "https://s2.example/resnet.pdf"},
+                    },
+                )
+            if request.url.host == "arxiv.org":
+                assert "/pdf/1512.03385" in str(request.url)
+                return _fake_pdf(request)
+            raise AssertionError(f"unexpected host {request.url.host}")
+
+        patch_http["handler"] = handler
+        outcome = oa.fetch_and_attach_pdf(ref)
+        ref.refresh_from_db()
+        assert outcome.endswith("via arXiv.") and ref.pdf
+        assert ref.arxiv_id == "1512.03385"
+        assert ref.extra["oa_source"] == "arxiv"
+        assert seen["s2_key"] == "s2-key"
+
+    def test_s2_open_access_pdf_when_it_has_no_arxiv_id(self, patch_http):
+        ref = ReferenceFactory(doi="10.1/s2-only")
+
+        def handler(request):
+            if request.url.host == "api.unpaywall.org":
+                return httpx.Response(404, json={"error": True})
+            if request.url.host == "api.semanticscholar.org":
+                return httpx.Response(
+                    200, json={"externalIds": {}, "openAccessPdf": {"url": "https://s2.example/x"}}
+                )
+            assert request.url.host == "s2.example"
+            return _fake_pdf(request)
+
+        patch_http["handler"] = handler
+        outcome = oa.fetch_and_attach_pdf(ref)
+        ref.refresh_from_db()
+        assert outcome.endswith("via Semantic Scholar.")
+        assert ref.arxiv_id == "" and ref.extra["oa_source"] == "s2"
+
+    def test_openalex_is_the_last_resort_and_reads_the_arxiv_landing_page(self, patch_http):
+        ref = ReferenceFactory(doi="10.1/openalex-only")
+
+        def handler(request):
+            host = request.url.host
+            if host == "api.unpaywall.org":
+                return httpx.Response(200, json={"best_oa_location": None})
+            if host == "api.semanticscholar.org":
+                return httpx.Response(429, text="slow down")
+            if host == "api.openalex.org":
+                assert "doi:10.1/openalex-only" in str(request.url)
+                return httpx.Response(
+                    200,
+                    json={
+                        "best_oa_location": {
+                            "pdf_url": None,
+                            "landing_page_url": "https://arxiv.org/abs/2101.00001v3",
+                        },
+                        "primary_location": {"pdf_url": "https://pub.example/paywalled.pdf"},
+                        "locations": [{"pdf_url": "https://oa.example/free.pdf"}],
+                    },
+                )
+            if host == "arxiv.org":
+                return httpx.Response(404)
+            if host == "pub.example":
+                return httpx.Response(403)
+            assert host == "oa.example"
+            return _fake_pdf(request)
+
+        patch_http["handler"] = handler
+        outcome = oa.fetch_and_attach_pdf(ref)
+        ref.refresh_from_db()
+        assert outcome.endswith("via OpenAlex.") and ref.pdf
+        assert ref.arxiv_id == "2101.00001"
+        assert ref.extra["oa_tried"] == ["arXiv", "OpenAlex"]
+
+    def test_a_known_arxiv_id_is_never_overwritten(self, patch_http):
+        ref = ReferenceFactory(doi="10.1/keep", arxiv_id="2201.11111")
+
+        def handler(request):
+            host = request.url.host
+            if host == "arxiv.org":
+                return httpx.Response(500)
+            if host == "api.unpaywall.org":
+                return httpx.Response(200, json={})
+            if host == "api.semanticscholar.org":
+                return httpx.Response(200, json={"externalIds": {"ArXiv": "9999.99999"}})
+            return httpx.Response(200, json={})
+
+        patch_http["handler"] = handler
+        assert "Download failed (HTTP 500)" in oa.fetch_and_attach_pdf(ref)
+        ref.refresh_from_db()
+        assert ref.arxiv_id == "2201.11111" and not ref.pdf
+        assert "oa_source" not in ref.extra
+
+    def test_at_most_four_downloads_per_paper(self, patch_http):
+        ref = ReferenceFactory(doi="10.1/many")
+        downloads, hosts = [], []
+
+        def handler(request):
+            hosts.append(request.url.host)
+            if request.url.host == "api.unpaywall.org":
+                return httpx.Response(
+                    200,
+                    json={
+                        "best_oa_location": None,
+                        "oa_locations": [
+                            {"url_for_pdf": f"https://mirror{i}.example/x.pdf"} for i in range(6)
+                        ],
+                    },
+                )
+            downloads.append(request.url.host)
+            return httpx.Response(200, content=b"nope")
+
+        patch_http["handler"] = handler
+        assert "did not serve a PDF" in oa.fetch_and_attach_pdf(ref)
+        assert len(downloads) == oa.MAX_CANDIDATES
+        assert "api.semanticscholar.org" not in hosts
+
+    def test_api_reports_the_source_and_the_learned_arxiv_id(
+        self, patch_http, client, owner, settings
+    ):
+        settings.ATLAS_API_KEY = "k"
+        ref = ReferenceFactory(doi="10.1/api", arxiv_id="")
+
+        def handler(request):
+            host = request.url.host
+            if host == "api.unpaywall.org":
+                return httpx.Response(200, json={})
+            if host == "api.semanticscholar.org":
+                return httpx.Response(200, json={"externalIds": {"ArXiv": "arXiv:1706.03762v5"}})
+            assert host == "arxiv.org"
+            return _fake_pdf(request)
+
+        patch_http["handler"] = handler
+        out = client.post(f"/api/v1/references/{ref.pk}/fetch-pdf/", HTTP_X_API_KEY="k")
+        assert out.status_code == 200
+        body = out.json()
+        assert body["attached"] and body["source"] == "arxiv"
+        assert body["arxiv_id"] == "1706.03762"
+        assert body["outcome"].endswith("via arXiv.")

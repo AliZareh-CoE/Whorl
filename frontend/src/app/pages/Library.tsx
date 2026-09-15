@@ -16,6 +16,7 @@ import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 
 type Author = { family?: string; given?: string };
+const PDF_SOURCES: Record<string, string> = { arxiv: "arXiv", unpaywall: "Unpaywall", s2: "Semantic Scholar", openalex: "OpenAlex" };
 type ProjLink = { slug: string; name: string; color: string; reading_status: string; priority: string; started_at?: string | null; finished_at?: string | null };
 type Progress = { page: number | null; pages: number | null; percent: number | null; last_read_at: string | null };
 type ReadingNowRow = { id: number; title: string; bibtex_key: string; year: number | null; pdf: string | null; page: number; pages: number | null; percent: number | null; last_read_at: string };
@@ -352,7 +353,7 @@ export default function Library() {
   // "no PDF found" pill afterwards (the outcome is kept in extra.oa_pdf by the server).
   const [pdfLookups, setPdfLookups] = useState<Set<number>>(new Set());
   const fetchPdf = useMutation({
-    mutationFn: (id: number) => api<{ outcome: string; attached: boolean; pdf: string | null }>(`/references/${id}/fetch-pdf/`, { method: "POST" }),
+    mutationFn: (id: number) => api<{ outcome: string; attached: boolean; pdf: string | null; source: string | null; arxiv_id: string }>(`/references/${id}/fetch-pdf/`, { method: "POST" }),
     onMutate: (id) => setPdfLookups((s) => new Set(s).add(id)),
     onSuccess: (out) => { invalidate(); flash(out.outcome); },
     onError: () => flash("The PDF lookup failed."),
@@ -1301,8 +1302,9 @@ function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRet
         {r.pdf ? (
           <button type="button" onClick={onRead} className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 ${reading ? "border-indigo-400 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200" : "border-stone-300 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"}`} title={inProgress(r.progress) ? `Pick up where you left off — ${pageLabel(r.progress)} (o)` : "Read and highlight here (o)"} data-testid={!reading && inProgress(r.progress) ? "resume-read" : undefined}><BookOpen className="h-3 w-3" aria-hidden="true" />{reading ? "Reading" : inProgress(r.progress) ? `Resume · ${pageLabel(r.progress)}` : "Read"}</button>
         ) : (
-          <button type="button" onClick={onFetchPdf} disabled={fetchingPdf || !(r.doi || r.arxiv_id)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300" title={r.doi || r.arxiv_id ? "Look for an open-access PDF (arXiv, Unpaywall)" : "Needs a DOI or arXiv id to look up a PDF"}>{fetchingPdf ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Download className="h-3 w-3" aria-hidden="true" />}Find PDF</button>
+          <button type="button" onClick={onFetchPdf} disabled={fetchingPdf || !(r.doi || r.arxiv_id)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300" title={r.doi || r.arxiv_id ? "Look for a free PDF — arXiv, Unpaywall, Semantic Scholar, then OpenAlex" : "Needs a DOI or arXiv id to look up a PDF"}>{fetchingPdf ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Download className="h-3 w-3" aria-hidden="true" />}Find PDF</button>
         )}
+        {r.pdf && typeof r.extra?.oa_source === "string" && <span data-testid="pdf-source" className="inline-flex items-center self-center text-[11px] text-stone-400 dark:text-stone-500" title={typeof r.extra?.oa_pdf === "string" ? r.extra.oa_pdf : undefined}>via {PDF_SOURCES[r.extra.oa_source as string] ?? String(r.extra.oa_source)}</span>}
         {r.doi && <a href={`https://doi.org/${r.doi}`} target="_blank" rel="noreferrer" className="rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">DOI</a>}
         {r.url && !r.doi && <a href={r.url} target="_blank" rel="noreferrer" className="rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300">Link</a>}
         {r.projects.length > 0 && (

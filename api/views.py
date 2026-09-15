@@ -2285,10 +2285,24 @@ class ReferenceViewSet(AtlasViewSet):
                     "outcome": rf_serializers.CharField(),
                     "attached": rf_serializers.BooleanField(),
                     "pdf": rf_serializers.CharField(allow_null=True),
+                    "source": rf_serializers.CharField(
+                        allow_null=True,
+                        help_text="Which source handed back the PDF: arxiv, unpaywall, s2 "
+                        "(Semantic Scholar) or openalex; null when nothing was attached.",
+                    ),
+                    "arxiv_id": rf_serializers.CharField(
+                        allow_blank=True,
+                        help_text="The paper's arXiv id, possibly learned during this lookup.",
+                    ),
                 },
             )
         },
-        description="Try to attach an open-access PDF (arXiv, then Unpaywall) to this reference.",
+        description=(
+            "Try to attach an open-access PDF to this reference. Sources are asked in order "
+            "until one hands back a real PDF: arXiv, Unpaywall, Semantic Scholar (which also "
+            "fills a missing arXiv id for a published paper), OpenAlex. The outcome is kept "
+            "in extra.oa_pdf / extra.oa_source."
+        ),
     )
     @action(detail=True, methods=["post"], url_path="fetch-pdf")
     def fetch_pdf(self, request, pk=None):
@@ -2302,6 +2316,8 @@ class ReferenceViewSet(AtlasViewSet):
                 "outcome": outcome,
                 "attached": bool(reference.pdf),
                 "pdf": reference.pdf.url if reference.pdf else None,
+                "source": reference.extra.get("oa_source") if reference.pdf else None,
+                "arxiv_id": reference.arxiv_id or "",
             }
         )
 

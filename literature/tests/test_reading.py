@@ -121,7 +121,13 @@ def test_fetch_pdf_api(client, paper, monkeypatch):
     )
     out = client.post(f"/api/v1/references/{ref.pk}/fetch-pdf/", **HEADERS)
     assert out.status_code == 200
-    assert out.json() == {"outcome": "No open-access PDF found.", "attached": False, "pdf": None}
+    assert out.json() == {
+        "outcome": "No open-access PDF found.",
+        "attached": False,
+        "pdf": None,
+        "source": None,
+        "arxiv_id": ref.arxiv_id or "",
+    }
 
 
 def test_legacy_reader_highlight_view_writes_structured_row(client, paper):

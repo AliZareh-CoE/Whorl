@@ -836,7 +836,11 @@ def set_reading_notes(project_reference_id: int, notes: str) -> dict:
 
 @mcp.tool()
 def fetch_pdf(reference_id: int) -> dict:
-    """Try to attach an open-access PDF to a paper (arXiv first, then Unpaywall by DOI)."""
+    """Find and attach a free PDF for a paper. Sources are asked in order until one serves a
+    real PDF: arXiv, Unpaywall, Semantic Scholar (which also fills in the arXiv id of a
+    published paper), OpenAlex. Returns `outcome`, `attached`, `pdf`, `source` (arxiv /
+    unpaywall / s2 / openalex) and `arxiv_id`. Use when a paper in browse_library has
+    has_pdf false, before reading or indexing it."""
     return client.fetch_pdf(reference_id)
 
 
