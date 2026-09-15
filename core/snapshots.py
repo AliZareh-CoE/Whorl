@@ -110,7 +110,17 @@ def take_snapshot(directory: Path | None = None, *, keep: int = KEEP, kind: str 
     )
     removed = prune(directory, keep=keep)
     log.info("Snapshot written: %s (%d bytes); removed %s", final, size, removed or "none")
-    return {"path": str(final), "size_bytes": size, "manifest": manifest, "removed": removed}
+    # #536: a copy to the attached drive / sync folder, when one is set; never fails the snapshot
+    from core.destination import mirror
+
+    copied = mirror(final)
+    return {
+        "path": str(final),
+        "size_bytes": size,
+        "manifest": manifest,
+        "removed": removed,
+        "copied": copied,
+    }
 
 
 def last_snapshot(directory: Path | None = None) -> dict | None:

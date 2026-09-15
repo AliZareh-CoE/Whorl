@@ -4,22 +4,26 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Camera, Check, CheckCircle2, Copy, Download, FolderOpen, Globe, Loader2, RotateCcw, Stethoscope, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, Camera, Check, CheckCircle2, Copy, Download, FolderOpen, Globe, HardDrive, Loader2, RotateCcw, Stethoscope, Upload, XCircle } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
-import { isDesktop, openDevtools, revealPath } from "../external";
+import { isDesktop, openDevtools, pickFolder, revealPath } from "../external";
 import { ErrorState } from "../../components/ErrorState";
 
 type Feed = { url: string; status: number | string | null; version: string | null; platforms: string[]; key_match: boolean | null };
 type Verdict = { state: "unchecked" | "offline" | "unreachable" | "unsigned" | "wrong_key" | "current" | "available" | "unknown_version"; text: string };
 type RestoreState = { pending: { created_at?: string; staged_at: string | null; media_files: number; has_sqlite: boolean; has_json: boolean; size_bytes: number } | null; last_result: { ok: boolean; detail: string; applied_at: string; kept_previous_in: string } | null; data_dir: string };
 type Latex = { state: "idle" | "running" | "ok" | "failed" | "unknown"; log: string; seconds: number | null; dir: string; warm: boolean; size_mb: number };
+// #536: the attached drive / sync folder every snapshot is copied to
+type Destination = { dir: string; enabled: boolean; kind: string | null; label: string | null; subfolder: string; reachable: boolean; free_bytes: number | null; keep: number; copies: number; total_bytes: number; newest_copy: { name: string; path: string; size_bytes: number } | null; in_sync: boolean | null; last_copy: { name: string; at: string; verified: boolean } | null; last_error: { at: string; detail: string } | null; suggestions?: { dir: string; kind: string; label: string }[] };
+
 type Report = {
   version: string; desktop: boolean; platform: string; frozen: boolean; settings_module: string; data_dir: string | null; database: string;
   engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; update_feed: Feed[]; update_verdict?: Verdict;
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
   backups?: { last: { at: string; days_ago: number; size_bytes: number } | null; stale: boolean; has_data: boolean; stale_after_days: number };
   // #462: the zips Atlas keeps on its own in <data dir>/backups
+  backup_destination?: Destination | null;
   snapshots?: { dir: string; keep: number; every_hours: number; count: number; total_bytes: number; last: { name: string; path: string; size_bytes: number; at: string; hours_ago: number } | null; scheduler: boolean; last_error: { at: string; detail: string } | null } | null;
   client_errors?: { at: string; where: string; url: string; version: string; errors: string[] }[];
   access?: { summary: { days: number; counts: Record<string, number>; last_problem: { kind: string; at: string; address: string } | null } | null; events: { id: number; kind: string; label: string; address: string; user_agent: string; detail: string; at: string }[] };
@@ -223,6 +227,7 @@ export default function Diagnostics() {
               )}
             </section>
           )}
+          {r.backup_destination !== undefined && <DestinationSection desktop={isDesktop()} />}
           <section className={`${panel} mt-5`} style={{ ["--i" as string]: 3 }}>
             <p className={`${railH} mb-2`}>Server log · last lines</p>
             {r.server_log ? <pre className="max-h-80 overflow-auto rounded-lg bg-stone-950 p-3 font-mono text-[11px] leading-4 text-stone-200">{r.server_log}</pre> : <p className="text-sm text-stone-500">No server log here — the desktop app writes one to its data folder; a development server logs to the terminal.</p>}
@@ -230,5 +235,75 @@ export default function Diagnostics() {
         </>
       )}
     </div>
+  );
+}
+
+/** #536: attach an external drive or a sync service's folder; every snapshot is copied there. */
+function DestinationSection({ desktop }: { desktop: boolean }) {
+  const qc = useQueryClient();
+  const [dir, setDir] = useState("");
+  const [error, setError] = useState("");
+  const dest = useQuery({ queryKey: ["backup-destination"], queryFn: () => api<Destination>("/backup-destination/") });
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ["backup-destination"] }); void qc.invalidateQueries({ queryKey: ["diagnostics"] }); };
+  const attach = useMutation({
+    mutationFn: (folder: string) => api<Destination>("/backup-destination/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir: folder, enabled: Boolean(folder) }) }),
+    onSuccess: (d) => { qc.setQueryData(["backup-destination"], d); setError(""); setDir(""); refresh(); },
+    onError: (e) => setError(String((e as Error).message ?? e)),
+  });
+  const sync = useMutation({
+    mutationFn: () => api<{ copied: boolean; name: string | null; detail: string; status: Destination }>("/backup-destination/sync/", { method: "POST" }),
+    onSuccess: () => refresh(),
+    onError: (e) => setError(String((e as Error).message ?? e)),
+  });
+  const choose = async () => { const picked = await pickFolder(); if (picked) attach.mutate(picked); };
+  const d = dest.data;
+  const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
+  const gb = (n: number) => `${(n / 1073741824).toFixed(1)} GB`;
+  return (
+    <section className={`${panel} mt-5`} style={{ ["--i" as string]: 2.8 }} data-testid="backup-destination" data-enabled={d?.enabled ? "1" : "0"}>
+      <p className={`${railH} mb-2`}><HardDrive className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />Backup destination</p>
+      <p className="text-sm text-stone-600 dark:text-stone-300">
+        Keep a copy off this machine. Attach an external drive or the folder of a sync service — Google Drive, Dropbox, OneDrive, iCloud Drive, Nextcloud — and every snapshot is copied there, verified byte for byte, the last {d?.keep ?? 14} kept. The service's own client carries it to the cloud; Atlas never uploads anything itself.
+      </p>
+      {!d ? null : d.enabled ? (
+        <dl className="mt-2 divide-y divide-stone-100 dark:divide-stone-800">
+          <Row label="Folder" ok={d.reachable ? true : false} value={
+            <span className="flex flex-wrap items-center gap-2">
+              <code className="text-xs">{d.dir}</code>
+              {d.label && <span className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300" data-testid="destination-kind">{d.label}</span>}
+              {!d.reachable && <span className="text-xs text-red-600 dark:text-red-300">not reachable — unplugged, or the sync client is not running</span>}
+              <button type="button" onClick={() => sync.mutate()} disabled={sync.isPending || !d.reachable} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-xs text-stone-700 hover:border-indigo-400 disabled:opacity-50 dark:border-stone-700 dark:text-stone-200" data-testid="destination-sync">{sync.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Copy className="h-3 w-3" aria-hidden="true" />}Copy newest now</button>
+              {desktop && d.reachable && d.newest_copy && <button type="button" onClick={() => { revealPath(d.newest_copy!.path).catch((e) => void errorDialog("Couldn't show the folder", e)); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-xs text-stone-700 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-200"><FolderOpen className="h-3 w-3" aria-hidden="true" />Show in folder</button>}
+              <button type="button" onClick={async () => { if (await confirmDialog({ title: "Detach the backup destination?", confirmLabel: "Detach", body: <>New snapshots stop being copied to <b>{d.dir}</b>. The copies already there are left alone.</> })) attach.mutate(""); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-xs text-stone-500 hover:border-stone-400 dark:border-stone-700" data-testid="destination-detach">Detach</button>
+              {sync.data && <span className="text-xs text-emerald-600 dark:text-emerald-400">{sync.data.detail}</span>}
+            </span>
+          } />
+          <Row label="Newest copy" ok={d.last_error ? false : d.in_sync === null ? null : d.in_sync} value={
+            <span data-testid="destination-newest">{d.newest_copy ? `${d.newest_copy.name} · ${mb(d.newest_copy.size_bytes)}` : "none yet"}{d.in_sync === true ? " · the newest snapshot is there" : d.in_sync === false ? " · the newest snapshot has not been copied yet" : ""}</span>
+          } />
+          <Row label="Kept" value={`${d.copies} of ${d.keep} · ${mb(d.total_bytes)} in ${d.subfolder}${d.free_bytes !== null ? ` · ${gb(d.free_bytes)} free there` : ""}`} />
+          {d.last_error && <Row label="Last failure" ok={false} value={<span className="text-red-600 dark:text-red-300" data-testid="destination-error">{d.last_error.detail} ({new Date(d.last_error.at).toLocaleString()})</span>} />}
+        </dl>
+      ) : (
+        <div className="mt-3 space-y-3" data-testid="destination-setup">
+          {(d.suggestions?.length ?? 0) > 0 && (
+            <div>
+              <p className="mb-1.5 text-xs text-stone-400">Found on this machine — one click attaches it:</p>
+              <div className="flex flex-wrap gap-2">
+                {d.suggestions!.map((s) => (
+                  <button key={s.dir} type="button" onClick={() => attach.mutate(s.dir)} disabled={attach.isPending} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-2.5 py-1 text-xs text-stone-700 hover:border-indigo-400 disabled:opacity-50 dark:border-stone-700 dark:text-stone-200" data-testid="destination-suggestion" title={s.dir}><HardDrive className="h-3 w-3 text-indigo-500" aria-hidden="true" /><span className="font-medium">{s.label}</span><span className="max-w-[16rem] truncate text-stone-400">{s.dir}</span></button>
+                ))}
+              </div>
+            </div>
+          )}
+          <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (dir.trim()) attach.mutate(dir.trim()); }}>
+            <input value={dir} onChange={(e) => setDir(e.target.value)} placeholder={desktop ? "…or type a folder path" : "A folder on the machine that runs Atlas, e.g. /mnt/backup or ~/Dropbox"} className="min-w-0 flex-1 rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-800 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" aria-label="Backup destination folder" />
+            {desktop && <button type="button" onClick={() => void choose()} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2.5 py-1.5 text-xs text-stone-700 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-200"><FolderOpen className="h-3 w-3" aria-hidden="true" />Choose…</button>}
+            <button type="submit" disabled={!dir.trim() || attach.isPending} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50" data-testid="destination-attach">{attach.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <HardDrive className="h-3 w-3" aria-hidden="true" />}Attach</button>
+          </form>
+        </div>
+      )}
+      {error && <p className="mt-2 text-xs text-red-600 dark:text-red-300" data-testid="destination-form-error">{error}</p>}
+    </section>
   );
 }

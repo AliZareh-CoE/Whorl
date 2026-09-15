@@ -247,7 +247,17 @@ def collect(check_network: bool = False) -> dict:
         "access": _access(),
         "backups": backup_status(),  # #424
         "snapshots": _snapshots(),  # #462
+        "backup_destination": _destination(),  # #536
     }
+
+
+def _destination() -> dict | None:
+    try:
+        from core.destination import destination_status
+
+        return destination_status()
+    except Exception:  # noqa: BLE001 - an unplugged drive must not break the page
+        return None
 
 
 def _snapshots() -> dict | None:
@@ -313,6 +323,23 @@ def as_text(report: dict) -> str:
                 if snaps.get("last_error")
                 else ""
             )
+        )
+    dest = report.get("backup_destination") or {}
+    if dest.get("dir"):
+        newest = dest.get("newest_copy")
+        lines.append(
+            f"backup destination: {dest['dir']} ({dest['label']}) · "
+            + ("reachable" if dest["reachable"] else "NOT REACHABLE")
+            + f" · {dest['copies']} copies"
+            + (f" · newest {newest['name']}" if newest else "")
+            + (
+                " · newest snapshot copied"
+                if dest.get("in_sync")
+                else " · NEWEST SNAPSHOT NOT COPIED YET"
+                if dest.get("in_sync") is False
+                else ""
+            )
+            + (f" · LAST FAILED: {dest['last_error']['detail']}" if dest.get("last_error") else "")
         )
     access = report.get("access") or {}
     if access.get("summary"):

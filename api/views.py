@@ -4623,6 +4623,74 @@ class SnapshotsAPIView(APIView):
         )
 
 
+class BackupDestinationAPIView(APIView):
+    """Backup destination (#536): the attached drive or sync folder every snapshot is copied to."""
+
+    @extend_schema(
+        operation_id="v1_backup_destination",
+        description="The backup destination: folder, what it is (Google Drive / Dropbox / "
+        "OneDrive / iCloud / an attached drive / a folder), whether it is reachable now, the "
+        "copies there, whether the newest snapshot has landed, the last failure — plus the "
+        "sync folders and drives found on this machine as `suggestions`.",
+        responses={200: None},
+    )
+    def get(self, request):
+        from core.destination import destination_status
+
+        return Response(destination_status(with_suggestions=True))
+
+    @extend_schema(
+        operation_id="v1_backup_destination_set",
+        description="Attach (or detach with an empty dir) the backup destination: {dir, enabled}. "
+        "The folder must exist and be writable. Attaching copies the newest snapshot right away.",
+        request=inline_serializer(
+            "BackupDestinationConfig",
+            {
+                "dir": rf_serializers.CharField(allow_blank=True),
+                "enabled": rf_serializers.BooleanField(required=False),
+            },
+        ),
+        responses={200: None},
+    )
+    def post(self, request):
+        from pathlib import Path
+
+        from core.destination import destination_status, mirror, save_config
+        from core.snapshots import last_snapshot
+
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            config = save_config(str(data.get("dir") or ""), bool(data.get("enabled", True)))
+        except ValueError as exc:
+            raise rf_serializers.ValidationError({"dir": [str(exc)]}) from exc
+        newest = last_snapshot()
+        if config["enabled"] and newest:
+            mirror(Path(newest["path"]))
+        return Response(destination_status(with_suggestions=True))
+
+
+class BackupDestinationSyncAPIView(APIView):
+    """Copy the newest snapshot to the destination now (#536)."""
+
+    @extend_schema(
+        operation_id="v1_backup_destination_sync",
+        description="Copy the newest local snapshot into the backup destination unless it is "
+        "already there. Answers {copied, name, detail} and the destination status.",
+        request=None,
+        responses={200: None},
+    )
+    def post(self, request):
+        from core.destination import destination_status, sync_now
+
+        try:
+            result = sync_now()
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        except OSError as exc:
+            return Response({"detail": f"Couldn't copy the snapshot: {exc}"}, status=507)
+        return Response({**result, "status": destination_status()})
+
+
 class RestoreAPIView(APIView):
     """Restore from a backup zip (2026-09-07, #376): staged now, applied at the next launch."""
 

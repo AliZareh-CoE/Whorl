@@ -948,3 +948,12 @@ def test_import_projects_folder_posts_the_folder_list(capture):
     client.import_projects_folder("~/Projects", dry_run=False, only="Attention, memory,,")
     assert json.loads(capture["body"])["only"] == ["Attention", "memory"]
     assert json.loads(capture["body"])["dry_run"] is False
+
+
+def test_backup_destination_calls(capture):
+    """#536: status with suggestions; attaching posts {dir, enabled}."""
+    client.get_backup_destination()
+    assert capture["method"] == "GET" and capture["url"].endswith("/backup-destination/")
+    client.set_backup_destination("/Volumes/LaCie", enabled=True)
+    assert capture["method"] == "POST"
+    assert json.loads(capture["body"]) == {"dir": "/Volumes/LaCie", "enabled": True}

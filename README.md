@@ -9,7 +9,7 @@ Atlas is a single-user, self-hosted research platform for people who find Jira-s
 and task-obsessed. It treats what researchers actually care about as first-class: a **plan** you
 write like a document, a **library** that reads your PDFs, **notes** that cite papers with `@key`,
 a **writing studio** that checks your citations and compiles LaTeX, and an **MCP server** so
-Claude Code can do all of it with you — 152 tools over the same API the UI uses.
+Claude Code can do all of it with you — 154 tools over the same API the UI uses.
 
 > Built like Django itself: boring technology, strong conventions, everything has exactly one
 > obvious place. No cloud, no telemetry. Runs as a web app or a one-click desktop app.
@@ -108,7 +108,7 @@ same structure; preview first, re-run any time, nothing on disk moves.
 - ⌘K makes things too: `todo:` a task (with “at 3pm”), `paper:` a DOI or arXiv id (a bare id works as well — it lands in the project you are in), `capture:` a thought, `done:` a milestone, plus “New note”, “New manuscript”, “New project”, “Add a paper”.
 - Today: a dead-simple personal list for the day; “call Sam at 3pm” puts a time on it, the sidebar nudges when it comes close, and what you carried over from earlier days is counted. Research tools: a hypothesis ledger (evidence from papers, notes or documents; the balance suggests a status), experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Subscribe to milestones and manuscript deadlines from your calendar app (`/api/v1/calendar.ics`). Local extras: Piper read-aloud, extractive tl;dr — offline.
 
-**Claude / MCP** — 152 tools over the REST API plus five skills; your AI assistant operates the same contract you do. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
+**Claude / MCP** — 154 tools over the REST API plus five skills; your AI assistant operates the same contract you do. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
 
 ## Quick start (one command)
 
@@ -211,7 +211,7 @@ claude mcp add atlas \
   -- /path/to/atlas/.venv/bin/python -m mcp_server.server
 ```
 
-Tools — projects & plans: `get_dashboard`, `get_daily_brief`, `get_day_activity`, `get_diagnostics`, `take_snapshot`, `get_achievements`, `list_projects`, `get_project_overview`, `get_status_update`, `get_plan`,
+Tools — projects & plans: `get_dashboard`, `get_daily_brief`, `get_day_activity`, `get_diagnostics`, `take_snapshot`, `get_backup_destination`, `set_backup_destination`, `get_achievements`, `list_projects`, `get_project_overview`, `get_status_update`, `get_plan`,
 `complete_milestone`, `move_milestone`, `set_milestone_dependencies`, `fix_plan_conflicts`, `get_plan_drift`, `get_plan_calibration`, `get_plan_review`, `finish_plan_review`, `get_timeline`, `create_project`, `import_projects_folder`, `list_project_templates`, `get_plan_outline`, `set_plan_outline`, `get_roadmap`, `set_phase_dates`, `get_phase_report`, `close_phase`, `get_week_focus`.
 Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,
@@ -348,6 +348,17 @@ install gets the same from cron:
 ```
 0 3 * * * cd /srv/atlas && uv run python manage.py snapshot --if-due
 ```
+
+**A copy off the machine.** Attach a **backup destination** on Diagnostics — an external drive,
+or the local folder of a sync service (Google Drive, Dropbox, OneDrive, iCloud Drive, Nextcloud,
+Proton Drive…; Atlas lists the ones it finds on the machine, one click attaches one) — and every
+snapshot is copied into `<destination>/Atlas backups/`: written under a temporary name, verified
+byte for byte, renamed, the last fourteen kept. The sync client carries it to the cloud on its
+own; Atlas never uploads anything. Diagnostics says whether the folder is reachable right now
+(a drive may be unplugged), which copy is newest, whether the newest snapshot has landed, and
+the last failure; *Copy newest now* catches up after a drive comes back. The same over the API
+(`GET/POST /api/v1/backup-destination/`, `POST …/sync/`), MCP (`get_backup_destination`,
+`set_backup_destination`) and `manage.py snapshot --to /mnt/backup` for a server install.
 
 `ATLAS_SNAPSHOT_DIR` moves the folder (a second disk, a synced folder); `--keep N` changes the
 rotation; `GET/POST /api/v1/snapshots/` reads the status and takes one.

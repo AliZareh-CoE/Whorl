@@ -1243,6 +1243,16 @@ def get_achievements():
     return _request("GET", "/achievements/")
 
 
+def get_backup_destination():
+    """#536: the attached drive / sync folder snapshots are copied to, and the suggestions."""
+    return _request("GET", "/backup-destination/")
+
+
+def set_backup_destination(dir: str, enabled: bool = True):
+    """#536: attach (or detach with dir="") the backup destination; copies the newest snapshot."""
+    return _request("POST", "/backup-destination/", json={"dir": dir, "enabled": enabled})
+
+
 def take_snapshot(list_only: bool = False):
     """#464: the automatic-snapshot status (and files), or write a new snapshot now."""
     if list_only:

@@ -1394,6 +1394,23 @@ def get_diagnostics(network: bool = False) -> dict:
 
 
 @mcp.tool()
+def get_backup_destination() -> dict:
+    """Where snapshots are copied off the machine: the attached drive or sync folder (Google
+    Drive, Dropbox, OneDrive, iCloud Drive…), whether it is reachable, the copies there,
+    whether the newest snapshot has landed, the last failure — and `suggestions`: the sync
+    folders and drives found on this machine, ready to pass to set_backup_destination."""
+    return client.get_backup_destination()
+
+
+@mcp.tool()
+def set_backup_destination(dir: str, enabled: bool = True) -> dict:
+    """Attach a folder (an external drive or a sync service's local folder) as the backup
+    destination: every snapshot is copied there, verified, and rotated; the newest one is
+    copied right away. Pass dir="" to detach. Only with the user's explicit choice of folder."""
+    return client.set_backup_destination(dir, enabled)
+
+
+@mcp.tool()
 def take_snapshot(list_only: bool = False) -> dict:
     """Back Atlas up before a big change: writes a snapshot zip (database + every file) into
     the app's backups folder and rotates the old ones — the same daily automatic snapshot,

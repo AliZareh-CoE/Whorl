@@ -7,7 +7,7 @@ The desktop does this on its own once a day (#462). A server install runs it fro
 
 from pathlib import Path
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
@@ -21,12 +21,25 @@ class Command(BaseCommand):
             "--dir", default=None, help="folder to write into (default: data dir/backups)"
         )
         parser.add_argument("--keep", type=int, default=None, help="how many to keep (default 7)")
+        parser.add_argument(
+            "--to",
+            default=None,
+            help="also copy the snapshot into this folder (an attached drive or a sync folder) "
+            "and remember it as the backup destination (#536)",
+        )
 
     def handle(self, *args, **options):
         from core import snapshots
 
         directory = Path(options["dir"]) if options["dir"] else None
         keep = options["keep"] if options["keep"] is not None else snapshots.KEEP
+        if options["to"]:
+            from core.destination import save_config
+
+            try:
+                save_config(options["to"], enabled=True)
+            except ValueError as exc:
+                raise CommandError(str(exc)) from exc
         if options["if_due"] and not snapshots.due(directory=directory):
             last = snapshots.last_snapshot(directory)
             self.stdout.write(
@@ -40,3 +53,15 @@ class Command(BaseCommand):
         )
         if result["removed"]:
             self.stdout.write("Removed: " + ", ".join(result["removed"]))
+        if result.get("copied"):
+            self.stdout.write(self.style.SUCCESS(f"Copied to: {result['copied']['path']}"))
+        else:
+            from core.destination import destination_status
+
+            status = destination_status()
+            if status["enabled"] and status["last_error"]:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"Copy to {status['dir']} failed: {status['last_error']['detail']}"
+                    )
+                )
