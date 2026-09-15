@@ -28,7 +28,15 @@ from core.memo import enable_memo
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
 from literature import services as literature_services
-from literature.models import Highlight, LibraryTag, ProjectReference, Reference, SavedView
+from literature.models import (
+    Feed,
+    FeedItem,
+    Highlight,
+    LibraryTag,
+    ProjectReference,
+    Reference,
+    SavedView,
+)
 from notes import services as note_services
 from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
@@ -2436,6 +2444,233 @@ class LibraryTagViewSet(AtlasViewSet):
         pks = list(instance.references.values_list("pk", flat=True))
         super().perform_destroy(instance)
         touch_references(pks)
+
+
+class FeedViewSet(AtlasViewSet):
+    """Journal and arXiv feeds followed inside the Library (#531). POST {url, project?, title?}
+    follows a feed (the address is fetched once — a journal home page advertising its feed is
+    followed to it — and refused with 400 when it does not answer with a feed); PATCH renames
+    it or moves it to a project; DELETE stops following it and drops its entries."""
+
+    queryset = Feed.objects.all()
+    serializer_class = serializers.FeedSerializer
+
+    def get_queryset(self):
+        from literature.feeds import feeds_with_counts
+
+        return feeds_with_counts()
+
+    def create(self, request, *args, **kwargs):
+        from literature import feeds
+
+        body = request.data if isinstance(request.data, dict) else {}
+        url = str(body.get("url") or "")[:500].strip()
+        if not url:
+            return Response({"url": ["Give the feed's address."]}, status=400)
+        project = None
+        slug = str(body.get("project") or "")[:200]
+        if slug:
+            project = get_object_or_404(Project, slug=slug)
+        try:
+            feed, created = feeds.add_feed(url, project=project, title=str(body.get("title") or ""))
+        except feeds.FeedError as exc:
+            return Response({"url": [str(exc)]}, status=400)
+        feed = feeds.feeds_with_counts().get(pk=feed.pk)
+        data = serializers.FeedSerializer(feed, context={"request": request}).data
+        return Response(data, status=201 if created else 200)
+
+    @extend_schema(
+        request=inline_serializer(
+            "RefreshFeeds",
+            fields={
+                "ids": rf_serializers.ListField(
+                    child=rf_serializers.IntegerField(), required=False, max_length=20
+                ),
+                "hours": rf_serializers.IntegerField(required=False),
+                "limit": rf_serializers.IntegerField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(
+                description="{feeds, new, seen, unchanged, errors, stopped, status}; GET returns "
+                "{status: {feeds, new, dismissed, errors, last_fetched_at}} alone"
+            )
+        },
+        description=(
+            "Refresh feeds (#531). POST {ids: [...]} (≤ 20) fetches those; POST {hours, limit} "
+            "fetches the ones not fetched in `hours` (default 12), up to `limit` (≤ 20 here; the "
+            "six-hourly sweep does the rest). A feed that does not answer keeps its entries and "
+            "records the reason in `last_error`. GET reports the feeds' status."
+        ),
+    )
+    @action(detail=False, methods=["get", "post"], url_path="refresh")
+    def refresh_all(self, request):
+        from literature import feeds
+
+        if request.method == "GET":
+            return Response({"status": feeds.status()})
+        body = request.data if isinstance(request.data, dict) else {}
+        ids = body.get("ids")
+        if ids is not None:
+            if not isinstance(ids, list) or len(ids) > 20:
+                return Response({"ids": ["Give up to 20 ids."]}, status=400)
+            try:
+                ids = parse_ids(ids, limit=20, strict=True)
+            except ValueError:
+                return Response({"ids": ["Ids must be integers."]}, status=400)
+            out = feeds.refresh(list(Feed.objects.filter(pk__in=ids).order_by("pk")))
+        else:
+            try:
+                hours = int(body.get("hours", feeds.STALE_HOURS))
+                limit = int(body.get("limit", 20))
+            except (TypeError, ValueError):
+                return Response({"detail": ["hours and limit must be integers."]}, status=400)
+            out = feeds.refresh_stale(max(1, hours), max(1, min(20, limit)))
+        out["status"] = feeds.status()
+        return Response(out)
+
+    @extend_schema(
+        operation_id="v1_feeds_refresh_one",
+        request=None,
+        responses={200: OpenApiResponse(description="{new, seen, unchanged, error, feed}")},
+        description="Fetch one feed now (#531); `feed` is its refreshed row.",
+    )
+    @action(detail=True, methods=["post"], url_path="refresh")
+    def refresh_one(self, request, pk=None):
+        from literature import feeds
+
+        feed = get_object_or_404(Feed, pk=pk)
+        out = feeds.fetch_feed(feed)
+        feed = feeds.feeds_with_counts().get(pk=feed.pk)
+        out["feed"] = serializers.FeedSerializer(feed, context={"request": request}).data
+        return Response(out)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("feed", int, description="Entries of one feed"),
+            OpenApiParameter("project", str, description="Entries of the feeds of this project"),
+            OpenApiParameter("q", str, description="A word in the title or the abstract"),
+            OpenApiParameter(
+                "dismissed", str, description="1: the entries marked seen instead of the open ones"
+            ),
+            OpenApiParameter("limit", int, description="Max rows (default 100, max 500)"),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description=(
+                    "{count, results: [{id, feed: {id, title}, guid, title, authors, summary, "
+                    "link, doi, arxiv_id, published_on, first_seen_at, dismissed_at, in_library, "
+                    "addable, url}], status: {feeds, new, dismissed, errors, last_fetched_at}}"
+                )
+            )
+        },
+        description=(
+            "The feeds' entries (#531): papers announced by the followed journals and arXiv "
+            "categories that are not in the library, newest first; the same paper in two feeds "
+            "is listed once. Add one with POST /feeds/items/add/; mark the rest seen with "
+            "POST /feeds/items/dismiss/."
+        ),
+    )
+    @action(detail=False, methods=["get"], url_path="items")
+    def items(self, request):
+        from literature import feeds
+
+        params = request.query_params
+        try:
+            limit = int(params.get("limit", 100))
+            feed_id = int(params.get("feed", 0) or 0)
+        except (TypeError, ValueError):
+            return Response({"detail": "limit and feed must be integers."}, status=400)
+        if feed_id > MAX_PK or limit > 100_000:
+            return Response({"detail": "limit and feed are out of range."}, status=400)
+        out = feeds.items(
+            feed_id=feed_id or None,
+            project=str(params.get("project") or "")[:200],
+            dismissed=params.get("dismissed") in ("1", "true"),
+            q=str(params.get("q") or "")[:200],
+            limit=max(1, min(500, limit)),
+        )
+        out["status"] = feeds.status()
+        return Response(out)
+
+    @extend_schema(
+        request=inline_serializer(
+            "AddFeedItem",
+            fields={
+                "id": rf_serializers.IntegerField(),
+                "project": rf_serializers.CharField(required=False, allow_blank=True),
+            },
+        ),
+        responses={
+            200: serializers.ReferenceSerializer,
+            201: serializers.ReferenceSerializer,
+            400: OpenApiResponse(description="No identifier, or it did not resolve"),
+        },
+        description=(
+            "Add a feed entry's paper to the library by its DOI or arXiv id (#531) and link it to "
+            "`project` (slug; default: the feed's project). The entry leaves the list. 201 when "
+            "the paper is new to the library, 200 when it was already there."
+        ),
+    )
+    @action(detail=False, methods=["post"], url_path="items/add")
+    def add_item(self, request):
+        from literature import feeds
+
+        body = request.data if isinstance(request.data, dict) else {}
+        try:
+            item_id = int(body.get("id"))
+        except (TypeError, ValueError):
+            return Response({"id": ["Give the entry's id."]}, status=400)
+        if item_id > MAX_PK:
+            return Response({"id": ["Out of range."]}, status=400)
+        item = get_object_or_404(FeedItem.objects.select_related("feed"), pk=item_id)
+        project = None
+        slug = str(body.get("project") or "")[:200]
+        if slug:
+            project = get_object_or_404(Project, slug=slug)
+        try:
+            reference, created = feeds.add_item(item, project=project)
+        except (feeds.FeedError, literature_services.MetadataError) as exc:
+            return Response({"detail": str(exc)}, status=400)
+        if created and settings.ATLAS_AUTO_FETCH_PDF and not reference.pdf:
+            from literature.tasks import fetch_oa_pdf_task
+
+            fetch_oa_pdf_task(reference.pk)
+        return Response(
+            serializers.ReferenceSerializer(reference, context={"request": request}).data,
+            status=201 if created else 200,
+        )
+
+    @extend_schema(
+        request=inline_serializer(
+            "DismissFeedItems",
+            fields={
+                "ids": rf_serializers.ListField(
+                    child=rf_serializers.IntegerField(), max_length=500
+                ),
+                "undo": rf_serializers.BooleanField(required=False),
+            },
+        ),
+        responses={200: OpenApiResponse(description="{changed, status}")},
+        description=(
+            "Mark feed entries as seen (#531) — they move to the dismissed list; {undo: true} "
+            "puts them back. Ids are entry ids, up to 500."
+        ),
+    )
+    @action(detail=False, methods=["post"], url_path="items/dismiss")
+    def dismiss_items(self, request):
+        from literature import feeds
+
+        body = request.data if isinstance(request.data, dict) else {}
+        ids = body.get("ids")
+        if not isinstance(ids, list) or not ids or len(ids) > 500:
+            return Response({"ids": ["Give 1 to 500 ids."]}, status=400)
+        try:
+            ids = parse_ids(ids, limit=500, strict=True)
+        except ValueError:
+            return Response({"ids": ["Ids must be integers."]}, status=400)
+        changed = feeds.dismiss(ids, undo=bool(body.get("undo")))
+        return Response({"changed": changed, "status": feeds.status()})
 
 
 class SavedViewViewSet(AtlasViewSet):

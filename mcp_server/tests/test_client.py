@@ -831,6 +831,52 @@ def test_citation_watch_client_calls(capture):
     assert json.loads(capture["body"]) == {"ids": [7], "undo": True}
 
 
+def test_feeds_client_calls(capture):
+    """#531: feeds — list + status, follow, remove, refresh (ids or stale), items with filters,
+    add an entry, dismiss + undo."""
+    capture["response"] = {"results": [{"id": 1, "title": "A"}], "status": {"feeds": 1}}
+    out = client.list_feeds()
+    assert out["feeds"] == [{"id": 1, "title": "A"}] and out["status"] == {"feeds": 1}
+    assert capture["method"] == "GET" and calls_url_has(capture, "/feeds/refresh/")
+    capture["response"] = {"id": 2, "new": 3}
+    client.add_feed("https://rss.arxiv.org/atom/q-bio.NC", project="p", title="t")
+    assert capture["method"] == "POST" and calls_url_has(capture, "/feeds/")
+    assert json.loads(capture["body"]) == {
+        "url": "https://rss.arxiv.org/atom/q-bio.NC",
+        "project": "p",
+        "title": "t",
+    }
+    client.add_feed("https://x.example/rss")
+    assert json.loads(capture["body"]) == {"url": "https://x.example/rss"}
+    capture["response"] = {}
+    assert client.remove_feed(2) == {"removed": 2}
+    assert capture["method"] == "DELETE" and calls_url_has(capture, "/feeds/2/")
+    capture["response"] = {"feeds": 1, "new": 0}
+    client.refresh_feeds([1, 2])
+    assert calls_url_has(capture, "/feeds/refresh/") and json.loads(capture["body"]) == {
+        "ids": [1, 2]
+    }
+    client.refresh_feeds(None, hours=3, limit=99)
+    assert json.loads(capture["body"]) == {"hours": 3, "limit": 20}
+    capture["response"] = {"count": 0, "results": [], "status": {}}
+    client.get_feed_items()
+    assert capture["method"] == "GET" and calls_url_has(capture, "/feeds/items/")
+    assert calls_url_has(capture, "limit=50") and not calls_url_has(capture, "feed=")
+    client.get_feed_items(feed_id=4, project="p", dismissed=True, q="load", limit=9000)
+    for part in ("feed=4", "project=p", "dismissed=1", "q=load", "limit=500"):
+        assert calls_url_has(capture, part), part
+    capture["response"] = {"id": 9, "bibtex_key": "k"}
+    client.add_feed_item(7, project="p")
+    assert calls_url_has(capture, "/feeds/items/add/")
+    assert json.loads(capture["body"]) == {"id": 7, "project": "p"}
+    capture["response"] = {"changed": 2, "status": {}}
+    client.dismiss_feed_items([7, 8])
+    assert calls_url_has(capture, "/feeds/items/dismiss/")
+    assert json.loads(capture["body"]) == {"ids": [7, 8]}
+    client.dismiss_feed_items([7], undo=True)
+    assert json.loads(capture["body"]) == {"ids": [7], "undo": True}
+
+
 def test_library_row_carries_the_published_version():
     row = client._library_row(
         {

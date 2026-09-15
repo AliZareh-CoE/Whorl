@@ -312,6 +312,75 @@ def dismiss_citations(work_ids: list[int], undo: bool = False) -> dict:
 
 
 @mcp.tool()
+def list_feeds() -> dict:
+    """The journal and arXiv feeds the user follows inside the Library (#531): `feeds`
+    [{id, url, title, project, new, items, last_fetched_at, last_ok_at, last_error}] and
+    `status` {feeds, new, dismissed, errors, last_fetched_at}. `new` is how many entries of a
+    feed are still to look at; `last_error` is set when the last fetch did not answer with a
+    feed. Use it for "what am I following?" and before add_feed."""
+    return client.list_feeds()
+
+
+@mcp.tool()
+def add_feed(url: str, project: str = "", title: str = "") -> dict:
+    """Follow a journal or arXiv feed inside the Library (#531): RSS 2.0, Atom or RSS 1.0 at
+    `url` (arXiv: https://rss.arxiv.org/atom/<category>, e.g. q-bio.NC or cs.CL; journals: the
+    RSS address on their site, or the journal's home page when it advertises its feed). The
+    address is fetched once; it is refused when it is private, does not answer, or is not a
+    feed. `project` (slug) is where add_feed_item files papers by default; `title` overrides
+    the feed's own. Returns the feed row with its entry counts."""
+    return client.add_feed(url, project, title)
+
+
+@mcp.tool()
+def remove_feed(feed_id: int) -> dict:
+    """Stop following a feed (#531). Its entries leave the list; papers already added stay in
+    the library."""
+    return client.remove_feed(feed_id)
+
+
+@mcp.tool()
+def refresh_feeds(feed_ids: list[int] | None = None, hours: int = 12, limit: int = 20) -> dict:
+    """Fetch the followed feeds now (#531) so get_feed_items and the Library's Feeds list show
+    today's announcements. With `feed_ids` (≤ 20): those feeds. Without: the ones not fetched
+    in `hours` (default 12), up to `limit` (≤ 20; the six-hourly sweep does the rest). Returns
+    `feeds` (fetched), `new`, `seen`, `unchanged` (304), `errors` (a feed that did not answer
+    keeps its entries and records the reason) and `status`."""
+    return client.refresh_feeds(feed_ids, hours, limit)
+
+
+@mcp.tool()
+def get_feed_items(
+    feed_id: int = 0, project: str = "", dismissed: bool = False, q: str = "", limit: int = 50
+) -> dict:
+    """The followed feeds' entries that are not in the library (#531), newest first — the
+    daily arXiv / journal skim, inside the library. Narrow with `feed_id`, `project` (slug: the
+    feeds filed under it) or `q` (a word in the title or abstract); `dismissed=True` lists the
+    ones marked seen. Rows carry title, authors, summary (the abstract), doi / arxiv_id, link,
+    published_on, `feed` {id, title} and `addable` (has a DOI or arXiv id) — add one with
+    add_feed_item, mark the rest seen with dismiss_feed_items. The same paper in two feeds is
+    listed once. `status` says when the feeds were last fetched; call refresh_feeds for
+    fresher."""
+    return client.get_feed_items(feed_id, project, dismissed, q, limit)
+
+
+@mcp.tool()
+def add_feed_item(item_id: int, project: str = "") -> dict:
+    """Add a feed entry's paper to the library by its DOI or arXiv id (#531) and link it to
+    `project` (slug; default: the feed's project). The entry leaves get_feed_items. Returns the
+    reference row (bibtex_key, title, …)."""
+    return client.add_feed_item(item_id, project)
+
+
+@mcp.tool()
+def dismiss_feed_items(item_ids: list[int], undo: bool = False) -> dict:
+    """Mark feed entries as seen (#531) — they leave get_feed_items and the Library's Feeds
+    list for the seen list; `undo=True` puts them back. `item_ids` are entry ids (≤ 500).
+    Returns `changed` and the feeds' status."""
+    return client.dismiss_feed_items(item_ids, undo)
+
+
+@mcp.tool()
 def get_reading_progress(reference_id: int = 0, limit: int = 5) -> dict | list:
     """Reading progress (#523). With a `reference_id`: where the reader left off in that paper —
     `page`, `pages`, `percent`, `last_read_at` and `links` [{project, reading_status,

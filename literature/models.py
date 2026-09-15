@@ -223,6 +223,73 @@ class CitingWork(TimeStampedModel):
         return f"{self.openalex_id}: {self.title[:60]}"
 
 
+class Feed(TimeStampedModel):
+    """A journal or arXiv feed the researcher follows inside the Library (#531, the field watch).
+
+    RSS 2.0, Atom or RSS 1.0 at `url`; `project` is where Add files a paper by default; the
+    conditional-request headers (`etag`, `last_modified`) keep a refresh to one small request;
+    `last_error` is what the last fetch said when it did not answer with a feed (kept until a
+    fetch succeeds), `last_ok_at` the last fetch that did.
+    """
+
+    url = models.URLField(max_length=500, unique=True)
+    title = models.CharField(max_length=300, blank=True, default="")
+    site_url = models.URLField(max_length=500, blank=True, default="")
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="feeds",
+    )
+    etag = models.CharField(max_length=200, blank=True, default="")
+    last_modified = models.CharField(max_length=100, blank=True, default="")
+    last_fetched_at = models.DateTimeField(null=True, blank=True)
+    last_ok_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=300, blank=True, default="")
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "pk"]
+
+    def __str__(self):
+        return self.title or self.url
+
+
+class FeedItem(TimeStampedModel):
+    """One entry of a feed (#531). Deduplicated per feed by `guid`; `created_at` is when it was
+    first seen and never moves. `reference` is set once the paper is in the library (then it
+    is no longer news); `dismissed_at` is the researcher saying "seen"."""
+
+    feed = models.ForeignKey(Feed, on_delete=models.CASCADE, related_name="items")
+    guid = models.CharField(max_length=500)
+    title = models.TextField()
+    authors = models.JSONField(default=list)
+    summary = models.TextField(blank=True, default="")
+    link = models.URLField(max_length=500, blank=True, default="")
+    doi = models.CharField(max_length=255, blank=True, default="")
+    arxiv_id = models.CharField(max_length=50, blank=True, default="")
+    published_on = models.DateField(null=True, blank=True)
+    reference = models.ForeignKey(
+        Reference,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="feed_items",
+    )
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-published_on", "pk"]  # newest day first; the feed's own order within it
+        constraints = [
+            models.UniqueConstraint(fields=["feed", "guid"], name="literature_feeditem_guid")
+        ]
+        indexes = [models.Index(fields=["doi"]), models.Index(fields=["arxiv_id"])]
+
+    def __str__(self):
+        return self.title[:60]
+
+
 class CitationSyncState(TimeStampedModel):
     """Per-project state of the OpenAlex citation-edge sync."""
 

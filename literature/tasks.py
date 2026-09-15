@@ -51,3 +51,11 @@ def check_citations_task():
     from .citing import check_stale
 
     return check_stale()
+
+
+@db_periodic_task(crontab(hour="*/6", minute=20))
+def refresh_feeds_task():
+    """#531: the feed sweep — feeds not fetched for twelve hours, every six hours."""
+    from .feeds import refresh_stale
+
+    return refresh_stale()

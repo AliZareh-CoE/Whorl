@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, Pencil, ShieldAlert, ShieldCheck, ArrowUpCircle, Radar, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, Pencil, ShieldAlert, ShieldCheck, ArrowUpCircle, Radar, Rss, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
@@ -49,6 +49,10 @@ type DupGroup = { keep: number; reasons: string[]; members: DupMember[] };
 // #530: the citation watch's feed — a paper outside the library that cites papers in it
 type CitingRow = { id: number; openalex_id: string; doi: string; title: string; authors: string[]; year: number | null; published_on: string | null; venue: string; cited_by_count: number | null; cites: { id: number; bibtex_key: string; title: string }[]; first_seen_at: string; dismissed_at: string | null; addable: boolean; url: string };
 type CitingFeed = { count: number; results: CitingRow[]; status: { new: number; dismissed: number; watched: number; unchecked: number; last_checked_at: string | null } };
+// #531: journal / arXiv feeds followed inside the Library
+type FeedRow = { id: number; url: string; title: string; site_url: string; project: string | null; position: number; new: number; items: number; last_fetched_at: string | null; last_ok_at: string | null; last_error: string };
+type FeedItemRow = { id: number; feed: { id: number; title: string }; guid: string; title: string; authors: string[]; summary: string; link: string; doi: string; arxiv_id: string; published_on: string | null; first_seen_at: string; dismissed_at: string | null; in_library: number | null; addable: boolean; url: string };
+type FeedItems = { count: number; results: FeedItemRow[]; status: { feeds: number; new: number; dismissed: number; errors: number; last_fetched_at: string | null } };
 type DiscoverRow = {
   openalex_id: string; doi: string; title: string; year: number | null; venue: string; authors: string[];
   more_authors: number; citations: number | null; in_library: boolean; library_id: number | null; addable: boolean;
@@ -188,7 +192,17 @@ export default function Library() {
   const [citeMode, setCiteMode] = useState(false);
   const [citeRef, setCiteRef] = useState<number | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
-  const openCiting = (ref: number | null) => { setCiteRef(ref); setShowDismissed(false); setDupMode(false); setCiteMode(true); };
+  const openCiting = (ref: number | null) => { setCiteRef(ref); setShowDismissed(false); setDupMode(false); setFeedMode(false); setCiteMode(true); };
+  // #531: the Feeds list (a mode like New citations), optionally narrowed to one feed
+  const [feedMode, setFeedMode] = useState(false);
+  const [feedId, setFeedId] = useState<number | null>(null);
+  const [showSeenFeed, setShowSeenFeed] = useState(false);
+  const [feedQInput, setFeedQInput] = useState("");
+  const feedQ = useDebounced(feedQInput, 220);
+  const [feedFormOpen, setFeedFormOpen] = useState(false);
+  const [feedUrl, setFeedUrl] = useState("");
+  const [feedError, setFeedError] = useState("");
+  const openFeeds = (id: number | null) => { setFeedId(id); setShowSeenFeed(false); setDupMode(false); setCiteMode(false); setFeedMode(true); };
   const [readerId, setReaderId] = useState<number | null>(null);
   // Cards view (#397, Observatory): the same rows as cover-style cards; remembered per browser
   const [view, setView] = useState<"list" | "cards">(() => { try { return localStorage.getItem("atlas-library-view") === "cards" ? "cards" : "list"; } catch { return "list"; } });
@@ -208,6 +222,52 @@ export default function Library() {
     queryKey: ["new-citations", showDismissed, citeRef, filters.project],
     queryFn: () => api<CitingFeed>(`/references/new-citations/?limit=200${showDismissed ? "&dismissed=1" : ""}${citeRef ? `&reference=${citeRef}` : ""}${filters.project && !citeRef ? `&project=${encodeURIComponent(filters.project)}` : ""}`),
     enabled: citeMode,
+  });
+  const feedsList = useQuery({ queryKey: ["feeds"], queryFn: () => api<Page<FeedRow>>("/feeds/?page_size=200").then((p) => p.results), staleTime: 30_000 });
+  const feedItems = useQuery({
+    queryKey: ["feed-items", feedId, showSeenFeed, feedQ, filters.project],
+    queryFn: () => api<FeedItems>(`/feeds/items/?limit=200${showSeenFeed ? "&dismissed=1" : ""}${feedId ? `&feed=${feedId}` : ""}${feedQ ? `&q=${encodeURIComponent(feedQ)}` : ""}${filters.project && !feedId ? `&project=${encodeURIComponent(filters.project)}` : ""}`),
+    enabled: feedMode,
+  });
+  const refreshFeedQueries = () => { queryClient.invalidateQueries({ queryKey: ["feeds"] }); queryClient.invalidateQueries({ queryKey: ["feed-items"] }); };
+  const followFeed = useMutation({
+    // a plain fetch so the server's refusal reason ("that host is private", "answered 404",
+    // "did not answer with a feed") can be shown in place instead of a bare status
+    mutationFn: async (url: string) => {
+      const response = await fetch("/api/v1/feeds/", { method: "POST", credentials: "same-origin", headers: { Accept: "application/json", "Content-Type": "application/json", "X-CSRFToken": csrfToken() }, body: JSON.stringify(filters.project ? { url, project: filters.project } : { url }) });
+      if (!response.ok) {
+        let reason = "";
+        try { const body = (await response.json()) as { url?: string[]; detail?: string }; reason = body.url?.[0] ?? body.detail ?? ""; } catch { /* no body */ }
+        throw new Error(reason || `The server answered ${response.status}.`);
+      }
+      return (await response.json()) as FeedRow;
+    },
+    onSuccess: (f) => { setFeedError(""); setFeedUrl(""); setFeedFormOpen(false); refreshFeedQueries(); openFeeds(f.id); flash(`Following “${f.title}” · ${f.new} new entr${f.new === 1 ? "y" : "ies"}.`); },
+    onError: (e: Error) => setFeedError(e.message.charAt(0).toUpperCase() + e.message.slice(1) + (e.message.endsWith(".") ? "" : ".")),
+  });
+  const unfollowFeed = useMutation({
+    mutationFn: (id: number) => api<void>(`/feeds/${id}/`, { method: "DELETE" }),
+    onSuccess: () => { setFeedId(null); refreshFeedQueries(); flash("Stopped following the feed."); },
+    onError: () => flash("Could not remove the feed."),
+  });
+  const refreshFeeds = useMutation({
+    mutationFn: (ids: number[] | null) => api<{ feeds: number; new: number; seen: number; unchanged: number; errors: number; stopped: boolean }>("/feeds/refresh/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ids ? { ids } : { hours: 1, limit: 20 }) }),
+    onSuccess: (out, ids) => {
+      refreshFeedQueries();
+      if (!ids && out.feeds === 0) { flash("Every feed was fetched in the last hour."); return; }
+      flash(`Fetched ${out.feeds} feed${out.feeds === 1 ? "" : "s"} · ${out.new} new entr${out.new === 1 ? "y" : "ies"}${out.errors ? ` · ${out.errors} did not answer` : ""}.`);
+    },
+    onError: () => flash("Could not refresh the feeds."),
+  });
+  const addFeedItem = useMutation({
+    mutationFn: (row: FeedItemRow) => api<Ref>("/feeds/items/add/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(filters.project ? { id: row.id, project: filters.project } : { id: row.id }) }),
+    onSuccess: (r) => { invalidate(); refreshFeedQueries(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library.`); },
+    onError: () => flash("Could not add the paper — its identifier did not resolve."),
+  });
+  const dismissFeedItems = useMutation({
+    mutationFn: ({ ids, undo }: { ids: number[]; undo?: boolean }) => api<{ changed: number }>("/feeds/items/dismiss/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(undo ? { ids, undo: true } : { ids }) }),
+    onSuccess: (out, { undo }) => { refreshFeedQueries(); flash(undo ? `Put ${out.changed} back.` : `Marked ${out.changed} as seen.`); },
+    onError: () => flash("Could not update the feed."),
   });
   const highlights = useQuery({ queryKey: ["highlights", detailId], queryFn: () => api<Page<Highlight>>(`/highlights/?reference=${detailId}&page_size=200`).then((p) => p.results), enabled: detailId !== null });
   const readingNotes = useQuery({ queryKey: ["reading-notes", detailId], queryFn: () => api<ReadingNote[]>(`/references/${detailId}/reading-notes/`), enabled: detailId !== null });
@@ -732,9 +792,32 @@ export default function Library() {
                 <button type="button" data-testid="rail-preprints" className={chip(filters.preprints === "true")} onClick={() => toggle("preprints", "true")} title="arXiv papers without a publisher DOI of their own"><span className="flex items-center gap-1.5"><FileText className="h-3 w-3" aria-hidden="true" />Preprints</span><span className="tabular-nums text-stone-400">{f.preprints}</span></button>
                 <button type="button" data-testid="rail-published" className={chip(filters.published_available === "true")} onClick={() => toggle("published_available", "true")} title="Preprints whose published version the preprint watch found — upgrade them from the detail pane"><span className="flex items-center gap-1.5"><ArrowUpCircle className={`h-3 w-3 ${f.published_available ? "text-amber-500" : ""}`} aria-hidden="true" />Published version</span><span className={`tabular-nums ${f.published_available ? "font-semibold text-amber-500" : "text-stone-400"}`}>{f.published_available}</span></button>
                 <button type="button" data-testid="check-preprints" disabled={checkPreprints.isPending} onClick={() => checkPreprints.mutate(null)} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-60 dark:hover:bg-stone-800 dark:hover:text-stone-200" title="Ask arXiv and Semantic Scholar about the preprints not checked in the last 30 days (up to 50 now; the rest run nightly)">{checkPreprints.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <ArrowUpCircle className="h-3 w-3" aria-hidden="true" />}{checkPreprints.isPending ? "Asking arXiv…" : "Check preprints now"}</button>
-                <button type="button" className={chip(dupMode)} onClick={() => setDupMode((v) => !v)} title="Papers that look like the same work imported twice"><span className="flex items-center gap-1.5"><CopyCheck className="h-3 w-3" aria-hidden="true" />Duplicates</span><span className={`tabular-nums ${f.duplicates ? "text-amber-500" : "text-stone-400"}`}>{f.duplicates}</span></button>
+                <button type="button" className={chip(dupMode)} onClick={() => { setFeedMode(false); setDupMode((v) => !v); }} title="Papers that look like the same work imported twice"><span className="flex items-center gap-1.5"><CopyCheck className="h-3 w-3" aria-hidden="true" />Duplicates</span><span className={`tabular-nums ${f.duplicates ? "text-amber-500" : "text-stone-400"}`}>{f.duplicates}</span></button>
                 <button type="button" data-testid="rail-new-citations" className={chip(citeMode)} onClick={() => (citeMode ? setCiteMode(false) : openCiting(null))} title="Papers outside the library that cite papers in it — found by the weekly OpenAlex sweep"><span className="flex items-center gap-1.5"><Radar className={`h-3 w-3 ${f.new_citations ? "text-sky-500" : ""}`} aria-hidden="true" />New citations</span><span className={`tabular-nums ${f.new_citations ? "font-semibold text-sky-500" : "text-stone-400"}`}>{f.new_citations}</span></button>
                 <button type="button" data-testid="check-citations" disabled={checkCitations.isPending} onClick={() => checkCitations.mutate(null)} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-60 dark:hover:bg-stone-800 dark:hover:text-stone-200" title="Ask OpenAlex who newly cites the papers not checked in the last 7 days (up to 50 now; the rest run nightly)">{checkCitations.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Radar className="h-3 w-3" aria-hidden="true" />}{checkCitations.isPending ? "Asking OpenAlex…" : "Check citations now"}</button>
+              </div>
+              {/* #531: the feeds the researcher follows — an arXiv category, a journal — with their
+                  unread counts; the list opens as a mode like New citations. */}
+              <div className="mb-3" data-testid="feeds-rail">
+                <p className={railH}>Feeds</p>
+                <button type="button" data-testid="rail-feeds-all" className={chip(feedMode && feedId === null)} onClick={() => (feedMode && feedId === null ? setFeedMode(false) : openFeeds(null))} title="New entries from every feed you follow, newest first"><span className="flex items-center gap-1.5"><Rss className={`h-3 w-3 ${(feedsList.data ?? []).some((f) => f.new) ? "text-emerald-500" : ""}`} aria-hidden="true" />All feeds</span><span className={`tabular-nums ${(feedsList.data ?? []).some((f) => f.new) ? "font-semibold text-emerald-500" : "text-stone-400"}`}>{(feedsList.data ?? []).reduce((n, f) => n + f.new, 0)}</span></button>
+                {(feedsList.data ?? []).map((f) => (
+                  <button key={f.id} type="button" data-testid="rail-feed" className={chip(feedMode && feedId === f.id)} onClick={() => (feedMode && feedId === f.id ? setFeedMode(false) : openFeeds(f.id))} title={f.last_error ? `${f.url} — ${f.last_error}` : f.url}>
+                    <span className="flex min-w-0 items-center gap-1.5">{f.last_error && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-label="the last fetch failed" />}<span className="truncate">{f.title}</span></span>
+                    <span className={`tabular-nums ${f.new ? "text-emerald-500" : "text-stone-400"}`}>{f.new}</span>
+                  </button>
+                ))}
+                {feedFormOpen ? (
+                  <form className="mt-1 flex items-center gap-1" onSubmit={(e) => { e.preventDefault(); if (feedUrl.trim()) followFeed.mutate(feedUrl.trim()); }}>
+                    <input data-testid="feed-url" autoFocus value={feedUrl} onChange={(e) => setFeedUrl(e.target.value)} placeholder="Feed or journal address" className="min-w-0 flex-1 rounded-md border border-stone-300 bg-transparent px-2 py-1 text-xs outline-none focus:border-indigo-400 dark:border-stone-700" />
+                    <button type="submit" disabled={followFeed.isPending || !feedUrl.trim()} className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50">{followFeed.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : "Follow"}</button>
+                    <button type="button" onClick={() => { setFeedFormOpen(false); setFeedError(""); }} className="text-stone-400 hover:text-stone-600" aria-label="Cancel"><X className="h-3 w-3" aria-hidden="true" /></button>
+                  </form>
+                ) : (
+                  <button type="button" data-testid="add-feed" onClick={() => setFeedFormOpen(true)} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800 dark:hover:text-stone-200" title="An arXiv category (https://rss.arxiv.org/atom/q-bio.NC), a journal's RSS address, or the journal's home page"><Plus className="h-3 w-3" aria-hidden="true" />Follow a feed{filters.project ? " for this project" : ""}</button>
+                )}
+                {feedError && <p data-testid="feed-error" className="mt-1 px-2 text-[11px] text-rose-500">{feedError}</p>}
+                {(feedsList.data ?? []).length > 0 && <button type="button" data-testid="refresh-feeds" disabled={refreshFeeds.isPending} onClick={() => refreshFeeds.mutate(null)} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-60 dark:hover:bg-stone-800 dark:hover:text-stone-200" title="Fetch the feeds not fetched in the last hour (the rest run every six hours)">{refreshFeeds.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Rss className="h-3 w-3" aria-hidden="true" />}{refreshFeeds.isPending ? "Fetching…" : "Refresh feeds now"}</button>}
               </div>
               <div className="mb-3">
                 <p className={railH}>Type</p>
@@ -785,6 +868,57 @@ export default function Library() {
             comments={(readerComments.data?.comments ?? []).map((c) => ({ id: c.id, body: c.body, page: c.line }))}
             onComment={(page) => void commentOnPage(page)}
           />
+        ) : feedMode ? (
+          <section className={`${panel} rise flex min-h-[60vh] flex-col overflow-hidden`} style={{ ["--i" as string]: 1 }} data-testid="feeds-panel">
+            {(() => {
+              const feed = feedId ? (feedsList.data ?? []).find((f) => f.id === feedId) : null;
+              const rows = feedItems.data?.results ?? [];
+              return (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 px-4 py-2.5 text-xs dark:border-stone-800">
+                    <Rss className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+                    <span className="font-medium text-stone-700 dark:text-stone-100">{showSeenFeed ? "Seen entries" : feed ? feed.title : "Feeds"}</span>
+                    {feed && <button type="button" onClick={() => setFeedId(null)} className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-700 dark:text-emerald-200" title="Show every feed">one feed <X className="h-3 w-3" aria-hidden="true" /></button>}
+                    <span className="hidden text-stone-400 sm:inline">{feed ? (feed.last_error ? `last fetch failed — ${feed.last_error}` : feed.last_ok_at ? `fetched ${new Date(feed.last_ok_at).toLocaleString()}` : "not fetched yet") : `what your feeds announced · newest first${feedItems.data?.status.last_fetched_at ? ` · fetched ${new Date(feedItems.data.status.last_fetched_at).toLocaleDateString()}` : ""}`}</span>
+                    <div className="ml-auto flex flex-wrap items-center gap-2">
+                      <div className="relative"><Search className="pointer-events-none absolute left-1.5 top-1.5 h-3 w-3 text-stone-400" aria-hidden="true" /><input data-testid="feed-filter" value={feedQInput} onChange={(e) => setFeedQInput(e.target.value)} placeholder="Filter titles and abstracts" className="w-44 rounded-md border border-stone-200 bg-transparent py-0.5 pl-6 pr-2 text-xs outline-none focus:border-emerald-400 dark:border-stone-700" /></div>
+                      <button type="button" data-testid="feed-toggle-seen" onClick={() => setShowSeenFeed((v) => !v)} className="text-stone-400 hover:underline">{showSeenFeed ? "back to new" : `seen${feedItems.data ? ` (${feedItems.data.status.dismissed})` : ""}`}</button>
+                      {!showSeenFeed && rows.length > 1 && <button type="button" data-testid="feed-dismiss-all" disabled={dismissFeedItems.isPending} onClick={() => dismissFeedItems.mutate({ ids: rows.map((r) => r.id) })} className="text-stone-400 hover:underline disabled:opacity-50">mark all seen</button>}
+                      <button type="button" disabled={refreshFeeds.isPending} onClick={() => refreshFeeds.mutate(feed ? [feed.id] : null)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-stone-600 hover:border-emerald-400 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300">{refreshFeeds.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Rss className="h-3 w-3" aria-hidden="true" />}Refresh now</button>
+                      {feed && <button type="button" data-testid="unfollow-feed" onClick={async () => { if (await confirmDialog({ title: `Stop following “${feed.title}”?`, body: "Its entries go; papers you added stay in the library.", danger: true, confirmLabel: "Stop following" })) unfollowFeed.mutate(feed.id); }} className="text-stone-400 hover:text-rose-500" title="Stop following this feed"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>}
+                      <button type="button" onClick={() => setFeedMode(false)} className="text-stone-400 hover:underline">back to the list</button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-auto">
+                    {feedItems.isLoading && <p className="p-4 text-sm text-stone-400">Reading the feeds…</p>}
+                    {feedItems.data && rows.length === 0 && (
+                      <div className="px-4 py-16 text-center">
+                        <Rss className="mx-auto mb-2 h-6 w-6 text-emerald-400" aria-hidden="true" />
+                        <p className="text-sm font-medium text-stone-700 dark:text-stone-100">{showSeenFeed ? "Nothing marked seen yet." : feedQ ? "No entry matches." : feedItems.data.status.feeds === 0 ? "No feeds followed yet." : "Nothing new from your feeds."}</p>
+                        <p className="mt-1 text-xs text-stone-400">{feedItems.data.status.feeds === 0 ? "Follow an arXiv category or a journal from the rail — every new paper it announces lands here, with Add and Dismiss." : "The feeds are fetched every six hours; Refresh now asks them straight away."}</p>
+                      </div>
+                    )}
+                    <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+                      {rows.map((row, i) => (
+                        <li key={row.id} data-testid="feed-row" className="rise flex flex-wrap items-start gap-3 px-4 py-3 sm:flex-nowrap" style={{ ["--i" as string]: Math.min(i, 12) }}>
+                          <div className="min-w-0 flex-1">
+                            <a href={row.url || undefined} target="_blank" rel="noreferrer" className="text-sm text-stone-900 hover:underline dark:text-stone-100">{row.title}</a>
+                            <p className="mt-0.5 text-[11px] text-stone-400">{[row.authors.slice(0, 3).join(", ") + (row.authors.length > 3 ? ` +${row.authors.length - 3}` : ""), feedId ? null : row.feed.title, row.published_on ? new Date(row.published_on).toLocaleDateString() : null, row.doi ? `doi ${row.doi}` : row.arxiv_id ? `arXiv ${row.arxiv_id}` : null].filter(Boolean).join(" · ")}</p>
+                            {row.summary && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-stone-500 dark:text-stone-400" title={row.summary}>{row.summary}</p>}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1 text-[11px]">
+                            {row.addable && !showSeenFeed && <button type="button" data-testid="feed-add" disabled={addFeedItem.isPending} onClick={() => addFeedItem.mutate(row)} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-50" title={filters.project ? "Add to the library and this project" : feed?.project ? `Add to the library and ${feed.project}` : "Add to the library"}><Plus className="h-3 w-3" aria-hidden="true" />Add</button>}
+                            {!row.addable && !showSeenFeed && <span className="rounded-md border border-stone-200 px-2 py-1 text-stone-400 dark:border-stone-700" title="No DOI or arXiv id in the feed — open it to judge, add by hand if it matters">no id</span>}
+                            <button type="button" data-testid="feed-dismiss" disabled={dismissFeedItems.isPending} onClick={() => dismissFeedItems.mutate({ ids: [row.id], undo: showSeenFeed })} className="rounded-md border border-stone-300 px-2 py-1 text-stone-500 hover:border-stone-400 hover:text-stone-700 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300">{showSeenFeed ? "Restore" : "Dismiss"}</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              );
+            })()}
+          </section>
         ) : citeMode ? (
           <section className={`${panel} rise flex min-h-[60vh] flex-col overflow-hidden`} style={{ ["--i" as string]: 1 }} data-testid="citing-panel">
             <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 px-4 py-2.5 text-xs dark:border-stone-800">

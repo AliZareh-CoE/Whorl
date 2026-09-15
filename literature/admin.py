@@ -3,6 +3,8 @@ from django.contrib import admin
 from .models import (
     CitationEdge,
     CitingWork,
+    Feed,
+    FeedItem,
     Highlight,
     LibraryTag,
     ProjectReference,
@@ -91,3 +93,18 @@ class CitingWorkAdmin(admin.ModelAdmin):
     search_fields = ["title", "doi", "openalex_id"]
     list_filter = ["year"]
     raw_id_fields = ["cites", "reference"]
+
+
+@admin.register(Feed)
+class FeedAdmin(admin.ModelAdmin):
+    list_display = ["title", "url", "project", "last_fetched_at", "last_ok_at", "last_error"]
+    search_fields = ["title", "url"]
+    raw_id_fields = ["project"]
+
+
+@admin.register(FeedItem)
+class FeedItemAdmin(admin.ModelAdmin):
+    list_display = ["title", "feed", "published_on", "doi", "arxiv_id", "reference", "dismissed_at"]
+    search_fields = ["title", "doi", "arxiv_id", "guid"]
+    list_filter = ["feed"]
+    raw_id_fields = ["feed", "reference"]

@@ -5,7 +5,14 @@ from rest_framework import serializers
 from core.ids import MAX_PK
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
-from literature.models import Highlight, LibraryTag, ProjectReference, Reference, SavedView
+from literature.models import (
+    Feed,
+    Highlight,
+    LibraryTag,
+    ProjectReference,
+    Reference,
+    SavedView,
+)
 from notes.models import Note, QuickCapture
 from plans.models import Milestone, Phase, ResearchQuestion, Task
 from projects.models import DecisionRecord, Project
@@ -638,6 +645,44 @@ class SavedViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = SavedView
         fields = ["id", "name", "params", "position", "created_at", "updated_at"]
+
+
+class FeedSerializer(serializers.ModelSerializer):
+    """A followed journal / arXiv feed (#531). `project` is the slug Add files papers under by
+    default; `new` and `items` are the open and total entry counts (annotated by the view)."""
+
+    project = serializers.SlugRelatedField(
+        slug_field="slug", queryset=Project.objects.all(), allow_null=True, required=False
+    )
+    new = serializers.IntegerField(source="new_count", read_only=True, default=0)
+    items = serializers.IntegerField(source="item_count", read_only=True, default=0)
+
+    class Meta:
+        model = Feed
+        fields = [
+            "id",
+            "url",
+            "title",
+            "site_url",
+            "project",
+            "position",
+            "new",
+            "items",
+            "last_fetched_at",
+            "last_ok_at",
+            "last_error",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "site_url",
+            "position",
+            "last_fetched_at",
+            "last_ok_at",
+            "last_error",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class ManuscriptReferenceInSerializer(serializers.Serializer):

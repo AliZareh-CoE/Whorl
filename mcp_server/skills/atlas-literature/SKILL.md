@@ -34,6 +34,11 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
   Lavie?" — the feed is stored by the daily OpenAlex sweep; `check_citations` when the user wants
   it fresher (one request per 50 papers); `add_reference_by_doi` for a row worth keeping,
   `dismiss_citations` for the rest.
+- `list_feeds` / `add_feed` when the user wants to follow an arXiv category or a journal
+  ("follow q-bio.NC", "add the Nature Human Behaviour feed to this project"); `get_feed_items`
+  for "anything new on arXiv today?" — the entries are stored by the six-hourly sweep,
+  `refresh_feeds` when the user wants them fresher; `add_feed_item` for a paper worth keeping
+  (it files under the feed's project), `dismiss_feed_items` for the rest.
 - `browse_library` for "what do I have by X?", "unread papers tagged Y", "papers with no PDF" —
   every filter the Library rail offers (author, q, year range, venue, tag, project + status,
   has_pdf, untagged / unfiled / needs_metadata, sort); rows are compact and carry `progress`,

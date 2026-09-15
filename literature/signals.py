@@ -31,3 +31,17 @@ def link_citing_works(sender, instance: Reference, created=False, update_fields=
         from .citing import link_reference
 
         link_reference(instance)
+
+
+@receiver(post_save, sender=Reference)
+def link_feed_items(sender, instance: Reference, created=False, update_fields=None, **kwargs):
+    """#531: a paper that joins the library (or gains a DOI / arXiv id) stops being a feed
+    entry to add — the entries that are this paper get linked to it. Saves naming other fields
+    cannot change identity: no query."""
+    if update_fields is not None and not created:
+        if not set(update_fields) & {"doi", "arxiv_id"}:
+            return
+    if instance.doi or instance.arxiv_id:
+        from .feeds import link_reference
+
+        link_reference(instance)

@@ -221,6 +221,15 @@ def start_scheduler(directory: Path | None = None) -> bool:
                     log.exception("citation sweep failed")
                 finally:
                     close_old_connections()
+                try:
+                    # #531: the journal / arXiv feeds refresh from the same thread, same rules.
+                    from literature.feeds import refresh_stale as refresh_stale_feeds
+
+                    refresh_stale_feeds()
+                except Exception:  # noqa: BLE001
+                    log.exception("feed sweep failed")
+                finally:
+                    close_old_connections()
                 wait = CHECK_EVERY_SECONDS
 
         _THREAD = threading.Thread(target=loop, name="atlas-snapshots", daemon=True)

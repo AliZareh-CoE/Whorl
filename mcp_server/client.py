@@ -329,6 +329,73 @@ def dismiss_citations(work_ids, undo: bool = False):
     return _request("POST", "/references/new-citations/dismiss/", json=payload)
 
 
+def list_feeds():
+    """The followed journal / arXiv feeds (#531) with their open-entry counts, plus the feeds'
+    status."""
+    page = _request("GET", "/feeds/", params={"page_size": 200})
+    feeds = page.get("results", page) if isinstance(page, dict) else page
+    status = _request("GET", "/feeds/refresh/").get("status", {})
+    return {"feeds": feeds, "status": status}
+
+
+def add_feed(url: str, project: str = "", title: str = ""):
+    """Follow a feed (#531): POST /feeds/ — the address is fetched once and refused when it
+    does not answer with a feed."""
+    payload: dict = {"url": url}
+    if project:
+        payload["project"] = project
+    if title:
+        payload["title"] = title
+    return _request("POST", "/feeds/", json=payload)
+
+
+def remove_feed(feed_id: int):
+    """Stop following a feed (#531); its entries go with it."""
+    _request("DELETE", f"/feeds/{int(feed_id)}/")
+    return {"removed": int(feed_id)}
+
+
+def refresh_feeds(feed_ids=None, hours: int = 12, limit: int = 20):
+    """Fetch feeds now (#531): chosen ids (≤ 20) or the stale ones."""
+    if feed_ids:
+        payload: dict = {"ids": [int(i) for i in feed_ids][:20]}
+    else:
+        payload = {"hours": int(hours or 12), "limit": max(1, min(int(limit or 20), 20))}
+    return _request("POST", "/feeds/refresh/", json=payload)
+
+
+def get_feed_items(
+    feed_id: int = 0, project: str = "", dismissed: bool = False, q: str = "", limit: int = 50
+):
+    """The feeds' entries not in the library (#531), newest first."""
+    params: dict = {"limit": max(1, min(int(limit or 50), 500))}
+    if feed_id:
+        params["feed"] = int(feed_id)
+    if project:
+        params["project"] = project
+    if q:
+        params["q"] = q
+    if dismissed:
+        params["dismissed"] = "1"
+    return _request("GET", "/feeds/items/", params=params)
+
+
+def add_feed_item(item_id: int, project: str = ""):
+    """Add a feed entry's paper to the library by its DOI / arXiv id (#531)."""
+    payload: dict = {"id": int(item_id)}
+    if project:
+        payload["project"] = project
+    return _request("POST", "/feeds/items/add/", json=payload)
+
+
+def dismiss_feed_items(item_ids, undo: bool = False):
+    """Mark feed entries seen (#531), or put them back with undo=True."""
+    payload: dict = {"ids": [int(i) for i in item_ids][:500]}
+    if undo:
+        payload["undo"] = True
+    return _request("POST", "/feeds/items/dismiss/", json=payload)
+
+
 def get_reading_now(limit: int = 5):
     """Papers you are in the middle of — a remembered page, not at the end, newest first (#523)."""
     return _request("GET", "/references/reading-now/", params={"limit": limit})

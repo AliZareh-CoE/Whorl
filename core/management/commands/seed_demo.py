@@ -602,6 +602,113 @@ class Command(BaseCommand):
         for ref in Reference.objects.filter(cited_by_checked_at__isnull=True):
             ref.cited_by_checked_at = timezone.now()
             ref.save(update_fields=["cited_by_checked_at", "updated_at"])
+
+        # #531: two followed feeds — an arXiv category and a journal — with entries as the
+        # six-hourly sweep would have stored them: the rail's Feeds section with unread counts,
+        # the Feeds list with Add / Dismiss, an entry already in the library (not news), one
+        # marked seen. Both carry a fetched stamp so a fresh desktop launch fetches nothing.
+        from literature.models import Feed, FeedItem
+
+        today = datetime.date.today()
+        feed_specs = [
+            {
+                "url": "https://rss.arxiv.org/atom/q-bio.NC",
+                "title": "q-bio.NC updates on arXiv.org",
+                "site_url": "https://arxiv.org/list/q-bio.NC/new",
+                "items": [
+                    {
+                        "guid": "oai:arXiv.org:2609.00101v1",
+                        "title": "Perceptual load and the precision of working-memory guidance: "
+                        "a drift-diffusion account",
+                        "authors": ["Mara Lindqvist", "Tobias Weil", "Anaïs Roux"],
+                        "summary": "We ask whether perceptual load changes the precision with "
+                        "which working memory guides attention, fitting a drift-diffusion model "
+                        "to 41 participants across three load levels. Guidance precision fell "
+                        "with load while non-decision time did not, favouring a capacity account.",
+                        "link": "https://arxiv.org/abs/2609.00101",
+                        "arxiv_id": "2609.00101",
+                        "published_on": today - datetime.timedelta(days=1),
+                    },
+                    {
+                        "guid": "oai:arXiv.org:2609.00102v1",
+                        "title": "Distractor suppression is not a single mechanism: evidence from "
+                        "EEG alpha and pupil dynamics",
+                        "authors": ["Kenji Arai", "Ludmila Petrova"],
+                        "summary": "Alpha lateralisation and pupil constriction dissociate under "
+                        "high and low load, suggesting two suppressive routes rather than one.",
+                        "link": "https://arxiv.org/abs/2609.00102",
+                        "arxiv_id": "2609.00102",
+                        "published_on": today - datetime.timedelta(days=2),
+                    },
+                    {
+                        "guid": "oai:arXiv.org:2401.00001v2",
+                        "title": "Perceptual load and distractor processing in the wild",
+                        "authors": ["Chidi Okafor", "Sara Lindgren"],
+                        "summary": "The preprint already in the demo library, as its feed entry.",
+                        "link": "https://arxiv.org/abs/2401.00001",
+                        "arxiv_id": "2401.00001",
+                        "published_on": today - datetime.timedelta(days=3),
+                    },
+                ],
+            },
+            {
+                "url": "https://www.nature.com/nathumbehav.rss",
+                "title": "Nature Human Behaviour",
+                "site_url": "https://www.nature.com/nathumbehav",
+                "items": [
+                    {
+                        "guid": "https://www.nature.com/articles/s41562-026-09001-1",
+                        "title": "Attention capture by reward-associated distractors persists "
+                        "under high perceptual load",
+                        "authors": ["Hannah Steiner", "Diego Alvarez", "Wen Li"],
+                        "summary": "Nature Human Behaviour, Published online: "
+                        f"{(today - datetime.timedelta(days=1)):%d %B %Y}; "
+                        "doi:10.1038/s41562-026-09001-1 Reward history overrides load in three "
+                        "preregistered experiments.",
+                        "link": "https://www.nature.com/articles/s41562-026-09001-1",
+                        "doi": "10.1038/s41562-026-09001-1",
+                        "published_on": today - datetime.timedelta(days=1),
+                    },
+                    {
+                        "guid": "https://www.nature.com/articles/s41562-026-09002-8",
+                        "title": "A registered report on sleep loss and selective attention",
+                        "authors": ["Ines Duarte", "Marcus Bell"],
+                        "summary": "Nature Human Behaviour, Published online: "
+                        f"{(today - datetime.timedelta(days=5)):%d %B %Y}; "
+                        "doi:10.1038/s41562-026-09002-8 One night of sleep loss widened the "
+                        "attentional window without changing load effects.",
+                        "link": "https://www.nature.com/articles/s41562-026-09002-8",
+                        "doi": "10.1038/s41562-026-09002-8",
+                        "published_on": today - datetime.timedelta(days=5),
+                        "dismissed_at": timezone.now() - datetime.timedelta(days=4),
+                    },
+                ],
+            },
+        ]
+        for position, spec in enumerate(feed_specs, start=1):
+            items = spec.pop("items")
+            feed, _ = Feed.objects.update_or_create(
+                url=spec["url"],
+                defaults={
+                    **spec,
+                    "project": project,
+                    "position": position,
+                    "last_fetched_at": timezone.now(),
+                    "last_ok_at": timezone.now(),
+                    "last_error": "",
+                },
+            )
+            for item in items:
+                guid = item.pop("guid")
+                own = (
+                    Reference.objects.filter(arxiv_id=item.get("arxiv_id") or "__none__").first()
+                    or Reference.objects.filter(doi=item.get("doi") or "__none__").first()
+                )
+                FeedItem.objects.update_or_create(
+                    feed=feed,
+                    guid=guid,
+                    defaults={"dismissed_at": None, **item, "reference": own},
+                )
         for i, citing in enumerate(corpus_refs):
             for j in {(i * 7 + 1) % i if i else None, (i * 3 + 2) % i if i else None}:
                 if j is not None and j < i:
