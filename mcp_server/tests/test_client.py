@@ -718,3 +718,14 @@ def test_get_day_activity_builds_request(capture):
     assert calls_url_has(capture, "/dashboard/day/") and "date=2026-09-08" in capture["url"]
     client.get_day_activity()
     assert "date=" not in capture["url"]
+
+
+def test_reading_progress_client_calls(capture):
+    client.get_reading_progress(7)
+    assert capture["method"] == "GET" and calls_url_has(capture, "/references/7/progress/")
+    client.get_reading_now(limit=3)
+    assert calls_url_has(capture, "/references/reading-now/")
+    client.set_reading_position(7, 5, page_count=12, project="deep")
+    assert capture["method"] == "POST" and calls_url_has(capture, "/references/7/progress/")
+    assert '"page":5' in capture["body"] and '"page_count":12' in capture["body"]
+    assert '"project":"deep"' in capture["body"]

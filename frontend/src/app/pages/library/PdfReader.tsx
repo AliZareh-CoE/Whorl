@@ -86,6 +86,14 @@ export default function PdfReader({ refId, initialFind = "", pdfUrl, title, high
   const [scale, setScale] = useState(1.25);
   const [numPages, setNumPages] = useState(0);
   const [current, setCurrent] = useState(1);
+  // #523: where the reader left off — restored once the pages exist, reported (debounced) as
+  // the current page changes, flushed on unmount. Self-contained so every mount of the reader
+  // behaves the same; the Library refreshes its bars after the reader closes.
+  const progress = useQuery({ queryKey: ["progress", refId], queryFn: () => api<{ page: number | null; pages: number | null; percent: number | null }>(`/references/${refId}/progress/`), staleTime: 0, refetchOnMount: "always" });
+  const restored = useRef(false);
+  const lastSent = useRef(0);
+  const position = useRef({ page: 1, pages: 0 });
+  position.current = { page: current, pages: numPages };
   const [error, setError] = useState("");
   const [popover, setPopover] = useState<{ x: number; y: number; text: string; page: number | null; rects: Box[] } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -179,6 +187,32 @@ export default function PdfReader({ refId, initialFind = "", pdfUrl, title, high
     if (!jump) return;
     scroller.current?.querySelector(`[data-page="${jump.page}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [jump]);
+
+  // #523: restore the remembered page once (after the page wrappers exist)
+  useEffect(() => {
+    if (restored.current || numPages === 0 || !((progress.isSuccess && !progress.isFetching) || progress.isError)) return;
+    restored.current = true;
+    const page = progress.data?.page ?? 1;
+    lastSent.current = page;
+    if (page > 1 && page <= numPages && !jump) {
+      setCurrent(page);
+      scroller.current?.querySelector(`[data-page="${page}"]`)?.scrollIntoView({ block: "start" });
+    }
+  }, [numPages, progress.isSuccess, progress.isFetching, progress.isError, progress.data, jump]);
+  const report = useCallback((page: number, pages: number) => {
+    lastSent.current = page;
+    void api(`/references/${refId}/progress/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page, page_count: pages, ...(project ? { project } : {}) }) }).catch(() => { /* offline: the next report carries the page */ });
+  }, [refId, project]);
+  // …and report the page you settle on (four quiet seconds), never the pages scrolled past
+  useEffect(() => {
+    if (!restored.current || numPages === 0 || current === lastSent.current) return;
+    const t = window.setTimeout(() => report(current, numPages), 4000);
+    return () => window.clearTimeout(t);
+  }, [current, numPages, report]);
+  useEffect(() => () => {
+    const { page, pages } = position.current;
+    if (restored.current && pages > 0 && page !== lastSent.current) report(page, pages);
+  }, [report]);
 
   // selection → colour bar
   const onMouseUp = () => {

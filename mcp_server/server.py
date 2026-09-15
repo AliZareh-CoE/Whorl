@@ -154,7 +154,9 @@ def add_reference_by_doi(doi: str, project: str = "") -> dict:
 
 @mcp.tool()
 def get_reading_queue(project: str) -> list:
-    """The project's reading queue: unread/skimmed references, highest priority first."""
+    """The project's reading queue: unread/skimmed references, highest priority first. Rows
+    carry `progress` {page, pages, percent, last_read_at} — where the reader left off — and
+    `started_at` (#523), so "you are on page 5 of 12 of X" is one call."""
     return client.get_reading_queue(project)
 
 
@@ -165,6 +167,29 @@ def set_reading_status(project_reference_id: int, status: str) -> dict:
     Status is one of: to_read, skimmed, read, annotated.
     """
     return client.set_reading_status(project_reference_id, status)
+
+
+@mcp.tool()
+def get_reading_progress(reference_id: int = 0, limit: int = 5) -> dict | list:
+    """Reading progress (#523). With a `reference_id`: where the reader left off in that paper —
+    `page`, `pages`, `percent`, `last_read_at` and `links` [{project, reading_status,
+    started_at, finished_at}]. With `reference_id` 0 (the default): the papers the user is in
+    the middle of — a remembered page past the first, read in the last 30 days, not at the end,
+    newest first (`limit` 1–20). Use it for "where was I?" and "what am I reading?"."""
+    if reference_id:
+        return client.get_reading_progress(reference_id)
+    return client.get_reading_now(limit)
+
+
+@mcp.tool()
+def set_reading_position(
+    reference_id: int, page: int, page_count: int = 0, project: str = ""
+) -> dict:
+    """Remember the page the user is on in a paper (#523) — the reader restores it next time and
+    the Library shows "p. 5 of 12". `page_count` when known (a page past the end is refused);
+    `project` (slug) stamps the link's started_at the first time. Never changes the reading
+    status — call set_reading_status for that."""
+    return client.set_reading_position(reference_id, page, page_count or None, project)
 
 
 @mcp.tool()

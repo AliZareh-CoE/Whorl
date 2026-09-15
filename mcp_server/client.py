@@ -170,6 +170,28 @@ def set_reading_status(project_reference_id: int, status: str):
     )
 
 
+def get_reading_progress(reference_id: int):
+    """Where the reader left off in a paper, with the per-project started/finished stamps (#523)."""
+    return _request("GET", f"/references/{reference_id}/progress/")
+
+
+def get_reading_now(limit: int = 5):
+    """Papers you are in the middle of — a remembered page, not at the end, newest first (#523)."""
+    return _request("GET", "/references/reading-now/", params={"limit": limit})
+
+
+def set_reading_position(
+    reference_id: int, page: int, page_count: int | None = None, project: str = ""
+):
+    """Remember the page the reader is on (#523); page_count when known, project to stamp started_at."""
+    payload: dict = {"page": page}
+    if page_count:
+        payload["page_count"] = page_count
+    if project:
+        payload["project"] = project
+    return _request("POST", f"/references/{reference_id}/progress/", json=payload)
+
+
 def add_note(project: str, title: str, body: str = ""):
     return _request("POST", "/notes/", json={"project": project, "title": title, "body": body})
 

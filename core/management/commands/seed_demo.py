@@ -26,20 +26,32 @@ from writing.models import Manuscript, ManuscriptReference, SubmissionEvent
 DEMO_SLUG = "attention-and-memory"
 
 
-def make_demo_pdf(lines: list[str]) -> bytes:
-    """A minimal valid one-page PDF with selectable text (no extra dependencies)."""
-    text_ops = "\n".join(
-        f"BT /F1 14 Tf 72 {720 - 24 * i} Td ({line}) Tj ET" for i, line in enumerate(lines)
-    )
-    stream = text_ops.encode()
+def make_demo_pdf(lines: list[str], pages: int = 1) -> bytes:
+    """A minimal valid PDF with selectable text (no extra dependencies). `pages` > 1 repeats
+    the lines on every page under a "Page i of n" heading so the reader has somewhere to
+    scroll (#523: reading progress needs more than one page to mean anything)."""
+    page_objects = []  # (page dict, content stream) per page
+    for i in range(pages):
+        page_lines = ([f"Page {i + 1} of {pages}"] if pages > 1 else []) + lines
+        text_ops = "\n".join(
+            f"BT /F1 14 Tf 72 {720 - 24 * j} Td ({line}) Tj ET" for j, line in enumerate(page_lines)
+        )
+        page_objects.append(text_ops.encode())
+    font_obj = 3 + 2 * pages  # catalog, pages, then (page, contents) pairs, then the font
+    kids = " ".join(f"{3 + 2 * i} 0 R" for i in range(pages))
     objects = [
         b"<</Type /Catalog /Pages 2 0 R>>",
-        b"<</Type /Pages /Kids [3 0 R] /Count 1>>",
-        b"<</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
-        b"/Resources <</Font <</F1 5 0 R>>>>>>",
-        b"<</Length " + str(len(stream)).encode() + b">>\nstream\n" + stream + b"\nendstream",
-        b"<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>",
+        f"<</Type /Pages /Kids [{kids}] /Count {pages}>>".encode(),
     ]
+    for i, stream in enumerate(page_objects):
+        objects.append(
+            f"<</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents {4 + 2 * i} 0 R "
+            f"/Resources <</Font <</F1 {font_obj} 0 R>>>>>>".encode()
+        )
+        objects.append(
+            b"<</Length " + str(len(stream)).encode() + b">>\nstream\n" + stream + b"\nendstream"
+        )
+    objects.append(b"<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>")
     out = bytearray(b"%PDF-1.4\n")
     offsets = []
     for i, body in enumerate(objects, start=1):
@@ -315,7 +327,7 @@ class Command(BaseCommand):
                     "interference. This dissociation reconciles decades of conflicting findings "
                     "on early versus late selection and predicts when distraction will help or hurt."
                 ),
-                "status": ProjectReference.ReadingStatus.ANNOTATED,
+                "status": ProjectReference.ReadingStatus.SKIMMED,  # #523: half read, on p. 5 of 12
                 "priority": ProjectReference.Priority.HIGH,
             },
             {
@@ -378,7 +390,8 @@ class Command(BaseCommand):
                 "Select any of this text to save a highlight to a note.",
                 "Perceptual load gates distractor processing early;",
                 "cognitive load releases it. The dissociation matters.",
-            ]
+            ],
+            pages=12,
         )
         for spec in demo_refs:
             reference, _ = Reference.objects.update_or_create(
@@ -399,8 +412,39 @@ class Command(BaseCommand):
                 reference=reference,
                 defaults={"reading_status": spec["status"], "priority": spec["priority"]},
             )
-            if spec["bibtex_key"] == "lavie2010attention" and not reference.pdf:
+            if spec["bibtex_key"] == "lavie2010attention" and (
+                not reference.pdf
+                or not reference.pdf.storage.exists(reference.pdf.name)
+                or reference.pdf.size != len(demo_pdf)
+            ):
+                # (re)attach the twelve-page demo PDF — older demos carried a one-page one
                 reference.pdf.save("lavie2010-demo.pdf", ContentFile(demo_pdf), save=True)
+            if spec["bibtex_key"] == "lavie2010attention":
+                # #523: the demo paper is half read — the reader reopens on page 5 of 12 and the
+                # Library's "Continue reading" rail lists it
+                reference.last_page, reference.page_count = 5, 12
+                reference.last_read_at = timezone.now() - datetime.timedelta(days=2)
+                reference.save(
+                    update_fields=["last_page", "page_count", "last_read_at", "updated_at"]
+                )
+        # #523: honest started / finished dates on the demo links (the backfill only knows
+        # updated_at; a fresh seed would stamp everything "today")
+        for i, link in enumerate(
+            ProjectReference.objects.filter(
+                project=project, reference__bibtex_key__in=[s["bibtex_key"] for s in demo_refs]
+            ).order_by("pk")
+        ):
+            if link.reading_status in ("read", "annotated"):
+                link.finished_at = timezone.now() - datetime.timedelta(days=9 + 13 * i)
+                link.started_at = link.finished_at - datetime.timedelta(days=3)
+            elif link.reading_status == "skimmed":
+                link.started_at = timezone.now() - datetime.timedelta(days=4 + 5 * i)
+                link.finished_at = None
+            elif link.reference.bibtex_key == "lavie2010attention":
+                link.started_at = timezone.now() - datetime.timedelta(days=6)
+            else:
+                continue
+            link.save(update_fields=["started_at", "finished_at", "updated_at"])
 
         # A larger cited corpus so the knowledge graph is worth looking at (20+ refs)
         corpus_authors = [

@@ -16,13 +16,19 @@ import { Skeleton } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 
 type Author = { family?: string; given?: string };
-type ProjLink = { slug: string; name: string; color: string; reading_status: string; priority: string };
+type ProjLink = { slug: string; name: string; color: string; reading_status: string; priority: string; started_at?: string | null; finished_at?: string | null };
+type Progress = { page: number | null; pages: number | null; percent: number | null; last_read_at: string | null };
+type ReadingNowRow = { id: number; title: string; bibtex_key: string; year: number | null; pdf: string | null; page: number; pages: number | null; percent: number | null; last_read_at: string };
+const inProgress = (p?: Progress | null) => Boolean(p && p.page != null && p.page > 1 && (p.percent ?? 0) < 100);
+const pageLabel = (p: { page: number | null; pages: number | null }) => `p. ${p.page}${p.pages ? ` of ${p.pages}` : ""}`;
+const dayLabel = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 type Ref = {
   id: number; bibtex_key: string; title: string; authors: Author[]; year: number | null; venue: string;
   abstract: string; doi: string | null; arxiv_id: string; url: string; pdf: string | null;
   entry_type: string; citation_count: number | null; extra: Record<string, unknown>; projects: ProjLink[];
   tags: string[];
   pdf_match: boolean | null; text_status: string;
+  progress: Progress;
   created_at: string;
 };
 type ReadingNote = { project_reference_id: number; project: string; project_name: string; reading_status: string; notes: string };
@@ -134,6 +140,11 @@ export default function Library() {
   const [hlProject, setHlProject] = useState("");
   const [jump, setJump] = useState<{ page: number; nonce: number } | null>(null);
   const [readerFind, setReaderFind] = useState("");
+  // #523: the papers you are in the middle of, for the rail's "Continue reading"
+  const readingNow = useQuery({ queryKey: ["reading-now"], queryFn: () => api<ReadingNowRow[]>("/references/reading-now/?limit=3"), staleTime: 60_000 });
+  // #523: closing the reader drops its cached position and refreshes the bars once the last
+  // page report has landed (the reader flushes it on unmount)
+  const closeReader = () => { setReaderId(null); queryClient.removeQueries({ queryKey: ["progress"] }); window.setTimeout(() => { invalidate(); queryClient.invalidateQueries({ queryKey: ["reading-now"] }); }, 800); };
   const openReader = (r: Ref, find?: string) => { setReaderFind(find ?? (r.pdf_match && effective.q ? effective.q : "")); setDetailId(r.id); setReaderId(r.id); setHlProject((prev) => (r.projects.some((p) => p.slug === prev) ? prev : r.projects.length === 1 ? r.projects[0].slug : prev)); };
   const [keepChoice, setKeepChoice] = useState<Record<number, number>>({});
   const dups = useQuery({ queryKey: ["library-duplicates"], queryFn: () => api<{ groups: DupGroup[] }>("/references/duplicates/"), enabled: dupMode });
@@ -365,7 +376,7 @@ export default function Library() {
       else if (e.key === "X") { selectRange(cursor); }
       else if (e.key === "x") { const id = rows[cursor]?.id; if (id) { anchorRef.current = cursor; toggleSelect(id); } }
       else if (e.key === "o") { const r = rows[cursor]; if (r?.pdf) openReader(r); }
-      else if (e.key === "Escape") { if (readerId) setReaderId(null); else { setSelected(new Set()); setDetailId(null); } }
+      else if (e.key === "Escape") { if (readerId) closeReader(); else { setSelected(new Set()); setDetailId(null); } }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -486,6 +497,24 @@ export default function Library() {
           </div>
           {f && (
             <>
+              {(readingNow.data?.length ?? 0) > 0 && (
+                <div className="mb-3" data-testid="continue-reading">
+                  <p className={railH}>Continue reading</p>
+                  <ul className="space-y-1.5">
+                    {readingNow.data!.map((p) => (
+                      <li key={p.id}>
+                        <button type="button" onClick={() => { const row = rows.find((r) => r.id === p.id); if (row?.pdf) openReader(row); else { readParam.current = p.id; set({ q: p.bibtex_key }); } }} className="w-full text-left" title={`Open on page ${p.page}`}>
+                          <span className="block truncate text-xs text-stone-700 hover:text-indigo-700 dark:text-stone-200 dark:hover:text-indigo-300">{p.title}</span>
+                          <span className="mt-0.5 flex items-center gap-2">
+                            <span className="h-0.5 flex-1 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-700"><span className="block h-0.5 rounded-full bg-indigo-500" style={{ width: `${p.percent ?? 50}%` }} /></span>
+                            <span className="text-[10px] tabular-nums text-stone-400">{pageLabel(p)}</span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="mb-3">
                 <div className="mb-1.5 flex items-center justify-between">
                   <p className={`${railH} mb-0`}>Smart views</p>
@@ -596,7 +625,7 @@ export default function Library() {
             project={reader.projects.some((p) => p.slug === hlProject) ? hlProject : ""}
             onProject={setHlProject}
             onSave={async (h) => { await addHighlight.mutateAsync({ reference: reader.id, ...h, project: reader.projects.some((p) => p.slug === hlProject) ? hlProject : null }); }}
-            onClose={() => setReaderId(null)}
+            onClose={closeReader}
             jump={jump}
             fullReaderHref={`/library/${reader.id}/read/`}
             comments={(readerComments.data?.comments ?? []).map((c) => ({ id: c.id, body: c.body, page: c.line }))}
@@ -688,6 +717,7 @@ export default function Library() {
                         {r.venue && <span className="truncate italic">{r.venue}</span>}
                         {status && <span className="rounded-full bg-stone-100 px-1.5 py-0.5 dark:bg-stone-800">{STATUS_LABEL[status] ?? status}</span>}
                         {r.pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-medium text-indigo-600 dark:text-indigo-300">PDF</span>}
+                        {inProgress(r.progress) && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 tabular-nums text-indigo-600 dark:text-indigo-300" data-testid="card-progress" title="Where the reader left off">{pageLabel(r.progress)}</span>}
                         {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
                         {r.tags.slice(0, 3).map((t) => <TagChip key={t} name={t} color={tagColors[t]} />)}
                         {r.citation_count != null && r.citation_count > 0 && <span className="ml-auto tabular-nums">{r.citation_count} cit.</span>}
@@ -704,6 +734,12 @@ export default function Library() {
                     <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-stone-400 dark:text-stone-400">
                       <span className="truncate">{[authorsLine(r), r.year, r.venue].filter(Boolean).join(" · ") || (needs ? "from a PDF · no metadata yet" : "no details yet")}</span>
                     </p>
+                    {inProgress(r.progress) && (
+                      <div className="mt-1 flex items-center gap-2" data-testid="row-progress" title={`Reading — ${pageLabel(r.progress)}`}>
+                        <div className="h-0.5 w-24 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-700"><div className="h-0.5 rounded-full bg-indigo-500" style={{ width: `${r.progress.percent ?? 50}%` }} /></div>
+                        <span className="text-[10px] tabular-nums text-stone-400">{pageLabel(r.progress)}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
                     {r.projects.map((p) => <span key={p.slug} title={`${p.name} · ${STATUS_LABEL[p.reading_status] ?? p.reading_status}`} className="h-2 w-2 rounded-full" style={{ background: p.color }} />)}
@@ -809,7 +845,7 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
       <div className="mt-4 flex flex-wrap gap-1.5 text-xs">
         <Link to={`/references/${r.id}`} className="rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700">Open</Link>
         {r.pdf ? (
-          <button type="button" onClick={onRead} className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 ${reading ? "border-indigo-400 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200" : "border-stone-300 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"}`} title="Read and highlight here (o)"><BookOpen className="h-3 w-3" aria-hidden="true" />{reading ? "Reading" : "Read"}</button>
+          <button type="button" onClick={onRead} className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 ${reading ? "border-indigo-400 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200" : "border-stone-300 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"}`} title={inProgress(r.progress) ? `Pick up where you left off — ${pageLabel(r.progress)} (o)` : "Read and highlight here (o)"} data-testid={!reading && inProgress(r.progress) ? "resume-read" : undefined}><BookOpen className="h-3 w-3" aria-hidden="true" />{reading ? "Reading" : inProgress(r.progress) ? `Resume · ${pageLabel(r.progress)}` : "Read"}</button>
         ) : (
           <button type="button" onClick={onFetchPdf} disabled={fetchingPdf || !(r.doi || r.arxiv_id)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2.5 py-1 text-stone-600 hover:border-indigo-300 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300" title={r.doi || r.arxiv_id ? "Look for an open-access PDF (arXiv, Unpaywall)" : "Needs a DOI or arXiv id to look up a PDF"}>{fetchingPdf ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Download className="h-3 w-3" aria-hidden="true" />}Find PDF</button>
         )}
@@ -857,7 +893,7 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
         {r.projects.length === 0 && <p className="text-xs text-stone-400">Not filed in any project yet.</p>}
         <ul className="space-y-1 text-sm">
           {r.projects.map((p) => (
-            <li key={p.slug} className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: p.color }} /><Link to={`/projects/${p.slug}/literature`} className="min-w-0 flex-1 truncate hover:underline dark:text-stone-100">{p.name}</Link><span className="text-xs text-stone-400">{STATUS_LABEL[p.reading_status] ?? p.reading_status}</span></li>
+            <li key={p.slug} className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: p.color }} /><Link to={`/projects/${p.slug}/literature`} className="min-w-0 flex-1 truncate hover:underline dark:text-stone-100">{p.name}</Link><span className="text-xs text-stone-400">{STATUS_LABEL[p.reading_status] ?? p.reading_status}{p.finished_at ? ` · finished ${dayLabel(p.finished_at)}` : p.started_at ? ` · started ${dayLabel(p.started_at)}` : ""}</span></li>
           ))}
         </ul>
         {projects.some((p) => !inProjects.has(p.slug)) && (

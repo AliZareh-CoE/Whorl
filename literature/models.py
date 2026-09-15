@@ -66,6 +66,11 @@ class Reference(TimeStampedModel):
     raw_bibtex = models.TextField(blank=True)
     extra = models.JSONField(default=dict)
     citation_count = models.PositiveIntegerField(null=True, blank=True)
+    # #523: where the reader left off — the position is per paper (one PDF, one reader), the
+    # page count is what the reader saw (authoritative even without extracted text).
+    last_page = models.PositiveIntegerField(null=True, blank=True)
+    page_count = models.PositiveIntegerField(null=True, blank=True)
+    last_read_at = models.DateTimeField(null=True, blank=True)
     tags = models.ManyToManyField(LibraryTag, blank=True, related_name="references")
 
     class Meta:
@@ -114,6 +119,31 @@ class ProjectReference(TimeStampedModel):
     )
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.NORMAL)
     notes = models.TextField(blank=True)
+    # #523: when the paper was first opened / marked read in this project — stamped by the
+    # reader's first position report and by the status transitions in save(), never typed.
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    _status_loaded = None
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        instance._status_loaded = (
+            instance.reading_status if "reading_status" in field_names else None
+        )
+        return instance
+
+    def save(self, *args, **kwargs):
+        from .progress import stamp_transition
+
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None or "reading_status" in update_fields:
+            touched = stamp_transition(self, self._status_loaded if self.pk else None)
+            if touched and update_fields is not None:
+                kwargs["update_fields"] = list(dict.fromkeys([*update_fields, *touched]))
+        super().save(*args, **kwargs)
+        self._status_loaded = self.reading_status
 
     class Meta:
         ordering = ["-created_at"]

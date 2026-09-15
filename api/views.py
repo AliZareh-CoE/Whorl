@@ -783,6 +783,7 @@ class ProjectViewSet(AtlasViewSet):
     )
     @action(detail=True, methods=["get"], url_path="reading-queue")
     def reading_queue(self, request, slug=None):
+        from literature.progress import progress_of
         from literature.views import PRIORITY_ORDER
 
         project = self.get_object()
@@ -802,6 +803,8 @@ class ProjectViewSet(AtlasViewSet):
                     "year": link.reference.year,
                     "reading_status": link.reading_status,
                     "priority": link.priority,
+                    "started_at": link.started_at,
+                    "progress": progress_of(link.reference),
                 }
                 for link in links
             ]
@@ -1765,6 +1768,79 @@ class ReferenceViewSet(AtlasViewSet):
         return Response(
             {"page_count": row.page_count, "char_count": row.char_count, "error": row.error}
         )
+
+    @extend_schema(
+        methods=["GET"],
+        responses={200: OpenApiResponse(description="{page, pages, percent, last_read_at, links}")},
+        description="Where the reader left off in this paper (#523): the remembered page, the "
+        "page count, a whole-number percent, when it was last read, and per project "
+        "`links` [{project, reading_status, started_at, finished_at}].",
+    )
+    @extend_schema(
+        methods=["POST"],
+        request=serializers.ReadingPositionSerializer,
+        responses={
+            200: OpenApiResponse(description="The progress after the write"),
+            400: OpenApiResponse(description="page < 1, past the end, or an unknown project"),
+        },
+        description="Remember the page the reader is on (#523). `page_count` (what the reader "
+        "saw) is stored when given; with `project` the link's started_at is stamped once. "
+        "Never changes a reading status.",
+    )
+    @action(detail=True, methods=["get", "post"])
+    def progress(self, request, pk=None):
+        from literature.progress import ProgressError, progress_of, record_position
+
+        reference = self.get_object()
+        if request.method == "POST":
+            body = serializers.ReadingPositionSerializer(data=request.data)
+            body.is_valid(raise_exception=True)
+            slug = (body.validated_data.get("project") or "").strip()
+            project = None
+            if slug:
+                project = Project.objects.filter(slug=slug).first()
+                if project is None:
+                    raise rf_serializers.ValidationError({"project": ["Unknown project."]})
+            try:
+                record_position(
+                    reference,
+                    body.validated_data["page"],
+                    body.validated_data.get("page_count"),
+                    project=project,
+                )
+            except ProgressError as exc:
+                raise rf_serializers.ValidationError({"page": [str(exc)]}) from exc
+            reference.refresh_from_db()
+        data = progress_of(reference)
+        data["links"] = [
+            {
+                "project": link.project.slug,
+                "reading_status": link.reading_status,
+                "started_at": link.started_at,
+                "finished_at": link.finished_at,
+            }
+            for link in reference.project_links.select_related("project")
+        ]
+        return Response(data)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("limit", OpenApiTypes.INT, description="1–20, default 5"),
+        ],
+        responses={200: OpenApiResponse(description="Papers you are in the middle of")},
+        description="Continue reading (#523): papers with a remembered page past the first, "
+        "read in the last 30 days and not at their last page — newest first, with "
+        "{id, title, bibtex_key, year, pdf, page, pages, percent, last_read_at, projects}.",
+    )
+    @action(detail=False, methods=["get"], url_path="reading-now")
+    def reading_now(self, request):
+        from literature.progress import reading_now
+
+        try:
+            limit = int(request.query_params.get("limit", 5))
+        except ValueError:
+            limit = 5
+        return Response(reading_now(limit=max(1, min(20, limit))))
 
     @extend_schema(
         request=None,

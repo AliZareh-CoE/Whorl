@@ -266,6 +266,8 @@ class ReferenceSerializer(serializers.ModelSerializer):
     # Library v2 slice 8: did the search term hit inside the PDF text? (only on filtered lists)
     pdf_match = serializers.SerializerMethodField()
     text_status = serializers.SerializerMethodField()
+    # #523: where the reader left off — {page, pages, percent, last_read_at}
+    progress = serializers.SerializerMethodField()
     # Library v2 slice 5: tags by name (writable: a list of names creates missing tags)
     tags = serializers.ListField(
         child=serializers.CharField(max_length=60), required=False, write_only=True
@@ -279,6 +281,22 @@ class ReferenceSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.BooleanField(allow_null=True))
     def get_pdf_match(self, obj):
         return getattr(obj, "pdf_match", None)
+
+    @extend_schema_field(
+        inline_serializer(
+            "ReadingProgress",
+            fields={
+                "page": serializers.IntegerField(allow_null=True),
+                "pages": serializers.IntegerField(allow_null=True),
+                "percent": serializers.IntegerField(allow_null=True),
+                "last_read_at": serializers.DateTimeField(allow_null=True),
+            },
+        )
+    )
+    def get_progress(self, obj) -> dict:
+        from literature.progress import progress_of
+
+        return progress_of(obj)
 
     @extend_schema_field(serializers.CharField())
     def get_text_status(self, obj):
@@ -314,6 +332,8 @@ class ReferenceSerializer(serializers.ModelSerializer):
                     "color": serializers.CharField(),
                     "reading_status": serializers.CharField(),
                     "priority": serializers.CharField(),
+                    "started_at": serializers.DateTimeField(allow_null=True),
+                    "finished_at": serializers.DateTimeField(allow_null=True),
                 },
             )
         )
@@ -326,6 +346,8 @@ class ReferenceSerializer(serializers.ModelSerializer):
                 "color": link.project.color,
                 "reading_status": link.reading_status,
                 "priority": link.priority,
+                "started_at": link.started_at,
+                "finished_at": link.finished_at,
             }
             for link in obj.project_links.all()
         ]
@@ -363,10 +385,20 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "tags",
             "pdf_match",
             "text_status",
+            "last_page",
+            "page_count",
+            "last_read_at",
+            "progress",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["bibtex_key", "projects"]
+        read_only_fields = [
+            "bibtex_key",
+            "projects",
+            "last_page",
+            "page_count",
+            "last_read_at",
+        ]
 
     def create(self, validated_data):
         from literature.services import generate_bibtex_key
@@ -402,9 +434,20 @@ class ProjectReferenceSerializer(serializers.ModelSerializer):
             "reading_status",
             "priority",
             "notes",
+            "started_at",
+            "finished_at",
             "created_at",
             "updated_at",
         ]
+        read_only_fields = ["started_at", "finished_at"]
+
+
+class ReadingPositionSerializer(serializers.Serializer):
+    """POST /references/{id}/progress/ (#523): the page the reader is on."""
+
+    page = serializers.IntegerField(min_value=1)
+    page_count = serializers.IntegerField(min_value=1, required=False)
+    project = serializers.CharField(required=False, allow_blank=True, max_length=120)
 
 
 class QuickCaptureSerializer(RenderedBodyMixin, serializers.ModelSerializer):
