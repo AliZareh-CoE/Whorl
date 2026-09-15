@@ -90,7 +90,8 @@ class Command(BaseCommand):
             status=Phase.Status.IN_PROGRESS,
             objective="Finalize the dual-task paradigm and pilot with n=12.",
             target_start=today - datetime.timedelta(days=59),
-            target_end=today + datetime.timedelta(days=30),
+            # #519: three days short of the frozen design's likely landing — the phase card says so
+            target_end=today + datetime.timedelta(days=27),
         )
         collection = Phase.objects.create(
             project=project,
@@ -107,23 +108,25 @@ class Command(BaseCommand):
             objective="Pre-registered analyses, then the manuscript.",
         )
 
-        done = timezone.now()
+        # #519: the finished milestones land two days early, five late and nine late — a
+        # median five days after their dates, which becomes the "likely" shift on the open ones
+        now = timezone.now()
         Milestone.objects.create(
             phase=lit,
             title="Annotated bibliography (40 papers)",
-            completed_at=done,
+            completed_at=now - datetime.timedelta(days=92),
             due_date=today - datetime.timedelta(days=90),
         )
         Milestone.objects.create(
             phase=lit,
             title="Hypotheses registered in lab notebook",
-            completed_at=done,
+            completed_at=now - datetime.timedelta(days=60),
             due_date=today - datetime.timedelta(days=65),
         )
         Milestone.objects.create(
             phase=design,
             title="Paradigm implemented in PsychoPy",
-            completed_at=done,
+            completed_at=now - datetime.timedelta(days=11),
             due_date=today - datetime.timedelta(days=20),
         )
         overdue = Milestone.objects.create(
@@ -176,7 +179,6 @@ class Command(BaseCommand):
             note="Pilot recruitment is the risk; everything else holds.",
         )
         # #516: the plan's drift — the pilot slipped twice, the sample once (backdated moves)
-        now = timezone.now()
         MilestoneDateChange.objects.bulk_create(
             [
                 MilestoneDateChange(

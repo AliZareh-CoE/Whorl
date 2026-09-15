@@ -93,6 +93,11 @@ def get_plan_drift(slug: str):
     return _request("GET", f"/projects/{slug}/plan/drift/")
 
 
+def get_plan_calibration(slug: str):
+    """How the project's milestones actually land against their dates (#519)."""
+    return _request("GET", f"/projects/{slug}/plan/calibration/")
+
+
 def get_plan_review(slug: str):
     """The plan review queue and when the plan was last reviewed (#517)."""
     return _request("GET", f"/projects/{slug}/plan/review/")

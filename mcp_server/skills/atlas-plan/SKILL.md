@@ -12,6 +12,8 @@ rolls up from milestones. Questions and decisions hang off the project.
 
 - `get_project_overview` — current phase, next milestones, recent decisions, health.
 - `get_plan` (structured) or `get_plan_outline` (Markdown with `{#id}` tokens).
+- `get_plan_calibration` — how the project's dates actually land (median lateness, on-time
+  share); quote the `likely` dates from `get_plan` when the user asks "will we make it?".
 - `get_roadmap` — inferred windows and health per phase (behind / on track / blocked /
   overdue); `get_week_focus` for what matters this week.
 

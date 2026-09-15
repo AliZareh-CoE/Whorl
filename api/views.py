@@ -594,6 +594,7 @@ class ProjectViewSet(AtlasViewSet):
     def plan(self, request, slug=None):
         project = self.get_object()
         phases = []
+        from plans.calibration import calibration, likely_date, phase_likely_end
         from plans.dependencies import (
             blocked_map,
             critical_chain,
@@ -608,11 +609,13 @@ class ProjectViewSet(AtlasViewSet):
         graph = due_graph(project)  # #513–#515 share one load of the open dated milestones
         slack = slack_map(project, *graph)  # #515
         moves = change_rows(project)  # #516: every logged due-date move, one query
-        all_milestones = []
-        for phase in project.phases.prefetch_related(
-            "milestones__tasks", "milestones__blocks", "questions"
-        ):
-            all_milestones.extend(phase.milestones.all())
+        loaded = list(
+            project.phases.prefetch_related("milestones__tasks", "milestones__blocks", "questions")
+        )
+        all_milestones = [m for phase in loaded for m in phase.milestones.all()]
+        # #519: how this project's dates actually land — the shift behind every `likely`
+        cal = calibration(project, all_milestones, moves)
+        for phase in loaded:
             phases.append(
                 {
                     "id": phase.pk,
@@ -624,6 +627,8 @@ class ProjectViewSet(AtlasViewSet):
                     "objective": phase.objective,
                     "target_start": phase.target_start,
                     "target_end": phase.target_end,
+                    # #519: the latest realistic date among the phase's open milestones
+                    "likely_end": phase_likely_end(list(phase.milestones.all()), cal),
                     "questions": [
                         {"id": q.pk, "question": q.question, "status": q.status}
                         for q in phase.questions.all()
@@ -640,6 +645,10 @@ class ProjectViewSet(AtlasViewSet):
                             "blocked": bool(blocked.get(m.pk)) and m.completed_at is None,
                             "blocks": [b.pk for b in m.blocks.all()],
                             "slack": slack.get(m.pk, {}).get("slack"),
+                            # #519: the held date plus the project's median lateness
+                            "likely": (
+                                likely_date(m.due_date, cal) if m.completed_at is None else None
+                            ),
                             # #516: where the date started, how often it moved, how far
                             **milestone_drift(m, moves.get(m.pk, [])),
                             "tasks": [
@@ -669,6 +678,8 @@ class ProjectViewSet(AtlasViewSet):
                 "critical_chain": critical_chain(project, *graph),
                 # #517: when the plan was last reviewed and whether a review is due
                 "review": review_state(project),
+                # #519: the landing habit — count, on_time, medians, shift (None under three)
+                "calibration": cal,
                 # #516: how far the plan has slipped from what was first written
                 "drift": {
                     k: v
@@ -714,6 +725,27 @@ class ProjectViewSet(AtlasViewSet):
         from plans.drift import drift_report
 
         return Response(drift_report(self.get_object()))
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="Calibration (#519): count of completed milestones that held a date, "
+                "on_time, median_late / p80_late against the date they last held, "
+                "median_late_first against the first date, buckets {early, on_the_day, week, "
+                "month, longer}, worst, shift (days added to open dates once min_sample "
+                "landings exist) and every landing {title, phase, baseline, due_date, landed, "
+                "late, late_first}"
+            )
+        },
+        description="How this project's milestones actually land against their dates (#519). "
+        "Each completed milestone that held a date is a sample; the median lateness against "
+        "the held date is the `shift` behind the `likely` dates on the plan payload.",
+    )
+    @action(detail=True, methods=["get"], url_path="plan/calibration")
+    def plan_calibration(self, request, slug=None):
+        from plans.calibration import calibration_report
+
+        return Response(calibration_report(self.get_object()))
 
     @extend_schema(
         request=serializers.PlanReviewSerializer,

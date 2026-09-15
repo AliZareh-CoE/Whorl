@@ -446,6 +446,8 @@ def test_notes_client_calls(capture):
     assert capture["method"] == "GET" and calls_url_has(capture, "/projects/deep/plan/drift/")
     client.get_plan_review("deep")
     assert capture["method"] == "GET" and calls_url_has(capture, "/projects/deep/plan/review/")
+    client.get_plan_calibration("deep")
+    assert capture["method"] == "GET" and calls_url_has(capture, "/projects/deep/plan/calibration/")
     client.finish_plan_review("deep", kept=3, moved=1, note="ok")
     assert (
         capture["method"] == "POST"

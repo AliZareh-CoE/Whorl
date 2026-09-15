@@ -47,7 +47,8 @@ def get_plan(slug: str) -> dict:
     """The project's full plan: ordered phases with milestones (ids, due dates, overdue flags,
     #512 `blocked_by` / `blocked` / `blocks` dependencies, #516 `baseline` / `moves` / `slipped` /
     `history` (drift), #515 `slack` — days it can slip before
-    it pushes a dated dependant) and tasks; `conflicts` lists the milestones due on or before a
+    it pushes a dated dependant, #519 `likely` — the held date plus the project's median
+    lateness) and tasks; each phase carries `likely_end` and the payload a `calibration` block; `conflicts` lists the milestones due on or before a
     milestone they wait for, each with a `suggested` date (#513); `critical_chain` is the
     dependency chain that decides the plan's end (ids, titles, span, least slack)."""
     return client.get_plan(slug)
@@ -62,6 +63,19 @@ def get_plan_drift(slug: str) -> dict:
     with baseline, moves, slipped and `history` [{from, to, at, reason}]. get_plan's rows carry
     the same baseline / moves / slipped / history and its `drift` block the totals."""
     return client.get_plan_drift(slug)
+
+
+@mcp.tool()
+def get_plan_calibration(slug: str) -> dict:
+    """How a project's milestones actually land against their dates (#519). Every completed
+    milestone that held a date is a sample: returns `count`, `on_time`, `median_late` and
+    `p80_late` against the date each last held, `median_late_first` against the first date it
+    was given, `buckets` {early, on_the_day, week, month, longer}, `worst`, `shift` — the days
+    Atlas adds to every open date for the `likely` dates on get_plan's rows and `likely_end`
+    on its phases (None until `min_sample` landings) — and the `landings` themselves. Use it
+    to talk about dates honestly: "your milestones land a median 9 d late, so plan for
+    November, not October"."""
+    return client.get_plan_calibration(slug)
 
 
 @mcp.tool()
