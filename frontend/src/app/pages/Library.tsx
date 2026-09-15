@@ -84,6 +84,25 @@ function TagChip({ name, color, className = "", children }: { name: string; colo
   );
 }
 
+// #525: export in every format colleagues use — the same rows as the view or the selection.
+const EXPORT_FORMATS: [string, string, string][] = [
+  ["bib", ".bib", "BibTeX — LaTeX, JabRef, and most tools"],
+  ["ris", ".ris", "RIS — EndNote, Mendeley, Zotero, Web of Science"],
+  ["csl", ".json", "CSL-JSON — Zotero, Paperpile, pandoc --citeproc"],
+  ["csv", ".csv", "CSV — a spreadsheet with authors, year, venue, DOI, tags, projects"],
+];
+function ExportLinks({ query, what, className = "" }: { query: string; what: string; className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-stone-400 ${className}`} data-testid="export-links">
+      <FileDown className="h-3 w-3" aria-hidden="true" />
+      <span className="hidden sm:inline">Export {what}:</span>
+      {EXPORT_FORMATS.map(([fmt, label, title]) => (
+        <a key={fmt} href={`/api/v1/references/export/?${query}${query ? "&" : ""}fmt=${fmt}`} target="_blank" rel="noreferrer" className="rounded-sm font-mono hover:text-indigo-600 dark:hover:text-indigo-300" title={`Open ${what} as ${title}`}>{label}</a>
+      ))}
+    </span>
+  );
+}
+
 function authorsLine(r: Ref, max = 3): string {
   const names = (r.authors ?? []).map((a) => a.family || a.given || "").filter(Boolean);
   const shown = names.slice(0, max).join(", ");
@@ -700,7 +719,7 @@ export default function Library() {
             ))}
             {activeChips.length > 0 && <button type="button" onClick={() => setFilters({ ...EMPTY, sort: filters.sort })} className="text-stone-400 hover:underline">clear</button>}
             <Link to={`/library/read?${toQuery(effective, 1)}`} className="ml-auto inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Read this view as a flow — one paper at a time, status keys, notes" data-testid="read-these">Read these →</Link>
-            <a href={`/api/v1/references/export/?${toQuery(effective, 1)}`} target="_blank" rel="noreferrer" className="ml-3 inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Open everything in this view as a .bib file"><FileDown className="h-3 w-3" aria-hidden="true" />.bib of this view</a>
+            <ExportLinks query={toQuery(effective, 1)} what="this view" className="ml-3" />
             <span className="hidden text-stone-400 lg:inline">· j/k move · enter open · x select · shift-x / shift-click range · ⌘A all · o pdf</span>
             <span className="ml-1 inline-flex overflow-hidden rounded-md border border-stone-200 dark:border-stone-700" role="tablist" aria-label="Library view">
               <button type="button" role="tab" aria-selected={view === "list"} onClick={() => switchView("list")} className={`px-1.5 py-0.5 ${view === "list" ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-200" : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"}`} title="List" data-testid="view-list"><LayoutList className="h-3.5 w-3.5" aria-hidden="true" /></button>
@@ -791,7 +810,7 @@ export default function Library() {
                 <datalist id="library-tag-names">{f?.tags.map((t) => <option key={t.name} value={t.name} />)}</datalist>
                 <button type="submit" disabled={!bulkTag.trim() || bulk.isPending} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 disabled:opacity-40 dark:border-stone-700 dark:text-stone-300"><TagIcon className="h-3 w-3" aria-hidden="true" />Tag</button>
               </form>
-              <a href={`/api/v1/references/export/?ids=${[...selected].join(",")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Open the selection as a .bib file"><FileDown className="h-3 w-3" aria-hidden="true" />Export .bib</a>
+              <ExportLinks query={`ids=${[...selected].join(",")}`} what="the selection" className="rounded-md border border-stone-300 px-2 py-1 dark:border-stone-700" />
               <button type="button" onClick={async () => { const text = await (await fetch(`/api/v1/references/export/?ids=${[...selected].join(",")}`, { credentials: "same-origin" })).text(); await navigator.clipboard?.writeText(text); flash(`Copied BibTeX for ${selected.size} reference(s).`); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Copy BibTeX to the clipboard"><Copy className="h-3 w-3" aria-hidden="true" />Copy BibTeX</button>
               <button type="button" onClick={async () => { const b = await api<{ text: string }>(`/references/cite/?ids=${[...selected].join(",")}&style=${citeStyle}`); await navigator.clipboard?.writeText(b.text); flash(`Copied ${selected.size} citation(s) in ${STYLES.find(([k]) => k === citeStyle)?.[1] ?? citeStyle}.`); }} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Copy a formatted bibliography of the selection"><Quote className="h-3 w-3" aria-hidden="true" />Copy citations</button>
               <button type="button" disabled={bulk.isPending} onClick={() => bulk.mutate({ ids: [...selected], action: "fetch_pdf" })} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300" title="Find and attach open-access PDFs"><Download className="h-3 w-3" aria-hidden="true" />Fetch OA PDFs</button>

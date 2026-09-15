@@ -1509,26 +1509,48 @@ class ReferenceViewSet(AtlasViewSet):
                 str,
                 description="Comma-separated reference ids; omit to export the filtered list (same filters as the list endpoint)",
             ),
+            OpenApiParameter(
+                "fmt",
+                str,
+                description="bib (default), ris, csl (CSL-JSON) or csv (`format` is DRF's renderer switch)",
+            ),
         ],
-        responses={(200, "application/x-bibtex"): OpenApiResponse(description="BibTeX text")},
-        description="Export references as BibTeX: an explicit id list, or everything matching the list filters (q, year, project, …).",
+        responses={
+            (200, "application/x-bibtex"): OpenApiTypes.STR,
+            (200, "application/x-research-info-systems"): OpenApiTypes.STR,
+            (200, "application/vnd.citationstyles.csl+json"): OpenApiTypes.STR,
+            (200, "text/csv"): OpenApiTypes.STR,
+        },
+        description=(
+            "Export references (#525): an explicit id list, or everything matching the list "
+            "filters (q, author, year, project, tag, …), as BibTeX (default), RIS "
+            "(EndNote / Mendeley / Zotero), CSL-JSON (Zotero / Paperpile / pandoc) or CSV "
+            "(a spreadsheet: authors, year, venue, DOI, tags, projects with reading status). "
+            "Up to 500 rows; the file name is atlas-library.{bib,ris,json,csv}."
+        ),
     )
     @action(detail=False, methods=["get"], url_path="export")
     def export(self, request):
         from django.http import HttpResponse
 
-        from literature.library import export_bibtex, filter_references
+        from literature.export import render
+        from literature.library import filter_references
 
         ids = request.query_params.get("ids")
+        base = Reference.objects.prefetch_related("tags", "project_links__project")
         if ids:
             wanted = [int(i) for i in ids.split(",") if i.strip().isdigit()][:500]
-            queryset = Reference.objects.filter(pk__in=wanted).order_by("bibtex_key")
+            queryset = base.filter(pk__in=wanted).order_by("bibtex_key")
         else:
-            queryset = filter_references(Reference.objects.all(), request.query_params)[:500]
-        response = HttpResponse(
-            export_bibtex(list(queryset)), content_type="application/x-bibtex; charset=utf-8"
-        )
-        response["Content-Disposition"] = 'attachment; filename="atlas-library.bib"'
+            queryset = filter_references(base, request.query_params)[:500]
+        try:
+            text, content_type, filename = render(
+                list(queryset), request.query_params.get("fmt", "bib")
+            )
+        except ValueError as exc:
+            return Response({"fmt": [str(exc)]}, status=400)
+        response = HttpResponse(text, content_type=content_type)
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 
     @extend_schema(

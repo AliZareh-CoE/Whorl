@@ -759,3 +759,32 @@ def test_browse_library_client_calls(capture):
     row = out["results"][0]
     assert row["authors"] == ["Lavie, Nilli"] and row["has_pdf"] is True
     assert "abstract" not in row and row["progress"]["percent"] == 42
+
+
+def test_export_references_client_calls(monkeypatch, env):
+    seen = {}
+
+    def fake_client():
+        def handler(request):
+            seen["url"] = str(request.url)
+            return httpx.Response(200, text="TY  - JOUR\nER  - \n")
+
+        return httpx.Client(transport=httpx.MockTransport(handler))
+
+    monkeypatch.setattr(client, "_client", fake_client)
+    text = client.export_references("ris", None, "deep", author="lavie", tag="", year_min=0)
+    assert text.startswith("TY  - JOUR")
+    assert "fmt=ris" in seen["url"] and "project=deep" in seen["url"]
+    assert (
+        "author=lavie" in seen["url"]
+        and "tag=" not in seen["url"]
+        and "year_min" not in seen["url"]
+    )
+    client.export_references("csv", [1, 2], "deep", author="x")
+    assert (
+        "ids=1%2C2" in seen["url"]
+        and "project=" not in seen["url"]
+        and "author=" not in seen["url"]
+    )
+    client.export_bibtex([3])
+    assert "fmt=bib" in seen["url"] and "ids=3" in seen["url"]

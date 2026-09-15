@@ -442,19 +442,29 @@ def discover_related(reference_id: int, kind: str = "similar", limit: int = 12):
     )
 
 
-def export_bibtex(reference_ids: list[int] | None = None, project: str | None = None) -> str:
-    """BibTeX text for explicit ids, or for a whole project's library."""
-    params = {}
+def export_references(
+    fmt: str = "bib", reference_ids: list[int] | None = None, project: str | None = None, **filters
+) -> str:
+    """The library (or a selection) as text in bib / ris / csl / csv (#525): explicit ids,
+    else the workbench filters (project, q, author, tag, reading_status, …)."""
+    params = {"fmt": fmt or "bib"}
     if reference_ids:
         params["ids"] = ",".join(str(i) for i in reference_ids)
-    elif project:
-        params["project"] = project
+    else:
+        if project:
+            params["project"] = project
+        params.update({k: v for k, v in filters.items() if v not in ("", None, 0, False)})
     base_url = os.environ.get("ATLAS_API_URL", "http://127.0.0.1:8000").rstrip("/")
     with _client() as client:
         response = client.get(f"{base_url}/api/v1/references/export/", params=params)
     if response.status_code >= 400:
         raise AtlasClientError(f"Atlas API {response.status_code} on /references/export/")
     return response.text
+
+
+def export_bibtex(reference_ids: list[int] | None = None, project: str | None = None) -> str:
+    """BibTeX text for explicit ids, or for a whole project's library."""
+    return export_references("bib", reference_ids, project)
 
 
 def format_citations(reference_ids: list[int], style: str = "apa"):

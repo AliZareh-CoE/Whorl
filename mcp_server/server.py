@@ -477,8 +477,40 @@ def discover_related(reference_id: int, kind: str = "similar", limit: int = 12) 
 
 @mcp.tool()
 def export_bibtex(reference_ids: list[int] | None = None, project: str = "") -> str:
-    """BibTeX for a list of reference ids, or for every reference linked to a project (slug)."""
+    """BibTeX for a list of reference ids, or for every reference linked to a project (slug).
+    For RIS, CSL-JSON or CSV — or to export a filtered view — use export_references."""
     return client.export_bibtex(reference_ids, project or None)
+
+
+@mcp.tool()
+def export_references(
+    fmt: str = "bib",
+    reference_ids: list[int] | None = None,
+    project: str = "",
+    q: str = "",
+    author: str = "",
+    tag: str = "",
+    reading_status: str = "",
+    year_min: int = 0,
+    year_max: int = 0,
+) -> str:
+    """Export references (#525) as text in the format (`fmt`) a colleague's tool reads: `bib` (BibTeX),
+    `ris` (EndNote / Mendeley / Zotero / Web of Science), `csl` (CSL-JSON for Zotero, Paperpile,
+    pandoc --citeproc) or `csv` (a spreadsheet: authors, year, venue, volume/issue/pages, DOI,
+    tags, projects with reading status, has_pdf, added). Either explicit `reference_ids`, or the
+    Library's filters: `project` slug (+ `reading_status` in it), `q`, `author` family name,
+    `tag`, `year_min` / `year_max`. Up to 500 rows. Save the text to a file for the colleague."""
+    return client.export_references(
+        fmt,
+        reference_ids,
+        project or None,
+        q=q,
+        author=author,
+        tag=tag,
+        reading_status=reading_status,
+        year_min=year_min,
+        year_max=year_max,
+    )
 
 
 @mcp.tool()
