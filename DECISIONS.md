@@ -563,6 +563,30 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 **Alternatives rejected.** Catching `DataError` / `OverflowError` in the view (hides the cause; the reason should name the field). A `BigIntegerField` for page counts (a hundred thousand pages is already a novel, not a paper). Refusing DOIs with commas at import (legal DOIs; the lookup's error path already handles them).
 
+### 2026-09-15 — MCP descriptions Claude can pick from (#541): a headline first, no slice numbers, a budget
+
+After #540 the default is 25 tools; what Claude then reads on every turn is their descriptions,
+and those had grown the way a changelog grows — `get_dashboard` at 1 397 characters,
+`browse_library` at 1 544, most docstrings carrying `(#527)`-style slice numbers, and 68 first
+sentences longer than 140 characters that listed payload fields before saying what the tool was
+for. The 25 core descriptions alone cost about 3.6k tokens with their schemas.
+
+**Decision.** Three rules, pinned by `mcp_server/tests/test_descriptions.py`: the headline
+(text before the first period or colon) is at most 110 characters and says what the tool is for;
+no slice number appears in any description (history lives in git, DECISIONS and PROGRESS, not in
+the model's context); no description exceeds 800 characters, no core description 720, and the
+core total stays under 5 200 (it is 4 950, from 8 997). Twenty-six docstrings were rewritten by
+hand — every core tool plus the nine over 700 characters — with a "Use for / Use when / Use
+before" cue where the name alone is not one; the rest lost their slice numbers mechanically.
+Payload field names that Claude needs to read a reply (`pulse`, `progress`, `cites`, `url`)
+stay; the story of when they were added does not.
+
+**Why not shorter still** (one line per tool): the field names and the "then call X" pointers
+are what let Claude chain calls without a second round trip; the budget is on noise, not on
+useful detail. **Why the docstring stays the description** (no separate description table): one
+place to edit, and `--check`, the README guard and the skill guard already read the same source.
+Backlog 339 done; 337–338 (the merges) remain.
+
 ### 2026-09-15 — Owner ask (#540): toolsets — 25 tools loaded by default, the other 131 one `enable_toolset` away
 
 Owner: "that 154 tool is too much! it should be simpler for claude to use it! claude will
@@ -2964,7 +2988,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 
 ## Backlog
 
-339. MCP docstrings: a one-line "use when" at the top of every tool docstring (the picker reads the first sentence; several open with the #-number or a data description).
+~~339. MCP docstrings: a one-line "use when" at the top of every tool docstring (the picker reads the first sentence; several open with the #-number or a data description).~~ Done 2026-09-15 (#541).
 338. MCP merges, batch two: `compile_manuscript` / `get_compile_status` / `compile_and_wait` → one `compile_manuscript(wait=)`; `search_pdf_text` + `search_in_pdf` → one `search_pdfs(reference=)`; keep the old names one release as aliases.
 337. MCP merges, batch one: the four watch checks (`check_retractions`, `check_preprints`, `check_citations`, `refresh_feeds`) → one `run_watch(kind, …)`; `get_new_citations` / `get_feed_items` → `get_watch_items(kind)`.
 336. The other direction — OpenManus (or any local web app) as a tab inside Atlas: an "Apps" page with an iframe per configured address (`ATLAS_EMBED_APPS=name=url,…`), rendered in the desktop web view too; the OpenManus dev server sends no framing header, so it needs nothing on its side (#539 guide §4).

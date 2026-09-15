@@ -220,7 +220,8 @@ to-dos, papers and the reading queue, notes, manuscripts, diagnostics) plus `lis
 `writing`, `studio`, `inbox`, `research`, `files`, `ops` — and Claude loads one mid-conversation
 with `enable_toolset("studio")`; the server announces `tools/list_changed`, so a client that
 honours it (Claude Code does) sees the new tools at once. The server's instructions tell Claude
-this, and each skill names the toolset it needs. To start with more loaded, add
+this, and each skill names the toolset it needs. Every tool description opens with what the
+tool is for and stays short (a test pins the budget), so the picker reads the point first. To start with more loaded, add
 `--env ATLAS_MCP_TOOLSETS=core,library` (or `all` for the whole list) to the line above; the
 Connect page shows what is on by default.
 

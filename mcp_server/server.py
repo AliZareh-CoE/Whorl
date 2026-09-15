@@ -27,22 +27,16 @@ def list_projects() -> dict:
 
 @mcp.tool()
 def get_project_overview(slug: str) -> dict:
-    """One-glance overview of a project: current phase, progress, next milestones, counts,
-    and the manuscripts glance — each live paper with its status clock ("41 d revising"),
-    whether a nudge to the editor is fair while it waits on a venue, and the pre-flight
-    verdict (ready / fails / warns / summary) while it is being worked on (#479); and the
-    literature glance — to-read count, high-priority unread, read this month, the next
-    paper up (top of the reading queue) and the last one added (#480); and the notebook
-    glance — notes (edited this week, unlinked, the three last touched), the lab log (last
-    entry, quiet after two weeks) and the dataset count (#481); and the pulse — twelve weeks
-    of activity binned per week with counts by kind, the busiest week, the trailing quiet
-    weeks and the last activity date (#483)."""
+    """Where a project stands, in one call: current phase and progress, next milestones, counts,
+    recent decisions, plus glances — manuscripts (status clock, nudge, readiness), literature
+    (to-read, next up, last added), notebook (notes, lab log, datasets) — and `pulse`, twelve
+    weeks of activity. Use before answering "what should I do on X?"."""
     return client.get_project_overview(slug)
 
 
 @mcp.tool()
 def get_status_update(slug: str, days: int = 7) -> dict:
-    """A paste-ready status update for a project as markdown (#482): the current phase and
+    """A paste-ready status update for a project as markdown: the current phase and
     its health, each manuscript's state (status clock, pre-flight readiness, deadline), what
     got done in the last `days` days grouped by kind (milestones, papers read, notes,
     decisions, lab entries…), what is next (overdue first, then due this week, then next
@@ -53,19 +47,16 @@ def get_status_update(slug: str, days: int = 7) -> dict:
 
 @mcp.tool()
 def get_plan(slug: str) -> dict:
-    """The project's full plan: ordered phases with milestones (ids, due dates, overdue flags,
-    #512 `blocked_by` / `blocked` / `blocks` dependencies, #516 `baseline` / `moves` / `slipped` /
-    `history` (drift), #515 `slack` — days it can slip before
-    it pushes a dated dependant, #519 `likely` — the held date plus the project's median
-    lateness) and tasks; each phase carries `likely_end` and the payload a `calibration` block; `conflicts` lists the milestones due on or before a
-    milestone they wait for, each with a `suggested` date (#513); `critical_chain` is the
-    dependency chain that decides the plan's end (ids, titles, span, least slack)."""
+    """The project's plan: phases → milestones (ids, due dates, overdue, `blocked_by`, `slack`,
+    `likely` date, drift) → tasks, with `conflicts`, `critical_chain` and a `calibration` block.
+    Use to find milestone ids before complete_milestone and to answer "what is next, what is
+    late"."""
     return client.get_plan(slug)
 
 
 @mcp.tool()
 def get_plan_drift(slug: str) -> dict:
-    """How far a plan has drifted from what was first written (#516). Every due-date change is
+    """How far a plan has drifted from what was first written. Every due-date change is
     logged on save; returns `total` days slipped across dated milestones (pull-ins negative),
     `moved` milestones, `most` — the milestone that slipped most — `baseline_end` vs
     `current_end` (the plan's last due date then and now), and `milestones` sorted by slip
@@ -76,7 +67,7 @@ def get_plan_drift(slug: str) -> dict:
 
 @mcp.tool()
 def get_plan_calibration(slug: str) -> dict:
-    """How a project's milestones actually land against their dates (#519). Every completed
+    """How a project's milestones actually land against their dates. Every completed
     milestone that held a date is a sample: returns `count`, `on_time`, `median_late` and
     `p80_late` against the date each last held, `median_late_first` against the first date it
     was given, `buckets` {early, on_the_day, week, month, longer}, `worst`, `shift` — the days
@@ -89,11 +80,11 @@ def get_plan_calibration(slug: str) -> dict:
 
 @mcp.tool()
 def get_plan_review(slug: str) -> dict:
-    """The plan review (#517): `state` says when the plan was last reviewed (`last`,
+    """The plan review: `state` says when the plan was last reviewed (`last`,
     `days_since`, `due` — never reviewed or a week old with open milestones — and the last
     sitting's `summary`); `queue` lists every open milestone in review order — overdue first,
     then by due date, undated last — with phase, days to due, blocked / blocked_by, slack,
-    conflict, baseline / moves / slipped, `likely` (#520) and open_tasks. Walk it, decide each one with
+    conflict, baseline / moves / slipped, `likely` and open_tasks. Walk it, decide each one with
     complete_milestone or move_milestone, then call finish_plan_review."""
     return client.get_plan_review(slug)
 
@@ -102,15 +93,14 @@ def get_plan_review(slug: str) -> dict:
 def finish_plan_review(
     slug: str, kept: int = 0, completed: int = 0, moved: int = 0, skipped: int = 0, note: str = ""
 ) -> dict:
-    """Record a plan-review sitting (#517) with the counts of milestones kept as they were,
-    completed, moved to a new date and skipped, plus an optional note; returns the new review
+    """Record a plan-review sitting. Give the counts of milestones kept as they were, completed, moved to a new date and skipped, plus an optional note; returns the new review
     state. The Plan page then reads "reviewed today"."""
     return client.finish_plan_review(slug, kept, completed, moved, skipped, note)
 
 
 @mcp.tool()
 def fix_plan_conflicts(slug: str) -> dict:
-    """Fix the plan's dependency date conflicts (#513): every open milestone due on or before
+    """Fix the plan's dependency date conflicts: every open milestone due on or before
     the latest due date of a milestone it waits for is moved to the day after, blockers first
     so downstream dates follow; undated milestones are left alone. Returns `changes`
     [{id, title, from, to}] — read get_plan's `conflicts` first to see what will move."""
@@ -120,21 +110,21 @@ def fix_plan_conflicts(slug: str) -> dict:
 @mcp.tool()
 def move_milestone(milestone_id: int, due_date: str = "") -> dict:
     """Give a milestone a new due date (ISO `YYYY-MM-DD`; "" clears it). The move is logged, so
-    get_plan / get_plan_drift show the baseline, the number of moves and the slip (#516); the
-    plan review (#517) counts it as `moved`."""
+    get_plan / get_plan_drift show the baseline, the number of moves and the slip; the
+    plan review counts it as `moved`."""
     return client.move_milestone(milestone_id, due_date or None)
 
 
 @mcp.tool()
 def complete_milestone(milestone_id: int) -> dict:
-    """Mark a milestone complete (find ids via get_plan). Progress rolls up automatically;
-    milestones that were only waiting on this one become unblocked (#512)."""
+    """Mark a milestone done (ids from get_plan). Progress rolls up; milestones that were waiting
+    on it are unblocked."""
     return client.complete_milestone(milestone_id)
 
 
 @mcp.tool()
 def set_milestone_dependencies(milestone_id: int, blocked_by: list[int]) -> dict:
-    """Make a milestone wait for others (#512): `blocked_by` replaces the full list of
+    """Make a milestone wait for others: `blocked_by` replaces the full list of
     milestone ids it depends on (same project, no loops — a 400 explains otherwise; [] clears).
     get_plan shows `blocked_by`, `blocked` and `blocks` per milestone; the overview's next
     milestones and the roadmap sort blocked ones after the ones that can be done now."""
@@ -149,9 +139,10 @@ def list_documents(project: str) -> dict:
 
 @mcp.tool()
 def search(query: str) -> dict:
-    """Full-text search across projects, references (title, abstract, PDF text), notes,
-    documents, decisions, plans, hypotheses, experiments, protocols, datasets and inbox
-    captures — each hit with a snippet and the route to open it."""
+    """Full-text search across everything in Atlas: projects, papers (title, abstract, PDF text),
+    notes, documents, decisions, plans, hypotheses, experiments, protocols, datasets, captures.
+    Use when you do not know where something lives; each hit carries a snippet and the route to
+    open it."""
     return client.search(query)
 
 
@@ -163,18 +154,15 @@ def add_reference_by_doi(doi: str, project: str = "") -> dict:
 
 @mcp.tool()
 def get_reading_queue(project: str) -> list:
-    """The project's reading queue: unread/skimmed references, highest priority first. Rows
-    carry `progress` {page, pages, percent, last_read_at} — where the reader left off — and
-    `started_at` (#523), so "you are on page 5 of 12 of X" is one call."""
+    """The project's reading queue: unread and skimmed papers, highest priority first, each with
+    `progress` (page of pages) and `started_at`. Use for "what should I read next in X?"."""
     return client.get_reading_queue(project)
 
 
 @mcp.tool()
 def set_reading_status(project_reference_id: int, status: str) -> dict:
-    """Set reading status for a queue item (ids from get_reading_queue).
-
-    Status is one of: to_read, skimmed, read, annotated.
-    """
+    """Set a paper's reading status in a project (ids from get_reading_queue): to_read, skimmed,
+    read or annotated."""
     return client.set_reading_status(project_reference_id, status)
 
 
@@ -201,23 +189,14 @@ def browse_library(
     sort: str = "added",
     limit: int = 20,
 ) -> dict:
-    """Browse the Library with the workbench's filters (#524) — the same ones the rail offers.
-    `author` is a family name (case-insensitive: "lavie"); `q` searches title, venue, key,
-    abstract, authors, DOI and the PDF text; `venue` is exact; `tag` a tag name; `project` a
-    slug and `reading_status` (to_read / skimmed / read / annotated) the state in that project;
-    `has_pdf` "true" or "false"; `untagged` / `unfiled` / `needs_metadata` / `retracted` (papers
-    the retraction watch flagged, #527 — rows carry `retraction` {kind, notice, date}) and
-    `notices` (papers with an expression of concern or a correction on record, #537 — rows
-    carry `notices` [{kind, notice, date}]; read the notice before citing the result) are
-    hygiene views; `preprints` (arXiv papers without a publisher DOI; rows carry `preprint`)
-    and `published_available` (preprints whose published version the preprint watch found,
-    #529 — rows carry `published` {doi, venue}; upgrade_preprint applies it);
-    `sort` added, -added, year, -year, title, -title or citations. Returns `count` (all matches),
-    `url` — the same view in the app (`/library?author=lavie&tag=load`; every Library view has
-    an address, hand it to the user or paste it in a note, #526) — and up to `limit` (≤ 50)
-    compact rows: id, bibtex_key, title, authors ["Family, Given"], year, venue, doi, has_pdf,
-    citation_count, tags, projects [{slug, reading_status, …}] and `progress`. Use it for
-    "what do I have by X?", "unread papers tagged Y", "papers with no PDF"."""
+    """Browse the Library with the app's filters. Use for "what do I have by X", "unread papers
+    tagged Y", "papers without a PDF". Filters: `q` (title, venue, key, abstract, authors, DOI,
+    PDF text), `author` (family name), `venue`, `tag`, `project` + `reading_status` (to_read /
+    skimmed / read / annotated), `has_pdf`, `untagged`, `unfiled`, `needs_metadata`,
+    `retracted`, `notices`, `preprints`, `published_available`; `sort` added / -added / year /
+    -year / title / -title / citations. Returns `count`, `url` (the same view in the app — hand
+    it to the user) and up to `limit` (≤ 50) rows: id, bibtex_key, title, authors, year, venue,
+    doi, has_pdf, tags, projects, progress, plus any retraction / notices / published data."""
     return client.browse_library(
         limit=limit,
         q=q,
@@ -246,17 +225,12 @@ def browse_library(
 def check_retractions(
     reference_ids: list[int] | None = None, days: int = 30, limit: int = 50
 ) -> dict:
-    """The retraction watch (#527). Checks papers against Crossref's retraction / withdrawal /
-    removal notices and stores the verdict on each paper, so the Library, the Reference page and
-    the manuscript pre-flight show it. With `reference_ids` (≤ 50): those papers. Without: the
-    stale ones — never checked or checked more than `days` ago, up to `limit` (≤ 50; the daily
-    sweep does the rest). Returns `checked`, `retracted` [{id, bibtex_key, title, kind, notice,
-    date}], `noticed` (#537: papers with an expression of concern or a correction on record —
-    [{id, bibtex_key, title, notices: [{kind, notice, date}]}]; the same answer stores them),
-    `errors` (offline / failed lookups leave the stored verdicts alone), `skipped` (no DOI) and
-    `status` {retracted, noticed, unchecked, with_doi, last_checked_at}. Use it when the user
-    asks "is anything I cite retracted?" or before a submission; browse_library(retracted=True)
-    / browse_library(notices=True) list the flagged papers without asking Crossref."""
+    """Ask Crossref whether papers are retracted and store the verdict on each. Use for "is
+    anything I cite retracted?" or before a submission. `reference_ids` (≤ 50) checks those;
+    without, the stale ones (never checked or older than `days`, up to `limit`). Returns
+    `checked`, `retracted` [{id, bibtex_key, title, kind, notice, date}], `noticed` (expressions
+    of concern and corrections), `errors` (stored verdicts kept), `skipped` (no DOI) and
+    `status`. browse_library(retracted=True) lists flagged papers without asking Crossref."""
     return client.check_retractions(reference_ids, days, limit)
 
 
@@ -264,23 +238,18 @@ def check_retractions(
 def check_preprints(
     reference_ids: list[int] | None = None, days: int = 30, limit: int = 50
 ) -> dict:
-    """The preprint watch (#529). Asks arXiv (the author-deposited DOI) and Semantic Scholar
-    whether the library's arXiv preprints have since been published, and stores the answer on
-    each paper — the Library shows a "published version" chip, the detail pane names the venue
-    and DOI, the pre-flight warns when a manuscript still cites the preprint. With
-    `reference_ids` (≤ 50): those papers. Without: the stale preprints — never checked or
-    checked more than `days` ago, up to `limit` (≤ 50; the daily sweep does the rest). Returns
-    `checked`, `published` [{id, bibtex_key, title, arxiv_id, published_doi, published_venue}],
-    `errors` (offline lookups leave the stored answers alone), `skipped` (not a preprint) and
-    `status` {preprints, published_available, unchecked, last_checked_at}. Then call
-    upgrade_preprint for the ones the user wants to cite by their published version;
-    browse_library(published_available=True) lists them without asking anyone."""
+    """Ask arXiv and Semantic Scholar whether the library's arXiv preprints have been published,
+    and store the answer. `reference_ids` (≤ 50) checks those; without, the stale preprints up
+    to `limit`. Returns `checked`, `published` [{id, bibtex_key, title, arxiv_id, published_doi,
+    published_venue}], `errors`, `skipped` (not a preprint) and `status`. Then upgrade_preprint
+    switches a paper to its published version; browse_library(published_available=True) lists
+    the candidates."""
     return client.check_preprints(reference_ids, days, limit)
 
 
 @mcp.tool()
 def upgrade_preprint(reference_id: int, doi: str = "") -> dict:
-    """Make a preprint cite its published version (#529): the published DOI the watch found (or
+    """Make a preprint cite its published version: the published DOI the watch found (or
     `doi`, when the user names one) becomes the paper's DOI, venue, year and metadata come from
     Crossref / OpenAlex, the cite key and the arXiv id stay, the preprint's identity is kept in
     `extra.preprint` — so every manuscript that cites the key now cites the paper. Offline the
@@ -294,34 +263,26 @@ def upgrade_preprint(reference_id: int, doi: str = "") -> dict:
 def get_new_citations(
     project: str = "", reference_id: int = 0, dismissed: bool = False, limit: int = 50
 ) -> dict:
-    """The citation watch's feed (#530): papers outside the library that cite papers in it,
-    found by the weekly OpenAlex sweep, newest publication first — the "who cited my papers this
-    month" alert a Scholar / ResearchRabbit user gets by e-mail, with `cites` [{id, bibtex_key,
-    title}] naming which library papers each one cites. Narrow with `project` (slug) or
-    `reference_id` (one paper); `dismissed=True` lists the ones marked seen. Rows carry title,
-    authors, year, published_on, venue, cited_by_count, doi, url and `addable` (has a DOI) —
-    add one with add_reference_by_doi (it leaves the feed by itself), mark the rest seen with
-    dismiss_citations. `status` {new, dismissed, watched, unchecked, last_checked_at} says how
-    fresh the feed is; call check_citations when the user wants it fresher. `url` opens the same
-    view in the app (#532)."""
+    """Papers outside the library that cite papers in it, newest first — "who cited my papers".
+    Narrow with `project` or `reference_id`; dismissed=True lists the seen ones. Rows carry
+    title, authors, year, venue, doi, `cites` (which library papers) and `addable`; add one with
+    add_reference_by_doi, mark the rest seen with dismiss_citations. `status` says how fresh the
+    feed is; check_citations refreshes it. `url` opens the view in the app."""
     return client.get_new_citations(project, reference_id, dismissed, limit)
 
 
 @mcp.tool()
 def check_citations(reference_ids: list[int] | None = None, days: int = 7, limit: int = 50) -> dict:
-    """The citation watch (#530). Asks OpenAlex who newly cites the library's papers and stores
-    the answers, so get_new_citations and the Library's "New citations" feed show them. With
-    `reference_ids` (≤ 50): those papers. Without: the stale ones — never checked or checked more
-    than `days` ago (default 7), up to `limit` (≤ 50; the daily sweep does the rest). Returns
-    `checked`, `new` (feed rows first seen now), `seen` (met again), `errors` (OpenAlex offline or
-    over its daily list budget — nothing is stamped, the stored feed stays), `skipped` (no DOI or
-    OpenAlex id, or a DOI OpenAlex does not know) and `status`. One request per 50 papers; a first check looks a year back."""
+    """Ask OpenAlex who newly cites the library's papers and store them for get_new_citations.
+    `reference_ids` (≤ 50) checks those; without, the stale ones (older than `days`, default 7,
+    up to `limit`). Returns `checked`, `new`, `seen`, `errors` (offline or over budget: nothing
+    stamped), `skipped` and `status`. A first check looks a year back."""
     return client.check_citations(reference_ids, days, limit)
 
 
 @mcp.tool()
 def dismiss_citations(work_ids: list[int], undo: bool = False) -> dict:
-    """Mark rows of the citation feed as seen (#530) — they leave get_new_citations and the
+    """Mark rows of the citation feed as seen — they leave get_new_citations and the
     Library's New citations list for the dismissed list; `undo=True` puts them back. `work_ids`
     are feed row ids (≤ 500). Returns `changed` and the watch's status."""
     return client.dismiss_citations(work_ids, undo)
@@ -329,18 +290,17 @@ def dismiss_citations(work_ids: list[int], undo: bool = False) -> dict:
 
 @mcp.tool()
 def list_feeds() -> dict:
-    """The journal and arXiv feeds the user follows inside the Library (#531): `feeds`
+    """The journal and arXiv feeds the user follows inside the Library: `feeds`
     [{id, url, title, project, new, items, last_fetched_at, last_ok_at, last_error}] and
     `status` {feeds, new, dismissed, errors, last_fetched_at}. `new` is how many entries of a
     feed are still to look at; `last_error` is set when the last fetch did not answer with a
-    feed. Every row and the answer carry `url`, the feed (or all feeds) opened in the app
-    (#532). Use it for "what am I following?" and before add_feed."""
+    feed. Every row and the answer carry `url`, the feed (or all feeds) opened in the app. Use it for "what am I following?" and before add_feed."""
     return client.list_feeds()
 
 
 @mcp.tool()
 def add_feed(url: str, project: str = "", title: str = "") -> dict:
-    """Follow a journal or arXiv feed inside the Library (#531): RSS 2.0, Atom or RSS 1.0 at
+    """Follow a journal or arXiv feed inside the Library: RSS 2.0, Atom or RSS 1.0 at
     `url` (arXiv: https://rss.arxiv.org/atom/<category>, e.g. q-bio.NC or cs.CL; journals: the
     RSS address on their site, or the journal's home page when it advertises its feed). The
     address is fetched once; it is refused when it is private, does not answer, or is not a
@@ -351,14 +311,14 @@ def add_feed(url: str, project: str = "", title: str = "") -> dict:
 
 @mcp.tool()
 def remove_feed(feed_id: int) -> dict:
-    """Stop following a feed (#531). Its entries leave the list; papers already added stay in
+    """Stop following a feed. Its entries leave the list; papers already added stay in
     the library."""
     return client.remove_feed(feed_id)
 
 
 @mcp.tool()
 def refresh_feeds(feed_ids: list[int] | None = None, hours: int = 12, limit: int = 20) -> dict:
-    """Fetch the followed feeds now (#531) so get_feed_items and the Library's Feeds list show
+    """Fetch the followed feeds now so get_feed_items and the Library's Feeds list show
     today's announcements. With `feed_ids` (≤ 20): those feeds. Without: the ones not fetched
     in `hours` (default 12), up to `limit` (≤ 20; the six-hourly sweep does the rest). Returns
     `feeds` (fetched), `new`, `seen`, `unchanged` (304), `errors` (a feed that did not answer
@@ -370,20 +330,18 @@ def refresh_feeds(feed_ids: list[int] | None = None, hours: int = 12, limit: int
 def get_feed_items(
     feed_id: int = 0, project: str = "", dismissed: bool = False, q: str = "", limit: int = 50
 ) -> dict:
-    """The followed feeds' entries that are not in the library (#531), newest first — the
-    daily arXiv / journal skim, inside the library. Narrow with `feed_id`, `project` (slug: the
-    feeds filed under it) or `q` (a word in the title or abstract); `dismissed=True` lists the
-    ones marked seen. Rows carry title, authors, summary (the abstract), doi / arxiv_id, link,
-    published_on, `feed` {id, title} and `addable` (has a DOI or arXiv id) — add one with
-    add_feed_item, mark the rest seen with dismiss_feed_items. The same paper in two feeds is
-    listed once. `status` says when the feeds were last fetched; call refresh_feeds for
-    fresher. `url` opens the same view in the app (#532)."""
+    """New entries from the followed feeds that are not in the library, newest first — the daily
+    arXiv or journal skim. Narrow with `feed_id`, `project` or `q`; dismissed=True lists the
+    seen ones. Rows carry title, authors, summary, doi / arxiv_id, link, published_on, `feed`
+    and `addable`; add one with add_feed_item, mark the rest seen with dismiss_feed_items.
+    `status` says when the feeds were last fetched; refresh_feeds fetches. `url` opens the view
+    in the app."""
     return client.get_feed_items(feed_id, project, dismissed, q, limit)
 
 
 @mcp.tool()
 def add_feed_item(item_id: int, project: str = "") -> dict:
-    """Add a feed entry's paper to the library by its DOI or arXiv id (#531) and link it to
+    """Add a feed entry's paper to the library by its DOI or arXiv id and link it to
     `project` (slug; default: the feed's project). The entry leaves get_feed_items. Returns the
     reference row (bibtex_key, title, …)."""
     return client.add_feed_item(item_id, project)
@@ -391,7 +349,7 @@ def add_feed_item(item_id: int, project: str = "") -> dict:
 
 @mcp.tool()
 def dismiss_feed_items(item_ids: list[int], undo: bool = False) -> dict:
-    """Mark feed entries as seen (#531) — they leave get_feed_items and the Library's Feeds
+    """Mark feed entries as seen — they leave get_feed_items and the Library's Feeds
     list for the seen list; `undo=True` puts them back. `item_ids` are entry ids (≤ 500).
     Returns `changed` and the feeds' status."""
     return client.dismiss_feed_items(item_ids, undo)
@@ -399,7 +357,7 @@ def dismiss_feed_items(item_ids: list[int], undo: bool = False) -> dict:
 
 @mcp.tool()
 def get_reading_progress(reference_id: int = 0, limit: int = 5) -> dict | list:
-    """Reading progress (#523). With a `reference_id`: where the reader left off in that paper —
+    """Reading progress. With a `reference_id`: where the reader left off in that paper —
     `page`, `pages`, `percent`, `last_read_at` and `links` [{project, reading_status,
     started_at, finished_at}]. With `reference_id` 0 (the default): the papers the user is in
     the middle of — a remembered page past the first, read in the last 30 days, not at the end,
@@ -413,7 +371,7 @@ def get_reading_progress(reference_id: int = 0, limit: int = 5) -> dict | list:
 def set_reading_position(
     reference_id: int, page: int, page_count: int = 0, project: str = ""
 ) -> dict:
-    """Remember the page the user is on in a paper (#523) — the reader restores it next time and
+    """Remember the page the user is on in a paper — the reader restores it next time and
     the Library shows "p. 5 of 12". `page_count` when known (a page past the end is refused);
     `project` (slug) stamps the link's started_at the first time. Never changes the reading
     status — call set_reading_status for that."""
@@ -483,15 +441,15 @@ def get_weekly_review(project: str = "", weeks_back: int = 0) -> dict:
 
 @mcp.tool()
 def list_manuscripts(project: str = "") -> dict:
-    """List the owner's manuscripts (LaTeX papers), optionally scoped to one project slug.
-    Each includes its title, status, and file summary."""
+    """The owner's manuscripts (LaTeX papers), optionally one project's: title, status, clock, file
+    summary. Use to find a manuscript id."""
     return client.list_manuscripts(project or None)
 
 
 @mcp.tool()
 def get_manuscript(manuscript_id: int) -> dict:
-    """Full detail for one manuscript, including its source file tree (paths, kinds, which is
-    the main file) and current compile status."""
+    """One manuscript in full: status, venue, deadline, its source file tree (main file marked),
+    compile status and readiness."""
     return client.get_manuscript(manuscript_id)
 
 
@@ -688,7 +646,7 @@ def export_references(
     year_min: int = 0,
     year_max: int = 0,
 ) -> str:
-    """Export references (#525) as text in the format (`fmt`) a colleague's tool reads: `bib` (BibTeX),
+    """Export references as text in the format (`fmt`) a colleague's tool reads: `bib` (BibTeX),
     `ris` (EndNote / Mendeley / Zotero / Web of Science), `csl` (CSL-JSON for Zotero, Paperpile,
     pandoc --citeproc) or `csv` (a spreadsheet: authors, year, venue, volume/issue/pages, DOI,
     tags, projects with reading status, has_pdf, added). Either explicit `reference_ids`, or the
@@ -723,9 +681,8 @@ def list_todos(include_done: bool = False) -> dict:
 
 @mcp.tool()
 def add_todo(text: str, project: str = "", due_at: str = "") -> dict:
-    """Put something on the owner's Today list (optionally tagged with a project slug).
-    `due_at` is an optional ISO-8601 datetime with offset (e.g. 2026-09-07T15:00:00+02:00) —
-    the sidebar nudges the owner when it comes within two hours."""
+    """Put something on the owner's Today list, optionally tagged with a project slug. `due_at` is
+    ISO-8601 with an offset (2026-09-07T15:00:00+02:00); the app nudges two hours before."""
     return client.add_todo(text, project or None, due_at or None)
 
 
@@ -737,7 +694,7 @@ def complete_todo(todo_id: int, done: bool = True) -> dict:
 
 @mcp.tool()
 def get_reference_tldr(reference_id: int) -> dict:
-    """tl;dr of a paper section by section: the headings found in its PDF text, each with
+    """A tl;dr of a paper, section by section: the headings found in its PDF text, each with
     two key sentences and the page it starts on (falls back to the abstract). Local and
     instant — read it before deciding whether to read the paper."""
     return client.get_reference_tldr(reference_id)
@@ -916,14 +873,14 @@ def set_plan_outline(slug: str, markdown: str, dry_run: bool = False) -> dict:
 def get_roadmap(slug: str) -> dict:
     """The plan as a timeline: each phase's window (real or inferred from milestones), its
     milestones with due dates, a health state (behind / on_track / ahead / blocked / overdue /
-    upcoming / done) with a one-line reason, and a finish forecast from the completion pace. Milestone rows carry `blocked`, `blocked_by` (ids), `conflict` (#514), `slack` (#515) and `likely` — where an open milestone will land at the project's measured pace (#520, see get_plan_calibration); phases carry `likely_end`; `critical_chain` names the chain that decides the end.
+    upcoming / done) with a one-line reason, and a finish forecast from the completion pace. Milestone rows carry `blocked`, `blocked_by` (ids), `conflict`, `slack` and `likely` — where an open milestone will land at the project's measured pace; phases carry `likely_end`; `critical_chain` names the chain that decides the end.
     """
     return client.get_roadmap(slug)
 
 
 @mcp.tool()
 def get_phase_report(phase_id: int) -> dict:
-    """A phase's report card (#521): `planned_start` / `planned_end` (target end, else the last
+    """A phase's report card: `planned_start` / `planned_end` (target end, else the last
     first-given date) against `actual_end` (the latest completion) and the `overrun` in days,
     `counts` {total, done, open, on_time}, `median_late`, `drift` and `moves`, every milestone
     with baseline / landed / late / late_first / bucket, the attached research questions,
@@ -934,7 +891,7 @@ def get_phase_report(phase_id: int) -> dict:
 
 @mcp.tool()
 def close_phase(phase_id: int, lessons: str = "") -> dict:
-    """Close a phase (#521): status → done and a decision record "Phase closed: <name>" files
+    """Close a phase: status → done and a decision record "Phase closed: <name>" files
     the report as context with `lessons` — what the phase taught, in the user's words — as the
     decision. Ask for the lessons first; only close when the user says the phase is over."""
     return client.close_phase(phase_id, lessons)
@@ -955,14 +912,14 @@ def get_week_focus(slug: str) -> dict:
 
 @mcp.tool()
 def list_notes(project: str, q: str = "", tag: str = "") -> dict:
-    """Notes of a project, newest edited first; `q` filters by text, `tag` by a #tag written
-    in the body (#504; notes carry `tags`)."""
+    """A project's notes, newest edited first. `q` filters by text, `tag` by a #tag written in the
+    body."""
     return client.list_notes(project, q, tag)
 
 
 @mcp.tool()
 def list_note_tags(project: str) -> dict:
-    """Every #tag used in the project's notes with a count, most used first (#504) — the
+    """Every #tag used in the project's notes with a count, most used first — the
     project's own vocabulary; pass one to list_notes(tag=…)."""
     return client.list_note_tags(project)
 
@@ -975,16 +932,15 @@ def get_note(note_id: int) -> dict:
 
 @mcp.tool()
 def update_note(note_id: int, body: str = "", title: str = "") -> dict:
-    """Rewrite a note's body and/or title (empty = unchanged). [[Note Title]] links other notes;
-    @bibtex_key cites a paper from the library and attaches it to the note. A new title
-    rewrites every [[old title]] across the project's notes, decisions, lab entries and
-    captures (#502) — the reply's `relinked` counts them."""
+    """Rewrite a note's body and/or title (empty = unchanged). [[Title]] links notes; @bibtex_key
+    cites a library paper and attaches it. A new title rewrites every [[old title]] across the
+    project; `relinked` counts them."""
     return client.update_note(note_id, body or None, title or None)
 
 
 @mcp.tool()
 def list_note_revisions(note_id: int) -> dict:
-    """The note's history (#505), newest first: every state a save replaced, with when, the
+    """The note's history, newest first: every state a save replaced, with when, the
     word count and the delta. Read one with get_note_revision, put it back with
     restore_note_revision."""
     return client.list_note_revisions(note_id)
@@ -993,20 +949,20 @@ def list_note_revisions(note_id: int) -> dict:
 @mcp.tool()
 def get_note_revision(note_id: int, revision_id: int) -> dict:
     """One revision of a note: its title, body and a unified diff from it to the note as it
-    is now (#505)."""
+    is now."""
     return client.get_note_revision(note_id, revision_id)
 
 
 @mcp.tool()
 def restore_note_revision(note_id: int, revision_id: int) -> dict:
-    """Put a revision's title and body back on the note (#505). The current state is filed
+    """Put a revision's title and body back on the note. The current state is filed
     as a revision first, so this is undoable; links, citations and tags are re-synced."""
     return client.restore_note_revision(note_id, revision_id)
 
 
 @mcp.tool()
 def get_project_graph(slug: str) -> dict:
-    """The project's knowledge graph (#506): `nodes` are papers (reading status, year,
+    """The project's knowledge graph: `nodes` are papers (reading status, year,
     citations, highlights) and notes (words, `tags`), each with `created_at` — the day it was
     filed into the project — so the graph can be replayed in time; `links` are citations,
     note→note links and note→paper citations; `stats` counts them, names the hubs and the
@@ -1016,7 +972,7 @@ def get_project_graph(slug: str) -> dict:
 
 @mcp.tool()
 def get_related_notes(note_id: int, limit: int = 5) -> list:
-    """Notes in the same project this note is about but does not link to yet (#510) —
+    """Notes in the same project this note is about but does not link to yet —
     scored by shared cited papers, shared #tags, shared [[link]] targets and shared words,
     strongest first, each with `reasons` ("cites 2 of the same papers", "#pilot", "both
     link to X", "shares 5 terms: …"). Use `update_note` or `link_mentions` to make the link."""
@@ -1025,7 +981,7 @@ def get_related_notes(note_id: int, limit: int = 5) -> list:
 
 @mcp.tool()
 def get_note_outline(note_id: int) -> dict:
-    """The shape and size of a note (#507): `outline` lists its headings (level, text, 1-based
+    """The shape and size of a note: `outline` lists its headings (level, text, 1-based
     line — code fences skipped) so a long note can be navigated or summarised section by
     section; `measure` counts words, characters, reading minutes (200 wpm), headings, [[links]],
     @citations and task boxes (done/total)."""
@@ -1034,7 +990,7 @@ def get_note_outline(note_id: int) -> dict:
 
 @mcp.tool()
 def get_note_graph(note_id: int, depth: int = 2) -> dict:
-    """ "Around this note" (#503): the notes it links to and from, the papers it cites, and
+    """ "Around this note": the notes it links to and from, the papers it cites, and
     their neighbours up to `depth` hops (1–3) — nodes carry `hops` and the same facts as the
     project graph (reading status, citations, words); `stats` counts notes, papers, links."""
     return client.get_note_graph(note_id, depth)
@@ -1042,7 +998,7 @@ def get_note_graph(note_id: int, depth: int = 2) -> dict:
 
 @mcp.tool()
 def link_mentions(note_id: int, sources: list[int] | None = None) -> dict:
-    """Turn unlinked mentions of a note into [[links]] (#502): the first plain occurrence of
+    """Turn unlinked mentions of a note into [[links]]: the first plain occurrence of
     its title in each mentioning note (get_note_links → `mentions`; or only `sources`) is
     wrapped in [[ ]]. Returns the notes that were linked."""
     return client.link_mentions(note_id, sources)
@@ -1065,8 +1021,7 @@ def create_note_from_template(project: str, kind: str, reference_id: int = 0) ->
 
 @mcp.tool()
 def export_note(note_id: int, style: str = "apa") -> dict:
-    """The note as portable Markdown with a References section formatted in apa / mla / chicago /
-    harvard / vancouver / ieee — paste it into a manuscript or send it to a colleague."""
+    """Export a note as portable Markdown. The References section is formatted in apa / mla / chicago / harvard / vancouver / ieee — paste it into a manuscript or send it to a colleague."""
     return client.export_note(note_id, style)
 
 
@@ -1124,29 +1079,21 @@ def get_response_progress(manuscript_id: int) -> dict | None:
 def submit_manuscript(
     manuscript_id: int, force: bool = False, date: str = "", notes: str = ""
 ) -> dict:
-    """Mark a paper as submitted the careful way: runs the pre-flight first and refuses (HTTP 409
-    with the full report) while a blocking check fails — a stale or missing PDF, compile errors,
-    undefined references, cite keys missing from the bibliography, a venue limit exceeded, a
-    figure file that does not exist. A passed deadline never blocks. With force=true it submits
-    anyway and says so in the event. On success the status becomes submitted (from revision:
-    under_review, logging revision_submitted), a submission event dated today (or `date`,
-    YYYY-MM-DD) is written with the readiness note plus your `notes`, and the manuscript, the
-    event and the report come back. Ask the user before forcing."""
+    """Mark a paper submitted the careful way: runs the pre-flight and refuses (409 with the
+    report) while a blocking check fails. force=true submits anyway and says so in the event —
+    ask the user first. On success the status becomes submitted (under_review from revision),
+    and an event dated today or `date` (YYYY-MM-DD) carries the readiness note and your `notes`."""
     return client.submit_manuscript(manuscript_id, force=force, date=date, notes=notes)
 
 
 @mcp.tool()
 def lint_manuscript(manuscript_id: int) -> dict:
-    r"""Static LaTeX style lint over the manuscript's .tex files — the mistakes a compile never
-    reports: an unescaped % after a number (comments out the rest of the line), \label before
-    \caption (numbers the wrong float), duplicate and undefined labels, a plain space before
-    \ref or between a number and its unit (the number wraps), straight "quotes", three dots,
-    $$ display math, \begin{center} inside a float, \\ used as a paragraph break, a captioned
-    float without a label, e.g./i.e. without a comma, plus the structural pair — an environment
-    opened and never closed (or closed without a begin) and unbalanced braces. Each finding has
-    file, line, col, rule,
-    level (error/warning), message and a suggested fix where one is obvious. Fix the errors
-    first; they change what prints."""
+    r"""Style-lint the manuscript's .tex files for the mistakes a compile never reports: an
+    unescaped %, \label before \caption, duplicate or undefined labels, a space before \ref or a
+    unit, straight quotes, three dots, $$, \\ as a paragraph break, an unlabelled float,
+    e.g./i.e. without a comma, unmatched environments, unbalanced braces. Each finding: file,
+    line, col, rule, level, message and a suggested fix. Fix the errors first; they change what
+    prints."""
     return client.lint_manuscript(manuscript_id)
 
 
@@ -1181,8 +1128,7 @@ def replace_in_manuscript(
 
 @mcp.tool()
 def get_venue_turnaround(venue: str, exclude: int | None = None) -> dict:
-    """How long does this venue take, going by the owner's own submissions? Pairs every
-    submitted / revision_submitted event with the next decision (reviews received, desk
+    """How long does this venue take, by the owner's own history? Pairs every submitted / revision_submitted event with the next decision (reviews received, desk
     reject, accepted, rejected) across all manuscripts whose target venue matches
     (case-insensitive) and returns the manuscripts and rounds counted, the median days per
     round, the median for first decisions, and the fastest and slowest. Every manuscript
@@ -1216,14 +1162,12 @@ def fix_lint(manuscript_id: int, only: list[dict] | None = None) -> dict:
 
 @mcp.tool()
 def preflight_manuscript(manuscript_id: int, network: bool = False) -> dict:
-    r"""Is this paper ready to submit? Every readiness check from real data: the compiled PDF
-    is up to date with the source, no compile errors, no undefined citations/references, every
-    \cite key is in the bibliography (and nothing unused), bibliography hygiene (missing
-    fields, duplicates), the venue limits, every \includegraphics path resolves to a file,
-    no TODO/FIXME/\todo/?? left in the text, a .bbl kept for arXiv, and venue/deadline/abstract
-    set. Each check answers ok / warn / fail / skip with a one-line detail and a fix pointer;
-    `ready` is true when nothing fails. network=true also resolves DOIs and checks retractions
-    (slow). Run it before "submit", then fix the fails in order."""
+    r"""Is this paper ready to submit? Checks from real data: a fresh compiled PDF, no compile
+    errors, no undefined citations or references, every \cite key in the bibliography and
+    nothing unused, bibliography hygiene, venue limits, every figure file present, no TODO
+    markers, a .bbl for arXiv, venue / deadline / abstract set. Each check: ok / warn / fail /
+    skip with a detail and a fix pointer; `ready` when nothing fails. network=true also resolves
+    DOIs and checks retractions (slow). Run it before "submit"."""
     return client.preflight_manuscript(manuscript_id, network=network)
 
 
@@ -1243,40 +1187,24 @@ def set_venue_limits(manuscript_id: int, limits: dict) -> dict:
 
 @mcp.tool()
 def get_dashboard() -> dict:
-    """What should I work on today, everywhere? Needs-attention (overdue milestones, deadlines
-    inside two weeks, untriaged inbox), this week's items across every active project, projects
-    with progress and phase health, monthly stats, upcoming milestones and deadlines, and
-    `reading` — the head of the reading queue across every active project (highest priority,
-    then longest waiting) with the unread and high-priority counts (#486); and `writing` —
-    every live manuscript across those projects by urgency, each with its status clock, a
-    nudge flag while a venue sits on it, the pre-flight readiness while it is being worked on,
-    and the deadline (#487). Each active project carries its `pulse` (twelve weekly activity
-    counts, total, quiet_weeks, last_activity) and `attention.quiet` lists active projects
-    silent for three weeks or more (#489). `trends` carries six months per stat (papers read,
-    notes, milestones, lab entries, words) and last month's value for a delta (#490).
-    `watches` (#533) is the Library's watches at a glance from the stored rows: `feeds`
-    {new, followed, errors, rows [{id, title, feed, feed_id, published_on, link}], url} and
-    `citations` {new, rows [{id, title, first_author, year, venue, cites [{id, bibtex_key}]}],
-    url} — each `url` opens that Library mode in the app; get_feed_items / get_new_citations
-    list them in full."""
+    """What should I work on today, everywhere? Use for cross-project questions. Returns
+    needs-attention (overdue, deadlines within two weeks, untriaged inbox, quiet projects), this
+    week's items, active projects with health and `pulse`, `reading` (the queue head), `writing`
+    (live manuscripts by urgency), `watches` (feeds, citations) and monthly stats with `trends`."""
     return client.get_dashboard()
 
 
 @mcp.tool()
 def get_daily_brief() -> dict:
-    """The morning note, ready to paste (#491): what needs you across every project (overdue
-    milestones, deadlines, papers a venue has sat on, quiet projects, the inbox, a stale
-    backup), what is on your list, this week everywhere, the next papers to read, what your
-    feeds announced and who cited your papers (#533), every live manuscript with its clock and
-    readiness, each active project with its rhythm, and this month's numbers against last
-    month. `markdown` is the text; use it to answer "what
-    should I do today?" in one call, or to draft a daily journal entry."""
+    """The morning note as paste-ready markdown: what needs you, your list, this week, next to
+    read, feed and citation news, every live manuscript, each project's rhythm, this month's
+    numbers. Use for "what should I do today?" in one call, or to draft a journal entry."""
     return client.get_daily_brief()
 
 
 @mcp.tool()
 def get_day_activity(date: str = "") -> dict:
-    """What happened on one day, across every project (#492): milestones done, papers added
+    """What happened on one day, across every project: milestones done, papers added
     or read, notes, decisions, lab entries, hypotheses, documents, submission events and
     compiles, each with its project and a link. `date` is YYYY-MM-DD (blank = today). Use it
     for "what did I do on Tuesday?" or to fill in a lab notebook after the fact."""
@@ -1285,18 +1213,15 @@ def get_day_activity(date: str = "") -> dict:
 
 @mcp.tool()
 def list_inbox(snoozed: bool = False) -> dict:
-    """Captures waiting for triage, each with a `hint` (suggested target, any DOI / arXiv id /
-    URL found in the text, and since #494 `project` — the active project whose vocabulary the
-    capture shares most, with the matching terms, or null; and since #500 `due` / `due_time`
-    — a date or time read from the line). Snoozed captures (#495) are left
-    out until their day comes; pass snoozed=True to list the sleeping ones with their
-    `snoozed_until`."""
+    """Captures waiting for triage. Each carries a `hint`: the suggested target, any DOI / arXiv id
+    / URL, the best-matching `project`, and a `due` date read from the text. Snoozed captures
+    stay hidden until their day; snoozed=True lists them."""
     return client.list_inbox(snoozed)
 
 
 @mcp.tool()
 def enrich_capture(capture_id: int, force: bool = False) -> dict:
-    """Look up the page behind a link capture and remember its title (#499): the reply is the
+    """Look up the page behind a link capture and remember its title: the reply is the
     capture with `link_title` (and `link_error` when the fetch failed — private hosts, non-http
     links and timeouts are refused). force=True fetches again."""
     return client.enrich_capture(capture_id, force)
@@ -1304,7 +1229,7 @@ def enrich_capture(capture_id: int, force: bool = False) -> dict:
 
 @mcp.tool()
 def triage_captures(ids: list[int], action: str, project: str = "", until: str = "") -> dict:
-    """Triage many captures in one call (#497): action 'file' (under project slug), 'dismiss',
+    """Triage many captures in one call: action 'file' (under project slug), 'dismiss',
     'snooze' (until: tomorrow / monday / next-week / weekend / YYYY-MM-DD), 'todo' (each
     becomes a Today item, project optional) or 'wake'. Only untriaged captures change; the
     reply lists the ids that did. Use list_inbox first to pick the ids."""
@@ -1315,7 +1240,7 @@ def triage_captures(ids: list[int], action: str, project: str = "", until: str =
 def get_inbox_history(limit: int = 30) -> dict:
     """ "Where did that thought go?" — the last captures that left the inbox, newest first,
     each with its outcome: converted (with `became` — kind, id, title, app_url and whether the
-    object still exists), filed under a project, or dismissed; plus when (#496)."""
+    object still exists), filed under a project, or dismissed; plus when."""
     return client.get_inbox_history(limit)
 
 
@@ -1323,7 +1248,7 @@ def get_inbox_history(limit: int = 30) -> dict:
 def snooze_capture(capture_id: int, until: str = "tomorrow") -> dict:
     """ "Not now": park a capture until `until` — tomorrow, monday, next-week, weekend or a
     YYYY-MM-DD after today. It leaves the inbox and every untriaged count and comes back on
-    that day; an empty `until` wakes it immediately (#495)."""
+    that day; an empty `until` wakes it immediately."""
     return client.snooze_capture(capture_id, until)
 
 
@@ -1335,7 +1260,7 @@ def convert_capture(
     the DOI/arXiv paper, filed into project), 'note', 'todo' (Today list), 'milestone' (into
     phase_id or the project's current phase; optional ISO due), or 'decision'. A date or time
     written in the capture ("by Friday 3pm", "Oct 1", "in 3 days" — see the hint's `due` /
-    `due_time`) becomes the todo's due time or the milestone's due date (#500); `tz` is the
+    `due_time`) becomes the todo's due time or the milestone's due date; `tz` is the
     owner's zone ("Europe/Berlin" or "+05:30"), this machine's offset when blank."""
     return client.convert_capture(capture_id, target, project, phase_id, due, tz)
 
@@ -1401,11 +1326,9 @@ def suggest_review_themes(project: str) -> dict:
 
 @mcp.tool()
 def get_diagnostics(network: bool = False) -> dict:
-    """Why didn't it work? The same report as the app's Diagnostics page: version, platform,
-    data folder, database, LaTeX engine path, background-job mode, API-key state, which origins
-    may embed Atlas in a frame (`frame_ancestors`, from ATLAS_FRAME_ANCESTORS), the updater
-    endpoints (probed only when network=true), the last failed compile's log and the tail of
-    the desktop server log — plus a plain-text `text` field to paste into a bug report."""
+    """Why didn't it work? The Diagnostics report: version, platform, data folder, database, LaTeX
+    engine, job mode, API key state, frame ancestors, the updater (probed when network=true),
+    the last failed compile's log, the server log tail, and `text` to paste into a bug report."""
     return client.get_diagnostics(network=network)
 
 
@@ -1452,10 +1375,9 @@ def get_achievements() -> dict:
 # missing that way until 2026-09-06).
 @mcp.tool()
 def list_toolsets() -> dict:
-    """Which Atlas tools are loaded and which toolsets can be enabled. Only `core` (the daily
-    set) is loaded by default; each other toolset — plan, library, notes, writing, studio,
-    inbox, research, files, ops — lists its tools, a one-line "use when", and whether it is
-    loaded. Call `enable_toolset(name)` to load one; nothing is unloaded."""
+    """Which toolsets are loaded and which can be enabled. Use when a task needs a tool you do not
+    see, then call enable_toolset(name). Only `core` is loaded by default; each row has a
+    use-when line, its tools, a count and whether it is loaded."""
     loaded = {t.name for t in mcp._tool_manager.list_tools()}
     return {
         "loaded": len(loaded),
@@ -1466,12 +1388,10 @@ def list_toolsets() -> dict:
 
 @mcp.tool()
 async def enable_toolset(name: str, ctx: Context) -> dict:
-    """Load one more toolset for the rest of this session: `plan`, `library`, `notes`,
-    `writing`, `studio`, `inbox`, `research`, `files` or `ops` (see `list_toolsets`). The
-    tools appear in the client's tool list right away (the server sends tools/list_changed);
-    `added` names them. Use it the moment a task needs a tool that is not loaded — e.g.
-    `enable_toolset("studio")` to compile LaTeX, `enable_toolset("library")` for feeds,
-    watches, highlights or the review matrix."""
+    """Load one more toolset for the rest of the session: plan, library, notes, writing, studio,
+    inbox, research, files or ops. Use the moment a task needs a tool that is not loaded —
+    studio before compiling or editing LaTeX, library for feeds, watches, highlights or the
+    review matrix. The tools appear in your list at once; `added` names them."""
     key = (name or "").strip().lower()
     if key not in toolsets.NAMES:
         return {"ok": False, "error": f"unknown toolset {name!r}", "toolsets": list(toolsets.NAMES)}
