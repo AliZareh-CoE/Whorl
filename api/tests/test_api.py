@@ -1016,10 +1016,10 @@ class TestConnectAPI:
         data = client_logged_in.get("/api/v1/connect/").json()
         assert data["claude_command"].startswith("claude mcp add atlas")
         assert "mcpServers" in data["mcp_json"] and data["api_url"].startswith("http")
-        assert len(data["skills"]) == 4 and not any(s["installed"] for s in data["skills"])
+        assert len(data["skills"]) == 5 and not any(s["installed"] for s in data["skills"])
         assert data["skills_dir"].endswith("skills")
         response = client_logged_in.post("/api/v1/connect/skills/")
-        assert response.status_code == 200 and len(response.json()["installed"]) == 4
+        assert response.status_code == 200 and len(response.json()["installed"]) == 5
         assert all(
             s["up_to_date"] for s in client_logged_in.get("/api/v1/connect/").json()["skills"]
         )

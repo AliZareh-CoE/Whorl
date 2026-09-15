@@ -13,6 +13,7 @@ import { installDesktopContextMenuGuard, installDevtoolsShortcut } from "./exter
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Projects = lazy(() => import("./pages/Projects"));
 const NewProject = lazy(() => import("./pages/NewProject"));
+const ImportProjects = lazy(() => import("./pages/ImportProjects"));
 const ProjectOverview = lazy(() => import("./pages/ProjectOverview"));
 const Plan = lazy(() => import("./pages/Plan"));
 const Timeline = lazy(() => import("./pages/Timeline"));
@@ -81,6 +82,7 @@ createRoot(document.getElementById("root")!).render(
           <Route index element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/new" element={<NewProject />} />
+          <Route path="projects/import" element={<ImportProjects />} />
           <Route path="projects/:slug" element={<ProjectOverview />} />
           <Route path="projects/:slug/plan" element={<Plan />} />
           <Route path="projects/:slug/timeline" element={<Timeline />} />

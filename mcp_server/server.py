@@ -579,6 +579,20 @@ def create_project(name: str, slug: str = "", template: str = "") -> dict:
 
 
 @mcp.tool()
+def import_projects_folder(
+    path: str, dry_run: bool = True, only: str = "", pdfs: str = "library", markdown: str = "notes"
+) -> dict:
+    """Bulk-import a folder of existing projects: every subfolder of `path` (on the Atlas
+    machine) becomes a project — README → description, Markdown → notes, PDFs → the library
+    (linked to the project), .bib/.ris → the library, other files → workspace documents in
+    the same folder structure. dry_run=True (default) only looks and returns one row per
+    folder (name, exists, pdfs, notes, files, skipped). Then import with dry_run=False and
+    `only="Folder A,Folder B"` one or a few folders per call — each PDF may fetch metadata.
+    Idempotent: an existing project is reused and only what is missing is added."""
+    return client.import_projects_folder(path, dry_run, only, pdfs, markdown)
+
+
+@mcp.tool()
 def list_project_files(project: str) -> dict:
     """The project's whole file tree: folders + files (general docs and manuscript sources)."""
     return client.list_project_files(project)

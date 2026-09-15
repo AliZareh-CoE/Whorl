@@ -189,6 +189,59 @@ class ProjectViewSet(AtlasViewSet):
             instantiate_template(project, template)
 
     @extend_schema(
+        operation_id="v1_projects_import_folder",
+        request=inline_serializer(
+            "ImportFolderRequest",
+            {
+                "path": rf_serializers.CharField(),
+                "dry_run": rf_serializers.BooleanField(required=False, default=True),
+                "only": rf_serializers.ListField(child=rf_serializers.CharField(), required=False),
+                "pdfs": rf_serializers.ChoiceField(
+                    choices=["library", "documents"], required=False, default="library"
+                ),
+                "markdown": rf_serializers.ChoiceField(
+                    choices=["notes", "documents"], required=False, default="notes"
+                ),
+            },
+        ),
+        responses={200: OpenApiResponse(description="One row per project folder")},
+        description="Bulk-import a folder of existing projects (#535): every subfolder of "
+        "`path` on this machine becomes a project — README → description, Markdown → notes, "
+        "PDFs → the library (linked to the project), .bib/.ris → the library, other files → "
+        "workspace documents in the same folder structure. `dry_run` (default true) only "
+        "looks; pass `only: [folder names]` to import a few at a time (each PDF may fetch "
+        "metadata, so import one folder per call when there are many). Idempotent: an "
+        "existing project (same slug) is reused and only what is missing is added.",
+    )
+    @action(detail=False, methods=["post"], url_path="import-folder")
+    def import_folder(self, request):
+        from projects import importer
+
+        data = request.data if isinstance(request.data, dict) else {}
+        only = data.get("only") or None
+        if only is not None and not isinstance(only, list):
+            only = [str(only)]
+        pdfs = data.get("pdfs") or "library"
+        markdown = data.get("markdown") or "notes"
+        if pdfs not in importer.PDFS_CHOICES or markdown not in importer.MARKDOWN_CHOICES:
+            return Response(
+                {"detail": "pdfs must be library|documents and markdown notes|documents."},
+                status=400,
+            )
+        try:
+            root = importer.resolve_root(str(data.get("path") or ""))
+            dry_run = data.get("dry_run", True)
+            if isinstance(dry_run, str):
+                dry_run = dry_run.lower() not in ("0", "false", "no")
+            if dry_run:
+                rows = [p.as_dict() for p in importer.plan(root, only, pdfs, markdown)]
+            else:
+                rows = importer.import_folder(root, only, pdfs, markdown)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response({"root": str(root), "dry_run": bool(dry_run), "projects": rows})
+
+    @extend_schema(
         responses={200: OpenApiResponse(description="Available project scaffolds")},
         description="Project templates that scaffold an organized folder structure on "
         "creation (POST /projects/ with an optional `template` key).",

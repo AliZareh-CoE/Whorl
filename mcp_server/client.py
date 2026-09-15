@@ -572,6 +572,18 @@ def create_project(name: str, slug: str = "", template: str = ""):
     return _request("POST", "/projects/", json=body)
 
 
+def import_projects_folder(
+    path: str, dry_run: bool = True, only: str = "", pdfs: str = "library", markdown: str = "notes"
+):
+    """Bulk-import a folder of existing projects (#535); `only` is a comma-separated list of
+    subfolder names."""
+    body: dict = {"path": path, "dry_run": dry_run, "pdfs": pdfs, "markdown": markdown}
+    names = [o.strip() for o in (only or "").split(",") if o.strip()]
+    if names:
+        body["only"] = names
+    return _request("POST", "/projects/import-folder/", json=body)
+
+
 def list_project_files(project: str):
     """The project's whole file tree: {folders, files} (general + manuscript sources)."""
     return _request("GET", f"/projects/{project}/tree/")

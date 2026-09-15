@@ -937,3 +937,14 @@ def test_export_references_client_calls(monkeypatch, env):
     )
     client.export_bibtex([3])
     assert "fmt=bib" in seen["url"] and "ids=3" in seen["url"]
+
+
+def test_import_projects_folder_posts_the_folder_list(capture):
+    """#535: dry run by default; `only` is a comma-separated list of subfolder names."""
+    client.import_projects_folder("~/Projects")
+    assert capture["method"] == "POST" and capture["url"].endswith("/projects/import-folder/")
+    body = json.loads(capture["body"])
+    assert body == {"path": "~/Projects", "dry_run": True, "pdfs": "library", "markdown": "notes"}
+    client.import_projects_folder("~/Projects", dry_run=False, only="Attention, memory,,")
+    assert json.loads(capture["body"])["only"] == ["Attention", "memory"]
+    assert json.loads(capture["body"])["dry_run"] is False

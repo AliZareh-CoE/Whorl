@@ -5,7 +5,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { Archive, ArchiveRestore, BookOpen, ChevronDown, FileText, FolderKanban, ListTodo, PenLine, Plus, Settings2, StickyNote, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, BookOpen, ChevronDown, FileText, FolderInput, FolderKanban, ListTodo, PenLine, Plus, Settings2, StickyNote, Trash2 } from "lucide-react";
 import { ErrorState } from "../../components/ErrorState";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
@@ -81,7 +81,10 @@ export default function Projects() {
           <h1 className="text-3xl font-semibold tracking-tight">Projects{projects.length > 0 && <> · <span className="text-gradient">{active} active</span></>}</h1>
           <p className="mt-1 text-sm text-stone-500">{projects.length === 0 ? "Every object in Atlas lives inside a project." : `${projects.length} ${projects.length === 1 ? "project" : "projects"} · each one holds its plan, library, notes, writing and decisions`}</p>
         </div>
-        <Link to="/projects/new" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"><Plus className="h-4 w-4" aria-hidden="true" />New project</Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link to="/projects/import" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 transition-colors hover:border-stone-400 dark:border-stone-700 dark:text-stone-200 dark:hover:border-stone-500" data-testid="import-folder-link"><FolderInput className="h-4 w-4" aria-hidden="true" />Import a folder…</Link>
+          <Link to="/projects/new" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"><Plus className="h-4 w-4" aria-hidden="true" />New project</Link>
+        </div>
       </div>
 
       {projects.length === 0 && (
@@ -90,6 +93,7 @@ export default function Projects() {
           <p className="mb-1 font-medium">No projects yet</p>
           <p className="mx-auto mb-5 max-w-md text-sm text-stone-500">A project is the home for a plan, its literature, notes, manuscripts and decisions. Start with a scaffold or a blank one.</p>
           <Link to="/projects/new" className="inline-block rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Create your first project</Link>
+          <p className="mt-3 text-xs text-stone-400">Already have projects as folders on disk? <Link to="/projects/import" className="text-indigo-600 hover:underline dark:text-indigo-300">Import the whole folder</Link> — every subfolder becomes a project.</p>
         </div>
       )}
 

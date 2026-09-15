@@ -181,6 +181,7 @@ export default function CommandBar() {
       { label: slug ? "New note in this project" : "New note", keys: "new note write jot thought", run: async () => { navigate(slug ? `/projects/${slug}/notes/new` : "/projects"); return slug ? "A fresh note" : "Pick the project first"; } },
       { label: "New manuscript", keys: "new manuscript draft paper write start writing", run: async () => { navigate("/writing?new=1"); return "Writing — give it a working title"; } },
       { label: "New project", keys: "new project create start", run: async () => { navigate("/projects/new"); return "A new project"; } },
+      { label: "Import a folder of projects", keys: "import folder projects bulk migrate old", run: async () => { navigate("/projects/import"); return "Import projects from a folder"; } },
       { label: "Toggle dark mode", keys: "toggle dark light mode theme appearance color scheme", run: doToggleTheme },
       { label: "Toggle calm mode", keys: "toggle calm mode focus quiet hide stats dashboard", run: doToggleCalm },
       ...(slug ? [{ label: "Copy this project's .bib", keys: "copy bib bibtex bibliography project export cite", run: () => copyBib("project") }] : []),

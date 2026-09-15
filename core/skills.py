@@ -1,7 +1,8 @@
 """Atlas skills for Claude Code (Owner ask 2026-09-06: "claude might need some skills").
 
 Skills are Markdown playbooks Claude Code loads on demand (`~/.claude/skills/<name>/SKILL.md`).
-Atlas ships four in `mcp_server/skills/` — daily loop, literature, writing, plans — each a
+Atlas ships five in `mcp_server/skills/` — daily loop, literature, writing, plans, importing a
+projects folder — each a
 tool-by-tool recipe over the MCP server. `install_skills` copies them into the user's
 personal skills directory so the terminal dock's "Claude" tab has them from the first prompt.
 """

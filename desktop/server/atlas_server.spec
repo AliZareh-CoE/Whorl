@@ -55,6 +55,9 @@ datas = [
     # #534: Diagnostics reads the updater endpoints + public key from the Tauri config so the
     # "Update check" verdict on an installed app looks at the same feed the app does.
     (os.path.join(ROOT, "desktop", "tauri.conf.json"), "desktop"),
+    # #535: the Claude Code skills the Connect page installs (core/skills.py reads them from
+    # mcp_server/skills beside core/) — a directory copy, so a new skill folder ships by itself.
+    (os.path.join(ROOT, "mcp_server", "skills"), os.path.join("mcp_server", "skills")),
 ]
 # The LaTeX engine (Tectonic) rides along when the release workflow fetched it into bin/,
 # so Recompile works out of the box on an installed desktop app (writing/compile.py looks

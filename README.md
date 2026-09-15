@@ -9,7 +9,7 @@ Atlas is a single-user, self-hosted research platform for people who find Jira-s
 and task-obsessed. It treats what researchers actually care about as first-class: a **plan** you
 write like a document, a **library** that reads your PDFs, **notes** that cite papers with `@key`,
 a **writing studio** that checks your citations and compiles LaTeX, and an **MCP server** so
-Claude Code can do all of it with you — 151 tools over the same API the UI uses.
+Claude Code can do all of it with you — 152 tools over the same API the UI uses.
 
 > Built like Django itself: boring technology, strong conventions, everything has exactly one
 > obvious place. No cloud, no telemetry. Runs as a web app or a one-click desktop app.
@@ -64,6 +64,12 @@ picks another port. Claude Code connects to this server exactly as to the deskto
 
 ## What's inside
 
+**Projects** — one home per research effort: plan, library, notes, writing, decisions. Already have
+them as folders? **Import the whole folder** (Projects → Import a folder…, `manage.py import_projects`,
+the `import_projects_folder` MCP tool or the `/atlas-import-projects` skill): every subfolder becomes a
+project — README → description, Markdown → notes, PDFs → the library, everything else → files in the
+same structure; preview first, re-run any time, nothing on disk moves.
+
 **Plan** — phases → milestones → optional tasks, progress rolling up visually.
 - Write the whole plan as a Markdown outline (`# phase [status] (start → end)`, `- [ ] milestone (due …)`, indented tasks) with a live dry-run of what a save creates, renames and deletes; Claude edits the same outline.
 - Roadmap: phases as bars (windows inferred when undated), milestones as diamonds, drag or use the keyboard to reschedule; per-phase health (behind / on track / ahead / overdue) and a finish forecast from your pace.
@@ -102,7 +108,7 @@ picks another port. Claude Code connects to this server exactly as to the deskto
 - ⌘K makes things too: `todo:` a task (with “at 3pm”), `paper:` a DOI or arXiv id (a bare id works as well — it lands in the project you are in), `capture:` a thought, `done:` a milestone, plus “New note”, “New manuscript”, “New project”, “Add a paper”.
 - Today: a dead-simple personal list for the day; “call Sam at 3pm” puts a time on it, the sidebar nudges when it comes close, and what you carried over from earlier days is counted. Research tools: a hypothesis ledger (evidence from papers, notes or documents; the balance suggests a status), experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Subscribe to milestones and manuscript deadlines from your calendar app (`/api/v1/calendar.ics`). Local extras: Piper read-aloud, extractive tl;dr — offline.
 
-**Claude / MCP** — 151 tools over the REST API plus four skills; your AI assistant operates the same contract you do. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
+**Claude / MCP** — 152 tools over the REST API plus five skills; your AI assistant operates the same contract you do. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
 
 ## Quick start (one command)
 
@@ -162,6 +168,13 @@ curl -H "X-API-Key: $ATLAS_API_KEY" http://127.0.0.1:8000/api/v1/projects/
 curl -H "X-API-Key: $ATLAS_API_KEY" -H "Content-Type: application/json" \
      -d '{"doi": "10.1038/nature12373", "project": "my-project"}' \
      http://127.0.0.1:8000/api/v1/references/by-doi/
+
+# preview what a folder of existing projects would become (dry run), then import one folder
+curl -H "X-API-Key: $ATLAS_API_KEY" -H "Content-Type: application/json" \
+     -d '{"path": "~/Projects"}' http://127.0.0.1:8000/api/v1/projects/import-folder/
+curl -H "X-API-Key: $ATLAS_API_KEY" -H "Content-Type: application/json" \
+     -d '{"path": "~/Projects", "dry_run": false, "only": ["attention-2019"]}' \
+     http://127.0.0.1:8000/api/v1/projects/import-folder/
 ```
 
 ## Claude integration (MCP)
@@ -176,12 +189,13 @@ once and you're done. Then `claude mcp list` shows `atlas` as connected.
 with it, the exact MCP command starting and reaching the API (`atlas-mcp --check` /
 `python -m mcp_server.server --check`), and the `claude` CLI on PATH — each with its fix.
 
-**Skills.** The same page installs four Atlas playbooks into `~/.claude/skills/` so Claude Code
+**Skills.** The same page installs five Atlas playbooks into `~/.claude/skills/` so Claude Code
 knows the workflows, not just the tools: `/atlas-daily` (dashboard → today's three things →
 inbox triage), `/atlas-literature` (DOI in, reading queue, highlights, review matrix, synthesis
 note), `/atlas-writing` (files, bibliography, cite check, compile, reviews → response note,
-submission events) and `/atlas-plan` (outline round-trips with `dry_run`, roadmap health,
-decisions). They live in `mcp_server/skills/` and a test pins every tool they mention to a real
+submission events), `/atlas-plan` (outline round-trips with `dry_run`, roadmap health,
+decisions) and `/atlas-import-projects` (a folder of existing projects → Atlas projects, preview
+first, one folder per call). They live in `mcp_server/skills/` and a test pins every tool they mention to a real
 MCP tool.
 
 - **Desktop app:** the installer ships the MCP server as `atlas-mcp`, and the app mints its own
@@ -198,7 +212,7 @@ claude mcp add atlas \
 ```
 
 Tools — projects & plans: `get_dashboard`, `get_daily_brief`, `get_day_activity`, `get_diagnostics`, `take_snapshot`, `get_achievements`, `list_projects`, `get_project_overview`, `get_status_update`, `get_plan`,
-`complete_milestone`, `move_milestone`, `set_milestone_dependencies`, `fix_plan_conflicts`, `get_plan_drift`, `get_plan_calibration`, `get_plan_review`, `finish_plan_review`, `get_timeline`, `create_project`, `list_project_templates`, `get_plan_outline`, `set_plan_outline`, `get_roadmap`, `set_phase_dates`, `get_phase_report`, `close_phase`, `get_week_focus`.
+`complete_milestone`, `move_milestone`, `set_milestone_dependencies`, `fix_plan_conflicts`, `get_plan_drift`, `get_plan_calibration`, `get_plan_review`, `finish_plan_review`, `get_timeline`, `create_project`, `import_projects_folder`, `list_project_templates`, `get_plan_outline`, `set_plan_outline`, `get_roadmap`, `set_phase_dates`, `get_phase_report`, `close_phase`, `get_week_focus`.
 Documents & files: `list_documents`, `list_project_files`, `read_project_file`,
 `write_project_file`. Literature: `add_reference_by_doi`, `get_reading_queue`,
 `set_reading_status`, `browse_library`, `check_retractions`, `check_preprints`, `upgrade_preprint`, `get_new_citations`, `check_citations`, `dismiss_citations`, `list_feeds`, `add_feed`, `remove_feed`, `refresh_feeds`, `get_feed_items`, `add_feed_item`, `dismiss_feed_items`, `get_reading_progress`, `set_reading_position`, `run_bib_check`, `get_review_matrix`, `set_review_mark`, `add_review_theme`, `suggest_review_themes`, `get_synthesis_scaffold`.
