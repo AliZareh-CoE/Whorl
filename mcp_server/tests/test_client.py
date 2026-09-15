@@ -27,7 +27,7 @@ def capture(monkeypatch, env):
             calls["method"] = request.method
             calls["url"] = str(request.url)
             calls["body"] = request.content.decode() if request.content else ""
-            return httpx.Response(200, json={"ok": True})
+            return httpx.Response(200, json=calls.get("response", {"ok": True}))
 
         return httpx.Client(
             base_url="http://testserver/api/v1", transport=httpx.MockTransport(handler)
@@ -729,3 +729,33 @@ def test_reading_progress_client_calls(capture):
     assert capture["method"] == "POST" and calls_url_has(capture, "/references/7/progress/")
     assert '"page":5' in capture["body"] and '"page_count":12' in capture["body"]
     assert '"project":"deep"' in capture["body"]
+
+
+def test_browse_library_client_calls(capture):
+    capture["response"] = {
+        "count": 1,
+        "results": [
+            {
+                "id": 3,
+                "bibtex_key": "lavie2010",
+                "title": "Load",
+                "authors": [{"family": "Lavie", "given": "Nilli"}, "junk"],
+                "year": 2010,
+                "venue": "CDPS",
+                "doi": "10.1/x",
+                "pdf": "/media/x.pdf",
+                "abstract": "long text that must not come back",
+                "tags": ["load"],
+                "projects": [{"slug": "deep", "reading_status": "read"}],
+                "progress": {"page": 5, "pages": 12, "percent": 42},
+            }
+        ],
+    }
+    out = client.browse_library(author="lavie", year=0, tag="", sort="added", limit=10)
+    assert capture["method"] == "GET" and calls_url_has(capture, "/references/")
+    assert calls_url_has(capture, "author=lavie") and calls_url_has(capture, "sort=added")
+    assert not calls_url_has(capture, "year=") and not calls_url_has(capture, "tag=")
+    assert out["count"] == 1
+    row = out["results"][0]
+    assert row["authors"] == ["Lavie, Nilli"] and row["has_pdf"] is True
+    assert "abstract" not in row and row["progress"]["percent"] == 42

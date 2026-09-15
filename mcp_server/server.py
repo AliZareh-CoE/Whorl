@@ -170,6 +170,54 @@ def set_reading_status(project_reference_id: int, status: str) -> dict:
 
 
 @mcp.tool()
+def browse_library(
+    q: str = "",
+    author: str = "",
+    year: int = 0,
+    year_min: int = 0,
+    year_max: int = 0,
+    entry_type: str = "",
+    venue: str = "",
+    tag: str = "",
+    project: str = "",
+    reading_status: str = "",
+    has_pdf: str = "",
+    untagged: bool = False,
+    unfiled: bool = False,
+    needs_metadata: bool = False,
+    sort: str = "added",
+    limit: int = 20,
+) -> dict:
+    """Browse the Library with the workbench's filters (#524) — the same ones the rail offers.
+    `author` is a family name (case-insensitive: "lavie"); `q` searches title, venue, key,
+    abstract, authors, DOI and the PDF text; `venue` is exact; `tag` a tag name; `project` a
+    slug and `reading_status` (to_read / skimmed / read / annotated) the state in that project;
+    `has_pdf` "true" or "false"; `untagged` / `unfiled` / `needs_metadata` are hygiene views;
+    `sort` added, -added, year, -year, title, -title or citations. Returns `count` (all matches)
+    and up to `limit` (≤ 50) compact rows: id, bibtex_key, title, authors ["Family, Given"],
+    year, venue, doi, has_pdf, citation_count, tags, projects [{slug, reading_status, …}] and
+    `progress`. Use it for "what do I have by X?", "unread papers tagged Y", "papers with no PDF"."""
+    return client.browse_library(
+        limit=limit,
+        q=q,
+        author=author,
+        year=year,
+        year_min=year_min,
+        year_max=year_max,
+        entry_type=entry_type,
+        venue=venue,
+        tag=tag,
+        project=project,
+        reading_status=reading_status,
+        has_pdf=has_pdf,
+        untagged="1" if untagged else "",
+        unfiled="1" if unfiled else "",
+        needs_metadata="1" if needs_metadata else "",
+        sort=sort,
+    )
+
+
+@mcp.tool()
 def get_reading_progress(reference_id: int = 0, limit: int = 5) -> dict | list:
     """Reading progress (#523). With a `reference_id`: where the reader left off in that paper —
     `page`, `pages`, `percent`, `last_read_at` and `links` [{project, reading_status,

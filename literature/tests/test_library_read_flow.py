@@ -59,3 +59,42 @@ def test_ui_wiring():
     assert 'path="library/read"' in (app / "main.tsx").read_text()
     lib = (app / "pages" / "Library.tsx").read_text()
     assert 'data-testid="read-these"' in lib and "/library/read?" in lib
+
+
+@pytest.mark.django_db
+def test_flow_rows_carry_progress(client, owner):
+    project = ProjectFactory(name="A")
+    ref = Reference.objects.create(
+        title="Half read", bibtex_key="half2020", year=2020, last_page=5, page_count=12
+    )
+    ProjectReference.objects.create(project=project, reference=ref, reading_status="skimmed")
+    data = client.get("/api/v1/references/reading-flow/", **HEADERS).json()
+    assert data["papers"][0]["progress"] == {
+        "page": 5,
+        "pages": 12,
+        "percent": 42,
+        "last_read_at": None,
+    }
+    data = client.get(f"/api/v1/projects/{project.slug}/reading-flow/", **HEADERS).json()
+    assert (
+        data["papers"][0]["progress"]["page"] == 5
+        and data["papers"][0]["progress"]["percent"] == 42
+    )
+    flow = (
+        Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "pages" / "ReadingFlow.tsx"
+    ).read_text()
+    assert 'data-testid="flow-progress"' in flow and "paper.progress.percent" in flow
+
+
+def test_author_lens_ui_wiring():
+    lib = (
+        Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "pages" / "Library.tsx"
+    ).read_text()
+    for needle in (
+        'data-testid="author-facet"',
+        'data-testid="author-link"',
+        'toggle("author", a.name)',
+        'onAuthor={(family) => toggle("author", family)}',
+        'author: ""',
+    ):
+        assert needle in lib, needle

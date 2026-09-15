@@ -458,6 +458,7 @@ class ProjectViewSet(AtlasViewSet):
     )
     @action(detail=True, methods=["get"], url_path="reading-flow")
     def reading_flow(self, request, slug=None):
+        from literature.progress import progress_of
         from literature.views import PRIORITY_ORDER
 
         project = self.get_object()
@@ -485,6 +486,7 @@ class ProjectViewSet(AtlasViewSet):
                             "pdf": link.reference.pdf.url if link.reference.pdf else None,
                             "doi": link.reference.doi,
                         },
+                        "progress": progress_of(link.reference),
                     }
                     for link in links
                 ]
@@ -1318,7 +1320,7 @@ class ReferenceViewSet(AtlasViewSet):
     project_filter = "project_links__project__slug"
 
     def get_queryset(self):
-        # Library v2 workbench filters (q, year, year_min/max, entry_type, venue, has_pdf,
+        # Library v2 workbench filters (q, year, year_min/max, entry_type, venue, author, has_pdf,
         # needs_metadata, project, reading_status, unfiled, sort) — see literature/library.py.
         from literature.library import filter_references
 
@@ -1330,10 +1332,43 @@ class ReferenceViewSet(AtlasViewSet):
         return queryset
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "q", str, description="Title, venue, key, abstract, author, DOI or PDF text"
+            ),
+            OpenApiParameter(
+                "author", str, description="Family name of an author (case-insensitive)"
+            ),
+            OpenApiParameter("year", int),
+            OpenApiParameter("year_min", int),
+            OpenApiParameter("year_max", int),
+            OpenApiParameter("entry_type", str),
+            OpenApiParameter("venue", str, description="Exact venue string"),
+            OpenApiParameter("has_pdf", str, description="true/1 or false/0"),
+            OpenApiParameter("needs_metadata", str, description="true/1 for PDFs without metadata"),
+            OpenApiParameter("project", str, description="Project slug"),
+            OpenApiParameter(
+                "reading_status",
+                str,
+                description="to_read, skimmed, read or annotated (in that project)",
+            ),
+            OpenApiParameter("tag", str, description="Tag name"),
+            OpenApiParameter("untagged", str, description="true/1 for papers with no tag"),
+            OpenApiParameter("unfiled", str, description="true/1 for papers in no project"),
+            OpenApiParameter(
+                "sort", str, description="added, -added, year, -year, title, -title, citations"
+            ),
+        ],
+        description="The Library workbench: every filter the rail offers, over the whole library.",
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
         parameters=[OpenApiParameter("project", str, description="Optional project slug")],
         responses={
             200: OpenApiResponse(
-                description="Facet counts: years, entry types, venues, projects, PDF/needs-metadata/unfiled totals"
+                description="Facet counts: years, entry types, venues, authors (top 12 by papers: name, given, count), projects, tags, PDF/needs-metadata/unfiled totals"
             )
         },
         description="Counts that drive the Library's filter rail, over the whole library (or one project).",
@@ -1923,6 +1958,7 @@ class ReferenceViewSet(AtlasViewSet):
     @action(detail=False, methods=["get"], url_path="reading-flow")
     def reading_flow(self, request):
         from literature.library import filter_references
+        from literature.progress import progress_of
 
         wanted = (request.query_params.get("project") or "").strip()
         refs = filter_references(
@@ -1955,6 +1991,7 @@ class ReferenceViewSet(AtlasViewSet):
                         "pdf": ref.pdf.url if ref.pdf else None,
                         "doi": ref.doi,
                     },
+                    "progress": progress_of(ref),
                 }
             )
         return Response({"papers": papers})

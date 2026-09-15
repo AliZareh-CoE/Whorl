@@ -26,6 +26,7 @@ type Paper = {
     pdf: string | null;
     doi: string;
   };
+  progress?: { page: number | null; pages: number | null; percent: number | null } | null; // #524
 };
 
 const STATUS_KEYS: Record<string, string> = { "1": "to_read", "2": "skimmed", "3": "read", "4": "annotated" };
@@ -200,6 +201,12 @@ export default function ReadingFlow() {
           )}
           <span className="rounded bg-stone-100 px-2 py-0.5 font-mono text-[11px] text-stone-500 dark:bg-stone-800 dark:text-stone-400">{r.bibtex_key}</span>
           <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">{STATUS_LABEL[paper.reading_status]}</span>
+          {paper.progress?.page != null && paper.progress.page > 1 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-300" title="Where the reader left off" data-testid="flow-progress">
+              <span className="inline-block h-1 w-10 overflow-hidden rounded-full bg-stone-300 dark:bg-stone-700" aria-hidden="true"><span className="block h-full rounded-full bg-indigo-500" style={{ width: `${paper.progress.percent ?? 0}%` }} /></span>
+              p. {paper.progress.page}{paper.progress.pages ? ` of ${paper.progress.pages}` : ""}
+            </span>
+          )}
         </div>
         <h1 className="mb-1.5 text-2xl font-semibold leading-snug tracking-tight text-stone-900 dark:text-stone-100">{r.title}</h1>
         <p className="mb-5 text-sm text-stone-500 dark:text-stone-400">{authorLine(r.authors)}{r.year ? ` · ${r.year}` : ""}{r.venue ? ` · ${r.venue}` : ""}</p>

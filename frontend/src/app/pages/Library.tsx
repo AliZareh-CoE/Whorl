@@ -37,7 +37,7 @@ type Page<T> = { count: number; next: string | null; results: T[] };
 type Facets = {
   total: number; with_pdf: number; without_pdf: number; needs_metadata: number; unfiled: number;
   years: { year: number; count: number }[]; entry_types: { entry_type: string; count: number }[];
-  venues: { venue: string; count: number }[]; projects: { slug: string; name: string; count: number }[];
+  venues: { venue: string; count: number }[]; authors: { name: string; given: string; count: number }[]; projects: { slug: string; name: string; count: number }[];
   all_projects: { slug: string; name: string; color: string }[];
   untagged: number; tags: { id: number; name: string; color: string; count: number }[]; views: SavedView[];
   duplicates: number;
@@ -51,11 +51,11 @@ type DiscoverRow = {
 type ImportResult = { title: string; reference_id: number | null; created: boolean; source: string; error: string; needs_metadata: boolean };
 type ImportSummary = { created: number; existing: number; failed: number; results: ImportResult[] };
 type Filters = {
-  q: string; year: string; entry_type: string; venue: string; has_pdf: string; needs_metadata: string;
+  q: string; year: string; entry_type: string; venue: string; author: string; has_pdf: string; needs_metadata: string;
   project: string; unfiled: string; reading_status: string; tag: string; untagged: string; sort: string;
 };
 
-const EMPTY: Filters = { q: "", year: "", entry_type: "", venue: "", has_pdf: "", needs_metadata: "", project: "", unfiled: "", reading_status: "", tag: "", untagged: "", sort: "added" };
+const EMPTY: Filters = { q: "", year: "", entry_type: "", venue: "", author: "", has_pdf: "", needs_metadata: "", project: "", unfiled: "", reading_status: "", tag: "", untagged: "", sort: "added" };
 const STYLES: [string, string][] = [["apa", "APA 7"], ["mla", "MLA 9"], ["chicago", "Chicago"], ["harvard", "Harvard"], ["vancouver", "Vancouver"], ["ieee", "IEEE"]];
 function readStyle(): string { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } }
 type Citation = { style: string; label: string; text: string; html: string; intext: string };
@@ -609,6 +609,19 @@ export default function Library() {
                   ))}
                 </div>
               )}
+              {/* #524: the author lens — top authors by papers; a filter set from a paper's byline that
+                  is not among them is shown first so the rail always says what is filtering. */}
+              {(f.authors ?? []).length > 0 && (
+                <div className="mt-3" data-testid="author-facet">
+                  <p className={railH}>Authors</p>
+                  {[
+                    ...(filters.author && !(f.authors ?? []).slice(0, 8).some((a) => a.name.toLowerCase() === filters.author.toLowerCase()) ? [{ name: filters.author, given: "", count: total }] : []),
+                    ...(f.authors ?? []).slice(0, 8),
+                  ].map((a) => (
+                    <button key={a.name} type="button" className={chip(filters.author.toLowerCase() === a.name.toLowerCase())} onClick={() => toggle("author", a.name)} title={`${[a.given, a.name].filter(Boolean).join(" ")} · ${a.count} paper${a.count === 1 ? "" : "s"}`}><span className="truncate">{a.name}</span><span className="tabular-nums text-stone-400">{a.count}</span></button>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </aside>)}
@@ -683,7 +696,7 @@ export default function Library() {
           <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 px-3 py-2 text-xs dark:border-stone-800">
             <label className="flex items-center gap-1.5 text-stone-500"><input type="checkbox" checked={allSelectedOnPage} onChange={() => setSelected(allSelectedOnPage ? new Set() : new Set(rows.map((r) => r.id)))} className="accent-indigo-500" />{total} result{total === 1 ? "" : "s"}</label>
             {activeChips.map((k) => (
-              <button key={k} type="button" onClick={() => set({ [k]: "" } as Partial<Filters>)} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-indigo-700 dark:text-indigo-200">{k.replace("_", " ")}: {k === "reading_status" ? STATUS_LABEL[filters[k]] : filters[k]}<X className="h-3 w-3" aria-hidden="true" /></button>
+              <button key={k} type="button" onClick={() => set({ [k]: "" } as Partial<Filters>)} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-indigo-700 dark:text-indigo-200">{k === "author" ? "by" : k.replace("_", " ")}{k === "author" ? " " : ": "}{k === "reading_status" ? STATUS_LABEL[filters[k]] : filters[k]}<X className="h-3 w-3" aria-hidden="true" /></button>
             ))}
             {activeChips.length > 0 && <button type="button" onClick={() => setFilters({ ...EMPTY, sort: filters.sort })} className="text-stone-400 hover:underline">clear</button>}
             <Link to={`/library/read?${toQuery(effective, 1)}`} className="ml-auto inline-flex items-center gap-1 text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" title="Read this view as a flow — one paper at a time, status keys, notes" data-testid="read-these">Read these →</Link>
@@ -799,7 +812,7 @@ export default function Library() {
               Select a paper to see its abstract, links, and related work.
             </div>
           ) : (
-            <DetailPane r={detail} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} onLitNote={(project) => litNote.mutate({ reference: detail.id, project })} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} tagColors={tagColors} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
+            <DetailPane r={detail} onAuthor={(family) => toggle("author", family)} authorFilter={filters.author} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} onLitNote={(project) => litNote.mutate({ reference: detail.id, project })} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} tagColors={tagColors} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
           )}
         </aside>
       </div>
@@ -809,7 +822,7 @@ export default function Library() {
   );
 }
 
-function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, tagColors, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText, onLitNote }: { r: Ref; allTags: string[]; tagColors: TagColors; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; onLitNote: (project: string) => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
+function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, tagColors, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText, onLitNote }: { r: Ref; onAuthor: (family: string) => void; authorFilter: string; allTags: string[]; tagColors: TagColors; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; onLitNote: (project: string) => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
   const [full, setFull] = useState(false);
   const [newTag, setNewTag] = useState("");
   const citation = useQuery({ queryKey: ["cite", r.id, citeStyle], queryFn: () => api<Citation>(`/references/${r.id}/cite/?style=${citeStyle}`), staleTime: 5 * 60_000 });
@@ -832,7 +845,19 @@ function DetailPane({ r, onFindMeta, finding, projects, onLink, currentProject, 
   return (
     <div key={r.id} className="rise">
       <h2 className="font-display text-lg font-semibold leading-snug text-stone-900 dark:text-stone-100">{r.title}</h2>
-      <p className="mt-1.5 text-sm text-stone-500 dark:text-stone-300">{(r.authors ?? []).map((a) => [a.given, a.family].filter(Boolean).join(" ")).filter(Boolean).join(", ") || "Unknown authors"}</p>
+      <p className="mt-1.5 text-sm text-stone-500 dark:text-stone-300">
+        {(r.authors ?? []).filter((a) => a.given || a.family).length === 0 && "Unknown authors"}
+        {(r.authors ?? []).filter((a) => a.given || a.family).map((a, i, all) => (
+          <span key={`${a.family}-${a.given}-${i}`}>
+            {a.family ? (
+              <button type="button" onClick={() => onAuthor(a.family as string)} className={`rounded-sm underline decoration-dotted decoration-stone-400/70 underline-offset-2 transition-colors hover:text-indigo-600 dark:hover:text-indigo-300 ${authorFilter.toLowerCase() === a.family.toLowerCase() ? "text-indigo-600 dark:text-indigo-300" : ""}`} title={`Everything by ${a.family} in your library`} data-testid="author-link">{[a.given, a.family].filter(Boolean).join(" ")}</button>
+            ) : (
+              <span>{a.given}</span>
+            )}
+            {i < all.length - 1 ? ", " : ""}
+          </span>
+        ))}
+      </p>
       <p className="mt-1 text-xs text-stone-400">{[r.year, r.venue, r.entry_type].filter(Boolean).join(" · ")}{r.citation_count != null ? ` · ${r.citation_count} citations` : ""}</p>
       {needs && (
         <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">

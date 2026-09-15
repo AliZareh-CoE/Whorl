@@ -175,6 +175,43 @@ def get_reading_progress(reference_id: int):
     return _request("GET", f"/references/{reference_id}/progress/")
 
 
+def _library_row(row: dict) -> dict:
+    """A compact library row for Claude: the identity, the reading state, no abstract."""
+    authors = [
+        ", ".join(part for part in ((a.get("family") or ""), (a.get("given") or "")) if part)
+        for a in (row.get("authors") or [])
+        if isinstance(a, dict)
+    ]
+    return {
+        "id": row.get("id"),
+        "bibtex_key": row.get("bibtex_key"),
+        "title": row.get("title"),
+        "authors": authors,
+        "year": row.get("year"),
+        "venue": row.get("venue"),
+        "doi": row.get("doi"),
+        "has_pdf": bool(row.get("pdf")),
+        "citation_count": row.get("citation_count"),
+        "tags": row.get("tags") or [],
+        "projects": row.get("projects") or [],
+        "progress": row.get("progress"),
+    }
+
+
+def browse_library(limit: int = 20, **filters):
+    """The Library workbench over the API (#524): GET /references/ with the rail's filters
+    (q, author, year, year_min, year_max, entry_type, venue, tag, project, reading_status,
+    has_pdf, untagged, unfiled, needs_metadata, sort). Rows are trimmed to what a listing needs."""
+    params = {k: v for k, v in filters.items() if v not in ("", None, 0, False)}
+    limit = max(1, min(int(limit or 20), 50))
+    data = _request("GET", "/references/", params=params)
+    rows = data.get("results", []) if isinstance(data, dict) else list(data)
+    return {
+        "count": data.get("count", len(rows)) if isinstance(data, dict) else len(rows),
+        "results": [_library_row(r) for r in rows[:limit]],
+    }
+
+
 def get_reading_now(limit: int = 5):
     """Papers you are in the middle of — a remembered page, not at the end, newest first (#523)."""
     return _request("GET", "/references/reading-now/", params={"limit": limit})

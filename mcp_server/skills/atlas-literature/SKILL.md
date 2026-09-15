@@ -20,6 +20,9 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
 - `fetch_pdf` when a paper has no PDF; `search_pdf_text` / `search_in_pdf` to find a
   passage across the project's PDFs or inside one.
 - `set_reading_status` as the user reports progress: to_read → skimmed → read → annotated.
+- `browse_library` for "what do I have by X?", "unread papers tagged Y", "papers with no PDF" —
+  every filter the Library rail offers (author, q, year range, venue, tag, project + status,
+  has_pdf, untagged / unfiled / needs_metadata, sort); rows are compact and carry `progress`.
 - `get_reading_progress` for "where was I?" (a paper's remembered page, or with no id the papers
   the user is in the middle of); `set_reading_position` when they tell you the page they reached.
 - `list_highlights` / `get_highlights_markdown` to quote what the user marked;

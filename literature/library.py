@@ -74,6 +74,9 @@ def filter_references(qs: QuerySet, params) -> QuerySet:
     venue = params.get("venue")
     if venue:
         qs = qs.filter(venue=venue)
+    author = (params.get("author") or "").strip()[:120]
+    if author:
+        qs = qs.filter(pk__in=author_ids(qs, author))
     has_pdf = params.get("has_pdf")
     if has_pdf in ("true", "1"):
         qs = qs.exclude(pdf="").exclude(pdf__isnull=True)
@@ -99,6 +102,66 @@ def filter_references(qs: QuerySet, params) -> QuerySet:
         qs = qs.filter(project_links__isnull=True)
     qs = qs.order_by(*_ordering(params.get("sort") or "added"), "-id")
     return qs.distinct()
+
+
+def _families(authors) -> list[tuple[str, str]]:
+    """(family, given) pairs from a reference's authors JSON, skipping malformed rows."""
+    out = []
+    for row in authors or []:
+        if not isinstance(row, dict):
+            continue
+        family = (row.get("family") or "").strip()
+        if family:
+            out.append((family, (row.get("given") or "").strip()))
+    return out
+
+
+def author_ids(qs: QuerySet, family: str) -> list[int]:
+    """Ids of the references with an author of this family name (case-insensitive).
+
+    Authors live in a JSON list, and JSON containment is Postgres-only — the desktop build runs
+    on SQLite — so the match is made in Python over one (id, authors) query. A library is a few
+    thousand rows at most; the same pass drives the facet."""
+    want = family.casefold()
+    return [
+        pk
+        for pk, authors in qs.values_list("id", "authors")
+        if any(fam.casefold() == want for fam, _given in _families(authors))
+    ]
+
+
+def author_facet(qs: QuerySet, limit: int = 12) -> list[dict]:
+    """Top authors by number of papers: {name (family), given (most common), count}."""
+    counts: dict[str, int] = {}
+    givens: dict[str, dict[str, int]] = {}
+    labels: dict[str, dict[str, int]] = {}
+    # (id, authors), not authors alone: the facets action applies .distinct() for a project,
+    # and SELECT DISTINCT authors would fold two papers with the same byline into one.
+    for _pk, authors in qs.values_list("id", "authors"):
+        seen: set[str] = set()
+        for family, given in _families(authors):
+            key = family.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            counts[key] = counts.get(key, 0) + 1
+            spelled = labels.setdefault(key, {})
+            spelled[family] = spelled.get(family, 0) + 1
+            if given:
+                g = givens.setdefault(key, {})
+                g[given] = g.get(given, 0) + 1
+
+    def pick(variants: dict[str, int]) -> str:
+        # the most common spelling; on a tie the capitalised, then the fuller one
+        if not variants:
+            return ""
+        return max(variants.items(), key=lambda kv: (kv[1], kv[0][:1].isupper(), len(kv[0])))[0]
+
+    rows = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [
+        {"name": pick(labels[key]), "given": pick(givens.get(key, {})), "count": n}
+        for key, n in rows[:limit]
+    ]
 
 
 def facets(qs: QuerySet) -> dict:
@@ -162,6 +225,7 @@ def facets(qs: QuerySet) -> dict:
         "years": years,
         "entry_types": types,
         "venues": venues,
+        "authors": author_facet(qs),
         "projects": projects,
         "all_projects": list(
             Project.objects.order_by("position", "name").values("slug", "name", "color")

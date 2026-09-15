@@ -191,3 +191,72 @@ def test_bulk_find_metadata_collects_errors(refs, monkeypatch):
     monkeypatch.setattr(library, "find_metadata", fake)
     out = library.bulk([a.pk, c.pk], "find_metadata")
     assert out["affected"] == 1 and len(out["errors"]) == 1
+
+
+# #524: the author lens
+
+
+def test_filter_author_matches_family_case_insensitively(refs):
+    a, b, c = refs
+    b.authors = [{"family": "Cowan", "given": "N"}, {"family": "Lavie", "given": "Nilli"}]
+    b.save(update_fields=["authors"])
+    c.authors = ["not a dict", {"given": "Anonymous"}]  # malformed rows are skipped
+    c.save(update_fields=["authors"])
+    ids = {r.pk for r in library.filter_references(Reference.objects.all(), {"author": "lavie"})}
+    assert ids == {a.pk, b.pk}
+    ids = {r.pk for r in library.filter_references(Reference.objects.all(), {"author": "COWAN"})}
+    assert ids == {b.pk}
+    assert not library.filter_references(Reference.objects.all(), {"author": "Nobody"}).exists()
+    # combines with the other filters
+    rows = library.filter_references(Reference.objects.all(), {"author": "Lavie", "year": "2018"})
+    assert [r.pk for r in rows] == [b.pk]
+    # blank and whitespace are no filter
+    assert library.filter_references(Reference.objects.all(), {"author": "  "}).count() == 3
+
+
+def test_author_facet_counts_papers_not_bylines(refs):
+    a, b, c = refs
+    b.authors = [
+        {"family": "Cowan", "given": "N"},
+        {"family": "lavie", "given": "Nilli"},
+        {"family": "Lavie", "given": "Nilli"},  # the same person twice on one paper: one count
+    ]
+    b.save(update_fields=["authors"])
+    rows = library.author_facet(Reference.objects.all())
+    assert rows[0] == {"name": "Lavie", "given": "Nilli", "count": 2}
+    assert rows[1] == {"name": "Cowan", "given": "N", "count": 1}
+    assert library.author_facet(Reference.objects.all(), limit=1) == rows[:1]
+    f = library.facets(Reference.objects.all())
+    assert f["authors"] == rows
+
+
+def test_api_author_filter_and_facet(client, refs, settings, owner):
+    a, b, c = refs
+    settings.ATLAS_API_KEY = "k"
+    headers = {"HTTP_HOST": "127.0.0.1", "HTTP_X_API_KEY": "k"}
+    resp = client.get("/api/v1/references/?author=lavie", **headers)
+    assert resp.status_code == 200, resp.content[:300]
+    data = resp.json()
+    assert [r["id"] for r in data["results"]] == [a.pk]
+    data = client.get("/api/v1/references/facets/", **headers).json()
+    assert {"name": "Lavie", "given": "N", "count": 1} in data["authors"]
+    # the reading flow honours it too
+    data = client.get("/api/v1/references/reading-flow/?author=Lavie", **headers).json()
+    assert [p["reference"]["id"] for p in data["papers"]] == [a.pk]
+
+
+def test_project_facet_counts_papers_with_identical_bylines(client, refs, settings, owner):
+    """The facets action uses .distinct() for a project; two papers by the same single author
+    must still count as two (SELECT DISTINCT authors would fold them)."""
+    a, b, c = refs
+    project = ProjectFactory(name="P")
+    twin = Reference.objects.create(
+        title="Load, again", bibtex_key="lavie-twin", year=2021, authors=a.authors
+    )
+    for ref in (a, twin, b):
+        ProjectReference.objects.create(project=project, reference=ref)
+    settings.ATLAS_API_KEY = "k"
+    headers = {"HTTP_HOST": "127.0.0.1", "HTTP_X_API_KEY": "k"}
+    data = client.get(f"/api/v1/references/facets/?project={project.slug}", **headers).json()
+    assert data["authors"][0] == {"name": "Lavie", "given": "N", "count": 2}
+    assert data["total"] == 3
