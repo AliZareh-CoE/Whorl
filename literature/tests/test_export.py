@@ -146,7 +146,7 @@ def test_ui_wiring():
 def test_csv_neutralises_formula_cells():
     from literature.export import CSV_COLUMNS, _cell, export_csv
 
-    titles = ['=HYPERLINK("http://evil")', "+1", "-x", "@cmd", "Plain"]
+    titles = ['=HYPERLINK("http://evil")', "+1", "-x", "@cmd", "\tx", "\rx", "Plain"]
     refs = [
         Reference.objects.create(title=title, bibtex_key=f"inj{i}")
         for i, title in enumerate(titles)
@@ -154,5 +154,5 @@ def test_csv_neutralises_formula_cells():
     rows = list(csv.reader(io.StringIO(export_csv(refs).lstrip("\ufeff"))))
     col = CSV_COLUMNS.index("title")
     got = [row[col] for row in rows[1:]]
-    assert got == ['\'=HYPERLINK("http://evil")', "'+1", "'-x", "'@cmd", "Plain"]
+    assert got == ['\'=HYPERLINK("http://evil")', "'+1", "'-x", "'@cmd", "'\tx", "'\rx", "Plain"]
     assert _cell(None) == ""

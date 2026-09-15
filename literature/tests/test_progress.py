@@ -67,6 +67,14 @@ def test_record_position_refuses_bad_pages(paper):
         progress.record_position(ref, 11)
     with pytest.raises(progress.ProgressError):
         progress.record_position(ref, 2, page_count=0)
+    # Audit #31: past the 32-bit column (with and without a known page count) is a refusal,
+    # not a database error
+    with pytest.raises(progress.ProgressError):
+        progress.record_position(ref, 3_000_000_000, page_count=3_000_000_000)
+    ref.page_count = None
+    ref.save(update_fields=["page_count"])
+    with pytest.raises(progress.ProgressError):
+        progress.record_position(ref, 3_000_000_000)
 
 
 def test_record_position_with_project_stamps_started_once(paper):
@@ -189,6 +197,13 @@ def test_progress_api_roundtrip(client, paper):
         **HEADERS,
     )
     assert r.status_code == 400
+    r = client.post(  # Audit #31: a count past the 32-bit column was a 500
+        f"/api/v1/references/{ref.pk}/progress/",
+        {"page": 3_000_000_000, "page_count": 3_000_000_000},
+        content_type="application/json",
+        **HEADERS,
+    )
+    assert r.status_code == 400 and "page_count" in r.json()
     r = client.post(
         f"/api/v1/references/{ref.pk}/progress/",
         {"page": 2, "project": "nope"},

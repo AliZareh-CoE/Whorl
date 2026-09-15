@@ -142,9 +142,10 @@ CSV_COLUMNS = (
 
 
 def _cell(value):
-    """Neutralise spreadsheet formula injection: a cell starting with =, +, -, @ is quoted."""
+    """Neutralise spreadsheet formula injection: a cell starting with =, +, -, @, a tab or a
+    carriage return (the OWASP list) is quoted."""
     text = "" if value is None else str(value)
-    return f"'{text}" if text[:1] in ("=", "+", "-", "@") else text
+    return f"'{text}" if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
 
 
 def export_csv(references) -> str:

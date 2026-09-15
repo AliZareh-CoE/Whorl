@@ -2,6 +2,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.utils import extend_schema_field, inline_serializer
 from rest_framework import serializers
 
+from core.ids import MAX_PK
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
 from literature.models import Highlight, LibraryTag, ProjectReference, Reference, SavedView
@@ -453,8 +454,9 @@ class ProjectReferenceSerializer(serializers.ModelSerializer):
 class ReadingPositionSerializer(serializers.Serializer):
     """POST /references/{id}/progress/ (#523): the page the reader is on."""
 
-    page = serializers.IntegerField(min_value=1)
-    page_count = serializers.IntegerField(min_value=1, required=False)
+    # Audit #31: bounded above too — PositiveIntegerField is 32-bit
+    page = serializers.IntegerField(min_value=1, max_value=100_000)
+    page_count = serializers.IntegerField(min_value=1, max_value=100_000, required=False)
     project = serializers.CharField(required=False, allow_blank=True, max_length=120)
 
 
@@ -546,11 +548,21 @@ class PlanReviewSerializer(serializers.Serializer):
     note = serializers.CharField(required=False, allow_blank=True, default="", max_length=2000)
 
 
+class PkField(serializers.IntegerField):
+    """An id from the wire, bounded to the 32-bit AutoField (Audit #31: an id past the column
+    reached `pk__in` and SQLite's binder raised)."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("min_value", 1)
+        kwargs.setdefault("max_value", MAX_PK)
+        super().__init__(**kwargs)
+
+
 class BulkTriageSerializer(serializers.Serializer):
     """#497: many captures, one action — file (needs project), dismiss, snooze (until), todo,
     wake."""
 
-    ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
+    ids = serializers.ListField(child=PkField(), allow_empty=False)
     action = serializers.ChoiceField(choices=["file", "dismiss", "snooze", "todo", "wake"])
     project = ProjectSlugField(required=False, allow_null=True)
     until = serializers.CharField(required=False, allow_blank=True, default="")
@@ -731,7 +743,7 @@ class MergeReferencesSerializer(serializers.Serializer):
 class BulkReferenceActionSerializer(serializers.Serializer):
     """Library v2 bulk bar: one action over many references."""
 
-    ids = serializers.ListField(child=serializers.IntegerField(), min_length=1, max_length=500)
+    ids = serializers.ListField(child=PkField(), min_length=1, max_length=500)
     action = serializers.ChoiceField(
         choices=[
             "link",

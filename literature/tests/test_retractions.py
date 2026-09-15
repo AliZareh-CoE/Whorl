@@ -157,6 +157,8 @@ class TestStaleAndStatus:
         assert [r.pk for r in got] == [never.pk, older.pk, old.pk]
         assert fresh not in got
         assert [r.pk for r in retractions.stale_references(days=30, limit=1)] == [never.pk]
+        # Audit #31: days is clamped to MAX_STALE_DAYS, so a wild value cannot overflow
+        assert [r.pk for r in retractions.stale_references(days=10**20, limit=10)] == [never.pk]
 
     def test_check_stale_asks_nothing_when_nothing_is_stale(self, monkeypatch):
         ReferenceFactory(doi="10.1/fresh", retraction_checked_at=timezone.now())
@@ -222,6 +224,14 @@ class TestApiAndReport:
         )
         assert r.status_code == 200 and r.json()["checked"] == 1
         assert r.json()["status"]["unchecked"] == 0
+        # Audit #31: a wild `days` was a datetime overflow (500); it is clamped to ten years
+        r = client.post(
+            "/api/v1/references/check-retractions/",
+            data=json.dumps({"stale": True, "days": 10**20}),
+            content_type="application/json",
+            **headers,
+        )
+        assert r.status_code == 200 and r.json()["checked"] == 0
         # list filter + facet over the API
         listed = client.get("/api/v1/references/?retracted=1", **headers).json()
         assert [x["id"] for x in listed["results"]] == [a.pk]

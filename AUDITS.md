@@ -874,6 +874,94 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #31 — 2026-09-15 (since #30: #519–#527 — the Plan area's last four slices and its verdict, the Library return pass's first five)
+
+Ten cycles, nine feature slices, three findings — each an unbounded integer reaching the
+database or the datetime arithmetic, all fixed, all pinned — plus one hardening.
+
+**Dependencies — CLEAN.** `pip-audit` on the exported lock: *No known vulnerabilities found*.
+`npm audit --omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`: every row green (anon → 401
+across the API, pages → 302, catch-all 404, static MIME, `/app//evil.com` stays on-origin).
+
+**New surfaces since #30 — reviewed.**
+- *Auth:* `references/export/`, `references/reading-now/`, `references/check-retractions/`
+  (GET and POST) and `references/{id}/progress/` (GET and POST) answer 401 anonymously and to
+  a wrong key.
+- *Export (#525):* `fmt=exe` / `fmt=../etc` → 400 naming the four formats; `ids=abc,1e2,-1`
+  → an empty file (non-digits dropped); 5 000 ids → capped at 500, as is a filtered view. *CSV
+  injection:* `_cell` quotes a cell starting with `=`, `+`, `-` or `@` (pinned since #525);
+  **hardened** to the full OWASP list — a leading tab or carriage return is quoted too
+  (`test_csv_neutralises_formula_cells` extended). Numbers (id, year, citations) are never
+  attacker text.
+- *Filters (#524, #526, #527):* `year_min=abc` ignored, `year_min=1e20` → an empty page on
+  Postgres *and* on SQLite (Django's `exact` / `gte` / `lte` integer lookups range-check the
+  value and short-circuit — verified on a SQLite database as the desktop runs), `year_max=-5`
+  → empty, a 5 000-character
+  `author` is cut to 120 and matched in Python over one `(id, authors)` query, `retracted=%00`
+  ignored, `sort=__class__` / `sort=-project_links__project__name` fall back to the default —
+  `_ordering` is a whitelist, never an attribute path. The SPA's `fromUrl` reads only the
+  known keys, slices every value to 200 and renders them as React text; `add` only focuses
+  the DOI box, `read` opens a paper the API already returns.
+- *browse_library.url (#526):* `q=a&b=c` and `author=O'Neil <x>` come back percent-encoded;
+  empties, zeros and the default sort are dropped; the API key is never in the address.
+- *Retraction watch (#527):* 51 ids → 400 "Give up to 50 ids."; `["a", 1.5, null]` and
+  `ids: 5` → 400; unknown / negative / 10²⁰ ids → 200 with nothing checked; `[true, false]`
+  → id 1 (Python's bool is an int — harmless); `days: "abc"` / `limit: -5` → 400; `limit:
+  99999` clamped to 50; a non-JSON body → 400. *Live:* four demo DOIs against Crossref in
+  5.6 s (3 checked, 1 without a DOI skipped), verdicts unchanged. *Offline:* the breaker
+  stops a sweep after five consecutive errors (`test_breaker_stops_an_offline_sweep`), so
+  the desktop's hourly scheduler tick costs at most five timeouts (50 s) on a train and never
+  clears a verdict. A DOI containing a comma would split Crossref's `filter=` and come back
+  as a non-200 → counted as an error, verdict untouched (fail-closed; noted, not changed).
+- **FINDING 1 — a page count past the column was a database error.** `POST
+  references/{id}/progress/` with `page: 3000000000, page_count: 3000000000` returned **500**:
+  the serializer bounded both below (`min_value=1`) but not above, and `PositiveIntegerField`
+  is 32-bit; the same held for a `page` with no known count. Fixed twice over:
+  `max_value=100_000` on both serializer fields (400) and `MAX_PAGES` in
+  `literature/progress.py::record_position` (a `ProgressError` for the MCP and any other
+  caller). Pinned in `test_record_position_refuses_bad_pages` and `test_progress_api_roundtrip`.
+- **FINDING 2 — a wild `days` overflowed the sweep.** `POST references/check-retractions/`
+  with `stale: true, days: 1000000000` (or 10²⁰) returned **500**: `timezone.now() -
+  timedelta(days=…)` raised `OverflowError`. Fixed in `stale_references` — `days` is clamped
+  to `MAX_STALE_DAYS` (ten years), so the API, the command and the scheduler share the bound.
+  Pinned in `test_stale_selection_never_checked_first_then_oldest` and the endpoint test.
+- **FINDING 3 — an id past the column reached `pk__in`, which SQLite refuses.** The
+  Postgres probes above passed (`ids=1e20` on the export, `ids: [1e20]` on the retraction
+  check) because psycopg binds a wide int as `numeric` and the comparison misses. Re-run
+  against a SQLite database — the desktop's — `Reference.objects.filter(pk__in=[10**20])`
+  raises `OverflowError: Python int too large to convert to SQLite INTEGER`: Django's `__in`
+  lookup, unlike `exact` / `gte` / `lte`, does not range-check. Seven request paths fed ids
+  straight into a `pk__in`: `references/export/?ids=`, `references/bibliography/?ids=`,
+  `check-retractions {ids}`, `references/bulk/ {ids}`, `quick-capture/bulk/ {ids}` and the
+  `todos/` / `saved-views/` / `phases/` reorders. Fixed at one place each: `core/ids.py`
+  (`MAX_PK = 2**31 - 1`, `parse_ids(values, limit, strict)` — junk dropped or refused,
+  out-of-range always dropped, duplicates once, capped) behind the three query-string and
+  raw-body paths; a `PkField` (bounded `IntegerField`) behind the two bulk serializers; the
+  range check joined the three reorders' `isinstance` guards. Pinned in
+  `core/tests/test_ids.py` (the parser, and every endpoint with `10**20`), which holds on
+  both databases because the wild value never reaches the SQL; the seven paths re-run on
+  the SQLite database with the fix in place answer 200 / 200 / 200 / 400 / 400 / 400 / 400.
+- *Progress (#523):* `page: "abc"` / `-3` / `0` → 400; a page past the known end → 400 with
+  the reason; an unknown reference → 404. *Reading now:* `limit=abc` → default, `999999` →
+  clamped to 20.
+
+**Query counts on the demo** (in-process): `references/?author=Lavie` 9, `?retracted=1` 7,
+`?q=attention&year_min=2000&sort=-year` 7, `facets/` 18, `export/?fmt=csv` 5 (`ris` 5 —
+tags and project links prefetched), `reading-flow/` 4, `reading-now/` 4,
+`check-retractions/` (GET) 5, `{id}/progress/` 6, `{id}/` 9 — all grouped, none per row.
+
+**Hot endpoints (in-process, demo data):** list with the author filter 19 ms, retracted
+filter 14 ms, search + year + sort 27 ms, facets 52 ms, CSV export 13 ms, RIS 12 ms,
+reading flow 13 ms, reading now 6 ms, watch status 6 ms, progress 10 ms, detail 16 ms.
+
+**Verdict.** Three findings, all the same shape as Audit #30's first (an integer bounded on
+one side only — or, for `__in`, on neither), the third invisible on the audit's own Postgres
+and a 500 on the owner's SQLite desktop, so the audit now reproduces id and range probes on
+both databases. All three refused with a reason instead of a traceback. Nothing exploitable across the wire: the API-key gate holds
+on every new route, the sort whitelist and the filter parsers refuse attribute paths, the
+CSV writer neutralises every formula prefix, the retraction watch fails closed offline.
+**Next audit due at #538.**
+
 ## Audit #30 — 2026-09-14 (since #29: #509–#517 — the Notes + graph area's last three slices and its verdict, the Plan area's first six, the Edge 152 boot hotfix)
 
 Ten cycles, nine feature slices and a hotfix, two findings — one a database error on a bad

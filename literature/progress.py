@@ -18,6 +18,7 @@ from .models import ProjectReference, Reference
 
 FINISHED = {ProjectReference.ReadingStatus.READ, ProjectReference.ReadingStatus.ANNOTATED}
 RECENT_DAYS = 30
+MAX_PAGES = 100_000  # Audit #31: a page count past the 32-bit column was a database error
 
 
 class ProgressError(ValueError):
@@ -57,6 +58,8 @@ def record_position(
         raise ProgressError("page must be a whole number") from exc
     if page < 1:
         raise ProgressError("page must be 1 or more")
+    if page > MAX_PAGES:
+        raise ProgressError(f"page must be {MAX_PAGES:,} or less")
     if page_count is not None:
         try:
             page_count = int(page_count)
@@ -64,6 +67,8 @@ def record_position(
             raise ProgressError("page_count must be a whole number") from exc
         if page_count < 1:
             raise ProgressError("page_count must be 1 or more")
+        if page_count > MAX_PAGES:
+            raise ProgressError(f"page_count must be {MAX_PAGES:,} or less")
         reference.page_count = page_count
     if reference.page_count and page > reference.page_count:
         raise ProgressError(f"page {page} is past the end ({reference.page_count} pages)")

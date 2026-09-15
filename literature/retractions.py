@@ -28,6 +28,7 @@ KINDS = ("retraction", "withdrawal", "removal")
 # specifics); expressions of concern and corrections are softer signals (backlog #321).
 NORMALISE = {"partial_retraction": "retraction"}
 STALE_DAYS = 30
+MAX_STALE_DAYS = 3650  # Audit #31: a wild `days` overflowed the datetime arithmetic
 SWEEP_LIMIT = 200
 MAX_CONSECUTIVE_ERRORS = 5  # an offline sweep stops early instead of timing out 200 times
 CROSSREF_WORKS = "https://api.crossref.org/works"
@@ -154,7 +155,7 @@ def check_references(references, client: httpx.Client | None = None) -> dict:
 def stale_references(days: int = STALE_DAYS, limit: int = SWEEP_LIMIT):
     """Papers with a DOI never checked, or checked more than `days` ago — never-checked first,
     then the oldest checks."""
-    cutoff = timezone.now() - datetime.timedelta(days=max(1, days))
+    cutoff = timezone.now() - datetime.timedelta(days=max(1, min(int(days), MAX_STALE_DAYS)))
     qs = Reference.objects.exclude(doi__isnull=True).exclude(doi="")
     qs = qs.filter(retraction_checked_at__isnull=True) | qs.filter(retraction_checked_at__lt=cutoff)
     return list(

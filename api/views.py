@@ -23,6 +23,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.files import file_response
+from core.ids import MAX_PK, parse_ids
 from core.memo import enable_memo
 from core.models import TodoItem
 from documents.models import Document, Folder, Tag
@@ -833,7 +834,9 @@ class ProjectViewSet(AtlasViewSet):
 
         project = self.get_object()
         ids = request.data.get("ids") if isinstance(request.data, dict) else None
-        if not isinstance(ids, list) or not all(isinstance(i, int) for i in ids):
+        if not isinstance(ids, list) or not all(
+            isinstance(i, int) and 0 < i <= MAX_PK for i in ids
+        ):
             raise rf_serializers.ValidationError({"ids": ["Send a list of phase ids."]})
         if len(set(ids)) != len(ids):
             raise rf_serializers.ValidationError({"ids": ["An id appears twice."]})
@@ -1498,11 +1501,7 @@ class ReferenceViewSet(AtlasViewSet):
         style = request.query_params.get("style", "apa")
         if style not in citations.STYLES:
             return Response({"detail": f"style must be one of {citations.STYLES}"}, status=400)
-        wanted = [
-            int(i)
-            for i in (request.query_params.get("ids") or "").split(",")
-            if i.strip().isdigit()
-        ][:500]
+        wanted = parse_ids((request.query_params.get("ids") or "").split(","), limit=500)
         by_id = {r.pk: r for r in Reference.objects.filter(pk__in=wanted)}
         refs = [by_id[i] for i in wanted if i in by_id]
         return Response(citations.bibliography(refs, style))
@@ -1544,7 +1543,7 @@ class ReferenceViewSet(AtlasViewSet):
         ids = request.query_params.get("ids")
         base = Reference.objects.prefetch_related("tags", "project_links__project")
         if ids:
-            wanted = [int(i) for i in ids.split(",") if i.strip().isdigit()][:500]
+            wanted = parse_ids(ids.split(","), limit=500)
             queryset = base.filter(pk__in=wanted).order_by("bibtex_key")
         else:
             queryset = filter_references(base, request.query_params)[:500]
@@ -1942,8 +1941,8 @@ class ReferenceViewSet(AtlasViewSet):
             if not isinstance(ids, list) or len(ids) > 50:
                 return Response({"ids": ["Give up to 50 ids."]}, status=400)
             try:
-                ids = [int(i) for i in ids]
-            except (TypeError, ValueError):
+                ids = parse_ids(ids, limit=50, strict=True)
+            except ValueError:
                 return Response({"ids": ["Ids must be integers."]}, status=400)
             refs = list(Reference.objects.filter(pk__in=ids).order_by("pk"))
             out = retractions.check_references(refs)
@@ -2220,7 +2219,7 @@ class SavedViewViewSet(AtlasViewSet):
         ids = request.data.get("ids") if isinstance(request.data, dict) else None
         if (
             not isinstance(ids, list)
-            or not all(isinstance(i, int) for i in ids)
+            or not all(isinstance(i, int) and 0 < i <= MAX_PK for i in ids)
             or len(set(ids)) != len(ids)
         ):
             raise rf_serializers.ValidationError({"ids": ["Send a list of distinct view ids."]})
@@ -2289,7 +2288,9 @@ class TodoItemViewSet(AtlasViewSet):
     @action(detail=False, methods=["post"], url_path="reorder")
     def reorder(self, request):
         ids = request.data.get("ids") if isinstance(request.data, dict) else None
-        if not isinstance(ids, list) or not all(isinstance(i, int) for i in ids):
+        if not isinstance(ids, list) or not all(
+            isinstance(i, int) and 0 < i <= MAX_PK for i in ids
+        ):
             raise rf_serializers.ValidationError({"ids": ["Send a list of item ids."]})
         if len(set(ids)) != len(ids):
             raise rf_serializers.ValidationError({"ids": ["An id appears twice."]})
