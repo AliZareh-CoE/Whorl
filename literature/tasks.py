@@ -35,3 +35,11 @@ def check_retractions_task():
     from .retractions import check_stale
 
     return check_stale()
+
+
+@db_periodic_task(crontab(hour=4, minute=40))
+def check_preprints_task():
+    """#529: the daily preprint sweep — stale arXiv preprints against arXiv / Semantic Scholar."""
+    from .preprints import check_stale
+
+    return check_stale()

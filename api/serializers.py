@@ -269,6 +269,8 @@ class ReferenceSerializer(serializers.ModelSerializer):
     text_status = serializers.SerializerMethodField()
     # #523: where the reader left off — {page, pages, percent, last_read_at}
     progress = serializers.SerializerMethodField()
+    # #529: an arXiv paper without a publisher DOI of its own
+    preprint = serializers.SerializerMethodField()
     # Library v2 slice 5: tags by name (writable: a list of names creates missing tags)
     tags = serializers.ListField(
         child=serializers.CharField(max_length=60), required=False, write_only=True
@@ -298,6 +300,11 @@ class ReferenceSerializer(serializers.ModelSerializer):
         from literature.progress import progress_of
 
         return progress_of(obj)
+
+    def get_preprint(self, obj) -> bool:
+        from literature.preprints import is_preprint
+
+        return is_preprint(obj)
 
     @extend_schema_field(serializers.CharField())
     def get_text_status(self, obj):
@@ -394,6 +401,10 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "retraction_notice",
             "retraction_date",
             "retraction_checked_at",
+            "preprint",
+            "published_doi",
+            "published_venue",
+            "published_checked_at",
             "created_at",
             "updated_at",
         ]
@@ -407,6 +418,9 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "retraction_notice",
             "retraction_date",
             "retraction_checked_at",
+            "published_doi",
+            "published_venue",
+            "published_checked_at",
         ]
 
     def create(self, validated_data):

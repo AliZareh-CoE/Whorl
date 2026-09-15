@@ -203,6 +203,15 @@ def start_scheduler(directory: Path | None = None) -> bool:
                     log.exception("retraction sweep failed")
                 finally:
                     close_old_connections()
+                try:
+                    # #529: the preprint watch sweeps from the same thread, same rules.
+                    from literature.preprints import check_stale as check_stale_preprints
+
+                    check_stale_preprints()
+                except Exception:  # noqa: BLE001
+                    log.exception("preprint sweep failed")
+                finally:
+                    close_old_connections()
                 wait = CHECK_EVERY_SECONDS
 
         _THREAD = threading.Thread(target=loop, name="atlas-snapshots", daemon=True)

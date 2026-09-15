@@ -186,6 +186,8 @@ def browse_library(
     unfiled: bool = False,
     needs_metadata: bool = False,
     retracted: bool = False,
+    preprints: bool = False,
+    published_available: bool = False,
     sort: str = "added",
     limit: int = 20,
 ) -> dict:
@@ -195,7 +197,9 @@ def browse_library(
     slug and `reading_status` (to_read / skimmed / read / annotated) the state in that project;
     `has_pdf` "true" or "false"; `untagged` / `unfiled` / `needs_metadata` / `retracted` (papers
     the retraction watch flagged, #527 — rows carry `retraction` {kind, notice, date}) are
-    hygiene views;
+    hygiene views; `preprints` (arXiv papers without a publisher DOI; rows carry `preprint`)
+    and `published_available` (preprints whose published version the preprint watch found,
+    #529 — rows carry `published` {doi, venue}; upgrade_preprint applies it);
     `sort` added, -added, year, -year, title, -title or citations. Returns `count` (all matches),
     `url` — the same view in the app (`/library?author=lavie&tag=load`; every Library view has
     an address, hand it to the user or paste it in a note, #526) — and up to `limit` (≤ 50)
@@ -219,6 +223,8 @@ def browse_library(
         unfiled="1" if unfiled else "",
         needs_metadata="1" if needs_metadata else "",
         retracted="1" if retracted else "",
+        preprints="1" if preprints else "",
+        published_available="1" if published_available else "",
         sort=sort,
     )
 
@@ -237,6 +243,36 @@ def check_retractions(
     asks "is anything I cite retracted?" or before a submission; browse_library(retracted=True)
     lists the flagged papers without asking Crossref."""
     return client.check_retractions(reference_ids, days, limit)
+
+
+@mcp.tool()
+def check_preprints(
+    reference_ids: list[int] | None = None, days: int = 30, limit: int = 50
+) -> dict:
+    """The preprint watch (#529). Asks arXiv (the author-deposited DOI) and Semantic Scholar
+    whether the library's arXiv preprints have since been published, and stores the answer on
+    each paper — the Library shows a "published version" chip, the detail pane names the venue
+    and DOI, the pre-flight warns when a manuscript still cites the preprint. With
+    `reference_ids` (≤ 50): those papers. Without: the stale preprints — never checked or
+    checked more than `days` ago, up to `limit` (≤ 50; the daily sweep does the rest). Returns
+    `checked`, `published` [{id, bibtex_key, title, arxiv_id, published_doi, published_venue}],
+    `errors` (offline lookups leave the stored answers alone), `skipped` (not a preprint) and
+    `status` {preprints, published_available, unchecked, last_checked_at}. Then call
+    upgrade_preprint for the ones the user wants to cite by their published version;
+    browse_library(published_available=True) lists them without asking anyone."""
+    return client.check_preprints(reference_ids, days, limit)
+
+
+@mcp.tool()
+def upgrade_preprint(reference_id: int, doi: str = "") -> dict:
+    """Make a preprint cite its published version (#529): the published DOI the watch found (or
+    `doi`, when the user names one) becomes the paper's DOI, venue, year and metadata come from
+    Crossref / OpenAlex, the cite key and the arXiv id stay, the preprint's identity is kept in
+    `extra.preprint` — so every manuscript that cites the key now cites the paper. Offline the
+    stored DOI and venue are applied and `upgrade.metadata` says "partial". Returns the updated
+    reference row. Fails with 409 when the published version is already another reference in the
+    library — then merge them instead."""
+    return client.upgrade_preprint(reference_id, doi)
 
 
 @mcp.tool()

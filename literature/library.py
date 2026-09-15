@@ -87,6 +87,14 @@ def filter_references(qs: QuerySet, params) -> QuerySet:
         qs = qs.filter(extra__needs_metadata=True)
     if params.get("retracted") in ("true", "1"):  # #527: the retraction watch's flag
         qs = qs.exclude(retraction_kind="")
+    if params.get("preprints") in ("true", "1"):  # #529: arXiv papers without a publisher DOI
+        from .preprints import preprint_q
+
+        qs = qs.filter(preprint_q())
+    if params.get("published_available") in ("true", "1"):  # #529: a published version is known
+        from .preprints import preprint_q
+
+        qs = qs.filter(preprint_q()).exclude(published_doi="")
     project = params.get("project")
     if project:
         qs = qs.filter(project_links__project__slug=project)
@@ -167,6 +175,8 @@ def author_facet(qs: QuerySet, limit: int = 12) -> list[dict]:
 
 
 def facets(qs: QuerySet) -> dict:
+    from .preprints import preprints, published_available
+
     """Counts that drive the left rail — computed on the *unfiltered* base so the rail always
     shows the whole shape of the library (like a good faceted search does)."""
     years = [
@@ -218,6 +228,8 @@ def facets(qs: QuerySet) -> dict:
         "without_pdf": total - with_pdf,
         "needs_metadata": qs.filter(extra__needs_metadata=True).count(),
         "retracted": qs.exclude(retraction_kind="").count(),
+        "preprints": preprints(qs).count(),
+        "published_available": published_available(qs).count(),
         "unfiled": qs.filter(project_links__isnull=True).count(),
         "untagged": qs.filter(tags__isnull=True).count(),
         "duplicates": sum(len(g["members"]) for g in duplicate_groups(qs)),

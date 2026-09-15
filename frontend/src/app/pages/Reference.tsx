@@ -23,6 +23,7 @@ type Ref = {
   pdf: string | null;
   citation_count: number | null;
   retraction_kind?: string; retraction_notice?: string; retraction_date?: string | null;
+  preprint?: boolean; published_doi?: string; published_venue?: string; published_checked_at?: string | null;
   projects?: { slug: string; name: string; color: string; reading_status: string }[];
   tags?: string[];
 };
@@ -46,6 +47,23 @@ function textToAuthors(t: string): Ref["authors"] {
   });
 }
 const field = "w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-800 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100";
+
+/** #529: the preprint watch found a published version — offer the upgrade here too. */
+function PublishedBanner({ r }: { r: Ref }) {
+  const queryClient = useQueryClient();
+  const upgrade = useMutation({
+    mutationFn: () => api<Ref>(`/references/${r.id}/upgrade/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["reference", String(r.id)] }); queryClient.invalidateQueries({ queryKey: ["library"] }); },
+    onError: (e) => void errorDialog(/409/.test(String(e)) ? "The published version is already in your library — merge the two instead." : "Couldn't upgrade the reference", e),
+  });
+  return (
+    <section className="mb-4 rounded border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10" data-testid="published-banner">
+      <p className="text-sm font-semibold text-amber-800 dark:text-amber-100">A published version exists{r.published_venue ? ` · ${r.published_venue}` : ""}.</p>
+      <p className="mt-1 text-xs text-amber-800/80 dark:text-amber-100/80">This is the arXiv preprint; the paper has since appeared as <a href={`https://doi.org/${r.published_doi}`} target="_blank" rel="noreferrer" className="underline">{r.published_doi}</a>. Upgrading keeps the cite key <span className="font-mono">{r.bibtex_key}</span>, so every manuscript that cites it cites the published version.</p>
+      <button type="button" data-testid="upgrade-preprint" onClick={() => upgrade.mutate()} disabled={upgrade.isPending} className="mt-2 rounded bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60">{upgrade.isPending ? "Upgrading…" : "Use the published version"}</button>
+    </section>
+  );
+}
 
 /** CRUD sweep 2026-09-06: every metadata field is editable in place; delete removes the
  * paper from the library (and every project) after a confirm. */
@@ -234,6 +252,7 @@ export default function Reference() {
           <p className="mt-1 text-xs text-rose-700/80 dark:text-rose-200/80">Crossref lists a {ref.retraction_kind} notice{ref.retraction_notice ? <>: <a href={`https://doi.org/${ref.retraction_notice}`} target="_blank" rel="noreferrer" className="underline">{ref.retraction_notice}</a></> : null}. Cite it only to discuss the retraction — the manuscript pre-flight flags it.</p>
         </section>
       )}
+      {ref.published_doi && <PublishedBanner r={ref} />}
       {ref.abstract && (
         <section className="mb-4 rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
           <div className="mb-3 flex flex-wrap items-center gap-2">

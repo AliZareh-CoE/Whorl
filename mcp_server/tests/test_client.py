@@ -784,6 +784,42 @@ def test_library_row_carries_the_retraction():
     assert client._library_row({"id": 2, "authors": []})["retraction"] is None
 
 
+def test_check_preprints_client_calls(capture):
+    """#529: the preprint watch — ids or the stale sweep, the upgrade, the browse filters."""
+    capture["response"] = {"checked": 1, "published": [], "errors": 0, "skipped": 0}
+    client.check_preprints([3, 4])
+    assert capture["method"] == "POST" and calls_url_has(capture, "/references/check-published/")
+    assert json.loads(capture["body"]) == {"ids": [3, 4]}
+    client.check_preprints(None, days=10, limit=500)
+    assert json.loads(capture["body"]) == {"stale": True, "days": 10, "limit": 50}
+    client.browse_library(preprints="1", published_available="1")
+    assert calls_url_has(capture, "preprints=1") and calls_url_has(capture, "published_available=1")
+    capture["response"] = {"status": {"preprints": 0}}
+    assert client.preprint_watch_status()["status"]["preprints"] == 0
+    assert capture["method"] == "GET"
+    capture["response"] = {"id": 7, "doi": "10.1/x", "upgrade": {"metadata": "full"}}
+    out = client.upgrade_preprint(7)
+    assert out["doi"] == "10.1/x" and calls_url_has(capture, "/references/7/upgrade/")
+    assert capture["method"] == "POST" and json.loads(capture["body"]) == {}
+    client.upgrade_preprint(7, doi="10.1/named")
+    assert json.loads(capture["body"]) == {"doi": "10.1/named"}
+
+
+def test_library_row_carries_the_published_version():
+    row = client._library_row(
+        {
+            "id": 1,
+            "preprint": True,
+            "published_doi": "10.1/x",
+            "published_venue": "V",
+            "authors": [],
+        }
+    )
+    assert row["preprint"] is True and row["published"] == {"doi": "10.1/x", "venue": "V"}
+    plain = client._library_row({"id": 2, "authors": []})
+    assert plain["preprint"] is False and plain["published"] is None
+
+
 def test_library_url_matches_the_address_bar(env):
     """#526: the link Claude hands back equals what the page writes in its own address bar —
     empties, zeros and the default sort left out, values URL-encoded, no limit."""

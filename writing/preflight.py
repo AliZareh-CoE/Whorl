@@ -316,6 +316,31 @@ def check_bibliography(manuscript, network: bool) -> list[dict]:
             {"kind": "tab", "tab": "bib"} if retracted else None,
         )
     )
+    # #529: the preprint watch — a cited preprint whose published version is on record should
+    # be upgraded before submission (a warning: the citation is not wrong, only dated).
+    dated = sorted(
+        {
+            link.reference.bibtex_key
+            for link in manuscript.manuscriptreference_set.select_related("reference")
+            if link.reference.published_doi
+        }
+    )
+    rows.append(
+        _check(
+            "preprints",
+            "Preprints",
+            "warn" if dated else "ok",
+            (
+                f"{len(dated)} cited preprint{'s' if len(dated) != 1 else ''} "
+                f"{'have' if len(dated) != 1 else 'has'} a published version: "
+                + ", ".join(dated)
+                + ". Upgrade them in the Library."
+            )
+            if dated
+            else "No cited preprint has a published version on record.",
+            {"kind": "tab", "tab": "bib"} if dated else None,
+        )
+    )
     return rows
 
 

@@ -205,6 +205,12 @@ def _library_row(row: dict) -> dict:
             if row.get("retraction_kind")
             else None
         ),
+        "preprint": bool(row.get("preprint")),
+        "published": (
+            {"doi": row.get("published_doi"), "venue": row.get("published_venue")}
+            if row.get("published_doi")
+            else None
+        ),
     }
 
 
@@ -257,6 +263,30 @@ def check_retractions(reference_ids=None, days: int = 30, limit: int = 50):
 
 def retraction_watch_status():
     return _request("GET", "/references/check-retractions/")
+
+
+def check_preprints(reference_ids=None, days: int = 30, limit: int = 50):
+    """The preprint watch (#529): POST /references/check-published/ over chosen ids or the
+    stale preprints; the answer carries the published rows and the watch's status."""
+    if reference_ids:
+        payload: dict = {"ids": [int(i) for i in reference_ids][:50]}
+    else:
+        payload = {
+            "stale": True,
+            "days": int(days or 30),
+            "limit": max(1, min(int(limit or 50), 50)),
+        }
+    return _request("POST", "/references/check-published/", json=payload)
+
+
+def preprint_watch_status():
+    return _request("GET", "/references/check-published/")
+
+
+def upgrade_preprint(reference_id: int, doi: str = ""):
+    """Make a preprint cite its published version (#529); the cite key stays."""
+    payload = {"doi": doi} if doi else {}
+    return _request("POST", f"/references/{reference_id}/upgrade/", json=payload)
 
 
 def get_reading_now(limit: int = 5):

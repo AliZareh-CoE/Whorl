@@ -77,6 +77,11 @@ class Reference(TimeStampedModel):
     retraction_notice = models.CharField(max_length=255, blank=True, default="")  # notice DOI
     retraction_date = models.DateField(null=True, blank=True)
     retraction_checked_at = models.DateTimeField(null=True, blank=True)
+    # #529: the preprint watch — the published version of an arXiv preprint, once found, and
+    # when we last asked. Empty for a paper that is not a preprint or has none on record.
+    published_doi = models.CharField(max_length=255, blank=True, default="")
+    published_venue = models.CharField(max_length=300, blank=True, default="")
+    published_checked_at = models.DateTimeField(null=True, blank=True)
     tags = models.ManyToManyField(LibraryTag, blank=True, related_name="references")
 
     class Meta:

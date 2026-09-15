@@ -529,6 +529,39 @@ class Command(BaseCommand):
                     "updated_at",
                 ]
             )
+        # #529: the preprint watch — one arXiv preprint in the project whose published version
+        # the watch has found (the Library's amber chip, the banner with "Use the published
+        # version", the rail's Published version row); outside the manuscript's bibliography so
+        # the demo pre-flight stays green
+        preprint_ref, _ = Reference.objects.update_or_create(
+            bibtex_key="okafor2024load",
+            defaults={
+                "arxiv_id": "2401.00001",
+                "doi": None,
+                "entry_type": "misc",
+                "title": "Load-Dependent Distractor Suppression Is Strategic, Not Automatic",
+                "authors": [
+                    {"family": "Okafor", "given": "Chidi"},
+                    {"family": "Lindqvist", "given": "Maja"},
+                ],
+                "year": 2024,
+                "venue": "arXiv",
+                "url": "https://arxiv.org/abs/2401.00001",
+                "abstract": (
+                    "Preprint. Across four experiments we show that distractor suppression "
+                    "under perceptual load follows the observer's goals rather than the load "
+                    "itself, reconciling the capacity and strategic accounts."
+                ),
+                "published_doi": "10.0000/demo.published.2025",
+                "published_venue": "Journal of Cognitive Demonstration",
+                "published_checked_at": timezone.now(),
+            },
+        )
+        ProjectReference.objects.update_or_create(
+            project=project,
+            reference=preprint_ref,
+            defaults={"reading_status": ProjectReference.ReadingStatus.TO_READ},
+        )
         for i, citing in enumerate(corpus_refs):
             for j in {(i * 7 + 1) % i if i else None, (i * 3 + 2) % i if i else None}:
                 if j is not None and j < i:

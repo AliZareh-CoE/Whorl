@@ -133,6 +133,8 @@ ATLAS_API_KEY = env("ATLAS_API_KEY", default="")
 ATLAS_DESKTOP = False  # the desktop settings module flips this (login hint, doctor)
 # Optional OpenAlex key: raises the daily budget for the Library's discovery lenses.
 ATLAS_OPENALEX_API_KEY = env("ATLAS_OPENALEX_API_KEY", default="")
+# #529: optional Semantic Scholar key for the preprint watch (higher rate limits)
+ATLAS_S2_API_KEY = env("ATLAS_S2_API_KEY", default="")
 ATLAS_CONTACT_EMAIL = env("ATLAS_CONTACT_EMAIL", default="atlas-owner@localhost")
 ATLAS_AUTO_FETCH_PDF = env.bool("ATLAS_AUTO_FETCH_PDF", default=True)
 

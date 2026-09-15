@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, Pencil, ShieldAlert, ShieldCheck, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, Pencil, ShieldAlert, ShieldCheck, ArrowUpCircle, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
@@ -30,13 +30,14 @@ type Ref = {
   pdf_match: boolean | null; text_status: string;
   progress: Progress;
   retraction_kind: string; retraction_notice: string; retraction_date: string | null; retraction_checked_at: string | null;
+  preprint: boolean; published_doi: string; published_venue: string; published_checked_at: string | null;
   created_at: string;
 };
 type ReadingNote = { project_reference_id: number; project: string; project_name: string; reading_status: string; notes: string };
 type SavedView = { id: number; name: string; params: Partial<Filters>; position: number };
 type Page<T> = { count: number; next: string | null; results: T[] };
 type Facets = {
-  total: number; with_pdf: number; without_pdf: number; needs_metadata: number; retracted: number; unfiled: number;
+  total: number; with_pdf: number; without_pdf: number; needs_metadata: number; retracted: number; preprints: number; published_available: number; unfiled: number;
   years: { year: number; count: number }[]; entry_types: { entry_type: string; count: number }[];
   venues: { venue: string; count: number }[]; authors: { name: string; given: string; count: number }[]; projects: { slug: string; name: string; count: number }[];
   all_projects: { slug: string; name: string; color: string }[];
@@ -52,11 +53,11 @@ type DiscoverRow = {
 type ImportResult = { title: string; reference_id: number | null; created: boolean; source: string; error: string; needs_metadata: boolean };
 type ImportSummary = { created: number; existing: number; failed: number; results: ImportResult[] };
 type Filters = {
-  q: string; year: string; year_min: string; year_max: string; entry_type: string; venue: string; author: string; has_pdf: string; needs_metadata: string; retracted: string;
+  q: string; year: string; year_min: string; year_max: string; entry_type: string; venue: string; author: string; has_pdf: string; needs_metadata: string; retracted: string; preprints: string; published_available: string;
   project: string; unfiled: string; reading_status: string; tag: string; untagged: string; sort: string;
 };
 
-const EMPTY: Filters = { q: "", year: "", year_min: "", year_max: "", entry_type: "", venue: "", author: "", has_pdf: "", needs_metadata: "", retracted: "", project: "", unfiled: "", reading_status: "", tag: "", untagged: "", sort: "added" };
+const EMPTY: Filters = { q: "", year: "", year_min: "", year_max: "", entry_type: "", venue: "", author: "", has_pdf: "", needs_metadata: "", retracted: "", preprints: "", published_available: "", project: "", unfiled: "", reading_status: "", tag: "", untagged: "", sort: "added" };
 const STYLES: [string, string][] = [["apa", "APA 7"], ["mla", "MLA 9"], ["chicago", "Chicago"], ["harvard", "Harvard"], ["vancouver", "Vancouver"], ["ieee", "IEEE"]];
 function readStyle(): string { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } }
 type Citation = { style: string; label: string; text: string; html: string; intext: string };
@@ -143,6 +144,8 @@ function chipLabel(k: keyof Filters, v: string): string {
   if (k === "year_min") return `from ${v}`;
   if (k === "year_max") return `to ${v}`;
   if (k === "retracted") return "retracted";
+  if (k === "preprints") return "preprints";
+  if (k === "published_available") return "published version available";
   if (k === "reading_status") return `reading status: ${STATUS_LABEL[v] ?? v}`;
   return `${k.replace("_", " ")}: ${v}`;
 }
@@ -391,6 +394,22 @@ export default function Library() {
       flash(`Checked ${out.checked} paper${out.checked === 1 ? "" : "s"} · ${out.retracted.length} retracted${out.errors ? ` · ${out.errors} could not be checked` : ""}${out.skipped ? ` · ${out.skipped} without a DOI` : ""}.`);
     },
     onError: () => flash("Could not reach Crossref."),
+  });
+  // #529: the preprint watch — ask arXiv / Semantic Scholar whether chosen preprints (or the
+  // stale ones) have a published version; a found DOI is never cleared by a later miss.
+  const checkPreprints = useMutation({
+    mutationFn: (ids: number[] | null) => api<{ checked: number; published: { bibtex_key: string }[]; errors: number; skipped: number }>("/references/check-published/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ids ? { ids } : { stale: true, limit: 50 }) }),
+    onSuccess: (out, ids) => {
+      invalidate(); queryClient.invalidateQueries({ queryKey: ["library-facets"] });
+      if (!ids && out.checked === 0 && out.errors === 0) { flash("Every preprint was checked in the last 30 days."); return; }
+      flash(`Checked ${out.checked} preprint${out.checked === 1 ? "" : "s"} · ${out.published.length} with a published version${out.errors ? ` · ${out.errors} could not be checked` : ""}.`);
+    },
+    onError: () => flash("Could not reach arXiv or Semantic Scholar."),
+  });
+  const upgradePreprint = useMutation({
+    mutationFn: (id: number) => api<Ref & { upgrade: { metadata: string } }>(`/references/${id}/upgrade/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }),
+    onSuccess: (r) => { invalidate(); queryClient.invalidateQueries({ queryKey: ["library-facets"] }); flash(r.upgrade?.metadata === "partial" ? "Now cites the published version — DOI and venue applied; metadata will fill in when online. The cite key is unchanged." : "Now cites the published version — the cite key is unchanged."); },
+    onError: (e) => flash(/409/.test(String(e)) ? "The published version is already in your library — merge the two instead." : "Could not upgrade the reference."),
   });
   // Tags (#381): colour, rename and delete from the rail; the facets carry each tag's colour
   const tagColors: TagColors = useMemo(() => Object.fromEntries((facets.data?.tags ?? []).map((t) => [t.name, t.color])), [facets.data?.tags]);
@@ -675,6 +694,9 @@ export default function Library() {
                 <button type="button" className={chip(filters.needs_metadata === "true")} onClick={() => toggle("needs_metadata", "true")}><span>Needs metadata</span><span className="tabular-nums text-stone-400">{f.needs_metadata}</span></button>
                 <button type="button" data-testid="rail-retracted" className={chip(filters.retracted === "true")} onClick={() => toggle("retracted", "true")} title="Papers Crossref lists a retraction, withdrawal or removal notice for — checked nightly"><span className="flex items-center gap-1.5"><ShieldAlert className={`h-3 w-3 ${f.retracted ? "text-rose-500" : ""}`} aria-hidden="true" />Retracted</span><span className={`tabular-nums ${f.retracted ? "font-semibold text-rose-500" : "text-stone-400"}`}>{f.retracted}</span></button>
                 <button type="button" data-testid="check-retractions" disabled={checkRetractions.isPending} onClick={() => checkRetractions.mutate(null)} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-60 dark:hover:bg-stone-800 dark:hover:text-stone-200" title="Ask Crossref about the papers not checked in the last 30 days (up to 50 now; the rest run nightly)">{checkRetractions.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-3 w-3" aria-hidden="true" />}{checkRetractions.isPending ? "Asking Crossref…" : "Check retractions now"}</button>
+                <button type="button" data-testid="rail-preprints" className={chip(filters.preprints === "true")} onClick={() => toggle("preprints", "true")} title="arXiv papers without a publisher DOI of their own"><span className="flex items-center gap-1.5"><FileText className="h-3 w-3" aria-hidden="true" />Preprints</span><span className="tabular-nums text-stone-400">{f.preprints}</span></button>
+                <button type="button" data-testid="rail-published" className={chip(filters.published_available === "true")} onClick={() => toggle("published_available", "true")} title="Preprints whose published version the preprint watch found — upgrade them from the detail pane"><span className="flex items-center gap-1.5"><ArrowUpCircle className={`h-3 w-3 ${f.published_available ? "text-amber-500" : ""}`} aria-hidden="true" />Published version</span><span className={`tabular-nums ${f.published_available ? "font-semibold text-amber-500" : "text-stone-400"}`}>{f.published_available}</span></button>
+                <button type="button" data-testid="check-preprints" disabled={checkPreprints.isPending} onClick={() => checkPreprints.mutate(null)} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-60 dark:hover:bg-stone-800 dark:hover:text-stone-200" title="Ask arXiv and Semantic Scholar about the preprints not checked in the last 30 days (up to 50 now; the rest run nightly)">{checkPreprints.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <ArrowUpCircle className="h-3 w-3" aria-hidden="true" />}{checkPreprints.isPending ? "Asking arXiv…" : "Check preprints now"}</button>
                 <button type="button" className={chip(dupMode)} onClick={() => setDupMode((v) => !v)} title="Papers that look like the same work imported twice"><span className="flex items-center gap-1.5"><CopyCheck className="h-3 w-3" aria-hidden="true" />Duplicates</span><span className={`tabular-nums ${f.duplicates ? "text-amber-500" : "text-stone-400"}`}>{f.duplicates}</span></button>
               </div>
               <div className="mb-3">
@@ -815,6 +837,7 @@ export default function Library() {
                         {r.pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-medium text-indigo-600 dark:text-indigo-300">PDF</span>}
                         {inProgress(r.progress) && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 tabular-nums text-indigo-600 dark:text-indigo-300" data-testid="card-progress" title="Where the reader left off">{pageLabel(r.progress)}</span>}
                         {r.retraction_kind && <span data-testid="retracted-chip" className="rounded-full bg-rose-500/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300" title={`Crossref lists a ${r.retraction_kind} notice${r.retraction_date ? ` (${r.retraction_date})` : ""}`}>retracted</span>}
+                        {r.published_doi && <span data-testid="published-chip" className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300" title={`Published version found${r.published_venue ? ` in ${r.published_venue}` : ""} — upgrade from the detail pane`}>published version</span>}
                         {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
                         {r.tags.slice(0, 3).map((t) => <TagChip key={t} name={t} color={tagColors[t]} />)}
                         {r.citation_count != null && r.citation_count > 0 && <span className="ml-auto tabular-nums">{r.citation_count} cit.</span>}
@@ -842,6 +865,7 @@ export default function Library() {
                     {r.projects.map((p) => <span key={p.slug} title={`${p.name} · ${STATUS_LABEL[p.reading_status] ?? p.reading_status}`} className="h-2 w-2 rounded-full" style={{ background: p.color }} />)}
                     {r.tags.slice(0, 3).map((t) => <TagChip key={t} name={t} color={tagColors[t]} className="text-[10px]" />)}
                     {r.retraction_kind && <span data-testid="retracted-chip" className="rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300" title={`Crossref lists a ${r.retraction_kind} notice${r.retraction_date ? ` (${r.retraction_date})` : ""}`}>retracted</span>}
+                    {r.published_doi && <span data-testid="published-chip" className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300" title={`Published version found${r.published_venue ? ` in ${r.published_venue}` : ""}`}>published version</span>}
                     {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
                     {r.pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">PDF</span>}
                     {!r.pdf && pdfLookups.has(r.id) && <span data-testid="pdf-looking" className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-500 dark:text-indigo-300"><Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" />looking…</span>}
@@ -897,7 +921,7 @@ export default function Library() {
               Select a paper to see its abstract, links, and related work.
             </div>
           ) : (
-            <DetailPane r={detail} onAuthor={(family) => toggle("author", family)} authorFilter={filters.author} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} onCheckRetraction={() => checkRetractions.mutate([detail.id])} checkingRetraction={checkRetractions.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} onLitNote={(project) => litNote.mutate({ reference: detail.id, project })} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} tagColors={tagColors} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
+            <DetailPane r={detail} onAuthor={(family) => toggle("author", family)} authorFilter={filters.author} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} onCheckRetraction={() => checkRetractions.mutate([detail.id])} checkingRetraction={checkRetractions.isPending} onCheckPreprint={() => checkPreprints.mutate([detail.id])} checkingPreprint={checkPreprints.isPending} onUpgrade={() => upgradePreprint.mutate(detail.id)} upgrading={upgradePreprint.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} onLitNote={(project) => litNote.mutate({ reference: detail.id, project })} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} tagColors={tagColors} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
           )}
         </aside>
       </div>
@@ -907,7 +931,7 @@ export default function Library() {
   );
 }
 
-function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRetraction, checkingRetraction, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, tagColors, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText, onLitNote }: { r: Ref; onAuthor: (family: string) => void; authorFilter: string; allTags: string[]; tagColors: TagColors; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; onCheckRetraction: () => void; checkingRetraction: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; onLitNote: (project: string) => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
+function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRetraction, checkingRetraction, onCheckPreprint, checkingPreprint, onUpgrade, upgrading, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, tagColors, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText, onLitNote }: { r: Ref; onAuthor: (family: string) => void; authorFilter: string; allTags: string[]; tagColors: TagColors; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; onCheckRetraction: () => void; checkingRetraction: boolean; onCheckPreprint: () => void; checkingPreprint: boolean; onUpgrade: () => void; upgrading: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; onLitNote: (project: string) => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
   const [full, setFull] = useState(false);
   const [newTag, setNewTag] = useState("");
   const citation = useQuery({ queryKey: ["cite", r.id, citeStyle], queryFn: () => api<Citation>(`/references/${r.id}/cite/?style=${citeStyle}`), staleTime: 5 * 60_000 });
@@ -953,6 +977,19 @@ function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRet
       )}
       {!r.retraction_kind && r.doi && (
         <p className="mt-2 flex items-center gap-1.5 text-[11px] text-stone-400" data-testid="retraction-ok"><ShieldCheck className="h-3 w-3" aria-hidden="true" />{r.retraction_checked_at ? `No retraction notice · checked ${new Date(r.retraction_checked_at).toLocaleDateString()}` : "Retraction not checked yet"} · <button type="button" onClick={onCheckRetraction} disabled={checkingRetraction} className="underline disabled:opacity-50">{checkingRetraction ? "asking…" : "check"}</button></p>
+      )}
+      {r.published_doi && (
+        <div data-testid="published-banner" className="mt-3 rounded-xl border border-amber-400/50 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-100">
+          <p className="flex items-center gap-1.5 font-semibold"><ArrowUpCircle className="h-3.5 w-3.5" aria-hidden="true" />A published version exists{r.published_venue ? ` · ${r.published_venue}` : ""}</p>
+          <p className="mt-1 text-amber-800/90 dark:text-amber-100/80">This is the arXiv preprint; the paper has since appeared as <a href={`https://doi.org/${r.published_doi}`} target="_blank" rel="noreferrer" className="underline">{r.published_doi}</a>. Upgrading makes every manuscript that cites <span className="font-mono">{r.bibtex_key}</span> cite the published version — the key stays.</p>
+          <p className="mt-2 flex flex-wrap items-center gap-2">
+            <button type="button" data-testid="upgrade-preprint" onClick={onUpgrade} disabled={upgrading} className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-amber-700 disabled:opacity-60">{upgrading ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <ArrowUpCircle className="h-3 w-3" aria-hidden="true" />}{upgrading ? "Upgrading…" : "Use the published version"}</button>
+            <span className="text-[11px] text-amber-800/70 dark:text-amber-100/60">{r.published_checked_at ? `found ${new Date(r.published_checked_at).toLocaleDateString()}` : ""}</span>
+          </p>
+        </div>
+      )}
+      {r.preprint && !r.published_doi && (
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-stone-400" data-testid="preprint-line"><FileText className="h-3 w-3" aria-hidden="true" />{r.published_checked_at ? `Preprint · no published version found · checked ${new Date(r.published_checked_at).toLocaleDateString()}` : "Preprint · published version not checked yet"} · <button type="button" onClick={onCheckPreprint} disabled={checkingPreprint} className="underline disabled:opacity-50">{checkingPreprint ? "asking…" : "check"}</button></p>
       )}
       {needs && (
         <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">

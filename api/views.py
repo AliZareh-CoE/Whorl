@@ -1354,6 +1354,16 @@ class ReferenceViewSet(AtlasViewSet):
                 str,
                 description="true/1 for papers the retraction watch has flagged (#527)",
             ),
+            OpenApiParameter(
+                "preprints",
+                OpenApiTypes.STR,
+                description="1/true: arXiv papers without a publisher DOI of their own (#529).",
+            ),
+            OpenApiParameter(
+                "published_available",
+                OpenApiTypes.STR,
+                description="1/true: preprints whose published version the preprint watch found (#529).",
+            ),
             OpenApiParameter("project", str, description="Project slug"),
             OpenApiParameter(
                 "reading_status",
@@ -1902,6 +1912,109 @@ class ReferenceViewSet(AtlasViewSet):
         except ValueError:
             limit = 5
         return Response(reading_now(limit=max(1, min(20, limit))))
+
+    @extend_schema(
+        request=inline_serializer(
+            "CheckPreprints",
+            fields={
+                "ids": rf_serializers.ListField(
+                    child=rf_serializers.IntegerField(), required=False, max_length=50
+                ),
+                "stale": rf_serializers.BooleanField(required=False),
+                "days": rf_serializers.IntegerField(required=False),
+                "limit": rf_serializers.IntegerField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(
+                description="{checked, published: [{id, bibtex_key, title, arxiv_id, "
+                "published_doi, published_venue}], errors, skipped, stopped, status: "
+                "{preprints, published_available, unchecked, last_checked_at}}"
+            ),
+            400: OpenApiResponse(description="Bad ids"),
+        },
+        description="The preprint watch (#529): ask arXiv (the author-deposited DOI) and "
+        "Semantic Scholar whether these arXiv preprints have a published version, and store "
+        "the answer on each paper. Body: `ids` (≤ 50) for chosen papers, or `stale: true` for "
+        "the preprints never checked or checked more than `days` (30) ago, `limit` (≤ 50 "
+        "here; the daily sweep does 200). A found DOI is never cleared by a later miss; "
+        "offline the stored answers are left alone and `errors` counts the misses. GET "
+        "returns the watch's status only.",
+    )
+    @action(detail=False, methods=["get", "post"], url_path="check-published")
+    def check_published(self, request):
+        from literature import preprints
+
+        if request.method == "GET":
+            return Response({"status": preprints.watch_status()})
+        body = request.data if isinstance(request.data, dict) else {}
+        ids = body.get("ids")
+        if ids is not None:
+            if not isinstance(ids, list) or len(ids) > 50:
+                return Response({"ids": ["Give up to 50 ids."]}, status=400)
+            try:
+                ids = parse_ids(ids, limit=50, strict=True)
+            except ValueError:
+                return Response({"ids": ["Ids must be integers."]}, status=400)
+            refs = list(Reference.objects.filter(pk__in=ids).order_by("pk"))
+            out = preprints.check_references(refs, pause=0)
+        else:
+            try:
+                days = int(body.get("days", preprints.STALE_DAYS))
+                limit = int(body.get("limit", 50))
+            except (TypeError, ValueError):
+                return Response({"detail": ["days and limit must be integers."]}, status=400)
+            out = preprints.check_stale(max(1, days), max(1, min(50, limit)))
+        out.pop("rows", None)
+        out["status"] = preprints.watch_status()
+        return Response(out)
+
+    @extend_schema(
+        request=inline_serializer(
+            "UpgradePreprint",
+            fields={"doi": rf_serializers.CharField(required=False, allow_blank=True)},
+        ),
+        responses={
+            200: serializers.ReferenceSerializer,
+            400: OpenApiResponse(description="No published version is known"),
+            409: OpenApiResponse(
+                description="The published version is already another reference: "
+                "{detail, other: {id, bibtex_key, title}}"
+            ),
+        },
+        description="Upgrade an arXiv preprint to its published version (#529): the stored "
+        "published DOI (or `doi` in the body) becomes the paper's DOI, its metadata is fetched "
+        "from Crossref / OpenAlex (offline: the stored DOI and venue are applied and "
+        "`upgrade.metadata` says partial), the cite key and the arXiv id stay, the preprint's "
+        "identity is kept in extra.preprint. 409 when another reference already carries that "
+        "DOI — merge them instead.",
+    )
+    @action(detail=True, methods=["post"], url_path="upgrade")
+    def upgrade_preprint(self, request, pk=None):
+        from literature import preprints
+
+        reference = self.get_object()
+        body = request.data if isinstance(request.data, dict) else {}
+        try:
+            result = preprints.upgrade(reference, str(body.get("doi") or "")[:255])
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        except preprints.UpgradeConflict as exc:
+            return Response(
+                {
+                    "detail": str(exc),
+                    "other": {
+                        "id": exc.other.pk,
+                        "bibtex_key": exc.other.bibtex_key,
+                        "title": exc.other.title,
+                    },
+                },
+                status=409,
+            )
+        reference.refresh_from_db()
+        data = serializers.ReferenceSerializer(reference, context={"request": request}).data
+        data["upgrade"] = result
+        return Response(data)
 
     @extend_schema(
         request=inline_serializer(

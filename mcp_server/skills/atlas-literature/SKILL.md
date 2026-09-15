@@ -26,6 +26,10 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
 - `check_retractions` before a submission or when asked "is anything I cite retracted?" — the
   verdicts are stored, so the Library, the Reference page and the pre-flight show them;
   `browse_library(retracted=True)` lists the flagged papers without asking Crossref.
+- `check_preprints` when asked "have any of my preprints been published?" or before a
+  submission; the answers are stored, so `browse_library(published_available=True)` lists them
+  and `upgrade_preprint(reference_id)` makes one cite its published version — the cite key stays,
+  so the manuscript needs no edit.
 - `browse_library` for "what do I have by X?", "unread papers tagged Y", "papers with no PDF" —
   every filter the Library rail offers (author, q, year range, venue, tag, project + status,
   has_pdf, untagged / unfiled / needs_metadata, sort); rows are compact and carry `progress`,
