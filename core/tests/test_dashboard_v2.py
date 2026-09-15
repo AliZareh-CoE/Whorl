@@ -1,6 +1,7 @@
 """Dashboard v2 slice 1 — this week everywhere, per-project health, heatmap in the API."""
 
 import datetime
+from pathlib import Path
 
 import pytest
 from django.utils import timezone
@@ -318,5 +319,97 @@ def test_day_activity_lists_one_day_across_projects(client_logged_in):
         'data-testid="day-panel"',
         "/dashboard/day/?date=",
         "setSelectedDay",
+    ):
+        assert needle in tsx, needle
+
+
+def test_watches_everywhere_lists_feed_entries_and_new_citations(client_logged_in):
+    """#533: the Library's watches on the dashboard — the newest open feed entries (the same
+    paper in two feeds once; dismissed and library-own ones left out) and the newest open
+    citing works with the papers they cite, counts, the feeds' health, and the modes'
+    addresses; nothing is fetched."""
+    from django.utils import timezone
+
+    from core.dashboard import watches_everywhere
+    from literature.models import CitingWork, Feed, FeedItem
+    from literature.tests.factories import ReferenceFactory
+
+    empty = watches_everywhere()
+    assert empty["feeds"] == {
+        "new": 0,
+        "followed": 0,
+        "errors": 0,
+        "rows": [],
+        "url": "/library?feeds=1",
+    }
+    assert empty["citations"] == {"new": 0, "rows": [], "url": "/library?citing=1"}
+    arxiv = Feed.objects.create(url="https://rss.arxiv.org/atom/q-bio.NC", title="q-bio.NC")
+    nature = Feed.objects.create(
+        url="https://www.nature.com/nathumbehav.rss", title="Nature HB", last_error="503"
+    )
+    lavie = ReferenceFactory(title="Load theory", bibtex_key="lavie2010load")
+    FeedItem.objects.create(
+        feed=arxiv, guid="a1", title="Newest", arxiv_id="2609.1", published_on=D(2026, 9, 14)
+    )
+    FeedItem.objects.create(
+        feed=arxiv, guid="a2", title="Older", doi="10.1/x", published_on=D(2026, 9, 10)
+    )
+    FeedItem.objects.create(  # the same paper announced by the journal too → once
+        feed=nature, guid="n1", title="Older (journal)", doi="10.1/X", published_on=D(2026, 9, 12)
+    )
+    FeedItem.objects.create(
+        feed=nature,
+        guid="n2",
+        title="Seen",
+        published_on=D(2026, 9, 13),
+        dismissed_at=timezone.now(),
+    )
+    FeedItem.objects.create(
+        feed=nature, guid="n3", title="In the library", published_on=D(2026, 9, 13), reference=lavie
+    )
+    FeedItem.objects.create(feed=arxiv, guid="a3", title="Undated")
+    new = CitingWork.objects.create(
+        openalex_id="W1",
+        title="Cites Lavie",
+        authors=["Noor Haddad", "Wen Li"],
+        year=2026,
+        published_on=D(2026, 9, 3),
+        venue="NHB",
+    )
+    new.cites.add(lavie)
+    CitingWork.objects.create(
+        openalex_id="W2", title="Seen citation", dismissed_at=timezone.now()
+    ).cites.add(lavie)
+    CitingWork.objects.create(openalex_id="W3", title="Now in the library", reference=lavie)
+    CitingWork.objects.create(openalex_id="W4", title="Undated citation").cites.add(lavie)
+    out = watches_everywhere()
+    feeds = out["feeds"]
+    assert (feeds["new"], feeds["followed"], feeds["errors"]) == (4, 2, 1)
+    assert [r["title"] for r in feeds["rows"]] == ["Newest", "Older (journal)", "Undated"]
+    assert feeds["rows"][0] == {
+        "id": FeedItem.objects.get(guid="a1").pk,
+        "title": "Newest",
+        "feed": "q-bio.NC",
+        "feed_id": arxiv.pk,
+        "published_on": "2026-09-14",
+        "link": "https://arxiv.org/abs/2609.1",
+    }
+    assert [r["title"] for r in watches_everywhere(limit=1)["feeds"]["rows"]] == ["Newest"]
+    cites = out["citations"]
+    assert cites["new"] == 2  # the undated one last, on Postgres and SQLite alike
+    assert [r["title"] for r in cites["rows"]] == ["Cites Lavie", "Undated citation"]
+    assert cites["rows"][0]["first_author"] == "Noor Haddad" and cites["rows"][0]["year"] == 2026
+    assert cites["rows"][0]["cites"] == [{"id": lavie.pk, "bibtex_key": "lavie2010load"}]
+    body = client_logged_in.get("/api/v1/dashboard/").json()
+    assert body["watches"]["feeds"]["new"] == 4 and body["watches"]["citations"]["new"] == 2
+    tsx = Path("frontend/src/app/pages/Dashboard.tsx").read_text()
+    for needle in (
+        'data-testid="watches"',
+        'data-testid="watch-feed-row"',
+        'data-testid="watch-citation-row"',
+        "/library?feeds=1&feed=${r.feed_id}",
+        "/library?citing=1&reference=${r.cites[0].id}",
+        "Follow an arXiv category or a journal",
+        "failed to fetch",
     ):
         assert needle in tsx, needle

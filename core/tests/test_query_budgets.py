@@ -90,7 +90,9 @@ class TestQueryBudgets:
         # #489 added the per-project pulses as nine grouped queries (a fixed cost, not per
         # project) → the pin moves from 100 to 110
         # #516: +1 per active project — the roadmap loads the due-date log for the ghosts
-        with django_assert_max_num_queries(116):
+        # #533: +6 fixed — the watches block (feed totals, entries, count; citing rows, cites,
+        # count), never per project
+        with django_assert_max_num_queries(122):
             response = client_logged_in.get("/api/v1/dashboard/")
         assert response.status_code == 200
         rows = response.json()["writing"]["rows"]

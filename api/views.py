@@ -4287,6 +4287,7 @@ class DashboardAPIView(APIView):
             quiet_projects,
             reading_queue_everywhere,
             stats_trend,
+            watches_everywhere,
             week_everywhere,
             writing_everywhere,
         )
@@ -4306,6 +4307,7 @@ class DashboardAPIView(APIView):
                 "week": week_everywhere(),
                 "reading": reading_queue_everywhere(),  # #486: what to read today
                 "writing": writing_everywhere(),  # #487: every live paper, by urgency
+                "watches": watches_everywhere(),  # #533: the feeds and the citation watch
                 "todos_open": TodoItem.objects.filter(done=False).count(),
                 # backlog #300: the top of the Today list, tickable from the hero
                 "todos": [

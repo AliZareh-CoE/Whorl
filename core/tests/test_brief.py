@@ -71,3 +71,27 @@ def test_dashboard_offers_the_brief():
         'data-testid="daily-brief"',
     ):
         assert needle in tsx, needle
+
+
+def test_daily_brief_carries_the_watches(client_logged_in):
+    """#533: what the feeds announced and who cited the library's papers, when there is any."""
+    from literature.models import CitingWork, Feed, FeedItem
+
+    assert "## From your watches" not in daily_brief(today=TODAY)["markdown"]
+    feed = Feed.objects.create(url="https://rss.arxiv.org/atom/q-bio.NC", title="q-bio.NC")
+    FeedItem.objects.create(feed=feed, guid="a1", title="Load and precision", arxiv_id="2609.1")
+    lavie = ReferenceFactory(title="Load theory", bibtex_key="lavie2010load")
+    work = CitingWork.objects.create(
+        openalex_id="W1", title="Cites Lavie", authors=["Noor Haddad"], year=2026
+    )
+    work.cites.add(lavie)
+    out = daily_brief(today=TODAY)
+    md = out["markdown"]
+    assert (
+        "## From your watches\n- Feeds: 1 new entry\n  - Load and precision — q-bio.NC\n"
+        "- New citations: 1\n  - Cites Lavie (Noor Haddad 2026) — cites lavie2010load\n" in md
+    )
+    assert md.index("## From your watches") < md.index("## This month")
+    assert out["watches"] == 2
+    r = client_logged_in.get("/api/v1/dashboard/brief/")
+    assert r.status_code == 200 and r.json()["watches"] == 2

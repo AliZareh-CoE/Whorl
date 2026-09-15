@@ -1224,7 +1224,12 @@ def get_dashboard() -> dict:
     and the deadline (#487). Each active project carries its `pulse` (twelve weekly activity
     counts, total, quiet_weeks, last_activity) and `attention.quiet` lists active projects
     silent for three weeks or more (#489). `trends` carries six months per stat (papers read,
-    notes, milestones, lab entries, words) and last month's value for a delta (#490)."""
+    notes, milestones, lab entries, words) and last month's value for a delta (#490).
+    `watches` (#533) is the Library's watches at a glance from the stored rows: `feeds`
+    {new, followed, errors, rows [{id, title, feed, feed_id, published_on, link}], url} and
+    `citations` {new, rows [{id, title, first_author, year, venue, cites [{id, bibtex_key}]}],
+    url} — each `url` opens that Library mode in the app; get_feed_items / get_new_citations
+    list them in full."""
     return client.get_dashboard()
 
 
@@ -1232,9 +1237,10 @@ def get_dashboard() -> dict:
 def get_daily_brief() -> dict:
     """The morning note, ready to paste (#491): what needs you across every project (overdue
     milestones, deadlines, papers a venue has sat on, quiet projects, the inbox, a stale
-    backup), what is on your list, this week everywhere, the next papers to read, every live
-    manuscript with its clock and readiness, each active project with its rhythm, and this
-    month's numbers against last month. `markdown` is the text; use it to answer "what
+    backup), what is on your list, this week everywhere, the next papers to read, what your
+    feeds announced and who cited your papers (#533), every live manuscript with its clock and
+    readiness, each active project with its rhythm, and this month's numbers against last
+    month. `markdown` is the text; use it to answer "what
     should I do today?" in one call, or to draft a daily journal entry."""
     return client.get_daily_brief()
 

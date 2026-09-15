@@ -33,6 +33,7 @@ def daily_brief(today: datetime.date | None = None) -> dict:
         quiet_projects,
         reading_queue_everywhere,
         stats_trend,
+        watches_everywhere,
         week_everywhere,
         writing_everywhere,
     )
@@ -54,6 +55,7 @@ def daily_brief(today: datetime.date | None = None) -> dict:
     week = week_everywhere(today=today)
     reading = reading_queue_everywhere(today=today, limit=5)
     writing = writing_everywhere(today=today, limit=6)
+    watches = watches_everywhere()
     stats = monthly_stats(today=today)
     trend = stats_trend(today=today)
 
@@ -105,6 +107,25 @@ def daily_brief(today: datetime.date | None = None) -> dict:
             lines.append(
                 f"- {r['title']}" + (f" ({who})" if who else "") + f" — {r['project']}{pri}"
             )
+
+    # #533: what the feeds announced and who cited the library's papers, from the stored rows
+    feeds, cites = watches["feeds"], watches["citations"]
+    if feeds["rows"] or cites["rows"]:
+        lines += ["", "## From your watches"]
+        if feeds["rows"]:
+            lines.append(f"- Feeds: {feeds['new']} new entr{'y' if feeds['new'] == 1 else 'ies'}")
+            for r in feeds["rows"]:
+                lines.append(f"  - {r['title']} — {r['feed']}")
+        if cites["rows"]:
+            lines.append(f"- New citations: {cites['new']}")
+            for r in cites["rows"]:
+                who = " ".join(str(x) for x in (r["first_author"], r["year"]) if x)
+                keys = ", ".join(c["bibtex_key"] for c in r["cites"])
+                lines.append(
+                    f"  - {r['title']}"
+                    + (f" ({who})" if who else "")
+                    + (f" — cites {keys}" if keys else "")
+                )
 
     if writing["rows"]:
         lines += ["", f"## Writing ({writing['live']} live)"]
@@ -161,4 +182,5 @@ def daily_brief(today: datetime.date | None = None) -> dict:
         "todos": len(todos),
         "reading": len(reading["next"]),
         "writing": len(writing["rows"]),
+        "watches": feeds["new"] + cites["new"],
     }

@@ -2,7 +2,7 @@
 
 import datetime
 
-from django.db.models import F
+from django.db.models import Count, F, Q
 from django.utils import timezone
 
 from documents.models import Document
@@ -95,6 +95,84 @@ def reading_queue_everywhere(today=None, limit: int = 5) -> dict:
             }
             for link in queue[:limit]
         ],
+    }
+
+
+WATCH_ROWS = 3
+
+
+def watches_everywhere(limit: int = WATCH_ROWS) -> dict:
+    """#533: the Library's watches at a glance — what the followed feeds announced and which new
+    papers cite the library's papers — from the stored rows (the sweeps fill them; nothing is
+    fetched here). `feeds.rows` are the newest open entries (the same paper in two feeds once),
+    `citations.rows` the newest open citing works with the library papers they cite. `url`s are
+    the Library modes' addresses (#532)."""
+    from literature.citing import open_alerts
+    from literature.feeds import open_items
+    from literature.models import Feed
+
+    feed_totals = Feed.objects.aggregate(
+        followed=Count("pk"), errors=Count("pk", filter=~Q(last_error=""))
+    )
+    limit = max(1, min(int(limit or WATCH_ROWS), 20))
+    seen: set[str] = set()
+    feed_rows = []
+    for item in (
+        open_items()
+        .select_related("feed")
+        .order_by(F("published_on").desc(nulls_last=True), "pk")[: limit + 20]
+    ):
+        key = (
+            f"doi:{item.doi.lower()}"
+            if item.doi
+            else f"arxiv:{item.arxiv_id}"
+            if item.arxiv_id
+            else f"item:{item.pk}"
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        feed_rows.append(
+            {
+                "id": item.pk,
+                "title": item.title,
+                "feed": item.feed.title or item.feed.url,
+                "feed_id": item.feed_id,
+                "published_on": item.published_on.isoformat() if item.published_on else None,
+                "link": item.link
+                or (f"https://doi.org/{item.doi}" if item.doi else "")
+                or (f"https://arxiv.org/abs/{item.arxiv_id}" if item.arxiv_id else ""),
+            }
+        )
+        if len(feed_rows) >= limit:
+            break
+    citing_rows = [
+        {
+            "id": work.pk,
+            "title": work.title,
+            "first_author": (work.authors[0] if work.authors else "") or "",
+            "year": work.year,
+            "published_on": work.published_on.isoformat() if work.published_on else None,
+            "venue": work.venue,
+            "cites": [{"id": r.pk, "bibtex_key": r.bibtex_key} for r in work.cites.all()],
+        }
+        for work in open_alerts()
+        .order_by(F("published_on").desc(nulls_last=True), "-created_at")
+        .prefetch_related("cites")[:limit]
+    ]
+    return {
+        "feeds": {
+            "new": open_items().count(),
+            "followed": feed_totals["followed"],
+            "errors": feed_totals["errors"],
+            "rows": feed_rows,
+            "url": "/library?feeds=1",
+        },
+        "citations": {
+            "new": open_alerts().count(),
+            "rows": citing_rows,
+            "url": "/library?citing=1",
+        },
     }
 
 

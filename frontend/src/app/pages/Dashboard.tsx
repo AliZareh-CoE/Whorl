@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, BookOpen, CalendarClock, Check, ClipboardList, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Sparkles, Trophy, Wand2 } from "lucide-react";
+import { AlertTriangle, BookOpen, CalendarClock, Check, ClipboardList, Command, FileText, FolderPlus, ListChecks, Loader2, Plug, Radar, Rss, Sparkles, Trophy, Wand2 } from "lucide-react";
 import { confirmDialog, errorDialog, noticeDialog } from "../../components/Dialog";
 import { api } from "../api";
 import { showUndo } from "../../components/UndoToast";
@@ -44,6 +44,11 @@ type Dash = {
   deadlines: { title: string; deadline: string | null; url: string }[];
   writing?: { live: number; rows: { id: number; title: string; status: string; deadline: string | null; days: number | null; target_venue: string; project: string; project_slug: string; over: string[]; clock: { days: number; label: string; nudge?: { due: boolean; waited: number; after_days: number; basis: string } } | null; readiness: { ready: boolean; fails: number; warns: number; summary: string } | null }[] };
   trends?: { months: string[]; series: Record<string, number[]>; previous: Record<string, number> };
+  // #533: the Library's watches at a glance — feeds and the citation watch, from the stored rows
+  watches?: {
+    feeds: { new: number; followed: number; errors: number; url: string; rows: { id: number; title: string; feed: string; feed_id: number; published_on: string | null; link: string }[] };
+    citations: { new: number; url: string; rows: { id: number; title: string; first_author: string; year: number | null; published_on: string | null; venue: string; cites: { id: number; bibtex_key: string }[] }[] };
+  };
   reading?: { to_read: number; high_priority: number; projects: number; next: { id: number; title: string; first_author: string; year: number | null; priority: string; project: string; project_slug: string; waiting_days: number }[] };
 };
 
@@ -496,6 +501,44 @@ export default function Dashboard() {
             )}
           </ul>
           {data.reading && data.reading.next.length > 0 && <p className="mt-2 text-[11px] text-stone-400"><Link to={`/projects/${data.reading.next[0].project_slug}/queue`} className="hover:text-indigo-600 dark:hover:text-indigo-300">Open the reading queue →</Link></p>}
+        </section>
+        {/* #533: what the feeds announced and who cited the library's papers — the Library's watches, linking into their modes (#532) */}
+        <section className={`${panel} rise min-w-0`} style={{ ["--i" as string]: 7.75 }} data-testid="watches">
+          <div className="flex items-baseline justify-between"><h2 className={h2}><Radar className="mr-1 inline h-3 w-3 align-[-1px]" aria-hidden="true" />Watches</h2>
+            {data.watches && (data.watches.feeds.new > 0 || data.watches.citations.new > 0) && <span className="text-[11px] text-stone-400">{[data.watches.feeds.new > 0 ? `${data.watches.feeds.new} from feeds` : "", data.watches.citations.new > 0 ? `${data.watches.citations.new} new citation${data.watches.citations.new === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ")}</span>}
+          </div>
+          <ul className="space-y-0.5 text-sm">
+            {(data.watches?.feeds.rows ?? []).map((r) => (
+              <li key={`f${r.id}`} data-testid="watch-feed-row">
+                <Link to={`/library?feeds=1&feed=${r.feed_id}`} className={row} title={`${r.title} — ${r.feed}${r.published_on ? ` · ${r.published_on}` : ""}`}>
+                  <Rss className="h-3 w-3 shrink-0 self-center text-emerald-500" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate font-medium dark:text-stone-100">{r.title}</span>
+                  <span className="shrink-0 truncate text-xs text-stone-400 dark:text-stone-400" style={{ maxWidth: "9rem" }}>{r.feed}</span>
+                </Link>
+              </li>
+            ))}
+            {(data.watches?.citations.rows ?? []).map((r) => (
+              <li key={`c${r.id}`} data-testid="watch-citation-row">
+                <Link to={r.cites[0] ? `/library?citing=1&reference=${r.cites[0].id}` : "/library?citing=1"} className={row} title={`${r.title}${r.first_author ? ` — ${r.first_author}` : ""}${r.year ? ` ${r.year}` : ""}${r.venue ? ` · ${r.venue}` : ""}${r.cites.length ? ` · cites ${r.cites.map((c) => c.bibtex_key).join(", ")}` : ""}`}>
+                  <Radar className="h-3 w-3 shrink-0 self-center text-sky-500" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate font-medium dark:text-stone-100">{r.title}</span>
+                  <span className="shrink-0 truncate font-mono text-[11px] text-sky-600 dark:text-sky-300" style={{ maxWidth: "9rem" }}>{r.cites[0] ? `cites ${r.cites[0].bibtex_key}${r.cites.length > 1 ? ` +${r.cites.length - 1}` : ""}` : r.venue}</span>
+                </Link>
+              </li>
+            ))}
+            {data.watches && data.watches.feeds.rows.length === 0 && data.watches.citations.rows.length === 0 && (
+              <li className="text-sm text-stone-400 dark:text-stone-400">
+                {data.watches.feeds.followed === 0 ? <>No feeds followed yet. <Link to="/library?feeds=1" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300">Follow an arXiv category or a journal →</Link></> : <>Nothing new from your feeds, no new citations. <Link to="/library?feeds=1" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300">Open the feeds →</Link></>}
+              </li>
+            )}
+          </ul>
+          {data.watches && (data.watches.feeds.rows.length > 0 || data.watches.citations.rows.length > 0) && (
+            <p className="mt-2 flex flex-wrap gap-x-3 text-[11px] text-stone-400">
+              {data.watches.feeds.new > 0 && <Link to={data.watches.feeds.url} className="hover:text-indigo-600 dark:hover:text-indigo-300">All feeds →</Link>}
+              {data.watches.citations.new > 0 && <Link to={data.watches.citations.url} className="hover:text-indigo-600 dark:hover:text-indigo-300">All new citations →</Link>}
+              {data.watches.feeds.errors > 0 && <span className="text-amber-500">{data.watches.feeds.errors} feed{data.watches.feeds.errors === 1 ? "" : "s"} failed to fetch</span>}
+            </p>
+          )}
         </section>
         </div>
 
