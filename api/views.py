@@ -1416,6 +1416,12 @@ class ReferenceViewSet(AtlasViewSet):
                 description="true/1 for papers the retraction watch has flagged (#527)",
             ),
             OpenApiParameter(
+                "notices",
+                str,
+                description="true/1 for papers with an expression of concern or a correction "
+                "on record (#537; rows carry `notices` [{kind, notice, date}])",
+            ),
+            OpenApiParameter(
                 "preprints",
                 OpenApiTypes.STR,
                 description="1/true: arXiv papers without a publisher DOI of their own (#529).",
@@ -2226,12 +2232,15 @@ class ReferenceViewSet(AtlasViewSet):
         responses={
             200: OpenApiResponse(
                 description="{checked, retracted: [{id, bibtex_key, title, kind, notice, date}], "
-                "errors, skipped, status: {retracted, unchecked, with_doi, last_checked_at}}"
+                "noticed: [{id, bibtex_key, title, notices: [{kind, notice, date}]}], errors, "
+                "skipped, status: {retracted, noticed, unchecked, with_doi, last_checked_at}}"
             ),
             400: OpenApiResponse(description="Bad ids"),
         },
         description="The retraction watch (#527): check papers against Crossref's retraction / "
-        "withdrawal / removal notices and store the verdict on each. Body: `ids` (≤ 50) for "
+        "withdrawal / removal notices and store the verdict on each; the same answer stores the "
+        "softer notices — an expression of concern, a correction — as `notices` on the paper "
+        "(#537, `noticed` rows). Body: `ids` (≤ 50) for "
         "chosen papers, or `stale: true` for the papers never checked or checked more than "
         "`days` (30) ago, `limit` (≤ 50 here; the daily sweep does 200). Offline or on an "
         "error the stored verdicts are left alone and `errors` counts the misses. GET with "

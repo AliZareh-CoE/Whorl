@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, Pencil, ShieldAlert, ShieldCheck, ArrowUpCircle, Radar, Rss, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, MessageSquareWarning, Pencil, ShieldAlert, ShieldCheck, ArrowUpCircle, Radar, Rss, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
@@ -22,6 +22,11 @@ type ReadingNowRow = { id: number; title: string; bibtex_key: string; year: numb
 const inProgress = (p?: Progress | null) => Boolean(p && p.page != null && p.page > 1 && (p.percent ?? 0) < 100);
 const pageLabel = (p: { page: number | null; pages: number | null }) => `p. ${p.page}${p.pages ? ` of ${p.pages}` : ""}`;
 const dayLabel = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+// #537: the softer Crossref notices on the same watch — an expression of concern or a correction
+type Notice = { kind: string; notice: string; date: string | null };
+const noticeWord = (n: Notice) => (n.kind === "expression_of_concern" ? "expression of concern" : "correction");
+const noticeLabel = (ns: Notice[]) => (ns.some((n) => n.kind === "expression_of_concern") ? "concern" : "corrected");
+const noticeTitle = (ns: Notice[]) => `Crossref lists ${ns.map((n) => `${n.kind === "expression_of_concern" ? "an" : "a"} ${noticeWord(n)}${n.date ? ` (${n.date})` : ""}`).join(", ")} — read it before citing the result`;
 type Ref = {
   id: number; bibtex_key: string; title: string; authors: Author[]; year: number | null; venue: string;
   abstract: string; doi: string | null; arxiv_id: string; url: string; pdf: string | null;
@@ -30,6 +35,7 @@ type Ref = {
   pdf_match: boolean | null; text_status: string;
   progress: Progress;
   retraction_kind: string; retraction_notice: string; retraction_date: string | null; retraction_checked_at: string | null;
+  notices: Notice[];
   preprint: boolean; published_doi: string; published_venue: string; published_checked_at: string | null; cited_by_checked_at: string | null;
   created_at: string;
 };
@@ -37,7 +43,7 @@ type ReadingNote = { project_reference_id: number; project: string; project_name
 type SavedView = { id: number; name: string; params: Partial<Filters>; position: number };
 type Page<T> = { count: number; next: string | null; results: T[] };
 type Facets = {
-  total: number; with_pdf: number; without_pdf: number; needs_metadata: number; retracted: number; preprints: number; published_available: number; unfiled: number;
+  total: number; with_pdf: number; without_pdf: number; needs_metadata: number; retracted: number; notices: number; preprints: number; published_available: number; unfiled: number;
   years: { year: number; count: number }[]; entry_types: { entry_type: string; count: number }[];
   venues: { venue: string; count: number }[]; authors: { name: string; given: string; count: number }[]; projects: { slug: string; name: string; count: number }[];
   all_projects: { slug: string; name: string; color: string }[];
@@ -60,11 +66,11 @@ type DiscoverRow = {
 type ImportResult = { title: string; reference_id: number | null; created: boolean; source: string; error: string; needs_metadata: boolean };
 type ImportSummary = { created: number; existing: number; failed: number; results: ImportResult[] };
 type Filters = {
-  q: string; year: string; year_min: string; year_max: string; entry_type: string; venue: string; author: string; has_pdf: string; needs_metadata: string; retracted: string; preprints: string; published_available: string;
+  q: string; year: string; year_min: string; year_max: string; entry_type: string; venue: string; author: string; has_pdf: string; needs_metadata: string; retracted: string; notices: string; preprints: string; published_available: string;
   project: string; unfiled: string; reading_status: string; tag: string; untagged: string; sort: string;
 };
 
-const EMPTY: Filters = { q: "", year: "", year_min: "", year_max: "", entry_type: "", venue: "", author: "", has_pdf: "", needs_metadata: "", retracted: "", preprints: "", published_available: "", project: "", unfiled: "", reading_status: "", tag: "", untagged: "", sort: "added" };
+const EMPTY: Filters = { q: "", year: "", year_min: "", year_max: "", entry_type: "", venue: "", author: "", has_pdf: "", needs_metadata: "", retracted: "", notices: "", preprints: "", published_available: "", project: "", unfiled: "", reading_status: "", tag: "", untagged: "", sort: "added" };
 const STYLES: [string, string][] = [["apa", "APA 7"], ["mla", "MLA 9"], ["chicago", "Chicago"], ["harvard", "Harvard"], ["vancouver", "Vancouver"], ["ieee", "IEEE"]];
 function readStyle(): string { try { return localStorage.getItem("atlas-cite-style") || "apa"; } catch { return "apa"; } }
 type Citation = { style: string; label: string; text: string; html: string; intext: string };
@@ -179,6 +185,7 @@ function chipLabel(k: keyof Filters, v: string): string {
   if (k === "year_min") return `from ${v}`;
   if (k === "year_max") return `to ${v}`;
   if (k === "retracted") return "retracted";
+  if (k === "notices") return "with notices";
   if (k === "preprints") return "preprints";
   if (k === "published_available") return "published version available";
   if (k === "reading_status") return `reading status: ${STATUS_LABEL[v] ?? v}`;
@@ -512,11 +519,11 @@ export default function Library() {
   // #527: the retraction watch — ask Crossref about chosen papers or the stale ones (≤ 50 here;
   // the nightly sweep does the rest). Offline, the stored verdicts stay as they were.
   const checkRetractions = useMutation({
-    mutationFn: (ids: number[] | null) => api<{ checked: number; retracted: { bibtex_key: string }[]; errors: number; skipped: number }>("/references/check-retractions/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ids ? { ids } : { stale: true, limit: 50 }) }),
+    mutationFn: (ids: number[] | null) => api<{ checked: number; retracted: { bibtex_key: string }[]; noticed: { bibtex_key: string }[]; errors: number; skipped: number }>("/references/check-retractions/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ids ? { ids } : { stale: true, limit: 50 }) }),
     onSuccess: (out, ids) => {
       invalidate(); queryClient.invalidateQueries({ queryKey: ["library-facets"] });
       if (!ids && out.checked === 0 && out.errors === 0) { flash("Every paper with a DOI was checked in the last 30 days."); return; }
-      flash(`Checked ${out.checked} paper${out.checked === 1 ? "" : "s"} · ${out.retracted.length} retracted${out.errors ? ` · ${out.errors} could not be checked` : ""}${out.skipped ? ` · ${out.skipped} without a DOI` : ""}.`);
+      flash(`Checked ${out.checked} paper${out.checked === 1 ? "" : "s"} · ${out.retracted.length} retracted${out.noticed?.length ? ` · ${out.noticed.length} with a notice` : ""}${out.errors ? ` · ${out.errors} could not be checked` : ""}${out.skipped ? ` · ${out.skipped} without a DOI` : ""}.`);
     },
     onError: () => flash("Could not reach Crossref."),
   });
@@ -840,6 +847,7 @@ export default function Library() {
                 <button type="button" className={chip(filters.has_pdf === "false")} onClick={() => toggle("has_pdf", "false")}><span>No PDF</span><span className="tabular-nums text-stone-400">{f.without_pdf}</span></button>
                 <button type="button" className={chip(filters.needs_metadata === "true")} onClick={() => toggle("needs_metadata", "true")}><span>Needs metadata</span><span className="tabular-nums text-stone-400">{f.needs_metadata}</span></button>
                 <button type="button" data-testid="rail-retracted" className={chip(filters.retracted === "true")} onClick={() => toggle("retracted", "true")} title="Papers Crossref lists a retraction, withdrawal or removal notice for — checked nightly"><span className="flex items-center gap-1.5"><ShieldAlert className={`h-3 w-3 ${f.retracted ? "text-rose-500" : ""}`} aria-hidden="true" />Retracted</span><span className={`tabular-nums ${f.retracted ? "font-semibold text-rose-500" : "text-stone-400"}`}>{f.retracted}</span></button>
+                <button type="button" data-testid="rail-notices" className={chip(filters.notices === "true")} onClick={() => toggle("notices", "true")} title="Papers Crossref lists an expression of concern or a correction for — not retracted, but read the notice before citing the result"><span className="flex items-center gap-1.5"><MessageSquareWarning className={`h-3 w-3 ${f.notices ? "text-amber-500" : ""}`} aria-hidden="true" />With notices</span><span className={`tabular-nums ${f.notices ? "font-semibold text-amber-600 dark:text-amber-400" : "text-stone-400"}`}>{f.notices}</span></button>
                 <button type="button" data-testid="check-retractions" disabled={checkRetractions.isPending} onClick={() => checkRetractions.mutate(null)} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-60 dark:hover:bg-stone-800 dark:hover:text-stone-200" title="Ask Crossref about the papers not checked in the last 30 days (up to 50 now; the rest run nightly)">{checkRetractions.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-3 w-3" aria-hidden="true" />}{checkRetractions.isPending ? "Asking Crossref…" : "Check retractions now"}</button>
                 <button type="button" data-testid="rail-preprints" className={chip(filters.preprints === "true")} onClick={() => toggle("preprints", "true")} title="arXiv papers without a publisher DOI of their own"><span className="flex items-center gap-1.5"><FileText className="h-3 w-3" aria-hidden="true" />Preprints</span><span className="tabular-nums text-stone-400">{f.preprints}</span></button>
                 <button type="button" data-testid="rail-published" className={chip(filters.published_available === "true")} onClick={() => toggle("published_available", "true")} title="Preprints whose published version the preprint watch found — upgrade them from the detail pane"><span className="flex items-center gap-1.5"><ArrowUpCircle className={`h-3 w-3 ${f.published_available ? "text-amber-500" : ""}`} aria-hidden="true" />Published version</span><span className={`tabular-nums ${f.published_available ? "font-semibold text-amber-500" : "text-stone-400"}`}>{f.published_available}</span></button>
@@ -1111,6 +1119,7 @@ export default function Library() {
                         {status && <span className="rounded-full bg-stone-100 px-1.5 py-0.5 dark:bg-stone-800">{STATUS_LABEL[status] ?? status}</span>}
                         {r.pdf && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-medium text-indigo-600 dark:text-indigo-300">PDF</span>}
                         {inProgress(r.progress) && <span className="rounded-full bg-indigo-500/10 px-1.5 py-0.5 tabular-nums text-indigo-600 dark:text-indigo-300" data-testid="card-progress" title="Where the reader left off">{pageLabel(r.progress)}</span>}
+                        {!r.retraction_kind && r.notices?.length > 0 && <span data-testid="notice-chip" className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300" title={noticeTitle(r.notices)}>{noticeLabel(r.notices)}</span>}
                         {r.retraction_kind && <span data-testid="retracted-chip" className="rounded-full bg-rose-500/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300" title={`Crossref lists a ${r.retraction_kind} notice${r.retraction_date ? ` (${r.retraction_date})` : ""}`}>retracted</span>}
                         {r.published_doi && <span data-testid="published-chip" className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300" title={`Published version found${r.published_venue ? ` in ${r.published_venue}` : ""} — upgrade from the detail pane`}>published version</span>}
                         {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
@@ -1139,6 +1148,7 @@ export default function Library() {
                   <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
                     {r.projects.map((p) => <span key={p.slug} title={`${p.name} · ${STATUS_LABEL[p.reading_status] ?? p.reading_status}`} className="h-2 w-2 rounded-full" style={{ background: p.color }} />)}
                     {r.tags.slice(0, 3).map((t) => <TagChip key={t} name={t} color={tagColors[t]} className="text-[10px]" />)}
+                    {!r.retraction_kind && r.notices?.length > 0 && <span data-testid="notice-chip" className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300" title={noticeTitle(r.notices)}>{noticeLabel(r.notices)}</span>}
                     {r.retraction_kind && <span data-testid="retracted-chip" className="rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300" title={`Crossref lists a ${r.retraction_kind} notice${r.retraction_date ? ` (${r.retraction_date})` : ""}`}>retracted</span>}
                     {r.published_doi && <span data-testid="published-chip" className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300" title={`Published version found${r.published_venue ? ` in ${r.published_venue}` : ""}`}>published version</span>}
                     {needs && <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">needs metadata</span>}
@@ -1248,6 +1258,17 @@ function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRet
           <p className="flex items-center gap-1.5 font-semibold"><ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />This paper has been {r.retraction_kind === "retraction" ? "retracted" : r.retraction_kind === "withdrawal" ? "withdrawn" : "removed"}{r.retraction_date ? ` · ${r.retraction_date}` : ""}</p>
           <p className="mt-1 text-rose-700/90 dark:text-rose-200/80">Crossref lists a {r.retraction_kind} notice{r.retraction_notice ? <>: <a href={`https://doi.org/${r.retraction_notice}`} target="_blank" rel="noreferrer" className="underline">{r.retraction_notice}</a></> : null}. Cite it only to discuss the retraction — the manuscript pre-flight flags it.</p>
           <p className="mt-1 flex items-center gap-2 text-[11px] text-rose-700/70 dark:text-rose-200/60">{r.retraction_checked_at ? `checked ${new Date(r.retraction_checked_at).toLocaleDateString()}` : "not checked yet"}<button type="button" onClick={onCheckRetraction} disabled={checkingRetraction} className="underline disabled:opacity-50">re-check</button></p>
+        </div>
+      )}
+      {!r.retraction_kind && r.notices?.length > 0 && (
+        <div data-testid="notice-banner" className="mt-3 rounded-xl border border-amber-400/50 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-100">
+          <p className="flex items-center gap-1.5 font-semibold"><MessageSquareWarning className="h-3.5 w-3.5" aria-hidden="true" />{r.notices.some((n) => n.kind === "expression_of_concern") ? "An expression of concern has been issued" : `This paper has been corrected${r.notices.length > 1 ? ` (${r.notices.length} notices)` : ""}`}</p>
+          <ul className="mt-1 space-y-0.5 text-amber-800/90 dark:text-amber-100/80">
+            {r.notices.map((n) => (
+              <li key={n.notice || n.kind}>{noticeWord(n)[0].toUpperCase() + noticeWord(n).slice(1)}{n.date ? ` · ${n.date}` : ""}{n.notice ? <>: <a href={`https://doi.org/${n.notice}`} target="_blank" rel="noreferrer" className="underline">{n.notice}</a></> : null}</li>
+            ))}
+          </ul>
+          <p className="mt-1 text-[11px] text-amber-800/70 dark:text-amber-100/60">Not a retraction — read the notice before citing the result; the manuscript pre-flight warns on it.</p>
         </div>
       )}
       {!r.retraction_kind && r.doi && (

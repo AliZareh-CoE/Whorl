@@ -509,7 +509,21 @@ class Command(BaseCommand):
         # Deterministic synthetic citation edges: each paper cites 2-3 earlier ones
         # #527: the retraction watch has a verdict on every demo paper (checked "now", so a live
         # sweep leaves the demo alone), and one corpus paper outside the manuscript's
-        # bibliography is retracted — the Library's rose chip, the banner and the rail row
+        # bibliography is retracted — the Library's rose chip, the banner and the rail row.
+        # #537: two more carry the softer notices — an expression of concern and a
+        # correction — the amber "see notice" chip, the banner and the rail's Notices row.
+        demo_notices = {
+            id(corpus_refs[7]): [
+                {
+                    "kind": "expression_of_concern",
+                    "notice": "10.0000/demo.concern.2022",
+                    "date": "2022-11-03",
+                }
+            ],
+            id(corpus_refs[8]): [
+                {"kind": "correction", "notice": "10.0000/demo.erratum.2021", "date": "2021-02-15"}
+            ],
+        }
         for reference in demo_ref_objs + corpus_refs:
             flagged = reference is corpus_refs[9]
             reference.doi = reference.doi or (
@@ -518,6 +532,9 @@ class Command(BaseCommand):
             reference.retraction_kind = "retraction" if flagged else ""
             reference.retraction_notice = "10.0000/demo.retraction-notice.2019" if flagged else ""
             reference.retraction_date = datetime.date(2019, 6, 12) if flagged else None
+            reference.notices = demo_notices.get(id(reference), [])
+            if reference.notices and not reference.doi:  # a notice updates a DOI
+                reference.doi = f"10.0000/demo.{reference.bibtex_key}"
             reference.retraction_checked_at = timezone.now()
             reference.save(
                 update_fields=[
@@ -525,6 +542,7 @@ class Command(BaseCommand):
                     "retraction_kind",
                     "retraction_notice",
                     "retraction_date",
+                    "notices",
                     "retraction_checked_at",
                     "updated_at",
                 ]

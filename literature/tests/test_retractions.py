@@ -63,6 +63,46 @@ class TestLookupAndCheck:
         partial = notice(kind="partial_retraction", doi="10.1/partial")
         assert retractions.lookup("10.1/paper", answer(partial))["kind"] == "retraction"
 
+    def test_lookup_all_splits_the_hard_verdict_from_the_softer_notices(self):
+        # #537: the same answer carries the correction and the expression of concern; the
+        # withdrawal stays the verdict, the two softer notices are kept newest first, folded
+        # to two kinds, one entry per notice DOI, and a retraction-class notice never doubles
+        # as a soft one.
+        client = answer(
+            {
+                "message": {
+                    "items": [
+                        {
+                            "DOI": "10.1/erratum",
+                            "update-to": [
+                                {"type": "Erratum", "updated": {"date-parts": [[2020, 1, 9]]}},
+                                {"type": "erratum"},  # the same notice twice: one entry
+                            ],
+                        },
+                        {
+                            "DOI": "10.1/eoc",
+                            "update-to": [
+                                {
+                                    "type": "Expression of Concern",
+                                    "updated": {"date-parts": [[2022, 5]]},
+                                }
+                            ],
+                        },
+                        {"DOI": "10.1/v2", "update-to": [{"type": "new_version"}]},
+                        {"DOI": "10.1/notice", "update-to": [{"type": "withdrawal"}]},
+                    ]
+                }
+            }
+        )
+        out = retractions.lookup_all("10.1/paper", client)
+        assert out["retraction"]["kind"] == "withdrawal"
+        assert out["notices"] == [
+            {"kind": "expression_of_concern", "notice": "10.1/eoc", "date": "2022-05-01"},
+            {"kind": "correction", "notice": "10.1/erratum", "date": "2020-01-09"},
+        ]
+        clean = retractions.lookup_all("10.1/paper", answer({"message": {"items": []}}))
+        assert clean == {"retraction": None, "notices": []}
+
     def test_lookup_raises_on_non_200(self):
         with pytest.raises(RuntimeError):
             retractions.lookup("10.1/paper", answer({}, status=503))
@@ -81,6 +121,33 @@ class TestLookupAndCheck:
         ref.refresh_from_db()
         assert ref.retraction_kind == "" and ref.retraction_notice == ""
         assert ref.retraction_date is None
+
+    def test_check_stores_and_clears_the_notices(self):
+        # #537: a correction is stored on the paper by the same check, shown on the row, and
+        # withdrawn by a later clean answer; a failed check leaves it alone.
+        ref = ReferenceFactory(doi="10.1/paper")
+        row = retractions.check_reference(
+            ref, answer(notice(kind="corrigendum", doi="10.1/fix", date_parts=[2021, 2, 15]))
+        )
+        assert row["retracted"] is False
+        assert row["notices"] == [
+            {"kind": "correction", "notice": "10.1/fix", "date": "2021-02-15"}
+        ]
+        ref.refresh_from_db()
+        assert ref.notices == row["notices"] and ref.retraction_kind == ""
+        assert retractions.noticed_references().get() == ref
+        assert retractions.watch_status()["noticed"] == 1
+
+        def boom(request):
+            raise httpx.ConnectError("offline")
+
+        retractions.check_reference(ref, mock(boom))
+        ref.refresh_from_db()
+        assert ref.notices == row["notices"]
+        retractions.check_reference(ref, answer({"message": {"items": []}}))
+        ref.refresh_from_db()
+        assert ref.notices == []
+        assert retractions.watch_status()["noticed"] == 0
 
     def test_failures_leave_the_verdict_and_the_stamp_alone(self):
         stamp = timezone.now() - datetime.timedelta(days=40)
@@ -180,6 +247,16 @@ class TestStaleAndStatus:
         assert facets(Reference.objects.all())["retracted"] == 1
         assert list(retractions.retracted_references()) == [flagged]
 
+    def test_notices_filter_and_facet(self):
+        noticed = ReferenceFactory(
+            doi="10.1/n",
+            notices=[{"kind": "expression_of_concern", "notice": "10.1/eoc", "date": None}],
+        )
+        ReferenceFactory(doi="10.1/clean", notices=[])
+        qs = filter_references(Reference.objects.all(), {"notices": "1"})
+        assert list(qs.values_list("pk", flat=True)) == [noticed.pk]
+        assert facets(Reference.objects.all())["notices"] == 1
+
 
 @pytest.mark.django_db
 class TestApiAndReport:
@@ -189,15 +266,22 @@ class TestApiAndReport:
         settings.ATLAS_API_KEY = "k"
         headers = {"HTTP_X_API_KEY": "k", "HTTP_HOST": "127.0.0.1"}
         a = ReferenceFactory(doi="10.1/a")
-        ReferenceFactory(doi="10.1/b")
+        b = ReferenceFactory(doi="10.1/b")
         monkeypatch.setattr(
             retractions,
-            "lookup",
-            lambda doi, client: (
-                {"kind": "retraction", "notice": "10.1/n", "date": None}
-                if doi == "10.1/a"
-                else None
-            ),
+            "lookup_all",
+            lambda doi, client: {
+                "retraction": (
+                    {"kind": "retraction", "notice": "10.1/n", "date": None}
+                    if doi == "10.1/a"
+                    else None
+                ),
+                "notices": (
+                    [{"kind": "correction", "notice": "10.1/e", "date": None}]
+                    if doi == "10.1/b"
+                    else []
+                ),
+            },
         )
         # 401 without the key
         assert client.post("/api/v1/references/check-retractions/").status_code == 401
@@ -211,6 +295,7 @@ class TestApiAndReport:
         body = r.json()
         assert body["checked"] == 1 and body["retracted"][0]["bibtex_key"] == a.bibtex_key
         assert body["status"]["retracted"] == 1 and "rows" not in body
+        assert body["noticed"] == [] and body["status"]["noticed"] == 0
         # the row now carries the verdict
         row = client.get(f"/api/v1/references/{a.pk}/", **headers).json()
         assert row["retraction_kind"] == "retraction" and row["retraction_notice"] == "10.1/n"
@@ -224,6 +309,10 @@ class TestApiAndReport:
         )
         assert r.status_code == 200 and r.json()["checked"] == 1
         assert r.json()["status"]["unchecked"] == 0
+        # #537: b's correction came back in the same answer and is stored on the row
+        assert r.json()["noticed"][0]["bibtex_key"] == b.bibtex_key
+        assert r.json()["noticed"][0]["notices"][0]["kind"] == "correction"
+        assert r.json()["status"]["noticed"] == 1
         # Audit #31: a wild `days` was a datetime overflow (500); it is clamped to ten years
         r = client.post(
             "/api/v1/references/check-retractions/",
@@ -281,6 +370,63 @@ class TestApiAndReport:
         assert rows["retractions"]["state"] == "fail"
         assert bad.bibtex_key in rows["retractions"]["detail"]
         assert "doi" not in rows  # still a network-only row
+        assert rows["notices"]["state"] == "ok"
+
+    def test_preflight_warns_on_notices_but_never_fails(self):
+        # #537: an expression of concern or a correction on a cited work is a warning naming
+        # the keys; a retracted paper is not listed twice.
+        from projects.tests.factories import ProjectFactory
+        from writing.models import Manuscript, ManuscriptReference
+        from writing.preflight import check_bibliography
+
+        project = ProjectFactory()
+        m = Manuscript.objects.create(project=project, title="M")
+        concern = ReferenceFactory(
+            doi="10.1/c",
+            notices=[
+                # newest first: a later correction never hides the concern
+                {"kind": "correction", "notice": "10.1/fix2", "date": "2023-01-01"},
+                {"kind": "expression_of_concern", "notice": "10.1/eoc", "date": "2022-01-01"},
+            ],
+        )
+        fixed = ReferenceFactory(
+            doi="10.1/f", notices=[{"kind": "correction", "notice": "10.1/err", "date": None}]
+        )
+        retracted = ReferenceFactory(
+            doi="10.1/r",
+            retraction_kind="retraction",
+            notices=[{"kind": "correction", "notice": "10.1/old", "date": None}],
+        )
+        for r in (concern, fixed, retracted):
+            ManuscriptReference.objects.create(manuscript=m, reference=r)
+        rows = {r["key"]: r for r in check_bibliography(m, network=False)}
+        row = rows["notices"]
+        assert row["state"] == "warn"
+        assert f"expression of concern on 1 cited work: {concern.bibtex_key}" in row["detail"]
+        assert f"1 cited work corrected: {fixed.bibtex_key}" in row["detail"]
+        assert retracted.bibtex_key not in row["detail"]
+        assert row["fix"] == {"kind": "tab", "tab": "bib"}
+
+    def test_serializer_carries_the_notices_read_only(self, client, settings, owner):
+        settings.ATLAS_API_KEY = "k"
+        headers = {"HTTP_X_API_KEY": "k", "HTTP_HOST": "127.0.0.1"}
+        ref = ReferenceFactory(
+            doi="10.1/n", notices=[{"kind": "correction", "notice": "10.1/err", "date": None}]
+        )
+        ReferenceFactory(doi="10.1/clean")
+        row = client.get(f"/api/v1/references/{ref.pk}/", **headers).json()
+        assert row["notices"] == ref.notices
+        res = client.patch(
+            f"/api/v1/references/{ref.pk}/",
+            data=json.dumps({"notices": []}),
+            content_type="application/json",
+            **headers,
+        )
+        assert res.status_code == 200
+        ref.refresh_from_db()
+        assert ref.notices  # read-only: the watch owns it
+        listed = client.get("/api/v1/references/?notices=1", **headers).json()["results"]
+        assert [r["id"] for r in listed] == [ref.pk]
 
 
 def test_ui_wiring():
@@ -296,8 +442,16 @@ def test_ui_wiring():
         'retracted: ""',
         'if (k === "retracted") return "retracted";',
         "https://doi.org/${r.retraction_notice}",
+        # #537: the softer notices
+        'data-testid="rail-notices"',
+        'data-testid="notice-chip"',
+        'data-testid="notice-banner"',
+        'notices: ""',
+        'if (k === "notices") return "with notices";',
     ):
         assert needle in lib, needle
     assert lib.count('data-testid="retracted-chip"') == 2  # list row and card
+    assert lib.count('data-testid="notice-chip"') == 2
     page = (base / "Reference.tsx").read_text()
     assert 'data-testid="retraction-banner"' in page and "retraction_notice" in page
+    assert 'data-testid="notice-banner"' in page and "expression_of_concern" in page

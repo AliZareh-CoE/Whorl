@@ -87,6 +87,10 @@ def filter_references(qs: QuerySet, params) -> QuerySet:
         qs = qs.filter(extra__needs_metadata=True)
     if params.get("retracted") in ("true", "1"):  # #527: the retraction watch's flag
         qs = qs.exclude(retraction_kind="")
+    if params.get("notices") in ("true", "1"):  # #537: a concern or a correction on record
+        from .retractions import NOTICED
+
+        qs = qs.filter(NOTICED)
     if params.get("preprints") in ("true", "1"):  # #529: arXiv papers without a publisher DOI
         from .preprints import preprint_q
 
@@ -177,6 +181,7 @@ def author_facet(qs: QuerySet, limit: int = 12) -> list[dict]:
 def facets(qs: QuerySet) -> dict:
     from .citing import open_alerts
     from .preprints import preprints, published_available
+    from .retractions import noticed_references
 
     """Counts that drive the left rail — computed on the *unfiltered* base so the rail always
     shows the whole shape of the library (like a good faceted search does)."""
@@ -229,6 +234,7 @@ def facets(qs: QuerySet) -> dict:
         "without_pdf": total - with_pdf,
         "needs_metadata": qs.filter(extra__needs_metadata=True).count(),
         "retracted": qs.exclude(retraction_kind="").count(),
+        "notices": noticed_references(qs).count(),
         "preprints": preprints(qs).count(),
         "published_available": published_available(qs).count(),
         "unfiled": qs.filter(project_links__isnull=True).count(),

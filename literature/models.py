@@ -77,6 +77,10 @@ class Reference(TimeStampedModel):
     retraction_notice = models.CharField(max_length=255, blank=True, default="")  # notice DOI
     retraction_date = models.DateField(null=True, blank=True)
     retraction_checked_at = models.DateTimeField(null=True, blank=True)
+    # #537: the softer Crossref notices on the same check — expressions of concern and
+    # corrections (corrigenda, errata, addenda, clarifications): [{kind, notice, date}],
+    # newest first. Empty for a clean paper; cleared by a clean answer, kept on an error.
+    notices = models.JSONField(default=list, blank=True)
     # #529: the preprint watch — the published version of an arXiv preprint, once found, and
     # when we last asked. Empty for a paper that is not a preprint or has none on record.
     published_doi = models.CharField(max_length=255, blank=True, default="")

@@ -186,6 +186,7 @@ def browse_library(
     unfiled: bool = False,
     needs_metadata: bool = False,
     retracted: bool = False,
+    notices: bool = False,
     preprints: bool = False,
     published_available: bool = False,
     sort: str = "added",
@@ -196,7 +197,9 @@ def browse_library(
     abstract, authors, DOI and the PDF text; `venue` is exact; `tag` a tag name; `project` a
     slug and `reading_status` (to_read / skimmed / read / annotated) the state in that project;
     `has_pdf` "true" or "false"; `untagged` / `unfiled` / `needs_metadata` / `retracted` (papers
-    the retraction watch flagged, #527 — rows carry `retraction` {kind, notice, date}) are
+    the retraction watch flagged, #527 — rows carry `retraction` {kind, notice, date}) and
+    `notices` (papers with an expression of concern or a correction on record, #537 — rows
+    carry `notices` [{kind, notice, date}]; read the notice before citing the result) are
     hygiene views; `preprints` (arXiv papers without a publisher DOI; rows carry `preprint`)
     and `published_available` (preprints whose published version the preprint watch found,
     #529 — rows carry `published` {doi, venue}; upgrade_preprint applies it);
@@ -223,6 +226,7 @@ def browse_library(
         unfiled="1" if unfiled else "",
         needs_metadata="1" if needs_metadata else "",
         retracted="1" if retracted else "",
+        notices="1" if notices else "",
         preprints="1" if preprints else "",
         published_available="1" if published_available else "",
         sort=sort,
@@ -238,10 +242,12 @@ def check_retractions(
     the manuscript pre-flight show it. With `reference_ids` (≤ 50): those papers. Without: the
     stale ones — never checked or checked more than `days` ago, up to `limit` (≤ 50; the daily
     sweep does the rest). Returns `checked`, `retracted` [{id, bibtex_key, title, kind, notice,
-    date}], `errors` (offline / failed lookups leave the stored verdicts alone), `skipped` (no
-    DOI) and `status` {retracted, unchecked, with_doi, last_checked_at}. Use it when the user
+    date}], `noticed` (#537: papers with an expression of concern or a correction on record —
+    [{id, bibtex_key, title, notices: [{kind, notice, date}]}]; the same answer stores them),
+    `errors` (offline / failed lookups leave the stored verdicts alone), `skipped` (no DOI) and
+    `status` {retracted, noticed, unchecked, with_doi, last_checked_at}. Use it when the user
     asks "is anything I cite retracted?" or before a submission; browse_library(retracted=True)
-    lists the flagged papers without asking Crossref."""
+    / browse_library(notices=True) list the flagged papers without asking Crossref."""
     return client.check_retractions(reference_ids, days, limit)
 
 

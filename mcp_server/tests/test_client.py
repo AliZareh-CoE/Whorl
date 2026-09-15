@@ -771,6 +771,8 @@ def test_check_retractions_client_calls(capture):
     assert json.loads(capture["body"]) == {"stale": True, "days": 10, "limit": 50}
     client.browse_library(retracted="1")
     assert calls_url_has(capture, "retracted=1")
+    client.browse_library(notices="1")
+    assert calls_url_has(capture, "notices=1")
     capture["response"] = {"status": {"retracted": 0}}
     assert client.retraction_watch_status()["status"]["retracted"] == 0
     assert capture["method"] == "GET"
@@ -782,6 +784,12 @@ def test_library_row_carries_the_retraction():
     )
     assert row["retraction"] == {"kind": "retraction", "notice": "10.1/n", "date": None}
     assert client._library_row({"id": 2, "authors": []})["retraction"] is None
+    # #537: the softer notices ride along as a list, empty when the row has none
+    assert client._library_row({"id": 2, "authors": []})["notices"] == []
+    row = client._library_row(
+        {"id": 3, "authors": [], "notices": [{"kind": "correction", "notice": "10.1/e"}]}
+    )
+    assert row["notices"] == [{"kind": "correction", "notice": "10.1/e"}]
 
 
 def test_check_preprints_client_calls(capture):

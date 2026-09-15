@@ -25,7 +25,10 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
   explicit ids or the same filters as browse_library; save the returned text to a file.
 - `check_retractions` before a submission or when asked "is anything I cite retracted?" — the
   verdicts are stored, so the Library, the Reference page and the pre-flight show them;
-  `browse_library(retracted=True)` lists the flagged papers without asking Crossref.
+  `browse_library(retracted=True)` lists the flagged papers without asking Crossref. The same
+  check stores the softer notices (an expression of concern, a correction) on the paper —
+  `browse_library(notices=True)` lists them; tell the user to read the notice before citing
+  the result, not to drop the paper.
 - `check_preprints` when asked "have any of my preprints been published?" or before a
   submission; the answers are stored, so `browse_library(published_available=True)` lists them
   and `upgrade_preprint(reference_id)` makes one cite its published version — the cite key stays,

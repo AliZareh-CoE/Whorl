@@ -316,6 +316,42 @@ def check_bibliography(manuscript, network: bool) -> list[dict]:
             {"kind": "tab", "tab": "bib"} if retracted else None,
         )
     )
+    # #537: the softer notices on the same watch — a cited work with an expression of concern
+    # or a correction on record is a warning: read the notice before citing the result.
+    noticed = sorted(
+        {
+            (
+                link.reference.bibtex_key,
+                any(n.get("kind") == "expression_of_concern" for n in link.reference.notices),
+            )
+            for link in manuscript.manuscriptreference_set.select_related("reference")
+            if link.reference.notices and not link.reference.retraction_kind
+        }
+    )
+    concerns = [k for k, concern in noticed if concern]
+    corrections = [k for k, concern in noticed if not concern]
+    parts = []
+    if concerns:
+        parts.append(
+            f"expression of concern on {len(concerns)} cited work"
+            f"{'s' if len(concerns) != 1 else ''}: " + ", ".join(concerns)
+        )
+    if corrections:
+        parts.append(
+            f"{len(corrections)} cited work{'s' if len(corrections) != 1 else ''} corrected: "
+            + ", ".join(corrections)
+        )
+    rows.append(
+        _check(
+            "notices",
+            "Notices",
+            "warn" if noticed else "ok",
+            ("; ".join(parts) + ". Read the notice before citing the result.")
+            if noticed
+            else "No expression of concern or correction on any cited work.",
+            {"kind": "tab", "tab": "bib"} if noticed else None,
+        )
+    )
     # #529: the preprint watch — a cited preprint whose published version is on record should
     # be upgraded before submission (a warning: the citation is not wrong, only dated).
     dated = sorted(

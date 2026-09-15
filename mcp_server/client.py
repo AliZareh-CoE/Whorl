@@ -205,6 +205,7 @@ def _library_row(row: dict) -> dict:
             if row.get("retraction_kind")
             else None
         ),
+        "notices": list(row.get("notices") or []),
         "preprint": bool(row.get("preprint")),
         "published": (
             {"doi": row.get("published_doi"), "venue": row.get("published_venue")}
@@ -234,7 +235,8 @@ def library_url(**filters) -> str:
 def browse_library(limit: int = 20, **filters):
     """The Library workbench over the API (#524): GET /references/ with the rail's filters
     (q, author, year, year_min, year_max, entry_type, venue, tag, project, reading_status,
-    has_pdf, untagged, unfiled, needs_metadata, sort). Rows are trimmed to what a listing needs;
+    has_pdf, untagged, unfiled, needs_metadata, retracted, notices, preprints,
+    published_available, sort). Rows are trimmed to what a listing needs;
     `url` is the same view in the app (#526)."""
     params = {k: v for k, v in filters.items() if v not in ("", None, 0, False)}
     limit = max(1, min(int(limit or 20), 50))

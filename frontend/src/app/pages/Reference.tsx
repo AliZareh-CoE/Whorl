@@ -23,6 +23,7 @@ type Ref = {
   pdf: string | null;
   citation_count: number | null;
   retraction_kind?: string; retraction_notice?: string; retraction_date?: string | null;
+  notices?: { kind: string; notice: string; date: string | null }[];
   preprint?: boolean; published_doi?: string; published_venue?: string; published_checked_at?: string | null;
   projects?: { slug: string; name: string; color: string; reading_status: string }[];
   tags?: string[];
@@ -280,6 +281,17 @@ export default function Reference() {
         <section className="mb-4 rounded border border-rose-300 bg-rose-50 p-4 dark:border-rose-500/40 dark:bg-rose-500/10" data-testid="retraction-banner">
           <p className="text-sm font-semibold text-rose-700 dark:text-rose-200">This paper has been {ref.retraction_kind === "retraction" ? "retracted" : ref.retraction_kind === "withdrawal" ? "withdrawn" : "removed"}{ref.retraction_date ? ` (${ref.retraction_date})` : ""}.</p>
           <p className="mt-1 text-xs text-rose-700/80 dark:text-rose-200/80">Crossref lists a {ref.retraction_kind} notice{ref.retraction_notice ? <>: <a href={`https://doi.org/${ref.retraction_notice}`} target="_blank" rel="noreferrer" className="underline">{ref.retraction_notice}</a></> : null}. Cite it only to discuss the retraction — the manuscript pre-flight flags it.</p>
+        </section>
+      )}
+      {!ref.retraction_kind && (ref.notices?.length ?? 0) > 0 && (
+        <section className="mb-4 rounded border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10" data-testid="notice-banner">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">{ref.notices!.some((n) => n.kind === "expression_of_concern") ? "An expression of concern has been issued for this paper." : "This paper has been corrected."}</p>
+          <ul className="mt-1 space-y-0.5 text-xs text-amber-800/80 dark:text-amber-200/80">
+            {ref.notices!.map((n) => (
+              <li key={n.notice || n.kind}>{n.kind === "expression_of_concern" ? "Expression of concern" : "Correction"}{n.date ? ` · ${n.date}` : ""}{n.notice ? <>: <a href={`https://doi.org/${n.notice}`} target="_blank" rel="noreferrer" className="underline">{n.notice}</a></> : null}</li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-amber-800/70 dark:text-amber-200/70">Not a retraction — read the notice before citing the result; the manuscript pre-flight warns on it.</p>
         </section>
       )}
       {ref.published_doi && <PublishedBanner r={ref} />}
