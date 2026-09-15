@@ -19,7 +19,7 @@ type Destination = { dir: string; enabled: boolean; kind: string | null; label: 
 
 type Report = {
   version: string; desktop: boolean; platform: string; frozen: boolean; settings_module: string; data_dir: string | null; database: string;
-  engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; update_feed: Feed[]; update_verdict?: Verdict;
+  engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; frame_ancestors?: string[]; update_feed: Feed[]; update_verdict?: Verdict;
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
   backups?: { last: { at: string; days_ago: number; size_bytes: number } | null; stale: boolean; has_data: boolean; stale_after_days: number };
   // #462: the zips Atlas keeps on its own in <data dir>/backups
@@ -128,6 +128,7 @@ export default function Diagnostics() {
               )}
               <Row label="Background jobs" value={r.jobs} />
               <Row label="API key" value={r.api_key_configured ? "configured" : "missing — the API and Claude cannot connect"} ok={r.api_key_configured} />
+              <Row label="Embeddable from" value={<span data-testid="frame-ancestors">{r.frame_ancestors && r.frame_ancestors.length > 0 ? `${r.frame_ancestors.join(", ")} — Atlas can be shown as a tab there (ATLAS_FRAME_ANCESTORS)` : "nobody — every page sends X-Frame-Options: DENY; set ATLAS_FRAME_ANCESTORS to let another app (OpenManus…) show Atlas in a tab"}</span>} />
               {r.update_verdict && <Row label="Update check" value={<span data-testid="update-verdict" data-state={r.update_verdict.state}>{r.update_verdict.text}</span>} ok={r.update_verdict.state === "unchecked" || r.update_verdict.state === "unknown_version" ? null : r.update_verdict.state === "current" || r.update_verdict.state === "available"} />}
               {r.update_feed.map((f) => <Row key={f.url} label="Update feed" value={<><code className="text-xs">{f.url.replace("https://github.com/", "")}</code>{f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (no feed at this address)" : ""}{f.version ? ` · offers ${f.version}` : ""}{f.key_match === false ? " · signed with a different key" : f.key_match ? " · signed for this app" : ""}</span>}</>} ok={f.status === null ? null : f.status === 200 && f.key_match !== false} />)}
             </dl>

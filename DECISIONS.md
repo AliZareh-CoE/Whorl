@@ -563,6 +563,37 @@ ones into cycle-sized slices; mark done with date. Never delete — strike throu
 
 **Alternatives rejected.** Catching `DataError` / `OverflowError` in the view (hides the cause; the reason should name the field). A `BigIntegerField` for page counts (a hundred thousand pages is already a novel, not a paper). Refusing DOIs with commas at import (legal DOIs; the lookup's error path already handles them).
 
+### 2026-09-15 — Owner ask (#539): Atlas as a tab inside OpenManus — an allow-list of frame ancestors, not SAMEORIGIN and not a proxy
+
+Owner: "I want to see if I can add the whole project to this as a tab in it" (OpenManus) → "we need
+to start to do that as well!" OpenManus is React + react-router with a fixed sidebar; a tab there is
+a route whose page is an `<iframe>` on Atlas. What stood in the way was Atlas itself:
+`X-Frame-Options: DENY` on every page.
+
+**Decision.** `ATLAS_FRAME_ANCESTORS` (env, empty by default) lists the origins that may frame
+Atlas; `core/framing.py::FrameAncestorsMiddleware` (listed right after `SecurityMiddleware`, so it
+runs *after* the clickjacking middleware on the response) drops the `DENY` header and sends
+`Content-Security-Policy: frame-ancestors 'self' <origins>` — only when the list is non-empty,
+never on a response marked `xframe_options_exempt`, never over an existing CSP. `parse_ancestors`
+keeps whole `http(s)://host[:port]` origins only (lower-cased, de-duplicated, capped at 20) and
+drops anything with a path, query, credentials, wildcard or other scheme — a wrong entry in a
+`frame-ancestors` list is a silent hole, so junk is dropped rather than guessed at. Diagnostics
+(page, API, MCP) says what is in effect. The OpenManus half — a page, a route, a sidebar button,
+`VITE_ATLAS_URL`, Atlas pinned to 8001 — is written against the verbatim `app.tsx` / compose file
+read today and shipped as `docs/integrations/openmanus.md`; that repository is outside this
+session's reach, so the patch is documented, not pushed, and the guide says so.
+
+**Why not** `X_FRAME_OPTIONS = "SAMEORIGIN"`: it cannot name another origin, and `localhost:3000`
+is a different origin from `localhost:8001`. **Why not** a reverse-proxy path (`/atlas/` under the
+OpenManus front end): the SPA, the media URLs and the API assume the root; a base-path build is a
+much larger change for the same tab. **Why not** `SESSION_COOKIE_SAMESITE=None` by default: same-site
+(`localhost` ↔ `localhost`) needs nothing, and `None` would also require HTTPS; documented for the
+cross-host case instead. **Verified live** with a stand-in host page on port 3000: the header on
+every route, the login inside the frame, one authenticated POST from inside the frame (session +
+CSRF cookie both reach it), the Diagnostics row; and, with the setting empty, the frame is blocked
+(`chrome-error://`). Owner idea #2's remaining line ("CSP if ever public-facing") is now partly
+answered: a CSP header exists, scoped to framing.
+
 ### 2026-09-15 — Audit #32 (#538): paths from the request get a length cap and an OSError guard in the service, not the view
 
 **Decision.** The every-ten-cycles look at everything since #528: dependencies clean, fourteen new routes gated, the feed fetcher's private-host guard holds on the typed address and on every redirect hop, every id and range bounded before the SQL on Postgres and on SQLite. Three findings, one shape: a 10 000-character path was an `OSError` (ENAMETOOLONG) out of `Path.is_dir()` on the projects-folder import and on the backup destination — the first two endpoints in Atlas that take a filesystem path from the API — and a `null` or an int in the import's `only` list was an `AttributeError`. Fixed in the service functions (`resolve_root`, `save_config`, `plan`) with a `MAX_PATH` of 4 096 and an `is_dir` wrapped for `OSError` / `ValueError`, plus a text coercion on `only`, so the MCP tools and the management commands share the guards; the view coerces too. Report in AUDITS.md › Audit #32. Next audit at #548.
@@ -2903,6 +2934,7 @@ Grid); a hand-written/ported C synctex parser (rejected per #28).
 
 ## Backlog
 
+336. The other direction — OpenManus (or any local web app) as a tab inside Atlas: an "Apps" page with an iframe per configured address (`ATLAS_EMBED_APPS=name=url,…`), rendered in the desktop web view too; the OpenManus dev server sends no framing header, so it needs nothing on its side (#539 guide §4).
 335. Notices, the sweep's re-check: a paper whose Crossref notice list changes (a correction after an expression of concern) is only re-read on the 30-day stale cycle; a "check now" from the detail pane already covers it, so nothing to build unless the cadence proves too slow (idea added by #537).
 334. Backup destination suggestions under WSL: `/mnt/c` and `/mnt/wsl` are offered as "Attached drive" though `/mnt/c` is the boot disk, and the Syncthing pattern (`Sync\b`) labels `/mnt/sync-backup` as Syncthing; neither changes the copy, only the chip (idea added by #536).
 333. Folder import, colliding names: two subfolders that slugify identically (`my_project` and `my-project`) both preview as new and the second merges into the first on import; the preview could flag the pair (idea added by #535).

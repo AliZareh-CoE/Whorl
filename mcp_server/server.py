@@ -1393,7 +1393,8 @@ def suggest_review_themes(project: str) -> dict:
 @mcp.tool()
 def get_diagnostics(network: bool = False) -> dict:
     """Why didn't it work? The same report as the app's Diagnostics page: version, platform,
-    data folder, database, LaTeX engine path, background-job mode, API-key state, the updater
+    data folder, database, LaTeX engine path, background-job mode, API-key state, which origins
+    may embed Atlas in a frame (`frame_ancestors`, from ATLAS_FRAME_ANCESTORS), the updater
     endpoints (probed only when network=true), the last failed compile's log and the tail of
     the desktop server log — plus a plain-text `text` field to paste into a bug report."""
     return client.get_diagnostics(network=network)

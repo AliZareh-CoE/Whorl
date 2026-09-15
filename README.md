@@ -363,4 +363,26 @@ the last failure; *Copy newest now* catches up after a drive comes back. The sam
 `ATLAS_SNAPSHOT_DIR` moves the folder (a second disk, a synced folder); `--keep N` changes the
 rotation; `GET/POST /api/v1/snapshots/` reads the status and takes one.
 
+## Atlas as a tab in another app
+
+Atlas refuses to be framed by default (`X-Frame-Options: DENY`). To show the whole app as a tab
+inside another web app — [OpenManus](https://github.com/muhammed-aksoy/OpenManus), a lab portal,
+a personal dashboard — name the origins that may:
+
+```
+ATLAS_FRAME_ANCESTORS=http://localhost:3000
+```
+
+Every page then answers with `Content-Security-Policy: frame-ancestors 'self' http://localhost:3000`
+instead: that tab may show Atlas, any other site still may not. Whole origins only
+(`scheme://host[:port]`, spaces or commas between several); anything else is dropped.
+Diagnostics says what is in effect ("Embeddable from"), and so do `GET /api/v1/diagnostics/`
+(`frame_ancestors`) and the `get_diagnostics` MCP tool. Use the same hostname on both sides
+(`localhost` in the host app's address bar and in the tab's Atlas address) so the login cookie
+reaches the frame and you sign in once. The full recipe for OpenManus — a page, a route, a
+sidebar button, `VITE_ATLAS_URL`, Atlas pinned to port 8001 — is in
+[`docs/integrations/openmanus.md`](docs/integrations/openmanus.md).
+
+![Atlas running as a tab inside a host app](docs/screenshots/atlas-in-a-tab.png)
+
 A project can also leave as a **Markdown vault** — `GET /api/v1/projects/{slug}/vault/` (or the overview menu / ⌘K "Export this project as a Markdown vault"): notes with their `[[links]]`, decisions, the plan outline, `references.bib`, research, protocols, manuscript sources and documents as a folder of files that opens in Obsidian or any editor.

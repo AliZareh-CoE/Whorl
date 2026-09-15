@@ -2,6 +2,8 @@ from pathlib import Path
 
 import environ
 
+from core.framing import parse_ancestors
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env(DEBUG=(bool, False))
@@ -36,6 +38,8 @@ INSTALLED_APPS = [
 ]
 
 X_FRAME_OPTIONS = "DENY"
+# Origins allowed to put Atlas in a frame (#539: Atlas as a tab in OpenManus). Empty = nobody.
+ATLAS_FRAME_ANCESTORS = parse_ancestors(env("ATLAS_FRAME_ANCESTORS", default=""))
 
 REST_FRAMEWORK = {
     # API key for MCP/scripts; session+CSRF for the same-origin SPA (Owner idea #20)
@@ -70,6 +74,7 @@ SPECTACULAR_SETTINGS = {
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.framing.FrameAncestorsMiddleware",  # #539: frame-ancestors when ATLAS_FRAME_ANCESTORS is set
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

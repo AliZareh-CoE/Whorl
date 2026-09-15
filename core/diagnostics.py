@@ -230,6 +230,7 @@ def collect(check_network: bool = False) -> dict:
         "latex": _latex_state(),
         "jobs": "in-process (immediate)" if settings.HUEY.get("immediate") else "worker (huey)",
         "api_key_configured": bool(settings.ATLAS_API_KEY),
+        "frame_ancestors": list(getattr(settings, "ATLAS_FRAME_ANCESTORS", []) or []),  # #539
         "update_feed": feed_rows,
         "update_verdict": update_verdict(feed_rows, version),  # #534
         "last_failed_compile": (
@@ -289,6 +290,8 @@ def as_text(report: dict) -> str:
         f"TeX bundle cache: {'warm' if report['latex']['warm'] else 'cold'} "
         f"({report['latex']['size_mb']} MB at {report['latex']['dir']}) · warm-up {report['latex']['state']}",
         f"jobs: {report['jobs']} · API key configured: {report['api_key_configured']}",
+        "embeddable from: "
+        + (", ".join(report.get("frame_ancestors") or []) or "nobody (X-Frame-Options DENY)"),
     ]
     for row in report["update_feed"]:
         answer = row["status"] if row["status"] is not None else "not checked"
