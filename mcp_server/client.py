@@ -289,6 +289,46 @@ def upgrade_preprint(reference_id: int, doi: str = ""):
     return _request("POST", f"/references/{reference_id}/upgrade/", json=payload)
 
 
+def get_new_citations(
+    project: str = "", reference_id: int = 0, dismissed: bool = False, limit: int = 50
+):
+    """The citation watch's feed (#530): papers outside the library that cite papers in it."""
+    params: dict = {"limit": max(1, min(int(limit or 50), 500))}
+    if project:
+        params["project"] = project
+    if reference_id:
+        params["reference"] = int(reference_id)
+    if dismissed:
+        params["dismissed"] = "1"
+    return _request("GET", "/references/new-citations/", params=params)
+
+
+def check_citations(reference_ids=None, days: int = 7, limit: int = 50):
+    """The citation watch (#530): POST /references/new-citations/check/ over chosen ids or the
+    stale papers; the answer carries the works first seen now and the watch's status."""
+    if reference_ids:
+        payload: dict = {"ids": [int(i) for i in reference_ids][:50]}
+    else:
+        payload = {
+            "stale": True,
+            "days": int(days or 7),
+            "limit": max(1, min(int(limit or 50), 50)),
+        }
+    return _request("POST", "/references/new-citations/check/", json=payload)
+
+
+def citation_watch_status():
+    return _request("GET", "/references/new-citations/check/")
+
+
+def dismiss_citations(work_ids, undo: bool = False):
+    """Mark feed rows seen (#530), or put them back with undo=True."""
+    payload: dict = {"ids": [int(i) for i in work_ids][:500]}
+    if undo:
+        payload["undo"] = True
+    return _request("POST", "/references/new-citations/dismiss/", json=payload)
+
+
 def get_reading_now(limit: int = 5):
     """Papers you are in the middle of — a remembered page, not at the end, newest first (#523)."""
     return _request("GET", "/references/reading-now/", params={"limit": limit})

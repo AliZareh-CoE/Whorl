@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, Pencil, ShieldAlert, ShieldCheck, ArrowUpCircle, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
+  Bookmark, BookOpen, Check, ChevronDown, Copy, CopyCheck, Download, Highlighter, LayoutGrid, LayoutList, Link2, Pencil, ShieldAlert, ShieldCheck, ArrowUpCircle, Radar, Quote, Tag as TagIcon, ExternalLink, FileDown, FileText, FolderPlus, Loader2, NotebookPen, Plus, Search, Sparkles, Telescope, Trash2, Upload, Wand2, X,
 } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
@@ -30,7 +30,7 @@ type Ref = {
   pdf_match: boolean | null; text_status: string;
   progress: Progress;
   retraction_kind: string; retraction_notice: string; retraction_date: string | null; retraction_checked_at: string | null;
-  preprint: boolean; published_doi: string; published_venue: string; published_checked_at: string | null;
+  preprint: boolean; published_doi: string; published_venue: string; published_checked_at: string | null; cited_by_checked_at: string | null;
   created_at: string;
 };
 type ReadingNote = { project_reference_id: number; project: string; project_name: string; reading_status: string; notes: string };
@@ -42,10 +42,13 @@ type Facets = {
   venues: { venue: string; count: number }[]; authors: { name: string; given: string; count: number }[]; projects: { slug: string; name: string; count: number }[];
   all_projects: { slug: string; name: string; color: string }[];
   untagged: number; tags: { id: number; name: string; color: string; count: number }[]; views: SavedView[];
-  duplicates: number;
+  duplicates: number; new_citations: number;
 };
 type DupMember = { id: number; title: string; year: number | null; doi: string | null; venue: string; bibtex_key: string; has_pdf: boolean; projects: string[]; tags: string[]; score: number };
 type DupGroup = { keep: number; reasons: string[]; members: DupMember[] };
+// #530: the citation watch's feed — a paper outside the library that cites papers in it
+type CitingRow = { id: number; openalex_id: string; doi: string; title: string; authors: string[]; year: number | null; published_on: string | null; venue: string; cited_by_count: number | null; cites: { id: number; bibtex_key: string; title: string }[]; first_seen_at: string; dismissed_at: string | null; addable: boolean; url: string };
+type CitingFeed = { count: number; results: CitingRow[]; status: { new: number; dismissed: number; watched: number; unchecked: number; last_checked_at: string | null } };
 type DiscoverRow = {
   openalex_id: string; doi: string; title: string; year: number | null; venue: string; authors: string[];
   more_authors: number; citations: number | null; in_library: boolean; library_id: number | null; addable: boolean;
@@ -181,6 +184,11 @@ export default function Library() {
   const [citeStyle, setCiteStyleState] = useState<string>(readStyle);
   const [viewName, setViewName] = useState<string | null>(null);
   const [dupMode, setDupMode] = useState(false);
+  // #530: the New citations feed (a mode like Duplicates), optionally narrowed to one paper
+  const [citeMode, setCiteMode] = useState(false);
+  const [citeRef, setCiteRef] = useState<number | null>(null);
+  const [showDismissed, setShowDismissed] = useState(false);
+  const openCiting = (ref: number | null) => { setCiteRef(ref); setShowDismissed(false); setDupMode(false); setCiteMode(true); };
   const [readerId, setReaderId] = useState<number | null>(null);
   // Cards view (#397, Observatory): the same rows as cover-style cards; remembered per browser
   const [view, setView] = useState<"list" | "cards">(() => { try { return localStorage.getItem("atlas-library-view") === "cards" ? "cards" : "list"; } catch { return "list"; } });
@@ -196,6 +204,11 @@ export default function Library() {
   const openReader = (r: Ref, find?: string) => { setReaderFind(find ?? (r.pdf_match && effective.q ? effective.q : "")); setDetailId(r.id); setReaderId(r.id); setHlProject((prev) => (r.projects.some((p) => p.slug === prev) ? prev : r.projects.length === 1 ? r.projects[0].slug : prev)); };
   const [keepChoice, setKeepChoice] = useState<Record<number, number>>({});
   const dups = useQuery({ queryKey: ["library-duplicates"], queryFn: () => api<{ groups: DupGroup[] }>("/references/duplicates/"), enabled: dupMode });
+  const citingFeed = useQuery({
+    queryKey: ["new-citations", showDismissed, citeRef, filters.project],
+    queryFn: () => api<CitingFeed>(`/references/new-citations/?limit=200${showDismissed ? "&dismissed=1" : ""}${citeRef ? `&reference=${citeRef}` : ""}${filters.project && !citeRef ? `&project=${encodeURIComponent(filters.project)}` : ""}`),
+    enabled: citeMode,
+  });
   const highlights = useQuery({ queryKey: ["highlights", detailId], queryFn: () => api<Page<Highlight>>(`/highlights/?reference=${detailId}&page_size=200`).then((p) => p.results), enabled: detailId !== null });
   const readingNotes = useQuery({ queryKey: ["reading-notes", detailId], queryFn: () => api<ReadingNote[]>(`/references/${detailId}/reading-notes/`), enabled: detailId !== null });
   const addHighlight = useMutation({
@@ -405,6 +418,28 @@ export default function Library() {
       flash(`Checked ${out.checked} preprint${out.checked === 1 ? "" : "s"} · ${out.published.length} with a published version${out.errors ? ` · ${out.errors} could not be checked` : ""}.`);
     },
     onError: () => flash("Could not reach arXiv or Semantic Scholar."),
+  });
+  // #530: the citation watch — ask OpenAlex now, add a citing paper by its DOI, mark rows seen
+  const refreshCiting = () => { queryClient.invalidateQueries({ queryKey: ["new-citations"] }); queryClient.invalidateQueries({ queryKey: ["new-citations-of"] }); queryClient.invalidateQueries({ queryKey: ["library-facets"] }); };
+  const checkCitations = useMutation({
+    mutationFn: (ids: number[] | null) => api<{ checked: number; new: CitingRow[]; seen: number; errors: number; skipped: number; stopped: boolean }>("/references/new-citations/check/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ids ? { ids } : { stale: true, limit: 50 }) }),
+    onSuccess: (out, ids) => {
+      invalidate(); refreshCiting();
+      if (!ids && out.checked === 0 && out.errors === 0) { flash("Every paper was checked in the last 7 days."); return; }
+      if (out.checked === 0 && out.errors > 0) { flash("OpenAlex did not answer (offline, or its daily budget is spent) — the stored feed is unchanged."); return; }
+      flash(`Checked ${out.checked} paper${out.checked === 1 ? "" : "s"} · ${out.new.length} new citing paper${out.new.length === 1 ? "" : "s"}${out.errors ? ` · ${out.errors} could not be checked` : ""}.`);
+    },
+    onError: () => flash("Could not reach OpenAlex."),
+  });
+  const dismissCiting = useMutation({
+    mutationFn: ({ ids, undo }: { ids: number[]; undo?: boolean }) => api<{ changed: number }>("/references/new-citations/dismiss/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(undo ? { ids, undo: true } : { ids }) }),
+    onSuccess: (out, { undo }) => { refreshCiting(); flash(undo ? `Put ${out.changed} back in the feed.` : `Marked ${out.changed} as seen.`); },
+    onError: () => flash("Could not update the feed."),
+  });
+  const addCiting = useMutation({
+    mutationFn: (row: CitingRow) => api<Ref>("/references/by-doi/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(filters.project ? { doi: row.doi, project: filters.project } : { doi: row.doi }) }),
+    onSuccess: (r) => { invalidate(); refreshCiting(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); },
+    onError: () => flash("Could not add the paper — its DOI did not resolve."),
   });
   const upgradePreprint = useMutation({
     mutationFn: (id: number) => api<Ref & { upgrade: { metadata: string } }>(`/references/${id}/upgrade/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }),
@@ -698,6 +733,8 @@ export default function Library() {
                 <button type="button" data-testid="rail-published" className={chip(filters.published_available === "true")} onClick={() => toggle("published_available", "true")} title="Preprints whose published version the preprint watch found — upgrade them from the detail pane"><span className="flex items-center gap-1.5"><ArrowUpCircle className={`h-3 w-3 ${f.published_available ? "text-amber-500" : ""}`} aria-hidden="true" />Published version</span><span className={`tabular-nums ${f.published_available ? "font-semibold text-amber-500" : "text-stone-400"}`}>{f.published_available}</span></button>
                 <button type="button" data-testid="check-preprints" disabled={checkPreprints.isPending} onClick={() => checkPreprints.mutate(null)} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-60 dark:hover:bg-stone-800 dark:hover:text-stone-200" title="Ask arXiv and Semantic Scholar about the preprints not checked in the last 30 days (up to 50 now; the rest run nightly)">{checkPreprints.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <ArrowUpCircle className="h-3 w-3" aria-hidden="true" />}{checkPreprints.isPending ? "Asking arXiv…" : "Check preprints now"}</button>
                 <button type="button" className={chip(dupMode)} onClick={() => setDupMode((v) => !v)} title="Papers that look like the same work imported twice"><span className="flex items-center gap-1.5"><CopyCheck className="h-3 w-3" aria-hidden="true" />Duplicates</span><span className={`tabular-nums ${f.duplicates ? "text-amber-500" : "text-stone-400"}`}>{f.duplicates}</span></button>
+                <button type="button" data-testid="rail-new-citations" className={chip(citeMode)} onClick={() => (citeMode ? setCiteMode(false) : openCiting(null))} title="Papers outside the library that cite papers in it — found by the weekly OpenAlex sweep"><span className="flex items-center gap-1.5"><Radar className={`h-3 w-3 ${f.new_citations ? "text-sky-500" : ""}`} aria-hidden="true" />New citations</span><span className={`tabular-nums ${f.new_citations ? "font-semibold text-sky-500" : "text-stone-400"}`}>{f.new_citations}</span></button>
+                <button type="button" data-testid="check-citations" disabled={checkCitations.isPending} onClick={() => checkCitations.mutate(null)} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-60 dark:hover:bg-stone-800 dark:hover:text-stone-200" title="Ask OpenAlex who newly cites the papers not checked in the last 7 days (up to 50 now; the rest run nightly)">{checkCitations.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Radar className="h-3 w-3" aria-hidden="true" />}{checkCitations.isPending ? "Asking OpenAlex…" : "Check citations now"}</button>
               </div>
               <div className="mb-3">
                 <p className={railH}>Type</p>
@@ -748,6 +785,55 @@ export default function Library() {
             comments={(readerComments.data?.comments ?? []).map((c) => ({ id: c.id, body: c.body, page: c.line }))}
             onComment={(page) => void commentOnPage(page)}
           />
+        ) : citeMode ? (
+          <section className={`${panel} rise flex min-h-[60vh] flex-col overflow-hidden`} style={{ ["--i" as string]: 1 }} data-testid="citing-panel">
+            <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 px-4 py-2.5 text-xs dark:border-stone-800">
+              <Radar className="h-3.5 w-3.5 text-sky-500" aria-hidden="true" />
+              <span className="font-medium text-stone-700 dark:text-stone-100">{showDismissed ? "Seen citations" : "New citations"}</span>
+              {citeRef && citingFeed.data?.results[0]?.cites.find((c) => c.id === citeRef) ? (
+                <button type="button" onClick={() => setCiteRef(null)} className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-700 dark:text-sky-200" title="Show the whole feed">citing <span className="font-mono">{citingFeed.data.results[0].cites.find((c) => c.id === citeRef)!.bibtex_key}</span> <X className="h-3 w-3" aria-hidden="true" /></button>
+              ) : citeRef ? (
+                <button type="button" onClick={() => setCiteRef(null)} className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-700 dark:text-sky-200">one paper <X className="h-3 w-3" aria-hidden="true" /></button>
+              ) : null}
+              <span className="text-stone-400">papers outside your library that cite papers in it · newest first{citingFeed.data?.status.last_checked_at ? ` · swept ${new Date(citingFeed.data.status.last_checked_at).toLocaleDateString()}` : ""}</span>
+              <div className="ml-auto flex items-center gap-2">
+                <button type="button" data-testid="citing-toggle-dismissed" onClick={() => setShowDismissed((v) => !v)} className="text-stone-400 hover:underline">{showDismissed ? "back to new" : `seen${citingFeed.data ? ` (${citingFeed.data.status.dismissed})` : ""}`}</button>
+                {!showDismissed && (citingFeed.data?.results.length ?? 0) > 1 && <button type="button" data-testid="citing-dismiss-all" disabled={dismissCiting.isPending} onClick={() => dismissCiting.mutate({ ids: citingFeed.data!.results.map((r) => r.id) })} className="text-stone-400 hover:underline disabled:opacity-50">mark all seen</button>}
+                <button type="button" disabled={checkCitations.isPending} onClick={() => checkCitations.mutate(null)} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-0.5 text-stone-600 hover:border-sky-400 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300">{checkCitations.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Radar className="h-3 w-3" aria-hidden="true" />}Check now</button>
+                <button type="button" onClick={() => setCiteMode(false)} className="text-stone-400 hover:underline">back to the list</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {citingFeed.isLoading && <p className="p-4 text-sm text-stone-400">Reading the feed…</p>}
+              {citingFeed.data && citingFeed.data.results.length === 0 && (
+                <div className="px-4 py-16 text-center">
+                  <Radar className="mx-auto mb-2 h-6 w-6 text-sky-400" aria-hidden="true" />
+                  <p className="text-sm font-medium text-stone-700 dark:text-stone-100">{showDismissed ? "Nothing marked seen yet." : citeRef ? "No new paper cites this one." : "No new citations."}</p>
+                  <p className="mt-1 text-xs text-stone-400">{citingFeed.data.status.watched === 0 ? "Papers with a DOI or an OpenAlex id are watched; this library has none yet." : citingFeed.data.status.unchecked > 0 ? `${citingFeed.data.status.unchecked} paper${citingFeed.data.status.unchecked === 1 ? "" : "s"} not asked about yet — Check now asks OpenAlex.` : "The sweep asks OpenAlex weekly which new papers cite yours; anything it finds lands here."}</p>
+                </div>
+              )}
+              <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+                {citingFeed.data?.results.map((row, i) => (
+                  <li key={row.id} data-testid="citing-row" className="rise flex flex-wrap items-start gap-3 px-4 py-3 sm:flex-nowrap" style={{ ["--i" as string]: Math.min(i, 12) }}>
+                    <div className="min-w-0 flex-1">
+                      <a href={row.url} target="_blank" rel="noreferrer" className="text-sm text-stone-900 hover:underline dark:text-stone-100">{row.title}</a>
+                      <p className="mt-0.5 text-[11px] text-stone-400">{[row.authors.slice(0, 3).join(", ") + (row.authors.length > 3 ? ` +${row.authors.length - 3}` : ""), row.venue, row.year, row.published_on ? `published ${new Date(row.published_on).toLocaleDateString()}` : null, row.cited_by_count ? `${row.cited_by_count} citation${row.cited_by_count === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")}</p>
+                      <p className="mt-1 flex flex-wrap items-center gap-1 text-[10px]">
+                        <span className="text-stone-400">cites</span>
+                        {row.cites.map((c) => <button key={c.id} type="button" data-testid="citing-cites" onClick={() => { setCiteMode(false); setDetailId(c.id); }} title={c.title} className="rounded-full bg-sky-500/10 px-1.5 py-0.5 font-mono text-sky-700 hover:bg-sky-500/20 dark:text-sky-200">{c.bibtex_key}</button>)}
+                        <span className="ml-1 text-stone-400">· seen {new Date(row.first_seen_at).toLocaleDateString()}</span>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1 text-[11px]">
+                      {row.addable && !showDismissed && <button type="button" data-testid="citing-add" disabled={addCiting.isPending} onClick={() => addCiting.mutate(row)} className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 font-medium text-white hover:bg-indigo-700 disabled:opacity-50" title={filters.project ? "Add to the library and this project" : "Add to the library"}><Plus className="h-3 w-3" aria-hidden="true" />Add</button>}
+                      {!row.addable && !showDismissed && <span className="rounded-md border border-stone-200 px-2 py-1 text-stone-400 dark:border-stone-700" title="No DOI — open it to judge, add by hand if it matters">no DOI</span>}
+                      <button type="button" data-testid="citing-dismiss" disabled={dismissCiting.isPending} onClick={() => dismissCiting.mutate({ ids: [row.id], undo: showDismissed })} className="rounded-md border border-stone-300 px-2 py-1 text-stone-500 hover:border-stone-400 hover:text-stone-700 disabled:opacity-50 dark:border-stone-700 dark:text-stone-300">{showDismissed ? "Restore" : "Dismiss"}</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
         ) : dupMode ? (
           <section className={`${panel} rise flex min-h-[60vh] flex-col overflow-hidden`} style={{ ["--i" as string]: 1 }}>
             <div className="flex items-center gap-2 border-b border-stone-100 px-4 py-2.5 text-xs dark:border-stone-800">
@@ -921,7 +1007,7 @@ export default function Library() {
               Select a paper to see its abstract, links, and related work.
             </div>
           ) : (
-            <DetailPane r={detail} onAuthor={(family) => toggle("author", family)} authorFilter={filters.author} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} onCheckRetraction={() => checkRetractions.mutate([detail.id])} checkingRetraction={checkRetractions.isPending} onCheckPreprint={() => checkPreprints.mutate([detail.id])} checkingPreprint={checkPreprints.isPending} onUpgrade={() => upgradePreprint.mutate(detail.id)} upgrading={upgradePreprint.isPending} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} onLitNote={(project) => litNote.mutate({ reference: detail.id, project })} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} tagColors={tagColors} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
+            <DetailPane r={detail} onAuthor={(family) => toggle("author", family)} authorFilter={filters.author} onFindMeta={() => findMeta.mutate(detail.id)} finding={findMeta.isPending} onCheckRetraction={() => checkRetractions.mutate([detail.id])} checkingRetraction={checkRetractions.isPending} onCheckPreprint={() => checkPreprints.mutate([detail.id])} checkingPreprint={checkPreprints.isPending} onUpgrade={() => upgradePreprint.mutate(detail.id)} upgrading={upgradePreprint.isPending} onShowCiting={() => openCiting(detail.id)} highlights={highlights.data ?? []} readingNotes={readingNotes.data ?? []} reading={readerId === detail.id} onRead={() => openReader(detail)} onJump={(page) => { openReader(detail); setJump({ page, nonce: Date.now() }); }} onEditHighlight={(id, patch) => editHighlight.mutate({ id, ...patch })} onRemoveHighlight={(id) => removeHighlight.mutate(id)} onSaveNotes={(id, notes) => saveNotes.mutate({ id, notes })} onFetchPdf={() => fetchPdf.mutate(detail.id)} fetchingPdf={fetchPdf.isPending} q={effective.q} onFind={(page, term) => { openReader(detail, term); setJump({ page, nonce: Date.now() }); }} onIndexText={() => indexText.mutate(detail.id)} onLitNote={(project) => litNote.mutate({ reference: detail.id, project })} projects={f?.all_projects ?? []} onLink={(slug) => bulk.mutate({ ids: [detail.id], action: "link", project: slug })} citeStyle={citeStyle} onStyle={setCiteStyle} onCopied={flash} allTags={f?.tags.map((t) => t.name) ?? []} tagColors={tagColors} onTag={(tag, remove) => bulk.mutate({ ids: [detail.id], action: remove ? "untag" : "tag", value: tag })} currentProject={filters.project} onAdded={(r) => { invalidate(); petReact("paper"); flash(`Added “${r.title.slice(0, 60)}” to the library${filters.project ? " and this project" : ""}.`); }} />
           )}
         </aside>
       </div>
@@ -931,7 +1017,7 @@ export default function Library() {
   );
 }
 
-function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRetraction, checkingRetraction, onCheckPreprint, checkingPreprint, onUpgrade, upgrading, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, tagColors, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText, onLitNote }: { r: Ref; onAuthor: (family: string) => void; authorFilter: string; allTags: string[]; tagColors: TagColors; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; onCheckRetraction: () => void; checkingRetraction: boolean; onCheckPreprint: () => void; checkingPreprint: boolean; onUpgrade: () => void; upgrading: boolean; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; onLitNote: (project: string) => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
+function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRetraction, checkingRetraction, onCheckPreprint, checkingPreprint, onUpgrade, upgrading, onShowCiting, projects, onLink, currentProject, onAdded, citeStyle, onStyle, onCopied, allTags, tagColors, onTag, highlights, readingNotes, reading, onRead, onJump, onEditHighlight, onRemoveHighlight, onSaveNotes, onFetchPdf, fetchingPdf, q, onFind, onIndexText, onLitNote }: { r: Ref; onAuthor: (family: string) => void; authorFilter: string; allTags: string[]; tagColors: TagColors; onTag: (tag: string, remove: boolean) => void; onFindMeta: () => void; finding: boolean; onCheckRetraction: () => void; checkingRetraction: boolean; onCheckPreprint: () => void; checkingPreprint: boolean; onUpgrade: () => void; upgrading: boolean; onShowCiting: () => void; highlights: Highlight[]; readingNotes: ReadingNote[]; reading: boolean; onRead: () => void; onJump: (page: number) => void; onEditHighlight: (id: number, patch: { comment?: string; color?: string }) => void; onRemoveHighlight: (id: number) => void; onSaveNotes: (id: number, notes: string) => void; onFetchPdf: () => void; fetchingPdf: boolean; q: string; onFind: (page: number, term: string) => void; onIndexText: () => void; onLitNote: (project: string) => void; projects: { slug: string; name: string; color: string }[]; onLink: (slug: string) => void; currentProject: string; onAdded: (r: Ref) => void; citeStyle: string; onStyle: (s: string) => void; onCopied: (msg: string) => void }) {
   const [full, setFull] = useState(false);
   const [newTag, setNewTag] = useState("");
   const citation = useQuery({ queryKey: ["cite", r.id, citeStyle], queryFn: () => api<Citation>(`/references/${r.id}/cite/?style=${citeStyle}`), staleTime: 5 * 60_000 });
@@ -991,6 +1077,7 @@ function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRet
       {r.preprint && !r.published_doi && (
         <p className="mt-2 flex items-center gap-1.5 text-[11px] text-stone-400" data-testid="preprint-line"><FileText className="h-3 w-3" aria-hidden="true" />{r.published_checked_at ? `Preprint · no published version found · checked ${new Date(r.published_checked_at).toLocaleDateString()}` : "Preprint · published version not checked yet"} · <button type="button" onClick={onCheckPreprint} disabled={checkingPreprint} className="underline disabled:opacity-50">{checkingPreprint ? "asking…" : "check"}</button></p>
       )}
+      <CitingLine r={r} onShow={onShowCiting} />
       {needs && (
         <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
           This paper came from a PDF without a readable DOI. <button type="button" onClick={onFindMeta} disabled={finding} className="ml-1 inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-2 py-0.5 font-medium hover:bg-amber-500/30 disabled:opacity-50"><Wand2 className="h-3 w-3" aria-hidden="true" />{finding ? "Searching…" : "Find metadata"}</button>
@@ -1133,6 +1220,19 @@ function TldrBlock({ r, onJump, onIndexText }: { r: Ref; onJump: (page: number) 
         </ol>
       )}
     </div>
+  );
+}
+
+/** #530: how many new papers cite this one (the watch's stored feed), with a way into it. */
+function CitingLine({ r, onShow }: { r: Ref; onShow: () => void }) {
+  const feed = useQuery({ queryKey: ["new-citations-of", r.id], queryFn: () => api<CitingFeed>(`/references/new-citations/?reference=${r.id}&limit=1`), staleTime: 60_000 });
+  const n = feed.data?.count ?? 0;
+  if (!feed.data) return null;
+  return (
+    <p className="mt-2 flex items-center gap-1.5 text-[11px] text-stone-400" data-testid="citing-line">
+      <Radar className={`h-3 w-3 ${n ? "text-sky-500" : ""}`} aria-hidden="true" />
+      {n ? <button type="button" onClick={onShow} className="text-sky-700 hover:underline dark:text-sky-200">{n} new paper{n === 1 ? "" : "s"} cite{n === 1 ? "s" : ""} this — see them</button> : r.cited_by_checked_at ? `No new citing paper · checked ${new Date(r.cited_by_checked_at).toLocaleDateString()}` : "New citations not checked yet"}
+    </p>
   );
 }
 

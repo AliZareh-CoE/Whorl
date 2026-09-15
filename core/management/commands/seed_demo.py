@@ -562,6 +562,46 @@ class Command(BaseCommand):
             reference=preprint_ref,
             defaults={"reading_status": ProjectReference.ReadingStatus.TO_READ},
         )
+        # #530: the citation watch — two papers outside the library that cite demo papers,
+        # as the weekly OpenAlex sweep would have stored them (the rail's New citations row, the
+        # feed with "cites lavie2010attention", Add by DOI / Dismiss); every demo paper carries
+        # a checked stamp so a fresh desktop launch asks OpenAlex nothing.
+        from literature.models import CitingWork
+
+        lavie = Reference.objects.filter(bibtex_key="lavie2010attention").first()
+        cited_two = [r for r in corpus_refs if r.year and r.year >= 2015][:1]
+        for spec in (
+            {
+                "openalex_id": "W4400000001",
+                "doi": "10.1038/s41562-024-01917-5",
+                "title": "Perceptual load shapes distractor suppression across the lifespan",
+                "authors": ["Noor Haddad", "Elin Bergström", "Tomás Ferreira"],
+                "year": 2026,
+                "published_on": datetime.date.today() - datetime.timedelta(days=12),
+                "venue": "Nature Human Behaviour",
+                "cited_by_count": 3,
+                "cites": [r for r in (lavie,) if r] + cited_two,
+            },
+            {
+                "openalex_id": "W4400000002",
+                "doi": "",
+                "title": "A preregistered replication of the perceptual load effect in online samples",
+                "authors": ["Priya Raman", "Jonas Keller"],
+                "year": 2026,
+                "published_on": datetime.date.today() - datetime.timedelta(days=30),
+                "venue": "PsyArXiv",
+                "cited_by_count": 0,
+                "cites": [r for r in (lavie,) if r],
+            },
+        ):
+            cites = spec.pop("cites")
+            work, _ = CitingWork.objects.update_or_create(
+                openalex_id=spec["openalex_id"], defaults={**spec, "dismissed_at": None}
+            )
+            work.cites.set(cites)
+        for ref in Reference.objects.filter(cited_by_checked_at__isnull=True):
+            ref.cited_by_checked_at = timezone.now()
+            ref.save(update_fields=["cited_by_checked_at", "updated_at"])
         for i, citing in enumerate(corpus_refs):
             for j in {(i * 7 + 1) % i if i else None, (i * 3 + 2) % i if i else None}:
                 if j is not None and j < i:

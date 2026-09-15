@@ -276,6 +276,42 @@ def upgrade_preprint(reference_id: int, doi: str = "") -> dict:
 
 
 @mcp.tool()
+def get_new_citations(
+    project: str = "", reference_id: int = 0, dismissed: bool = False, limit: int = 50
+) -> dict:
+    """The citation watch's feed (#530): papers outside the library that cite papers in it,
+    found by the weekly OpenAlex sweep, newest publication first — the "who cited my papers this
+    month" alert a Scholar / ResearchRabbit user gets by e-mail, with `cites` [{id, bibtex_key,
+    title}] naming which library papers each one cites. Narrow with `project` (slug) or
+    `reference_id` (one paper); `dismissed=True` lists the ones marked seen. Rows carry title,
+    authors, year, published_on, venue, cited_by_count, doi, url and `addable` (has a DOI) —
+    add one with add_reference_by_doi (it leaves the feed by itself), mark the rest seen with
+    dismiss_citations. `status` {new, dismissed, watched, unchecked, last_checked_at} says how
+    fresh the feed is; call check_citations when the user wants it fresher."""
+    return client.get_new_citations(project, reference_id, dismissed, limit)
+
+
+@mcp.tool()
+def check_citations(reference_ids: list[int] | None = None, days: int = 7, limit: int = 50) -> dict:
+    """The citation watch (#530). Asks OpenAlex who newly cites the library's papers and stores
+    the answers, so get_new_citations and the Library's "New citations" feed show them. With
+    `reference_ids` (≤ 50): those papers. Without: the stale ones — never checked or checked more
+    than `days` ago (default 7), up to `limit` (≤ 50; the daily sweep does the rest). Returns
+    `checked`, `new` (feed rows first seen now), `seen` (met again), `errors` (OpenAlex offline or
+    over its daily list budget — nothing is stamped, the stored feed stays), `skipped` (no DOI or
+    OpenAlex id, or a DOI OpenAlex does not know) and `status`. One request per 50 papers; a first check looks a year back."""
+    return client.check_citations(reference_ids, days, limit)
+
+
+@mcp.tool()
+def dismiss_citations(work_ids: list[int], undo: bool = False) -> dict:
+    """Mark rows of the citation feed as seen (#530) — they leave get_new_citations and the
+    Library's New citations list for the dismissed list; `undo=True` puts them back. `work_ids`
+    are feed row ids (≤ 500). Returns `changed` and the watch's status."""
+    return client.dismiss_citations(work_ids, undo)
+
+
+@mcp.tool()
 def get_reading_progress(reference_id: int = 0, limit: int = 5) -> dict | list:
     """Reading progress (#523). With a `reference_id`: where the reader left off in that paper —
     `page`, `pages`, `percent`, `last_read_at` and `links` [{project, reading_status,

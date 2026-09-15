@@ -175,6 +175,7 @@ def author_facet(qs: QuerySet, limit: int = 12) -> list[dict]:
 
 
 def facets(qs: QuerySet) -> dict:
+    from .citing import open_alerts
     from .preprints import preprints, published_available
 
     """Counts that drive the left rail — computed on the *unfiltered* base so the rail always
@@ -233,6 +234,8 @@ def facets(qs: QuerySet) -> dict:
         "unfiled": qs.filter(project_links__isnull=True).count(),
         "untagged": qs.filter(tags__isnull=True).count(),
         "duplicates": sum(len(g["members"]) for g in duplicate_groups(qs)),
+        # #530: open citation alerts on the papers of this view (the rail's New citations row)
+        "new_citations": open_alerts().filter(cites__in=qs).distinct().count(),
         "tags": tags,
         "views": list(
             SavedView.objects.order_by("position", "id").values("id", "name", "params", "position")

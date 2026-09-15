@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     CitationEdge,
+    CitingWork,
     Highlight,
     LibraryTag,
     ProjectReference,
@@ -74,3 +75,19 @@ class ReferenceTextAdmin(admin.ModelAdmin):
     list_display = ("reference", "page_count", "char_count", "error", "extracted_at")
     search_fields = ("reference__title", "body")
     raw_id_fields = ("reference",)
+
+
+@admin.register(CitingWork)
+class CitingWorkAdmin(admin.ModelAdmin):
+    list_display = [
+        "openalex_id",
+        "title",
+        "year",
+        "published_on",
+        "venue",
+        "reference",
+        "dismissed_at",
+    ]
+    search_fields = ["title", "doi", "openalex_id"]
+    list_filter = ["year"]
+    raw_id_fields = ["cites", "reference"]

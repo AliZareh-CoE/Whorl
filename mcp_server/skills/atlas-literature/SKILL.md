@@ -30,6 +30,10 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
   submission; the answers are stored, so `browse_library(published_available=True)` lists them
   and `upgrade_preprint(reference_id)` makes one cite its published version — the cite key stays,
   so the manuscript needs no edit.
+- `get_new_citations` when asked "who has cited my papers lately?" or "anything new citing
+  Lavie?" — the feed is stored by the daily OpenAlex sweep; `check_citations` when the user wants
+  it fresher (one request per 50 papers); `add_reference_by_doi` for a row worth keeping,
+  `dismiss_citations` for the rest.
 - `browse_library` for "what do I have by X?", "unread papers tagged Y", "papers with no PDF" —
   every filter the Library rail offers (author, q, year range, venue, tag, project + status,
   has_pdf, untagged / unfiled / needs_metadata, sort); rows are compact and carry `progress`,

@@ -17,3 +17,17 @@ def index_pdf_text(sender, instance: Reference, **kwargs):
         from .models import ReferenceText
 
         ReferenceText.objects.filter(reference=instance).delete()
+
+
+@receiver(post_save, sender=Reference)
+def link_citing_works(sender, instance: Reference, created=False, update_fields=None, **kwargs):
+    """#530: a paper that joins the library (or gains a DOI / OpenAlex id) stops being a
+    "new citation" alert — the citing work that is this paper gets linked to it. A save that
+    names other fields (a reading position, a watch stamp) cannot change identity: no query."""
+    if update_fields is not None and not created:
+        if not set(update_fields) & {"doi", "openalex_id"}:
+            return
+    if instance.doi or instance.openalex_id:
+        from .citing import link_reference
+
+        link_reference(instance)

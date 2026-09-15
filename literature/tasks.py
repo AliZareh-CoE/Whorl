@@ -43,3 +43,11 @@ def check_preprints_task():
     from .preprints import check_stale
 
     return check_stale()
+
+
+@db_periodic_task(crontab(hour=5, minute=0))
+def check_citations_task():
+    """#530: the daily citation sweep — papers not asked about for seven days, against OpenAlex."""
+    from .citing import check_stale
+
+    return check_stale()

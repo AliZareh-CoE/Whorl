@@ -212,6 +212,15 @@ def start_scheduler(directory: Path | None = None) -> bool:
                     log.exception("preprint sweep failed")
                 finally:
                     close_old_connections()
+                try:
+                    # #530: the citation watch sweeps from the same thread, same rules.
+                    from literature.citing import check_stale as check_stale_citations
+
+                    check_stale_citations()
+                except Exception:  # noqa: BLE001
+                    log.exception("citation sweep failed")
+                finally:
+                    close_old_connections()
                 wait = CHECK_EVERY_SECONDS
 
         _THREAD = threading.Thread(target=loop, name="atlas-snapshots", daemon=True)

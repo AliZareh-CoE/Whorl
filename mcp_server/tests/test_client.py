@@ -805,6 +805,32 @@ def test_check_preprints_client_calls(capture):
     assert json.loads(capture["body"]) == {"doi": "10.1/named"}
 
 
+def test_citation_watch_client_calls(capture):
+    """#530: the citation watch — the feed with its filters, the check (ids or stale), dismiss."""
+    capture["response"] = {"count": 0, "results": [], "status": {"new": 0}}
+    client.get_new_citations()
+    assert capture["method"] == "GET" and calls_url_has(capture, "/references/new-citations/")
+    assert calls_url_has(capture, "limit=50") and not calls_url_has(capture, "project=")
+    client.get_new_citations(project="p", reference_id=4, dismissed=True, limit=9000)
+    for part in ("project=p", "reference=4", "dismissed=1", "limit=500"):
+        assert calls_url_has(capture, part), part
+    capture["response"] = {"checked": 1, "new": [], "seen": 0, "errors": 0, "skipped": 0}
+    client.check_citations([3, 4])
+    assert capture["method"] == "POST" and calls_url_has(
+        capture, "/references/new-citations/check/"
+    )
+    assert json.loads(capture["body"]) == {"ids": [3, 4]}
+    client.check_citations(None, days=3, limit=500)
+    assert json.loads(capture["body"]) == {"stale": True, "days": 3, "limit": 50}
+    assert client.citation_watch_status()["checked"] == 1 and capture["method"] == "GET"
+    capture["response"] = {"changed": 2, "status": {"new": 0}}
+    client.dismiss_citations([7, 8])
+    assert calls_url_has(capture, "/references/new-citations/dismiss/")
+    assert json.loads(capture["body"]) == {"ids": [7, 8]}
+    client.dismiss_citations([7], undo=True)
+    assert json.loads(capture["body"]) == {"ids": [7], "undo": True}
+
+
 def test_library_row_carries_the_published_version():
     row = client._library_row(
         {

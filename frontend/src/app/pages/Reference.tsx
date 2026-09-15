@@ -65,6 +65,36 @@ function PublishedBanner({ r }: { r: Ref }) {
   );
 }
 
+/** #530: the citation watch — new papers that cite this one, from the stored feed. */
+type CitingRow = { id: number; doi: string; title: string; authors: string[]; year: number | null; published_on: string | null; venue: string; cites: { id: number; bibtex_key: string }[]; addable: boolean; url: string };
+function CitingSection({ id }: { id: number }) {
+  const queryClient = useQueryClient();
+  const feed = useQuery({ queryKey: ["new-citations-of", id], queryFn: () => api<{ count: number; results: CitingRow[] }>(`/references/new-citations/?reference=${id}&limit=20`) });
+  const dismiss = useMutation({
+    mutationFn: (rowId: number) => api(`/references/new-citations/dismiss/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: [rowId] }) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["new-citations-of", id] }); queryClient.invalidateQueries({ queryKey: ["new-citations"] }); },
+    onError: (e) => void errorDialog("Couldn't update the feed", e),
+  });
+  if (!feed.data || feed.data.count === 0) return null;
+  return (
+    <section className="mb-4 rounded border border-sky-300 bg-sky-50 p-4 dark:border-sky-500/40 dark:bg-sky-500/10" data-testid="citing-section">
+      <p className="text-sm font-semibold text-sky-800 dark:text-sky-100">{feed.data.count} new paper{feed.data.count === 1 ? "" : "s"} cite{feed.data.count === 1 ? "s" : ""} this one.</p>
+      <ul className="mt-2 space-y-1.5">
+        {feed.data.results.map((row) => (
+          <li key={row.id} className="flex flex-wrap items-start gap-2 text-xs sm:flex-nowrap">
+            <div className="min-w-0 flex-1">
+              <a href={row.url} target="_blank" rel="noreferrer" className="text-sky-900 hover:underline dark:text-sky-50">{row.title}</a>
+              <p className="truncate text-[11px] text-sky-800/70 dark:text-sky-100/70">{[row.authors.slice(0, 3).join(", "), row.venue, row.year].filter(Boolean).join(" · ")}</p>
+            </div>
+            <button type="button" onClick={() => dismiss.mutate(row.id)} disabled={dismiss.isPending} className="shrink-0 rounded border border-sky-300 px-2 py-0.5 text-[11px] text-sky-800 hover:bg-sky-100 disabled:opacity-50 dark:border-sky-500/40 dark:text-sky-100 dark:hover:bg-sky-500/20">Seen</button>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11px] text-sky-800/70 dark:text-sky-100/70">Add one from the <Link to="/library" className="underline">Library</Link>'s New citations feed, where it can be filed into a project.</p>
+    </section>
+  );
+}
+
 /** CRUD sweep 2026-09-06: every metadata field is editable in place; delete removes the
  * paper from the library (and every project) after a confirm. */
 function EditReference({ r, onClose }: { r: Ref; onClose: () => void }) {
@@ -253,6 +283,7 @@ export default function Reference() {
         </section>
       )}
       {ref.published_doi && <PublishedBanner r={ref} />}
+      <CitingSection id={ref.id} />
       {ref.abstract && (
         <section className="mb-4 rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
           <div className="mb-3 flex flex-wrap items-center gap-2">

@@ -405,6 +405,7 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "published_doi",
             "published_venue",
             "published_checked_at",
+            "cited_by_checked_at",
             "created_at",
             "updated_at",
         ]
@@ -421,6 +422,7 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "published_doi",
             "published_venue",
             "published_checked_at",
+            "cited_by_checked_at",
         ]
 
     def create(self, validated_data):

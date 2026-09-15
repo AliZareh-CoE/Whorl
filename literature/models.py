@@ -82,6 +82,8 @@ class Reference(TimeStampedModel):
     published_doi = models.CharField(max_length=255, blank=True, default="")
     published_venue = models.CharField(max_length=300, blank=True, default="")
     published_checked_at = models.DateTimeField(null=True, blank=True)
+    # #530: the citation watch — when OpenAlex was last asked who newly cites this paper.
+    cited_by_checked_at = models.DateTimeField(null=True, blank=True)
     tags = models.ManyToManyField(LibraryTag, blank=True, related_name="references")
 
     class Meta:
@@ -185,6 +187,40 @@ class CitationEdge(models.Model):
 
     def __str__(self):
         return f"{self.citing.bibtex_key} → {self.cited.bibtex_key}"
+
+
+class CitingWork(TimeStampedModel):
+    """A paper outside the library that cites one of its papers (#530, the citation watch).
+
+    Found by the sweep on OpenAlex, deduplicated by OpenAlex id; `created_at` is when it was
+    first seen (it never moves on a re-sight). `cites` names the library papers it cites;
+    `reference` is set once the paper itself is in the library (then it is no longer news);
+    `dismissed_at` is the researcher saying "seen".
+    """
+
+    openalex_id = models.CharField(max_length=50, unique=True)
+    doi = models.CharField(max_length=255, blank=True, default="")
+    title = models.TextField()
+    authors = models.JSONField(default=list)  # display names, first three + a count
+    year = models.PositiveIntegerField(null=True, blank=True)
+    published_on = models.DateField(null=True, blank=True)
+    venue = models.CharField(max_length=300, blank=True, default="")
+    cited_by_count = models.PositiveIntegerField(null=True, blank=True)
+    cites = models.ManyToManyField(Reference, related_name="citing_works")
+    reference = models.ForeignKey(
+        Reference,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="citing_matches",
+    )
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-published_on", "-created_at"]
+
+    def __str__(self):
+        return f"{self.openalex_id}: {self.title[:60]}"
 
 
 class CitationSyncState(TimeStampedModel):

@@ -2016,6 +2016,140 @@ class ReferenceViewSet(AtlasViewSet):
         data["upgrade"] = result
         return Response(data)
 
+    # --- #530: the citation watch ---------------------------------------------------------------
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("project", str, description="Only works citing this project's papers"),
+            OpenApiParameter("reference", int, description="Only works citing this paper"),
+            OpenApiParameter(
+                "dismissed", str, description="1: the dismissed works instead of the open ones"
+            ),
+            OpenApiParameter("limit", int, description="Max rows (default 100, max 500)"),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description=(
+                    "{count, results: [{id, openalex_id, doi, title, authors, year, published_on, "
+                    "venue, cited_by_count, cites: [{id, bibtex_key, title}], first_seen_at, "
+                    "dismissed_at, addable, url}], status: {new, dismissed, watched, unchecked, "
+                    "last_checked_at}}"
+                )
+            )
+        },
+        description=(
+            "The citation watch's feed: papers outside the library that cite papers in it, "
+            "found by the weekly OpenAlex sweep, newest publication first. Add one with "
+            "POST /references/by-doi/ (it leaves the feed by itself); mark the rest seen with "
+            "POST /references/new-citations/dismiss/."
+        ),
+    )
+    @action(detail=False, methods=["get"], url_path="new-citations")
+    def new_citations(self, request):
+        from literature import citing
+
+        params = request.query_params
+        try:
+            limit = int(params.get("limit", 100))
+            reference_id = int(params.get("reference", 0) or 0)
+        except (TypeError, ValueError):
+            return Response({"detail": "limit and reference must be integers."}, status=400)
+        if reference_id > MAX_PK or limit > 100_000:
+            return Response({"detail": "limit and reference are out of range."}, status=400)
+        out = citing.alerts(
+            project=str(params.get("project") or "")[:200],
+            reference_id=reference_id or None,
+            dismissed=params.get("dismissed") in ("1", "true"),
+            limit=max(1, min(500, limit)),
+        )
+        out["status"] = citing.watch_status()
+        return Response(out)
+
+    @extend_schema(
+        request=inline_serializer(
+            "CheckCitations",
+            fields={
+                "ids": rf_serializers.ListField(
+                    child=rf_serializers.IntegerField(), required=False, max_length=50
+                ),
+                "stale": rf_serializers.BooleanField(required=False),
+                "days": rf_serializers.IntegerField(required=False),
+                "limit": rf_serializers.IntegerField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(
+                description=(
+                    "{checked, new: [feed rows first seen now], seen, errors, skipped, stopped, "
+                    "status}; GET returns {status} alone"
+                )
+            )
+        },
+        description=(
+            "Ask OpenAlex who newly cites the library's papers and store the answers (#530). "
+            "POST {ids: [...]} (≤ 50) checks those papers; POST {stale: true, days, limit} "
+            "checks the ones not checked in `days` (default 7), up to `limit` (≤ 50 here; the "
+            "weekly sweep does the rest). GET reports the watch's status."
+        ),
+    )
+    @action(detail=False, methods=["get", "post"], url_path="new-citations/check")
+    def check_citations(self, request):
+        from literature import citing
+
+        if request.method == "GET":
+            return Response({"status": citing.watch_status()})
+        body = request.data if isinstance(request.data, dict) else {}
+        ids = body.get("ids")
+        if ids is not None:
+            if not isinstance(ids, list) or len(ids) > 50:
+                return Response({"ids": ["Give up to 50 ids."]}, status=400)
+            try:
+                ids = parse_ids(ids, limit=50, strict=True)
+            except ValueError:
+                return Response({"ids": ["Ids must be integers."]}, status=400)
+            refs = list(Reference.objects.filter(pk__in=ids).order_by("pk"))
+            out = citing.check_references(refs)
+        else:
+            try:
+                days = int(body.get("days", citing.STALE_DAYS))
+                limit = int(body.get("limit", 50))
+            except (TypeError, ValueError):
+                return Response({"detail": ["days and limit must be integers."]}, status=400)
+            out = citing.check_stale(max(1, days), max(1, min(50, limit)))
+        out["status"] = citing.watch_status()
+        return Response(out)
+
+    @extend_schema(
+        request=inline_serializer(
+            "DismissCitations",
+            fields={
+                "ids": rf_serializers.ListField(
+                    child=rf_serializers.IntegerField(), max_length=500
+                ),
+                "undo": rf_serializers.BooleanField(required=False),
+            },
+        ),
+        responses={200: OpenApiResponse(description="{changed, status}")},
+        description=(
+            "Mark citing works in the feed as seen (#530) — they move to the dismissed list; "
+            "{undo: true} puts them back. Ids are feed row ids, up to 500."
+        ),
+    )
+    @action(detail=False, methods=["post"], url_path="new-citations/dismiss")
+    def dismiss_citations(self, request):
+        from literature import citing
+
+        body = request.data if isinstance(request.data, dict) else {}
+        ids = body.get("ids")
+        if not isinstance(ids, list) or not ids or len(ids) > 500:
+            return Response({"ids": ["Give 1 to 500 ids."]}, status=400)
+        try:
+            ids = parse_ids(ids, limit=500, strict=True)
+        except ValueError:
+            return Response({"ids": ["Ids must be integers."]}, status=400)
+        changed = citing.dismiss(ids, undo=bool(body.get("undo")))
+        return Response({"changed": changed, "status": citing.watch_status()})
+
     @extend_schema(
         request=inline_serializer(
             "CheckRetractions",
