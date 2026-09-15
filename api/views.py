@@ -1346,6 +1346,11 @@ class ReferenceViewSet(AtlasViewSet):
             OpenApiParameter("venue", str, description="Exact venue string"),
             OpenApiParameter("has_pdf", str, description="true/1 or false/0"),
             OpenApiParameter("needs_metadata", str, description="true/1 for PDFs without metadata"),
+            OpenApiParameter(
+                "retracted",
+                str,
+                description="true/1 for papers the retraction watch has flagged (#527)",
+            ),
             OpenApiParameter("project", str, description="Project slug"),
             OpenApiParameter(
                 "reading_status",
@@ -1898,6 +1903,60 @@ class ReferenceViewSet(AtlasViewSet):
         except ValueError:
             limit = 5
         return Response(reading_now(limit=max(1, min(20, limit))))
+
+    @extend_schema(
+        request=inline_serializer(
+            "CheckRetractions",
+            fields={
+                "ids": rf_serializers.ListField(
+                    child=rf_serializers.IntegerField(), required=False, max_length=50
+                ),
+                "stale": rf_serializers.BooleanField(required=False),
+                "days": rf_serializers.IntegerField(required=False),
+                "limit": rf_serializers.IntegerField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(
+                description="{checked, retracted: [{id, bibtex_key, title, kind, notice, date}], "
+                "errors, skipped, status: {retracted, unchecked, with_doi, last_checked_at}}"
+            ),
+            400: OpenApiResponse(description="Bad ids"),
+        },
+        description="The retraction watch (#527): check papers against Crossref's retraction / "
+        "withdrawal / removal notices and store the verdict on each. Body: `ids` (≤ 50) for "
+        "chosen papers, or `stale: true` for the papers never checked or checked more than "
+        "`days` (30) ago, `limit` (≤ 50 here; the daily sweep does 200). Offline or on an "
+        "error the stored verdicts are left alone and `errors` counts the misses. GET with "
+        "no body returns the watch's status only.",
+    )
+    @action(detail=False, methods=["get", "post"], url_path="check-retractions")
+    def check_retractions(self, request):
+        from literature import retractions
+
+        if request.method == "GET":
+            return Response({"status": retractions.watch_status()})
+        body = request.data if isinstance(request.data, dict) else {}
+        ids = body.get("ids")
+        if ids is not None:
+            if not isinstance(ids, list) or len(ids) > 50:
+                return Response({"ids": ["Give up to 50 ids."]}, status=400)
+            try:
+                ids = [int(i) for i in ids]
+            except (TypeError, ValueError):
+                return Response({"ids": ["Ids must be integers."]}, status=400)
+            refs = list(Reference.objects.filter(pk__in=ids).order_by("pk"))
+            out = retractions.check_references(refs)
+        else:
+            try:
+                days = int(body.get("days", retractions.STALE_DAYS))
+                limit = int(body.get("limit", 50))
+            except (TypeError, ValueError):
+                return Response({"detail": ["days and limit must be integers."]}, status=400)
+            out = retractions.check_stale(max(1, days), max(1, min(50, limit)))
+        out.pop("rows", None)
+        out["status"] = retractions.watch_status()
+        return Response(out)
 
     @extend_schema(
         request=None,

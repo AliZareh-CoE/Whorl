@@ -15,9 +15,17 @@ from .models import (
 
 @admin.register(Reference)
 class ReferenceAdmin(admin.ModelAdmin):
-    list_display = ["bibtex_key", "title", "year", "venue", "doi", "citation_count"]
+    list_display = [
+        "bibtex_key",
+        "title",
+        "year",
+        "venue",
+        "doi",
+        "citation_count",
+        "retraction_kind",
+    ]
     search_fields = ["title", "bibtex_key", "doi"]
-    list_filter = ["entry_type"]
+    list_filter = ["entry_type", "retraction_kind"]
 
 
 @admin.register(ProjectReference)

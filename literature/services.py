@@ -445,7 +445,11 @@ def check_doi_resolution(references, client: httpx.Client | None = None) -> list
 
 
 def check_retractions(references, client: httpx.Client | None = None) -> list[dict]:
-    """Flag references whose DOI has a Crossref retraction/withdrawal update pointing at it."""
+    """Flag references whose DOI has a Crossref retraction/withdrawal update pointing at it.
+    Since #527 the lookup lives in literature.retractions (the same request), and a paper the
+    retraction watch has already flagged is reported without asking again."""
+    from .retractions import lookup
+
     findings = []
     own_client = client is None
     client = client or httpx.Client(timeout=TIMEOUT, headers={"User-Agent": USER_AGENT})
@@ -453,33 +457,36 @@ def check_retractions(references, client: httpx.Client | None = None) -> list[di
         for ref in references:
             if not ref.doi:
                 continue
-            try:
-                response = client.get(
-                    "https://api.crossref.org/works",
-                    params={"filter": f"updates:{ref.doi}", "rows": 5},
-                )
-                if response.status_code != 200:
-                    continue
-                for item in response.json().get("message", {}).get("items", []):
-                    kinds = {
-                        u.get("type", "") for u in item.get("update-to", []) if isinstance(u, dict)
+            if ref.retraction_kind:
+                findings.append(
+                    {
+                        "check": "retraction",
+                        "level": "error",
+                        "message": f"“{ref.bibtex_key}” is RETRACTED ({ref.retraction_kind}; notice DOI {ref.retraction_notice})",
+                        "references": [ref],
                     }
-                    if kinds & {"retraction", "withdrawal", "removal"}:
-                        findings.append(
-                            {
-                                "check": "retraction",
-                                "level": "error",
-                                "message": f"“{ref.bibtex_key}” appears to be RETRACTED (update DOI {item.get('DOI')})",
-                                "references": [ref],
-                            }
-                        )
-                        break
+                )
+                continue
+            try:
+                found = lookup(ref.doi, client)
+            except RuntimeError:
+                continue
             except httpx.HTTPError as exc:
                 findings.append(
                     {
                         "check": "retraction",
                         "level": "info",
                         "message": f"“{ref.bibtex_key}”: retraction check failed ({exc.__class__.__name__})",
+                        "references": [ref],
+                    }
+                )
+                continue
+            if found:
+                findings.append(
+                    {
+                        "check": "retraction",
+                        "level": "error",
+                        "message": f"“{ref.bibtex_key}” appears to be RETRACTED (update DOI {found['notice']})",
                         "references": [ref],
                     }
                 )

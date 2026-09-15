@@ -185,6 +185,7 @@ def browse_library(
     untagged: bool = False,
     unfiled: bool = False,
     needs_metadata: bool = False,
+    retracted: bool = False,
     sort: str = "added",
     limit: int = 20,
 ) -> dict:
@@ -192,7 +193,9 @@ def browse_library(
     `author` is a family name (case-insensitive: "lavie"); `q` searches title, venue, key,
     abstract, authors, DOI and the PDF text; `venue` is exact; `tag` a tag name; `project` a
     slug and `reading_status` (to_read / skimmed / read / annotated) the state in that project;
-    `has_pdf` "true" or "false"; `untagged` / `unfiled` / `needs_metadata` are hygiene views;
+    `has_pdf` "true" or "false"; `untagged` / `unfiled` / `needs_metadata` / `retracted` (papers
+    the retraction watch flagged, #527 — rows carry `retraction` {kind, notice, date}) are
+    hygiene views;
     `sort` added, -added, year, -year, title, -title or citations. Returns `count` (all matches),
     `url` — the same view in the app (`/library?author=lavie&tag=load`; every Library view has
     an address, hand it to the user or paste it in a note, #526) — and up to `limit` (≤ 50)
@@ -215,8 +218,25 @@ def browse_library(
         untagged="1" if untagged else "",
         unfiled="1" if unfiled else "",
         needs_metadata="1" if needs_metadata else "",
+        retracted="1" if retracted else "",
         sort=sort,
     )
+
+
+@mcp.tool()
+def check_retractions(
+    reference_ids: list[int] | None = None, days: int = 30, limit: int = 50
+) -> dict:
+    """The retraction watch (#527). Checks papers against Crossref's retraction / withdrawal /
+    removal notices and stores the verdict on each paper, so the Library, the Reference page and
+    the manuscript pre-flight show it. With `reference_ids` (≤ 50): those papers. Without: the
+    stale ones — never checked or checked more than `days` ago, up to `limit` (≤ 50; the daily
+    sweep does the rest). Returns `checked`, `retracted` [{id, bibtex_key, title, kind, notice,
+    date}], `errors` (offline / failed lookups leave the stored verdicts alone), `skipped` (no
+    DOI) and `status` {retracted, unchecked, with_doi, last_checked_at}. Use it when the user
+    asks "is anything I cite retracted?" or before a submission; browse_library(retracted=True)
+    lists the flagged papers without asking Crossref."""
+    return client.check_retractions(reference_ids, days, limit)
 
 
 @mcp.tool()

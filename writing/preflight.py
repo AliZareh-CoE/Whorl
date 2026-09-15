@@ -272,7 +272,6 @@ def check_bibliography(manuscript, network: bool) -> list[dict]:
     )
     if network:
         bad_doi = report["doi_resolution"]
-        retracted = report["retractions"]
         rows.append(
             _check(
                 "doi",
@@ -284,17 +283,39 @@ def check_bibliography(manuscript, network: bool) -> list[dict]:
                 {"kind": "tab", "tab": "bib"} if bad_doi else None,
             )
         )
-        rows.append(
-            _check(
-                "retractions",
-                "Retractions",
-                "fail" if retracted else "ok",
-                f"{len(retracted)} cited work{'s' if len(retracted) != 1 else ''} flagged as retracted."
-                if retracted
-                else "None flagged.",
-                {"kind": "tab", "tab": "bib"} if retracted else None,
+    # #527: the retraction watch's stored verdicts are always consulted (no network needed);
+    # a network pre-flight also asks Crossref about the papers it has not flagged yet.
+    stored = sorted(
+        {
+            link.reference.bibtex_key
+            for link in manuscript.manuscriptreference_set.select_related("reference")
+            if link.reference.retraction_kind
+        }
+    )
+    live = sorted(
+        {
+            r.bibtex_key
+            for f in (report["retractions"] if network else [])
+            if f.get("level") == "error"
+            for r in f.get("references", [])
+        }
+    )
+    retracted = sorted(set(stored) | set(live))
+    rows.append(
+        _check(
+            "retractions",
+            "Retractions",
+            "fail" if retracted else "ok",
+            (
+                f"{len(retracted)} cited work{'s' if len(retracted) != 1 else ''} retracted: "
+                + ", ".join(retracted)
+                + "."
             )
+            if retracted
+            else ("None flagged." if network else "None flagged by the retraction watch."),
+            {"kind": "tab", "tab": "bib"} if retracted else None,
         )
+    )
     return rows
 
 

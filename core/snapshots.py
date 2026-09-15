@@ -192,6 +192,17 @@ def start_scheduler(directory: Path | None = None) -> bool:
                     run_if_due(directory)
                 finally:
                     close_old_connections()
+                try:
+                    # #527: the desktop has no huey — the retraction watch sweeps from here.
+                    # Bounded, and once nothing is stale it asks nothing; a network failure
+                    # leaves the verdicts alone and must never take the snapshot thread down.
+                    from literature.retractions import check_stale
+
+                    check_stale()
+                except Exception:  # noqa: BLE001 — a sweep failure is logged, not fatal
+                    log.exception("retraction sweep failed")
+                finally:
+                    close_old_connections()
                 wait = CHECK_EVERY_SECONDS
 
         _THREAD = threading.Thread(target=loop, name="atlas-snapshots", daemon=True)

@@ -85,6 +85,8 @@ def filter_references(qs: QuerySet, params) -> QuerySet:
     needs = params.get("needs_metadata")
     if needs in ("true", "1"):
         qs = qs.filter(extra__needs_metadata=True)
+    if params.get("retracted") in ("true", "1"):  # #527: the retraction watch's flag
+        qs = qs.exclude(retraction_kind="")
     project = params.get("project")
     if project:
         qs = qs.filter(project_links__project__slug=project)
@@ -215,6 +217,7 @@ def facets(qs: QuerySet) -> dict:
         "with_pdf": with_pdf,
         "without_pdf": total - with_pdf,
         "needs_metadata": qs.filter(extra__needs_metadata=True).count(),
+        "retracted": qs.exclude(retraction_kind="").count(),
         "unfiled": qs.filter(project_links__isnull=True).count(),
         "untagged": qs.filter(tags__isnull=True).count(),
         "duplicates": sum(len(g["members"]) for g in duplicate_groups(qs)),

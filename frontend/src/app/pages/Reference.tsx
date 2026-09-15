@@ -22,6 +22,7 @@ type Ref = {
   url: string;
   pdf: string | null;
   citation_count: number | null;
+  retraction_kind?: string; retraction_notice?: string; retraction_date?: string | null;
   projects?: { slug: string; name: string; color: string; reading_status: string }[];
   tags?: string[];
 };
@@ -227,6 +228,12 @@ export default function Reference() {
         </div>
       </section>
 
+      {ref.retraction_kind && (
+        <section className="mb-4 rounded border border-rose-300 bg-rose-50 p-4 dark:border-rose-500/40 dark:bg-rose-500/10" data-testid="retraction-banner">
+          <p className="text-sm font-semibold text-rose-700 dark:text-rose-200">This paper has been {ref.retraction_kind === "retraction" ? "retracted" : ref.retraction_kind === "withdrawal" ? "withdrawn" : "removed"}{ref.retraction_date ? ` (${ref.retraction_date})` : ""}.</p>
+          <p className="mt-1 text-xs text-rose-700/80 dark:text-rose-200/80">Crossref lists a {ref.retraction_kind} notice{ref.retraction_notice ? <>: <a href={`https://doi.org/${ref.retraction_notice}`} target="_blank" rel="noreferrer" className="underline">{ref.retraction_notice}</a></> : null}. Cite it only to discuss the retraction — the manuscript pre-flight flags it.</p>
+        </section>
+      )}
       {ref.abstract && (
         <section className="mb-4 rounded border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
           <div className="mb-3 flex flex-wrap items-center gap-2">

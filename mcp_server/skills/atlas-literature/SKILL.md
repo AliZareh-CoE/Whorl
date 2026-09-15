@@ -23,6 +23,9 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
 - `export_references(fmt=…)` when a colleague needs the papers in their tool: `ris` for EndNote /
   Mendeley, `csl` for Zotero / Paperpile / pandoc, `csv` for a spreadsheet, `bib` for LaTeX — over
   explicit ids or the same filters as browse_library; save the returned text to a file.
+- `check_retractions` before a submission or when asked "is anything I cite retracted?" — the
+  verdicts are stored, so the Library, the Reference page and the pre-flight show them;
+  `browse_library(retracted=True)` lists the flagged papers without asking Crossref.
 - `browse_library` for "what do I have by X?", "unread papers tagged Y", "papers with no PDF" —
   every filter the Library rail offers (author, q, year range, venue, tag, project + status,
   has_pdf, untagged / unfiled / needs_metadata, sort); rows are compact and carry `progress`,

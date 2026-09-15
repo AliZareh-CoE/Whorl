@@ -393,6 +393,7 @@ class Command(BaseCommand):
             ],
             pages=12,
         )
+        demo_ref_objs = []
         for spec in demo_refs:
             reference, _ = Reference.objects.update_or_create(
                 bibtex_key=spec["bibtex_key"],
@@ -407,6 +408,7 @@ class Command(BaseCommand):
                     "entry_type": "article",
                 },
             )
+            demo_ref_objs.append(reference)
             ProjectReference.objects.update_or_create(
                 project=project,
                 reference=reference,
@@ -505,6 +507,28 @@ class Command(BaseCommand):
                 },
             )
         # Deterministic synthetic citation edges: each paper cites 2-3 earlier ones
+        # #527: the retraction watch has a verdict on every demo paper (checked "now", so a live
+        # sweep leaves the demo alone), and one corpus paper outside the manuscript's
+        # bibliography is retracted — the Library's rose chip, the banner and the rail row
+        for reference in demo_ref_objs + corpus_refs:
+            flagged = reference is corpus_refs[9]
+            reference.doi = reference.doi or (
+                "10.0000/demo.retracted.2004" if flagged else reference.doi
+            )
+            reference.retraction_kind = "retraction" if flagged else ""
+            reference.retraction_notice = "10.0000/demo.retraction-notice.2019" if flagged else ""
+            reference.retraction_date = datetime.date(2019, 6, 12) if flagged else None
+            reference.retraction_checked_at = timezone.now()
+            reference.save(
+                update_fields=[
+                    "doi",
+                    "retraction_kind",
+                    "retraction_notice",
+                    "retraction_date",
+                    "retraction_checked_at",
+                    "updated_at",
+                ]
+            )
         for i, citing in enumerate(corpus_refs):
             for j in {(i * 7 + 1) % i if i else None, (i * 3 + 2) % i if i else None}:
                 if j is not None and j < i:

@@ -1,4 +1,5 @@
-from huey.contrib.djhuey import db_task
+from huey import crontab
+from huey.contrib.djhuey import db_periodic_task, db_task
 
 from projects.models import Project
 
@@ -26,3 +27,11 @@ def extract_text_task(reference_id: int):
 
     reference = Reference.objects.filter(pk=reference_id).first()
     return extract_text(reference) if reference else None
+
+
+@db_periodic_task(crontab(hour=4, minute=20))
+def check_retractions_task():
+    """#527: the daily retraction sweep — stale papers (30 days) against Crossref, bounded."""
+    from .retractions import check_stale
+
+    return check_stale()

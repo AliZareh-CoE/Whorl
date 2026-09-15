@@ -71,6 +71,12 @@ class Reference(TimeStampedModel):
     last_page = models.PositiveIntegerField(null=True, blank=True)
     page_count = models.PositiveIntegerField(null=True, blank=True)
     last_read_at = models.DateTimeField(null=True, blank=True)
+    # #527: the retraction watch — what Crossref says about this DOI, and when we last asked.
+    # `retraction_kind` is "" for a clean paper, else retraction / withdrawal / removal.
+    retraction_kind = models.CharField(max_length=20, blank=True, default="")
+    retraction_notice = models.CharField(max_length=255, blank=True, default="")  # notice DOI
+    retraction_date = models.DateField(null=True, blank=True)
+    retraction_checked_at = models.DateTimeField(null=True, blank=True)
     tags = models.ManyToManyField(LibraryTag, blank=True, related_name="references")
 
     class Meta:

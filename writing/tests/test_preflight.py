@@ -129,7 +129,8 @@ def test_a_clean_paper_is_ready(client_logged_in):
     # the same over the API, and the bib hygiene row carries no network rows unless asked
     api = client_logged_in.get(f"/api/v1/manuscripts/{m.id}/preflight/").json()
     assert api["ready"] is True and api["network"] is False
-    assert "doi" not in _by(api) and "retractions" not in _by(api)
+    assert "doi" not in _by(api)
+    assert _by(api)["retractions"]["state"] == "ok"  # #527: stored verdicts, no network
 
 
 def test_studio_has_the_panel_and_the_action():

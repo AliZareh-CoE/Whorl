@@ -762,6 +762,28 @@ def test_browse_library_client_calls(capture):
     assert "abstract" not in row and row["progress"]["percent"] == 42
 
 
+def test_check_retractions_client_calls(capture):
+    capture["response"] = {"checked": 1, "retracted": [], "errors": 0, "skipped": 0}
+    client.check_retractions([3, 4])
+    assert capture["method"] == "POST" and calls_url_has(capture, "/references/check-retractions/")
+    assert json.loads(capture["body"]) == {"ids": [3, 4]}
+    client.check_retractions(None, days=10, limit=500)
+    assert json.loads(capture["body"]) == {"stale": True, "days": 10, "limit": 50}
+    client.browse_library(retracted="1")
+    assert calls_url_has(capture, "retracted=1")
+    capture["response"] = {"status": {"retracted": 0}}
+    assert client.retraction_watch_status()["status"]["retracted"] == 0
+    assert capture["method"] == "GET"
+
+
+def test_library_row_carries_the_retraction():
+    row = client._library_row(
+        {"id": 1, "retraction_kind": "retraction", "retraction_notice": "10.1/n", "authors": []}
+    )
+    assert row["retraction"] == {"kind": "retraction", "notice": "10.1/n", "date": None}
+    assert client._library_row({"id": 2, "authors": []})["retraction"] is None
+
+
 def test_library_url_matches_the_address_bar(env):
     """#526: the link Claude hands back equals what the page writes in its own address bar —
     empties, zeros and the default sort left out, values URL-encoded, no limit."""

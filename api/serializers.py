@@ -389,6 +389,10 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "page_count",
             "last_read_at",
             "progress",
+            "retraction_kind",
+            "retraction_notice",
+            "retraction_date",
+            "retraction_checked_at",
             "created_at",
             "updated_at",
         ]
@@ -398,6 +402,10 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "last_page",
             "page_count",
             "last_read_at",
+            "retraction_kind",
+            "retraction_notice",
+            "retraction_date",
+            "retraction_checked_at",
         ]
 
     def create(self, validated_data):

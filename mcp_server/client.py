@@ -196,6 +196,15 @@ def _library_row(row: dict) -> dict:
         "tags": row.get("tags") or [],
         "projects": row.get("projects") or [],
         "progress": row.get("progress"),
+        "retraction": (
+            {
+                "kind": row.get("retraction_kind"),
+                "notice": row.get("retraction_notice"),
+                "date": row.get("retraction_date"),
+            }
+            if row.get("retraction_kind")
+            else None
+        ),
     }
 
 
@@ -230,6 +239,24 @@ def browse_library(limit: int = 20, **filters):
         "url": library_url(**params),
         "results": [_library_row(r) for r in rows[:limit]],
     }
+
+
+def check_retractions(reference_ids=None, days: int = 30, limit: int = 50):
+    """The retraction watch (#527): POST /references/check-retractions/ over chosen ids or the
+    stale papers; the answer carries the retracted rows and the watch's status."""
+    if reference_ids:
+        payload: dict = {"ids": [int(i) for i in reference_ids][:50]}
+    else:
+        payload = {
+            "stale": True,
+            "days": int(days or 30),
+            "limit": max(1, min(int(limit or 50), 50)),
+        }
+    return _request("POST", "/references/check-retractions/", json=payload)
+
+
+def retraction_watch_status():
+    return _request("GET", "/references/check-retractions/")
 
 
 def get_reading_now(limit: int = 5):
