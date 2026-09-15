@@ -394,6 +394,11 @@ def test_reading_client_calls(capture):
     assert capture["method"] == "PATCH" and calls_url_has(capture, "/project-references/4/")
     client.fetch_pdf(7)
     assert capture["method"] == "POST" and calls_url_has(capture, "/references/7/fetch-pdf/")
+    client.fetch_pdf(reference_ids=[3, 4])
+    assert calls_url_has(capture, "/references/find-pdfs/")
+    assert json.loads(capture["body"]) == {"ids": [3, 4]}
+    client.fetch_pdf(limit=500)
+    assert json.loads(capture["body"]) == {"stale": True, "days": 30, "limit": 20}
     client.get_feed_items(3, muted=True)
     assert "muted=1" in capture["url"] and "dismissed" not in capture["url"]
     client.update_feed(3, mute=["benchmark", "author:Doe"])

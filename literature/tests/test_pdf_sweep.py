@@ -150,7 +150,7 @@ class TestSweep:
         printed = capsys.readouterr().out
         assert "checked 1" in printed and "ATTACHED" in printed
 
-    def test_huey_task_and_desktop_tick_honour_the_auto_fetch_gate(self, monkeypatch, settings):
+    def test_huey_task_honours_the_auto_fetch_gate(self, monkeypatch, settings):
         from literature import tasks
 
         called = []
