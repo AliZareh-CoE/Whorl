@@ -43,7 +43,7 @@ def test_no_slice_numbers_in_what_claude_reads():
     noisy = {
         n: _norm(t.description)
         for n, t in _tools().items()
-        if re.search(r"#\d{2,3}\b", t.description or "")
+        if re.search(r"#\d{2,}\b", t.description or "")
     }
     assert not noisy, noisy
 
