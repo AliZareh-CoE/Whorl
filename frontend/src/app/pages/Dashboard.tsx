@@ -5,7 +5,7 @@ import { AlertTriangle, BookOpen, CalendarClock, Check, ClipboardList, Command, 
 import { confirmDialog, errorDialog, noticeDialog } from "../../components/Dialog";
 import { api } from "../api";
 import { showUndo } from "../../components/UndoToast";
-import { dueState, formatDue } from "../dueTime";
+import { dayLabel, dueState, formatDue } from "../dueTime";
 import { toggleCalm, useCalm } from "../calm";
 import { Skeleton, SkeletonCard, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -306,7 +306,7 @@ export default function Dashboard() {
                   <li key={t.id} className="group flex items-center gap-2 text-sm text-stone-700 dark:text-stone-200">
                     <button type="button" onClick={() => tick.mutate(t.id)} className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-stone-300 text-transparent transition-colors hover:border-indigo-400 hover:text-indigo-500 dark:border-stone-600" aria-label={`Done: ${t.text}`} title="Tick it off"><Check className="h-3 w-3" aria-hidden="true" /></button>
                     <span className="min-w-0 truncate">{t.text}</span>
-                    {t.due_at && <span className={`shrink-0 text-[11px] tabular-nums ${dueState(t.due_at) === "overdue" ? "text-red-500" : dueState(t.due_at) === "soon" ? "text-amber-600 dark:text-amber-300" : "text-stone-400"}`} data-testid="hero-due">· {formatDue(t.due_at, t.all_day)}</span>}
+                    {t.due_at && !(t.all_day && dayLabel(t.due_at) === "today") && <span className={`shrink-0 text-[11px] tabular-nums ${t.all_day ? "text-red-500" : dueState(t.due_at) === "overdue" ? "text-red-500" : dueState(t.due_at) === "soon" ? "text-amber-600 dark:text-amber-300" : "text-stone-400"}`} data-testid="hero-due">· {formatDue(t.due_at, t.all_day)}</span>}
                     {t.project && <span className="min-w-0 max-w-[9rem] truncate text-[11px] text-stone-400">· {t.project}</span>}
                   </li>
                 ))}

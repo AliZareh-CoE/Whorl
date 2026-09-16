@@ -236,6 +236,9 @@ def test_ui_wiring():
         'e.key === "s"',
         "isLater(t.due_at)",
         "“on Friday” a day",
+        "!t.due_at && age(t.created_at)",  # a dated item is planned for its day, not carried over
+        "t.done || t.due_at ? null : age(t.created_at)",
+        "if (!late) return null;",  # an all-day item due today wears no chip on today's list
     ):
         assert needle in today, needle
     due = (BASE / "frontend" / "src" / "app" / "dueTime.ts").read_text()
@@ -245,5 +248,8 @@ def test_ui_wiring():
     assert "all_day" in bar and "In Later" in bar
     dash = (BASE / "frontend" / "src" / "app" / "pages" / "Dashboard.tsx").read_text()
     assert "formatDue(t.due_at, t.all_day)" in dash
+    assert (
+        '!(t.all_day && dayLabel(t.due_at) === "today")' in dash
+    )  # the hero chip: no "today", never red at noon
     chunks = " ".join(p.read_text(errors="ignore") for p in (BASE / "static" / "js").rglob("*.js"))
     assert "later-section" in chunks and "snooze-menu" in chunks

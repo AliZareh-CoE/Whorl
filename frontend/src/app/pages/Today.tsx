@@ -88,7 +88,7 @@ export default function Today() {
     return acc;
   }, []);
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-  const carried = open.filter((t) => age(t.created_at)).length; // #431: "2 carried over"
+  const carried = open.filter((t) => !t.due_at && age(t.created_at)).length; // #431: "2 carried over" — a dated item is planned, not carried (#546)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -206,8 +206,9 @@ function age(iso: string): string | null {
 
 /** #431: the time chip — quiet when far off, amber within two hours, red once it has passed. */
 function DueChip({ iso, allDay }: { iso: string; allDay: boolean }) {
-  if (allDay) { // #546: a day-only item on today's list is either today's or a day late — no clock
+  if (allDay) { // #546: a day-only item on today's list is either today's (no chip — the list is today) or a day late
     const late = isLater(iso) ? false : dayLabel(iso) !== "today";
+    if (!late) return null;
     return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] capitalize ${late ? "bg-red-500/10 text-red-600 dark:text-red-300" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-300"}`} data-testid="due-chip" data-state={late ? "overdue" : "today"} title={late ? "Planned for an earlier day" : "Planned for today"}>{dayLabel(iso)}</span>;
   }
   const state = dueState(iso);
@@ -228,11 +229,12 @@ function SnoozeMenu({ onPick, onClose, later }: { onPick: (until: string) => voi
     return () => { document.removeEventListener("mousedown", away); window.removeEventListener("keydown", esc, true); };
   }, [onClose]);
   const min = new Date(); min.setDate(min.getDate() + 1);
+  const minIso = `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}-${String(min.getDate()).padStart(2, "0")}`; // local, not UTC
   return (
     <div ref={ref} data-testid="snooze-menu" className="absolute right-3 top-full z-20 mt-1 flex flex-wrap items-center gap-1 rounded-xl border border-stone-200 bg-white p-1.5 shadow-lg dark:border-stone-700 dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
       {later && <button type="button" data-testid="snooze-option" onClick={() => onPick("")} className="rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">Today</button>}
       {SNOOZE_OPTIONS.map(([v, label]) => <button key={v} type="button" data-testid="snooze-option" data-until={v} onClick={() => onPick(v)} className="rounded-lg px-2 py-1 text-xs text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800">{label}</button>)}
-      <input type="date" aria-label="Pick a day" data-testid="snooze-date" min={min.toISOString().slice(0, 10)} onChange={(e) => { if (e.target.value) onPick(e.target.value); }} className="rounded-lg border border-stone-200 bg-transparent px-1.5 py-0.5 text-xs text-stone-600 dark:border-stone-700 dark:text-stone-300" />
+      <input type="date" aria-label="Pick a day" data-testid="snooze-date" min={minIso} onChange={(e) => { if (e.target.value) onPick(e.target.value); }} className="rounded-lg border border-stone-200 bg-transparent px-1.5 py-0.5 text-xs text-stone-600 dark:border-stone-700 dark:text-stone-300" />
     </div>
   );
 }
@@ -258,7 +260,7 @@ type DragProps = { dragging: boolean; over: "before" | "after" | null; onStart: 
 function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove, drag, snoozing, onSnoozeMenu, onSnooze }: { t: Todo; active: boolean; editing: boolean; onFocus: () => void; onEdit: () => void; onSave: (text: string) => void; onToggle: () => void; onRemove: () => void; drag?: DragProps; snoozing?: boolean; onSnoozeMenu?: (on: boolean) => void; onSnooze?: (until: string) => void }) {
   const [draft, setDraft] = useState(t.text);
   useEffect(() => { if (editing) setDraft(t.text); }, [editing, t.text]);
-  const old = t.done ? null : age(t.created_at);
+  const old = t.done || t.due_at ? null : age(t.created_at); // #546: a dated item's chip is its day, never its age
   return (
     <li className={`group relative flex items-center gap-3 px-4 py-3 transition-colors ${active ? "bg-indigo-500/5 dark:bg-indigo-500/10" : ""} ${drag?.dragging ? "opacity-40" : ""}`} onMouseEnter={onFocus} data-active={active ? "1" : undefined} data-testid="todo-row"
         draggable={drag ? !editing : undefined} onDragStart={drag?.onStart} onDragOver={drag?.onOver} onDrop={drag?.onDrop} onDragEnd={drag?.onEnd}>
