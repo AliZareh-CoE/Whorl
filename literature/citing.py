@@ -332,7 +332,13 @@ def alerts(
         qs = qs.filter(cites__project_links__project__slug=project)
     if reference_id:
         qs = qs.filter(cites__pk=reference_id)
-    qs = qs.distinct().prefetch_related("cites")
+    # undated works last on Postgres and SQLite alike (the model's ordering puts them first on
+    # one and last on the other)
+    qs = (
+        qs.distinct()
+        .prefetch_related("cites")
+        .order_by(F("published_on").desc(nulls_last=True), "-created_at", "pk")
+    )
     count = qs.count()
     rows = [_row(w, list(w.cites.all())) for w in qs[: max(1, min(int(limit), 500))]]
     return {"count": count, "results": rows}

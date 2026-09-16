@@ -425,3 +425,20 @@ def test_ui_is_wired():
         assert needle in lib, needle
     ref = (root / "Reference.tsx").read_text()
     assert 'data-testid="citing-section"' in ref and "/references/new-citations/" in ref
+
+
+@pytest.mark.django_db
+def test_alerts_put_undated_works_last_on_every_database():
+    """#545 (backlog 332): the model's `-published_on` ordering puts undated works first on
+    Postgres and last on SQLite; the feed orders them last explicitly."""
+    a = ReferenceFactory(doi="10.9/dated")
+    dated = CitingWork.objects.create(
+        openalex_id="W-d", title="dated", published_on=datetime.date(2026, 9, 1)
+    )
+    undated = CitingWork.objects.create(openalex_id="W-u", title="undated")
+    older = CitingWork.objects.create(
+        openalex_id="W-o", title="older", published_on=datetime.date(2026, 1, 1)
+    )
+    for w in (dated, undated, older):
+        w.cites.add(a)
+    assert [r["id"] for r in citing.alerts()["results"]] == [dated.pk, older.pk, undated.pk]

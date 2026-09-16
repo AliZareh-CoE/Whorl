@@ -68,6 +68,7 @@ class TestRules:
                 "doi": "10.1109/cvpr.2016.90",
                 "venue": "CVPR 2016, pp. 770-778",
                 "source": "arxiv",
+                "version": "v6",
             }
         }
         with pytest.raises(RuntimeError):
@@ -380,3 +381,87 @@ def test_ui_is_wired():
     assert lib.count('data-testid="published-chip"') == 2  # the list row and the card
     ref = (root / "Reference.tsx").read_text()
     assert 'data-testid="published-banner"' in ref and "/upgrade/" in ref
+
+
+@pytest.mark.django_db
+class TestJournalRef:
+    """#545 (backlog 324): arXiv's journal_ref taken apart, and the revision the published
+    paper matches."""
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            (
+                "CVPR 2016, pp. 770-778",
+                {"venue": "CVPR", "volume": "", "issue": "", "pages": "770-778", "year": 2016},
+            ),
+            (
+                "Nature 521, 436-444 (2015)",
+                {"venue": "Nature", "volume": "521", "issue": "", "pages": "436-444", "year": 2015},
+            ),
+            (
+                "J. Mach. Learn. Res. 15(1):1929-1958, 2014",
+                {
+                    "venue": "J. Mach. Learn. Res.",
+                    "volume": "15",
+                    "issue": "1",
+                    "pages": "1929-1958",
+                    "year": 2014,
+                },
+            ),
+            (
+                "Phys. Rev. Lett. 116, 061102 (2016)",
+                {
+                    "venue": "Phys. Rev. Lett.",
+                    "volume": "116",
+                    "issue": "",
+                    "pages": "061102",
+                    "year": 2016,
+                },
+            ),
+            ("NeurIPS", {"venue": "NeurIPS", "volume": "", "issue": "", "pages": "", "year": None}),
+            ("", {"venue": "", "volume": "", "issue": "", "pages": "", "year": None}),
+        ],
+    )
+    def test_parse_journal_ref(self, text, expected):
+        assert preprints.parse_journal_ref(text) == expected
+
+    def test_lookup_keeps_the_version_and_store_keeps_the_parts(self):
+        found = preprints.lookup_arxiv(["1512.03385", "2301.00001"], sources())
+        assert found["1512.03385"]["version"] == "v6"
+        ref = preprint("1512.03385")
+        preprints._store(ref, found["1512.03385"], timezone.now())
+        ref.refresh_from_db()
+        assert ref.extra["arxiv_version"] == "v6"
+        assert ref.extra["published_ref"] == {
+            "venue": "CVPR",
+            "volume": "",
+            "issue": "",
+            "pages": "770-778",
+            "year": 2016,
+        }
+        assert preprints._row(ref)["arxiv_version"] == "v6"
+        # a venue with nothing to take apart stores no parts
+        other = preprint("2301.00002")
+        preprints._store(
+            other, {"doi": "10.1000/x", "venue": "NeurIPS", "version": ""}, timezone.now()
+        )
+        other.refresh_from_db()
+        assert "published_ref" not in other.extra and "arxiv_version" not in other.extra
+
+    def test_upgrade_offline_uses_the_parsed_reference(self, monkeypatch):
+        ref = preprint(
+            "1512.03385",
+            published_doi="10.1109/cvpr.2016.90",
+            published_venue="CVPR 2016, pp. 770-778",
+        )
+
+        def offline(doi):
+            raise MetadataError("offline")
+
+        monkeypatch.setattr(preprints, "fetch_metadata_by_doi", offline)
+        out = preprints.upgrade(ref)
+        ref.refresh_from_db()
+        assert out["metadata"] == "partial"
+        assert (ref.venue, ref.year) == ("CVPR", 2016)
+        assert ref.extra["pages"] == "770-778" and "volume" not in ref.extra

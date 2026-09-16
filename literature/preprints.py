@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import re
 import time
 import xml.etree.ElementTree as ET
 
@@ -114,8 +115,54 @@ def lookup_arxiv(arxiv_ids: list[str], client: httpx.Client) -> dict[str, dict]:
         doi = _clean(entry.findtext("arxiv:doi", "", ATOM_NS))
         if arxiv_id and doi:
             venue = (entry.findtext("arxiv:journal_ref", "", ATOM_NS) or "").strip()
-            found[arxiv_id] = {"doi": doi, "venue": venue[:300], "source": "arxiv"}
+            version = re.search(r"v(\d+)$", raw_id)
+            found[arxiv_id] = {
+                "doi": doi,
+                "venue": venue[:300],
+                "source": "arxiv",
+                "version": f"v{version.group(1)}" if version else "",
+            }
     return found
+
+
+_REF_YEAR = re.compile(r"(?<![\d-])((?:19|20)\d{2})(?![\d-])")  # not a page of a range
+_REF_PAGES = re.compile(
+    r"(?:pp?\.?\s*|pages?\s+|:\s*)?(?<![\d.])(\d{1,6}(?:\s*[-–—]\s*\d{1,6})?)(?![\d.])\s*$"
+)
+_REF_VOL = re.compile(r"(?:vol(?:ume)?\.?\s*)?(\d{1,4})(?:\s*\((\d{1,4})\))?\s*(?:[:,]|$)")
+
+
+def parse_journal_ref(text: str) -> dict:
+    """The parts of an arXiv `journal_ref` line ("CVPR 2016, pp. 770-778", "Nature 521,
+    436-444 (2015)", "J. Mach. Learn. Res. 15(1):1929-1958, 2014"): {venue, volume, issue,
+    pages, year}. Every part is best-effort and blank when the line does not carry it; the
+    venue is what is left once year, volume and pages are taken out."""
+    raw = " ".join((text or "").split())
+    out = {"venue": "", "volume": "", "issue": "", "pages": "", "year": None}
+    if not raw:
+        return out
+    rest = raw
+    years = list(_REF_YEAR.finditer(rest))
+    if years:
+        m = years[-1]  # the last standalone year: "15(1):1929-1958, 2014" → 2014
+        out["year"] = int(m.group(1))
+        rest = (rest[: m.start()] + rest[m.end() :]).replace("()", "")
+    rest = rest.strip(" ,;:")
+    m = _REF_PAGES.search(rest)
+    if m:
+        out["pages"] = re.sub(r"\s*[-–—]\s*", "-", m.group(1))
+        rest = rest[: m.start()].strip(" ,;:")
+    m = _REF_VOL.search(rest)
+    if m:
+        out["volume"], out["issue"] = m.group(1), m.group(2) or ""
+        rest = (rest[: m.start()] + rest[m.end() :]).strip(" ,;:")
+    else:
+        tail = re.search(r"\s(\d{1,4})$", rest)
+        if tail and out["pages"]:
+            out["volume"] = tail.group(1)
+            rest = rest[: tail.start()]
+    out["venue"] = rest.strip(" ,;:()")[:300]
+    return out
 
 
 def lookup_s2(arxiv_ids: list[str], client: httpx.Client) -> dict[str, dict]:
@@ -170,6 +217,7 @@ def _row(reference: Reference, error: str = "") -> dict:
         "arxiv_id": reference.arxiv_id,
         "published_doi": reference.published_doi,
         "published_venue": reference.published_venue,
+        "arxiv_version": reference.extra.get("arxiv_version", ""),
         "checked_at": reference.published_checked_at,
         "error": error,
     }
@@ -184,6 +232,20 @@ def _store(reference: Reference, found: dict | None, now) -> None:
     elif found and found.get("venue") and not reference.published_venue:
         reference.published_venue = found["venue"][:300]
         fields.append("published_venue")
+    if found:
+        # the arXiv revision the published version matches, and the journal_ref line taken
+        # apart (volume, pages, year) for the upgrade and the bibliography
+        extra = dict(reference.extra)
+        if found.get("version"):
+            extra["arxiv_version"] = found["version"]
+        parsed = parse_journal_ref(reference.published_venue)
+        if parsed["venue"] and (parsed["pages"] or parsed["volume"] or parsed["year"]):
+            extra["published_ref"] = parsed
+        else:
+            extra.pop("published_ref", None)
+        if extra != reference.extra:
+            reference.extra = extra
+            fields.append("extra")
     reference.published_checked_at = now
     reference.save(update_fields=fields)
 
@@ -350,11 +412,14 @@ def upgrade(reference: Reference, doi: str | None = None) -> dict:
         meta = fetch_metadata_by_doi(doi)
     except MetadataError as exc:
         log.info("upgrade of %s runs offline: %s", reference.bibtex_key, exc)
+        parsed = parse_journal_ref(reference.published_venue)
         meta = {
             "doi": doi,
             "entry_type": "article",
-            "venue": reference.published_venue,
+            "venue": parsed["venue"] or reference.published_venue,
+            "year": parsed["year"],
             "url": f"https://doi.org/{doi}",
+            "extra": {k: v for k, v in parsed.items() if k in ("volume", "issue", "pages") and v},
         }
         metadata = "partial"
     reference.doi = doi

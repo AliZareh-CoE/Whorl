@@ -1319,7 +1319,7 @@ function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRet
       )}
       {r.published_doi && (
         <div data-testid="published-banner" className="mt-3 rounded-xl border border-amber-400/50 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-100">
-          <p className="flex items-center gap-1.5 font-semibold"><ArrowUpCircle className="h-3.5 w-3.5" aria-hidden="true" />A published version exists{r.published_venue ? ` · ${r.published_venue}` : ""}</p>
+          <p className="flex items-center gap-1.5 font-semibold"><ArrowUpCircle className="h-3.5 w-3.5" aria-hidden="true" />A published version exists{r.published_venue ? ` · ${r.published_venue}` : ""}{typeof r.extra?.arxiv_version === "string" && r.extra.arxiv_version ? ` · matches arXiv ${r.extra.arxiv_version}` : ""}</p>
           <p className="mt-1 text-amber-800/90 dark:text-amber-100/80">This is the arXiv preprint; the paper has since appeared as <a href={`https://doi.org/${r.published_doi}`} target="_blank" rel="noreferrer" className="underline">{r.published_doi}</a>. Upgrading makes every manuscript that cites <span className="font-mono">{r.bibtex_key}</span> cite the published version — the key stays.</p>
           <p className="mt-2 flex flex-wrap items-center gap-2">
             <button type="button" data-testid="upgrade-preprint" onClick={onUpgrade} disabled={upgrading} className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-amber-700 disabled:opacity-60">{upgrading ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <ArrowUpCircle className="h-3 w-3" aria-hidden="true" />}{upgrading ? "Upgrading…" : "Use the published version"}</button>

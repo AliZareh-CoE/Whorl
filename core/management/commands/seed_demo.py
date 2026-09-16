@@ -586,6 +586,8 @@ class Command(BaseCommand):
                 "published_doi": "10.0000/demo.published.2025",
                 "published_venue": "Journal of Cognitive Demonstration",
                 "published_checked_at": timezone.now(),
+                # #545: the arXiv revision the published version matches
+                "extra": {"arxiv_version": "v2"},
             },
         )
         ProjectReference.objects.update_or_create(
