@@ -184,7 +184,7 @@ def test_explorer_drags_the_selection_and_duplicates():
     assert body.count("droppedIds(e.dataTransfer") == 2
     # Duplicate: the menu (⌘D), the bar, the key; copies become the selection
     for needle in (
-        'hint: "⌘D"',
+        "hint: `${MOD} D`",
         'data-testid="bulk-duplicate"',
         'e.key.toLowerCase() === "d"',
         "setChecked(new Set(r.created ?? []))",

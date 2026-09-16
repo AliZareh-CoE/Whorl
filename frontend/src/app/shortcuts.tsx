@@ -3,7 +3,7 @@
 import { noticeDialog } from "../components/Dialog";
 import { isDesktop } from "./external";
 
-const MOD = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
+export const MOD = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
 
 type Group = { title: string; rows: [string, string][] };
 

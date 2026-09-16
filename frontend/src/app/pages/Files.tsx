@@ -11,6 +11,7 @@ import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 
 import { openTerminal } from "../TerminalDock";
 import { openPath, revealPath } from "../external";
+import { MOD } from "../shortcuts";
 
 type FileNode = {
   id: number;
@@ -738,7 +739,7 @@ export default function Files() {
       { label: "Replace with a newer version…", icon: <Upload className="h-3.5 w-3.5" />, disabled: ms, onSelect: () => askReplace(f) },
       { label: f.versions ? `History (${f.versions})` : "History", icon: <History className="h-3.5 w-3.5" />, disabled: ms, onSelect: () => { setSelected(f); setHistoryFor(f.id); } },
       { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, hint: "F2", disabled: ms, onSelect: () => void askRenameFile(f) },
-      { label: checked.has(f.id) && checked.size > 1 ? `Duplicate ${checked.size} files` : "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, hint: "⌘D", disabled: ms, onSelect: () => duplicate(f) },
+      { label: checked.has(f.id) && checked.size > 1 ? `Duplicate ${checked.size} files` : "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, hint: `${MOD} D`, disabled: ms, onSelect: () => duplicate(f) },
       { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, hint: "Del", danger: true, disabled: ms, onSelect: () => void askDeleteFile(f) },
     ];
   };
@@ -1201,7 +1202,7 @@ export default function Files() {
               <button onClick={bulkZip} className="inline-flex items-center gap-1 hover:underline" data-testid="bulk-zip"><Archive className="h-3 w-3" aria-hidden="true" />Download zip</button>
               <button onClick={(e) => menu.open(e, bulkMoveItems())} className="hover:underline" data-testid="bulk-move" disabled={bulk.isPending}>Move to…</button>
               <button onClick={(e) => menu.open(e, bulkTagItems())} className="hover:underline" data-testid="bulk-tag" disabled={bulk.isPending}>Tag…</button>
-              <button onClick={() => bulk.mutate({ action: "duplicate" })} className="hover:underline" data-testid="bulk-duplicate" disabled={bulk.isPending} title="Copies land next to their originals and become the selection (⌘D)">Duplicate</button>
+              <button onClick={() => bulk.mutate({ action: "duplicate" })} className="hover:underline" data-testid="bulk-duplicate" disabled={bulk.isPending} title={`Copies land next to their originals and become the selection (${MOD} D)`}>Duplicate</button>
               <button onClick={() => void askBulkDelete()} className="text-red-600 hover:underline dark:text-red-300" data-testid="bulk-delete" disabled={bulk.isPending}>Delete…</button>
               <button onClick={() => setChecked(new Set())} className="ml-auto text-stone-500 hover:underline dark:text-stone-400" data-testid="bulk-clear" title="Clear the selection (Esc)">Clear</button>
             </div>
