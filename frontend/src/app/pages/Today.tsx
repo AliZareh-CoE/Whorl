@@ -4,7 +4,7 @@
  *  and joins the list on its morning. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Check, Pencil, Plus, Sparkles, Trash2, GripVertical, Moon, Sun, Repeat as RepeatIcon } from "lucide-react";
+import { Check, Pencil, Plus, Sparkles, Trash2, GripVertical, Moon, Sun, Repeat as RepeatIcon, BookOpen, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { dayLabel, dueState, formatDue, isLater, parseDue, relativeDue, repeatLabel } from "../dueTime";
@@ -115,7 +115,10 @@ export default function Today() {
   const [drag, setDrag] = useState<{ id: number; over: number | null; after: boolean }>({ id: -1, over: null, after: false });
   const [cursor, setCursor] = useState(0);
   const [editing, setEditing] = useState<number | null>(null);
-  const clearDone = useMutation({ mutationFn: () => api("/todos/clear-done/", { method: "POST" }), onSuccess: refresh });
+  // #550: Clear empties the Logbook (earlier days) and keeps today's record
+  const clearDone = useMutation({ mutationFn: () => api("/todos/clear-done/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: "earlier" }) }), onSuccess: refresh });
+  const [logbookOpen, setLogbookOpen] = useState<boolean>(() => { try { return localStorage.getItem("atlas-today-logbook") === "open"; } catch { return false; } });
+  const toggleLogbook = () => setLogbookOpen((o) => { try { localStorage.setItem("atlas-today-logbook", o ? "closed" : "open"); } catch { /* private mode */ } return !o; });
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -123,6 +126,16 @@ export default function Today() {
   const open = items.filter((t) => !t.done && !isLater(t.due_at));
   const later = items.filter((t) => !t.done && isLater(t.due_at)).sort((a, b) => String(a.due_at).localeCompare(String(b.due_at)) || a.position - b.position);
   const done = items.filter((t) => t.done);
+  // #550: today's ticks stay in view; earlier days (and rows without a stamp, re-created by an undo) fold into the Logbook
+  const doneToday = done.filter((t) => t.done_at && dayLabel(t.done_at) === "today");
+  const logbook = done.filter((t) => !(t.done_at && dayLabel(t.done_at) === "today")).sort((a, b) => (b.done_at ?? "").localeCompare(a.done_at ?? ""));
+  const logGroups = logbook.reduce<{ label: string; items: Todo[] }[]>((acc, t) => {
+    const label = t.done_at ? dayLabel(t.done_at) : "earlier";
+    const last = acc[acc.length - 1];
+    if (last && last.label === label) last.items.push(t); else acc.push({ label, items: [t] });
+    return acc;
+  }, []);
+  const oldest = logbook.length ? logbook[logbook.length - 1].done_at : null;
   const laterGroups = later.reduce<{ label: string; items: Todo[] }[]>((acc, t) => {
     const label = dayLabel(t.due_at as string);
     const last = acc[acc.length - 1];
@@ -162,7 +175,7 @@ export default function Today() {
           Today{" "}
           <span className="text-gradient">{open.length === 0 ? "· all clear" : `· ${open.length} to do`}</span>
         </h1>
-        {carried > 0 && <p className="mt-1 text-xs text-stone-400" data-testid="carried-over">{carried} carried over from earlier days.</p>}
+        {(carried > 0 || doneToday.length > 0) && <p className="mt-1 text-xs text-stone-400">{carried > 0 && <span data-testid="carried-over">{carried} carried over from earlier days.</span>}{carried > 0 && doneToday.length > 0 && " · "}{doneToday.length > 0 && <span data-testid="done-today-count">{doneToday.length} done today.</span>}</p>}
       </div>
 
       <form
@@ -223,15 +236,37 @@ export default function Today() {
         </section>
       )}
 
-      {done.length > 0 && (
-        <section className="rise mt-5" style={{ ["--i" as string]: 3 }}>
+      {doneToday.length > 0 && (
+        <section className="rise mt-5" style={{ ["--i" as string]: 3 }} data-testid="done-today">
           <div className="mb-2 flex items-center justify-between px-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">Done · {done.length}</p>
-            <button type="button" onClick={() => clearDone.mutate()} className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-red-500"><Trash2 className="h-3 w-3" aria-hidden="true" />Clear done</button>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">Done today · {doneToday.length}</p>
           </div>
           <ul className={`${panel} divide-y divide-stone-100 overflow-hidden dark:divide-stone-800`}>
-            {done.map((t) => <Row key={t.id} t={t} active={false} editing={false} onFocus={() => undefined} onEdit={() => undefined} onSave={() => undefined} onToggle={() => toggle.mutate({ id: t.id, done: false })} onRemove={() => remove.mutate(t.id)} />)}
+            {doneToday.map((t) => <Row key={t.id} t={t} active={false} editing={false} onFocus={() => undefined} onEdit={() => undefined} onSave={() => undefined} onToggle={() => toggle.mutate({ id: t.id, done: false })} onRemove={() => remove.mutate(t.id)} />)}
           </ul>
+        </section>
+      )}
+
+      {logbook.length > 0 && (
+        <section className="rise mt-5" style={{ ["--i" as string]: 4 }} data-testid="logbook">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <button type="button" onClick={toggleLogbook} aria-expanded={logbookOpen} data-testid="logbook-toggle" className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
+              <ChevronRight className={`h-3 w-3 transition-transform ${logbookOpen ? "rotate-90" : ""}`} aria-hidden="true" /><BookOpen className="h-3 w-3" aria-hidden="true" />Logbook · {logbook.length}{oldest && <span className="ml-1 font-normal normal-case tracking-normal">· since {dayLabel(oldest)}</span>}
+            </button>
+            <button type="button" onClick={() => clearDone.mutate()} data-testid="clear-logbook" className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-red-500"><Trash2 className="h-3 w-3" aria-hidden="true" />Clear the logbook</button>
+          </div>
+          {logbookOpen && (
+            <div className={`${panel} overflow-hidden`}>
+              {logGroups.map((g) => (
+                <div key={g.label} data-testid="logbook-group">
+                  <p className="border-b border-stone-100 bg-stone-50/60 px-4 py-1.5 text-[11px] font-medium capitalize text-stone-500 dark:border-stone-800 dark:bg-stone-800/40 dark:text-stone-400" data-testid="logbook-day">{g.label}</p>
+                  <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+                    {g.items.map((t) => <LogRow key={t.id} t={t} onToggle={() => toggle.mutate({ id: t.id, done: false })} onRemove={() => remove.mutate(t.id)} />)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
       <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · s pushes to tomorrow, S picks a day · z undoes · ⌥↑/↓ or drag reorders · n new · “at 3pm” sets a time, “on Friday” a day, “every Monday” a rule. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
@@ -261,6 +296,27 @@ function DueChip({ iso, allDay }: { iso: string; allDay: boolean }) {
 
 const SNOOZE_OPTIONS: [string, string][] = [["tomorrow", "Tomorrow"], ["monday", "Monday"], ["next-week", "Next week"], ["weekend", "Weekend"]];
 const REPEAT_OPTIONS: [Repeat, string][] = [["", "Never"], ["daily", "Daily"], ["weekdays", "Weekdays"], ["weekly", "Weekly"], ["monthly", "Monthly"]];
+
+/** #550: a Logbook row — a quiet record of an earlier day. A repeating row keeps no untick here:
+ *  unticking it would take back the occurrence it spawned (the #547 rule), which is a surprise
+ *  a week later; today's Done section is where that undo belongs. */
+function LogRow({ t, onToggle, onRemove }: { t: Todo; onToggle: () => void; onRemove: () => void }) {
+  const canUntick = !t.repeat;
+  return (
+    <li className="group flex items-center gap-3 px-4 py-2" data-testid="logbook-row">
+      {canUntick ? (
+        <button type="button" onClick={onToggle} aria-label={`Mark “${t.text}” not done`} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-indigo-500/60 bg-indigo-500/60 text-white transition-all hover:bg-indigo-500"><Check className="h-3 w-3" aria-hidden="true" strokeWidth={3} /></button>
+      ) : (
+        <span title="Ticking this one spawned the next occurrence — untick it from today's Done, not from the logbook" data-testid="logbook-locked" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-indigo-500/40 bg-indigo-500/40 text-white"><Check className="h-3 w-3" aria-hidden="true" strokeWidth={3} /></span>
+      )}
+      <span className="min-w-0 flex-1 text-sm text-stone-400 line-through dark:text-stone-500">{t.text}</span>
+      <RepeatChip t={t} />
+      {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
+      {t.done_at && <span className="shrink-0 text-[10px] tabular-nums text-stone-400">{new Date(t.done_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>}
+      <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+    </li>
+  );
+}
 
 /** #547: the "↻ every Monday" chip on a repeating row. */
 function RepeatChip({ t }: { t: Todo }) {

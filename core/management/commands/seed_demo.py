@@ -902,6 +902,24 @@ class Command(BaseCommand):
                 "all_day": True,
             },
         )
+        # #550: the Done section as a logbook — one ticked today, one yesterday
+        from datetime import timedelta as _td
+
+        from django.utils import timezone as _tz
+
+        TodoItem.objects.get_or_create(
+            text="Reply to the reviewer's data request",
+            defaults={
+                "position": 7,
+                "project": project,
+                "done": True,
+                "done_at": _tz.now() - _td(hours=1),
+            },
+        )
+        TodoItem.objects.get_or_create(
+            text="Order the replacement EEG caps",
+            defaults={"position": 8, "done": True, "done_at": _tz.now() - _td(days=1, hours=2)},
+        )
         # #547: a repeating item — the lab meeting agenda, every Monday
         TodoItem.objects.get_or_create(  # repeat_of: once ticked, its successor shares the text
             text="Prep the lab meeting agenda",

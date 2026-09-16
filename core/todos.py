@@ -24,6 +24,23 @@ def day_end(today: date | None = None) -> datetime:
     return timezone.make_aware(datetime.combine(today + timedelta(days=1), time.min))
 
 
+def day_start(today: date | None = None) -> datetime:
+    """The first instant of today in the server's zone."""
+    today = today or timezone.localdate()
+    return timezone.make_aware(datetime.combine(today, time.min))
+
+
+def done_today_q(today: date | None = None) -> Q:
+    """Ticked today — the rows the Done section shows (#550)."""
+    return Q(done=True, done_at__gte=day_start(today), done_at__lt=day_end(today))
+
+
+def logbook_q(today: date | None = None) -> Q:
+    """Ticked on an earlier day, or done without a stamp (a row re-created by an undo) — the
+    Logbook (#550). What `clear-done` with scope "earlier" removes."""
+    return Q(done=True) & (Q(done_at__lt=day_start(today)) | Q(done_at__isnull=True))
+
+
 def today_q(today: date | None = None) -> Q:
     """Open items that belong on today's list: undated, due today, or overdue from earlier days."""
     return Q(done=False) & (Q(due_at__isnull=True) | Q(due_at__lt=day_end(today)))

@@ -2943,13 +2943,32 @@ class TodoItemViewSet(AtlasViewSet):
             item.spawned = item.mark(item.done, was=before)
 
     @extend_schema(
-        request=None,
+        request=inline_serializer(
+            "TodoClearDone",
+            {
+                "scope": rf_serializers.ChoiceField(
+                    choices=["all", "earlier"], required=False, default="all"
+                )
+            },
+        ),
         responses={200: OpenApiResponse(description="{deleted}")},
-        description="Delete every ticked-off item, leaving the open ones.",
+        description="Delete ticked-off items, leaving the open ones: every one (`scope: all`, "
+        "the default) or only the Logbook — those ticked on an earlier day or without a stamp "
+        "(`scope: earlier`), keeping today's record.",
     )
     @action(detail=False, methods=["post"], url_path="clear-done")
     def clear_done(self, request):
-        deleted, _ = TodoItem.objects.filter(done=True).delete()
+        from core.todos import logbook_q
+
+        scope = (request.data.get("scope") if isinstance(request.data, dict) else None) or "all"
+        if scope not in ("all", "earlier"):
+            raise rf_serializers.ValidationError({"scope": ["Use all or earlier."]})
+        rows = (
+            TodoItem.objects.filter(logbook_q())
+            if scope == "earlier"
+            else TodoItem.objects.filter(done=True)
+        )
+        deleted, _ = rows.delete()
         return Response({"deleted": deleted})
 
     @extend_schema(
