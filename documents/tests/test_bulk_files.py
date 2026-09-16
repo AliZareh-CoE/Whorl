@@ -306,7 +306,7 @@ def test_explorer_selection_and_action_bar():
         assert f'data-testid="{needle}"' in files, needle
     assert (
         "`/projects/${slug}/documents/bulk/`" in files
-        and "body: JSON.stringify({ ids: [...checked], ...v })" in files
+        and "body: JSON.stringify({ ids: ids ?? [...checked], ...v })" in files
     )
     assert "if (r.skipped.length) void noticeDialog(" in files
     assert '`/api/v1/projects/${slug}/archive/?ids=${[...checked].join(",")}`' in files
