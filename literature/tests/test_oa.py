@@ -351,3 +351,106 @@ class TestFourSources:
         assert body["attached"] and body["source"] == "arxiv"
         assert body["arxiv_id"] == "1706.03762"
         assert body["outcome"].endswith("via arXiv.")
+
+
+class TestHopGuard:
+    """Audit #33 (backlog 341): a PDF download follows redirects by hand — every hop must stay
+    on https and on a public host, at most five hops, the body streamed under the size cap —
+    and (backlog 342) one slow paper cannot eat the sweep's wall clock."""
+
+    def _ref(self):
+        return ReferenceFactory(arxiv_id="2101.00001", doi=None)
+
+    def test_redirect_to_a_private_host_is_refused(self, patch_http, monkeypatch):
+        hosts = []
+        monkeypatch.setattr(
+            oa,
+            "check_url",
+            lambda url: (
+                (_ for _ in ()).throw(oa.LinkError("that host is private or unresolvable"))
+                if "127.0.0.1" in url
+                else url
+            ),
+        )
+
+        def handler(request):
+            hosts.append(request.url.host)
+            if request.url.host == "arxiv.org":
+                return httpx.Response(302, headers={"location": "https://127.0.0.1/x.pdf"})
+            return _fake_pdf(request)
+
+        patch_http["handler"] = handler
+        ref = self._ref()
+        outcome = oa.fetch_and_attach_pdf(ref)
+        assert "127.0.0.1" not in hosts
+        assert outcome == "Download refused (redirect: that host is private or unresolvable)."
+        ref.refresh_from_db()
+        assert not ref.pdf
+
+    def test_redirect_off_https_is_refused(self, patch_http, monkeypatch):
+        monkeypatch.setattr(oa, "check_url", lambda url: url)
+        hosts = []
+
+        def handler(request):
+            hosts.append(f"{request.url.scheme}://{request.url.host}")
+            if request.url.host == "arxiv.org":
+                return httpx.Response(302, headers={"location": "http://mirror.example/x.pdf"})
+            return _fake_pdf(request)
+
+        patch_http["handler"] = handler
+        assert oa.fetch_and_attach_pdf(self._ref()) == "Download refused (redirect left https)."
+        assert "http://mirror.example" not in hosts
+
+    def test_a_public_https_redirect_is_followed(self, patch_http, monkeypatch):
+        monkeypatch.setattr(oa, "check_url", lambda url: url)
+
+        def handler(request):
+            if request.url.host == "arxiv.org" and "v2" not in request.url.path:
+                return httpx.Response(307, headers={"location": "/pdf/2101.00001v2"})
+            return _fake_pdf(request)
+
+        patch_http["handler"] = handler
+        # a relative Location resolves against the hop it came from (arxiv.org, https)
+        ref = self._ref()
+        assert "attached" in oa.fetch_and_attach_pdf(ref)
+
+    def test_too_many_hops(self, patch_http, monkeypatch):
+        monkeypatch.setattr(oa, "check_url", lambda url: url)
+        count = {"n": 0}
+
+        def handler(request):
+            count["n"] += 1
+            return httpx.Response(302, headers={"location": f"https://hop.example/{count['n']}"})
+
+        patch_http["handler"] = handler
+        assert oa.fetch_and_attach_pdf(self._ref()) == "Download refused (too many redirects)."
+        assert count["n"] == oa.MAX_HOPS + 1  # one candidate (arXiv), six requests, then stop
+
+    def test_oversized_body_is_cut_off_while_streaming(self, patch_http, monkeypatch):
+        monkeypatch.setattr(oa, "MAX_PDF_BYTES", 1000)
+        served = {"bytes": 0}
+
+        def body():
+            for _ in range(100):
+                served["bytes"] += 100
+                yield b"%PDF" + b"x" * 96
+
+        patch_http["handler"] = lambda request: httpx.Response(200, content=body())
+        assert oa.fetch_and_attach_pdf(self._ref()) == "PDF larger than the 50 MB limit — skipped."
+        assert served["bytes"] < 10_000, "the whole 10 KB body must not be read"
+
+    def test_per_paper_wall_clock(self, patch_http, monkeypatch):
+        monkeypatch.setattr(oa, "PAPER_BUDGET_SECONDS", -1)  # already out of time
+        hosts = []
+
+        def handler(request):
+            hosts.append(request.url.host)
+            return _fake_pdf(request)
+
+        patch_http["handler"] = handler
+        ref = self._ref()
+        outcome = oa.find_pdf(ref)
+        assert outcome["outcome"].startswith("Stopped (out of time") and not outcome["attached"]
+        assert hosts == [], "no download is started once the paper's clock has run out"
+        ref.refresh_from_db()
+        assert ref.extra["oa_pdf"].startswith("Stopped")

@@ -874,6 +874,94 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #33 — 2026-09-16 (since #32: #539–#547 — Atlas as an OpenManus tab, MCP toolsets and descriptions, Find PDF over four sources, feed mute lists, the nightly PDF sweep, two Library fixes, Today's Later and repeating items)
+
+Ten cycles, nine slices, **no findings across the wire** — and the three items the last two
+audits queued for this one (backlog 340, 341, 342) closed here, each with a test.
+
+**Dependencies — CLEAN.** `pip-audit` on the exported lock: *No known vulnerabilities found*.
+`npm audit --omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`: every row green (anon → 401
+across the API, pages → 302, catch-all 404, static MIME, `/app//evil.com` stays on-origin).
+
+**New surfaces since #32 — reviewed.**
+- *Auth:* `todos/{id}/snooze/`, `todos/?when=`, `references/find-pdfs/` (GET + POST),
+  `feeds/{id}` PATCH `mute`, `feeds/items/?muted=1` answer 401 anonymously; a path that does
+  not exist (`feeds/1/items/`, `toolsets/`) is the API catch-all 404, not a leak.
+- *Feed mute lists (#543):* 51 terms → 400, a 61-character term → 400, a 1-character term
+  → 400, a string instead of a list → 400, an integer entry → 400; `(a+)+$` and
+  `author:(x` are accepted **as text** — `mute_matcher` compiles a single word through
+  `re.escape` on `(?<!\w)…(?!\w)` boundaries and matches phrases and authors as plain
+  substrings, so a term can never become a pattern (no ReDoS). `clean_mute` also strips,
+  caps and de-duplicates before storage.
+- *PDF sweep (#544):* 21 ids → 400, `ids: "1"` → 400, `[10²⁰]` → 200 with nothing touched
+  (`parse_ids` drops it), `days: 10²⁰` → 200 clamped to ten years, `days: "abc"` → 400,
+  `limit: -5` → clamped to one, an empty body → the stale sweep (that is the button's
+  contract: at most 20 papers under the two-minute clock; it attached one demo paper
+  during the probe, which is the feature). GET is status only.
+- *Today (#546, #547):* `until` junk / an integer / 500 characters / `null` → 400 with the
+  vocabulary in the reason, `todos/10²⁰/snooze/` → 404 (`MAX_PK` lookup), `due` in the past
+  or a list → 400, `repeat` outside the four rules or an integer → 400, `repeat_of` in a
+  POST is ignored (read-only), `?when=%00junk` and `?muted=%00` are ignored (a flag is a
+  known word or nothing), `due_at` "yesterday" / year 99999 → 400 from DRF's datetime
+  field. The spawn on tick is bounded by construction: one open successor per chain
+  (`spawn_next` returns the existing one), so a client that PATCHes `done: true` in a loop
+  creates one row, not one per request. No new id-range parsing path was added this window
+  (pk lookups and `parse_ids` only), so the SQLite repeat of Audit #31 was not needed.
+- *OpenManus embedding (#539):* with `ATLAS_FRAME_ANCESTORS` empty every response still
+  carries `X-Frame-Options: DENY` (verified on the API and the login page).
+  `parse_ancestors` fed `javascript:alert(1)`, `http://evil.com/path`, `*`, `data:x`,
+  credentials, a 300-character host and an IPv6 literal keeps only whole http(s) origins
+  (`http://good.example:3000`, `https://[::1]:8080`, `https://lab.example.org`), lower-cased,
+  at most twenty; the policy is `frame-ancestors 'self' …` and nothing else is emitted.
+- *MCP toolsets (#540, #541):* `parse("bogus, core, ALL, plan,plan  library;notes")` →
+  every named set (an `all` word wins), `None` → core, a 10 000-character value → core; the
+  tool count (158) and the core description budget (≤ 5 200 chars) are pinned by tests.
+- *Find PDF (#542, #545):* every link a metadata service hands back must start with
+  `https://` before it is tried (`_https`); the download itself is the subject of backlog 341
+  below.
+
+**Backlog 340 — the desktop release trigger (closed).** `on.push.paths` listed `desktop/**`,
+`mcp_server/**`, `static/**`, `templates/**` and two files, so a Python-only push (a view
+guard, a model, a migration) rebuilt no installer until a later push touched a listed path,
+although the frozen server bundles every app. Added `"**/*.py"`, `"!**/tests/**"` (tests are
+not shipped) and `"uv.lock"`. Pinned in
+`test_desktop_scaffold.py::test_release_workflow_rebuilds_on_any_python_change`.
+
+**Backlog 341 — the PDF download's redirect hop (closed).** `literature/oa.py::_download`
+followed redirects through httpx unchecked: the four services hand back public https links,
+but a repository answering `302 → http://127.0.0.1/…` (or an internal address) would have
+been fetched. Now redirects are followed by hand — at most `MAX_HOPS` (5) — and every hop
+goes through the feeds' `check_url` (public, resolvable host) **and** must stay on https;
+the body streams under the 50 MB cap instead of being read whole and measured after.
+Pinned in `test_oa.py::TestHopGuard` (private host refused and never contacted, a hop off
+https refused, a relative https hop followed, six hops stop, a 10 KB body over a 1 KB cap
+cut off after the first chunks).
+
+**Backlog 342 — the API sweep's worst case (closed).** The two-minute budget was checked
+between papers, so one slow paper (three metadata calls and four downloads at 10 s each)
+could stretch a request past three minutes on a waitress thread. `find_pdf` now runs each
+paper under `PAPER_BUDGET_SECONDS` (45): no new candidate is started past the deadline and
+a streaming download stops at it ("Stopped (out of time for this paper); will look again."
+— the stamp still lands, so the sweep moves on). Pinned in
+`TestHopGuard::test_per_paper_wall_clock`.
+
+**Query counts on the demo** (in-process): `todos/` 4 (`?when=today` 4, `?when=later` 4),
+`todos/{id}/snooze/` 3, `todos/{id}` PATCH `repeat` 3, `dashboard/` 64 (pinned budget 122),
+`dashboard/brief/` 56, `feeds/` 4, `feeds/items/?feed=` 9 (with `muted=1` 9), `feeds/{id}`
+PATCH `mute` 4, `references/find-pdfs/` (GET) 6, `references/` 7, `facets/` 22,
+`diagnostics/` 7 — all grouped, none per row.
+
+**Hot endpoints (in-process, demo data):** todos 7 ms, snooze 6 ms, repeat patch 6 ms,
+dashboard 91 ms, brief 77 ms, feeds 9 ms, feed items 11 ms, mute patch 11 ms, sweep status
+7 ms, references 20 ms, facets 52 ms, diagnostics 19 ms.
+
+**Verdict.** The first audit since #26 with nothing to fix in the window's own slices: every
+new value is typed and bounded at the serializer, every flag is a known word or nothing,
+the mute list can never become a regex, the tick loop is idempotent by construction. The
+three queued items were the real work — a release that skipped Python-only pushes, a
+download hop that trusted a redirect, and a sweep whose worst case was three minutes on a
+request thread — and each is now a rule with a test. **Next audit due at #558.**
+
 ## Audit #32 — 2026-09-15 (since #31: #529–#537 — the Library return pass's last six slices, three owner asks: the updater verdict, the projects-folder import, the backup destination)
 
 Ten cycles, nine slices, three findings — all the same shape: an untyped or unbounded value

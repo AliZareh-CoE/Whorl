@@ -29,6 +29,11 @@ on:
       # Tailwind CSS compiled from these), so a UI change must rebuild the installer too.
       - "templates/**"
       - "static/**"
+      # Audit #33 (backlog 340): the frozen server bundles every Django app, so a Python-only
+      # push (a view guard, a model) must rebuild the installer too; tests are not shipped.
+      - "**/*.py"
+      - "!**/tests/**"
+      - "uv.lock"
     tags:
       - "v*"
   workflow_dispatch:

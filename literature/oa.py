@@ -14,6 +14,7 @@ import re
 from collections.abc import Iterator
 from itertools import islice
 from time import monotonic
+from urllib.parse import urljoin
 
 import httpx
 from django.conf import settings
@@ -21,11 +22,15 @@ from django.core.files.base import ContentFile
 from django.db.models import F, Q
 from django.utils import timezone
 
+from notes.links import LinkError, check_url
+
 from .models import Reference
 from .services import TIMEOUT, USER_AGENT, normalize_arxiv_id
 
 MAX_PDF_BYTES = 50 * 1024 * 1024
 MAX_CANDIDATES = 4  # downloads attempted per paper; the first real PDF wins
+MAX_HOPS = 5  # redirects followed by hand per download (Audit #33, backlog 341)
+PAPER_BUDGET_SECONDS = 45  # wall clock per paper: metadata calls + downloads (backlog 342)
 
 # The sweep (#544): papers without a PDF are looked at again once the last answer is older
 # than STALE_DAYS, never-looked-at ones first; bounded per run by a count and a wall clock.
@@ -178,19 +183,42 @@ def resolve_oa_pdf_url(reference: Reference, client: httpx.Client) -> str | None
     return next((url for _, url in iter_oa_candidates(reference, client)), None)
 
 
-def _download(client: httpx.Client, url: str) -> tuple[bytes | None, str]:
-    """(pdf bytes, "") or (None, why not)."""
+def _download(
+    client: httpx.Client, url: str, deadline: float | None = None
+) -> tuple[bytes | None, str]:
+    """(pdf bytes, "") or (None, why not). Redirects are followed by hand, at most MAX_HOPS,
+    and every hop must stay on https and on a public host (a repository answering
+    "302 → http://127.0.0.1/…" is refused, not fetched — the feeds' rule, backlog 341); the
+    body streams in under the size cap and the paper's wall clock (`deadline`, monotonic)."""
     try:
-        response = client.get(url)
+        for _ in range(MAX_HOPS + 1):
+            with client.stream("GET", url, follow_redirects=False) as response:
+                if response.status_code in (301, 302, 303, 307, 308):
+                    location = response.headers.get("location", "")
+                    if not location:
+                        return None, f"Download failed (HTTP {response.status_code})."
+                    try:
+                        url = check_url(urljoin(url, location))
+                    except LinkError as exc:
+                        return None, f"Download refused (redirect: {exc})."
+                    if not url.startswith("https://"):
+                        return None, "Download refused (redirect left https)."
+                    continue
+                if response.status_code != 200:
+                    return None, f"Download failed (HTTP {response.status_code})."
+                buf = bytearray()
+                for chunk in response.iter_bytes():
+                    buf += chunk
+                    if len(buf) > MAX_PDF_BYTES:
+                        return None, "PDF larger than the 50 MB limit — skipped."
+                    if deadline is not None and monotonic() > deadline:
+                        return None, "Download stopped (out of time for this paper)."
+                if not buf.startswith(b"%PDF"):
+                    return None, "Resolved URL did not serve a PDF."
+                return bytes(buf), ""
     except httpx.HTTPError as exc:
         return None, f"Download failed ({exc.__class__.__name__})."
-    if response.status_code != 200:
-        return None, f"Download failed (HTTP {response.status_code})."
-    if len(response.content) > MAX_PDF_BYTES:
-        return None, "PDF larger than the 50 MB limit — skipped."
-    if not response.content.startswith(b"%PDF"):
-        return None, "Resolved URL did not serve a PDF."
-    return response.content, ""
+    return None, "Download refused (too many redirects)."
 
 
 def find_pdf(reference: Reference) -> dict:
@@ -220,10 +248,14 @@ def find_pdf(reference: Reference) -> dict:
         follow_redirects=True,
         event_hooks={"response": [_seen]},
     ) as client:
+        deadline = monotonic() + PAPER_BUDGET_SECONDS
         candidates = islice(iter_oa_candidates(reference, client), MAX_CANDIDATES)
         for candidate_source, url in candidates:
+            if monotonic() > deadline:  # backlog 342: one slow paper cannot eat the sweep
+                outcome = "Stopped (out of time for this paper); will look again."
+                break
             tried.append(candidate_source)
-            content, outcome = _download(client, url)
+            content, outcome = _download(client, url, deadline)
             if content is not None:
                 reference.pdf.save(f"{reference.bibtex_key}.pdf", ContentFile(content), save=False)
                 source = candidate_source

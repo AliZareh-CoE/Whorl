@@ -323,3 +323,11 @@ def test_release_notes_come_from_commits():
     assert "Write release notes" in workflow
     assert "releaseBody: ${{ steps.notes.outputs.body }}" in workflow
     assert "fetch-depth: 40" in workflow  # a shallow clone has no history to list
+
+
+def test_release_workflow_rebuilds_on_any_python_change():
+    """Audit #33 (backlog 340): the frozen server bundles every Django app, so a Python-only
+    push must rebuild the installer; tests are not shipped and must not trigger one."""
+    wf = (Path(settings.BASE_DIR) / ".github" / "workflows" / "desktop-release.yml").read_text()
+    paths = wf.split("paths:", 1)[1].split("jobs:", 1)[0]
+    assert '"**/*.py"' in paths and '"!**/tests/**"' in paths and '"uv.lock"' in paths
