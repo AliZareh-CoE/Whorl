@@ -12,7 +12,16 @@ BASE = Path(settings.BASE_DIR)
 
 def test_layout_turns_the_rail_into_a_drawer_below_640():
     layout = (BASE / "frontend" / "src" / "app" / "Layout.tsx").read_text()
-    assert 'const NARROW = "(max-width: 639px)";' in layout  # the same query the CSS uses
+    # the CSS's own `sm` query, in rem: a px query would drift from it under a larger default font
+    assert (
+        'const WIDE = "(min-width: 40rem)";' in layout
+        and "!window.matchMedia(WIDE).matches" in layout
+    )
+    assert "const on = () => setNarrow(!mq.matches);" in layout
+    assert "639px" not in layout
+    assert (
+        'className="flex items-center gap-2.5 max-sm:hidden"' in layout
+    )  # one wordmark on a phone
     assert (
         "function useNarrow(): boolean" in layout and 'mq.addEventListener("change", on)' in layout
     )
@@ -60,4 +69,4 @@ def test_built_assets_carry_the_drawer():
     assert "not all and (min-width:40rem)" in css  # how `max-sm:` compiles
     assert "max-sm\\:-translate-x-full" in css and "max-sm\\:translate-x-0" in css
     chunks = " ".join(p.read_text(errors="ignore") for p in (BASE / "static" / "js").rglob("*.js"))
-    assert "rail-toggle" in chunks and "rail-backdrop" in chunks and "(max-width: 639px)" in chunks
+    assert "rail-toggle" in chunks and "rail-backdrop" in chunks and "(min-width: 40rem)" in chunks

@@ -53,14 +53,15 @@ function openCommandBar() {
 
 /** #552: below 640 px the rail is a drawer behind a top bar — the width every narrow-width
  *  pass (#493, #501, #522, #551) judged pages at, and where the fixed 240-px rail left too
- *  little room. The state is read from the same media query the CSS uses, so the top bar,
- *  the `inert` drawer and the backdrop agree with the layout. */
-const NARROW = "(max-width: 639px)";
+ *  little room. The state is read from the CSS's own `sm` query (`min-width: 40rem`, in rem —
+ *  a px query would drift from it under a larger default font), so the top bar, the `inert`
+ *  drawer and the backdrop always agree with the layout. */
+const WIDE = "(min-width: 40rem)"; // Tailwind's `sm`, in rem: a larger default font moves both together
 function useNarrow(): boolean {
-  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.matchMedia(NARROW).matches);
+  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && !window.matchMedia(WIDE).matches);
   useEffect(() => {
-    const mq = window.matchMedia(NARROW);
-    const on = () => setNarrow(mq.matches);
+    const mq = window.matchMedia(WIDE);
+    const on = () => setNarrow(!mq.matches);
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
   }, []);
@@ -206,7 +207,7 @@ export default function Layout() {
       {narrow && railOpen && <button type="button" onClick={closeRail} aria-label="Close the menu" data-testid="rail-backdrop" className="fixed inset-0 top-12 z-30 bg-stone-950/40 sm:hidden" />}
       <aside ref={asideRef} id="rail" data-testid="rail" className={`fixed inset-y-0 left-0 z-20 flex w-60 flex-col overflow-y-auto border-r border-stone-200 bg-white px-3 py-5 dark:border-stone-800 dark:bg-stone-900 max-sm:top-12 max-sm:z-[35] max-sm:shadow-2xl max-sm:transition-transform ${railOpen ? "max-sm:translate-x-0" : "max-sm:-translate-x-full"}`}>
         <div className="px-2">
-          <a href="/" className="flex items-center gap-2.5">
+          <a href="/" className="flex items-center gap-2.5 max-sm:hidden">
             <span className="glow-accent inline-block h-2.5 w-2.5 rounded-full bg-gradient-to-br from-indigo-400 to-[#4ff2e0]" aria-hidden="true" />
             <span className="font-display text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">Atlas</span>
           </a>
