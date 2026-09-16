@@ -177,6 +177,10 @@ class Document(TimeStampedModel):
             content_type = getattr(getattr(self.file, "file", None), "content_type", "")
             if content_type:
                 self.content_type = content_type
+        elif self.content:
+            # #557: an inline-text node (write-file, the editor) has a size too — the tree's
+            # size column and the Size sort read it
+            self.file_size = len(self.content.encode())
         super().save(*args, **kwargs)
 
 

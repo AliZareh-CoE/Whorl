@@ -587,7 +587,8 @@ def import_projects_folder(
 @mcp.tool()
 def list_project_files(project: str) -> dict:
     """The project's whole file tree: folders + files (general docs and manuscript sources);
-    each file carries `version` and how many earlier `versions` its history keeps."""
+    each file carries `version`, how many earlier `versions` its history keeps, its tags and
+    description, and `created_at` / `modified_at` (when its bytes last changed)."""
     return client.list_project_files(project)
 
 

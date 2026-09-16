@@ -44,12 +44,15 @@ def workspace_tree(project: Project) -> dict:
         {"id": f.id, "name": f.name, "parent_id": f.parent_id} for f in project.folders.all()
     ]
     files = []
-    from django.db.models import Count
+    from django.db.models import Count, Max
 
     # #554: tags + description ride along (one prefetch, not one query per row)
-    documents = project.documents.annotate(versions_count=Count("versions")).prefetch_related(
-        "tags"
-    )
+    # #557: `modified_at` is when the bytes last changed — a version is filed at that moment,
+    # so it is the newest version's stamp (or the creation) — not `updated_at`, which a tag,
+    # a description or a move also bumps
+    documents = project.documents.annotate(
+        versions_count=Count("versions", distinct=True), last_filed=Max("versions__created_at")
+    ).prefetch_related("tags")
     for d in documents:
         name = d.title or (d.rel_path.rsplit("/", 1)[-1] if d.rel_path else "")
         files.append(
@@ -65,6 +68,9 @@ def workspace_tree(project: Project) -> dict:
                 "versions": d.versions_count,  # #553: earlier states in its history
                 "description": d.description,
                 "tags": [{"id": t.id, "name": t.name, "color": t.color} for t in d.tags.all()],
+                "created_at": d.created_at.isoformat(),
+                "updated_at": d.updated_at.isoformat(),
+                "modified_at": (d.last_filed or d.created_at).isoformat(),
                 "is_text": d.kind in TEXT_KINDS or (bool(d.content) and not d.file),
                 "local_path": (d.file.path if local_paths and d.file else None),
             }

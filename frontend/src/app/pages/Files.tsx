@@ -22,6 +22,9 @@ type FileNode = {
   size: number;
   version: number; // #553: bumped by every replace / edit / write / restore
   versions: number; // earlier states kept in its history
+  created_at: string; // #557: ISO stamps — modified_at is when the bytes last changed
+  updated_at: string;
+  modified_at: string;
   description: string; // #554: what the file is, editable in the pane
   tags: Tag[]; // #554: the project's tags on this file (name + colour)
   is_text: boolean;
@@ -44,6 +47,26 @@ const SOURCE_LABEL: Record<string, string> = { upload: "replaced by an upload", 
 type FolderNode = { id: number; name: string; parent_id: number | null };
 type Tree = { folders: FolderNode[]; files: FileNode[] };
 
+// #557: relative stamps for rows and the pane (the absolute time sits in the title)
+function ago(iso: string, now: number = Date.now()): string {
+  const m = (now - new Date(iso).getTime()) / 60000;
+  if (m < 1) return "just now";
+  if (m < 60) return `${Math.round(m)} min ago`;
+  if (m < 1440) return `${Math.round(m / 60)} h ago`;
+  const d = Math.round(m / 1440);
+  if (d < 14) return `${d} d ago`;
+  if (d < 60) return `${Math.round(d / 7)} wk ago`;
+  if (d < 365) return `${Math.round(d / 30)} mo ago`;
+  return `${Math.round(d / 365)} y ago`;
+}
+const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+type SortKey = "name" | "modified" | "size";
+const SORT_KEY = "atlas-files-sort";
+const RECENT_KEY = "atlas-files-recent";
+function readSort(): SortKey {
+  try { const v = localStorage.getItem(SORT_KEY); if (v === "modified" || v === "size") return v; } catch { /* private mode */ }
+  return "name";
+}
 function humanSize(n: number): string {
   if (!n) return "";
   const u = ["B", "KB", "MB", "GB"];
@@ -341,6 +364,11 @@ export default function Files() {
   });
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selected, setSelected] = useState<FileNode | null>(null);
+  // #557: files sort by name, last change or size (folders always first, by name); remembered
+  const [sort, setSortState] = useState<SortKey>(readSort);
+  const setSort = (k: SortKey) => { setSortState(k); try { localStorage.setItem(SORT_KEY, k); } catch { /* private mode */ } };
+  const [recentOpen, setRecentOpen] = useState<boolean>(() => { try { return localStorage.getItem(RECENT_KEY) !== "0"; } catch { return true; } });
+  const toggleRecent = () => setRecentOpen((o) => { try { localStorage.setItem(RECENT_KEY, o ? "0" : "1"); } catch { /* private mode */ } return !o; });
   // #554: one tag narrows the tree to the files carrying it (folders keep only matching descendants)
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const isOpen = (id: number) => expanded[id] ?? !!tagFilter; // filtered folders start open
@@ -672,12 +700,17 @@ export default function Files() {
       else (ff[f.folder_id] ??= []).push(f);
     }
     const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name);
+    // #557: newest change first, largest first; ties fall back to the name
+    const byFile = (a: FileNode, b: FileNode) =>
+      sort === "modified" ? (b.modified_at.localeCompare(a.modified_at) || byName(a, b))
+      : sort === "size" ? ((b.size - a.size) || byName(a, b))
+      : byName(a, b);
     rootFolders.sort(byName);
-    rootFiles.sort(byName);
+    rootFiles.sort(byFile);
     Object.values(cf).forEach((l) => l.sort(byName));
-    Object.values(ff).forEach((l) => l.sort(byName));
+    Object.values(ff).forEach((l) => l.sort(byFile));
     return { childFolders: cf, folderFiles: ff, rootFolders, rootFiles };
-  }, [data, tagFilter]);
+  }, [data, tagFilter, sort]);
   const countInside = (id: number): number => (folderFiles[id]?.length ?? 0) + (childFolders[id] ?? []).reduce((n, k) => n + 1 + countInside(k.id), 0);
 
   // [REV] keyboard navigation: flatten the *visible* tree in render order so arrow keys
@@ -845,7 +878,7 @@ export default function Files() {
       data-testid="tree-file"
       data-dragging={dragDoc?.id === f.id ? "1" : undefined}
       draggable={f.role !== "manuscript_source"}
-      title={f.role !== "manuscript_source" ? "Drag onto a folder to move it" : undefined}
+      title={`changed ${stamp(f.modified_at)} · added ${stamp(f.created_at)}${f.role !== "manuscript_source" ? " · drag onto a folder to move it" : ""}`}
       onDragStart={(e) => { if (f.role === "manuscript_source") { e.preventDefault(); return; } e.dataTransfer.setData(DOC_MIME, String(f.id)); e.dataTransfer.effectAllowed = "move"; setDragDoc(f); }}
       onDragEnd={() => { setDragDoc(null); setDropFolder(null); setDragging(false); }}
       onClick={() => { setSelected(f); setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); }}
@@ -873,7 +906,9 @@ export default function Files() {
         <span className="shrink-0 rounded bg-stone-100 px-1 text-[10px] uppercase tracking-wide text-stone-400 dark:bg-stone-800">ms</span>
       )}
       {f.versions > 0 && <span className="shrink-0 rounded bg-indigo-500/10 px-1 font-mono text-[10px] text-indigo-600 dark:text-indigo-300" title={`${f.versions} earlier version${f.versions === 1 ? "" : "s"} in its history`} data-testid="version-chip">v{f.version}</span>}
-      <span className="shrink-0 font-mono text-[11px] text-stone-400">{humanSize(f.size)}</span>
+      {sort === "modified"
+        ? <span className="shrink-0 text-[10px] text-stone-400" data-testid="row-stamp">{ago(f.modified_at)}</span>
+        : <span className="shrink-0 font-mono text-[11px] text-stone-400">{humanSize(f.size)}</span>}
       <Kebab items={fileItems(f)} label={`Actions for ${f.name}`} className="h-5 w-5 opacity-0 group-hover:opacity-100 focus:opacity-100" />
     </div>
   );
@@ -925,6 +960,17 @@ export default function Files() {
     for (const f of data.files) for (const t of f.tags) { const e = m.get(t.id); if (e) e.count++; else m.set(t.id, { ...t, count: 1 }); }
     return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
   })();
+  // #557: the last-touched files across the project (by the bytes' last change), shown when
+  // the tree is big enough for them to be worth a shortcut
+  const recent = total >= 6 ? [...data.files].sort((a, b) => b.modified_at.localeCompare(a.modified_at)).slice(0, 6) : [];
+  const parentOfFolder = new Map(data.folders.map((f) => [f.id, f.parent_id] as const));
+  const reveal = (f: FileNode) => {
+    const open: Record<number, boolean> = {};
+    let id = f.folder_id;
+    while (id != null) { open[id] = true; id = parentOfFolder.get(id) ?? null; }
+    setExpanded((e) => ({ ...e, ...open }));
+    setSelected(f);
+  };
   return (
     <div>
       <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400">
@@ -1006,8 +1052,21 @@ export default function Files() {
             if (e.dataTransfer.files.length) upload.mutate({ files: Array.from(e.dataTransfer.files), folder: null });
           }}
         >
-          <div className="sticky top-0 z-10 -mx-2 -mt-2 mb-1 border-b border-stone-100 bg-white px-3 py-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:border-stone-800 dark:bg-stone-900">
-            Explorer
+          <div className="sticky top-0 z-10 -mx-2 -mt-2 mb-1 flex items-center justify-between border-b border-stone-100 bg-white px-3 py-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:border-stone-800 dark:bg-stone-900">
+            <span>Explorer</span>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Sort files"
+              title="How files are ordered inside each folder"
+              className="h-5 rounded border border-stone-200 bg-white px-1 text-[10px] font-medium normal-case tracking-normal text-stone-500 hover:border-stone-300 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-400"
+              data-testid="sort-files"
+            >
+              <option value="name">Name</option>
+              <option value="modified">Last change</option>
+              <option value="size">Size</option>
+            </select>
           </div>
           {tagsInUse.length > 0 && (
             <div className="sticky top-9 z-10 -mx-2 mb-1.5 flex flex-wrap items-center gap-1 border-b border-stone-100 bg-white px-3 pb-1.5 dark:border-stone-800 dark:bg-stone-900" data-testid="tag-filter">
@@ -1033,6 +1092,26 @@ export default function Files() {
               <button onClick={(e) => menu.open(e, bulkTagItems())} className="hover:underline" data-testid="bulk-tag" disabled={bulk.isPending}>Tag…</button>
               <button onClick={() => void askBulkDelete()} className="text-red-600 hover:underline dark:text-red-300" data-testid="bulk-delete" disabled={bulk.isPending}>Delete…</button>
               <button onClick={() => setChecked(new Set())} className="ml-auto text-stone-500 hover:underline dark:text-stone-400" data-testid="bulk-clear" title="Clear the selection (Esc)">Clear</button>
+            </div>
+          )}
+          {recent.length > 0 && !tagFilter && (
+            <div className="mb-1.5 rounded-md border border-stone-100 bg-stone-50/60 px-2 py-1 text-xs dark:border-stone-800 dark:bg-stone-800/40" data-testid="recent-strip">
+              <button onClick={(e) => { e.stopPropagation(); toggleRecent(); }} aria-expanded={recentOpen} className="flex w-full items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-stone-400 hover:text-stone-600 dark:hover:text-stone-200" data-testid="recent-toggle">
+                <span className="w-3 text-xs">{recentOpen ? "▾" : "▸"}</span>Recent
+              </button>
+              {recentOpen && (
+                <ul className="mt-0.5">
+                  {recent.map((f) => (
+                    <li key={f.id}>
+                      <button onClick={(e) => { e.stopPropagation(); reveal(f); }} title={`${f.rel_path || f.name} · changed ${stamp(f.modified_at)}`} className={`flex w-full items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-stone-100 dark:hover:bg-stone-800 ${selected?.id === f.id ? "text-indigo-700 dark:text-indigo-300" : "text-stone-600 dark:text-stone-300"}`} data-testid="recent-file">
+                        <Icon kind={f.kind || "other"} name={f.name} />
+                        <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                        <span className="shrink-0 text-[10px] text-stone-400">{ago(f.modified_at)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
           {typedHint && (
@@ -1082,6 +1161,9 @@ export default function Files() {
                 {selected.role === "manuscript_source" && <span>· manuscript source</span>}
                 {!!humanSize(selected.size) && <span>· {humanSize(selected.size)}</span>}
                 {selected.role !== "manuscript_source" && <span data-testid="version-line">· v{selected.version}{selected.versions ? ` (${selected.versions} earlier)` : ""}</span>}
+                <span className="basis-full text-stone-400" data-testid="pane-dates">
+                  added <time dateTime={selected.created_at} title={stamp(selected.created_at)}>{ago(selected.created_at)}</time> · changed <time dateTime={selected.modified_at} title={stamp(selected.modified_at)}>{ago(selected.modified_at)}</time>
+                </span>
               </dl>
               {selected.role !== "manuscript_source" && (
                 <div className="mb-3 space-y-1.5 text-xs" data-testid="file-meta">
