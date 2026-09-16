@@ -310,7 +310,7 @@ class Command(BaseCommand):
             methods_folder,
             "Block order, timing, counterbalancing…",
             description="Frozen after pilot feedback.",
-            tags=[protocol],
+            tags=[protocol, key_paper],  # #559: one file carrying two tags shows the AND filter
         )
         add_doc(
             "Pilot session checklist",

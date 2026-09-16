@@ -1389,8 +1389,12 @@ class TagViewSet(AtlasViewSet):
     the project, any case, is a 400 naming it — merge instead); `count` is how many files
     carry the tag."""
 
-    queryset = Tag.objects.select_related("project").annotate(
-        documents_count=Count("documents", distinct=True)
+    # the annotation groups the query, which drops Meta.ordering — restate it, or the chip
+    # menus and the MCP name lookup would see tags in arbitrary order
+    queryset = (
+        Tag.objects.select_related("project")
+        .annotate(documents_count=Count("documents", distinct=True))
+        .order_by("name")
     )
     serializer_class = serializers.TagSerializer
     project_filter = "project__slug"

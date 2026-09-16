@@ -110,8 +110,15 @@ class TestApi:
         a, b = _tags(project)
         _doc(project, "a.md", [a])
         _doc(project, "ab.md", [a, b])
+        Tag.objects.create(project=project, name="a-first")
         rows = client.get(f"/api/v1/tags/?project={project.slug}", **HEADERS).json()["results"]
-        assert {r["name"]: r["count"] for r in rows} == {"key-paper": 2, "protocol": 1}
+        assert {r["name"]: r["count"] for r in rows} == {
+            "a-first": 0,
+            "key-paper": 2,
+            "protocol": 1,
+        }
+        # the count annotation groups the query; the name order must survive it
+        assert [r["name"] for r in rows] == ["a-first", "key-paper", "protocol"]
 
     def test_rename_clash_is_a_400_that_names_the_tag(self, client):
         project = ProjectFactory()
