@@ -188,15 +188,19 @@ def _table_kind(doc: Document) -> str | None:
     return None
 
 
-def _rows(text: str, delimiter: str) -> list[list[str]]:
+def _rows(text: str, delimiter: str) -> tuple[list[list[str]], list[int]]:
+    """Non-blank rows and, for each, the 1-based line it starts on in the file (so a
+    reported row number survives a blank line above it)."""
     reader = csv.reader(io.StringIO(text), delimiter=delimiter)
-    out = []
+    out: list[list[str]] = []
+    lines: list[int] = []
     for row in reader:
         if len(out) >= TABLE_ROWS_CAP:
             break
         if any(cell.strip() for cell in row):
             out.append(row)
-    return out
+            lines.append(reader.line_num)
+    return out, lines
 
 
 def table_diff(then_text: str, now_text: str, delimiter: str = ",") -> dict:
@@ -206,7 +210,7 @@ def table_diff(then_text: str, now_text: str, delimiter: str = ",") -> dict:
     row, not a shift of everything after it); columns by header name, so an added column
     is reported as such and the cells of the columns both sides share are compared.
     """
-    then_rows, now_rows = _rows(then_text, delimiter), _rows(now_text, delimiter)
+    (then_rows, _), (now_rows, now_lines) = _rows(then_text, delimiter), _rows(now_text, delimiter)
     then_head = then_rows[0] if then_rows else []
     now_head = now_rows[0] if now_rows else []
     cols_added = [c for c in now_head if c not in then_head]
@@ -233,7 +237,7 @@ def table_diff(then_text: str, now_text: str, delimiter: str = ",") -> dict:
                 if len(changes) >= TABLE_CHANGES_CAP:
                     truncated = True
                     return
-                changes.append({"row": j + 2, "column": col, "then": x, "now": y})
+                changes.append({"row": now_lines[j + 1], "column": col, "then": x, "now": y})
 
     need = max(1, (len(shared) + 1) // 2)  # a pair shares at least half its cells
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
@@ -280,22 +284,23 @@ def table_diff(then_text: str, now_text: str, delimiter: str = ",") -> dict:
 def version_diff(doc: Document, version: DocumentVersion) -> dict:
     """An earlier version compared with the file as it is now (#555, backlog 352): a unified
     line diff (like a note's revision diff) plus, for a .csv / .tsv, the changed cells."""
-    then, now = version_text(version), current_text(doc)
+    known = max(version.file_size or 0, doc.file_size or 0)
+    then, now = (None, None) if known > DIFF_CAP else (version_text(version), current_text(doc))
     row = {
         "number": version.number,
         "created_at": version.created_at,
         "note": version.note,
         "source": version.source,
         "version": doc.version,
-        "is_text": then is not None and now is not None,
-        "too_large": False,
+        "is_text": known > DIFF_CAP or (then is not None and now is not None),
+        "too_large": known > DIFF_CAP,
         "same": False,
         "diff": "",
         "added": 0,
         "removed": 0,
         "table": None,
     }
-    if not row["is_text"]:
+    if row["too_large"] or not row["is_text"]:
         return row
     if len(then) > DIFF_CAP or len(now) > DIFF_CAP:
         row["too_large"] = True

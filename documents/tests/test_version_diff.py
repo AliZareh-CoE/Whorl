@@ -59,6 +59,12 @@ class TestTableDiff:
         assert out["cols_added"] == ["note"] and out["headers"] == ["id", "rt", "note"]
         assert out["changes"] == [{"row": 3, "column": "rt", "then": "398", "now": "401"}]
 
+    def test_row_numbers_are_file_lines_past_a_blank_line(self):
+        then = "id,rt\n1,412\n\n2,398\n"
+        now = "id,rt\n1,412\n\n2,401\n"
+        out = history.table_diff(then, now)
+        assert out["changes"] == [{"row": 4, "column": "rt", "then": "398", "now": "401"}]
+
     def test_tsv_and_caps(self):
         out = history.table_diff("a\tb\n1\t2\n", "a\tb\n1\t3\n", "\t")
         assert out["changes"][0]["now"] == "3"
@@ -100,6 +106,14 @@ class TestVersionDiff:
         _replace(doc, b"y" * 20)
         out = history.version_diff(doc, doc.versions.get(number=1))
         assert out["is_text"] and out["too_large"] and out["diff"] == ""
+
+    def test_too_large_is_decided_from_the_stored_sizes_without_a_read(self, monkeypatch):
+        monkeypatch.setattr(history, "DIFF_CAP", 10)
+        doc = _file(ProjectFactory(), "big.txt", b"x" * 20)
+        _replace(doc, b"y" * 20)
+        monkeypatch.setattr(history, "current_text", lambda d: pytest.fail("read despite size"))
+        out = history.version_diff(doc, doc.versions.get(number=1))
+        assert out["too_large"] and out["is_text"]
 
 
 class TestApi:
