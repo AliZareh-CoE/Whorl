@@ -144,13 +144,6 @@ def complete_milestone(milestone_id: int):
     )
 
 
-def list_documents(slug: str, tag: str | None = None):
-    params = {"project": slug}
-    if tag:
-        params["tag"] = tag
-    return _request("GET", "/documents/", params=params)
-
-
 def search(query: str):
     return _request("GET", "/search/", params={"q": query})
 
@@ -618,9 +611,45 @@ def import_projects_folder(
     return _request("POST", "/projects/import-folder/", json=body)
 
 
-def list_project_files(project: str):
-    """The project's whole file tree: {folders, files} (general + manuscript sources)."""
+def list_project_files(project: str, tags: list[str] | None = None):
+    """The project's whole file tree: {folders, files} (general + manuscript sources);
+    `tags` keeps only the files carrying every one of them."""
+    if tags:
+        return _request("GET", f"/projects/{project}/tree/", params={"tag": list(tags)})
     return _request("GET", f"/projects/{project}/tree/")
+
+
+def _find_file_tag(project: str, name: str) -> dict:
+    page = _request("GET", "/tags/", params={"project": project, "page_size": 200})
+    wanted = name.strip().lower()
+    for row in page.get("results", []):
+        if row["name"].lower() == wanted:
+            return row
+    raise ValueError(f"No tag named {name!r} in {project}.")
+
+
+def manage_file_tag(
+    project: str,
+    tag: str,
+    rename: str = "",
+    color: str = "",
+    merge_into: str = "",
+    delete: bool = False,
+):
+    """Rename, recolour, merge or delete one of a project's file tags (exactly one verb)."""
+    verbs = [v for v in (bool(rename), bool(color), bool(merge_into), delete) if v]
+    if len(verbs) != 1:
+        raise ValueError("Pass exactly one of rename, color, merge_into or delete.")
+    row = _find_file_tag(project, tag)
+    if delete:
+        _request("DELETE", f"/tags/{row['id']}/")
+        return {"deleted": row["name"], "files": row.get("count", 0)}
+    if merge_into:
+        target = _find_file_tag(project, merge_into)
+        return _request("POST", f"/tags/{row['id']}/merge/", json={"into": target["id"]})
+    return _request(
+        "PATCH", f"/tags/{row['id']}/", json={"name": rename} if rename else {"color": color}
+    )
 
 
 def read_project_file(document_id: int, version: int = 0, diff: bool = False):

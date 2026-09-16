@@ -132,13 +132,6 @@ def set_milestone_dependencies(milestone_id: int, blocked_by: list[int]) -> dict
 
 
 @mcp.tool()
-def list_documents(project: str, tag: str = "") -> dict:
-    """List a project's documents with title, description, tags (`tag_names`), folder, size
-    and file URL; `tag` narrows to documents carrying that tag."""
-    return client.list_documents(project, tag or None)
-
-
-@mcp.tool()
 def search(query: str) -> dict:
     """Full-text search across everything in Atlas: projects, papers (title, abstract, PDF text),
     notes, documents, decisions, plans, hypotheses, experiments, protocols, datasets, captures.
@@ -585,11 +578,31 @@ def import_projects_folder(
 
 
 @mcp.tool()
-def list_project_files(project: str) -> dict:
+def list_project_files(project: str, tag: str = "") -> dict:
     """The project's whole file tree: folders + files (general docs and manuscript sources);
     each file carries `version`, how many earlier `versions` its history keeps, its tags and
-    description, and `created_at` / `modified_at` (when its bytes last changed)."""
-    return client.list_project_files(project)
+    description, and `created_at` / `modified_at` (when its bytes last changed). `tag` keeps
+    only the files carrying it; comma-separate several and a file must carry them all."""
+    tags = [t.strip() for t in tag.split(",") if t.strip()]
+    return client.list_project_files(project, tags or None)
+
+
+@mcp.tool()
+def manage_file_tag(
+    project: str,
+    tag: str,
+    rename: str = "",
+    color: str = "",
+    merge_into: str = "",
+    delete: bool = False,
+) -> dict:
+    """Rename, recolour (#rrggbb), merge into another tag, or delete one of a project's file
+    tags — exactly one verb per call; tags are matched by name, any case. A merge moves every
+    file to the other tag; a delete only takes the tag off its files (`files` says how many)."""
+    try:
+        return client.manage_file_tag(project, tag, rename, color, merge_into, delete)
+    except ValueError as exc:
+        return {"error": str(exc)}
 
 
 @mcp.tool()

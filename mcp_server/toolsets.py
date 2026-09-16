@@ -203,10 +203,10 @@ AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
     "files": (
         "documents and the project's file workspace",
         (
-            "list_documents",
             "list_project_files",
             "read_project_file",
             "write_project_file",
+            "manage_file_tag",
         ),
     ),
     "ops": (

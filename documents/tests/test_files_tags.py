@@ -1,6 +1,6 @@
 """#554 (backlog 353): tags and the description in the Files explorer — tree rows carry
 both (one prefetch), the serializer refuses another project's tags and returns names next
-to ids, `?tag=` narrows the list, `list_documents(tag)` passes it on, and the explorer's
+to ids, `?tag=` narrows the list, `list_project_files(tag)` passes it on, and the explorer's
 pane / filter row / quick-open read them."""
 
 from pathlib import Path
@@ -138,16 +138,15 @@ class TestApi:
 
 
 def test_mcp_client_passes_the_tag(monkeypatch):
+    # #559 folded list_documents into list_project_files(tag)
     seen = {}
     monkeypatch.setattr(
         mcp_client, "_request", lambda method, path, **kw: seen.update(kw, path=path) or {}
     )
-    mcp_client.list_documents("p")
-    assert seen["params"] == {"project": "p"}
-    mcp_client.list_documents("p", tag="key-paper")
-    assert seen["params"] == {"project": "p", "tag": "key-paper"}
+    mcp_client.list_project_files("p", tags=["key-paper"])
+    assert seen["path"] == "/projects/p/tree/" and seen["params"] == {"tag": ["key-paper"]}
     server = (BASE / "mcp_server" / "server.py").read_text()
-    assert 'def list_documents(project: str, tag: str = "") -> dict:' in server
+    assert 'def list_project_files(project: str, tag: str = "") -> dict:' in server
 
 
 def test_explorer_reads_and_edits_tags_and_description():
@@ -162,15 +161,15 @@ def test_explorer_reads_and_edits_tags_and_description():
     assert '{ label: "New tag…"' in files
     # a new tag reuses a same-name tag (any case) and gets a colour from its name
     assert "t.name.toLowerCase() === wanted.toLowerCase()" in files
-    assert "color: tagColor(wanted)" in files and "const TAG_PALETTE = [" in files
+    assert "color: tagColor(wanted)" in files and "const TAG_PALETTE = TAG_COLOURS.map(" in files
     # the pane's edits PATCH ids and refresh the tree
     assert "body: { tags: tags.map((t) => t.id) }" in files
     # the filter row: tags in use with counts; folders keep only matching descendants; open
     assert 'data-testid="tag-filter"' in files and 'data-testid="tag-filter-count"' in files
     # the row stays visible under the sticky header while a long tree scrolls
     assert 'className="sticky top-9 z-10 -mx-2 mb-1.5 flex flex-wrap' in files
-    assert "const isOpen = (id: number) => expanded[id] ?? !!tagFilter;" in files
-    assert "if (tagFilter && !keep.has(f.id)) continue;" in files
+    assert "const isOpen = (id: number) => expanded[id] ?? filtering;" in files  # #559: a list
+    assert "if (filtering && !keep.has(f.id)) continue;" in files
     # rows and quick-open
     assert 'data-testid="tag-dots"' in files
     assert "fuzzy(q, f.rel_path) || f.tags.some((t) => fuzzy(q, t.name))" in files

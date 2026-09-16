@@ -390,6 +390,15 @@ class ProjectViewSet(AtlasViewSet):
         return Response(items)
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "tag",
+                str,
+                many=True,
+                description="Only files carrying this tag (name); repeat for every tag they "
+                "must all carry (AND, at most 10). Folders are always listed.",
+            )
+        ],
         responses={200: OpenApiResponse(description="The project's whole file tree")},
         description="Unified file workspace tree (file-workspace epic): every folder and "
         "every file node — general documents and manuscript sources — as flat "
@@ -398,8 +407,11 @@ class ProjectViewSet(AtlasViewSet):
     @action(detail=True, methods=["get"])
     def tree(self, request, slug=None):
         from documents.selectors import workspace_tree
+        from documents.tags import tag_names
 
-        return Response(workspace_tree(self.get_object()))
+        return Response(
+            workspace_tree(self.get_object(), tag_names(request.query_params.getlist("tag")))
+        )
 
     @extend_schema(
         request=None,
@@ -1373,9 +1385,41 @@ class FolderViewSet(AtlasViewSet):
 
 
 class TagViewSet(AtlasViewSet):
-    queryset = Tag.objects.all()
+    """A project's file tags. Rename / recolour with PATCH (a name clash with another tag of
+    the project, any case, is a 400 naming it — merge instead); `count` is how many files
+    carry the tag."""
+
+    queryset = Tag.objects.select_related("project").annotate(
+        documents_count=Count("documents", distinct=True)
+    )
     serializer_class = serializers.TagSerializer
     project_filter = "project__slug"
+
+    @extend_schema(
+        request=serializers.TagMergeSerializer,
+        responses={
+            200: OpenApiResponse(description="{into, files}: the target's id and how many moved"),
+            400: OpenApiResponse(description="Merging a tag into itself"),
+            404: OpenApiResponse(description="`into` is not a tag of the same project"),
+        },
+        description="Merge this tag into another of the same project (backlog 354): every file "
+        "carrying it carries `into` instead and this tag is deleted.",
+    )
+    @action(detail=True, methods=["post"])
+    def merge(self, request, pk=None):
+        from documents.tags import TagError, merge_tags
+
+        source = self.get_object()
+        payload = serializers.TagMergeSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        target = get_object_or_404(
+            Tag, pk=_pk(payload.validated_data["into"]), project_id=source.project_id
+        )
+        try:
+            moved = merge_tags(source, target)
+        except TagError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response({"into": target.pk, "files": moved})
 
 
 # Inline-previewable binary types (file-workspace epic #30, slice 2c). Allowlist, not
@@ -1396,7 +1440,13 @@ TEXT_PREVIEW_CAP = 1_000_000  # 1 MB of text
     list=extend_schema(
         parameters=[
             OpenApiParameter("project", str, description="Project slug"),
-            OpenApiParameter("tag", str, description="Only documents carrying this tag (name)"),
+            OpenApiParameter(
+                "tag",
+                str,
+                many=True,
+                description="Only documents carrying this tag (name); repeat for every tag "
+                "they must all carry (AND, at most 10)",
+            ),
         ]
     )
 )
@@ -1408,10 +1458,10 @@ class DocumentViewSet(AtlasViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        tag = (self.request.query_params.get("tag") or "").strip()[:60]  # #554
-        if tag:
-            # distinct: two same-named tags (legacy, from different projects) would join twice
-            queryset = queryset.filter(tags__name=tag).distinct()
+        from documents.tags import filter_by_tags, tag_names
+
+        # #554 one tag; backlog 354: repeated `?tag=` means every one of them (AND)
+        queryset = filter_by_tags(queryset, tag_names(self.request.query_params.getlist("tag")))
         return queryset
 
     def _guard(self, doc):

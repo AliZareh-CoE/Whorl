@@ -29,10 +29,11 @@ def folder_tree(project: Project, prefetched=None) -> list[dict]:
     return build(None)
 
 
-def workspace_tree(project: Project) -> dict:
+def workspace_tree(project: Project, tags: list[str] | None = None) -> dict:
     """The whole project as one file tree (file-workspace epic #30, slice 2): every
     Folder and every Document node — general AND manuscript-source — flat, for the
-    explorer to nest client-side. One query each.
+    explorer to nest client-side. One query each. `tags` (backlog 354) keeps only the files
+    carrying every named tag; folders are always listed.
     """
     from django.conf import settings
 
@@ -50,9 +51,16 @@ def workspace_tree(project: Project) -> dict:
     # #557: `modified_at` is when the bytes last changed — a version is filed at that moment,
     # so it is the newest version's stamp (or the creation) — not `updated_at`, which a tag,
     # a description or a move also bumps
-    documents = project.documents.annotate(
-        versions_count=Count("versions", distinct=True), last_filed=Max("versions__created_at")
-    ).prefetch_related("tags")
+    from .tags import filter_by_tags
+
+    documents = (
+        filter_by_tags(project.documents.all(), tags or [])
+        .annotate(
+            versions_count=Count("versions", distinct=True),
+            last_filed=Max("versions__created_at"),
+        )
+        .prefetch_related("tags")
+    )
     for d in documents:
         name = d.title or (d.rel_path.rsplit("/", 1)[-1] if d.rel_path else "")
         files.append(

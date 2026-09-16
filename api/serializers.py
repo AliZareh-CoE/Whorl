@@ -231,10 +231,40 @@ class FolderSerializer(serializers.ModelSerializer):
 
 class TagSerializer(serializers.ModelSerializer):
     project = ProjectSlugField()
+    # backlog 354: how many files carry the tag (annotated by the viewset; 0 elsewhere)
+    count = serializers.SerializerMethodField()
 
     class Meta:
         model = Tag
-        fields = ["id", "project", "name", "color", "created_at", "updated_at"]
+        fields = ["id", "project", "name", "color", "count", "created_at", "updated_at"]
+        # the (project, name) constraint is checked in validate() — any case, with a message
+        # that names the clashing tag so a client can offer a merge
+        validators = []
+
+    def get_count(self, obj) -> int:
+        return getattr(obj, "documents_count", 0)
+
+    def validate(self, attrs):
+        from documents.tags import TagError, clean_color, clean_name
+
+        project = attrs.get("project") or (self.instance.project if self.instance else None)
+        if self.instance and project.pk != self.instance.project_id:
+            # a re-parented tag would leave files carrying another project's tag (#554)
+            raise serializers.ValidationError({"project": "A tag stays in its project."})
+        try:
+            if "name" in attrs:
+                attrs["name"] = clean_name(
+                    project, attrs["name"], exclude_pk=self.instance.pk if self.instance else None
+                )
+            if "color" in attrs:
+                attrs["color"] = clean_color(attrs["color"])
+        except TagError as exc:
+            raise serializers.ValidationError({"name": str(exc)}) from exc
+        return attrs
+
+
+class TagMergeSerializer(serializers.Serializer):
+    into = serializers.IntegerField(min_value=1, help_text="The tag to merge into (same project)")
 
 
 class DocumentSerializer(serializers.ModelSerializer):

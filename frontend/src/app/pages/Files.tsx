@@ -30,10 +30,11 @@ type FileNode = {
   is_text: boolean;
   local_path?: string | null; // desktop builds only: where the file lives on this computer
 };
-type Tag = { id: number; name: string; color: string };
+type Tag = { id: number; name: string; color: string; count?: number };
 type Page<T> = { count: number; results: T[] };
 // #554: a new tag made from the explorer gets a colour from its name, so chips are never grey by default
-const TAG_PALETTE = ["#dc2626", "#ea580c", "#ca8a04", "#16a34a", "#0891b2", "#2563eb", "#7c3aed", "#db2777"];
+const TAG_COLOURS: [string, string][] = [["Red", "#dc2626"], ["Orange", "#ea580c"], ["Amber", "#ca8a04"], ["Green", "#16a34a"], ["Cyan", "#0891b2"], ["Blue", "#2563eb"], ["Violet", "#7c3aed"], ["Pink", "#db2777"]];
+const TAG_PALETTE = TAG_COLOURS.map(([, hex]) => hex);
 function tagColor(name: string): string {
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -371,8 +372,10 @@ export default function Files() {
   const [recentOpen, setRecentOpen] = useState<boolean>(() => { try { return localStorage.getItem(RECENT_KEY) !== "0"; } catch { return true; } });
   const toggleRecent = () => setRecentOpen((o) => { try { localStorage.setItem(RECENT_KEY, o ? "0" : "1"); } catch { /* private mode */ } return !o; });
   // #554: one tag narrows the tree to the files carrying it (folders keep only matching descendants)
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
-  const isOpen = (id: number) => expanded[id] ?? !!tagFilter; // filtered folders start open
+  // #559 (backlog 354): several chips = the files carrying every one of them (AND)
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const filtering = tagFilter.length > 0;
+  const isOpen = (id: number) => expanded[id] ?? filtering; // filtered folders start open
   const tagsQ = useQuery({ queryKey: ["doc-tags", slug], queryFn: () => api<Page<Tag>>(`/tags/?project=${slug}`) });
   const queryClient = useQueryClient();
   const refreshTree = () => queryClient.invalidateQueries({ queryKey: ["tree", slug] });
@@ -503,6 +506,62 @@ export default function Files() {
       queryClient.invalidateQueries({ queryKey: ["doc-tags", slug] });
     }
     if (!f.tags.some((t) => t.id === tag!.id)) await setTags(f, [...f.tags, tag]);
+  };
+  // #559 (backlog 354): manage a tag where it is used — from its chip in the filter row
+  const tagPool = () => tagsQ.data?.results ?? [];
+  const tagCount = (t: Tag) => tagPool().find((x) => x.id === t.id)?.count ?? t.count ?? 0;
+  const filesLabel = (n: number) => `${n} file${n === 1 ? "" : "s"}`;
+  const tagTouched = () => { refreshTree(); queryClient.invalidateQueries({ queryKey: ["doc-tags", slug] }); };
+  const patchTag = (id: number, body: Record<string, string>) => api<Tag>(`/tags/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const mergeTag = async (t: Tag, into: Tag) => {
+    try { await api(`/tags/${t.id}/merge/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ into: into.id }) }); } catch (e) { void errorDialog("Couldn't merge the tags", e); return; }
+    setTagFilter((cur) => (cur.includes(into.name) ? cur.filter((n) => n !== t.name) : cur.map((n) => (n === t.name ? into.name : n))));
+    setSelected((s) => (s && s.tags.some((x) => x.id === t.id) ? { ...s, tags: [...s.tags.filter((x) => x.id !== t.id && x.id !== into.id), into] } : s));
+    tagTouched();
+  };
+  const renameTag = async (t: Tag) => {
+    const name = await promptDialog({ title: `Rename the tag “${t.name}”`, label: "Name", initial: t.name, validate: (v) => (v.trim() ? null : "Name the tag.") });
+    if (!name) return;
+    const wanted = name.trim();
+    if (wanted === t.name) return;
+    // the same name in any case is the tag the explorer would have reused: offer the merge
+    const clash = tagPool().find((x) => x.id !== t.id && x.name.toLowerCase() === wanted.toLowerCase());
+    if (clash) {
+      if (await confirmDialog({ title: `A tag named “${clash.name}” already exists`, confirmLabel: `Merge into ${clash.name}`, body: `Merge “${t.name}” into it? ${filesLabel(tagCount(t))} will carry “${clash.name}” instead.` })) await mergeTag(t, clash);
+      return;
+    }
+    try { await patchTag(t.id, { name: wanted }); } catch (e) { void errorDialog("Couldn't rename the tag", e); return; }
+    setTagFilter((cur) => cur.map((n) => (n === t.name ? wanted : n)));
+    setSelected((s) => (s ? { ...s, tags: s.tags.map((x) => (x.id === t.id ? { ...x, name: wanted } : x)) } : s));
+    tagTouched();
+  };
+  const recolourTag = async (t: Tag, color: string) => {
+    try { await patchTag(t.id, { color }); } catch (e) { void errorDialog("Couldn't recolour the tag", e); return; }
+    setSelected((s) => (s ? { ...s, tags: s.tags.map((x) => (x.id === t.id ? { ...x, color } : x)) } : s));
+    tagTouched();
+  };
+  const deleteTag = async (t: Tag) => {
+    const n = tagCount(t);
+    if (!(await confirmDialog({ title: `Delete the tag “${t.name}”?`, danger: true, confirmLabel: "Delete tag", body: n ? `It is on ${filesLabel(n)}; they keep their other tags.` : "No file carries it." }))) return;
+    try { await api(`/tags/${t.id}/`, { method: "DELETE" }); } catch (e) { void errorDialog("Couldn't delete the tag", e); return; }
+    setTagFilter((cur) => cur.filter((x) => x !== t.name));
+    setSelected((s) => (s ? { ...s, tags: s.tags.filter((x) => x.id !== t.id) } : s));
+    tagTouched();
+  };
+  type At = { clientX: number; clientY: number; preventDefault: () => void };
+  const tagMenuItems = (t: Tag, at: At): MenuItem[] => {
+    const others = tagPool().filter((x) => x.id !== t.id);
+    const n = tagCount(t);
+    const only = tagFilter.length === 1 && tagFilter[0] === t.name;
+    return [
+      { label: only ? "Show every file" : "Only this tag", onSelect: () => setTagFilter(only ? [] : [t.name]) },
+      "-",
+      { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: () => void renameTag(t) },
+      { label: "Colour…", icon: <TagDot color={t.color} />, onSelect: () => menu.open(at, TAG_COLOURS.map(([label, hex]): MenuItem => ({ label, icon: <TagDot color={hex} />, hint: hex === t.color ? "current" : undefined, onSelect: () => void recolourTag(t, hex) }))) },
+      { label: "Merge into…", disabled: others.length === 0, onSelect: () => menu.open(at, others.map((o): MenuItem => ({ label: o.name, icon: <TagDot color={o.color} />, hint: filesLabel(o.count ?? 0), onSelect: async () => { if (await confirmDialog({ title: `Merge “${t.name}” into “${o.name}”?`, confirmLabel: "Merge", body: `${filesLabel(n)} will carry “${o.name}” instead, and “${t.name}” is removed.` })) await mergeTag(t, o); } }))) },
+      "-",
+      { label: "Delete tag…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, hint: filesLabel(n), onSelect: () => void deleteTag(t) },
+    ];
   };
   const tagItems = (f: FileNode): MenuItem[] => {
     const have = new Set(f.tags.map((t) => t.id));
@@ -682,9 +741,9 @@ export default function Files() {
     const rootFolders: FolderNode[] = [];
     const rootFiles: FileNode[] = [];
     // #554: with a tag filter only the files carrying it and the folders above them remain
-    const shown = tagFilter ? (data?.files ?? []).filter((f) => f.tags.some((t) => t.name === tagFilter)) : (data?.files ?? []);
+    const shown = filtering ? (data?.files ?? []).filter((f) => tagFilter.every((n) => f.tags.some((t) => t.name === n))) : (data?.files ?? []);
     const keep = new Set<number>();
-    if (tagFilter) {
+    if (filtering) {
       const parentOf = new Map((data?.folders ?? []).map((f) => [f.id, f.parent_id] as const));
       for (const f of shown) {
         let id = f.folder_id;
@@ -692,7 +751,7 @@ export default function Files() {
       }
     }
     for (const f of data?.folders ?? []) {
-      if (tagFilter && !keep.has(f.id)) continue;
+      if (filtering && !keep.has(f.id)) continue;
       if (f.parent_id == null) rootFolders.push(f);
       else (cf[f.parent_id] ??= []).push(f);
     }
@@ -711,7 +770,7 @@ export default function Files() {
     Object.values(cf).forEach((l) => l.sort(byName));
     Object.values(ff).forEach((l) => l.sort(byFile));
     return { childFolders: cf, folderFiles: ff, rootFolders, rootFiles };
-  }, [data, tagFilter, sort]);
+  }, [data, tagFilter, filtering, sort]);
   const countInside = (id: number): number => (folderFiles[id]?.length ?? 0) + (childFolders[id] ?? []).reduce((n, k) => n + 1 + countInside(k.id), 0);
 
   // [REV] keyboard navigation: flatten the *visible* tree in render order so arrow keys
@@ -733,7 +792,7 @@ export default function Files() {
     rootFolders.forEach((f) => walk(f, 0));
     rootFiles.forEach((fl) => out.push({ kind: "file", id: fl.id, depth: 0, file: fl }));
     return out;
-  }, [childFolders, folderFiles, rootFolders, rootFiles, expanded, tagFilter]);
+  }, [childFolders, folderFiles, rootFolders, rootFiles, expanded, filtering]);
 
   const [focusIdx, setFocusIdx] = useState(0);
   // #556: a multi-selection of file rows (checkbox, shift-click range, space, ⌘A) with an
@@ -837,7 +896,7 @@ export default function Files() {
     else if (e.key === "Enter") {
       e.preventDefault();
       if (r?.kind === "file") setSelected(r.file);
-      else if (r?.kind === "folder") setExpanded((x) => ({ ...x, [r.id]: !(x[r.id] ?? !!tagFilter) }));
+      else if (r?.kind === "folder") setExpanded((x) => ({ ...x, [r.id]: !(x[r.id] ?? filtering) }));
     } else if (e.key === "ArrowRight" && r?.kind === "folder") {
       if (r.hasChildren && !isOpen(r.id)) { e.preventDefault(); setExpanded((x) => ({ ...x, [r.id]: true })); }
       else { e.preventDefault(); setFocusIdx((i) => Math.min(flat.length - 1, i + 1)); }
@@ -930,7 +989,7 @@ export default function Files() {
           aria-expanded={!!open}
           data-tree-focus={focusKey === `folder${folder.id}`}
           data-testid="tree-folder"
-          onClick={() => { setExpanded((e) => ({ ...e, [folder.id]: !(e[folder.id] ?? !!tagFilter) })); setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); }}
+          onClick={() => { setExpanded((e) => ({ ...e, [folder.id]: !(e[folder.id] ?? filtering) })); setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); }}
           onContextMenu={(e) => { setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); menu.open(e, folderItems(folder)); }}
           onDragOver={(e) => { if (!isManuscriptFolder(folder)) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = dragDoc ? "move" : "copy"; setDropFolder(folder.id); } }}
           onDragLeave={() => setDropFolder((d) => (d === folder.id ? null : d))}
@@ -1076,18 +1135,38 @@ export default function Files() {
           </div>
           {tagsInUse.length > 0 && (
             <div className="sticky top-9 z-10 -mx-2 mb-1.5 flex flex-wrap items-center gap-1 border-b border-stone-100 bg-white px-3 pb-1.5 dark:border-stone-800 dark:bg-stone-900" data-testid="tag-filter">
-              {tagsInUse.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={(e) => { e.stopPropagation(); setTagFilter((cur) => (cur === t.name ? null : t.name)); }}
-                  aria-pressed={tagFilter === t.name}
-                  title={tagFilter === t.name ? "Show every file" : `Only files tagged ${t.name}`}
-                  className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] transition-colors ${tagFilter === t.name ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-stone-200"}`}
-                >
-                  <TagDot color={t.color} />{t.name}<span className="font-mono text-[10px] opacity-70">{t.count}</span>
-                </button>
-              ))}
-              {tagFilter && <span className="text-[11px] text-stone-400" data-testid="tag-filter-count">{rootFiles.length + Object.values(folderFiles).reduce((n, l) => n + l.length, 0)} of {total}</span>}
+              {tagsInUse.map((t) => {
+                const on = tagFilter.includes(t.name);
+                const at = (x: number, y: number): At => ({ clientX: x, clientY: y, preventDefault: () => {} });
+                return (
+                  <span
+                    key={t.id}
+                    className={`inline-flex items-center rounded-full border text-[11px] transition-colors ${on ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-stone-200"}`}
+                    data-testid="tag-chip"
+                    onContextMenu={(e) => { e.stopPropagation(); menu.open(e, tagMenuItems(t, at(e.clientX, e.clientY))); }}
+                  >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setTagFilter((cur) => (cur.includes(t.name) ? cur.filter((n) => n !== t.name) : [...cur, t.name])); }}
+                      aria-pressed={on}
+                      title={on ? `Stop filtering by ${t.name}` : filtering ? `Also require ${t.name}` : `Only files tagged ${t.name} — right-click to manage the tag`}
+                      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5"
+                    >
+                      <TagDot color={t.color} />{t.name}<span className="font-mono text-[10px] opacity-70">{t.count}</span>
+                    </button>
+                    {on && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); menu.open(at(r.left, r.bottom + 4), tagMenuItems(t, at(r.left, r.bottom + 4))); }}
+                        aria-label={`Manage the tag ${t.name}`}
+                        title="Rename, recolour, merge or delete this tag"
+                        className="mr-1 rounded-full px-0.5 opacity-70 hover:opacity-100"
+                        data-testid="tag-menu"
+                      >⋯</button>
+                    )}
+                  </span>
+                );
+              })}
+              {filtering && <span className="text-[11px] text-stone-400" data-testid="tag-filter-count">{rootFiles.length + Object.values(folderFiles).reduce((n, l) => n + l.length, 0)} of {total}{tagFilter.length > 1 ? ` · all ${tagFilter.length} tags` : ""}</span>}
+              {filtering && <button onClick={(e) => { e.stopPropagation(); setTagFilter([]); }} className="text-[11px] text-stone-400 hover:underline" data-testid="tag-filter-clear">Clear</button>}
             </div>
           )}
           {checked.size > 0 && (
@@ -1100,7 +1179,7 @@ export default function Files() {
               <button onClick={() => setChecked(new Set())} className="ml-auto text-stone-500 hover:underline dark:text-stone-400" data-testid="bulk-clear" title="Clear the selection (Esc)">Clear</button>
             </div>
           )}
-          {recent.length > 0 && !tagFilter && (
+          {recent.length > 0 && !filtering && (
             <div className="mb-1.5 rounded-md border border-stone-100 bg-stone-50/60 px-2 py-1 text-xs dark:border-stone-800 dark:bg-stone-800/40" data-testid="recent-strip">
               <button onClick={(e) => { e.stopPropagation(); toggleRecent(); }} aria-expanded={recentOpen} className="flex w-full items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-stone-400 hover:text-stone-600 dark:hover:text-stone-200" data-testid="recent-toggle">
                 <span className="w-3 text-xs">{recentOpen ? "▾" : "▸"}</span>Recent

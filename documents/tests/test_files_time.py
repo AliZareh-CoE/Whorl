@@ -122,7 +122,7 @@ def test_explorer_sorts_stamps_and_lists_recent():
     )
     assert 'sort === "size" ? ((b.size - a.size) || byName(a, b))' in files
     assert "rootFolders.sort(byName);" in files and "rootFiles.sort(byFile);" in files
-    assert "}, [data, tagFilter, sort]);" in files
+    assert "}, [data, tagFilter, filtering, sort]);" in files
     assert (
         'data-testid="sort-files"' in files
         and '<option value="modified">Last change</option>' in files
@@ -142,7 +142,7 @@ def test_explorer_sorts_stamps_and_lists_recent():
         "const recent = total >= 6 ? [...data.files].sort((a, b) => b.modified_at.localeCompare(a.modified_at)).slice(0, 6) : [];"
         in files
     )
-    assert "{recent.length > 0 && !tagFilter && (" in files
+    assert "{recent.length > 0 && !filtering && (" in files
     for needle in ("recent-strip", "recent-toggle", "recent-file"):
         assert f'data-testid="{needle}"' in files, needle
     assert 'const RECENT_KEY = "atlas-files-recent";' in files
