@@ -1,7 +1,6 @@
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, UpdateView
 
@@ -352,29 +351,32 @@ def document_move(request, slug, pk):
 def bulk_action(request, slug):
     """Act on many documents at once: move, tag, or delete (Owner idea #18)."""
     project = get_object_or_404(Project, slug=slug)
-    documents = project.documents.filter(pk__in=request.POST.getlist("ids"))
-    count = documents.count()
+    from .bulk import BulkError, bulk_documents, clean_ids
+
     action = request.POST.get("action", "")
-    if not count:
-        messages.error(request, "Nothing selected.")
-    elif action == "delete":
-        documents.delete()
-        messages.success(request, f"Deleted {count} document(s).")
-    elif action == "move":
-        folder = None
-        if request.POST.get("folder"):
+    try:
+        ids = clean_ids(request.POST.getlist("ids"))
+        folder = tag = None
+        if action == "move" and request.POST.get("folder"):
             folder = get_object_or_404(project.folders, pk=request.POST["folder"])
-        documents.update(folder=folder, updated_at=timezone.now())
-        messages.success(
-            request, f"Moved {count} document(s) to {folder.name if folder else 'the root'}."
-        )
-    elif action == "tag":
-        tag = get_object_or_404(project.tags, pk=request.POST.get("tag"))
-        for document in documents:
-            document.tags.add(tag)
-        messages.success(request, f"Tagged {count} document(s) with “{tag.name}”.")
-    else:
-        messages.error(request, "Unknown bulk action.")
+        if action == "tag":
+            tag = get_object_or_404(project.tags, pk=request.POST.get("tag"))
+        if not ids:
+            messages.error(request, "Nothing selected.")
+        else:
+            result = bulk_documents(project, ids, action, folder=folder, tag=tag)
+            count = result["count"]
+            if action == "delete":
+                messages.success(request, f"Deleted {count} document(s).")
+            elif action == "move":
+                messages.success(
+                    request,
+                    f"Moved {count} document(s) to {folder.name if folder else 'the root'}.",
+                )
+            else:
+                messages.success(request, f"Tagged {count} document(s) with “{tag.name}”.")
+    except BulkError as exc:
+        messages.error(request, str(exc))
     if request.headers.get("X-SPA") == "1":
         from django.contrib.messages import get_messages
         from django.http import JsonResponse

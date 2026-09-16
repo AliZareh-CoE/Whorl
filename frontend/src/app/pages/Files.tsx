@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Download, ExternalLink, File, FileCode, FileImage, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, History, Pencil, RefreshCw, RotateCcw, Table, Trash2, Upload } from "lucide-react";
+import { Archive, Copy, Download, ExternalLink, File, FileCode, FileImage, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, History, Pencil, RefreshCw, RotateCcw, Table, Trash2, Upload } from "lucide-react";
 import Papa from "papaparse";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -400,6 +400,49 @@ export default function Files() {
     },
     onError: fail("Couldn't move the file"),
   });
+  // #556: the action bar's verbs, one endpoint; manuscript sources come back as `skipped`
+  const bulk = useMutation({
+    mutationFn: (v: { action: "move" | "tag" | "delete"; folder?: number | null; tag?: number }) =>
+      api<{ action: string; count: number; skipped: number[] }>(`/projects/${slug}/documents/bulk/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...checked], ...v }),
+      }),
+    onSuccess: (r) => {
+      refreshTree();
+      if (r.action === "delete") setChecked(new Set());
+      setSelected((s) => (s && checked.has(s.id) && r.action !== "tag" ? null : s));
+      if (r.skipped.length) void noticeDialog({ title: `${r.skipped.length} file${r.skipped.length === 1 ? "" : "s"} skipped`, body: "Manuscript sources are managed in the LaTeX editor; the rest were handled." });
+    },
+    onError: fail("Couldn't apply that to the selection"),
+  });
+  const downloadUrl = (url: string) => { const a = document.createElement("a"); a.href = url; a.download = ""; a.click(); };
+  const bulkZip = () => downloadUrl(`/api/v1/projects/${slug}/archive/?ids=${[...checked].join(",")}`);
+  const bulkMoveItems = (): MenuItem[] => [
+    { label: "(project root)", icon: <Folder className="h-3.5 w-3.5" />, onSelect: () => bulk.mutate({ action: "move", folder: null }) },
+    ...(data?.folders ?? []).filter((f) => !f.name.startsWith("manuscript-")).map((f): MenuItem => ({ label: f.name, icon: <Folder className="h-3.5 w-3.5" />, onSelect: () => bulk.mutate({ action: "move", folder: f.id }) })),
+  ];
+  const bulkTagItems = (): MenuItem[] => [
+    ...(tagsQ.data?.results ?? []).map((t): MenuItem => ({ label: t.name, icon: <TagDot color={t.color} />, onSelect: () => { bulk.mutate({ action: "tag", tag: t.id }); setSelected((s) => (s && checked.has(s.id) && !s.tags.some((x) => x.id === t.id) ? { ...s, tags: [...s.tags, t] } : s)); } })),
+    ...((tagsQ.data?.results ?? []).length ? ["-" as const] : []),
+    { label: "New tag…", icon: <FilePlus2 className="h-3.5 w-3.5" />, onSelect: async () => {
+      const name = await promptDialog({ title: "New tag", label: "Name", placeholder: "e.g. key-paper", validate: (v) => (v.trim() ? null : "Name the tag.") });
+      if (!name) return;
+      const wanted = name.trim();
+      let tag = (tagsQ.data?.results ?? []).find((t) => t.name.toLowerCase() === wanted.toLowerCase());
+      if (!tag) {
+        try { tag = await api<Tag>(`/tags/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project: slug, name: wanted, color: tagColor(wanted) }) }); }
+        catch (e) { void errorDialog("Couldn't create the tag", e); return; }
+        queryClient.invalidateQueries({ queryKey: ["doc-tags", slug] });
+      }
+      bulk.mutate({ action: "tag", tag: tag.id });
+    } },
+  ];
+  const askBulkDelete = async () => {
+    const n = checked.size;
+    if (await confirmDialog({ title: `Delete ${n} file${n === 1 ? "" : "s"}?`, danger: true, confirmLabel: `Delete ${n}`, body: "They are removed from the project and from disk, with their histories." })) bulk.mutate({ action: "delete" });
+  };
+
   // #554: description + tags edited in the pane (PATCH by tag ids; the tree refreshes its rows)
   const patchMeta = useMutation({
     mutationFn: (v: { id: number; body: { description?: string; tags?: number[] } }) =>
@@ -591,6 +634,7 @@ export default function Files() {
     return [
       { label: "New folder inside…", icon: <FolderPlus className="h-3.5 w-3.5" />, disabled: ms, onSelect: () => void askNewFolder(f.id, f.name) },
       { label: "Upload here…", icon: <Upload className="h-3.5 w-3.5" />, disabled: ms, onSelect: () => pickFiles(f.id) },
+      { label: "Download as zip", icon: <Archive className="h-3.5 w-3.5" />, onSelect: () => downloadUrl(`/api/v1/projects/${slug}/archive/?folder=${f.id}`) },
       "-",
       { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, hint: "F2", disabled: ms, onSelect: () => void askRenameFolder(f) },
       { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, hint: "Del", danger: true, disabled: ms, onSelect: () => void askDeleteFolder(f) },
@@ -658,6 +702,31 @@ export default function Files() {
   }, [childFolders, folderFiles, rootFolders, rootFiles, expanded, tagFilter]);
 
   const [focusIdx, setFocusIdx] = useState(0);
+  // #556: a multi-selection of file rows (checkbox, shift-click range, space, ⌘A) with an
+  // action bar: zip, move, tag, delete. Pruned to the files the tree currently shows.
+  const [checked, setChecked] = useState<Set<number>>(() => new Set());
+  const anchorRef = useRef<number | null>(null);
+  const shownIds = useMemo(() => new Set([...rootFiles, ...Object.values(folderFiles).flat()].map((f) => f.id)), [rootFiles, folderFiles]);
+  useEffect(() => {
+    setChecked((c) => {
+      const kept = new Set([...c].filter((id) => shownIds.has(id)));
+      return kept.size === c.size ? c : kept;
+    });
+  }, [shownIds]);
+  const toggleCheck = (f: FileNode, shift: boolean) => {
+    const idx = flat.findIndex((r) => r.kind === "file" && r.id === f.id);
+    setChecked((c) => {
+      const n = new Set(c);
+      if (shift && anchorRef.current != null && idx >= 0) {
+        const [a, b] = [Math.min(anchorRef.current, idx), Math.max(anchorRef.current, idx)];
+        for (const r of flat.slice(a, b + 1)) if (r.kind === "file") n.add(r.id);
+      } else if (n.has(f.id)) n.delete(f.id);
+      else n.add(f.id);
+      return n;
+    });
+    if (!shift || anchorRef.current == null) anchorRef.current = idx;
+  };
+  const checkAllVisible = () => setChecked(new Set(flat.filter((r) => r.kind === "file").map((r) => r.id)));
   useEffect(() => {
     if (focusIdx > flat.length - 1) setFocusIdx(Math.max(0, flat.length - 1));
   }, [flat.length, focusIdx]);
@@ -718,6 +787,9 @@ export default function Files() {
       jumpToTyped(e.key);
       return;
     }
+    if (e.key === " " && r?.kind === "file") { e.preventDefault(); toggleCheck(r.file, false); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") { e.preventDefault(); checkAllVisible(); return; }
+    if (e.key === "Escape" && checked.size) { e.preventDefault(); setChecked(new Set()); return; }
     if (e.key === "F2" && r) { e.preventDefault(); if (r.kind === "file") void askRenameFile(r.file); else void askRenameFolder(r.folder); return; }
     if ((e.key === "Delete" || e.key === "Backspace") && r) { e.preventDefault(); if (r.kind === "file") void askDeleteFile(r.file); else void askDeleteFolder(r.folder); return; }
     if (e.key === "ArrowDown") { e.preventDefault(); setFocusIdx((i) => Math.min(flat.length - 1, i + 1)); }
@@ -778,8 +850,17 @@ export default function Files() {
       onClick={() => { setSelected(f); setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); }}
       onContextMenu={(e) => { setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); menu.open(e, fileItems(f)); }}
       style={{ paddingLeft: depth * 14 + 8 }}
-      className={`group flex w-full cursor-pointer items-center gap-2 rounded py-1 pr-1 text-left text-sm hover:bg-stone-50 dark:hover:bg-stone-800 ${dragDoc?.id === f.id ? "opacity-40" : ""} ${focusKey === `file${f.id}` ? "ring-1 ring-indigo-200" : ""} ${selected?.id === f.id ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300" : "text-stone-700 dark:text-stone-300"}`}
+      className={`group flex w-full cursor-pointer items-center gap-2 rounded py-1 pr-1 text-left text-sm hover:bg-stone-50 dark:hover:bg-stone-800 ${dragDoc?.id === f.id ? "opacity-40" : ""} ${focusKey === `file${f.id}` ? "ring-1 ring-indigo-200" : ""} ${selected?.id === f.id ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300" : checked.has(f.id) ? "bg-indigo-50/60 text-stone-700 dark:bg-indigo-500/10 dark:text-stone-300" : "text-stone-700 dark:text-stone-300"}`}
     >
+      <input
+        type="checkbox"
+        checked={checked.has(f.id)}
+        onChange={() => undefined}
+        onClick={(e) => { e.stopPropagation(); toggleCheck(f, e.shiftKey); }}
+        aria-label={`Select ${f.name}`}
+        className={`h-3.5 w-3.5 shrink-0 cursor-pointer accent-indigo-600 ${checked.size ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-coarse:opacity-100"}`}
+        data-testid="file-check"
+      />
       <Icon kind={f.kind || "other"} name={f.name} />
       <span className="min-w-0 flex-1 truncate">{f.name}</span>
       {f.tags.length > 0 && (
@@ -941,6 +1022,16 @@ export default function Files() {
                 </button>
               ))}
               {tagFilter && <span className="text-[11px] text-stone-400" data-testid="tag-filter-count">{rootFiles.length + Object.values(folderFiles).reduce((n, l) => n + l.length, 0)} of {total}</span>}
+            </div>
+          )}
+          {checked.size > 0 && (
+            <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs text-indigo-800 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-200" data-testid="bulk-bar" onClick={(e) => e.stopPropagation()}>
+              <span className="font-medium" data-testid="bulk-count">{checked.size} selected</span>
+              <button onClick={bulkZip} className="inline-flex items-center gap-1 hover:underline" data-testid="bulk-zip"><Archive className="h-3 w-3" aria-hidden="true" />Download zip</button>
+              <button onClick={(e) => menu.open(e, bulkMoveItems())} className="hover:underline" data-testid="bulk-move" disabled={bulk.isPending}>Move to…</button>
+              <button onClick={(e) => menu.open(e, bulkTagItems())} className="hover:underline" data-testid="bulk-tag" disabled={bulk.isPending}>Tag…</button>
+              <button onClick={() => void askBulkDelete()} className="text-red-600 hover:underline dark:text-red-300" data-testid="bulk-delete" disabled={bulk.isPending}>Delete…</button>
+              <button onClick={() => setChecked(new Set())} className="ml-auto text-stone-500 hover:underline dark:text-stone-400" data-testid="bulk-clear" title="Clear the selection (Esc)">Clear</button>
             </div>
           )}
           {typedHint && (

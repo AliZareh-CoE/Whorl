@@ -53,6 +53,21 @@ from .authentication import APIKeyAuthentication, QueryKeyAuthentication
 
 
 @method_decorator(login_not_required, name="dispatch")
+def _pk(value):
+    """An id from request data: an int within MAX_PK bounds, else a 404 (not a 500)."""
+    from django.http import Http404
+
+    from core.ids import MAX_PK
+
+    try:
+        pk = int(value)
+    except (TypeError, ValueError):
+        raise Http404("No such object.") from None
+    if not 0 < pk <= MAX_PK:
+        raise Http404("No such object.")
+    return pk
+
+
 class AtlasViewSet(viewsets.ModelViewSet):
     """Base viewset: exempt from session-login middleware; guarded by X-API-Key auth instead.
 
@@ -397,6 +412,81 @@ class ProjectViewSet(AtlasViewSet):
         "write): POST {path, content, note?}. Overwriting files the previous text as a version "
         "(the node's history); unchanged text files nothing. Manuscript-source paths are refused.",
     )
+    @extend_schema(
+        request=inline_serializer(
+            "DocumentsBulk",
+            {
+                "ids": rf_serializers.ListField(child=rf_serializers.IntegerField()),
+                "action": rf_serializers.ChoiceField(choices=["move", "tag", "delete"]),
+                "folder": rf_serializers.IntegerField(required=False, allow_null=True),
+                "tag": rf_serializers.IntegerField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(description="{action, count, skipped: [manuscript-source ids]}")
+        },
+        description="Act on many general files at once: move them into `folder` (null = the "
+        "project root), add `tag`, or delete them. Manuscript sources are skipped and "
+        "listed in `skipped`. At most 500 ids.",
+    )
+    @action(detail=True, methods=["post"], url_path="documents/bulk")
+    def documents_bulk(self, request, slug=None):
+        from documents.bulk import BulkError, bulk_documents, clean_ids
+
+        project = self.get_object()
+        try:
+            ids = clean_ids(request.data.get("ids"))
+            folder = tag = None
+            if request.data.get("folder") not in (None, ""):
+                folder = get_object_or_404(project.folders, pk=_pk(request.data.get("folder")))
+            if request.data.get("tag") not in (None, ""):
+                tag = get_object_or_404(project.tags, pk=_pk(request.data.get("tag")))
+            result = bulk_documents(
+                project, ids, str(request.data.get("action") or ""), folder=folder, tag=tag
+            )
+        except BulkError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(result)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("ids", str, description="Comma-separated document ids (a selection)"),
+            OpenApiParameter("folder", int, description="A folder id: its whole subtree"),
+        ],
+        responses={
+            200: OpenApiResponse(description="application/zip (X-Atlas-Archive-Files: n)"),
+            413: OpenApiResponse(description="The files exceed the 512 MB zip cap"),
+        },
+        description="A zip of a selection of files (`ids`, each under its project path) or of "
+        "a whole folder (`folder`, members relative to it). Manuscript sources are "
+        "included read-only.",
+    )
+    @action(detail=True, methods=["get"], url_path="archive")
+    def archive(self, request, slug=None):
+        from django.http import FileResponse
+
+        from documents.bulk import BulkError, build_archive, clean_ids
+
+        project = self.get_object()
+        folder = None
+        try:
+            if request.query_params.get("folder"):
+                folder = get_object_or_404(
+                    project.folders, pk=_pk(request.query_params.get("folder"))
+                )
+                ids = None
+            else:
+                ids = clean_ids(request.query_params.get("ids") or "")
+                if not ids:
+                    return Response({"detail": "Pick some files (ids) or a folder."}, status=400)
+            spool, name, count = build_archive(project, ids, folder)
+        except BulkError as exc:
+            status_code = 413 if "MB" in str(exc) else 400
+            return Response({"detail": str(exc)}, status=status_code)
+        response = FileResponse(spool, as_attachment=True, filename=name)
+        response["X-Atlas-Archive-Files"] = str(count)
+        return response
+
     @action(detail=True, methods=["post"], url_path="write-file")
     def write_file(self, request, slug=None):
         from django.core.exceptions import ValidationError as DjangoVE
@@ -1333,16 +1423,9 @@ class DocumentViewSet(AtlasViewSet):
         self._guard(serializer.instance)
         doc = serializer.save()
         # workspace move: keep rel_path in sync when a general file changes folder
-        if doc.role == Document.Role.GENERAL:
-            filename = doc.rel_path.rsplit("/", 1)[-1] if doc.rel_path else (doc.title or "file")
-            parts, node = [], doc.folder
-            while node is not None:
-                parts.append(node.name)
-                node = node.parent
-            new_rel = "/".join([*reversed(parts), filename]) if parts else filename
-            if new_rel != doc.rel_path:
-                doc.rel_path = new_rel
-                doc.save(update_fields=["rel_path", "updated_at"])
+        from documents.bulk import sync_rel_path
+
+        sync_rel_path(doc)
 
     def perform_destroy(self, instance):
         self._guard(instance)
