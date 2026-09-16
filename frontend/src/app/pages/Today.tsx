@@ -39,7 +39,7 @@ export default function Today() {
     onSettled: refresh,
   });
   const remove = useMutation({ mutationFn: (id: number) => api(`/todos/${id}/`, { method: "DELETE" }), onSuccess: refresh });
-  const edit = useMutation({ mutationFn: ({ id, text: t }: { id: number; text: string }) => { const p = parseDue(t); const body = p.due_at ? p : { text: p.text, ...(p.repeat ? { repeat: p.repeat } : {}) }; return api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); }, onSuccess: refresh });
+  const edit = useMutation({ mutationFn: ({ id, text: t }: { id: number; text: string }) => { const { repeat, ...p } = parseDue(t); const body = { ...(p.due_at ? p : { text: p.text }), ...(repeat ? { repeat } : {}) }; return api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); }, onSuccess: refresh }); // an edit without "every …" keeps the item's rule
   // #547: "every Monday" — the rule lives on the item; ticking it spawns the next occurrence
   const setRepeat = useMutation({
     mutationFn: ({ id, repeat }: { id: number; repeat: Repeat }) => api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repeat }) }),

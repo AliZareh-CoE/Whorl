@@ -903,8 +903,9 @@ class Command(BaseCommand):
             },
         )
         # #547: a repeating item — the lab meeting agenda, every Monday
-        TodoItem.objects.get_or_create(
+        TodoItem.objects.get_or_create(  # repeat_of: once ticked, its successor shares the text
             text="Prep the lab meeting agenda",
+            repeat_of__isnull=True,
             defaults={
                 "position": 6,
                 "project": project,

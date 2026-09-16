@@ -36,6 +36,21 @@ def test_seed_demo_runs():
     call_command("seed_demo")
 
 
+@pytest.mark.django_db
+def test_seed_demo_runs_again_after_the_repeating_item_was_ticked():
+    """#547: ticking the demo's weekly agenda item spawns a successor with the same text; the
+    seed's get_or_create must still find exactly one row (the original, without a parent)."""
+    from django.core.management import call_command
+
+    from core.models import TodoItem
+
+    call_command("seed_demo")
+    agenda = TodoItem.objects.get(text="Prep the lab meeting agenda")
+    assert agenda.mark(True) is not None
+    call_command("seed_demo")
+    assert TodoItem.objects.filter(text="Prep the lab meeting agenda").count() == 2
+
+
 def test_seed_demo_includes_abstracts(db):
     # AUDIT #8 finding: tl;dr/Listen/reading-flow need real abstracts to demo (#90)
     from django.core.management import call_command

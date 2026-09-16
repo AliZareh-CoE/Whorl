@@ -110,7 +110,7 @@ class TestSpawn:
         spawned.save()
         item.mark(False)
         assert TodoItem.objects.filter(pk=spawned.pk).exists()
-        item.mark(True)  # spawns again since the edited one no longer matches? no — open successor
+        item.mark(True)  # the edited successor is still an open one: nothing new is spawned
         assert item.repeats.filter(done=False).count() == 1
         second = TodoItem.objects.create(text="y", position=3, repeat="daily", due_at=at(today))
         s2 = second.mark(True)
@@ -234,6 +234,7 @@ def test_ui_wiring():
     due = (BASE / "frontend" / "src" / "app" / "dueTime.ts").read_text()
     assert "const EVERY" in due and "export function repeatLabel" in due
     assert due.index("EVERY.exec(text)") < due.index("parseDay(text, now)")  # rule before day
+    assert "...(repeat ? { repeat } : {})" in today  # an edit without "every …" keeps the rule
     bar = (BASE / "frontend" / "src" / "app" / "CommandBar.tsx").read_text()
     assert "repeat, project: slug" in bar
     chunks = " ".join(p.read_text(errors="ignore") for p in (BASE / "static" / "js").rglob("*.js"))
