@@ -4,6 +4,8 @@ from django.db import models
 from core.models import TimeStampedModel
 from projects.models import Project
 
+from .paths import KIND_OTHER, kind_for_node_path
+
 # Raster image types that are safe to serve inline (they can't execute script). SVG is
 # deliberately excluded — it can carry JavaScript — as are HTML/PDF; those fall back to download.
 PREVIEWABLE_IMAGE_TYPES = frozenset(
@@ -172,6 +174,15 @@ class Document(TimeStampedModel):
         return self.preview_kind is not None
 
     def save(self, *args, **kwargs):
+        if not self.kind:
+            # #561: a node that arrives without a kind (the classic upload form, a seed, an
+            # import) is still previewable — the explorer's text / image / table preview and
+            # the tree's icons read `kind`; a text-only node is text whatever its title says
+            if self.content and not self.file:
+                self.kind = KIND_OTHER
+            else:
+                name = self.rel_path or (self.file.name if self.file else "") or self.title
+                self.kind = kind_for_node_path(name)
         if self.file:
             self.file_size = self.file.size
             content_type = getattr(getattr(self.file, "file", None), "content_type", "")
