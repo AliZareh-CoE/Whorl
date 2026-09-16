@@ -31,3 +31,10 @@ def test_today_wires_undo_for_delete_tick_and_snooze():
     assert dash.count("showUndo(`Done —") == 1  # the hero tick has the same toast
     chunks = " ".join(p.read_text(errors="ignore") for p in (BASE / "static" / "js").rglob("*.js"))
     assert "z undoes" in chunks
+
+
+def test_shortcuts_sheet_lists_the_today_keys():
+    sheet = (BASE / "frontend" / "src" / "app" / "shortcuts.tsx").read_text()
+    assert 'title: "Today"' in sheet
+    for key in ('["s / S"', '["z"', '["x"', '["⌥ ↑ / ↓"'):
+        assert key in sheet.split('title: "Today"', 1)[1].split("title:", 1)[0], key
