@@ -239,6 +239,24 @@ class TagSerializer(serializers.ModelSerializer):
 
 class DocumentSerializer(serializers.ModelSerializer):
     project = ProjectSlugField()
+    # #554: names next to the ids, so a client (or Claude) reads tags without a second call
+    tag_names = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_tag_names(self, obj):
+        return [t.name for t in obj.tags.all()]
+
+    def validate(self, attrs):
+        # a tag belongs to one project; a document may only carry its own project's tags
+        tags = attrs.get("tags")
+        project = attrs.get("project") or (self.instance.project if self.instance else None)
+        if tags and project is not None:
+            foreign = [t.name for t in tags if t.project_id != project.pk]
+            if foreign:
+                raise serializers.ValidationError(
+                    {"tags": f"Not this project's tags: {', '.join(foreign)}."}
+                )
+        return attrs
 
     def validate_file(self, value):
         from django.core.exceptions import ValidationError as DjangoValidationError
@@ -260,6 +278,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "tags",
+            "tag_names",
             "file_size",
             "content_type",
             "version",

@@ -13,6 +13,7 @@ from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
     extend_schema,
+    extend_schema_view,
     inline_serializer,
 )
 from rest_framework import serializers as rf_serializers
@@ -1300,11 +1301,26 @@ TEXT_PREVIEW_KINDS = {"tex", "bib", "other"}
 TEXT_PREVIEW_CAP = 1_000_000  # 1 MB of text
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter("project", str, description="Project slug"),
+            OpenApiParameter("tag", str, description="Only documents carrying this tag (name)"),
+        ]
+    )
+)
 class DocumentViewSet(AtlasViewSet):
-    queryset = Document.objects.all()
+    queryset = Document.objects.select_related("project").prefetch_related("tags")
     serializer_class = serializers.DocumentSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     project_filter = "project__slug"
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        tag = (self.request.query_params.get("tag") or "").strip()[:60]  # #554
+        if tag:
+            queryset = queryset.filter(tags__name=tag)
+        return queryset
 
     def _guard(self, doc):
         from rest_framework.exceptions import PermissionDenied

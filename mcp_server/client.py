@@ -144,8 +144,11 @@ def complete_milestone(milestone_id: int):
     )
 
 
-def list_documents(slug: str):
-    return _request("GET", "/documents/", params={"project": slug})
+def list_documents(slug: str, tag: str | None = None):
+    params = {"project": slug}
+    if tag:
+        params["tag"] = tag
+    return _request("GET", "/documents/", params=params)
 
 
 def search(query: str):

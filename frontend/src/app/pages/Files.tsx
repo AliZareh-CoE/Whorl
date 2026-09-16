@@ -22,9 +22,23 @@ type FileNode = {
   size: number;
   version: number; // #553: bumped by every replace / edit / write / restore
   versions: number; // earlier states kept in its history
+  description: string; // #554: what the file is, editable in the pane
+  tags: Tag[]; // #554: the project's tags on this file (name + colour)
   is_text: boolean;
   local_path?: string | null; // desktop builds only: where the file lives on this computer
 };
+type Tag = { id: number; name: string; color: string };
+type Page<T> = { count: number; results: T[] };
+// #554: a new tag made from the explorer gets a colour from its name, so chips are never grey by default
+const TAG_PALETTE = ["#dc2626", "#ea580c", "#ca8a04", "#16a34a", "#0891b2", "#2563eb", "#7c3aed", "#db2777"];
+function tagColor(name: string): string {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return TAG_PALETTE[h % TAG_PALETTE.length];
+}
+function TagDot({ color }: { color: string }) {
+  return <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: color || "#a8a29e" }} aria-hidden="true" />;
+}
 type Version = { number: number; created_at: string; size: number; content_type: string; note: string; source: string; is_text: boolean };
 const SOURCE_LABEL: Record<string, string> = { upload: "replaced by an upload", edit: "edited in place", write: "written by the API or Claude", restore: "before a restore" };
 type FolderNode = { id: number; name: string; parent_id: number | null };
@@ -76,7 +90,7 @@ function fuzzy(query: string, text: string): boolean {
 // Ctrl/Cmd-P quick-open (#30 slice 9): fuzzy-jump to any file in the tree.
 function QuickOpen({ files, onPick, onClose }: { files: FileNode[]; onPick: (f: FileNode) => void; onClose: () => void }) {
   const [q, setQ] = useState("");
-  const matches = (q ? files.filter((f) => fuzzy(q, f.rel_path)) : files).slice(0, 40);
+  const matches = (q ? files.filter((f) => fuzzy(q, f.rel_path) || f.tags.some((t) => fuzzy(q, t.name))) : files).slice(0, 40);
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-stone-900/30 pt-24" onClick={onClose}>
       <div className="w-full max-w-lg rounded-lg border border-stone-200 bg-white shadow-xl dark:border-stone-800 dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
@@ -99,6 +113,7 @@ function QuickOpen({ files, onPick, onClose }: { files: FileNode[]; onPick: (f: 
                 className="flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-stone-50 dark:hover:bg-stone-800"
               >
                 <span className="truncate">{f.name}</span>
+                {f.tags.map((t) => <TagDot key={t.id} color={t.color} />)}
                 <span className="ml-auto truncate font-mono text-xs text-stone-400">{f.rel_path}</span>
               </button>
             </li>
@@ -270,6 +285,10 @@ export default function Files() {
   });
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selected, setSelected] = useState<FileNode | null>(null);
+  // #554: one tag narrows the tree to the files carrying it (folders keep only matching descendants)
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const isOpen = (id: number) => expanded[id] ?? !!tagFilter; // filtered folders start open
+  const tagsQ = useQuery({ queryKey: ["doc-tags", slug], queryFn: () => api<Page<Tag>>(`/tags/?project=${slug}`) });
   const queryClient = useQueryClient();
   const refreshTree = () => queryClient.invalidateQueries({ queryKey: ["tree", slug] });
 
@@ -325,6 +344,47 @@ export default function Files() {
     },
     onError: fail("Couldn't move the file"),
   });
+  // #554: description + tags edited in the pane (PATCH by tag ids; the tree refreshes its rows)
+  const patchMeta = useMutation({
+    mutationFn: (v: { id: number; body: { description?: string; tags?: number[] } }) =>
+      api(`/documents/${v.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(v.body) }),
+    onSuccess: () => refreshTree(),
+    onError: fail("Couldn't save the file's details"),
+  });
+  const editDescription = async (f: FileNode) => {
+    const d = await promptDialog({ title: `Describe “${f.name}”`, label: "What is this file?", initial: f.description, multiline: true, placeholder: "e.g. Per-trial reaction times from the pilot (ms)." });
+    if (d === null || d === f.description) return;
+    try { await patchMeta.mutateAsync({ id: f.id, body: { description: d } }); } catch { return; }
+    setSelected((s) => (s && s.id === f.id ? { ...s, description: d } : s));
+  };
+  const setTags = async (f: FileNode, tags: Tag[]) => {
+    try { await patchMeta.mutateAsync({ id: f.id, body: { tags: tags.map((t) => t.id) } }); } catch { return; }
+    setSelected((s) => (s && s.id === f.id ? { ...s, tags } : s));
+  };
+  const newTag = async (f: FileNode) => {
+    const name = await promptDialog({ title: "New tag", label: "Name", placeholder: "e.g. key-paper", validate: (v) => (v.trim() ? null : "Name the tag.") });
+    if (!name) return;
+    const wanted = name.trim();
+    // the name is unique per project: reuse a match (any case) instead of a 400 from the server
+    const existing = (tagsQ.data?.results ?? []).find((t) => t.name.toLowerCase() === wanted.toLowerCase());
+    let tag = existing;
+    if (!tag) {
+      try {
+        tag = await api<Tag>(`/tags/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project: slug, name: wanted, color: tagColor(wanted) }) });
+      } catch (e) { void errorDialog("Couldn't create the tag", e); return; }
+      queryClient.invalidateQueries({ queryKey: ["doc-tags", slug] });
+    }
+    if (!f.tags.some((t) => t.id === tag!.id)) await setTags(f, [...f.tags, tag]);
+  };
+  const tagItems = (f: FileNode): MenuItem[] => {
+    const have = new Set(f.tags.map((t) => t.id));
+    const pool = (tagsQ.data?.results ?? []).filter((t) => !have.has(t.id));
+    return [
+      ...pool.map((t): MenuItem => ({ label: t.name, icon: <TagDot color={t.color} />, onSelect: () => void setTags(f, [...f.tags, t]) })),
+      ...(pool.length ? ["-" as const] : []),
+      { label: "New tag…", icon: <FilePlus2 className="h-3.5 w-3.5" />, onSelect: () => void newTag(f) },
+    ];
+  };
   const saveTemplate = useMutation({
     mutationFn: (name: string) =>
       api(`/projects/${slug}/save-template/`, {
@@ -492,11 +552,22 @@ export default function Files() {
     const ff: Record<number, FileNode[]> = {};
     const rootFolders: FolderNode[] = [];
     const rootFiles: FileNode[] = [];
+    // #554: with a tag filter only the files carrying it and the folders above them remain
+    const shown = tagFilter ? (data?.files ?? []).filter((f) => f.tags.some((t) => t.name === tagFilter)) : (data?.files ?? []);
+    const keep = new Set<number>();
+    if (tagFilter) {
+      const parentOf = new Map((data?.folders ?? []).map((f) => [f.id, f.parent_id] as const));
+      for (const f of shown) {
+        let id = f.folder_id;
+        while (id != null && !keep.has(id)) { keep.add(id); id = parentOf.get(id) ?? null; }
+      }
+    }
     for (const f of data?.folders ?? []) {
+      if (tagFilter && !keep.has(f.id)) continue;
       if (f.parent_id == null) rootFolders.push(f);
       else (cf[f.parent_id] ??= []).push(f);
     }
-    for (const f of data?.files ?? []) {
+    for (const f of shown) {
       if (f.folder_id == null) rootFiles.push(f);
       else (ff[f.folder_id] ??= []).push(f);
     }
@@ -506,7 +577,7 @@ export default function Files() {
     Object.values(cf).forEach((l) => l.sort(byName));
     Object.values(ff).forEach((l) => l.sort(byName));
     return { childFolders: cf, folderFiles: ff, rootFolders, rootFiles };
-  }, [data]);
+  }, [data, tagFilter]);
   const countInside = (id: number): number => (folderFiles[id]?.length ?? 0) + (childFolders[id] ?? []).reduce((n, k) => n + 1 + countInside(k.id), 0);
 
   // [REV] keyboard navigation: flatten the *visible* tree in render order so arrow keys
@@ -520,7 +591,7 @@ export default function Files() {
       const kids = childFolders[f.id] ?? [];
       const files = folderFiles[f.id] ?? [];
       out.push({ kind: "folder", id: f.id, depth, hasChildren: !!(kids.length || files.length), folder: f });
-      if (expanded[f.id]) {
+      if (isOpen(f.id)) {
         kids.forEach((k) => walk(k, depth + 1));
         files.forEach((fl) => out.push({ kind: "file", id: fl.id, depth: depth + 1, file: fl }));
       }
@@ -528,7 +599,7 @@ export default function Files() {
     rootFolders.forEach((f) => walk(f, 0));
     rootFiles.forEach((fl) => out.push({ kind: "file", id: fl.id, depth: 0, file: fl }));
     return out;
-  }, [childFolders, folderFiles, rootFolders, rootFiles, expanded]);
+  }, [childFolders, folderFiles, rootFolders, rootFiles, expanded, tagFilter]);
 
   const [focusIdx, setFocusIdx] = useState(0);
   useEffect(() => {
@@ -598,11 +669,11 @@ export default function Files() {
     else if (e.key === "Enter") {
       e.preventDefault();
       if (r?.kind === "file") setSelected(r.file);
-      else if (r?.kind === "folder") setExpanded((x) => ({ ...x, [r.id]: !x[r.id] }));
+      else if (r?.kind === "folder") setExpanded((x) => ({ ...x, [r.id]: !(x[r.id] ?? !!tagFilter) }));
     } else if (e.key === "ArrowRight" && r?.kind === "folder") {
-      if (r.hasChildren && !expanded[r.id]) { e.preventDefault(); setExpanded((x) => ({ ...x, [r.id]: true })); }
+      if (r.hasChildren && !isOpen(r.id)) { e.preventDefault(); setExpanded((x) => ({ ...x, [r.id]: true })); }
       else { e.preventDefault(); setFocusIdx((i) => Math.min(flat.length - 1, i + 1)); }
-    } else if (e.key === "ArrowLeft" && r?.kind === "folder" && expanded[r.id]) {
+    } else if (e.key === "ArrowLeft" && r?.kind === "folder" && isOpen(r.id)) {
       e.preventDefault();
       setExpanded((x) => ({ ...x, [r.id]: false }));
     }
@@ -655,6 +726,11 @@ export default function Files() {
     >
       <Icon kind={f.kind || "other"} name={f.name} />
       <span className="min-w-0 flex-1 truncate">{f.name}</span>
+      {f.tags.length > 0 && (
+        <span className="flex shrink-0 items-center gap-0.5" title={f.tags.map((t) => t.name).join(", ")} data-testid="tag-dots">
+          {f.tags.map((t) => <TagDot key={t.id} color={t.color} />)}
+        </span>
+      )}
       {f.role === "manuscript_source" && (
         <span className="shrink-0 rounded bg-stone-100 px-1 text-[10px] uppercase tracking-wide text-stone-400 dark:bg-stone-800">ms</span>
       )}
@@ -665,7 +741,7 @@ export default function Files() {
   );
 
   const folderRow = (folder: FolderNode, depth: number) => {
-    const open = expanded[folder.id];
+    const open = isOpen(folder.id);
     const kids = childFolders[folder.id] ?? [];
     const files = folderFiles[folder.id] ?? [];
     return (
@@ -675,7 +751,7 @@ export default function Files() {
           aria-expanded={!!open}
           data-tree-focus={focusKey === `folder${folder.id}`}
           data-testid="tree-folder"
-          onClick={() => { setExpanded((e) => ({ ...e, [folder.id]: !e[folder.id] })); setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); }}
+          onClick={() => { setExpanded((e) => ({ ...e, [folder.id]: !(e[folder.id] ?? !!tagFilter) })); setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); }}
           onContextMenu={(e) => { setFocusIdx(flat.findIndex((r) => r.kind === "folder" && r.id === folder.id)); menu.open(e, folderItems(folder)); }}
           onDragOver={(e) => { if (!isManuscriptFolder(folder)) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = dragDoc ? "move" : "copy"; setDropFolder(folder.id); } }}
           onDragLeave={() => setDropFolder((d) => (d === folder.id ? null : d))}
@@ -705,6 +781,12 @@ export default function Files() {
   };
 
   const total = data.files.length;
+  // #554: the filter row lists the tags files actually carry (with counts), never an empty one
+  const tagsInUse = (() => {
+    const m = new Map<number, Tag & { count: number }>();
+    for (const f of data.files) for (const t of f.tags) { const e = m.get(t.id); if (e) e.count++; else m.set(t.id, { ...t, count: 1 }); }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  })();
   return (
     <div>
       <nav className="mb-4 text-sm text-stone-500 dark:text-stone-400">
@@ -789,6 +871,22 @@ export default function Files() {
           <div className="sticky top-0 z-10 -mx-2 -mt-2 mb-1 border-b border-stone-100 bg-white px-3 py-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:border-stone-800 dark:bg-stone-900">
             Explorer
           </div>
+          {tagsInUse.length > 0 && (
+            <div className="mb-1.5 flex flex-wrap items-center gap-1 px-1" data-testid="tag-filter">
+              {tagsInUse.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={(e) => { e.stopPropagation(); setTagFilter((cur) => (cur === t.name ? null : t.name)); }}
+                  aria-pressed={tagFilter === t.name}
+                  title={tagFilter === t.name ? "Show every file" : `Only files tagged ${t.name}`}
+                  className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] transition-colors ${tagFilter === t.name ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-stone-200"}`}
+                >
+                  <TagDot color={t.color} />{t.name}<span className="font-mono text-[10px] opacity-70">{t.count}</span>
+                </button>
+              ))}
+              {tagFilter && <span className="text-[11px] text-stone-400" data-testid="tag-filter-count">{rootFiles.length + Object.values(folderFiles).reduce((n, l) => n + l.length, 0)} of {total}</span>}
+            </div>
+          )}
           {typedHint && (
             <span data-testid="typeahead-hint" data-miss={typedMiss ? "1" : undefined} className={`pointer-events-none absolute right-2 top-2 z-20 rounded px-1.5 py-0.5 font-mono text-xs text-white ${typedMiss ? "typeahead-miss bg-red-600/90" : "bg-stone-700/90"}`}>
               {typedHint}{typedMiss && <span className="ml-1 opacity-80">— no match</span>}
@@ -837,6 +935,27 @@ export default function Files() {
                 {!!humanSize(selected.size) && <span>· {humanSize(selected.size)}</span>}
                 {selected.role !== "manuscript_source" && <span data-testid="version-line">· v{selected.version}{selected.versions ? ` (${selected.versions} earlier)` : ""}</span>}
               </dl>
+              {selected.role !== "manuscript_source" && (
+                <div className="mb-3 space-y-1.5 text-xs" data-testid="file-meta">
+                  {selected.description ? (
+                    <p className="whitespace-pre-line text-stone-600 dark:text-stone-300" data-testid="file-description">
+                      {selected.description}
+                      <button onClick={() => void editDescription(selected)} className="ml-1.5 text-indigo-600 hover:underline dark:text-indigo-400" data-testid="edit-description">Edit</button>
+                    </p>
+                  ) : (
+                    <button onClick={() => void editDescription(selected)} className="text-stone-400 hover:text-indigo-600 hover:underline dark:hover:text-indigo-400" data-testid="edit-description">+ Add a description</button>
+                  )}
+                  <div className="flex flex-wrap items-center gap-1" data-testid="file-tags">
+                    {selected.tags.map((t) => (
+                      <span key={t.id} className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-50 py-0.5 pl-1.5 pr-0.5 text-[11px] text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300" data-testid="file-tag">
+                        <TagDot color={t.color} />{t.name}
+                        <button onClick={() => void setTags(selected, selected.tags.filter((x) => x.id !== t.id))} aria-label={`Remove tag ${t.name}`} className="rounded-full px-1 text-stone-400 hover:text-red-600">×</button>
+                      </span>
+                    ))}
+                    <button onClick={(e) => menu.open(e, tagItems(selected))} className="rounded-full border border-dashed border-stone-300 px-1.5 py-0.5 text-[11px] text-stone-400 transition-colors hover:border-indigo-400 hover:text-indigo-600 dark:border-stone-600 dark:hover:text-indigo-400" data-testid="add-tag">+ Tag</button>
+                  </div>
+                </div>
+              )}
               {selected.role !== "manuscript_source" && (
                 <div className="mb-3 flex flex-wrap items-center gap-3 text-xs">
                   <select

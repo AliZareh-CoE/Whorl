@@ -132,9 +132,10 @@ def set_milestone_dependencies(milestone_id: int, blocked_by: list[int]) -> dict
 
 
 @mcp.tool()
-def list_documents(project: str) -> dict:
-    """List a project's documents with title, folder, size, and file URL."""
-    return client.list_documents(project)
+def list_documents(project: str, tag: str = "") -> dict:
+    """List a project's documents with title, description, tags (`tag_names`), folder, size
+    and file URL; `tag` narrows to documents carrying that tag."""
+    return client.list_documents(project, tag or None)
 
 
 @mcp.tool()

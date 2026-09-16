@@ -46,7 +46,11 @@ def workspace_tree(project: Project) -> dict:
     files = []
     from django.db.models import Count
 
-    for d in project.documents.annotate(versions_count=Count("versions")):
+    # #554: tags + description ride along (one prefetch, not one query per row)
+    documents = project.documents.annotate(versions_count=Count("versions")).prefetch_related(
+        "tags"
+    )
+    for d in documents:
         name = d.title or (d.rel_path.rsplit("/", 1)[-1] if d.rel_path else "")
         files.append(
             {
@@ -59,6 +63,8 @@ def workspace_tree(project: Project) -> dict:
                 "size": d.file_size,
                 "version": d.version,
                 "versions": d.versions_count,  # #553: earlier states in its history
+                "description": d.description,
+                "tags": [{"id": t.id, "name": t.name, "color": t.color} for t in d.tags.all()],
                 "is_text": d.kind in TEXT_KINDS or (bool(d.content) and not d.file),
                 "local_path": (d.file.path if local_paths and d.file else None),
             }
