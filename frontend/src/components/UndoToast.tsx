@@ -9,6 +9,7 @@ import { Undo2, X } from "lucide-react";
 type Toast = { id: number; message: string; undo: () => void | Promise<void>; ms: number };
 
 let push: ((t: Toast) => void) | null = null;
+let current: Toast | null = null; // #549: the toast on screen, so a key (`z` on Today) can fire it
 let seq = 0;
 
 export function showUndo(message: string, undo: () => void | Promise<void>, ms = 6000): void {
@@ -16,9 +17,19 @@ export function showUndo(message: string, undo: () => void | Promise<void>, ms =
   if (push) push(toast);
 }
 
+/** Fire the undo of the toast on screen (if any) and take it down. Returns whether one ran. */
+export function undoLast(): boolean {
+  const t = current;
+  if (!t || !push) return false;
+  push(null as unknown as Toast);
+  void t.undo();
+  return true;
+}
+
 export function UndoHost() {
   const [toast, setToast] = useState<Toast | null>(null);
-  useEffect(() => { push = setToast; return () => { push = null; }; }, []);
+  useEffect(() => { push = setToast; return () => { push = null; current = null; }; }, []);
+  useEffect(() => { current = toast; }, [toast]);
   useEffect(() => {
     if (!toast) return;
     const t = window.setTimeout(() => setToast((cur) => (cur?.id === toast.id ? null : cur)), toast.ms);

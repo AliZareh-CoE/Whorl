@@ -225,8 +225,12 @@ export default function Dashboard() {
   const firstRun = demo.data?.projects === 0;
   // backlog #300: tick a to-do from the hero; the rank chip reads the (cached) pet state
   const tick = useMutation({
-    mutationFn: (id: number) => api(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: true }) }),
-    onSuccess: () => { qcAll.invalidateQueries({ queryKey: ["dashboard"] }); qcAll.invalidateQueries({ queryKey: ["todos"] }); },
+    mutationFn: (id: number) => api<{ text: string }>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: true }) }),
+    onSuccess: (row, id) => {
+      const back = () => { qcAll.invalidateQueries({ queryKey: ["dashboard"] }); qcAll.invalidateQueries({ queryKey: ["todos"] }); };
+      back();
+      showUndo(`Done — “${row.text.slice(0, 50)}”`, async () => { await api(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: false }) }); back(); }); // #549
+    },
   });
   const petQ = useQuery({ queryKey: ["pet"], queryFn: () => api<{ rank?: { name: string }; achievement_score?: number; souls_mode?: boolean }>("/pet/"), staleTime: 300_000 });
   // first run on the desktop: offer to fetch the TeX bundle now rather than behind the first compile (#372).

@@ -10,9 +10,10 @@ import { api } from "../api";
 import { dayLabel, dueState, formatDue, isLater, parseDue, relativeDue, repeatLabel } from "../dueTime";
 import type { Repeat } from "../dueTime";
 import { ErrorState } from "../../components/ErrorState";
+import { showUndo, undoLast } from "../../components/UndoToast";
 import { Skeleton } from "../../components/Skeleton";
 
-type Todo = { id: number; text: string; done: boolean; done_at: string | null; position: number; due_at: string | null; all_day: boolean; repeat: Repeat; project: string | null; created_at: string };
+type Todo = { id: number; text: string; done: boolean; done_at: string | null; position: number; due_at: string | null; all_day: boolean; repeat: Repeat; project: string | null; created_at: string; next?: { id: number; due_at: string } | null };
 type Page<T> = { count: number; results: T[] };
 
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
@@ -36,9 +37,38 @@ export default function Today() {
       return { prev };
     },
     onError: (_e, _v, ctx) => { if (ctx?.prev) queryClient.setQueryData(["todos"], ctx.prev); },
+    onSuccess: (row, { id, done }) => { // #549: a tick can be taken back with one key
+      if (!done) return;
+      const nxt = row.next ? ` · next one ${dayLabel(row.next.due_at)}` : "";
+      showUndo(`Done — “${row.text.slice(0, 50)}”${nxt}`, async () => { await api(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: false }) }); refresh(); });
+    },
     onSettled: refresh,
   });
-  const remove = useMutation({ mutationFn: (id: number) => api(`/todos/${id}/`, { method: "DELETE" }), onSuccess: refresh });
+  // #549: delete is undoable — the row is re-created with every field it had (done items as
+  // done, without a tick: no successor is spawned twice) and put back at its old place.
+  const remove = useMutation({
+    mutationFn: (id: number) => api(`/todos/${id}/`, { method: "DELETE" }),
+    onMutate: (id) => {
+      const rows = queryClient.getQueryData<Page<Todo>>(["todos"])?.results ?? [];
+      const gone = rows.find((t) => t.id === id) ?? null;
+      const index = rows.filter((t) => !t.done && !isLater(t.due_at)).findIndex((t) => t.id === id);
+      return { gone, index };
+    },
+    onSuccess: (_r, _id, ctx) => {
+      refresh();
+      const gone = ctx?.gone;
+      if (!gone) return;
+      showUndo(`Deleted — “${gone.text.slice(0, 50)}”`, async () => {
+        const made = await api<Todo>("/todos/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: gone.text, done: gone.done, due_at: gone.due_at, all_day: gone.all_day, repeat: gone.repeat, project: gone.project }) });
+        if (!gone.done && ctx.index >= 0) { // back at its old place among today's rows
+          const ids = (queryClient.getQueryData<Page<Todo>>(["todos"])?.results ?? []).filter((t) => !t.done && !isLater(t.due_at) && t.id !== made.id).map((t) => t.id);
+          ids.splice(Math.min(ctx.index, ids.length), 0, made.id);
+          await api("/todos/reorder/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+        }
+        refresh();
+      });
+    },
+  });
   const edit = useMutation({ mutationFn: ({ id, text: t }: { id: number; text: string }) => { const { repeat, ...p } = parseDue(t); const body = { ...(p.due_at ? p : { text: p.text }), ...(repeat ? { repeat } : {}) }; return api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); }, onSuccess: refresh }); // an edit without "every …" keeps the item's rule
   // #547: "every Monday" — the rule lives on the item; ticking it spawns the next occurrence
   const setRepeat = useMutation({
@@ -49,7 +79,13 @@ export default function Today() {
   // a date) and waits in Later; "" brings it back. A timed item keeps its clock time.
   const snooze = useMutation({
     mutationFn: ({ id, until }: { id: number; until: string }) => api<Todo>(`/todos/${id}/snooze/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ until }) }),
-    onSuccess: () => { setSnoozing(null); refresh(); },
+    onMutate: ({ id }) => { const before = (queryClient.getQueryData<Page<Todo>>(["todos"])?.results ?? []).find((t) => t.id === id); return { before: before ? { due_at: before.due_at, all_day: before.all_day } : null }; },
+    onSuccess: (row, { id, until }, ctx) => {
+      setSnoozing(null); refresh();
+      if (!ctx?.before) return;
+      const before = ctx.before; // #549: undo puts the exact previous day back, not "today"
+      showUndo(until ? `Pushed to ${row.due_at ? dayLabel(row.due_at) : "later"} — “${row.text.slice(0, 50)}”` : `Back on today's list — “${row.text.slice(0, 50)}”`, async () => { await api(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(before) }); refresh(); });
+    },
   });
   const [snoozing, setSnoozing] = useState<number | null>(null);
   // Reorder (#383): one call carries the whole open-list order — the keyboard (⌥↑/↓) and a
@@ -102,6 +138,7 @@ export default function Today() {
       const t = open[cursor];
       if (e.key === "j" || e.key === "ArrowDown") { if (e.altKey && t && cursor < open.length - 1) { e.preventDefault(); moveOpen(cursor, cursor + 1); setCursor((i) => i + 1); return; } e.preventDefault(); setCursor((i) => Math.min(open.length - 1, i + 1)); }
       else if (e.key === "k" || e.key === "ArrowUp") { if (e.altKey && t && cursor > 0) { e.preventDefault(); moveOpen(cursor, cursor - 1); setCursor((i) => i - 1); return; } e.preventDefault(); setCursor((i) => Math.max(0, i - 1)); }
+      else if (e.key === "z") { e.preventDefault(); undoLast(); } // #549: take the last action back (works on an empty list too)
       else if (!t) return;
       else if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggle.mutate({ id: t.id, done: true }); }
       else if (e.key === "e") { e.preventDefault(); setEditing(t.id); }
@@ -197,7 +234,7 @@ export default function Today() {
           </ul>
         </section>
       )}
-      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · s pushes to tomorrow, S picks a day · ⌥↑/↓ or drag reorders · n new · “at 3pm” sets a time, “on Friday” a day, “every Monday” a rule. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
+      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · s pushes to tomorrow, S picks a day · z undoes · ⌥↑/↓ or drag reorders · n new · “at 3pm” sets a time, “on Friday” a day, “every Monday” a rule. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
     </div>
   );
 }
