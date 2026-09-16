@@ -44,7 +44,7 @@ def test_layout_turns_the_rail_into_a_drawer_below_640():
     assert 'asideRef.current?.toggleAttribute("inert", narrow && !railOpen)' in layout
     assert "const closeRail = () => { setRailOpen(false); toggleRef.current?.focus(); };" in layout
     assert 'if (e.key === "Escape") { e.preventDefault(); closeRail(); }' in layout
-    assert 'asideRef.current?.querySelector<HTMLElement>("a, button")?.focus();' in layout
+    assert 'asideRef.current?.querySelector<HTMLElement>("nav a")?.focus();' in layout
     # the content column: no rail margin below 640, room for the top bar, tighter padding
     assert '<main className="min-w-0 flex-1 max-sm:pt-12 sm:ml-60">' in layout
     assert "px-4 py-5 sm:px-8 sm:py-7" in layout

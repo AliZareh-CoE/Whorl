@@ -115,7 +115,7 @@ export default function Layout() {
   useEffect(() => { asideRef.current?.toggleAttribute("inert", narrow && !railOpen); }, [narrow, railOpen]);
   useEffect(() => {
     if (!railOpen) return;
-    asideRef.current?.querySelector<HTMLElement>("a, button")?.focus();
+    asideRef.current?.querySelector<HTMLElement>("nav a")?.focus(); // the first nav link (the wordmark above it is hidden on a phone)
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); closeRail(); } };
     window.addEventListener("keydown", esc, true);
     return () => window.removeEventListener("keydown", esc, true);
