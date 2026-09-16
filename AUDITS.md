@@ -908,7 +908,9 @@ across the API, pages → 302, catch-all 404, static MIME, `/app//evil.com` stay
   creates one row, not one per request. No new id-range parsing path was added this window
   (pk lookups and `parse_ids` only), so the SQLite repeat of Audit #31 was not needed.
 - *OpenManus embedding (#539):* with `ATLAS_FRAME_ANCESTORS` empty every response still
-  carries `X-Frame-Options: DENY` (verified on the API and the login page).
+  carries `X-Frame-Options: DENY` (verified on the API and the login page); a *set* value
+  was not probed live this audit (it needs an env change and a restart) — #539's tests
+  cover the header, the parser was probed here.
   `parse_ancestors` fed `javascript:alert(1)`, `http://evil.com/path`, `*`, `data:x`,
   credentials, a 300-character host and an IPv6 literal keeps only whole http(s) origins
   (`http://good.example:3000`, `https://[::1]:8080`, `https://lab.example.org`), lower-cased,
@@ -932,7 +934,10 @@ followed redirects through httpx unchecked: the four services hand back public h
 but a repository answering `302 → http://127.0.0.1/…` (or an internal address) would have
 been fetched. Now redirects are followed by hand — at most `MAX_HOPS` (5) — and every hop
 goes through the feeds' `check_url` (public, resolvable host) **and** must stay on https;
-the body streams under the 50 MB cap instead of being read whole and measured after.
+the body streams under the 50 MB cap instead of being read whole and measured after. The
+*first* address a service hands back is still https-only and not resolved (the four
+services are public; the hop is the untrusted step; the test fixtures' hosts do not
+resolve) — tracked as backlog 343.
 Pinned in `test_oa.py::TestHopGuard` (private host refused and never contacted, a hop off
 https refused, a relative https hop followed, six hops stop, a 10 KB body over a 1 KB cap
 cut off after the first chunks).
@@ -942,7 +947,10 @@ between papers, so one slow paper (three metadata calls and four downloads at 10
 could stretch a request past three minutes on a waitress thread. `find_pdf` now runs each
 paper under `PAPER_BUDGET_SECONDS` (45): no new candidate is started past the deadline and
 a streaming download stops at it ("Stopped (out of time for this paper); will look again."
-— the stamp still lands, so the sweep moves on). Pinned in
+— the stamp still lands, so the sweep moves on). The clock is read before each candidate
+and per streamed chunk, so a metadata call inside the candidate generator or a download
+waiting on its first byte can each overrun it by one `TIMEOUT` (10 s): the honest worst
+case per paper is about a minute, not 45 s. Pinned in
 `TestHopGuard::test_per_paper_wall_clock`.
 
 **Query counts on the demo** (in-process): `todos/` 4 (`?when=today` 4, `?when=later` 4),
