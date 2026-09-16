@@ -93,3 +93,24 @@ def test_phone_width_seams_and_constellation_labels():
     assert "if (n.label && w >= 640) {" in js  # 351
     css = (BASE / "static" / "css" / "app.css").read_text()
     assert "min-width:0" in css
+
+
+def test_delete_of_a_fileless_row_is_a_no_op(django_capture_on_commit_callbacks):
+    """Inline text nodes and manuscript-source rows carry no storage file; the post_delete
+    hook must return before touching storage (an empty name would make it raise)."""
+    project = ProjectFactory()
+    inline = Document.objects.create(
+        project=project, title="n.md", rel_path="n.md", kind="other", content="# hi"
+    )
+    source = Document.objects.create(
+        project=project,
+        title="main.tex",
+        rel_path="main.tex",
+        kind="other",
+        role=Document.Role.MANUSCRIPT_SOURCE,
+    )
+    with django_capture_on_commit_callbacks(execute=True) as callbacks:
+        inline.delete()
+        source.delete()
+    assert callbacks == []
+    assert not Document.objects.filter(pk__in=[inline.pk, source.pk]).exists()
