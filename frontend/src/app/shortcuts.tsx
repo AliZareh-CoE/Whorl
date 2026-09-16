@@ -15,6 +15,7 @@ export function shortcutGroups(): Group[] {
     { title: "Plan review", rows: [["k", "Keep the milestone as it is"], ["d", "Mark it done"], ["w / W", "Push it a week / two weeks"], ["m", "Move it to a date"], ["s", "Skip it this time"], ["← / →", "Previous / next card"], ["Esc", "Leave the review"]] },
     { title: "Notes", rows: [[`${MOD} S`, "Save now (autosave runs anyway)"], ["[[", "Link a note (completion)"], ["@", "Cite a paper (completion)"]] },
     { title: "Studio", rows: [[`${MOD} S`, "Save"], [`${MOD} ↵`, "Compile"], [`${MOD} ⇧ J`, "Locate the cursor in the PDF"], [`${MOD} ⇧ D`, "Go to definition — \\ref → its \\label, \\cite → its .bib entry"], [`${MOD} ⇧ F`, "Find in project"], [`${MOD} B`, "Toggle the sidebar"], [`${MOD} \\`, "Toggle the PDF preview"], [`${MOD} J`, "Toggle the problems panel"], [`${MOD} P`, "Quick open a file or section"], [`${MOD} ⇧ P`, "Actions palette — every editor action with its key"]] },
+    { title: "Files", rows: [["↑ / ↓ · ← / →", "Move through the tree · close / open a folder"], ["↵", "Open the file"], ["F2", "Rename"], ["space", "Check the file (a selection)"], [`${MOD} A`, "Check every visible file"], [`${MOD} D`, "Duplicate the file or the selection"], ["Del", "Delete the file or the selection"], [`${MOD} P`, "Open a file by name"], ["drag", "Move a file — or the whole selection — into a folder"], ["Esc", "Clear the selection"]] },
     { title: "Reader", rows: [["← / →", "Previous / next page"], ["select text", "Highlight it — the bar offers a note"]] },
   ];
 }

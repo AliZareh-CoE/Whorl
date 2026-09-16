@@ -434,16 +434,18 @@ export default function Files() {
   });
   // #556: the action bar's verbs, one endpoint; manuscript sources come back as `skipped`
   const bulk = useMutation({
-    mutationFn: (v: { action: "move" | "tag" | "delete"; folder?: number | null; tag?: number }) =>
-      api<{ action: string; count: number; skipped: number[] }>(`/projects/${slug}/documents/bulk/`, {
+    mutationFn: ({ ids, ...v }: { action: "move" | "tag" | "untag" | "duplicate" | "delete"; folder?: number | null; tag?: number; ids?: number[] }) =>
+      api<{ action: string; count: number; skipped: number[]; created?: number[] }>(`/projects/${slug}/documents/bulk/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [...checked], ...v }),
+        body: JSON.stringify({ ids: ids ?? [...checked], ...v }), // #560: a drag passes its own ids
       }),
     onSuccess: (r) => {
       refreshTree();
       if (r.action === "delete") setChecked(new Set());
-      setSelected((s) => (s && checked.has(s.id) && r.action !== "tag" ? null : s));
+      // #560: the copies become the selection, so a second verb (move, tag) acts on them
+      if (r.action === "duplicate") { setChecked(new Set(r.created ?? [])); setSelected(null); }
+      setSelected((s) => (s && checked.has(s.id) && r.action !== "tag" && r.action !== "untag" && r.action !== "duplicate" ? null : s));
       if (r.skipped.length) void noticeDialog({ title: `${r.skipped.length} file${r.skipped.length === 1 ? "" : "s"} skipped`, body: "Manuscript sources are managed in the LaTeX editor; the rest were handled." });
     },
     onError: fail("Couldn't apply that to the selection"),
@@ -643,6 +645,22 @@ export default function Files() {
   // #410: a file row being dragged inside the tree (moves on drop); OS files still upload
   const [dragDoc, setDragDoc] = useState<FileNode | null>(null);
   const DOC_MIME = "application/x-atlas-doc";
+  // #560: a checked row drags the whole selection (Finder); an unchecked row drags alone
+  const dragIds = (f: FileNode): number[] => (checked.has(f.id) ? [...checked] : [f.id]);
+  // the ids from a drop, minus the ones already in the target; null when it was not a row drag
+  const droppedIds = (dt: DataTransfer, target: number | null): number[] | null => {
+    const raw = dt.getData(DOC_MIME);
+    if (!raw) return null;
+    const ids = raw.split(",").map(Number).filter(Boolean);
+    const here = new Set((target == null ? rootFiles : folderFiles[target] ?? []).map((x) => x.id));
+    return ids.filter((id) => !here.has(id));
+  };
+  const dropMove = (ids: number[], folder: number | null) => {
+    setDragDoc(null);
+    if (!ids.length) return;
+    if (ids.length === 1) moveDoc.mutate({ id: ids[0], folder });
+    else bulk.mutate({ action: "move", folder, ids });
+  };
   const upload = useMutation({
     mutationFn: async ({ files, folder }: { files: File[]; folder: number | null }) => { // File[] on purpose: a FileList empties once the picker resets
       // #553: a same-name file in the target folder is never a silent duplicate — ask
@@ -695,6 +713,12 @@ export default function Files() {
   const askDeleteFile = async (f: FileNode) => {
     if (await confirmDialog({ title: `Delete “${f.name}”?`, danger: true, confirmLabel: "Delete file", body: "The file is removed from the project and from disk." })) deleteDoc.mutate(f.id);
   };
+  // #560: a copy next to the original (numbered name, description + tags, no history); the
+  // selection wins over the focused row, like Delete
+  const duplicate = (f?: FileNode) => {
+    const ids = f && !(checked.has(f.id) && checked.size > 1) ? [f.id] : [...checked];
+    if (ids.length) bulk.mutate({ action: "duplicate", ids });
+  };
   const copyText = async (text: string) => { try { await navigator.clipboard.writeText(text); } catch { void noticeDialog({ title: "Copy blocked", body: <code className="text-xs">{text}</code> }); } };
   const fileItems = (f: FileNode): MenuItem[] => {
     const ms = f.role === "manuscript_source";
@@ -714,6 +738,7 @@ export default function Files() {
       { label: "Replace with a newer version…", icon: <Upload className="h-3.5 w-3.5" />, disabled: ms, onSelect: () => askReplace(f) },
       { label: f.versions ? `History (${f.versions})` : "History", icon: <History className="h-3.5 w-3.5" />, disabled: ms, onSelect: () => { setSelected(f); setHistoryFor(f.id); } },
       { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, hint: "F2", disabled: ms, onSelect: () => void askRenameFile(f) },
+      { label: checked.has(f.id) && checked.size > 1 ? `Duplicate ${checked.size} files` : "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, hint: "⌘D", disabled: ms, onSelect: () => duplicate(f) },
       { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, hint: "Del", danger: true, disabled: ms, onSelect: () => void askDeleteFile(f) },
     ];
   };
@@ -887,6 +912,7 @@ export default function Files() {
     }
     if (e.key === " " && r?.kind === "file") { e.preventDefault(); toggleCheck(r.file, false); return; }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") { e.preventDefault(); checkAllVisible(); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") { e.preventDefault(); if (checked.size) duplicate(); else if (r?.kind === "file" && r.file.role !== "manuscript_source") duplicate(r.file); return; }
     if (e.key === "Escape" && checked.size) { e.preventDefault(); setChecked(new Set()); return; }
     if (e.key === "F2" && r) { e.preventDefault(); if (r.kind === "file") void askRenameFile(r.file); else void askRenameFolder(r.folder); return; }
     if ((e.key === "Delete" || e.key === "Backspace") && checked.size) { e.preventDefault(); void askBulkDelete(); return; } // the selection wins
@@ -941,10 +967,10 @@ export default function Files() {
       aria-selected={selected?.id === f.id}
       data-tree-focus={focusKey === `file${f.id}`}
       data-testid="tree-file"
-      data-dragging={dragDoc?.id === f.id ? "1" : undefined}
+      data-dragging={dragDoc?.id === f.id || (dragDoc != null && checked.has(dragDoc.id) && checked.has(f.id)) ? "1" : undefined}
       draggable={f.role !== "manuscript_source"}
       title={`changed ${stamp(f.modified_at)} · added ${stamp(f.created_at)}${f.role !== "manuscript_source" ? " · drag onto a folder to move it" : ""}`}
-      onDragStart={(e) => { if (f.role === "manuscript_source") { e.preventDefault(); return; } e.dataTransfer.setData(DOC_MIME, String(f.id)); e.dataTransfer.effectAllowed = "move"; setDragDoc(f); }}
+      onDragStart={(e) => { if (f.role === "manuscript_source") { e.preventDefault(); return; } e.dataTransfer.setData(DOC_MIME, dragIds(f).join(",")); e.dataTransfer.effectAllowed = "move"; setDragDoc(f); }}
       onDragEnd={() => { setDragDoc(null); setDropFolder(null); setDragging(false); }}
       onClick={() => { setSelected(f); setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); }}
       onContextMenu={(e) => { setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); menu.open(e, fileItems(f)); }}
@@ -996,8 +1022,8 @@ export default function Files() {
           onDrop={(e) => {
             if (isManuscriptFolder(folder)) return;
             e.preventDefault(); e.stopPropagation(); setDragging(false); setDropFolder(null);
-            const movedId = Number(e.dataTransfer.getData(DOC_MIME));
-            if (movedId) { setDragDoc(null); if (folderFiles[folder.id]?.some((x) => x.id === movedId)) return; moveDoc.mutate({ id: movedId, folder: folder.id }); return; }
+            const moved = droppedIds(e.dataTransfer, folder.id);
+            if (moved) { dropMove(moved, folder.id); return; }
             if (e.dataTransfer.files.length) upload.mutate({ files: Array.from(e.dataTransfer.files), folder: folder.id });
           }}
           style={{ paddingLeft: depth * 14 + 8 }}
@@ -1112,8 +1138,8 @@ export default function Files() {
             e.preventDefault();
             setDragging(false);
             setDropFolder(null);
-            const movedId = Number(e.dataTransfer.getData(DOC_MIME));
-            if (movedId) { setDragDoc(null); if (!rootFiles.some((x) => x.id === movedId)) moveDoc.mutate({ id: movedId, folder: null }); return; }
+            const moved = droppedIds(e.dataTransfer, null);
+            if (moved) { dropMove(moved, null); return; }
             if (e.dataTransfer.files.length) upload.mutate({ files: Array.from(e.dataTransfer.files), folder: null });
           }}
         >
@@ -1175,6 +1201,7 @@ export default function Files() {
               <button onClick={bulkZip} className="inline-flex items-center gap-1 hover:underline" data-testid="bulk-zip"><Archive className="h-3 w-3" aria-hidden="true" />Download zip</button>
               <button onClick={(e) => menu.open(e, bulkMoveItems())} className="hover:underline" data-testid="bulk-move" disabled={bulk.isPending}>Move to…</button>
               <button onClick={(e) => menu.open(e, bulkTagItems())} className="hover:underline" data-testid="bulk-tag" disabled={bulk.isPending}>Tag…</button>
+              <button onClick={() => bulk.mutate({ action: "duplicate" })} className="hover:underline" data-testid="bulk-duplicate" disabled={bulk.isPending} title="Copies land next to their originals and become the selection (⌘D)">Duplicate</button>
               <button onClick={() => void askBulkDelete()} className="text-red-600 hover:underline dark:text-red-300" data-testid="bulk-delete" disabled={bulk.isPending}>Delete…</button>
               <button onClick={() => setChecked(new Set())} className="ml-auto text-stone-500 hover:underline dark:text-stone-400" data-testid="bulk-clear" title="Clear the selection (Esc)">Clear</button>
             </div>
@@ -1204,7 +1231,7 @@ export default function Files() {
               {typedHint}{typedMiss && <span className="ml-1 opacity-80">— no match</span>}
             </span>
           )}
-          {dragging && <p className="mb-1 rounded bg-indigo-50 py-1 text-center text-xs font-medium text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">{dropFolder != null ? "Drop to upload into this folder" : "Drop to upload"}</p>}
+          {dragging && <p className="mb-1 rounded bg-indigo-50 py-1 text-center text-xs font-medium text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">{dragDoc ? `Move ${dragIds(dragDoc).length === 1 ? "the file" : `${dragIds(dragDoc).length} files`} ${dropFolder != null ? "into this folder" : "to the project root"}` : dropFolder != null ? "Drop to upload into this folder" : "Drop to upload"}</p>}
           {rootFolders.map((f) => folderRow(f, 0))}
           {rootFiles.map((f) => fileRow(f, 0))}
           {total === 0 && !rootFolders.length && (

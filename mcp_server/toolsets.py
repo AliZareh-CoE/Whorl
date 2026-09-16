@@ -77,7 +77,6 @@ AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
             "import_references",
             "import_from_zotero",
             "discover_related",
-            "export_bibtex",
             "export_references",
             "format_citations",
             "list_library_tags",
@@ -207,6 +206,7 @@ AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
             "read_project_file",
             "write_project_file",
             "manage_file_tag",
+            "organize_files",
         ),
     ),
     "ops": (

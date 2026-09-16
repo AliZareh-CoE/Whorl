@@ -429,17 +429,23 @@ class ProjectViewSet(AtlasViewSet):
             "DocumentsBulk",
             {
                 "ids": rf_serializers.ListField(child=rf_serializers.IntegerField()),
-                "action": rf_serializers.ChoiceField(choices=["move", "tag", "delete"]),
+                "action": rf_serializers.ChoiceField(
+                    choices=["move", "tag", "untag", "duplicate", "delete"]
+                ),
                 "folder": rf_serializers.IntegerField(required=False, allow_null=True),
                 "tag": rf_serializers.IntegerField(required=False),
             },
         ),
         responses={
-            200: OpenApiResponse(description="{action, count, skipped: [manuscript-source ids]}")
+            200: OpenApiResponse(
+                description="{action, count, skipped: [manuscript-source ids], created: "
+                "[copy ids] (duplicate only)}"
+            )
         },
-        description="Act on many general files at once: move them into `folder` (null = the "
-        "project root), add `tag`, or delete them. Manuscript sources are skipped and "
-        "listed in `skipped`. At most 500 ids.",
+        description="Act on many general files at once: `move` them into `folder` (null = the "
+        "project root), `tag` / `untag` with `tag`, `duplicate` them next to themselves "
+        "(numbered names, description and tags copied, no history), or `delete` them. "
+        "Manuscript sources are skipped and listed in `skipped`. At most 500 ids.",
     )
     @action(detail=True, methods=["post"], url_path="documents/bulk")
     def documents_bulk(self, request, slug=None):

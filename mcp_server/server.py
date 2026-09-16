@@ -588,6 +588,25 @@ def list_project_files(project: str, tag: str = "") -> dict:
 
 
 @mcp.tool()
+def organize_files(
+    project: str,
+    paths: list[str],
+    action: str,
+    folder: str = "",
+    tag: str = "",
+) -> dict:
+    """Move, tag, untag, duplicate or delete many of a project's files at once, by their tree
+    paths (from list_project_files `rel_path`). `move` needs `folder` (a folder path, "" =
+    the project root); `tag` / `untag` need `tag` (a name, any case); `duplicate` copies each
+    file next to itself (numbered name, description and tags, no history) and answers the
+    copies' ids in `created`. Manuscript sources are skipped and listed in `skipped`."""
+    try:
+        return client.organize_files(project, paths, action, folder, tag)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+
+@mcp.tool()
 def manage_file_tag(
     project: str,
     tag: str,
@@ -664,13 +683,6 @@ def discover_related(reference_id: int, kind: str = "similar", limit: int = 12) 
     'references' (what it cites), or 'cited_by' (what cites it, most-cited first). Each row
     carries in_library / library_id; addable rows have a DOI — add them with add_reference_by_doi."""
     return client.discover_related(reference_id, kind, limit)
-
-
-@mcp.tool()
-def export_bibtex(reference_ids: list[int] | None = None, project: str = "") -> str:
-    """BibTeX for a list of reference ids, or for every reference linked to a project (slug).
-    For RIS, CSL-JSON or CSV — or to export a filtered view — use export_references."""
-    return client.export_bibtex(reference_ids, project or None)
 
 
 @mcp.tool()

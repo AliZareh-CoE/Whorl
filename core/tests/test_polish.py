@@ -20,9 +20,10 @@ def test_files_rows_drag_to_move():
     files = (BASE / "frontend/src/app/pages/Files.tsx").read_text()
     assert 'DOC_MIME = "application/x-atlas-doc"' in files
     assert 'draggable={f.role !== "manuscript_source"}' in files
-    assert files.count("e.dataTransfer.getData(DOC_MIME)") == 2  # folder rows + root
-    assert "moveDoc.mutate({ id: movedId, folder: folder.id })" in files
-    assert "moveDoc.mutate({ id: movedId, folder: null })" in files
+    # #560: both drops (folder rows + root) parse the id list through one helper
+    assert files.count("droppedIds(e.dataTransfer") == 2
+    assert "dropMove(moved, folder.id)" in files and "dropMove(moved, null)" in files
+    assert "if (ids.length === 1) moveDoc.mutate({ id: ids[0], folder });" in files
 
 
 def test_notes_read_aloud():

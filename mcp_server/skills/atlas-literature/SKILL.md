@@ -62,7 +62,7 @@ description: Run a literature workflow in Atlas — add papers by DOI or arXiv i
 2. `get_synthesis_scaffold` → draft the synthesis; write it with `add_note` (Markdown,
    cite papers as `@bibtex_key` so Atlas links them) and offer `export_note`.
 3. `discover_related` to suggest papers the library is missing; `run_bib_check` before
-   any export; `export_bibtex` / `format_citations` for the user's writing tool.
+   any export; `export_references(fmt="bib")` / `format_citations` for the user's writing tool.
 
 ## Conventions
 

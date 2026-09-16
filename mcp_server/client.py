@@ -619,6 +619,53 @@ def list_project_files(project: str, tags: list[str] | None = None):
     return _request("GET", f"/projects/{project}/tree/")
 
 
+def _folder_paths(tree: dict) -> dict[str, int]:
+    """Every folder's path ("Data/Pilot") → id, walked from the tree's flat folder rows."""
+    rows = {f["id"]: f for f in tree.get("folders", [])}
+    out: dict[str, int] = {}
+    for fid, row in rows.items():
+        parts, node = [], row
+        while node is not None:
+            parts.append(node["name"])
+            node = rows.get(node.get("parent_id"))
+        out["/".join(reversed(parts))] = fid
+    return out
+
+
+ORGANIZE_ACTIONS = ("move", "tag", "untag", "duplicate", "delete")
+
+
+def organize_files(
+    project: str, paths: list[str], action: str, folder: str = "", tag: str = ""
+) -> dict:
+    """Act on many files by tree path through the project's bulk endpoint."""
+    if action not in ORGANIZE_ACTIONS:
+        raise ValueError(f"action must be one of {', '.join(ORGANIZE_ACTIONS)}.")
+    wanted = [p.strip().strip("/") for p in paths if p and p.strip().strip("/")]
+    if not wanted:
+        raise ValueError("Pass at least one file path.")
+    tree = list_project_files(project)
+    by_path = {f["rel_path"]: f["id"] for f in tree.get("files", []) if f.get("rel_path")}
+    missing = [p for p in wanted if p not in by_path]
+    if missing:
+        raise ValueError(f"No file at {', '.join(missing)} in {project}.")
+    body: dict = {"ids": [by_path[p] for p in wanted], "action": action}
+    if action == "move":
+        target = folder.strip().strip("/")
+        if target:
+            folders = _folder_paths(tree)
+            if target not in folders:
+                raise ValueError(f"No folder at {target} in {project}.")
+            body["folder"] = folders[target]
+        else:
+            body["folder"] = None
+    elif action in ("tag", "untag"):
+        if not tag.strip():
+            raise ValueError("Name the tag.")
+        body["tag"] = _find_file_tag(project, tag)["id"]
+    return _request("POST", f"/projects/{project}/documents/bulk/", json=body)
+
+
 def _find_file_tag(project: str, name: str) -> dict:
     page = _request("GET", "/tags/", params={"project": project, "page_size": 200})
     wanted = name.strip().lower()
@@ -733,11 +780,6 @@ def export_references(
     if response.status_code >= 400:
         raise AtlasClientError(f"Atlas API {response.status_code} on /references/export/")
     return response.text
-
-
-def export_bibtex(reference_ids: list[int] | None = None, project: str | None = None) -> str:
-    """BibTeX text for explicit ids, or for a whole project's library."""
-    return export_references("bib", reference_ids, project)
 
 
 def format_citations(reference_ids: list[int], style: str = "apa"):

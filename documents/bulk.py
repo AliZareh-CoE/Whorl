@@ -1,5 +1,5 @@
-"""#556: act on many files at once — move / tag / delete a selection, and pack a selection
-or a whole folder into a zip. One service behind the explorer's action bar, the API and
+"""#556: act on many files at once — move / tag / untag / duplicate / delete a selection, and
+pack a selection or a whole folder into a zip. One service behind the explorer's action bar, the API and
 the classic Documents page's bulk form.
 """
 
@@ -8,6 +8,7 @@ from __future__ import annotations
 import tempfile
 import zipfile
 
+from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from core.archives import safe_archive_name
@@ -18,7 +19,7 @@ from .models import Document, Folder, Tag
 
 MAX_IDS = 500
 ARCHIVE_CAP = 512 * 1024 * 1024  # bytes of stored files one zip may hold
-ACTIONS = ("move", "tag", "delete")
+ACTIONS = ("move", "tag", "untag", "delete", "duplicate")
 
 
 class BulkError(ValueError):
@@ -58,6 +59,56 @@ def folder_path(folder: Folder | None) -> str:
     return "/".join(reversed(parts))
 
 
+def available_name(project: Project, folder: Folder | None, name: str) -> str:
+    """`name`, or `stem-2.ext` / `stem-3.ext` … until no file in `folder` carries it — the
+    same numbering a same-name upload gets with on_conflict=keep."""
+    prefix = folder_path(folder)
+    prefix = f"{prefix}/" if prefix else ""
+    taken = set(
+        project.documents.filter(folder=folder, role=Document.Role.GENERAL).values_list(
+            "rel_path", flat=True
+        )
+    )
+    if f"{prefix}{name}" not in taken:
+        return name
+    stem, dot, ext = name.rpartition(".")
+    if not dot:
+        stem, ext = name, ""
+    n = 2
+    while f"{prefix}{stem}-{n}{'.' + ext if ext else ''}" in taken:
+        n += 1
+    return f"{stem}-{n}{'.' + ext if ext else ''}"
+
+
+def duplicate_document(doc: Document) -> Document:
+    """A copy of a general file next to it: same folder, description, tags, kind and type,
+    a numbered name, its bytes copied to a *new* storage file (a deleted row unlinks its
+    own file since #558, so two rows must never share one), no history."""
+    name = available_name(doc.project, doc.folder, _basename(doc))
+    prefix = folder_path(doc.folder)
+    copy = Document(
+        project=doc.project,
+        folder=doc.folder,
+        title=name,
+        description=doc.description,
+        rel_path=f"{prefix}/{name}" if prefix else name,
+        role=Document.Role.GENERAL,
+        kind=doc.kind,
+        content=doc.content,
+        content_type=doc.content_type,
+    )
+    if doc.file:
+        with doc.file.open("rb") as handle:
+            copy.file.save(name, ContentFile(handle.read()), save=False)
+    copy.save()
+    copy.tags.set(doc.tags.all())
+    return copy
+
+
+def _basename(doc: Document) -> str:
+    return (doc.rel_path or doc.title or "file").rsplit("/", 1)[-1]
+
+
 def sync_rel_path(doc: Document) -> bool:
     """Keep a general file's rel_path in step with its folder (the tree, the same-name
     upload twin lookup and zip member names all read it). True when it changed."""
@@ -80,8 +131,9 @@ def bulk_documents(
     folder: Folder | None = None,
     tag: Tag | None = None,
 ) -> dict:
-    """Move (into `folder`, None = root), tag (with `tag`) or delete the project's general
-    documents among `ids`. Manuscript sources are skipped and reported, never touched."""
+    """Move (into `folder`, None = root), tag / untag (with `tag`), duplicate or delete the
+    project's general documents among `ids`. Manuscript sources are skipped and reported,
+    never touched. A duplicate answers the copies' ids in `created`."""
     if action not in ACTIONS:
         raise BulkError("Unknown bulk action.")
     if folder is not None and folder.project_id != project.pk:
@@ -97,14 +149,17 @@ def bulk_documents(
             doc.updated_at = timezone.now()
             doc.save(update_fields=["folder", "updated_at"])
             sync_rel_path(doc)
-    elif action == "tag":
+    elif action in ("tag", "untag"):
         if tag is None:
             raise BulkError("A tag is required.")
         for doc in docs:
-            doc.tags.add(tag)
+            doc.tags.add(tag) if action == "tag" else doc.tags.remove(tag)
+    elif action == "duplicate":
+        created = [duplicate_document(doc).pk for doc in docs]
+        return {"action": action, "count": len(docs), "skipped": skipped, "created": created}
     else:
         for doc in docs:
-            doc.delete()  # per instance: the version rows cascade (their files stay: backlog 356)
+            doc.delete()  # per instance: the version rows cascade and unlink their files (#558)
     return {"action": action, "count": len(docs), "skipped": skipped}
 
 
