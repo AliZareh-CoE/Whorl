@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.utils.http import content_disposition_header
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -178,6 +179,12 @@ class ProjectViewSet(AtlasViewSet):
             rel_path = f"{prefix}{f.name}"
             twin = (
                 project.documents.filter(rel_path=rel_path, role=Document.Role.GENERAL)
+                .order_by("pk")
+                .first()
+            ) or (
+                project.documents.filter(
+                    rel_path="", folder=folder, title=f.name, role=Document.Role.GENERAL
+                )
                 .order_by("pk")
                 .first()
             )
@@ -1460,12 +1467,16 @@ class DocumentViewSet(AtlasViewSet):
             response = HttpResponse(
                 version.content.encode(), content_type="text/plain; charset=utf-8"
             )
-            response["Content-Disposition"] = f'attachment; filename="v{version.number}-{name}"'
+            response["Content-Disposition"] = content_disposition_header(
+                True, f"v{version.number}-{name}"
+            )
             return response
         name = (doc.rel_path or doc.title or "file").rsplit("/", 1)[-1]
         response = file_response(request, version.file, as_attachment=True)
         if response.status_code == 200:
-            response["Content-Disposition"] = f'attachment; filename="v{version.number}-{name}"'
+            response["Content-Disposition"] = content_disposition_header(
+                True, f"v{version.number}-{name}"
+            )
         return response
 
     @extend_schema(

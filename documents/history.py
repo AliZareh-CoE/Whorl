@@ -58,8 +58,17 @@ def snapshot(doc: Document, *, source: str, note: str = "") -> DocumentVersion:
     return row
 
 
+def _drop_old_storage(doc: Document, old_name: str) -> None:
+    """``FieldFile.save`` writes a new storage file and never removes the old one; the version
+    row already holds its copy, so the old bytes would otherwise sit on disk twice."""
+    if old_name and old_name != doc.file.name:
+        doc.file.storage.delete(old_name)
+
+
 def _apply_bytes(doc: Document, name: str, data: bytes, content_type: str) -> None:
+    old_name = doc.file.name if doc.file else ""
     doc.file.save(name, ContentFile(data), save=False)
+    _drop_old_storage(doc, old_name)
     doc.content = ""
     doc.file_size = len(data)
     doc.content_type = content_type or doc.content_type
@@ -88,7 +97,9 @@ def replace_content(doc: Document, text: str, *, source: str, note: str = "") ->
         return None
     filed = snapshot(doc, source=source, note=note)
     if doc.file:
+        old_name = doc.file.name
         doc.file.save(_basename(doc), ContentFile(text.encode()), save=False)
+        _drop_old_storage(doc, old_name)
     doc.content = text
     doc.version += 1
     doc.save()
@@ -135,7 +146,9 @@ def restore(doc: Document, version: DocumentVersion) -> dict:
             _apply_bytes(doc, _basename(doc), handle.read(), version.content_type)
     else:
         if doc.file:
+            old_name = doc.file.name
             doc.file.save(_basename(doc), ContentFile(version.content.encode()), save=False)
+            _drop_old_storage(doc, old_name)
         doc.content = version.content
         doc.file_size = len(version.content.encode())
     doc.version += 1

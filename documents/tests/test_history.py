@@ -52,6 +52,18 @@ class TestService:
         assert v1.source == "upload" and v1.file_size == 8 and v1.content_type == "text/csv"
         assert v1.file.name.startswith(f"projects/{doc.project.slug}/versions/{doc.id}/v1-")
 
+    def test_the_previous_storage_file_is_removed_once_the_version_holds_it(self):
+        doc = _csv(ProjectFactory())
+        old = doc.file.name
+        history.replace_file(doc, SimpleUploadedFile("x.csv", b"2", "text/csv"))
+        doc.refresh_from_db()
+        assert doc.file.name != old and not doc.file.storage.exists(old)
+        old = doc.file.name
+        history.replace_content(doc, "3", source="edit")
+        doc.refresh_from_db()
+        assert not doc.file.storage.exists(old) and doc.versions.count() == 2
+        assert all(v.file.storage.exists(v.file.name) for v in doc.versions.all())
+
     def test_replace_content_skips_unchanged_text(self):
         doc = _csv(ProjectFactory())
         assert history.replace_content(doc, "a,b\n1,2\n", source="edit") is None
@@ -140,6 +152,22 @@ class TestApi:
         first.refresh_from_db()
         assert first.file.read() == b"4" and first.versions.get().note == "again"
         assert p.documents.count() == 3  # never a fourth node for the same path
+        # a legacy node with no rel_path (seeded before the tree) is still the twin
+        legacy = Document.objects.create(
+            project=p, title="notes.txt", file=ContentFile(b"old", name="notes.txt")
+        )
+        assert legacy.rel_path == ""
+        r = client.post(
+            url,
+            {
+                "files": SimpleUploadedFile("notes.txt", b"new", "text/plain"),
+                "on_conflict": "replace",
+            },
+            **HEADERS,
+        )
+        assert r.json()["replaced"][0]["id"] == legacy.id
+        legacy.refresh_from_db()
+        assert legacy.file.read() == b"new" and legacy.versions.count() == 1
         r = client.post(
             url, {"files": SimpleUploadedFile("d.csv", b"5"), "on_conflict": "junk"}, **HEADERS
         )
@@ -168,6 +196,13 @@ class TestApi:
         assert (
             r.status_code == 200
             and r["Content-Disposition"] == 'attachment; filename="v1-data.csv"'
+        )
+        odd = _csv(ProjectFactory(), name='we"ird ü.csv')
+        history.replace_file(odd, SimpleUploadedFile("x.csv", b"2", "text/csv"))
+        r = client.get(f"/api/v1/documents/{odd.id}/versions/1/raw/", **HEADERS)
+        assert (
+            r.status_code == 200
+            and "filename*=utf-8''v1-we%22ird%20%C3%BC.csv" in r["Content-Disposition"]
         )
         assert b"".join(r.streaming_content) == b"a,b\n1,2\n" and r.has_header("ETag")
         r = client.post(f"/api/v1/documents/{doc.id}/versions/1/restore/", **HEADERS)
@@ -271,6 +306,9 @@ def test_ui_wiring():
         'data-testid="version-chip"',
         'data-testid="version-line"',
         '"Replace with a newer version…"',
+        "/raw/?v=${file.version}",
+        "/raw/?v=${selected.version}",
+        "/raw/?v=${f.version}",
         'fd.append("on_conflict", onConflict);',
         'confirmLabel: "Replace (keeps history)", cancelLabel: "Keep both"',
         "/versions/${v.number}/raw/",

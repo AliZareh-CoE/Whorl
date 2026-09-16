@@ -149,7 +149,7 @@ function HistoryPanel({ file, onRestored }: { file: FileNode; onRestored: () => 
 }
 
 function FilePreview({ file }: { file: FileNode }) {
-  const rawUrl = `/api/v1/documents/${file.id}/raw/`;
+  const rawUrl = `/api/v1/documents/${file.id}/raw/?v=${file.version}`; // #553: the raw bytes are cached a day by id; a new version is a new URL
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["file-content", file.id],
     enabled: file.is_text,
@@ -165,7 +165,7 @@ function FilePreview({ file }: { file: FileNode }) {
     return (
       <div className="rounded border border-dashed border-stone-200 p-6 text-center text-sm text-stone-500 dark:border-stone-700 dark:text-stone-400">
         <p className="mb-2">No in-app preview for this file type.</p>
-        <a href={`/api/v1/documents/${file.id}/raw/`} className="text-indigo-600 hover:underline dark:text-indigo-400" download>
+        <a href={`/api/v1/documents/${file.id}/raw/?v=${file.version}`} className="text-indigo-600 hover:underline dark:text-indigo-400" download>
           Download {file.name}
         </a>
       </div>
@@ -451,7 +451,7 @@ export default function Files() {
   const copyText = async (text: string) => { try { await navigator.clipboard.writeText(text); } catch { void noticeDialog({ title: "Copy blocked", body: <code className="text-xs">{text}</code> }); } };
   const fileItems = (f: FileNode): MenuItem[] => {
     const ms = f.role === "manuscript_source";
-    const raw = `/api/v1/documents/${f.id}/raw/`;
+    const raw = `/api/v1/documents/${f.id}/raw/?v=${f.version}`;
     return [
       { label: "Open", icon: <File className="h-3.5 w-3.5" />, hint: "↵", onSelect: () => setSelected(f) },
       // the desktop webview has no tabs — window.open would spawn a bare window without the session
@@ -856,7 +856,7 @@ export default function Files() {
                   <button onClick={() => askReplace(selected)} className="text-indigo-600 hover:underline dark:text-indigo-400" data-testid="replace-file">Replace…</button>
                   <button onClick={() => setHistoryFor((h) => (h === selected.id ? null : selected.id))} aria-expanded={historyFor === selected.id} className="inline-flex items-center gap-1 text-stone-600 hover:underline dark:text-stone-300" data-testid="history-toggle"><History className="h-3 w-3" aria-hidden="true" />History{selected.versions ? ` (${selected.versions})` : ""}</button>
                   <button onClick={() => void askDeleteFile(selected)} className="text-red-600 hover:underline">Delete</button>
-                  <a href={`/api/v1/documents/${selected.id}/raw/`} download={selected.name} className="text-stone-500 hover:underline dark:text-stone-400">Download</a>
+                  <a href={`/api/v1/documents/${selected.id}/raw/?v=${selected.version}`} download={selected.name} className="text-stone-500 hover:underline dark:text-stone-400">Download</a>
                 </div>
               )}
               {selected.role !== "manuscript_source" && historyFor === selected.id && (
