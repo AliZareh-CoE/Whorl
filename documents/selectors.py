@@ -70,7 +70,12 @@ def workspace_tree(project: Project) -> dict:
                 "tags": [{"id": t.id, "name": t.name, "color": t.color} for t in d.tags.all()],
                 "created_at": d.created_at.isoformat(),
                 "updated_at": d.updated_at.isoformat(),
-                "modified_at": (d.last_filed or d.created_at).isoformat(),
+                # a manuscript source has no versions: only the Studio's mirror writes it, so
+                # its updated_at is the honest change time
+                "modified_at": (
+                    d.last_filed
+                    or (d.updated_at if d.role == "manuscript_source" else d.created_at)
+                ).isoformat(),
                 "is_text": d.kind in TEXT_KINDS or (bool(d.content) and not d.file),
                 "local_path": (d.file.path if local_paths and d.file else None),
             }

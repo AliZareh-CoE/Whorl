@@ -59,7 +59,8 @@ function ago(iso: string, now: number = Date.now()): string {
   if (d < 365) return `${Math.round(d / 30)} mo ago`;
   return `${Math.round(d / 365)} y ago`;
 }
-const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+const FMT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }); // one formatter, not one per row per render
+const stamp = (iso: string) => FMT.format(new Date(iso));
 type SortKey = "name" | "modified" | "size";
 const SORT_KEY = "atlas-files-sort";
 const RECENT_KEY = "atlas-files-recent";
@@ -805,8 +806,13 @@ export default function Files() {
     ctrlKey?: boolean;
     metaKey?: boolean;
     altKey?: boolean;
+    target?: EventTarget | null;
+    currentTarget?: EventTarget | null;
     preventDefault: () => void;
   }) => {
+    // a control inside the tree (the sort select, a tag chip, the bar, a checkbox, a Recent row)
+    // keeps its own keys — the tree's navigation only runs on the tree itself
+    if (e.target !== e.currentTarget && (e.target as HTMLElement | null)?.closest?.("button, select, input, a")) return;
     const r = flat[focusIdx];
     if (e.key === "Escape" && typeahead.current.buffer) {
       // a pending typeahead buffer swallows Escape to clear itself first (#169)
@@ -1027,7 +1033,7 @@ export default function Files() {
       {quickOpen && (
         <QuickOpen
           files={data.files}
-          onPick={(f) => setSelected(f)}
+          onPick={(f) => reveal(f)}
           onClose={() => setQuickOpen(false)}
         />
       )}

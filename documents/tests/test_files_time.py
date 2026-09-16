@@ -71,6 +71,36 @@ def test_inline_text_nodes_carry_their_size():
     assert _row(project, doc)["size"] == 6
 
 
+def test_manuscript_sources_change_when_the_studio_writes_them():
+    from writing.tests.factories import ManuscriptFactory
+
+    project = ProjectFactory()
+    m = ManuscriptFactory(project=project)
+    mf = m.files.create(path="main.tex", content="x", kind="tex", is_main=True)
+    node = project.documents.get(role="manuscript_source")
+    mf.content = "changed"
+    mf.save()
+    node.refresh_from_db()
+    row = _row(project, node)
+    assert row["modified_at"] == node.updated_at.isoformat()
+
+
+def test_backfill_sizes_existing_inline_nodes():
+    import importlib
+
+    from django.apps import apps
+
+    project = ProjectFactory()
+    doc = Document.objects.create(
+        project=project, title="old.md", rel_path="old.md", kind="other", content="héllo"
+    )
+    Document.objects.filter(pk=doc.pk).update(file_size=0)  # as rows were before #557
+    migration = importlib.import_module("documents.migrations.0005_inline_sizes")
+    migration.size_inline(apps, None)
+    doc.refresh_from_db()
+    assert doc.file_size == 6
+
+
 def test_mcp_docstring_names_the_stamps():
     server = (BASE / "mcp_server" / "server.py").read_text()
     chunk = server.split("def list_project_files(", 1)[1].split("return", 1)[0]
@@ -122,5 +152,11 @@ def test_explorer_sorts_stamps_and_lists_recent():
     assert (
         "function ago(iso: string, now: number = Date.now()): string" in files and "wk ago" in files
     )
+    # controls inside the tree keep their own keys; one date formatter for every row; ⌘P reveals
+    assert (
+        '(e.target as HTMLElement | null)?.closest?.("button, select, input, a")) return;' in files
+    )
+    assert "const FMT = new Intl.DateTimeFormat(" in files and "FMT.format(new Date(iso))" in files
+    assert "onPick={(f) => reveal(f)}" in files
     chunks = " ".join(p.read_text(errors="ignore") for p in (BASE / "static" / "js").rglob("*.js"))
     assert "sort-files" in chunks and "recent-strip" in chunks and "atlas-files-sort" in chunks
