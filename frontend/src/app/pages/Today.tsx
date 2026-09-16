@@ -173,7 +173,7 @@ export default function Today() {
   if (error) return <ErrorState message="Couldn't load your list." onRetry={() => refetch()} />;
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="@container mx-auto max-w-2xl">
       <div className="mb-5">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">{today}</p>
         <h1 className="font-display mt-1 text-3xl font-bold tracking-tight dark:text-stone-100">
@@ -199,7 +199,7 @@ export default function Today() {
         <button type="submit" disabled={!text.trim() || add.isPending} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Add</button>
       </form>
 
-      <section className={`${panel} rise overflow-hidden`} style={{ ["--i" as string]: 1 }}>
+      <section className={`${panel} rise relative z-30`} style={{ ["--i" as string]: 1 }}>
         {isLoading && <div className="space-y-3 p-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-5 w-3/4" />)}</div>}
         {!isLoading && open.length === 0 && (
           <div className="px-6 py-12 text-center">
@@ -223,15 +223,15 @@ export default function Today() {
       </section>
 
       {later.length > 0 && (
-        <section className="rise mt-5" style={{ ["--i" as string]: 2 }} data-testid="later-section">
-          <div className="mb-2 flex items-center justify-between px-1">
+        <section className="rise relative z-20 mt-5" style={{ ["--i" as string]: 2 }} data-testid="later-section">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400"><Moon className="mr-1 inline h-3 w-3 -translate-y-px" aria-hidden="true" />Later · {later.length}</p>
             <p className="text-[11px] text-stone-400">each joins the list on its day</p>
           </div>
-          <div className={`${panel} overflow-hidden`}>
-            {laterGroups.map((g) => (
+          <div className={panel}>
+            {laterGroups.map((g, i) => (
               <div key={g.label} data-testid="later-group">
-                <p className="border-b border-stone-100 bg-stone-50/60 px-4 py-1.5 text-[11px] font-medium capitalize text-stone-500 dark:border-stone-800 dark:bg-stone-800/40 dark:text-stone-400" data-testid="later-day">{g.label}</p>
+                <p className={`border-b border-stone-100 bg-stone-50/60 px-4 py-1.5 ${i === 0 ? "rounded-t-2xl" : ""} text-[11px] font-medium capitalize text-stone-500 dark:border-stone-800 dark:bg-stone-800/40 dark:text-stone-400`} data-testid="later-day">{g.label}</p>
                 <ul className="divide-y divide-stone-100 dark:divide-stone-800">
                   {g.items.map((t) => <LaterRow key={t.id} t={t} snoozing={snoozing === t.id} onSnoozeMenu={(on) => setSnoozing(on ? t.id : null)} onSnooze={(until) => snooze.mutate({ id: t.id, until })} onRepeat={(repeat) => setRepeat.mutate({ id: t.id, repeat })} onToggle={() => toggle.mutate({ id: t.id, done: true })} onRemove={() => remove.mutate(t.id)} />)}
                 </ul>
@@ -242,8 +242,8 @@ export default function Today() {
       )}
 
       {doneToday.length > 0 && (
-        <section className="rise mt-5" style={{ ["--i" as string]: 3 }} data-testid="done-today">
-          <div className="mb-2 flex items-center justify-between px-1">
+        <section className="rise relative z-10 mt-5" style={{ ["--i" as string]: 3 }} data-testid="done-today">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">Done today · {doneToday.length}</p>
           </div>
           <ul className={`${panel} divide-y divide-stone-100 overflow-hidden dark:divide-stone-800`}>
@@ -254,7 +254,7 @@ export default function Today() {
 
       {logbook.length > 0 && (
         <section className="rise mt-5" style={{ ["--i" as string]: 4 }} data-testid="logbook">
-          <div className="mb-2 flex items-center justify-between px-1">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
             <button type="button" onClick={toggleLogbook} aria-expanded={logbookOpen} data-testid="logbook-toggle" className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
               <ChevronRight className={`h-3 w-3 transition-transform ${logbookOpen ? "rotate-90" : ""}`} aria-hidden="true" /><BookOpen className="h-3 w-3" aria-hidden="true" />Logbook · {logbook.length}{oldest && <span className="ml-1 font-normal normal-case tracking-normal">· since {dayLabel(oldest)}</span>}
             </button>
@@ -287,10 +287,15 @@ function age(iso: string): string | null {
   return `${days} days old`;
 }
 
+/** #546: an all-day item due today wears no chip on today's list — the list is today. */
+function showsDue(iso: string, allDay: boolean): boolean {
+  return !allDay || (!isLater(iso) && dayLabel(iso) !== "today");
+}
+
 /** #431: the time chip — quiet when far off, amber within two hours, red once it has passed. */
 function DueChip({ iso, allDay }: { iso: string; allDay: boolean }) {
   if (allDay) { // #546: a day-only item on today's list is either today's (no chip — the list is today) or a day late
-    const late = isLater(iso) ? false : dayLabel(iso) !== "today";
+    const late = showsDue(iso, allDay);
     if (!late) return null;
     return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] capitalize ${late ? "bg-red-500/10 text-red-600 dark:text-red-300" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-300"}`} data-testid="due-chip" data-state={late ? "overdue" : "today"} title={late ? "Planned for an earlier day" : "Planned for today"}>{dayLabel(iso)}</span>;
   }
@@ -308,17 +313,19 @@ const REPEAT_OPTIONS: [Repeat, string][] = [["", "Never"], ["daily", "Daily"], [
 function LogRow({ t, onToggle, onRemove }: { t: Todo; onToggle: () => void; onRemove: () => void }) {
   const canUntick = !t.repeat;
   return (
-    <li className="group flex items-center gap-3 px-4 py-2" data-testid="logbook-row">
+    <li className="group flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2" data-testid="logbook-row">
       {canUntick ? (
         <button type="button" onClick={onToggle} aria-label={`Mark “${t.text}” not done`} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-indigo-500/60 bg-indigo-500/60 text-white transition-all hover:bg-indigo-500"><Check className="h-3 w-3" aria-hidden="true" strokeWidth={3} /></button>
       ) : (
         <span title="Ticking this one spawned the next occurrence — untick it from today's Done, not from the logbook" data-testid="logbook-locked" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-indigo-500/40 bg-indigo-500/40 text-white"><Check className="h-3 w-3" aria-hidden="true" strokeWidth={3} /></span>
       )}
-      <span className="min-w-0 flex-1 text-sm text-stone-400 line-through dark:text-stone-500">{t.text}</span>
-      <RepeatChip t={t} />
-      {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
-      {t.done_at && <span className="shrink-0 text-[10px] tabular-nums text-stone-400">{new Date(t.done_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>}
-      <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+      <span className="min-w-[13rem] flex-1 text-sm text-stone-400 line-through dark:text-stone-500" data-testid="todo-text">{t.text}</span>
+      <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+      {(t.repeat || t.project || t.done_at) && <span className="order-last flex min-w-0 basis-full flex-wrap items-center gap-1 @lg:order-none @lg:basis-auto pl-8" data-testid="todo-meta">
+        <RepeatChip t={t} />
+        {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
+        {t.done_at && <span className="shrink-0 text-[10px] tabular-nums text-stone-400">{new Date(t.done_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>}
+      </span>}
     </li>
   );
 }
@@ -342,7 +349,7 @@ function SnoozeMenu({ onPick, onClose, later, repeat, onRepeat }: { onPick: (unt
   const min = new Date(); min.setDate(min.getDate() + 1);
   const minIso = `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}-${String(min.getDate()).padStart(2, "0")}`; // local, not UTC
   return (
-    <div ref={ref} data-testid="snooze-menu" className="absolute right-3 top-full z-20 mt-1 w-max max-w-[calc(100vw-2rem)] rounded-xl border border-stone-200 bg-white p-1.5 shadow-lg dark:border-stone-700 dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
+    <div ref={ref} data-testid="snooze-menu" className="absolute right-3 top-full z-20 mt-1 w-max max-w-[calc(100%-1.5rem)] rounded-xl border border-stone-200 bg-white p-1.5 shadow-lg dark:border-stone-700 dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
       <div className="flex flex-wrap items-center gap-1">
         <span className="px-1 text-[10px] uppercase tracking-wider text-stone-400">Day</span>
         {later && <button type="button" data-testid="snooze-option" onClick={() => onPick("")} className="rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">Today</button>}
@@ -362,15 +369,19 @@ function SnoozeMenu({ onPick, onClose, later, repeat, onRepeat }: { onPick: (unt
 /** #546: a row in Later — quieter than today's, with "Today" to bring it back. */
 function LaterRow({ t, snoozing, onSnoozeMenu, onSnooze, onRepeat, onToggle, onRemove }: { t: Todo; snoozing: boolean; onSnoozeMenu: (on: boolean) => void; onSnooze: (until: string) => void; onRepeat: (r: Repeat) => void; onToggle: () => void; onRemove: () => void }) {
   return (
-    <li className="group relative flex items-center gap-3 px-4 py-2" data-testid="later-row">
+    <li className="group relative flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2" data-testid="later-row">
       <button type="button" onClick={onToggle} aria-label={`Mark “${t.text}” done`} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-stone-200 transition-all hover:border-indigo-400 dark:border-stone-700" />
-      <span className="min-w-0 flex-1 text-sm text-stone-600 dark:text-stone-300">{t.text}</span>
-      <RepeatChip t={t} />
-      {!t.all_day && t.due_at && <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] tabular-nums text-stone-500 dark:bg-stone-800 dark:text-stone-300" data-testid="later-time">{new Date(t.due_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>}
-      {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
-      <button type="button" onClick={() => onSnooze("")} aria-label="Bring back to today" title="Today" data-testid="wake-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-amber-500 group-hover:opacity-100 dark:text-stone-600"><Sun className="h-3.5 w-3.5" aria-hidden="true" /></button>
-      <button type="button" onClick={() => onSnoozeMenu(!snoozing)} aria-label="Another day" title="Another day" data-testid="snooze-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Moon className="h-3.5 w-3.5" aria-hidden="true" /></button>
-      <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+      <span className="min-w-[13rem] flex-1 text-sm text-stone-600 dark:text-stone-300" data-testid="todo-text">{t.text}</span>
+      <span className="flex shrink-0 items-center gap-3" data-testid="todo-actions">
+        <button type="button" onClick={() => onSnooze("")} aria-label="Bring back to today" title="Today" data-testid="wake-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-amber-500 group-hover:opacity-100 dark:text-stone-600"><Sun className="h-3.5 w-3.5" aria-hidden="true" /></button>
+        <button type="button" onClick={() => onSnoozeMenu(!snoozing)} aria-label="Another day" title="Another day" data-testid="snooze-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Moon className="h-3.5 w-3.5" aria-hidden="true" /></button>
+        <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+      </span>
+      {(t.repeat || (!t.all_day && t.due_at) || t.project) && <span className="order-last flex min-w-0 basis-full flex-wrap items-center gap-1 @lg:order-none @lg:basis-auto pl-8" data-testid="todo-meta">
+        <RepeatChip t={t} />
+        {!t.all_day && t.due_at && <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] tabular-nums text-stone-500 dark:bg-stone-800 dark:text-stone-300" data-testid="later-time">{new Date(t.due_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>}
+        {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
+      </span>}
       {snoozing && <SnoozeMenu later onPick={onSnooze} onClose={() => onSnoozeMenu(false)} repeat={t.repeat} onRepeat={onRepeat} />}
     </li>
   );
@@ -382,11 +393,12 @@ function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove, 
   const [draft, setDraft] = useState(t.text);
   useEffect(() => { if (editing) setDraft(t.text); }, [editing, t.text]);
   const old = t.done || t.due_at ? null : age(t.created_at); // #546: a dated item's chip is its day, never its age
+  const meta = !!old || (!t.done && (!!t.repeat || (!!t.due_at && showsDue(t.due_at, t.all_day)))) || !!t.project; // #551: anything for the chip group
   return (
-    <li className={`group relative flex items-center gap-3 px-4 py-3 transition-colors ${active ? "bg-indigo-500/5 dark:bg-indigo-500/10" : ""} ${drag?.dragging ? "opacity-40" : ""}`} onMouseEnter={onFocus} data-active={active ? "1" : undefined} data-testid="todo-row"
+    <li className={`group relative flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors first:rounded-t-2xl last:rounded-b-2xl ${active ? "bg-indigo-500/5 dark:bg-indigo-500/10" : ""} ${drag?.dragging ? "opacity-40" : ""}`} onMouseEnter={onFocus} data-active={active ? "1" : undefined} data-testid="todo-row"
         draggable={drag ? !editing : undefined} onDragStart={drag?.onStart} onDragOver={drag?.onOver} onDrop={drag?.onDrop} onDragEnd={drag?.onEnd}>
       {drag?.over && <span aria-hidden="true" className={`pointer-events-none absolute left-3 right-3 h-0.5 rounded-full bg-indigo-500 ${drag.over === "before" ? "top-0" : "bottom-0"}`} />}
-      {drag && <span data-testid="drag-handle" title="Drag to reorder" className="-ml-1 shrink-0 cursor-grab text-stone-300 opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing dark:text-stone-600"><GripVertical className="h-4 w-4" aria-hidden="true" /></span>}
+      {drag && <span data-testid="drag-handle" title="Drag to reorder" className="-ml-1 shrink-0 cursor-grab text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 group-hover:opacity-100 active:cursor-grabbing dark:text-stone-600"><GripVertical className="h-4 w-4" aria-hidden="true" /></span>}
       <button
         type="button"
         onClick={onToggle}
@@ -400,15 +412,19 @@ function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove, 
       {editing ? (
         <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => onSave(draft)} onKeyDown={(e) => { if (e.key === "Enter") onSave(draft); if (e.key === "Escape") onSave(t.text); }} maxLength={300} className="min-w-0 flex-1 rounded-md border border-indigo-300 bg-white px-2 py-1 text-base dark:border-indigo-500/50 dark:bg-stone-800 dark:text-stone-100" aria-label="Edit item" />
       ) : (
-        <span onDoubleClick={t.done ? undefined : onEdit} className={`min-w-0 flex-1 text-base transition-colors ${t.done ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-100"}`}>{t.text}</span>
+        <span onDoubleClick={t.done ? undefined : onEdit} className={`min-w-[13rem] flex-1 text-base transition-colors ${t.done ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-100"}`} data-testid="todo-text">{t.text}</span>
       )}
-      {old && <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300" title="Carried over from an earlier day">{old}</span>}
-      {!t.done && <RepeatChip t={t} />}
-      {!t.done && t.due_at && <DueChip iso={t.due_at} allDay={t.all_day} />}
-      {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
-      {!t.done && !editing && <button type="button" onClick={onEdit} aria-label="Edit" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></button>}
-      {!t.done && !editing && onSnoozeMenu && <button type="button" onClick={() => onSnoozeMenu(!snoozing)} aria-label="Not today" title="Not today — push to a later day (s: tomorrow)" data-testid="snooze-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Moon className="h-3.5 w-3.5" aria-hidden="true" /></button>}
-      <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+      <span className="flex shrink-0 items-center gap-3" data-testid="todo-actions">
+        {!t.done && !editing && <button type="button" onClick={onEdit} aria-label="Edit" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></button>}
+        {!t.done && !editing && onSnoozeMenu && <button type="button" onClick={() => onSnoozeMenu(!snoozing)} aria-label="Not today" title="Not today — push to a later day (s: tomorrow)" data-testid="snooze-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Moon className="h-3.5 w-3.5" aria-hidden="true" /></button>}
+        <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+      </span>
+      {meta && <span className={`order-last flex min-w-0 basis-full flex-wrap items-center gap-1 @lg:order-none @lg:basis-auto ${drag ? "pl-[3.75rem]" : "pl-9"}`} data-testid="todo-meta">
+        {old && <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300" title="Carried over from an earlier day">{old}</span>}
+        {!t.done && <RepeatChip t={t} />}
+        {!t.done && t.due_at && <DueChip iso={t.due_at} allDay={t.all_day} />}
+        {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
+      </span>}
       {snoozing && onSnooze && onSnoozeMenu && <SnoozeMenu onPick={onSnooze} onClose={() => onSnoozeMenu(false)} repeat={t.repeat} onRepeat={onRepeat} />}
     </li>
   );
