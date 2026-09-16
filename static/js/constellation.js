@@ -142,7 +142,7 @@ export function mountConstellation(canvas, opts = {}) {
       ctx.beginPath(); ctx.arc(n.x, n.y, R * 0.55, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = hexToRgba("#ffffff", 0.35);
       ctx.beginPath(); ctx.arc(n.x, n.y, R, 0, Math.PI * 2); ctx.stroke();
-      if (n.label) {
+      if (n.label && w >= 640) { // a phone-width hero has no room under the headline for labels (Audit #34, backlog 351)
         ctx.font = "500 11px Inter, system-ui, sans-serif";
         ctx.fillStyle = "rgba(241,242,255,0.85)";
         ctx.textAlign = "center";

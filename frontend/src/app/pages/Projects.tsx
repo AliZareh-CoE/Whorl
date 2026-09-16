@@ -76,7 +76,7 @@ export default function Projects() {
 
   return (
     <div>
-      <div className="mb-6 flex items-end justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Projects{projects.length > 0 && <> · <span className="text-gradient">{active} active</span></>}</h1>
           <p className="mt-1 text-sm text-stone-500">{projects.length === 0 ? "Every object in Atlas lives inside a project." : `${projects.length} ${projects.length === 1 ? "project" : "projects"} · each one holds its plan, library, notes, writing and decisions`}</p>

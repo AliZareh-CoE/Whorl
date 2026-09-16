@@ -23,6 +23,8 @@ def patch_http(monkeypatch):
         return real_client(transport=httpx.MockTransport(state["handler"]))
 
     monkeypatch.setattr(oa.httpx, "Client", client_factory)
+    # the fixtures' hosts do not resolve; a test that wants the real gate stubs it again
+    monkeypatch.setattr(oa, "check_url", lambda url: url)
     return state
 
 
@@ -386,6 +388,32 @@ class TestHopGuard:
         assert outcome == "Download refused (redirect: that host is private or unresolvable)."
         ref.refresh_from_db()
         assert not ref.pdf
+
+    def test_first_address_on_a_private_host_is_refused(self, patch_http, monkeypatch):
+        # Audit #34, backlog 343: the first link a service hands back is gated like a hop
+        hosts = []
+        monkeypatch.setattr(
+            oa,
+            "check_url",
+            lambda url: (
+                (_ for _ in ()).throw(oa.LinkError("that host is private or unresolvable"))
+                if "10.0.0.5" in url
+                else url
+            ),
+        )
+
+        def handler(request):
+            hosts.append(request.url.host)
+            return _fake_pdf(request)
+
+        patch_http["handler"] = handler
+        client = oa.httpx.Client()
+        data, why = oa._download(client, "https://10.0.0.5/x.pdf")
+        assert (
+            data is None
+            and why == "Download refused (address: that host is private or unresolvable)."
+        )
+        assert hosts == []  # never fetched
 
     def test_redirect_off_https_is_refused(self, patch_http, monkeypatch):
         monkeypatch.setattr(oa, "check_url", lambda url: url)

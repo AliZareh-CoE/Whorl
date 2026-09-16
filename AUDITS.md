@@ -874,6 +874,94 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #34 — 2026-09-16 (since #33: #549–#557 — Today's undo and Logbook and its verdict, the rail as a drawer, the Files area: history, tags and description, version compare, a selection with zips, time in the explorer)
+
+Ten cycles, nine slices, **no finding across the wire** — and one real finding found from the
+inside: the test suite had been writing every uploaded file into the working tree's `media/`.
+Five queued backlog items closed (343, 349, 350, 351, 356); two (344, 345) are Today features,
+not audit work, and stay queued for the Today return pass.
+
+**Dependencies — CLEAN.** `pip-audit` on the exported lock (through `scripts/audit.sh`): *no
+known vulnerabilities*. `npm audit --omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`: every
+row green (anon → 401 across the API, pages → 302, catch-all 404, static MIME, `/app//evil.com`
+stays on-origin).
+
+**New surfaces since #33 — reviewed.**
+- *Auth:* `documents/{id}/versions/`, `…/versions/{n}/raw/`, `…/versions/{n}/diff/`,
+  `…/versions/{n}/restore/`, `documents/{id}/replace/`, `documents/?tag=`,
+  `projects/{slug}/documents/bulk/`, `projects/{slug}/archive/`, `projects/{slug}/tree/` and
+  `todos/logbook/` all answer 401 anonymously.
+- *Bounds:* a version number past the 32-bit column (`versions/2147483648/diff/`) or past
+  the Python int (`99999999999`) → 404 (`_version` bounds by `MAX_PK` before the lookup); a
+  bulk `folder` / `tag` of either size → 404 (`_pk`); `archive/?ids=2147483648` → 400 (the id
+  is dropped, nothing left to zip); 601 ids on the archive or the bulk endpoint → 400 "At most
+  500 files at once."; `archive/?folder=abc` → 404; `documents/?tag=<300 chars>` → 200 with
+  nothing (the needle is capped at 60 — accepted); `replace/` without a file → 400, on a
+  manuscript source → 403; a diff on a manuscript source → 404 (it has no versions). No new
+  id-range parsing path beyond `clean_ids` (bounded, ≤ 500) — the SQLite repeat of Audit #31
+  was not needed.
+- *Version compare (#555):* line diffs run on `difflib` over texts capped at 1 MB by the
+  stored sizes before any read; the table diff pairs rows inside a replaced block by shared
+  cells with a 250 000-pairing cap that falls back to in-order pairing; 5000 rows per side,
+  500 reported changes. No regex in the path.
+- *Zips (#556):* member names go through `safe_archive_name` (no `..`, no absolute paths,
+  duplicates get "(2)"); the archive spools to disk past 16 MB and refuses more than 512 MB of
+  stored bytes with a typed 413. Each member is read whole into memory before it is written
+  (bounded by the per-file upload cap) — accepted for now, noted for the next audit as a
+  `copyfileobj` candidate.
+- *Bulk (#556):* manuscript sources are never touched by the bulk verbs (skipped and reported),
+  a foreign folder or tag is a 404, the classic Documents-page form routes through the same
+  service — and its move now recomputes `rel_path` (found in #556).
+- *Time (#557):* `modified_at` is derived from the version stamps in the same query as the
+  version count (one join, `Count(distinct)` + `Max`); no per-row query.
+
+**Latency (warm, best of three, API key, demo data):** tree 25 ms · documents list 28 ms ·
+versions 22 ms · version diff 22 ms · a three-file zip 21 ms. Nothing near the 100 ms bar.
+
+**Finding 1 — the test suite wrote into the working tree's `media/` (fixed).** Every test that
+saved a file (uploads, versions, zips, PDFs) used the real `MEDIA_ROOT`: 32 471 files across
+571 `project-N` directories had accumulated, the newest stamped by the last test run, on a
+container whose disk is a fixed allowance. `conftest.py` now sets `MEDIA_ROOT` to a per-test
+temp directory (an autouse fixture; Django's storage follows `setting_changed`), pinned by
+`test_audit34.py::test_tests_write_under_a_temp_media_root`. The 32 448 orphans were removed
+with the new command below (23 real files remain). The move also exposed a test that had been
+passing by accident: `test_media_served_with_debug_off` bound `document_root=settings.MEDIA_ROOT`
+at URLconf import, so its `override_settings(MEDIA_ROOT=…)` never reached the view and the
+test was reading an *orphan* `manuscript-1.pdf` from the real `media/`; the `/media/` view now
+reads `MEDIA_ROOT` per request.
+
+**Backlog 356 — a delete removes the bytes (closed).** Django never unlinks a `FileField` on
+delete, so every document delete (single, bulk, folder, project) had left its file and its
+versions' files on disk. `documents/signals.py` hooks `post_delete` on `Document` and
+`DocumentVersion` and unlinks on commit (a rolled-back delete keeps its bytes); every delete
+path cascades through those rows, so one hook covers all of them. `manage.py prune_media`
+(dry run by default, `--apply` deletes) removes files under the documents app's two prefixes
+that no row references and drops the directories it empties — reference PDFs and manuscript
+assets live under other prefixes and are never considered. Tests: single delete with a
+version, the bulk path, the prune command keeping a referenced file and a file outside the
+prefixes. Verified live: upload → replace → delete → both storage files gone.
+
+**Backlog 343 — the first OA address is gated like a hop (closed).** `literature/oa.py::_download`
+resolved and checked every redirect through `check_url` but trusted the first link a metadata
+service handed back (only `https://` was required). The gate now runs at the top of the hop
+loop, so the first address and every hop share it; the OA test fixture stubs the resolver by
+default (its hosts do not resolve) and a new test proves a first address on `10.0.0.5` is
+refused before any request.
+
+**Backlog 349 / 350 / 351 — the three phone-width seams (closed).** The Projects index header
+wraps (`flex-wrap`; 441 → 420 px), the two project-overview grids let their cards shrink below
+their content (`[&>*]:min-w-0`; 608 → 420 px), and the constellation draws its project labels
+only from a 640-px canvas up, so the hero caption no longer sits over the headline at 420.
+Measured with the #551 overflow probe before and after in mobile emulation.
+
+**Not checked this time (say so):** the frozen builds beyond CI's boot check (runs 282 + 283
+green); the huey worker under Redis (the desktop runs immediate mode); `ATLAS_FRAME_ANCESTORS`
+set live (unchanged since #33).
+
+**Verdict:** the wire is clean; the one finding was self-inflicted housekeeping with a real
+cost on a small disk, fixed at the root (the fixture) and at the tail (the prune). Next audit
+at #568.
+
 ## Audit #33 — 2026-09-16 (since #32: #539–#547 — Atlas as an OpenManus tab, MCP toolsets and descriptions, Find PDF over four sources, feed mute lists, the nightly PDF sweep, two Library fixes, Today's Later and repeating items)
 
 Ten cycles, nine slices, **no findings across the wire** — and the three items the last two

@@ -27,7 +27,15 @@ urlpatterns = [
 # settings module: this is a single-user app whose desktop build has no reverse proxy, and
 # with DEBUG off the classic `static()` helper silently served nothing — the studio's PDF
 # pane showed "Missing PDF" on the desktop (owner report, 2026-09-06). LoginRequiredMiddleware
-# keeps the files behind the login like every other page.
+# keeps the files behind the login like every other page. `MEDIA_ROOT` is read per request,
+# not bound at import, so a settings override (tests, the desktop's per-profile data dir)
+# is honoured (Audit #34).
+
+
+def media(request, path):
+    return serve(request, path, document_root=settings.MEDIA_ROOT)
+
+
 urlpatterns += [
-    re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}, name="media"),
+    re_path(r"^media/(?P<path>.*)$", media, name="media"),
 ]

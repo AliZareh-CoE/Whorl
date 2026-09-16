@@ -191,18 +191,23 @@ def _download(
     "302 → http://127.0.0.1/…" is refused, not fetched — the feeds' rule, backlog 341); the
     body streams in under the size cap and the paper's wall clock (`deadline`, monotonic)."""
     try:
-        for _ in range(MAX_HOPS + 1):
+        for hop in range(MAX_HOPS + 1):
+            # one gate for the first address and every hop after it (Audit #34, backlog 343):
+            # a public https host, resolved — a spoofed service reply naming a private
+            # address is refused before any request
+            try:
+                url = check_url(url)
+            except LinkError as exc:
+                where = "redirect" if hop else "address"
+                return None, f"Download refused ({where}: {exc})."
+            if not url.startswith("https://"):
+                return None, f"Download refused ({'redirect left' if hop else 'not'} https)."
             with client.stream("GET", url, follow_redirects=False) as response:
                 if response.status_code in (301, 302, 303, 307, 308):
                     location = response.headers.get("location", "")
                     if not location:
                         return None, f"Download failed (HTTP {response.status_code})."
-                    try:
-                        url = check_url(urljoin(url, location))
-                    except LinkError as exc:
-                        return None, f"Download refused (redirect: {exc})."
-                    if not url.startswith("https://"):
-                        return None, "Download refused (redirect left https)."
+                    url = urljoin(url, location)
                     continue
                 if response.status_code != 200:
                     return None, f"Download failed (HTTP {response.status_code})."

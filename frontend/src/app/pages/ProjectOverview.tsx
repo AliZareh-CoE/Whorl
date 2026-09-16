@@ -239,7 +239,7 @@ export default function ProjectOverview() {
         <Focus slug={project.slug} initial={data.focus} compact />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-4 [&>*]:min-w-0">
         <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 2 }} data-testid="digest">
           <p className={h2}><Activity className="h-3 w-3" aria-hidden="true" />This week in the project</p>
           {digest.total === 0 ? <p className="text-xs text-stone-400">Quiet week so far — nothing logged since {digest.since}.</p> : (
@@ -311,7 +311,7 @@ export default function ProjectOverview() {
         </p>
       )}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid gap-4 lg:grid-cols-3 [&>*]:min-w-0">
         <section className={`${panel} rise p-4`} style={{ ["--i" as string]: 8 }}>
           <p className={h2}>Next milestones {data.next_milestones.length > 0 && <span className="normal-case tracking-normal">{data.next_milestones.length}</span>}</p>
           {data.next_milestones.length === 0 ? <p className="text-sm text-stone-400">No upcoming milestones. <Link to={`/projects/${project.slug}/plan`} className="text-indigo-600 hover:underline dark:text-indigo-300">Open the plan</Link> to add some.</p> : (
