@@ -54,6 +54,8 @@ class TestWorkspaceTree:
                 "folder_id",
                 "size",
                 "is_text",
+                "version",
+                "versions",
             }
         readme = next(f for f in tree["files"] if f["rel_path"] == "Data/readme.md")
         assert readme["role"] == "general" and readme["is_text"] is True

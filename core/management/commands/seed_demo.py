@@ -269,6 +269,35 @@ class Command(BaseCommand):
             doc.tags.set(tags)
             return doc
 
+        # #553: a data file with a history — v1 the first export, v2 after a participant was
+        # excluded — so the Files page has a History panel to show on a fresh install
+        pilot = Folder.objects.filter(project=project, parent=data_folder, name="Pilot").first()
+        if not Document.objects.filter(
+            project=project, rel_path="Data/Pilot/pilot-rt.csv"
+        ).exists():
+            from documents import history
+
+            rt = Document.objects.create(
+                project=project,
+                folder=pilot,
+                title="pilot-rt.csv",
+                rel_path="Data/Pilot/pilot-rt.csv",
+                kind="other",
+                description="Per-trial reaction times from the pilot (ms).",
+                file=ContentFile(
+                    b"participant,condition,rt_ms\n1,low,412\n2,low,398\n7,high,1290\n",
+                    name="pilot-rt.csv",
+                ),
+                content_type="text/csv",
+            )
+            history.replace_file(
+                rt,
+                ContentFile(
+                    b"participant,condition,rt_ms\n1,low,412\n2,low,398\n", name="pilot-rt.csv"
+                ),
+                note="re-exported after excluding participant 7 (fell asleep)",
+            )
+
         add_doc(
             "Load theory review (Lavie 2010) — notes",
             reviews,

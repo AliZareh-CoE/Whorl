@@ -585,20 +585,24 @@ def import_projects_folder(
 
 @mcp.tool()
 def list_project_files(project: str) -> dict:
-    """The project's whole file tree: folders + files (general docs and manuscript sources)."""
+    """The project's whole file tree: folders + files (general docs and manuscript sources);
+    each file carries `version` and how many earlier `versions` its history keeps."""
     return client.list_project_files(project)
 
 
 @mcp.tool()
-def read_project_file(document_id: int) -> dict:
-    """Read a file node's text content by its id (from list_project_files)."""
-    return client.read_project_file(document_id)
+def read_project_file(document_id: int, version: int = 0) -> dict:
+    """Read a file node's text content by its id (from list_project_files). `version` reads
+    an earlier state from the file's history (rows carry `version` and `versions`)."""
+    return client.read_project_file(document_id, version)
 
 
 @mcp.tool()
-def write_project_file(project: str, path: str, content: str) -> dict:
-    """Create or overwrite a general text file at `path` in the project's file tree."""
-    return client.write_project_file(project, path, content)
+def write_project_file(project: str, path: str, content: str, note: str = "") -> dict:
+    """Create or overwrite a general text file at `path` in the project's file tree. An
+    overwrite keeps the previous text in the file's history (`note` labels it); read an
+    earlier state with read_project_file(version=n) and write it back to restore."""
+    return client.write_project_file(project, path, content, note)
 
 
 @mcp.tool()

@@ -140,17 +140,25 @@ class ProjectViewSet(AtlasViewSet):
         request=None,
         responses={201: OpenApiResponse(description="Uploaded files into the workspace")},
         description="Upload one or more files into the workspace (optionally a folder), "
-        "as general tree nodes. Multipart: files[], optional folder id.",
+        "as general tree nodes. Multipart: files[], optional folder id, optional on_conflict "
+        "= keep (default: a same-name file in that folder makes the new one `name-2.ext`) | "
+        "replace (the existing node gets a new version; its history keeps the old bytes). "
+        "Answers {created, replaced, renamed, errors}.",
     )
     @action(detail=True, methods=["post"], url_path="upload-file")
     def upload_file(self, request, slug=None):
         from django.core.exceptions import ValidationError as DjangoVE
 
         from core.security import validate_upload_size
+        from documents import history
         from documents.models import Document
         from documents.paths import kind_for_node_path
 
         project = self.get_object()
+        on_conflict = (request.data.get("on_conflict") or "keep").strip().lower()
+        if on_conflict not in ("keep", "replace"):
+            return Response({"detail": "on_conflict must be keep or replace."}, status=400)
+        note = (request.data.get("note") or "")[:200]
         folder = None
         prefix = ""
         if request.data.get("folder"):
@@ -160,7 +168,7 @@ class ProjectViewSet(AtlasViewSet):
                 parts.append(node.name)
                 node = node.parent
             prefix = "/".join(reversed(parts)) + "/"
-        created, errors = [], []
+        created, replaced, renamed, errors = [], [], [], []
         for f in request.FILES.getlist("files"):
             try:
                 validate_upload_size(f)
@@ -168,6 +176,27 @@ class ProjectViewSet(AtlasViewSet):
                 errors.append(f"{f.name}: {exc.messages[0]}")
                 continue
             rel_path = f"{prefix}{f.name}"
+            twin = (
+                project.documents.filter(rel_path=rel_path, role=Document.Role.GENERAL)
+                .order_by("pk")
+                .first()
+            )
+            if twin is not None and on_conflict == "replace":
+                history.replace_file(twin, f, note=note)
+                replaced.append({"id": twin.id, "name": f.name, "version": twin.version})
+                continue
+            if twin is not None:
+                stem, dot, ext = f.name.rpartition(".")
+                if not dot:
+                    stem, ext = f.name, ""
+                n = 2
+                while project.documents.filter(
+                    rel_path=f"{prefix}{stem}-{n}{'.' + ext if ext else ''}"
+                ).exists():
+                    n += 1
+                f.name = f"{stem}-{n}{'.' + ext if ext else ''}"
+                rel_path = f"{prefix}{f.name}"
+                renamed.append(f.name)
             doc = Document.objects.create(
                 project=project,
                 folder=folder,
@@ -178,7 +207,10 @@ class ProjectViewSet(AtlasViewSet):
                 kind=kind_for_node_path(f.name),
             )
             created.append(doc.rel_path)
-        return Response({"created": created, "errors": errors}, status=201 if created else 400)
+        return Response(
+            {"created": created, "replaced": replaced, "renamed": renamed, "errors": errors},
+            status=201 if created else 400,
+        )
 
     def perform_create(self, serializer):
         project = serializer.save()
@@ -354,18 +386,21 @@ class ProjectViewSet(AtlasViewSet):
             409: OpenApiResponse(description="Manuscript files are edited in the LaTeX editor"),
         },
         description="Create-or-update a general text file at a tree path (workspace / MCP "
-        "write): POST {path, content}. Manuscript-source paths are refused.",
+        "write): POST {path, content, note?}. Overwriting files the previous text as a version "
+        "(the node's history); unchanged text files nothing. Manuscript-source paths are refused.",
     )
     @action(detail=True, methods=["post"], url_path="write-file")
     def write_file(self, request, slug=None):
         from django.core.exceptions import ValidationError as DjangoVE
 
+        from documents import history
         from documents.models import Document, Folder
         from documents.paths import kind_for_node_path, validate_workspace_name
 
         project = self.get_object()
         path = (request.data.get("path") or "").strip().strip("/")
         content = request.data.get("content", "")
+        note = (request.data.get("note") or "")[:200]
         if not path:
             return Response({"detail": "A file path is required."}, status=400)
         segments = path.split("/")
@@ -395,8 +430,7 @@ class ProjectViewSet(AtlasViewSet):
         if not created:
             if doc.role == "manuscript_source":
                 return Response({"detail": "Manuscript files are edited in the editor."}, 409)
-            doc.content = content
-            doc.save(update_fields=["content", "updated_at"])
+            history.replace_content(doc, content, source="write", note=note)
         return Response(
             {"id": doc.id, "rel_path": doc.rel_path, "created": created},
             status=201 if created else 200,
@@ -1297,7 +1331,25 @@ class DocumentViewSet(AtlasViewSet):
     )
     @action(detail=True, methods=["get"])
     def content(self, request, pk=None):
+        from documents import history
+
         doc = self.get_object()
+        number = request.query_params.get("version")
+        if number:  # #553: an earlier state, by its number
+            version = self._version(doc, number)
+            text = history.version_text(version)
+            if text is None:
+                return Response({"detail": "Not a UTF-8 text file."}, status=415)
+            return Response(
+                {
+                    "id": doc.id,
+                    "rel_path": doc.rel_path,
+                    "kind": doc.kind,
+                    "version": version.number,
+                    "content": text[:TEXT_PREVIEW_CAP],
+                    "truncated": len(text) > TEXT_PREVIEW_CAP,
+                }
+            )
         if doc.content:
             text = doc.content
         elif doc.kind in TEXT_PREVIEW_KINDS and doc.file:
@@ -1312,10 +1364,128 @@ class DocumentViewSet(AtlasViewSet):
                 "id": doc.id,
                 "rel_path": doc.rel_path,
                 "kind": doc.kind,
+                "version": doc.version,
                 "content": text[:TEXT_PREVIEW_CAP],
                 "truncated": len(text) > TEXT_PREVIEW_CAP,
             }
         )
+
+    def _version(self, doc, number):
+        from django.http import Http404
+
+        from core.ids import MAX_PK
+
+        try:
+            n = int(number)
+        except (TypeError, ValueError):
+            raise Http404("No such version.") from None
+        if not 1 <= n <= MAX_PK:
+            raise Http404("No such version.")
+        return get_object_or_404(doc.versions, number=n)
+
+    @extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "file": {"type": "string", "format": "binary"},
+                    "note": {"type": "string"},
+                },
+            }
+        },
+        responses={
+            200: OpenApiResponse(description="{id, version, filed, size}"),
+            403: OpenApiResponse(description="Manuscript sources are managed in the LaTeX editor"),
+        },
+        description="Replace a general file with a newer version (multipart `file`, optional "
+        "`note` ≤ 200 chars). The node keeps its name, folder, tags and description; the "
+        "previous bytes become version n in its history (the last 20 are kept).",
+    )
+    @action(detail=True, methods=["post"])
+    def replace(self, request, pk=None):
+        from django.core.exceptions import ValidationError as DjangoVE
+
+        from core.security import validate_upload_size
+        from documents import history
+
+        doc = self.get_object()
+        self._guard(doc)
+        upload = request.FILES.get("file")
+        if upload is None:
+            return Response({"detail": "A file is required."}, status=400)
+        try:
+            validate_upload_size(upload)
+        except DjangoVE as exc:
+            return Response({"detail": exc.messages[0]}, status=400)
+        result = history.replace_file(doc, upload, note=(request.data.get("note") or "")[:200])
+        return Response({"id": doc.id, **result})
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="Earlier states, newest first: {number, created_at, size, content_type, note, source, is_text}"
+            )
+        },
+        description="A general file's history — the states earlier replaces, edits, writes and "
+        "restores left behind (newest first, at most 20).",
+    )
+    @action(detail=True, methods=["get"])
+    def versions(self, request, pk=None):
+        from documents import history
+
+        doc = self.get_object()
+        return Response(
+            {"id": doc.id, "version": doc.version, "versions": history.version_rows(doc)}
+        )
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("number", int, OpenApiParameter.PATH, description="The version number")
+        ],
+        responses={200: OpenApiResponse(description="The version's bytes, as an attachment")},
+        description="Download version `number` of a general file (attachment; ETag / 304).",
+    )
+    @action(detail=True, methods=["get"], url_path=r"versions/(?P<number>[0-9]+)/raw")
+    def version_raw(self, request, pk=None, number=None):
+        from django.http import Http404
+
+        doc = self.get_object()
+        version = self._version(doc, number)
+        if not version.file:
+            if not version.content:
+                raise Http404("No bytes for this version.")
+            from django.http import HttpResponse
+
+            name = (doc.rel_path or doc.title or "file").rsplit("/", 1)[-1]
+            response = HttpResponse(
+                version.content.encode(), content_type="text/plain; charset=utf-8"
+            )
+            response["Content-Disposition"] = f'attachment; filename="v{version.number}-{name}"'
+            return response
+        name = (doc.rel_path or doc.title or "file").rsplit("/", 1)[-1]
+        response = file_response(request, version.file, as_attachment=True)
+        if response.status_code == 200:
+            response["Content-Disposition"] = f'attachment; filename="v{version.number}-{name}"'
+        return response
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("number", int, OpenApiParameter.PATH, description="The version number")
+        ],
+        request=None,
+        responses={200: OpenApiResponse(description="{id, version, restored, filed}")},
+        description="Restore version `number` of a general file: the current state is filed "
+        "first (so the restore is itself undoable), then the version's bytes come back.",
+    )
+    @action(detail=True, methods=["post"], url_path=r"versions/(?P<number>[0-9]+)/restore")
+    def version_restore(self, request, pk=None, number=None):
+        from documents import history
+
+        doc = self.get_object()
+        self._guard(doc)
+        version = self._version(doc, number)
+        result = history.restore(doc, version)
+        return Response({"id": doc.id, **result})
 
     @extend_schema(
         request=None,
@@ -1336,13 +1506,13 @@ class DocumentViewSet(AtlasViewSet):
         text = request.data.get("content", "")
         if len(text) > TEXT_PREVIEW_CAP:
             return Response({"detail": "File too large to edit in-app."}, status=413)
-        from django.core.files.base import ContentFile
+        from documents import history
 
-        if doc.file:
-            doc.file.save(doc.file.name.rsplit("/", 1)[-1], ContentFile(text.encode()), save=False)
-        doc.content = text
-        doc.save()
-        return Response({"id": doc.id, "saved": True})
+        # #553: the text being replaced is filed as a version (unchanged text files nothing)
+        history.replace_content(
+            doc, text, source="edit", note=(request.data.get("note") or "")[:200]
+        )
+        return Response({"id": doc.id, "saved": True, "version": doc.version})
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Raw file bytes, inline")},

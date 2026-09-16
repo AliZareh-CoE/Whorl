@@ -103,6 +103,13 @@ def project_document_path(instance, filename):
     return f"projects/{instance.project.slug}/documents/{filename}"
 
 
+def document_version_path(instance, filename):
+    """#553: a version's bytes live under the document's id and number, never under a
+    user-supplied name — the basename is kept for the download only."""
+    base = filename.rsplit("/", 1)[-1][-80:] or "file"
+    return f"projects/{instance.document.project.slug}/versions/{instance.document_id}/v{instance.number}-{base}"
+
+
 class DocumentQuerySet(models.QuerySet):
     def general(self):
         """Exclude unified-tree nodes that belong to a manuscript's source set, so the
@@ -133,6 +140,9 @@ class Document(TimeStampedModel):
     rel_path = models.CharField(max_length=300, blank=True)  # path from project root
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.GENERAL)
     kind = models.CharField(max_length=10, blank=True)  # tex/bib/asset/other (kind_for_node_path)
+    # #553: bumped on every replace / edit / write / restore; the states left behind are
+    # DocumentVersion rows (documents/history.py)
+    version = models.PositiveIntegerField(default=1)
 
     objects = DocumentQuerySet.as_manager()
 
@@ -168,3 +178,37 @@ class Document(TimeStampedModel):
             if content_type:
                 self.content_type = content_type
         super().save(*args, **kwargs)
+
+
+class DocumentVersion(models.Model):
+    """#553: a general document's earlier state — the file (or inline text) a replace, an
+    in-place edit, an MCP write or a restore left behind. Numbered per document; the last
+    ``documents.history.KEEP`` are kept. Manuscript sources never get one (the studio has
+    its own revisions)."""
+
+    class Source(models.TextChoices):
+        UPLOAD = "upload", "Replaced by an upload"
+        EDIT = "edit", "Edited in place"
+        WRITE = "write", "Written by the API or Claude"
+        RESTORE = "restore", "Restored an earlier version"
+
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="versions")
+    number = models.PositiveIntegerField()
+    file = models.FileField(upload_to=document_version_path, blank=True)
+    content = models.TextField(blank=True)
+    file_size = models.PositiveBigIntegerField(default=0)
+    content_type = models.CharField(max_length=100, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.UPLOAD)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["document", "number"], name="documentversion_number_per_document"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.document_id} v{self.number}"

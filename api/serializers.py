@@ -262,10 +262,11 @@ class DocumentSerializer(serializers.ModelSerializer):
             "tags",
             "file_size",
             "content_type",
+            "version",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["file_size", "content_type"]
+        read_only_fields = ["file_size", "content_type", "version"]
 
 
 class ReferenceSerializer(serializers.ModelSerializer):

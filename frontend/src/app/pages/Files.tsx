@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Download, ExternalLink, File, FileCode, FileImage, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, Pencil, RefreshCw, Table, Trash2, Upload } from "lucide-react";
+import { Copy, Download, ExternalLink, File, FileCode, FileImage, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, History, Pencil, RefreshCw, RotateCcw, Table, Trash2, Upload } from "lucide-react";
 import Papa from "papaparse";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -20,9 +20,13 @@ type FileNode = {
   role: string;
   folder_id: number | null;
   size: number;
+  version: number; // #553: bumped by every replace / edit / write / restore
+  versions: number; // earlier states kept in its history
   is_text: boolean;
   local_path?: string | null; // desktop builds only: where the file lives on this computer
 };
+type Version = { number: number; created_at: string; size: number; content_type: string; note: string; source: string; is_text: boolean };
+const SOURCE_LABEL: Record<string, string> = { upload: "replaced by an upload", edit: "edited in place", write: "written by the API or Claude", restore: "before a restore" };
 type FolderNode = { id: number; name: string; parent_id: number | null };
 type Tree = { folders: FolderNode[]; files: FileNode[] };
 
@@ -112,6 +116,38 @@ const isCsv = (f: FileNode) => /\.(csv|tsv)$/i.test(f.rel_path);
 
 // Open-anything preview (#30 slice 2c): route by file type, reusing the local raw/content
 // endpoints. PDFs use the browser's native viewer over the vendored, nosniff'd raw bytes.
+/** #553: a file's history — the states earlier replaces, edits, writes and restores left
+ *  behind. Download any of them; Restore files the current state first, so it is undoable. */
+function HistoryPanel({ file, onRestored }: { file: FileNode; onRestored: () => void }) {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["file-versions", file.id, file.version],
+    queryFn: () => api<{ id: number; version: number; versions: Version[] }>(`/documents/${file.id}/versions/`),
+  });
+  const restore = useMutation({
+    mutationFn: (n: number) => api(`/documents/${file.id}/versions/${n}/restore/`, { method: "POST" }),
+    onSuccess: onRestored,
+    onError: (e) => void errorDialog("Couldn't restore that version", e),
+  });
+  if (isLoading) return <div role="status" aria-label="Loading"><SkeletonLines lines={3} /></div>;
+  if (error || !data) return <ErrorState message="Couldn't load the history." onRetry={() => refetch()} />;
+  return (
+    <div className="mb-3 rounded-lg border border-stone-200 bg-stone-50/60 p-2 text-xs dark:border-stone-800 dark:bg-stone-800/40" data-testid="file-history">
+      <p className="mb-1 flex items-center gap-1 font-medium text-stone-600 dark:text-stone-300"><History className="h-3.5 w-3.5" aria-hidden="true" />History · now v{data.version}{data.versions.length ? ` · ${data.versions.length} earlier` : ""}</p>
+      {data.versions.length === 0 && <p className="text-stone-400">No earlier versions yet — Replace… with a newer file, edit it here, or let Claude write it, and the state it replaces lands here.</p>}
+      <ul className="divide-y divide-stone-200 dark:divide-stone-800">
+        {data.versions.map((v) => (
+          <li key={v.number} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1" data-testid="file-version">
+            <span className="w-8 shrink-0 font-mono font-medium text-stone-600 dark:text-stone-300">v{v.number}</span>
+            <span className="min-w-0 flex-1 text-stone-500 dark:text-stone-400">{new Date(v.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · {humanSize(v.size)} · {SOURCE_LABEL[v.source] ?? v.source}{v.note ? <> · <span className="text-stone-700 dark:text-stone-200">{v.note}</span></> : null}</span>
+            <a href={`/api/v1/documents/${file.id}/versions/${v.number}/raw/`} download className="shrink-0 text-stone-500 hover:underline dark:text-stone-400">Download</a>
+            <button type="button" onClick={async () => { if (await confirmDialog({ title: `Restore v${v.number} of “${file.name}”?`, confirmLabel: "Restore", body: `The current v${data.version} is kept in the history, so this can be undone.` })) restore.mutate(v.number); }} disabled={restore.isPending} className="inline-flex shrink-0 items-center gap-1 text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-400" data-testid="restore-version"><RotateCcw className="h-3 w-3" aria-hidden="true" />Restore</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function FilePreview({ file }: { file: FileNode }) {
   const rawUrl = `/api/v1/documents/${file.id}/raw/`;
   const { data, isLoading, error, refetch } = useQuery({
@@ -299,6 +335,29 @@ export default function Files() {
     onSuccess: () => void noticeDialog({ title: "Template saved", body: "Pick it under Scaffold when creating a project." }),
     onError: fail("Couldn't save the template"),
   });
+  // #553: a newer version of a file — the node stays, the old bytes go to its history
+  const replacePicker = useRef<HTMLInputElement>(null);
+  const replaceTarget = useRef<FileNode | null>(null);
+  const [historyFor, setHistoryFor] = useState<number | null>(null);
+  const replaceDoc = useMutation({
+    mutationFn: async ({ file, upload }: { file: FileNode; upload: globalThis.File }) => {
+      const note = await promptDialog({ title: `Replace “${file.name}” with ${upload.name}`, label: "What changed? (optional)", placeholder: "e.g. re-exported after excluding participant 7", initial: "" });
+      if (note === null) return null;
+      const fd = new FormData();
+      fd.append("file", upload);
+      if (note.trim()) fd.append("note", note.trim().slice(0, 200));
+      return api<{ id: number; version: number }>(`/documents/${file.id}/replace/`, { method: "POST", body: fd });
+    },
+    onSuccess: async (r, { file }) => {
+      if (!r) return;
+      await refreshTree();
+      setSelected((s) => (s && s.id === file.id ? { ...s, version: r.version, versions: s.versions + 1 } : s));
+      queryClient.invalidateQueries({ queryKey: ["file-content", file.id] });
+      setHistoryFor(file.id);
+    },
+    onError: fail("Couldn't replace the file"),
+  });
+  const askReplace = (f: FileNode) => { replaceTarget.current = f; replacePicker.current?.click(); };
   const isDesktop = typeof window !== "undefined" && "__TAURI__" in window;
   type LocalFile = { name: string; path: string; size: number; content: string | null; data_b64: string };
   const [localFile, setLocalFile] = useState<LocalFile | null>(null);
@@ -338,13 +397,27 @@ export default function Files() {
   const [dragDoc, setDragDoc] = useState<FileNode | null>(null);
   const DOC_MIME = "application/x-atlas-doc";
   const upload = useMutation({
-    mutationFn: ({ files, folder }: { files: FileList | File[]; folder: number | null }) => {
+    mutationFn: async ({ files, folder }: { files: File[]; folder: number | null }) => { // File[] on purpose: a FileList empties once the picker resets
+      // #553: a same-name file in the target folder is never a silent duplicate — ask
+      const here = (folder == null ? rootFiles : folderFiles[folder] ?? []).map((x) => x.name);
+      const clashes = Array.from(files).map((f) => f.name).filter((n) => here.includes(n));
+      let onConflict = "keep";
+      if (clashes.length) {
+        const replace = await confirmDialog({ title: clashes.length === 1 ? `“${clashes[0]}” is already here` : `${clashes.length} of these files are already here`, confirmLabel: "Replace (keeps history)", cancelLabel: "Keep both", body: "Replace puts the new bytes on the existing file and keeps the old version in its history; Keep both adds the upload under a numbered name." });
+        onConflict = replace ? "replace" : "keep";
+      }
       const fd = new FormData();
       for (const f of Array.from(files)) fd.append("files", f);
       if (folder != null) fd.append("folder", String(folder));
-      return api(`/projects/${slug}/upload-file/`, { method: "POST", body: fd });
+      fd.append("on_conflict", onConflict);
+      return api<{ created: string[]; replaced: { id: number; name: string; version: number }[]; renamed: string[] }>(`/projects/${slug}/upload-file/`, { method: "POST", body: fd });
     },
-    onSuccess: (_, v) => { if (v.folder != null) setExpanded((e) => ({ ...e, [v.folder as number]: true })); refreshTree(); },
+    onSuccess: (r, v) => {
+      if (v.folder != null) setExpanded((e) => ({ ...e, [v.folder as number]: true }));
+      refreshTree();
+      for (const x of r.replaced ?? []) queryClient.invalidateQueries({ queryKey: ["file-content", x.id] });
+      if (r.replaced?.length) setSelected((s) => { const hit = r.replaced.find((x) => s && x.id === s.id); return s && hit ? { ...s, version: hit.version, versions: s.versions + 1 } : s; });
+    },
     onError: fail("Upload failed"),
   });
   // hidden picker for "Upload here…" (context menu) — the target folder is remembered
@@ -391,6 +464,8 @@ export default function Files() {
       { label: "Download", icon: <Download className="h-3.5 w-3.5" />, onSelect: () => { const a = document.createElement("a"); a.href = raw; a.download = f.name; a.click(); } },
       { label: "Copy path", icon: <Copy className="h-3.5 w-3.5" />, onSelect: () => void copyText(isDesktop && f.local_path ? f.local_path : f.rel_path) },
       "-",
+      { label: "Replace with a newer version…", icon: <Upload className="h-3.5 w-3.5" />, disabled: ms, onSelect: () => askReplace(f) },
+      { label: f.versions ? `History (${f.versions})` : "History", icon: <History className="h-3.5 w-3.5" />, disabled: ms, onSelect: () => { setSelected(f); setHistoryFor(f.id); } },
       { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, hint: "F2", disabled: ms, onSelect: () => void askRenameFile(f) },
       { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, hint: "Del", danger: true, disabled: ms, onSelect: () => void askDeleteFile(f) },
     ];
@@ -583,6 +658,7 @@ export default function Files() {
       {f.role === "manuscript_source" && (
         <span className="shrink-0 rounded bg-stone-100 px-1 text-[10px] uppercase tracking-wide text-stone-400 dark:bg-stone-800">ms</span>
       )}
+      {f.versions > 0 && <span className="shrink-0 rounded bg-indigo-500/10 px-1 font-mono text-[10px] text-indigo-600 dark:text-indigo-300" title={`${f.versions} earlier version${f.versions === 1 ? "" : "s"} in its history`} data-testid="version-chip">v{f.version}</span>}
       <span className="shrink-0 font-mono text-[11px] text-stone-400">{humanSize(f.size)}</span>
       <Kebab items={fileItems(f)} label={`Actions for ${f.name}`} className="h-5 w-5 opacity-0 group-hover:opacity-100 focus:opacity-100" />
     </div>
@@ -608,7 +684,7 @@ export default function Files() {
             e.preventDefault(); e.stopPropagation(); setDragging(false); setDropFolder(null);
             const movedId = Number(e.dataTransfer.getData(DOC_MIME));
             if (movedId) { setDragDoc(null); if (folderFiles[folder.id]?.some((x) => x.id === movedId)) return; moveDoc.mutate({ id: movedId, folder: folder.id }); return; }
-            if (e.dataTransfer.files.length) upload.mutate({ files: e.dataTransfer.files, folder: folder.id });
+            if (e.dataTransfer.files.length) upload.mutate({ files: Array.from(e.dataTransfer.files), folder: folder.id });
           }}
           style={{ paddingLeft: depth * 14 + 8 }}
           className={`group flex w-full cursor-pointer items-center gap-2 rounded py-1 pr-1 text-left text-sm text-stone-700 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800 ${focusKey === `folder${folder.id}` ? "ring-1 ring-indigo-200" : ""} ${dropFolder === folder.id ? "bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-500/15" : ""}`}
@@ -656,7 +732,8 @@ export default function Files() {
           >
             ↑ Upload
           </button>
-          <input ref={picker} type="file" multiple className="hidden" aria-hidden="true" tabIndex={-1} onChange={(e) => { if (e.target.files?.length) upload.mutate({ files: e.target.files, folder: pickTarget.current }); e.target.value = ""; }} />
+          <input ref={picker} type="file" multiple className="hidden" aria-hidden="true" tabIndex={-1} onChange={(e) => { if (e.target.files?.length) upload.mutate({ files: Array.from(e.target.files), folder: pickTarget.current }); e.target.value = ""; }} />
+          <input ref={replacePicker} type="file" className="hidden" aria-hidden="true" tabIndex={-1} data-testid="replace-picker" onChange={(e) => { const f = e.target.files?.[0]; const t = replaceTarget.current; if (f && t) replaceDoc.mutate({ file: t, upload: f }); e.target.value = ""; }} />
           <button
             onClick={async () => {
               const name = await promptDialog({ title: "Save this folder layout as a template", label: "Template name", placeholder: "e.g. Behavioural study", validate: (v) => (v.trim() ? null : "Name the template.") });
@@ -706,7 +783,7 @@ export default function Files() {
             setDropFolder(null);
             const movedId = Number(e.dataTransfer.getData(DOC_MIME));
             if (movedId) { setDragDoc(null); if (!rootFiles.some((x) => x.id === movedId)) moveDoc.mutate({ id: movedId, folder: null }); return; }
-            if (e.dataTransfer.files.length) upload.mutate({ files: e.dataTransfer.files, folder: null });
+            if (e.dataTransfer.files.length) upload.mutate({ files: Array.from(e.dataTransfer.files), folder: null });
           }}
         >
           <div className="sticky top-0 z-10 -mx-2 -mt-2 mb-1 border-b border-stone-100 bg-white px-3 py-2 text-sm font-medium uppercase tracking-wide text-stone-400 dark:border-stone-800 dark:bg-stone-900">
@@ -758,9 +835,10 @@ export default function Files() {
                 <span>· {selected.kind || "file"}</span>
                 {selected.role === "manuscript_source" && <span>· manuscript source</span>}
                 {!!humanSize(selected.size) && <span>· {humanSize(selected.size)}</span>}
+                {selected.role !== "manuscript_source" && <span data-testid="version-line">· v{selected.version}{selected.versions ? ` (${selected.versions} earlier)` : ""}</span>}
               </dl>
               {selected.role !== "manuscript_source" && (
-                <div className="mb-3 flex items-center gap-3 text-xs">
+                <div className="mb-3 flex flex-wrap items-center gap-3 text-xs">
                   <select
                     value={selected.folder_id ?? ""}
                     onChange={(e) =>
@@ -775,11 +853,16 @@ export default function Files() {
                       .map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
                   </select>
                   <button onClick={() => void askRenameFile(selected)} className="text-indigo-600 hover:underline dark:text-indigo-400">Rename</button>
+                  <button onClick={() => askReplace(selected)} className="text-indigo-600 hover:underline dark:text-indigo-400" data-testid="replace-file">Replace…</button>
+                  <button onClick={() => setHistoryFor((h) => (h === selected.id ? null : selected.id))} aria-expanded={historyFor === selected.id} className="inline-flex items-center gap-1 text-stone-600 hover:underline dark:text-stone-300" data-testid="history-toggle"><History className="h-3 w-3" aria-hidden="true" />History{selected.versions ? ` (${selected.versions})` : ""}</button>
                   <button onClick={() => void askDeleteFile(selected)} className="text-red-600 hover:underline">Delete</button>
                   <a href={`/api/v1/documents/${selected.id}/raw/`} download={selected.name} className="text-stone-500 hover:underline dark:text-stone-400">Download</a>
                 </div>
               )}
-              <FilePreview key={selected.id} file={selected} />
+              {selected.role !== "manuscript_source" && historyFor === selected.id && (
+                <HistoryPanel file={selected} onRestored={async () => { await refreshTree(); queryClient.invalidateQueries({ queryKey: ["file-content", selected.id] }); setSelected((s) => (s ? { ...s, version: s.version + 1, versions: s.versions + 1 } : s)); }} />
+              )}
+              <FilePreview key={`${selected.id}-${selected.version}`} file={selected} />
             </div>
           ) : (
             <div className="flex h-full min-h-[40vh] flex-col items-center justify-center px-6 text-center">

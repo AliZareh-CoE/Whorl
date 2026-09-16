@@ -44,7 +44,9 @@ def workspace_tree(project: Project) -> dict:
         {"id": f.id, "name": f.name, "parent_id": f.parent_id} for f in project.folders.all()
     ]
     files = []
-    for d in project.documents.all():
+    from django.db.models import Count
+
+    for d in project.documents.annotate(versions_count=Count("versions")):
         name = d.title or (d.rel_path.rsplit("/", 1)[-1] if d.rel_path else "")
         files.append(
             {
@@ -55,6 +57,8 @@ def workspace_tree(project: Project) -> dict:
                 "role": d.role,
                 "folder_id": d.folder_id,
                 "size": d.file_size,
+                "version": d.version,
+                "versions": d.versions_count,  # #553: earlier states in its history
                 "is_text": d.kind in TEXT_KINDS or (bool(d.content) and not d.file),
                 "local_path": (d.file.path if local_paths and d.file else None),
             }

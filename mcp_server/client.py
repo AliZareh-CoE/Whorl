@@ -620,16 +620,19 @@ def list_project_files(project: str):
     return _request("GET", f"/projects/{project}/tree/")
 
 
-def read_project_file(document_id: int):
-    """Text content of a file node by id."""
-    return _request("GET", f"/documents/{document_id}/content/")
+def read_project_file(document_id: int, version: int = 0):
+    """Text content of a file node by id — or of an earlier `version` from its history."""
+    params = {"version": version} if version else None
+    return _request("GET", f"/documents/{document_id}/content/", params=params)
 
 
-def write_project_file(project: str, path: str, content: str):
-    """Create or overwrite a general text file at `path` in the project's tree."""
-    return _request(
-        "POST", f"/projects/{project}/write-file/", json={"path": path, "content": content}
-    )
+def write_project_file(project: str, path: str, content: str, note: str = ""):
+    """Create or overwrite a general text file at `path` in the project's tree; an overwrite
+    files the previous text as a version, labelled by `note`."""
+    body = {"path": path, "content": content}
+    if note:
+        body["note"] = note
+    return _request("POST", f"/projects/{project}/write-file/", json=body)
 
 
 # --- versioned protocol library (Backlog #7) ---
