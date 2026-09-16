@@ -30,8 +30,12 @@ def test_today_rows_wrap_against_their_column():
         in today
     )
     assert "function showsDue(iso: string, allDay: boolean): boolean" in today
-    # the text keeps a 13-rem floor (#522's rule) on every row kind
-    assert today.count('data-testid="todo-text"') == 3 and today.count("min-w-[13rem] flex-1") == 3
+    # the text keeps a 13-rem floor (#522's rule) from a 32-rem column; below it the text shrinks
+    # so the action buttons share its line (a 334-px column cannot hold both)
+    assert (
+        today.count('data-testid="todo-text"') == 3
+        and today.count("min-w-0 @lg:min-w-[13rem] flex-1") == 3
+    )
     # the actions are one group placed before the chips, so a tight row drops the chips, not them
     assert today.count('data-testid="todo-actions"') == 2  # today + done rows share Row; Later
     for name in ("function LaterRow", "function Row("):
@@ -51,15 +55,16 @@ def test_today_menu_controls_and_headers():
     assert "opacity-0 transition-opacity hover" not in today
     # the panel no longer clips the last row's menu: the rows round their own corners …
     assert "first:rounded-t-2xl last:rounded-b-2xl" in today
-    assert "<section className={`${panel} rise relative z-30`}" in today
+    assert "<section className={`${panel} rise relative z-[3]`}" in today
     assert (
         'className={`border-b border-stone-100 bg-stone-50/60 px-4 py-1.5 ${i === 0 ? "rounded-t-2xl" : ""}'
         in today
     )
-    # … and the sections stack top first (the rise animation leaves a transform on each)
+    # … and the sections stack top first (the rise animation leaves a transform on each;
+    # any positive z outranks those, and small values stay under every fixed overlay)
     assert (
-        'className="rise relative z-20 mt-5"' in today
-        and 'className="rise relative z-10 mt-5"' in today
+        'className="rise relative z-[2] mt-5"' in today
+        and 'className="rise relative z-[1] mt-5"' in today
     )
     assert (
         today.count(

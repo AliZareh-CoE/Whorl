@@ -199,7 +199,7 @@ export default function Today() {
         <button type="submit" disabled={!text.trim() || add.isPending} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40">Add</button>
       </form>
 
-      <section className={`${panel} rise relative z-30`} style={{ ["--i" as string]: 1 }}>
+      <section className={`${panel} rise relative z-[3]`} style={{ ["--i" as string]: 1 }}>
         {isLoading && <div className="space-y-3 p-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-5 w-3/4" />)}</div>}
         {!isLoading && open.length === 0 && (
           <div className="px-6 py-12 text-center">
@@ -223,7 +223,7 @@ export default function Today() {
       </section>
 
       {later.length > 0 && (
-        <section className="rise relative z-20 mt-5" style={{ ["--i" as string]: 2 }} data-testid="later-section">
+        <section className="rise relative z-[2] mt-5" style={{ ["--i" as string]: 2 }} data-testid="later-section">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400"><Moon className="mr-1 inline h-3 w-3 -translate-y-px" aria-hidden="true" />Later · {later.length}</p>
             <p className="text-[11px] text-stone-400">each joins the list on its day</p>
@@ -242,7 +242,7 @@ export default function Today() {
       )}
 
       {doneToday.length > 0 && (
-        <section className="rise relative z-10 mt-5" style={{ ["--i" as string]: 3 }} data-testid="done-today">
+        <section className="rise relative z-[1] mt-5" style={{ ["--i" as string]: 3 }} data-testid="done-today">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">Done today · {doneToday.length}</p>
           </div>
@@ -319,7 +319,7 @@ function LogRow({ t, onToggle, onRemove }: { t: Todo; onToggle: () => void; onRe
       ) : (
         <span title="Ticking this one spawned the next occurrence — untick it from today's Done, not from the logbook" data-testid="logbook-locked" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-indigo-500/40 bg-indigo-500/40 text-white"><Check className="h-3 w-3" aria-hidden="true" strokeWidth={3} /></span>
       )}
-      <span className="min-w-[13rem] flex-1 text-sm text-stone-400 line-through dark:text-stone-500" data-testid="todo-text">{t.text}</span>
+      <span className="min-w-0 @lg:min-w-[13rem] flex-1 text-sm text-stone-400 line-through dark:text-stone-500" data-testid="todo-text">{t.text}</span>
       <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
       {(t.repeat || t.project || t.done_at) && <span className="order-last flex min-w-0 basis-full flex-wrap items-center gap-1 @lg:order-none @lg:basis-auto pl-8" data-testid="todo-meta">
         <RepeatChip t={t} />
@@ -371,7 +371,7 @@ function LaterRow({ t, snoozing, onSnoozeMenu, onSnooze, onRepeat, onToggle, onR
   return (
     <li className="group relative flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2" data-testid="later-row">
       <button type="button" onClick={onToggle} aria-label={`Mark “${t.text}” done`} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-stone-200 transition-all hover:border-indigo-400 dark:border-stone-700" />
-      <span className="min-w-[13rem] flex-1 text-sm text-stone-600 dark:text-stone-300" data-testid="todo-text">{t.text}</span>
+      <span className="min-w-0 @lg:min-w-[13rem] flex-1 text-sm text-stone-600 dark:text-stone-300" data-testid="todo-text">{t.text}</span>
       <span className="flex shrink-0 items-center gap-3" data-testid="todo-actions">
         <button type="button" onClick={() => onSnooze("")} aria-label="Bring back to today" title="Today" data-testid="wake-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-amber-500 group-hover:opacity-100 dark:text-stone-600"><Sun className="h-3.5 w-3.5" aria-hidden="true" /></button>
         <button type="button" onClick={() => onSnoozeMenu(!snoozing)} aria-label="Another day" title="Another day" data-testid="snooze-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Moon className="h-3.5 w-3.5" aria-hidden="true" /></button>
@@ -412,7 +412,7 @@ function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove, 
       {editing ? (
         <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => onSave(draft)} onKeyDown={(e) => { if (e.key === "Enter") onSave(draft); if (e.key === "Escape") onSave(t.text); }} maxLength={300} className="min-w-0 flex-1 rounded-md border border-indigo-300 bg-white px-2 py-1 text-base dark:border-indigo-500/50 dark:bg-stone-800 dark:text-stone-100" aria-label="Edit item" />
       ) : (
-        <span onDoubleClick={t.done ? undefined : onEdit} className={`min-w-[13rem] flex-1 text-base transition-colors ${t.done ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-100"}`} data-testid="todo-text">{t.text}</span>
+        <span onDoubleClick={t.done ? undefined : onEdit} className={`min-w-0 @lg:min-w-[13rem] flex-1 text-base transition-colors ${t.done ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-100"}`} data-testid="todo-text">{t.text}</span>
       )}
       <span className="flex shrink-0 items-center gap-3" data-testid="todo-actions">
         {!t.done && !editing && <button type="button" onClick={onEdit} aria-label="Edit" className="shrink-0 text-stone-300 opacity-0 transition-opacity pointer-coarse:opacity-100 hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></button>}
