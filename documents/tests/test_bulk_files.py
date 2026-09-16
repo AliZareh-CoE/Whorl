@@ -137,7 +137,7 @@ class TestArchive:
         project = ProjectFactory()
         a = _doc(project, "big.bin", body=b"x" * 100)
         monkeypatch.setattr(bulk, "ARCHIVE_CAP", 50)
-        with pytest.raises(bulk.BulkError, match="MB"):
+        with pytest.raises(bulk.ArchiveTooLarge, match="MB"):
             bulk.build_archive(project, ids=[a.pk])
 
 
@@ -280,6 +280,15 @@ def test_explorer_selection_and_action_bar():
     assert '(e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a"' in files
     assert (
         'if (e.key === "Escape" && checked.size) { e.preventDefault(); setChecked(new Set()); return; }'
+        in files
+    )
+    # Delete with a selection deletes the selection; a checkbox click moves the keyboard focus too
+    assert (
+        '(e.key === "Delete" || e.key === "Backspace") && checked.size) { e.preventDefault(); void askBulkDelete(); return; }'
+        in files
+    )
+    assert (
+        'e.stopPropagation(); setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); toggleCheck(f, e.shiftKey);'
         in files
     )
     # the selection is pruned to what the tree shows (a tag filter, a refetch)

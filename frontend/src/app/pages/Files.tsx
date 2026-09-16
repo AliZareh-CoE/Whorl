@@ -791,6 +791,7 @@ export default function Files() {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") { e.preventDefault(); checkAllVisible(); return; }
     if (e.key === "Escape" && checked.size) { e.preventDefault(); setChecked(new Set()); return; }
     if (e.key === "F2" && r) { e.preventDefault(); if (r.kind === "file") void askRenameFile(r.file); else void askRenameFolder(r.folder); return; }
+    if ((e.key === "Delete" || e.key === "Backspace") && checked.size) { e.preventDefault(); void askBulkDelete(); return; } // the selection wins
     if ((e.key === "Delete" || e.key === "Backspace") && r) { e.preventDefault(); if (r.kind === "file") void askDeleteFile(r.file); else void askDeleteFolder(r.folder); return; }
     if (e.key === "ArrowDown") { e.preventDefault(); setFocusIdx((i) => Math.min(flat.length - 1, i + 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setFocusIdx((i) => Math.max(0, i - 1)); }
@@ -856,7 +857,7 @@ export default function Files() {
         type="checkbox"
         checked={checked.has(f.id)}
         onChange={() => undefined}
-        onClick={(e) => { e.stopPropagation(); toggleCheck(f, e.shiftKey); }}
+        onClick={(e) => { e.stopPropagation(); setFocusIdx(flat.findIndex((r) => r.kind === "file" && r.id === f.id)); toggleCheck(f, e.shiftKey); }}
         aria-label={`Select ${f.name}`}
         className={`h-3.5 w-3.5 shrink-0 cursor-pointer accent-indigo-600 ${checked.size ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-coarse:opacity-100"}`}
         data-testid="file-check"

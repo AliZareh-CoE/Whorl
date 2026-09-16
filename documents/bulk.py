@@ -25,6 +25,10 @@ class BulkError(ValueError):
     pass
 
 
+class ArchiveTooLarge(BulkError):
+    pass
+
+
 def clean_ids(raw) -> list[int]:
     """Distinct positive ints, in order, at most MAX_IDS; junk raises BulkError."""
     if isinstance(raw, str):
@@ -100,7 +104,7 @@ def bulk_documents(
             doc.tags.add(tag)
     else:
         for doc in docs:
-            doc.delete()  # per instance: versions and their files cascade with the row
+            doc.delete()  # per instance: the version rows cascade (their files stay: backlog 356)
     return {"action": action, "count": len(docs), "skipped": skipped}
 
 
@@ -142,7 +146,7 @@ def build_archive(
     members = archive_members(project, ids, folder)
     total = sum(doc.file_size or 0 for _, doc in members)
     if total > ARCHIVE_CAP:
-        raise BulkError(
+        raise ArchiveTooLarge(
             f"That is {total // (1024 * 1024)} MB of files; a zip holds at most "
             f"{ARCHIVE_CAP // (1024 * 1024)} MB. Pick fewer files."
         )

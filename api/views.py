@@ -465,7 +465,7 @@ class ProjectViewSet(AtlasViewSet):
     def archive(self, request, slug=None):
         from django.http import FileResponse
 
-        from documents.bulk import BulkError, build_archive, clean_ids
+        from documents.bulk import ArchiveTooLarge, BulkError, build_archive, clean_ids
 
         project = self.get_object()
         folder = None
@@ -480,9 +480,10 @@ class ProjectViewSet(AtlasViewSet):
                 if not ids:
                     return Response({"detail": "Pick some files (ids) or a folder."}, status=400)
             spool, name, count = build_archive(project, ids, folder)
+        except ArchiveTooLarge as exc:
+            return Response({"detail": str(exc)}, status=413)
         except BulkError as exc:
-            status_code = 413 if "MB" in str(exc) else 400
-            return Response({"detail": str(exc)}, status=status_code)
+            return Response({"detail": str(exc)}, status=400)
         response = FileResponse(spool, as_attachment=True, filename=name)
         response["X-Atlas-Archive-Files"] = str(count)
         return response
