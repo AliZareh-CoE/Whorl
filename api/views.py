@@ -1500,6 +1500,30 @@ class DocumentViewSet(AtlasViewSet):
         parameters=[
             OpenApiParameter("number", int, OpenApiParameter.PATH, description="The version number")
         ],
+        responses={
+            200: OpenApiResponse(
+                description="{number, created_at, note, source, version, is_text, too_large, same, "
+                "diff (unified, from the version to now), added, removed, table (for .csv / .tsv: "
+                "headers, changes [{row, column, then, now}], rows_added, rows_removed, "
+                "cols_added, cols_removed, truncated) or null}"
+            )
+        },
+        description="Compare version `number` of a general file with the file as it is now: a "
+        "unified line diff, and for a .csv / .tsv the changed cells (rows aligned by "
+        "content, columns by header).",
+    )
+    @action(detail=True, methods=["get"], url_path=r"versions/(?P<number>[0-9]+)/diff")
+    def version_diff(self, request, pk=None, number=None):
+        from documents import history
+
+        doc = self.get_object()
+        version = self._version(doc, number)
+        return Response({"id": doc.id, **history.version_diff(doc, version)})
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("number", int, OpenApiParameter.PATH, description="The version number")
+        ],
         request=None,
         responses={200: OpenApiResponse(description="{id, version, restored, filed}")},
         description="Restore version `number` of a general file: the current state is filed "

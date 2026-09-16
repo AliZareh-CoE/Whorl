@@ -592,10 +592,12 @@ def list_project_files(project: str) -> dict:
 
 
 @mcp.tool()
-def read_project_file(document_id: int, version: int = 0) -> dict:
+def read_project_file(document_id: int, version: int = 0, diff: bool = False) -> dict:
     """Read a file node's text content by its id (from list_project_files). `version` reads
-    an earlier state from the file's history (rows carry `version` and `versions`)."""
-    return client.read_project_file(document_id, version)
+    an earlier state from the file's history (rows carry `version` and `versions`);
+    `diff=True` with a version returns what changed from it to now instead (a unified line
+    diff and, for a .csv / .tsv, the changed cells)."""
+    return client.read_project_file(document_id, version, diff)
 
 
 @mcp.tool()

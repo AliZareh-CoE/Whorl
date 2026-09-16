@@ -623,8 +623,11 @@ def list_project_files(project: str):
     return _request("GET", f"/projects/{project}/tree/")
 
 
-def read_project_file(document_id: int, version: int = 0):
-    """Text content of a file node by id — or of an earlier `version` from its history."""
+def read_project_file(document_id: int, version: int = 0, diff: bool = False):
+    """Text content of a file node by id — or of an earlier `version` from its history, or
+    (`diff`) what changed from that version to now."""
+    if version and diff:
+        return _request("GET", f"/documents/{document_id}/versions/{version}/diff/")
     params = {"version": version} if version else None
     return _request("GET", f"/documents/{document_id}/content/", params=params)
 

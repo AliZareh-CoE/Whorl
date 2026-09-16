@@ -11,12 +11,20 @@ Manuscript-source nodes are refused everywhere here; the studio keeps their revi
 
 from __future__ import annotations
 
+import csv
+import difflib
+import io
+
 from django.core.files.base import ContentFile
 from django.db import transaction
 
 from .models import Document, DocumentVersion
 
 KEEP = 20
+# #555: texts larger than this are not diffed in place (download both instead)
+DIFF_CAP = 1_000_000
+TABLE_ROWS_CAP = 5000  # rows read per side for the cell diff
+TABLE_CHANGES_CAP = 500  # cell changes reported
 CHUNK = 1024 * 1024
 
 
@@ -169,3 +177,144 @@ def version_rows(doc: Document) -> list[dict]:
         }
         for v in doc.versions.order_by("-number")
     ]
+
+
+def _table_kind(doc: Document) -> str | None:
+    name = (doc.rel_path or doc.title or "").lower()
+    if name.endswith(".csv"):
+        return ","
+    if name.endswith(".tsv"):
+        return "\t"
+    return None
+
+
+def _rows(text: str, delimiter: str) -> list[list[str]]:
+    reader = csv.reader(io.StringIO(text), delimiter=delimiter)
+    out = []
+    for row in reader:
+        if len(out) >= TABLE_ROWS_CAP:
+            break
+        if any(cell.strip() for cell in row):
+            out.append(row)
+    return out
+
+
+def table_diff(then_text: str, now_text: str, delimiter: str = ",") -> dict:
+    """Cell-level changes from `then` to `now` for a delimited table (#555, backlog 352).
+
+    Rows are aligned with a sequence matcher (a row removed in the middle is one removed
+    row, not a shift of everything after it); columns by header name, so an added column
+    is reported as such and the cells of the columns both sides share are compared.
+    """
+    then_rows, now_rows = _rows(then_text, delimiter), _rows(now_text, delimiter)
+    then_head = then_rows[0] if then_rows else []
+    now_head = now_rows[0] if now_rows else []
+    cols_added = [c for c in now_head if c not in then_head]
+    cols_removed = [c for c in then_head if c not in now_head]
+    shared = [c for c in now_head if c in then_head]
+    then_ix = {c: then_head.index(c) for c in shared}
+    now_ix = {c: now_head.index(c) for c in shared}
+
+    def key(row: list[str], ix: dict[str, int]) -> tuple[str, ...]:
+        return tuple(row[i] if i < len(row) else "" for i in (ix[c] for c in shared))
+
+    then_body, now_body = then_rows[1:], now_rows[1:]
+    then_keys = [key(r, then_ix) for r in then_body]
+    now_keys = [key(r, now_ix) for r in now_body]
+    matcher = difflib.SequenceMatcher(a=then_keys, b=now_keys, autojunk=False)
+    changes: list[dict] = []
+    rows_added = rows_removed = 0
+    truncated = False
+
+    def record(i: int, j: int) -> None:
+        nonlocal truncated
+        for col, x, y in zip(shared, then_keys[i], now_keys[j], strict=False):
+            if x != y:
+                if len(changes) >= TABLE_CHANGES_CAP:
+                    truncated = True
+                    return
+                changes.append({"row": j + 2, "column": col, "then": x, "now": y})
+
+    need = max(1, (len(shared) + 1) // 2)  # a pair shares at least half its cells
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        if tag != "replace":
+            rows_removed += i2 - i1
+            rows_added += j2 - j1
+            continue
+        # a replaced block: pair each new row with the old row it most resembles (an edited
+        # row next to a removed one is one change and one removal, not two rewritten rows)
+        unused = list(range(i1, i2))
+        if (i2 - i1) * (j2 - j1) > 250_000:  # keep a huge block linear: pair in order
+            for offset in range(min(i2 - i1, j2 - j1)):
+                record(i1 + offset, j1 + offset)
+            rows_removed += max(0, (i2 - i1) - (j2 - j1))
+            rows_added += max(0, (j2 - j1) - (i2 - i1))
+            continue
+        for j in range(j1, j2):
+            best, score = None, 0
+            for i in unused:
+                same = sum(1 for x, y in zip(then_keys[i], now_keys[j], strict=False) if x == y)
+                if same > score:
+                    best, score = i, same
+            if best is not None and score >= need:
+                unused.remove(best)
+                record(best, j)
+            else:
+                rows_added += 1
+        rows_removed += len(unused)
+    return {
+        "headers": now_head,
+        "changes": changes,
+        "rows_added": rows_added,
+        "rows_removed": rows_removed,
+        "cols_added": cols_added,
+        "cols_removed": cols_removed,
+        "truncated": truncated
+        or len(then_rows) >= TABLE_ROWS_CAP
+        or len(now_rows) >= TABLE_ROWS_CAP,
+    }
+
+
+def version_diff(doc: Document, version: DocumentVersion) -> dict:
+    """An earlier version compared with the file as it is now (#555, backlog 352): a unified
+    line diff (like a note's revision diff) plus, for a .csv / .tsv, the changed cells."""
+    then, now = version_text(version), current_text(doc)
+    row = {
+        "number": version.number,
+        "created_at": version.created_at,
+        "note": version.note,
+        "source": version.source,
+        "version": doc.version,
+        "is_text": then is not None and now is not None,
+        "too_large": False,
+        "same": False,
+        "diff": "",
+        "added": 0,
+        "removed": 0,
+        "table": None,
+    }
+    if not row["is_text"]:
+        return row
+    if len(then) > DIFF_CAP or len(now) > DIFF_CAP:
+        row["too_large"] = True
+        return row
+    lines = list(
+        difflib.unified_diff(
+            then.splitlines(),
+            now.splitlines(),
+            fromfile=f"v{version.number}",
+            tofile=f"v{doc.version} (now)",
+            lineterm="",
+            n=2,
+        )
+    )
+    row["same"] = then == now
+    row["diff"] = "\n".join(lines)
+    row["added"] = sum(1 for line in lines[2:] if line.startswith("+"))
+    row["removed"] = sum(1 for line in lines[2:] if line.startswith("-"))
+    delimiter = _table_kind(doc)
+    if delimiter and not row["same"]:
+        row["table"] = table_diff(then, now, delimiter)
+    return row

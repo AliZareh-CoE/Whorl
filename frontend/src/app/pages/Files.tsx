@@ -133,7 +133,61 @@ const isCsv = (f: FileNode) => /\.(csv|tsv)$/i.test(f.rel_path);
 // endpoints. PDFs use the browser's native viewer over the vendored, nosniff'd raw bytes.
 /** #553: a file's history — the states earlier replaces, edits, writes and restores left
  *  behind. Download any of them; Restore files the current state first, so it is undoable. */
+// #555 (backlog 352): what changed from an earlier version to now — a unified line diff, and
+// for a .csv / .tsv the changed cells (rows aligned by content, columns by header).
+type CellChange = { row: number; column: string; then: string; now: string };
+type TableDiff = { headers: string[]; changes: CellChange[]; rows_added: number; rows_removed: number; cols_added: string[]; cols_removed: string[]; truncated: boolean };
+type Diff = { number: number; version: number; is_text: boolean; too_large: boolean; same: boolean; diff: string; added: number; removed: number; table: TableDiff | null };
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+function VersionDiff({ file, number }: { file: FileNode; number: number }) {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["file-diff", file.id, number, file.version], // a restore or replace is a new comparison
+    queryFn: () => api<Diff>(`/documents/${file.id}/versions/${number}/diff/`),
+  });
+  if (isLoading) return <div role="status" aria-label="Loading" className="basis-full"><SkeletonLines lines={2} /></div>;
+  if (error || !data) return <div className="basis-full"><ErrorState message="Couldn't compare that version." onRetry={() => refetch()} /></div>;
+  const t = data.table;
+  const summary = data.same
+    ? "identical to the current version"
+    : !data.is_text
+      ? "not text — download both to compare"
+      : data.too_large
+        ? "too large to compare here — download both"
+        : t
+          ? [
+              t.changes.length ? `${plural(t.changes.length, "cell")} changed` : null,
+              t.rows_added ? `${plural(t.rows_added, "row")} added` : null,
+              t.rows_removed ? `${plural(t.rows_removed, "row")} removed` : null,
+              t.cols_added.length ? `${plural(t.cols_added.length, "column")} added: ${t.cols_added.join(", ")}` : null,
+              t.cols_removed.length ? `${plural(t.cols_removed.length, "column")} removed: ${t.cols_removed.join(", ")}` : null,
+            ].filter(Boolean).join(" · ") || `+${data.added} −${data.removed} lines`
+          : `+${data.added} −${data.removed} lines`;
+  // the line diff is the whole story for text; for a table it is shown when cells alone do not tell it
+  const showLines = !data.same && data.is_text && !data.too_large && (!t || t.rows_added > 0 || t.rows_removed > 0 || t.cols_added.length > 0 || t.cols_removed.length > 0 || t.changes.length === 0);
+  return (
+    <div className="mt-1 basis-full rounded-lg border border-stone-200 bg-white p-2 dark:border-stone-700 dark:bg-stone-900" data-testid="version-diff">
+      <p className="mb-1 text-stone-500 dark:text-stone-400">v{number} → v{data.version} (now) · {summary}{t?.truncated ? " · truncated" : ""}</p>
+      {t && t.changes.length > 0 && (
+        <table className="mb-1 w-full text-left font-mono text-[10px]" data-testid="cell-changes">
+          <thead><tr className="text-stone-400"><th className="pr-3 font-normal">row</th><th className="pr-3 font-normal">column</th><th className="pr-3 font-normal">then</th><th className="font-normal">now</th></tr></thead>
+          <tbody>
+            {t.changes.map((c, i) => (
+              <tr key={i}><td className="pr-3 text-stone-500">{c.row}</td><td className="pr-3 text-stone-600 dark:text-stone-300">{c.column}</td><td className="pr-3 text-red-600 line-through dark:text-red-300">{c.then}</td><td className="text-emerald-700 dark:text-emerald-300">{c.now}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {showLines && (
+        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-snug" data-testid="line-diff">
+          {data.diff.split("\n").slice(2).map((line, i) => <span key={i} className={`block ${line.startsWith("+") ? "text-emerald-700 dark:text-emerald-300" : line.startsWith("-") ? "text-red-600 dark:text-red-300" : line.startsWith("@@") ? "text-stone-400" : "text-stone-600 dark:text-stone-300"}`}>{line}</span>)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function HistoryPanel({ file, onRestored }: { file: FileNode; onRestored: () => void }) {
+  const [compare, setCompare] = useState<number | null>(null); // #555: the version shown against now
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["file-versions", file.id, file.version],
     queryFn: () => api<{ id: number; version: number; versions: Version[] }>(`/documents/${file.id}/versions/`),
@@ -154,8 +208,10 @@ function HistoryPanel({ file, onRestored }: { file: FileNode; onRestored: () => 
           <li key={v.number} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1" data-testid="file-version">
             <span className="w-8 shrink-0 font-mono font-medium text-stone-600 dark:text-stone-300">v{v.number}</span>
             <span className="min-w-0 flex-1 text-stone-500 dark:text-stone-400">{new Date(v.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · {humanSize(v.size)} · {SOURCE_LABEL[v.source] ?? v.source}{v.note ? <> · <span className="text-stone-700 dark:text-stone-200">{v.note}</span></> : null}</span>
+            {(v.is_text || file.is_text) && <button type="button" onClick={() => setCompare((c) => (c === v.number ? null : v.number))} aria-expanded={compare === v.number} className="shrink-0 text-stone-600 hover:underline dark:text-stone-300" data-testid="diff-version">{compare === v.number ? "Hide" : "Compare"}</button>}
             <a href={`/api/v1/documents/${file.id}/versions/${v.number}/raw/`} download className="shrink-0 text-stone-500 hover:underline dark:text-stone-400">Download</a>
             <button type="button" onClick={async () => { if (await confirmDialog({ title: `Restore v${v.number} of “${file.name}”?`, confirmLabel: "Restore", body: `The current v${data.version} is kept in the history, so this can be undone.` })) restore.mutate(v.number); }} disabled={restore.isPending} className="inline-flex shrink-0 items-center gap-1 text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-400" data-testid="restore-version"><RotateCcw className="h-3 w-3" aria-hidden="true" />Restore</button>
+            {compare === v.number && <VersionDiff file={file} number={v.number} />}
           </li>
         ))}
       </ul>
