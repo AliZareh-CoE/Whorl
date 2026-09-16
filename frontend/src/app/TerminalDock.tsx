@@ -71,7 +71,7 @@ export default function TerminalDock() {
   const activeSession = sessions.find((s) => s.key === active);
 
   return (
-    <div className="fixed bottom-0 left-60 right-0 z-30 flex flex-col border-t border-stone-200 bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] dark:border-stone-800 dark:bg-[#0e1119]" style={{ height: h }} data-testid="terminal-dock" role="region" aria-label="Terminal">
+    <div className="fixed bottom-0 left-0 right-0 z-30 sm:left-60 flex flex-col border-t border-stone-200 bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] dark:border-stone-800 dark:bg-[#0e1119]" style={{ height: h }} data-testid="terminal-dock" role="region" aria-label="Terminal">
       <div onMouseDown={onDragStart} className="h-1 shrink-0 cursor-row-resize bg-transparent hover:bg-indigo-500/40" title="Drag to resize" />
       <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-stone-200 px-2 text-xs dark:border-stone-800">
         <TerminalSquare className="mr-1 h-3.5 w-3.5 text-stone-400" aria-hidden="true" />

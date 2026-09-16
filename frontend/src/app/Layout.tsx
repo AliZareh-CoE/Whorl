@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { Bot, CheckSquare, Command, FolderKanban, Inbox, LayoutDashboard, Library, Moon, PenLine, Plug, Search, Sparkles, Sun, TerminalSquare, Wand2 } from "lucide-react";
+import { Bot, CheckSquare, Command, FolderKanban, Inbox, LayoutDashboard, Library, Menu, Moon, PenLine, Plug, Search, Sparkles, Sun, TerminalSquare, Wand2, X } from "lucide-react";
 import { api, csrfToken } from "./api";
 import { toSpaUrl } from "./links";
 import CommandBar from "./CommandBar";
@@ -51,6 +51,22 @@ function openCommandBar() {
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
 }
 
+/** #552: below 640 px the rail is a drawer behind a top bar — the width every narrow-width
+ *  pass (#493, #501, #522, #551) judged pages at, and where the fixed 240-px rail left too
+ *  little room. The state is read from the same media query the CSS uses, so the top bar,
+ *  the `inert` drawer and the backdrop agree with the layout. */
+const NARROW = "(max-width: 639px)";
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.matchMedia(NARROW).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW);
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return narrow;
+}
+
 /** SPA chrome mirroring the classic sidebar; unmigrated sections link to server pages. */
 export default function Layout() {
   const navigate = useNavigate();
@@ -86,6 +102,24 @@ export default function Layout() {
   }, [navigate]);
   useEffect(() => { installExternalLinkHandler(); }, []);
   useEffect(() => { installShortcutsKey(); }, []); // #425: ? opens the cheat sheet
+  // #552: the rail as a drawer on a phone — closed on navigation, on Escape, on a tap outside,
+  // and when the window widens; while closed it is inert so its links leave the tab order
+  const narrow = useNarrow();
+  const [railOpen, setRailOpen] = useState(false);
+  const asideRef = useRef<HTMLElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const closeRail = () => { setRailOpen(false); toggleRef.current?.focus(); };
+  useEffect(() => { setRailOpen(false); }, [location.pathname]);
+  useEffect(() => { if (!narrow) setRailOpen(false); }, [narrow]);
+  useEffect(() => { asideRef.current?.toggleAttribute("inert", narrow && !railOpen); }, [narrow, railOpen]);
+  useEffect(() => {
+    if (!railOpen) return;
+    asideRef.current?.querySelector<HTMLElement>("a, button")?.focus();
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); closeRail(); } };
+    window.addEventListener("keydown", esc, true);
+    return () => window.removeEventListener("keydown", esc, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [railOpen]);
   const { data: pet } = useQuery({
     queryKey: ["pet"],
     queryFn: () =>
@@ -155,7 +189,22 @@ export default function Layout() {
   return (
     <div className="flex h-full">
       <CommandBar />
-      <aside className="fixed inset-y-0 left-0 z-20 flex w-60 flex-col border-r border-stone-200 bg-white px-3 py-5 dark:border-stone-800 dark:bg-stone-900">
+      {narrow && (
+        <header className="fixed inset-x-0 top-0 z-40 flex h-12 items-center gap-1 border-b border-stone-200 bg-white/90 px-2 backdrop-blur dark:border-stone-800 dark:bg-stone-900/90" data-testid="rail-bar">
+          <button ref={toggleRef} type="button" onClick={() => setRailOpen((o) => !o)} aria-label={railOpen ? "Close the menu" : "Open the menu"} aria-expanded={railOpen} aria-controls="rail" data-testid="rail-toggle" className="flex h-10 w-10 items-center justify-center rounded-lg text-stone-600 transition-colors hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800">
+            {railOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+          </button>
+          <a href="/" className="flex items-center gap-2 px-1">
+            <span className="glow-accent inline-block h-2.5 w-2.5 rounded-full bg-gradient-to-br from-indigo-400 to-[#4ff2e0]" aria-hidden="true" />
+            <span className="font-display text-lg font-bold tracking-tight text-stone-900 dark:text-stone-100">Atlas</span>
+          </a>
+          <button type="button" onClick={openCommandBar} aria-label="Ask Atlas anything" title="Ask Atlas anything" data-testid="rail-bar-ask" className="ml-auto flex h-10 w-10 items-center justify-center rounded-lg text-indigo-500 transition-colors hover:bg-stone-100 dark:hover:bg-stone-800">
+            <Sparkles className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </header>
+      )}
+      {narrow && railOpen && <button type="button" onClick={closeRail} aria-label="Close the menu" data-testid="rail-backdrop" className="fixed inset-0 top-12 z-30 bg-stone-950/40 sm:hidden" />}
+      <aside ref={asideRef} id="rail" data-testid="rail" className={`fixed inset-y-0 left-0 z-20 flex w-60 flex-col overflow-y-auto border-r border-stone-200 bg-white px-3 py-5 dark:border-stone-800 dark:bg-stone-900 max-sm:top-12 max-sm:z-[35] max-sm:shadow-2xl max-sm:transition-transform ${railOpen ? "max-sm:translate-x-0" : "max-sm:-translate-x-full"}`}>
         <div className="px-2">
           <a href="/" className="flex items-center gap-2.5">
             <span className="glow-accent inline-block h-2.5 w-2.5 rounded-full bg-gradient-to-br from-indigo-400 to-[#4ff2e0]" aria-hidden="true" />
@@ -220,7 +269,6 @@ export default function Layout() {
           <NavLink to="/connect" className="mb-1 flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:text-stone-700 dark:hover:text-stone-200"><Plug className="h-3.5 w-3.5" aria-hidden="true" />Connect Claude Code</NavLink>
           <button type="button" onClick={() => openTerminal({ toggle: true })} className="mb-1 flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:text-stone-700 dark:hover:text-stone-200" title="Toggle the terminal (⌃`)"><TerminalSquare className="h-3.5 w-3.5" aria-hidden="true" />Terminal<span className="ml-auto font-mono text-[10px] text-stone-400">⌃`</span></button>
           <UpdaterButton />
-          {pet?.recent_unlocks?.length ? <UnlockToast unlocks={pet.recent_unlocks} titles={Object.fromEntries((pet.achievements ?? []).map((a) => [a.key, { title: a.title, tier: a.tier }]))} grim={Boolean(pet.souls_mode)} /> : null}
           <button
             type="button"
             onClick={() => (window as unknown as { __toggleTheme?: () => void }).__toggleTheme?.()}
@@ -231,8 +279,9 @@ export default function Layout() {
           </button>
         </div>
       </aside>
-      <main className="ml-60 min-w-0 flex-1">
-        <div className="mx-auto max-w-screen-2xl px-8 py-7">
+      {pet?.recent_unlocks?.length ? <UnlockToast unlocks={pet.recent_unlocks} titles={Object.fromEntries((pet.achievements ?? []).map((a) => [a.key, { title: a.title, tier: a.tier }]))} grim={Boolean(pet.souls_mode)} /> : null}
+      <main className="min-w-0 flex-1 max-sm:pt-12 sm:ml-60">
+        <div className="mx-auto max-w-screen-2xl px-4 py-5 sm:px-8 sm:py-7">
           <ErrorBoundary scope="page" resetKey={location.pathname}>
             <Outlet />
           </ErrorBoundary>
