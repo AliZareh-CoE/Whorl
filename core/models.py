@@ -96,6 +96,9 @@ class TodoItem(TimeStampedModel):
     position = models.PositiveIntegerField(default=0)
     # #431: an optional time ("call Sam at 3pm") — the sidebar nudges when it comes close
     due_at = models.DateTimeField(null=True, blank=True)
+    # #546: "on Friday" — the item is for a day, not a clock time. due_at then holds local noon
+    # of that day (the same UTC date in every zone within ±12 h) and the chip prints no time.
+    all_day = models.BooleanField(default=False)
     project = models.ForeignKey(
         "projects.Project",
         null=True,

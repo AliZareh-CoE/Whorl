@@ -714,18 +714,29 @@ def format_citations(reference_ids: list[int], style: str = "apa"):
 # --- the owner's Today list ---
 
 
-def list_todos(include_done: bool = False):
+def list_todos(include_done: bool = False, when: str = ""):
     params = {} if include_done else {"done": "false"}
+    if when:
+        params["when"] = when  # "today" | "later"
     return _request("GET", "/todos/", params=params)
 
 
-def add_todo(text: str, project: str | None = None, due_at: str | None = None):
+def add_todo(
+    text: str, project: str | None = None, due_at: str | None = None, due: str | None = None
+):
     payload = {"text": text}
     if project:
         payload["project"] = project
     if due_at:
         payload["due_at"] = due_at
+    if due:
+        payload["due"] = due  # a later day, all-day: tomorrow / monday / next-week / YYYY-MM-DD
     return _request("POST", "/todos/", json=payload)
+
+
+def snooze_todo(todo_id: int, until: str = "tomorrow"):
+    """Push a Today item to tomorrow / monday / next-week / weekend / YYYY-MM-DD; "" = today."""
+    return _request("POST", f"/todos/{todo_id}/snooze/", json={"until": until})
 
 
 def complete_todo(todo_id: int, done: bool = True):

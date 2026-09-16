@@ -20,6 +20,8 @@ Every object lives in exactly one project (a slug like `attention-and-memory`).
 3. Propose **at most three** things for today, each tied to a milestone, manuscript
    deadline or reading item. Say why each one, in one line.
 4. When the user agrees, `add_todo` for each (short imperative text). Do not add more.
+   Something for another day gets `due` ("tomorrow", "monday", a date) and waits in Later;
+   "not today" on an existing item is `snooze_todo` (`until=""` brings it back).
 
 ## Inbox triage
 

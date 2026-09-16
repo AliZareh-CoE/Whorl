@@ -87,8 +87,9 @@ def test_ui_wiring():
 
 
 NODE_CHECK = """
-import { parseDue, nextDue, dueState, relativeDue } from "%s";
+import { parseDue, nextDue, dueState, relativeDue, isLater, dayLabel, formatDue } from "%s";
 const now = new Date(2026, 8, 7, 10, 0, 0);
+const t0 = now.getTime();
 const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) { console.error("FAIL", m, a, b); process.exit(1); } };
 let p = parseDue("call Sam at 3pm", now); eq(p.text, "call Sam", "strip"); eq(new Date(p.due_at).getHours(), 15, "3pm");
 p = parseDue("Book the scanner by 9:30", now); eq(p.text, "Book the scanner", "colon"); eq([new Date(p.due_at).getHours(), new Date(p.due_at).getMinutes()], [9, 30], "9:30");
@@ -99,6 +100,20 @@ p = parseDue("Lunch at noon", now); eq(new Date(p.due_at).getHours(), 12, "noon"
 p = parseDue("Meet at 12am", now); eq(new Date(p.due_at).getHours(), 0, "12am");
 p = parseDue("at 5pm", now); eq(p.text, "at 5pm", "time-only text keeps the raw text");
 eq(parseDue("Ping @ 4pm", now).text, "Ping", "@ form");
+eq(parseDue("Ping @ 4pm", now).all_day, false, "a clock time is not all-day");
+// #546: days without a time (now is Monday 7 Sep 2026)
+p = parseDue("Email the lab tomorrow", now); eq(p.text, "Email the lab", "bare tomorrow stripped"); eq([new Date(p.due_at).getDate(), new Date(p.due_at).getHours(), p.all_day], [8, 12, true], "tomorrow noon all-day");
+p = parseDue("Review Sam's draft on Friday", now); eq(p.text, "Review Sam's draft", "on Friday stripped"); eq(new Date(p.due_at).getDate(), 11, "Friday");
+p = parseDue("Ping Sam Friday", now); eq(p.text, "Ping Sam", "weekday closing the sentence"); eq(new Date(p.due_at).getDate(), 11, "Friday at the end");
+p = parseDue("Monday meeting notes", now); eq(p.due_at, null, "a weekday mid-sentence is text"); eq(p.text, "Monday meeting notes", "untouched");
+p = parseDue("Slides by next Monday", now); eq(new Date(p.due_at).getDate(), 14, "next Monday said on a Monday is a week away");
+p = parseDue("Rebook next week", now); eq(new Date(p.due_at).getDate(), 14, "next week = +7");
+p = parseDue("Chase the reviewer in 3 days", now); eq(p.text, "Chase the reviewer", "in 3 days stripped"); eq(new Date(p.due_at).getDate(), 10, "+3");
+p = parseDue("Standup on Friday at 9am", now); eq([new Date(p.due_at).getDate(), new Date(p.due_at).getHours(), p.all_day], [11, 9, false], "day + time");
+eq(isLater(p.due_at, now), true, "Friday is later"); eq(isLater(new Date(2026, 8, 7, 23, 59).toISOString(), now), false, "tonight is today");
+eq(dayLabel(p.due_at, now), "Friday", "day label"); eq(dayLabel(new Date(2026, 8, 8, 12).toISOString(), now), "tomorrow", "tomorrow label");
+eq(formatDue(new Date(2026, 8, 8, 12).toISOString(), true, now), "tomorrow", "all-day chip has no clock");
+eq(nextDue([{ id: 9, done: false, all_day: true, due_at: new Date(t0 + 30 * 60e3).toISOString() }], t0), null, "the nudge skips all-day items");
 const t = now.getTime();
 const items = [{ id: 1, done: false, due_at: new Date(t + 3 * 3600e3).toISOString() }, { id: 2, done: false, due_at: new Date(t + 30 * 60e3).toISOString() }, { id: 3, done: true, due_at: new Date(t + 5 * 60e3).toISOString() }, { id: 4, done: false, due_at: new Date(t - 13 * 3600e3).toISOString() }];
 eq(nextDue(items, t)?.id, 2, "nearest within two hours, ignoring done and stale");

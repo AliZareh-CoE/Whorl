@@ -30,7 +30,7 @@ type Dash = {
   stats: Record<string, number>;
   inbox_count: number;
   todos_open: number;
-  todos: { id: number; text: string; due_at?: string | null; project: string | null }[];
+  todos: { id: number; text: string; due_at?: string | null; all_day?: boolean; project: string | null }[];
   week: { today: string; week_ends: string; overdue: WeekItem[]; due_this_week: WeekItem[] };
   heatmap: { date: string; count: number; level: number }[][];
   attention: Attention;
@@ -306,7 +306,7 @@ export default function Dashboard() {
                   <li key={t.id} className="group flex items-center gap-2 text-sm text-stone-700 dark:text-stone-200">
                     <button type="button" onClick={() => tick.mutate(t.id)} className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-stone-300 text-transparent transition-colors hover:border-indigo-400 hover:text-indigo-500 dark:border-stone-600" aria-label={`Done: ${t.text}`} title="Tick it off"><Check className="h-3 w-3" aria-hidden="true" /></button>
                     <span className="min-w-0 truncate">{t.text}</span>
-                    {t.due_at && <span className={`shrink-0 text-[11px] tabular-nums ${dueState(t.due_at) === "overdue" ? "text-red-500" : dueState(t.due_at) === "soon" ? "text-amber-600 dark:text-amber-300" : "text-stone-400"}`} data-testid="hero-due">· {formatDue(t.due_at)}</span>}
+                    {t.due_at && <span className={`shrink-0 text-[11px] tabular-nums ${dueState(t.due_at) === "overdue" ? "text-red-500" : dueState(t.due_at) === "soon" ? "text-amber-600 dark:text-amber-300" : "text-stone-400"}`} data-testid="hero-due">· {formatDue(t.due_at, t.all_day)}</span>}
                     {t.project && <span className="min-w-0 max-w-[9rem] truncate text-[11px] text-stone-400">· {t.project}</span>}
                   </li>
                 ))}

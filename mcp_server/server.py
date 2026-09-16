@@ -692,22 +692,32 @@ def format_citations(reference_ids: list[int], style: str = "apa") -> dict:
 
 
 @mcp.tool()
-def list_todos(include_done: bool = False) -> dict:
-    """The owner's personal Today list (plain to-dos, not plan tasks). Open items by default."""
-    return client.list_todos(include_done)
+def list_todos(include_done: bool = False, when: str = "") -> dict:
+    """The owner's personal Today list (plain to-dos, not plan tasks). Open items by default;
+    `when` = "today" or "later" narrows to today's list or to what waits for a later day."""
+    return client.list_todos(include_done, when)
 
 
 @mcp.tool()
-def add_todo(text: str, project: str = "", due_at: str = "") -> dict:
-    """Put something on the owner's Today list, optionally tagged with a project slug. `due_at` is
-    ISO-8601 with an offset (2026-09-07T15:00:00+02:00); the app nudges two hours before."""
-    return client.add_todo(text, project or None, due_at or None)
+def add_todo(text: str, project: str = "", due_at: str = "", due: str = "") -> dict:
+    """Put something on the owner's Today list, optionally tagged with a project slug. `due_at`
+    (ISO-8601 with offset) sets a clock time — the app nudges two hours before; `due` (tomorrow,
+    monday, next-week, weekend, YYYY-MM-DD) makes an all-day item that waits in Later."""
+    return client.add_todo(text, project or None, due_at or None, due or None)
 
 
 @mcp.tool()
 def complete_todo(todo_id: int, done: bool = True) -> dict:
     """Tick (or untick) an item on the Today list. Find ids with list_todos."""
     return client.complete_todo(todo_id, done)
+
+
+@mcp.tool()
+def snooze_todo(todo_id: int, until: str = "tomorrow") -> dict:
+    """ "Not today": push a Today item to a later day — tomorrow, monday, next-week, weekend or a
+    YYYY-MM-DD after today. It leaves today's list and comes back that day; a timed item keeps
+    its clock time. An empty `until` brings it back to today. Ids from list_todos."""
+    return client.snooze_todo(todo_id, until)
 
 
 @mcp.tool()

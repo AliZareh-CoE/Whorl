@@ -76,8 +76,9 @@ def test_detect_and_convert_carry_the_date(client, settings, django_user_model):
         TodoItem.objects.get(text="call the vendor").due_at.isoformat().endswith("T04:00:00+00:00")
     )
     e = QuickCapture.objects.create(text="todo: buy stamps 2026-12-24")
-    cap.convert(e, "todo", None, tz="nonsense/zone")  # unknown zone: the server's, 09:00
-    assert TodoItem.objects.get(text="buy stamps").due_at.isoformat() == "2026-12-24T09:00:00+00:00"
+    cap.convert(e, "todo", None, tz="nonsense/zone")  # unknown zone: the server's
+    stamps = TodoItem.objects.get(text="buy stamps")  # #546: a bare date is an all-day item at noon
+    assert stamps.due_at.isoformat() == "2026-12-24T12:00:00+00:00" and stamps.all_day
     f = QuickCapture.objects.create(text="todo: nothing dated here")
     cap.convert(f, "todo", None)
     assert TodoItem.objects.get(text="nothing dated here").due_at is None

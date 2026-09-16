@@ -9,7 +9,7 @@ Atlas is a single-user, self-hosted research platform for people who find Jira-s
 and task-obsessed. It treats what researchers actually care about as first-class: a **plan** you
 write like a document, a **library** that reads your PDFs, **notes** that cite papers with `@key`,
 a **writing studio** that checks your citations and compiles LaTeX, and an **MCP server** so
-Claude Code can do all of it with you — 157 tools over the same API the UI uses.
+Claude Code can do all of it with you — 158 tools over the same API the UI uses.
 
 > Built like Django itself: boring technology, strong conventions, everything has exactly one
 > obvious place. No cloud, no telemetry. Runs as a web app or a one-click desktop app.
@@ -106,9 +106,9 @@ same structure; preview first, re-run any time, nothing on disk moves.
 - Dashboard: needs-attention lead, "this week, everywhere" (completable in place), phase health per project, monthly stats, 26-week heatmap.
 - Inbox: capture from anywhere (⌘K, the page, Claude); smart triage turns a DOI into a paper, "todo:" into a Today item, "idea:" into a note, "milestone:" and "decision:" into the real thing.
 - ⌘K makes things too: `todo:` a task (with “at 3pm”), `paper:` a DOI or arXiv id (a bare id works as well — it lands in the project you are in), `capture:` a thought, `done:` a milestone, plus “New note”, “New manuscript”, “New project”, “Add a paper”.
-- Today: a dead-simple personal list for the day; “call Sam at 3pm” puts a time on it, the sidebar nudges when it comes close, and what you carried over from earlier days is counted. Research tools: a hypothesis ledger (evidence from papers, notes or documents; the balance suggests a status), experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Subscribe to milestones and manuscript deadlines from your calendar app (`/api/v1/calendar.ics`). Local extras: Piper read-aloud, extractive tl;dr — offline.
+- Today: a dead-simple personal list for the day; “call Sam at 3pm” puts a time on it, the sidebar nudges when it comes close, and what you carried over from earlier days is counted. “review the draft on Friday” (or `s` on any row) parks it in **Later**, grouped by day, until that morning. Research tools: a hypothesis ledger (evidence from papers, notes or documents; the balance suggests a status), experiment log, datasets, decision log, protocols. Automations: deadline reminders, retraction watch, citation sync. Subscribe to milestones and manuscript deadlines from your calendar app (`/api/v1/calendar.ics`). Local extras: Piper read-aloud, extractive tl;dr — offline.
 
-**Claude / MCP** — 157 tools over the REST API plus five skills; your AI assistant operates the same contract you do. Only the 25-tool **core** set is loaded by default — Claude enables a toolset (`plan`, `library`, `notes`, `writing`, `studio`, `inbox`, `research`, `files`, `ops`) the moment a task needs it, so the tool list stays short and the right tool gets picked. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
+**Claude / MCP** — 158 tools over the REST API plus five skills; your AI assistant operates the same contract you do. Only the 25-tool **core** set is loaded by default — Claude enables a toolset (`plan`, `library`, `notes`, `writing`, `studio`, `inbox`, `research`, `files`, `ops`) the moment a task needs it, so the tool list stays short and the right tool gets picked. **Mochi** 🦉 — a living companion (it watches your cursor, hops when you finish things, grows from egg to sage) fed only by finished research; it never nags. **Achievements** — ninety-odd of them in four tiers (fun, steady, hard, and a *souls* tier: "You died", "Git gud", "Boss slain: Reviewer 2"), all read from real work, with a Souls mode that tells the same facts grimly.
 
 ## Quick start (one command)
 
@@ -212,7 +212,7 @@ claude mcp add atlas \
   -- /path/to/atlas/.venv/bin/python -m mcp_server.server
 ```
 
-**Toolsets.** 157 tools is more than any one conversation needs, and a long tool list costs
+**Toolsets.** 158 tools is more than any one conversation needs, and a long tool list costs
 Claude context on every turn. So the server loads only **core** by default — 25 tools for a
 normal day (projects and plan, check-off, dashboard and brief, search, capture and inbox,
 to-dos, papers and the reading queue, notes, manuscripts, diagnostics) plus `list_toolsets` and
@@ -237,7 +237,7 @@ Reading: `list_highlights`, `add_highlight`, `get_highlights_markdown`, `get_rea
 Writing progress: `get_writing_progress` (words per day, today's delta, streak, best day). Style lint: `lint_manuscript` (the mistakes a compile never reports — unescaped %, \label before \caption, undefined/duplicate labels, spaces before \ref and units, straight quotes, $$, \\ in prose, unmatched environments, unbalanced braces — each with file:line and a suggested fix), `fix_lint` (apply the mechanical ones — all, or a chosen subset). Find in project: `search_manuscript` (every match across the .tex/.bib files — plain or regex, file:line:col with the line), `replace_in_manuscript` (replace across files, or only some, saved like an editor save). Status clock: every manuscript carries `clock` ("42 d under review", since which event) and `clock.nudge` (whether a polite note to the editor is fair yet — 1.5× your own median at the venue, or 90 days without history; a logged note mentioning "nudge" restarts the count); `get_venue_turnaround` (your own median days from submission to decision at a venue, first-decision median, rounds). Figure audit: `audit_figures` (every \includegraphics with format, pixels, printed width, effective dpi and size — 300 dpi is the bar, vector passes). Submission readiness: `submit_manuscript` (submit through the pre-flight — refused with the report while a check blocks, `force` to override; logs the event with the readiness note), `preflight_manuscript` (every check from real data — compiled PDF fresh, errors, undefined references, cite keys, bibliography hygiene, venue limits, figure files, leftover markers, .bbl, metadata).
 From the matrix to the paper: `draft_related_work` (a `Related work` .tex section from the review matrix, every key in the bibliography).
 Toolsets: `list_toolsets`, `enable_toolset`. Automations: `list_bots`, `run_bot`, `toggle_bot` (the bots report to the Inbox).
-Today list: `list_todos`, `add_todo`, `complete_todo`, `reorder_todos`.
+Today list: `list_todos`, `add_todo`, `complete_todo`, `snooze_todo`, `reorder_todos`.
 Notes, search & review: `add_note`, `list_notes`, `list_note_tags`, `get_note`, `update_note`, `get_note_links`, `get_note_outline`, `get_related_notes`, `get_project_graph`, `get_note_graph`, `list_note_revisions`, `get_note_revision`, `restore_note_revision`, `link_mentions`, `create_note_from_template`, `export_note`, `quick_capture`, `list_inbox`, `enrich_capture`, `triage_captures`, `get_inbox_history`, `snooze_capture`, `convert_capture`, `search`, `get_weekly_review`,
 `list_prompts`, `get_prompt`. Manuscripts (LaTeX): `list_manuscripts`, `get_manuscript`,
 `list_manuscript_files`, `read_manuscript_file`, `write_manuscript_file`, `attach_manuscript_figure` (a local PNG/PDF into the source tree, with the `\includegraphics` snippet back), `set_main_file`, `duplicate_manuscript` (a fresh paper from an existing one — sources, assets, limits, bibliography),

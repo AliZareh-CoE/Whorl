@@ -890,6 +890,25 @@ class Command(BaseCommand):
             start=1,
         ):
             TodoItem.objects.get_or_create(text=text, defaults={"position": i, "project": project})
+        # #546: two items that wait in Later — an all-day one tomorrow, a timed one next Monday
+        from core.todos import day_instant, due_day
+
+        TodoItem.objects.get_or_create(
+            text="Send the pilot summary to Maya",
+            defaults={
+                "position": 4,
+                "project": project,
+                "due_at": day_instant(due_day("tomorrow")),
+                "all_day": True,
+            },
+        )
+        TodoItem.objects.get_or_create(
+            text="Book the eye-tracker slot",
+            defaults={
+                "position": 5,
+                "due_at": day_instant(due_day("monday")).replace(hour=10),
+            },
+        )
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
         )

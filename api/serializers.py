@@ -604,9 +604,19 @@ class SnoozeCaptureSerializer(serializers.Serializer):
 
 
 class TodoItemSerializer(serializers.ModelSerializer):
-    """The owner's Today list: text, done, optional project."""
+    """The owner's Today list: text, done, optional project. `due` (write-only) puts the item
+    on a later day in the snooze vocabulary — tomorrow, monday, next-week, weekend or a
+    YYYY-MM-DD after today — as an all-day item; `due_at` + `all_day` is the stored form."""
 
     project = ProjectSlugField(required=False, allow_null=True)
+    due = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        max_length=20,
+        help_text="A later day: tomorrow, monday, next-week, weekend or YYYY-MM-DD "
+        "(all-day; '' clears the day).",
+    )
 
     class Meta:
         model = TodoItem
@@ -617,11 +627,33 @@ class TodoItemSerializer(serializers.ModelSerializer):
             "done_at",
             "position",
             "due_at",
+            "all_day",
+            "due",
             "project",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["done_at"]
+
+    def validate(self, attrs):
+        from core.todos import day_instant, due_day
+
+        if "due" in attrs:
+            try:
+                day = due_day(attrs.pop("due"))
+            except ValueError as exc:
+                raise serializers.ValidationError({"due": [str(exc)]}) from None
+            attrs["due_at"] = day_instant(day) if day else None
+            attrs["all_day"] = day is not None
+        elif attrs.get("due_at") is None and "due_at" in attrs:
+            attrs["all_day"] = False
+        return attrs
+
+
+class SnoozeTodoSerializer(serializers.Serializer):
+    """`until`: tomorrow, monday, next-week, weekend or YYYY-MM-DD after today; "" = today."""
+
+    until = serializers.CharField(required=False, allow_blank=True, max_length=20, default="")
 
 
 class LibraryTagSerializer(serializers.ModelSerializer):

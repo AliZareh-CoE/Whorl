@@ -7,7 +7,7 @@ import { NavLink } from "react-router-dom";
 import { api } from "./api";
 import { dueState, nextDue, relativeDue } from "./dueTime";
 
-type Todo = { id: number; text: string; done: boolean; due_at: string | null };
+type Todo = { id: number; text: string; done: boolean; due_at: string | null; all_day: boolean };
 
 export function TodoNudge() {
   const { data } = useQuery({

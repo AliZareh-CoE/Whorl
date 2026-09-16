@@ -26,6 +26,7 @@ from core.files import file_response
 from core.ids import MAX_PK, parse_ids
 from core.memo import enable_memo
 from core.models import TodoItem
+from core.todos import open_today
 from documents.models import Document, Folder, Tag
 from literature import services as literature_services
 from literature.models import (
@@ -2891,12 +2892,19 @@ class TodoItemViewSet(AtlasViewSet):
     q_fields = ("text",)
 
     def get_queryset(self):
+        from core.todos import later_q, today_q
+
         queryset = super().get_queryset()
         done = self.request.query_params.get("done")
         if done in ("true", "1"):
             queryset = queryset.filter(done=True)
         elif done in ("false", "0"):
             queryset = queryset.filter(done=False)
+        when = self.request.query_params.get("when")  # #546: today's list, or what waits
+        if when == "today":
+            queryset = queryset.filter(today_q())
+        elif when == "later":
+            queryset = queryset.filter(later_q()).order_by("due_at", "position", "id")
         return queryset
 
     def perform_create(self, serializer):
@@ -2904,6 +2912,28 @@ class TodoItemViewSet(AtlasViewSet):
 
         top = TodoItem.objects.aggregate(m=Max("position"))["m"] or 0
         serializer.save(position=top + 1)
+
+    @extend_schema(
+        request=serializers.SnoozeTodoSerializer,
+        responses={200: serializers.TodoItemSerializer},
+        description="Push an item to a later day — `until` is tomorrow, monday, next-week, "
+        "weekend or a YYYY-MM-DD after today; it leaves today's list and waits in Later until "
+        "that day. A timed item keeps its clock time on the new day, any other becomes an "
+        "all-day item. An empty `until` brings it back to today. `?when=today` / `?when=later` "
+        "on the list is the same boundary.",
+    )
+    @action(detail=True, methods=["post"], url_path="snooze")
+    def snooze(self, request, pk=None):
+        from core.todos import snooze
+
+        item = self.get_object()
+        serializer = serializers.SnoozeTodoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            snooze(item, serializer.validated_data.get("until", ""))
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(serializers.TodoItemSerializer(item).data)
 
     def perform_update(self, serializer):
         before = serializer.instance.done
@@ -4454,7 +4484,6 @@ class DashboardAPIView(APIView):
             week_everywhere,
             writing_everywhere,
         )
-        from core.models import TodoItem
         from writing.clock import waiting_manuscripts
 
         data = dashboard_context()
@@ -4471,18 +4500,17 @@ class DashboardAPIView(APIView):
                 "reading": reading_queue_everywhere(),  # #486: what to read today
                 "writing": writing_everywhere(),  # #487: every live paper, by urgency
                 "watches": watches_everywhere(),  # #533: the feeds and the citation watch
-                "todos_open": TodoItem.objects.filter(done=False).count(),
+                "todos_open": open_today().count(),  # #546: today's, not what waits in Later
                 # backlog #300: the top of the Today list, tickable from the hero
                 "todos": [
                     {
                         "id": t.id,
                         "text": t.text,
                         "due_at": t.due_at,  # #431
+                        "all_day": t.all_day,
                         "project": t.project.slug if t.project_id else None,
                     }
-                    for t in TodoItem.objects.filter(done=False)
-                    .select_related("project")
-                    .order_by("position", "id")[:4]
+                    for t in open_today().select_related("project")[:4]
                 ],
                 "heatmap": [
                     [

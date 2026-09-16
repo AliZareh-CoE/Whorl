@@ -180,6 +180,7 @@ AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
             "list_todos",
             "add_todo",
             "complete_todo",
+            "snooze_todo",
             "reorder_todos",
             "get_dashboard",
             "get_daily_brief",

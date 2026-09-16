@@ -44,16 +44,16 @@ def test_all_green(settings, monkeypatch):
 
 
 def test_connection_test_says_loaded_of_total_when_the_check_reports_it(settings, monkeypatch):
-    """#540: the default is the core toolset, so the phrase reads "25 of 157 tools loaded"."""
+    """#540: the default is the core toolset, so the phrase reads "25 of 158 tools loaded"."""
     settings.ATLAS_API_KEY = "k"
     monkeypatch.delenv("ATLAS_MCP_BIN", raising=False)
 
     def run(cmd, **kw):
         return SimpleNamespace(
             returncode=0,
-            stdout=json.dumps({"ok": True, "tools": 25, "tools_total": 157, "projects": 2}),
+            stdout=json.dumps({"ok": True, "tools": 25, "tools_total": 158, "projects": 2}),
             stderr="",
         )
 
     out = check(Req(), fetch=ok_fetch, run=run, which=lambda n: "/usr/bin/claude")
-    assert "25 of 157 tools loaded · sees 2 project(s)" == out["checks"][2]["detail"]
+    assert "25 of 158 tools loaded · sees 2 project(s)" == out["checks"][2]["detail"]

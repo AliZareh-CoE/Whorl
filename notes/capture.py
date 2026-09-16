@@ -79,15 +79,19 @@ def _zone(tz: str):
 
 def due_instant(when: dict, tz: str = ""):
     """#500: the aware datetime a todo is due from a parsed {date, time}: the date at the
-    time (09:00 when only a date was written; today when only a time was), or None."""
+    time (today when only a time was written), or None. A date without a time is an all-day
+    item (#546): local noon, the same shape the Today page writes for "on Friday"."""
     from datetime import datetime as _dt
-    from datetime import time as _time
+
+    from core.todos import day_instant
 
     if not when["date"] and not when["time"]:
         return None
     zone = _zone(tz)
+    if not when["time"]:
+        return day_instant(when["date"], zone)
     day = when["date"] or _dt.now(zone).date()
-    return _dt.combine(day, when["time"] or _time(9, 0), tzinfo=zone)
+    return _dt.combine(day, when["time"], tzinfo=zone)
 
 
 SNOOZE_KEYWORDS = ("tomorrow", "monday", "next-week", "weekend")
@@ -303,6 +307,7 @@ def convert(
             project=project,
             position=(last or 0) + 1,
             due_at=due_instant(when, tz),
+            all_day=bool(when["date"] and not when["time"]),
         )
         result = {
             "kind": "todo",
@@ -310,6 +315,7 @@ def convert(
             "title": todo.text,
             "app_url": "/today",
             "due_at": todo.due_at.astimezone(UTC).isoformat() if todo.due_at else None,
+            "all_day": todo.all_day,
         }
     elif target == "milestone":
         from plans.models import Milestone, Phase

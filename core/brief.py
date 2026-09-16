@@ -37,7 +37,7 @@ def daily_brief(today: datetime.date | None = None) -> dict:
         week_everywhere,
         writing_everywhere,
     )
-    from core.models import TodoItem
+    from core.todos import open_today
     from writing.clock import waiting_manuscripts
 
     today = today or timezone.localdate()
@@ -47,11 +47,7 @@ def daily_brief(today: datetime.date | None = None) -> dict:
     pulses = pulses_everywhere([r["project"] for r in active], today=today)
     quiet = quiet_projects(active, pulses)
     backup = backup_status()
-    todos = list(
-        TodoItem.objects.filter(done=False)
-        .select_related("project")
-        .order_by("position", "id")[:MAX_ROWS]
-    )
+    todos = list(open_today(today=today).select_related("project")[:MAX_ROWS])  # #546
     week = week_everywhere(today=today)
     reading = reading_queue_everywhere(today=today, limit=5)
     writing = writing_everywhere(today=today, limit=6)
