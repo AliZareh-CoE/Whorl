@@ -59,7 +59,12 @@ export default function Today() {
       const gone = ctx?.gone;
       if (!gone) return;
       showUndo(`Deleted — “${gone.text.slice(0, 50)}”`, async () => {
-        const made = await api<Todo>("/todos/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: gone.text, done: gone.done, due_at: gone.due_at, all_day: gone.all_day, repeat: gone.repeat, project: gone.project }) });
+        // a done row comes back open and is ticked again, so it gets a fresh stamp and lands in
+        // Done today (#550); a done *repeating* row is re-created as done instead — a tick would
+        // spawn a second occurrence — and so returns under the Logbook's "earlier"
+        const asDone = gone.done && !!gone.repeat;
+        const made = await api<Todo>("/todos/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: gone.text, done: asDone, due_at: gone.due_at, all_day: gone.all_day, repeat: gone.repeat, project: gone.project }) });
+        if (gone.done && !asDone) await api(`/todos/${made.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: true }) });
         if (!gone.done && ctx.index >= 0) { // back at its old place among today's rows
           const ids = (queryClient.getQueryData<Page<Todo>>(["todos"])?.results ?? []).filter((t) => !t.done && !isLater(t.due_at) && t.id !== made.id).map((t) => t.id);
           ids.splice(Math.min(ctx.index, ids.length), 0, made.id);

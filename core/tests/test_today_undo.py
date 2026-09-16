@@ -17,10 +17,12 @@ def test_today_wires_undo_for_delete_tick_and_snooze():
     today = (BASE / "frontend" / "src" / "app" / "pages" / "Today.tsx").read_text()
     assert "import { showUndo, undoLast }" in today
     assert today.count("showUndo(") == 3  # delete, tick, snooze
-    # a deleted row comes back with every field it had, done rows as done (no second spawn)
-    assert (
-        "done: gone.done, due_at: gone.due_at, all_day: gone.all_day, repeat: gone.repeat" in today
-    )
+    # a deleted row comes back with every field it had; a done plain row is re-created open and
+    # ticked again (a fresh stamp puts it back in Done today); a done repeating row is created
+    # done so ticking cannot spawn a second occurrence
+    assert "done: asDone, due_at: gone.due_at, all_day: gone.all_day, repeat: gone.repeat" in today
+    assert "const asDone = gone.done && !!gone.repeat;" in today
+    assert "if (gone.done && !asDone) await api(`/todos/${made.id}/`" in today
     assert "ids.splice(Math.min(ctx.index, ids.length), 0, made.id)" in today  # its old place
     assert "body: JSON.stringify(before)" in today  # snooze undo restores the exact day
     assert 'e.key === "z"' in today and "z undoes" in today
