@@ -11,6 +11,7 @@ class TodoItemAdmin(admin.ModelAdmin):
         "done_at",
         "due_at",
         "all_day",
+        "repeat",
         "project",
         "position",
         "created_at",

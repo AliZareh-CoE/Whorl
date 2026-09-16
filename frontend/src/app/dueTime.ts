@@ -15,7 +15,12 @@ const IN_DAYS = /(?:^|\s)in (\d{1,2}|a|one|two|three|four|five|six|seven) days?(
 const WORDS: Record<string, number> = { a: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 };
 const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
-export type Parsed = { text: string; due_at: string | null; all_day: boolean };
+export type Repeat = "" | "daily" | "weekdays" | "weekly" | "monthly";
+export type Parsed = { text: string; due_at: string | null; all_day: boolean; repeat: Repeat };
+
+// #547: "every Monday", "every day" / "daily", "every weekday", "every week" / "weekly",
+// "every month" / "monthly". Matched BEFORE the day phrases so "every Monday" is a rule, not a date.
+const EVERY = new RegExp(`(?:^|\\s)(?:every\\s+(day|weekday|week|month|${WD})|(daily|weekly|monthly))(?=[\\s,.!?]|$)`, "i");
 
 const tidy = (s: string) => s.replace(/\s+/g, " ").trim();
 const cut = (text: string, m: RegExpExecArray) => text.slice(0, m.index) + " " + text.slice(m.index + m[0].length);
@@ -50,6 +55,18 @@ export function parseDue(raw: string, now: Date = new Date()): Parsed {
   let text = raw;
   let hour: number | null = null;
   let minute = 0;
+  let repeat: Repeat = "";
+  let everyDay: string | null = null; // "every Monday" also sets the first day
+  const ev = EVERY.exec(text);
+  if (ev) {
+    const word = (ev[1] ?? ev[3]).toLowerCase(); // group 2 is the weekday stem inside WD
+    if (word === "day" || word === "daily") repeat = "daily";
+    else if (word === "weekday") repeat = "weekdays";
+    else if (word === "week" || word === "weekly") repeat = "weekly";
+    else if (word === "month" || word === "monthly") repeat = "monthly";
+    else { repeat = "weekly"; everyDay = word; }
+    text = cut(text, ev);
+  }
   const word = WORD.exec(text);
   if (word) {
     hour = word[1].toLowerCase() === "noon" ? 12 : 0;
@@ -68,14 +85,25 @@ export function parseDue(raw: string, now: Date = new Date()): Parsed {
       }
     }
   }
-  const day = parseDay(text, now);
+  let day = parseDay(text, now);
   if (day) text = day.text;
-  if (hour === null && !day) return { text: tidy(raw), due_at: null, all_day: false };
+  else if (everyDay) {
+    const target = DAYS.indexOf(everyDay.slice(0, 3).toLowerCase());
+    day = { days: (target - now.getDay() + 7) % 7 || 7, text }; // the coming one, a week off when today
+  }
+  if (hour === null && !day) {
+    if (!repeat) return { text: tidy(raw), due_at: null, all_day: false, repeat: "" };
+    if (repeat === "weekly" || repeat === "monthly") { // a rule needs a day to count from: today
+      const anchor = new Date(now); anchor.setHours(12, 0, 0, 0);
+      return { text: tidy(text) || tidy(raw), due_at: anchor.toISOString(), all_day: true, repeat };
+    }
+    return { text: tidy(text) || tidy(raw), due_at: null, all_day: false, repeat };
+  }
   const due = new Date(now);
   if (hour === null) {
     due.setDate(due.getDate() + (day as { days: number }).days);
     due.setHours(12, 0, 0, 0); // noon: the same calendar date in every zone within ±12 h
-    return { text: tidy(text) || tidy(raw), due_at: due.toISOString(), all_day: true };
+    return { text: tidy(text) || tidy(raw), due_at: due.toISOString(), all_day: true, repeat };
   }
   due.setHours(hour, minute, 0, 0);
   if (day) {
@@ -83,7 +111,16 @@ export function parseDue(raw: string, now: Date = new Date()): Parsed {
   } else if (due.getTime() < now.getTime() - 3_600_000) {
     due.setDate(due.getDate() + 1); // that time is already an hour gone — they mean tomorrow
   }
-  return { text: tidy(text) || tidy(raw), due_at: due.toISOString(), all_day: false };
+  return { text: tidy(text) || tidy(raw), due_at: due.toISOString(), all_day: false, repeat };
+}
+
+/** #547: the rule as a person says it — "every Monday", "every weekday", "monthly on the 3rd". */
+export function repeatLabel(repeat: Repeat, iso: string | null, now: Date = new Date()): string {
+  if (!repeat) return "";
+  const d = iso ? new Date(iso) : now;
+  if (repeat === "weekly") return `every ${d.toLocaleDateString(undefined, { weekday: "long" })}`;
+  if (repeat === "monthly") { const n = d.getDate(); const suf = n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"; return `monthly on the ${n}${suf}`; }
+  return repeat === "daily" ? "every day" : "every weekday";
 }
 
 /** "tomorrow" / "Friday" / "Fri 25 Sep" for a day; a clock time appended unless `allDay`. */

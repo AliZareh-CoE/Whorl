@@ -4,14 +4,15 @@
  *  and joins the list on its morning. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Check, Pencil, Plus, Sparkles, Trash2, GripVertical, Moon, Sun } from "lucide-react";
+import { Check, Pencil, Plus, Sparkles, Trash2, GripVertical, Moon, Sun, Repeat as RepeatIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { dayLabel, dueState, formatDue, isLater, parseDue, relativeDue } from "../dueTime";
+import { dayLabel, dueState, formatDue, isLater, parseDue, relativeDue, repeatLabel } from "../dueTime";
+import type { Repeat } from "../dueTime";
 import { ErrorState } from "../../components/ErrorState";
 import { Skeleton } from "../../components/Skeleton";
 
-type Todo = { id: number; text: string; done: boolean; done_at: string | null; position: number; due_at: string | null; all_day: boolean; project: string | null; created_at: string };
+type Todo = { id: number; text: string; done: boolean; done_at: string | null; position: number; due_at: string | null; all_day: boolean; repeat: Repeat; project: string | null; created_at: string };
 type Page<T> = { count: number; results: T[] };
 
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
@@ -38,7 +39,12 @@ export default function Today() {
     onSettled: refresh,
   });
   const remove = useMutation({ mutationFn: (id: number) => api(`/todos/${id}/`, { method: "DELETE" }), onSuccess: refresh });
-  const edit = useMutation({ mutationFn: ({ id, text: t }: { id: number; text: string }) => { const p = parseDue(t); return api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p.due_at ? p : { text: p.text }) }); }, onSuccess: refresh });
+  const edit = useMutation({ mutationFn: ({ id, text: t }: { id: number; text: string }) => { const p = parseDue(t); const body = p.due_at ? p : { text: p.text, ...(p.repeat ? { repeat: p.repeat } : {}) }; return api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); }, onSuccess: refresh });
+  // #547: "every Monday" — the rule lives on the item; ticking it spawns the next occurrence
+  const setRepeat = useMutation({
+    mutationFn: ({ id, repeat }: { id: number; repeat: Repeat }) => api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repeat }) }),
+    onSuccess: () => { setSnoozing(null); refresh(); },
+  });
   // #546: "not today" — the item moves to a later day (tomorrow / Monday / next week / weekend /
   // a date) and waits in Later; "" brings it back. A timed item keeps its clock time.
   const snooze = useMutation({
@@ -149,7 +155,7 @@ export default function Today() {
         )}
         <ul className="divide-y divide-stone-100 dark:divide-stone-800">
           {open.map((t, i) => <Row key={t.id} t={t} active={i === cursor} editing={editing === t.id} onFocus={() => setCursor(i)} onEdit={() => setEditing(t.id)} onSave={(text) => { setEditing(null); if (text.trim() && text.trim() !== t.text) edit.mutate({ id: t.id, text: text.trim() }); }} onToggle={() => toggle.mutate({ id: t.id, done: true })} onRemove={() => remove.mutate(t.id)}
-            snoozing={snoozing === t.id} onSnoozeMenu={(on) => setSnoozing(on ? t.id : null)} onSnooze={(until) => snooze.mutate({ id: t.id, until })}
+            snoozing={snoozing === t.id} onSnoozeMenu={(on) => setSnoozing(on ? t.id : null)} onSnooze={(until) => snooze.mutate({ id: t.id, until })} onRepeat={(repeat) => setRepeat.mutate({ id: t.id, repeat })}
             drag={{
               dragging: drag.id === t.id,
               over: drag.over === i ? (drag.after ? "after" : "before") : null,
@@ -172,7 +178,7 @@ export default function Today() {
               <div key={g.label} data-testid="later-group">
                 <p className="border-b border-stone-100 bg-stone-50/60 px-4 py-1.5 text-[11px] font-medium capitalize text-stone-500 dark:border-stone-800 dark:bg-stone-800/40 dark:text-stone-400" data-testid="later-day">{g.label}</p>
                 <ul className="divide-y divide-stone-100 dark:divide-stone-800">
-                  {g.items.map((t) => <LaterRow key={t.id} t={t} snoozing={snoozing === t.id} onSnoozeMenu={(on) => setSnoozing(on ? t.id : null)} onSnooze={(until) => snooze.mutate({ id: t.id, until })} onToggle={() => toggle.mutate({ id: t.id, done: true })} onRemove={() => remove.mutate(t.id)} />)}
+                  {g.items.map((t) => <LaterRow key={t.id} t={t} snoozing={snoozing === t.id} onSnoozeMenu={(on) => setSnoozing(on ? t.id : null)} onSnooze={(until) => snooze.mutate({ id: t.id, until })} onRepeat={(repeat) => setRepeat.mutate({ id: t.id, repeat })} onToggle={() => toggle.mutate({ id: t.id, done: true })} onRemove={() => remove.mutate(t.id)} />)}
                 </ul>
               </div>
             ))}
@@ -191,7 +197,7 @@ export default function Today() {
           </ul>
         </section>
       )}
-      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · s pushes to tomorrow, S picks a day · ⌥↑/↓ or drag reorders · n new · “at 3pm” sets a time, “on Friday” a day. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
+      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · s pushes to tomorrow, S picks a day · ⌥↑/↓ or drag reorders · n new · “at 3pm” sets a time, “on Friday” a day, “every Monday” a rule. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
     </div>
   );
 }
@@ -217,9 +223,16 @@ function DueChip({ iso, allDay }: { iso: string; allDay: boolean }) {
 }
 
 const SNOOZE_OPTIONS: [string, string][] = [["tomorrow", "Tomorrow"], ["monday", "Monday"], ["next-week", "Next week"], ["weekend", "Weekend"]];
+const REPEAT_OPTIONS: [Repeat, string][] = [["", "Never"], ["daily", "Daily"], ["weekdays", "Weekdays"], ["weekly", "Weekly"], ["monthly", "Monthly"]];
+
+/** #547: the "↻ every Monday" chip on a repeating row. */
+function RepeatChip({ t }: { t: Todo }) {
+  if (!t.repeat) return null;
+  return <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-600 dark:text-indigo-300" data-testid="repeat-chip" data-repeat={t.repeat} title="Ticking it puts the next one in Later"><RepeatIcon className="h-2.5 w-2.5" aria-hidden="true" />{repeatLabel(t.repeat, t.due_at)}</span>;
+}
 
 /** #546: the "not today" menu — four quick days and a date picker; on a Later row also "Today". */
-function SnoozeMenu({ onPick, onClose, later }: { onPick: (until: string) => void; onClose: () => void; later?: boolean }) {
+function SnoozeMenu({ onPick, onClose, later, repeat, onRepeat }: { onPick: (until: string) => void; onClose: () => void; later?: boolean; repeat?: Repeat; onRepeat?: (r: Repeat) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const away = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
@@ -231,33 +244,43 @@ function SnoozeMenu({ onPick, onClose, later }: { onPick: (until: string) => voi
   const min = new Date(); min.setDate(min.getDate() + 1);
   const minIso = `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}-${String(min.getDate()).padStart(2, "0")}`; // local, not UTC
   return (
-    <div ref={ref} data-testid="snooze-menu" className="absolute right-3 top-full z-20 mt-1 flex flex-wrap items-center gap-1 rounded-xl border border-stone-200 bg-white p-1.5 shadow-lg dark:border-stone-700 dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
-      {later && <button type="button" data-testid="snooze-option" onClick={() => onPick("")} className="rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">Today</button>}
-      {SNOOZE_OPTIONS.map(([v, label]) => <button key={v} type="button" data-testid="snooze-option" data-until={v} onClick={() => onPick(v)} className="rounded-lg px-2 py-1 text-xs text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800">{label}</button>)}
-      <input type="date" aria-label="Pick a day" data-testid="snooze-date" min={minIso} onChange={(e) => { if (e.target.value) onPick(e.target.value); }} className="rounded-lg border border-stone-200 bg-transparent px-1.5 py-0.5 text-xs text-stone-600 dark:border-stone-700 dark:text-stone-300" />
+    <div ref={ref} data-testid="snooze-menu" className="absolute right-3 top-full z-20 mt-1 w-max max-w-[calc(100vw-2rem)] rounded-xl border border-stone-200 bg-white p-1.5 shadow-lg dark:border-stone-700 dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="px-1 text-[10px] uppercase tracking-wider text-stone-400">Day</span>
+        {later && <button type="button" data-testid="snooze-option" onClick={() => onPick("")} className="rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">Today</button>}
+        {SNOOZE_OPTIONS.map(([v, label]) => <button key={v} type="button" data-testid="snooze-option" data-until={v} onClick={() => onPick(v)} className="rounded-lg px-2 py-1 text-xs text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800">{label}</button>)}
+        <input type="date" aria-label="Pick a day" data-testid="snooze-date" min={minIso} onChange={(e) => { if (e.target.value) onPick(e.target.value); }} className="rounded-lg border border-stone-200 bg-transparent px-1.5 py-0.5 text-xs text-stone-600 dark:border-stone-700 dark:text-stone-300" />
+      </div>
+      {onRepeat && (
+        <div className="mt-1 flex flex-wrap items-center gap-1 border-t border-stone-100 pt-1 dark:border-stone-800" data-testid="repeat-row">
+          <span className="px-1 text-[10px] uppercase tracking-wider text-stone-400">Repeat</span>
+          {REPEAT_OPTIONS.map(([v, label]) => <button key={v || "never"} type="button" data-testid="repeat-option" data-repeat={v} onClick={() => onRepeat(v)} className={`rounded-lg px-2 py-1 text-xs ${(repeat ?? "") === v ? "bg-indigo-500/10 font-medium text-indigo-600 dark:text-indigo-300" : "text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800"}`}>{label}</button>)}
+        </div>
+      )}
     </div>
   );
 }
 
 /** #546: a row in Later — quieter than today's, with "Today" to bring it back. */
-function LaterRow({ t, snoozing, onSnoozeMenu, onSnooze, onToggle, onRemove }: { t: Todo; snoozing: boolean; onSnoozeMenu: (on: boolean) => void; onSnooze: (until: string) => void; onToggle: () => void; onRemove: () => void }) {
+function LaterRow({ t, snoozing, onSnoozeMenu, onSnooze, onRepeat, onToggle, onRemove }: { t: Todo; snoozing: boolean; onSnoozeMenu: (on: boolean) => void; onSnooze: (until: string) => void; onRepeat: (r: Repeat) => void; onToggle: () => void; onRemove: () => void }) {
   return (
     <li className="group relative flex items-center gap-3 px-4 py-2" data-testid="later-row">
       <button type="button" onClick={onToggle} aria-label={`Mark “${t.text}” done`} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-stone-200 transition-all hover:border-indigo-400 dark:border-stone-700" />
       <span className="min-w-0 flex-1 text-sm text-stone-600 dark:text-stone-300">{t.text}</span>
+      <RepeatChip t={t} />
       {!t.all_day && t.due_at && <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] tabular-nums text-stone-500 dark:bg-stone-800 dark:text-stone-300" data-testid="later-time">{new Date(t.due_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>}
       {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
       <button type="button" onClick={() => onSnooze("")} aria-label="Bring back to today" title="Today" data-testid="wake-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-amber-500 group-hover:opacity-100 dark:text-stone-600"><Sun className="h-3.5 w-3.5" aria-hidden="true" /></button>
       <button type="button" onClick={() => onSnoozeMenu(!snoozing)} aria-label="Another day" title="Another day" data-testid="snooze-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Moon className="h-3.5 w-3.5" aria-hidden="true" /></button>
       <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
-      {snoozing && <SnoozeMenu later onPick={onSnooze} onClose={() => onSnoozeMenu(false)} />}
+      {snoozing && <SnoozeMenu later onPick={onSnooze} onClose={() => onSnoozeMenu(false)} repeat={t.repeat} onRepeat={onRepeat} />}
     </li>
   );
 }
 
 type DragProps = { dragging: boolean; over: "before" | "after" | null; onStart: (e: React.DragEvent<HTMLLIElement>) => void; onOver: (e: React.DragEvent<HTMLLIElement>) => void; onDrop: (e: React.DragEvent<HTMLLIElement>) => void; onEnd: () => void };
 
-function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove, drag, snoozing, onSnoozeMenu, onSnooze }: { t: Todo; active: boolean; editing: boolean; onFocus: () => void; onEdit: () => void; onSave: (text: string) => void; onToggle: () => void; onRemove: () => void; drag?: DragProps; snoozing?: boolean; onSnoozeMenu?: (on: boolean) => void; onSnooze?: (until: string) => void }) {
+function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove, drag, snoozing, onSnoozeMenu, onSnooze, onRepeat }: { t: Todo; active: boolean; editing: boolean; onFocus: () => void; onEdit: () => void; onSave: (text: string) => void; onToggle: () => void; onRemove: () => void; drag?: DragProps; snoozing?: boolean; onSnoozeMenu?: (on: boolean) => void; onSnooze?: (until: string) => void; onRepeat?: (r: Repeat) => void }) {
   const [draft, setDraft] = useState(t.text);
   useEffect(() => { if (editing) setDraft(t.text); }, [editing, t.text]);
   const old = t.done || t.due_at ? null : age(t.created_at); // #546: a dated item's chip is its day, never its age
@@ -282,12 +305,13 @@ function Row({ t, active, editing, onFocus, onEdit, onSave, onToggle, onRemove, 
         <span onDoubleClick={t.done ? undefined : onEdit} className={`min-w-0 flex-1 text-base transition-colors ${t.done ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-100"}`}>{t.text}</span>
       )}
       {old && <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300" title="Carried over from an earlier day">{old}</span>}
+      {!t.done && <RepeatChip t={t} />}
       {!t.done && t.due_at && <DueChip iso={t.due_at} allDay={t.all_day} />}
       {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
       {!t.done && !editing && <button type="button" onClick={onEdit} aria-label="Edit" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></button>}
       {!t.done && !editing && onSnoozeMenu && <button type="button" onClick={() => onSnoozeMenu(!snoozing)} aria-label="Not today" title="Not today — push to a later day (s: tomorrow)" data-testid="snooze-button" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-indigo-500 group-hover:opacity-100 dark:text-stone-600"><Moon className="h-3.5 w-3.5" aria-hidden="true" /></button>}
       <button type="button" onClick={onRemove} aria-label="Delete" className="shrink-0 text-stone-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
-      {snoozing && onSnooze && onSnoozeMenu && <SnoozeMenu onPick={onSnooze} onClose={() => onSnoozeMenu(false)} />}
+      {snoozing && onSnooze && onSnoozeMenu && <SnoozeMenu onPick={onSnooze} onClose={() => onSnoozeMenu(false)} repeat={t.repeat} onRepeat={onRepeat} />}
     </li>
   );
 }

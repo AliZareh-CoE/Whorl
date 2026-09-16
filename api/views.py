@@ -2939,7 +2939,8 @@ class TodoItemViewSet(AtlasViewSet):
         before = serializer.instance.done
         item = serializer.save()
         if item.done != before:
-            item.mark(item.done)  # stamps/clears done_at
+            # stamps/clears done_at; #547: spawns (or takes back) the next occurrence
+            item.spawned = item.mark(item.done, was=before)
 
     @extend_schema(
         request=None,

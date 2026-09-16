@@ -6,14 +6,16 @@ Day-only items ("review the draft on Friday") carry `all_day=True` and `due_at` 
 of that day: noon keeps the same calendar date in every zone within twelve hours of UTC, so
 the server's UTC boundary and the browser's local one agree."""
 
+import calendar
 from datetime import date, datetime, time, timedelta
 
-from django.db.models import Q, QuerySet
+from django.db.models import Max, Q, QuerySet
 from django.utils import timezone
 
 from core.models import TodoItem
 
 NOON = time(12, 0)
+REPEATS = ("daily", "weekdays", "weekly", "monthly")
 
 
 def day_end(today: date | None = None) -> datetime:
@@ -75,3 +77,95 @@ def snooze(item: TodoItem, until: str | date | None, today: date | None = None) 
         item.due_at, item.all_day = day_instant(day), True
     item.save(update_fields=["due_at", "all_day", "updated_at"])
     return item
+
+
+# ---- #547: repeating items ---------------------------------------------------------------
+
+
+def _add_months(day: date, months: int) -> date:
+    """The same day-of-month `months` on, clamped to the month's length (31 Jan → 28 Feb)."""
+    month0 = day.month - 1 + months
+    year = day.year + month0 // 12
+    month = month0 % 12 + 1
+    return date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
+
+
+def advance(day: date, repeat: str) -> date:
+    """The next occurrence's day after `day` for a repeat rule."""
+    if repeat == "daily":
+        return day + timedelta(days=1)
+    if repeat == "weekdays":
+        step = {4: 3, 5: 2}.get(day.weekday(), 1)  # Fri → Mon, Sat → Mon
+        return day + timedelta(days=step)
+    if repeat == "weekly":
+        return day + timedelta(days=7)
+    if repeat == "monthly":
+        return _add_months(day, 1)
+    raise ValueError(f"unknown repeat rule {repeat!r}")
+
+
+def next_due(item: TodoItem, today: date | None = None) -> datetime:
+    """When the occurrence after `item` is due: advanced from the item's own day (today when it
+    has none) and kept advancing until it lies after today, so a chain three weeks behind
+    spawns one successor ahead, not three stale ones. A timed item keeps its clock time
+    (stored in UTC — a DST change shifts the local hour by one; the server has no zone to
+    correct with), an all-day one stays at noon."""
+    today = today or timezone.localdate()
+    if item.due_at is None or item.all_day:
+        day = timezone.localtime(item.due_at).date() if item.due_at else today
+        day = advance(day, item.repeat)
+        while day <= today:
+            day = advance(day, item.repeat)
+        return day_instant(day)
+    local = timezone.localtime(item.due_at)
+    day = advance(local.date(), item.repeat)
+    while day <= today:
+        day = advance(day, item.repeat)
+    return local.replace(year=day.year, month=day.month, day=day.day)
+
+
+def spawn_next(item: TodoItem, today: date | None = None) -> TodoItem | None:
+    """Create the next occurrence of a ticked repeating item — once: an open successor that
+    already exists is returned instead. The new row goes to the bottom of the list and lands
+    in Today or Later by the usual boundary."""
+    if not item.repeat:
+        return None
+    existing = item.repeats.filter(done=False).first()
+    if existing is not None:
+        return existing
+    top = TodoItem.objects.aggregate(m=Max("position"))["m"] or 0
+    return TodoItem.objects.create(
+        text=item.text,
+        project=item.project,
+        position=top + 1,
+        due_at=next_due(item, today),
+        all_day=item.due_at is None or item.all_day,
+        repeat=item.repeat,
+        repeat_of=item,
+    )
+
+
+def unspawn(item: TodoItem) -> int:
+    """An untick takes the successor back while it is still untouched (open, same text).
+    An edited or ticked successor is the owner's now and stays."""
+    deleted, _ = item.repeats.filter(done=False, text=item.text).delete()
+    return deleted
+
+
+def repeat_label(item: TodoItem) -> str:
+    """ "every Monday" / "every weekday" / "every day" / "monthly on the 3rd" — for rows and Claude."""
+    if not item.repeat:
+        return ""
+    if item.repeat == "weekly":
+        day = timezone.localtime(item.due_at) if item.due_at else timezone.localtime()
+        return f"every {day.strftime('%A')}"
+    if item.repeat == "monthly":
+        day = timezone.localtime(item.due_at).day if item.due_at else timezone.localdate().day
+        return f"monthly on the {day}{_ordinal(day)}"
+    return {"daily": "every day", "weekdays": "every weekday"}[item.repeat]
+
+
+def _ordinal(n: int) -> str:
+    if 11 <= n % 100 <= 13:
+        return "th"
+    return {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")

@@ -87,7 +87,7 @@ def test_ui_wiring():
 
 
 NODE_CHECK = """
-import { parseDue, nextDue, dueState, relativeDue, isLater, dayLabel, formatDue } from "%s";
+import { parseDue, nextDue, dueState, relativeDue, isLater, dayLabel, formatDue, repeatLabel } from "%s";
 const now = new Date(2026, 8, 7, 10, 0, 0);
 const t0 = now.getTime();
 const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) { console.error("FAIL", m, a, b); process.exit(1); } };
@@ -114,6 +114,14 @@ eq(isLater(p.due_at, now), true, "Friday is later"); eq(isLater(new Date(2026, 8
 eq(dayLabel(p.due_at, now), "Friday", "day label"); eq(dayLabel(new Date(2026, 8, 8, 12).toISOString(), now), "tomorrow", "tomorrow label");
 eq(formatDue(new Date(2026, 8, 8, 12).toISOString(), true, now), "tomorrow", "all-day chip has no clock");
 eq(nextDue([{ id: 9, done: false, all_day: true, due_at: new Date(t0 + 30 * 60e3).toISOString() }], t0), null, "the nudge skips all-day items");
+// #547: repeat rules, matched before the day phrases (now is Monday 7 Sep 2026)
+p = parseDue("Prep the agenda every Monday", now); eq(p.text, "Prep the agenda", "every Monday stripped"); eq([p.repeat, new Date(p.due_at).getDate(), p.all_day], ["weekly", 14, true], "weekly, the coming Monday (a week off when today)");
+p = parseDue("Water the plants every day", now); eq([p.repeat, p.due_at], ["daily", null], "daily with no day is today's");
+p = parseDue("Stand-up every weekday at 9am", now); eq([p.repeat, new Date(p.due_at).getHours(), p.all_day], ["weekdays", 9, false], "rule + time");
+p = parseDue("Backup the drive monthly", now); eq([p.repeat, new Date(p.due_at).getDate()], ["monthly", 7], "monthly with no day anchors today");
+p = parseDue("Review the plan weekly on Friday", now); eq([p.repeat, new Date(p.due_at).getDate()], ["weekly", 11], "weekly + a day phrase");
+eq(parseDue("Every day counts", now).repeat, "daily", "sentence-initial");
+eq(repeatLabel("weekly", new Date(2026, 8, 21, 12).toISOString()), "every Monday", "label"); eq(repeatLabel("monthly", new Date(2026, 9, 3, 12).toISOString()), "monthly on the 3rd", "ordinal"); eq(repeatLabel("", null), "", "none");
 const t = now.getTime();
 const items = [{ id: 1, done: false, due_at: new Date(t + 3 * 3600e3).toISOString() }, { id: 2, done: false, due_at: new Date(t + 30 * 60e3).toISOString() }, { id: 3, done: true, due_at: new Date(t + 5 * 60e3).toISOString() }, { id: 4, done: false, due_at: new Date(t - 13 * 3600e3).toISOString() }];
 eq(nextDue(items, t)?.id, 2, "nearest within two hours, ignoring done and stale");

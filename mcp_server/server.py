@@ -694,21 +694,25 @@ def format_citations(reference_ids: list[int], style: str = "apa") -> dict:
 @mcp.tool()
 def list_todos(include_done: bool = False, when: str = "") -> dict:
     """The owner's personal Today list (plain to-dos, not plan tasks). Open items by default;
-    `when` = "today" or "later" narrows to today's list or to what waits for a later day."""
+    `when` "today" or "later" narrows to today's list or what waits for a later day."""
     return client.list_todos(include_done, when)
 
 
 @mcp.tool()
-def add_todo(text: str, project: str = "", due_at: str = "", due: str = "") -> dict:
+def add_todo(
+    text: str, project: str = "", due_at: str = "", due: str = "", repeat: str = ""
+) -> dict:
     """Put something on the owner's Today list, optionally tagged with a project slug. `due_at`
-    (ISO-8601 with offset) sets a clock time — the app nudges two hours before; `due` (tomorrow,
-    monday, next-week, weekend, YYYY-MM-DD) makes an all-day item that waits in Later."""
-    return client.add_todo(text, project or None, due_at or None, due or None)
+    (ISO-8601 with offset) sets a clock time; `due` (tomorrow, monday, next-week, weekend,
+    YYYY-MM-DD) an all-day later day; `repeat` (daily, weekdays, weekly, monthly) spawns the
+    next occurrence when ticked."""
+    return client.add_todo(text, project or None, due_at or None, due or None, repeat or None)
 
 
 @mcp.tool()
 def complete_todo(todo_id: int, done: bool = True) -> dict:
-    """Tick (or untick) an item on the Today list. Find ids with list_todos."""
+    """Tick or untick a Today item (ids from list_todos). A repeating item answers with `next`,
+    the occurrence spawned."""
     return client.complete_todo(todo_id, done)
 
 

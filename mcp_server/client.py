@@ -722,7 +722,11 @@ def list_todos(include_done: bool = False, when: str = ""):
 
 
 def add_todo(
-    text: str, project: str | None = None, due_at: str | None = None, due: str | None = None
+    text: str,
+    project: str | None = None,
+    due_at: str | None = None,
+    due: str | None = None,
+    repeat: str | None = None,
 ):
     payload = {"text": text}
     if project:
@@ -731,6 +735,8 @@ def add_todo(
         payload["due_at"] = due_at
     if due:
         payload["due"] = due  # a later day, all-day: tomorrow / monday / next-week / YYYY-MM-DD
+    if repeat:
+        payload["repeat"] = repeat  # daily / weekdays / weekly / monthly
     return _request("POST", "/todos/", json=payload)
 
 

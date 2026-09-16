@@ -130,11 +130,11 @@ export default function CommandBar() {
 
   // backlog #300: "todo: buy the cheaper eye-tracker" → the Today list, scoped to the project you are in
   const doTodo = useCallback(async (raw: string) => {
-    const { text, due_at, all_day } = parseDue(raw); // #431: "todo: call Sam at 3pm" carries the time; #546: "on Friday" the day
+    const { text, due_at, all_day, repeat } = parseDue(raw); // #431: "todo: call Sam at 3pm" carries the time; #546: "on Friday" the day; #547: "every Monday" the rule
     await api("/todos/", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
-      body: JSON.stringify({ text, due_at, all_day, project: slug ?? null }),
+      body: JSON.stringify({ text, due_at, all_day, repeat, project: slug ?? null }),
     });
     queryClient.invalidateQueries({ queryKey: ["todos"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });

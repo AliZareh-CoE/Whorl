@@ -107,18 +107,47 @@ class TodoItem(TimeStampedModel):
         related_name="todo_items",
     )
 
+    # #547: "prep the agenda every Monday" — ticking this occurrence spawns the next one (the
+    # done row stays in Done); one open occurrence per chain at any time.
+    class Repeat(models.TextChoices):
+        NONE = "", "Never"
+        DAILY = "daily", "Every day"
+        WEEKDAYS = "weekdays", "Every weekday"
+        WEEKLY = "weekly", "Every week"
+        MONTHLY = "monthly", "Every month"
+
+    repeat = models.CharField(max_length=10, choices=Repeat.choices, blank=True, default="")
+    repeat_of = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,  # clearing the done row must not take next week's with it
+        related_name="repeats",
+    )
+
     class Meta:
         ordering = ["done", "position", "id"]
 
     def __str__(self):
         return self.text
 
-    def mark(self, done: bool) -> None:
+    def mark(self, done: bool, *, was: bool | None = None) -> "TodoItem | None":
+        """Tick or untick. Ticking a repeating item spawns its next occurrence (returned);
+        unticking removes that occurrence again while it is still untouched. `was` is the
+        state before, for callers whose serializer already saved the new one."""
         from django.utils import timezone
 
+        from core.todos import spawn_next, unspawn
+
+        was = self.done if was is None else was
         self.done = done
         self.done_at = timezone.now() if done else None
         self.save(update_fields=["done", "done_at", "updated_at"])
+        if done and not was and self.repeat:
+            return spawn_next(self)
+        if was and not done:
+            unspawn(self)
+        return None
 
 
 class AccessEvent(models.Model):

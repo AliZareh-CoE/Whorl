@@ -21,7 +21,9 @@ Every object lives in exactly one project (a slug like `attention-and-memory`).
    deadline or reading item. Say why each one, in one line.
 4. When the user agrees, `add_todo` for each (short imperative text). Do not add more.
    Something for another day gets `due` ("tomorrow", "monday", a date) and waits in Later;
-   "not today" on an existing item is `snooze_todo` (`until=""` brings it back).
+   "not today" on an existing item is `snooze_todo` (`until=""` brings it back). Something
+   that comes round ("lab meeting prep every Monday") gets `repeat` (daily / weekdays /
+   weekly / monthly) — ticking it spawns the next occurrence, so add it once.
 
 ## Inbox triage
 

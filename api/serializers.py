@@ -1,4 +1,5 @@
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field, inline_serializer
 from rest_framework import serializers
 
@@ -617,6 +618,19 @@ class TodoItemSerializer(serializers.ModelSerializer):
         help_text="A later day: tomorrow, monday, next-week, weekend or YYYY-MM-DD "
         "(all-day; '' clears the day).",
     )
+    repeat = serializers.ChoiceField(
+        choices=TodoItem.Repeat.choices,
+        required=False,
+        allow_blank=True,
+        help_text="daily, weekdays, weekly or monthly: ticking the item spawns the next "
+        "occurrence, dated from this one's day (today, all-day, when it has none).",
+    )
+    repeat_label = serializers.SerializerMethodField(
+        help_text='"every Monday", "every weekday", "monthly on the 3rd"'
+    )
+    next = serializers.SerializerMethodField(
+        help_text="On a tick of a repeating item: the occurrence it spawned {id, due_at}."
+    )
 
     class Meta:
         model = TodoItem
@@ -629,11 +643,24 @@ class TodoItemSerializer(serializers.ModelSerializer):
             "due_at",
             "all_day",
             "due",
+            "repeat",
+            "repeat_label",
+            "repeat_of",
+            "next",
             "project",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["done_at"]
+        read_only_fields = ["done_at", "repeat_of"]
+
+    def get_repeat_label(self, obj) -> str:
+        from core.todos import repeat_label
+
+        return repeat_label(obj)
+
+    def get_next(self, obj) -> dict | None:
+        spawned = getattr(obj, "spawned", None)
+        return {"id": spawned.id, "due_at": spawned.due_at} if spawned else None
 
     def validate(self, attrs):
         from core.todos import day_instant, due_day
@@ -647,6 +674,16 @@ class TodoItemSerializer(serializers.ModelSerializer):
             attrs["all_day"] = day is not None
         elif attrs.get("due_at") is None and "due_at" in attrs:
             attrs["all_day"] = False
+        # #547: a weekly / monthly rule needs a day to count from — today, all-day, when none
+        repeat = attrs.get("repeat") or (self.instance.repeat if self.instance else "")
+        due_at = (
+            attrs["due_at"]
+            if "due_at" in attrs
+            else (self.instance.due_at if self.instance else None)
+        )
+        if repeat in ("weekly", "monthly") and due_at is None:
+            attrs["due_at"] = day_instant(timezone.localdate())
+            attrs["all_day"] = True
         return attrs
 
 

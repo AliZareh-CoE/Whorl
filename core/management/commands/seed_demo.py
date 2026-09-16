@@ -902,6 +902,17 @@ class Command(BaseCommand):
                 "all_day": True,
             },
         )
+        # #547: a repeating item — the lab meeting agenda, every Monday
+        TodoItem.objects.get_or_create(
+            text="Prep the lab meeting agenda",
+            defaults={
+                "position": 6,
+                "project": project,
+                "due_at": day_instant(due_day("monday")),
+                "all_day": True,
+                "repeat": "weekly",
+            },
+        )
         TodoItem.objects.get_or_create(
             text="Book the eye-tracker slot",
             defaults={
