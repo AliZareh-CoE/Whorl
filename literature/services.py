@@ -321,6 +321,12 @@ def render_bibtex(reference: Reference, key_override: str = "") -> str:
     if reference.venue:
         venue_field = "booktitle" if reference.entry_type == "inproceedings" else "journal"
         fields[venue_field] = reference.venue
+    # volume / issue / pages live in extra (Crossref, OpenAlex, a parsed arXiv journal_ref)
+    extra = reference.extra if isinstance(reference.extra, dict) else {}
+    for name, key in (("volume", "volume"), ("number", "issue"), ("pages", "pages")):
+        value = str(extra.get(key) or "").strip()
+        if value:
+            fields[name] = value
     if reference.doi:
         fields["doi"] = reference.doi
     if reference.url:

@@ -209,6 +209,12 @@ class TestBibtexImportExport:
         assert "@article{curie2021radium," in bibtex
         assert "Curie, Marie" in bibtex
         assert "doi = {10.1000/r1}" in bibtex
+        assert "volume" not in bibtex and "pages" not in bibtex
+        # #545: volume / issue / pages from extra (Crossref, OpenAlex, a parsed journal_ref)
+        ref.extra = {"volume": "12", "issue": "3", "pages": "100-120"}
+        bibtex = services.render_bibtex(ref)
+        assert "volume = {12}" in bibtex and "number = {3}" in bibtex
+        assert "pages = {100-120}" in bibtex
 
     def test_export_project_bib(self):
         from .factories import ProjectReferenceFactory

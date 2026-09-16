@@ -234,7 +234,8 @@ def _store(reference: Reference, found: dict | None, now) -> None:
         fields.append("published_venue")
     if found:
         # the arXiv revision the published version matches, and the journal_ref line taken
-        # apart (volume, pages, year) for the upgrade and the bibliography
+        # apart (volume, pages, year) for the offline upgrade, which puts them into extra for
+        # the .bib export and the formatted citations
         extra = dict(reference.extra)
         if found.get("version"):
             extra["arxiv_version"] = found["version"]

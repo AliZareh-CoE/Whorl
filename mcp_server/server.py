@@ -241,7 +241,7 @@ def check_preprints(
     """Ask arXiv and Semantic Scholar whether the library's arXiv preprints have been published,
     and store the answer. `reference_ids` (≤ 50) checks those; without, the stale preprints up
     to `limit`. Returns `checked`, `published` [{id, bibtex_key, title, arxiv_id, published_doi,
-    published_venue}], `errors`, `skipped` (not a preprint) and `status`. Then upgrade_preprint
+    published_venue, arxiv_version}], `errors`, `skipped` (not a preprint) and `status`. Then upgrade_preprint
     switches a paper to its published version; browse_library(published_available=True) lists
     the candidates."""
     return client.check_preprints(reference_ids, days, limit)
