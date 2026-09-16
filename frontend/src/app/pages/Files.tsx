@@ -872,7 +872,7 @@ export default function Files() {
             Explorer
           </div>
           {tagsInUse.length > 0 && (
-            <div className="mb-1.5 flex flex-wrap items-center gap-1 px-1" data-testid="tag-filter">
+            <div className="sticky top-9 z-10 -mx-2 mb-1.5 flex flex-wrap items-center gap-1 border-b border-stone-100 bg-white px-3 pb-1.5 dark:border-stone-800 dark:bg-stone-900" data-testid="tag-filter">
               {tagsInUse.map((t) => (
                 <button
                   key={t.id}

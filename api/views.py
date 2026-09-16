@@ -1319,7 +1319,8 @@ class DocumentViewSet(AtlasViewSet):
         queryset = super().get_queryset()
         tag = (self.request.query_params.get("tag") or "").strip()[:60]  # #554
         if tag:
-            queryset = queryset.filter(tags__name=tag)
+            # distinct: two same-named tags (legacy, from different projects) would join twice
+            queryset = queryset.filter(tags__name=tag).distinct()
         return queryset
 
     def _guard(self, doc):

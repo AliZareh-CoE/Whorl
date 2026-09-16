@@ -167,6 +167,8 @@ def test_explorer_reads_and_edits_tags_and_description():
     assert "body: { tags: tags.map((t) => t.id) }" in files
     # the filter row: tags in use with counts; folders keep only matching descendants; open
     assert 'data-testid="tag-filter"' in files and 'data-testid="tag-filter-count"' in files
+    # the row stays visible under the sticky header while a long tree scrolls
+    assert 'className="sticky top-9 z-10 -mx-2 mb-1.5 flex flex-wrap' in files
     assert "const isOpen = (id: number) => expanded[id] ?? !!tagFilter;" in files
     assert "if (tagFilter && !keep.has(f.id)) continue;" in files
     # rows and quick-open
