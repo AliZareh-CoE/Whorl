@@ -416,9 +416,10 @@ def list_prompts(query: str = "") -> dict:
 
 @mcp.tool()
 def get_prompt(prompt_id: int, values: dict | None = None) -> dict:
-    """Fetch one saved prompt by id from list_prompts — or, with `values`, its rendered text:
+    """Fetch one saved prompt by id from list_prompts with its rendered `text`; `values` maps
     a name → text, or the id of the reference / note / project / manuscript a typed variable
-    (`{{paper:reference}}`) is picked from, which expands to that row's title and abstract."""
+    (`{{paper:reference}}`) is picked from, which expands to that row's title and abstract.
+    Counts as a use (the gallery's Recent strip; list_prompts carries use_count)."""
     return client.get_prompt(prompt_id, values)
 
 

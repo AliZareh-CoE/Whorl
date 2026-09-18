@@ -5,6 +5,9 @@ one place that reads rows, shared by the API's render endpoint, the SPA's Copy a
 
 from __future__ import annotations
 
+from django.db.models import F
+from django.utils import timezone
+
 from core.ids import MAX_PK
 
 from .models import Prompt, parse_variables, render_prompt
@@ -92,3 +95,15 @@ def render_with_data(prompt: Prompt, values: dict | None) -> dict:
             filled[var["name"]] = text
         out.append({**var, "value": str(raw if raw is not None else ""), "label": label or ""})
     return {"text": render_prompt(prompt.body or "", filled), "variables": out}
+
+
+def record_use(prompt: Prompt) -> Prompt:
+    """#563: one more use, now — called after a render succeeded (a 404 for a missing row
+    does not count). An F() increment survives two copies landing at once; save() rather
+    than update() so the ETag data version bumps; update_fields keeps auto_now off
+    updated_at, so "used" stays distinct from "edited"."""
+    prompt.use_count = F("use_count") + 1
+    prompt.last_used_at = timezone.now()
+    prompt.save(update_fields=["use_count", "last_used_at"])
+    prompt.refresh_from_db(fields=["use_count", "last_used_at"])
+    return prompt

@@ -1,14 +1,25 @@
 /** Prompt gallery with {{variable}} fill-ins (SPA slice 8) — and, since the CRUD sweep of
- * 2026-09-06, the place to write, edit and delete prompts too. */
+ * 2026-09-06, the place to write, edit and delete prompts too. #563: each prompt remembers how
+ * often and when last it was copied; the ones you reach for sit in a Recent strip at the top. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Clock, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 import { queryGate } from "../../components/QueryBoundary";
 
-type Prompt = { id: number; title: string; body: string; tags: string };
+type Prompt = { id: number; title: string; body: string; tags: string; use_count: number; last_used_at: string | null };
+type Rendered = { text: string; use_count: number; last_used_at: string | null };
+function ago(iso: string, now: number = Date.now()): string {
+  const m = (now - new Date(iso).getTime()) / 60000;
+  if (m < 1) return "just now"; if (m < 60) return `${Math.round(m)} min ago`; if (m < 1440) return `${Math.round(m / 60)} h ago`;
+  const d = Math.round(m / 1440); return d < 30 ? `${d} d ago` : d < 365 ? `${Math.round(d / 30)} mo ago` : `${Math.round(d / 365)} y ago`;
+}
+/** #563: the last five prompts copied, most recent first — the strip above the gallery. */
+export function recentPrompts<T extends { last_used_at: string | null }>(rows: T[], limit = 5): T[] {
+  return rows.filter((p) => p.last_used_at).sort((a, b) => (b.last_used_at! < a.last_used_at! ? -1 : b.last_used_at! > a.last_used_at! ? 1 : 0)).slice(0, limit);
+}
 type Page<T> = { count: number; results: T[] };
 
 // {{name}} or {{name|default}} (#393): the default fills in unless the user types a value;
@@ -100,7 +111,7 @@ function Picker({ variable, value, onPick }: { variable: Variable; value: Value 
   );
 }
 
-function PromptCard({ prompt, items, onContextMenu }: { prompt: Prompt; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void }) {
+function PromptCard({ prompt, items, onContextMenu, onUsed, flash }: { prompt: Prompt; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void; onUsed: (r: Rendered) => void; flash: boolean }) {
   const vars = variables(prompt.body);
   const [values, setValues] = useState<Record<string, Value>>(() => loadValues(prompt.id)); // last-used values, per prompt (#393)
   const [copied, setCopied] = useState(false);
@@ -115,22 +126,28 @@ function PromptCard({ prompt, items, onContextMenu }: { prompt: Prompt; items: M
       if (val?.id != null) payload[v.name] = val.id;
       else if (val?.text?.trim()) payload[v.name] = val.text.trim();
     }
-    let text: string;
+    let rendered: Rendered;
     try {
-      text = (await api<{ text: string }>(`/prompts/${prompt.id}/render/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values: payload }) })).text;
+      rendered = await api<Rendered>(`/prompts/${prompt.id}/render/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values: payload }) });
     } catch (e) { void errorDialog("Couldn't fill in the prompt", e); return; }
-    try { await navigator.clipboard.writeText(text); } catch { void errorDialog("Couldn't copy", new Error("The clipboard is not available here.")); return; }
+    try { await navigator.clipboard.writeText(rendered.text); } catch { void errorDialog("Couldn't copy", new Error("The clipboard is not available here.")); return; }
+    onUsed(rendered); // #563: the render counted as a use — the card's chip and the Recent strip follow
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   return (
-    <article className="group rounded border border-stone-200 bg-white transition-colors hover:border-stone-300 dark:border-stone-800 dark:bg-stone-900" onContextMenu={onContextMenu} data-testid="prompt-card">
+    <article id={`prompt-${prompt.id}`} className={`group rounded border bg-white transition-colors hover:border-stone-300 dark:bg-stone-900 ${flash ? "border-indigo-400 ring-2 ring-indigo-200 dark:border-indigo-500 dark:ring-indigo-500/30" : "border-stone-200 dark:border-stone-800"}`} onContextMenu={onContextMenu} data-testid="prompt-card">
       <div className="flex items-center gap-3 px-5 py-3.5">
         <h2 className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">{prompt.title}</h2>
         {prompt.tags.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
           <span key={t} className="shrink-0 rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-500 dark:border-stone-700 dark:text-stone-400">{t}</span>
         ))}
+        {prompt.use_count > 0 && (
+          <span className="shrink-0 text-[11px] tabular-nums text-stone-400" data-testid="prompt-uses" title={prompt.last_used_at ? `Copied ${prompt.use_count} ${prompt.use_count === 1 ? "time" : "times"} · last ${ago(prompt.last_used_at)}` : undefined}>
+            used {prompt.use_count}×
+          </span>
+        )}
         <button onClick={copy}
                 className={`ml-auto shrink-0 rounded border px-2.5 py-1 text-xs font-medium transition ${
                   copied
@@ -185,6 +202,10 @@ export default function Prompts() {
   const reset = () => { setFormOpen(false); setEditing(null); setTitle(""); setTags(""); setBody(""); };
   const startEdit = (p: Prompt) => { setEditing(p); setTitle(p.title); setTags(p.tags); setBody(p.body); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["prompts"] });
+  // #563: a copy patches the list in place — no refetch, the chip and the strip move at once
+  const used = (id: number, r: Rendered) => queryClient.setQueryData<Page<Prompt>>(["prompts"], (cur) => cur && { ...cur, results: cur.results.map((p) => (p.id === id ? { ...p, use_count: r.use_count, last_used_at: r.last_used_at } : p)) });
+  const [flash, setFlash] = useState<number | null>(null);
+  const jumpTo = (id: number) => { document.getElementById(`prompt-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); setFlash(id); setTimeout(() => setFlash((f) => (f === id ? null : f)), 1600); };
   const save = useMutation({
     mutationFn: () => api(editing ? `/prompts/${editing.id}/` : "/prompts/", { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title.trim(), tags: tags.trim(), body }) }),
     onSuccess: () => { reset(); refresh(); },
@@ -203,6 +224,7 @@ export default function Prompts() {
   const rows = all.filter(
     (p) => !needle || p.title.toLowerCase().includes(needle) || p.tags.toLowerCase().includes(needle),
   );
+  const recent = needle ? [] : recentPrompts(all);
 
   return (
     <div>
@@ -219,6 +241,18 @@ export default function Prompts() {
           <button type="button" onClick={() => (formOpen ? reset() : setFormOpen(true))} className="inline-flex items-center gap-1 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium normal-case tracking-normal text-white hover:bg-indigo-700" data-testid="new-prompt">{formOpen ? "Cancel" : <><Plus className="h-4 w-4" aria-hidden="true" />New prompt</>}</button>
         </span>
       </div>
+      {recent.length > 0 && (
+        <nav className="mb-4 flex flex-wrap items-center gap-2" aria-label="Recently used prompts" data-testid="prompt-recent">
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-stone-400"><Clock className="h-3 w-3" aria-hidden="true" />Recent</span>
+          {recent.map((p) => (
+            <button key={p.id} type="button" onClick={() => jumpTo(p.id)} title={`Copied ${p.use_count}× · last ${ago(p.last_used_at!)}`}
+                    className="inline-flex max-w-xs items-center gap-1.5 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-xs text-stone-600 transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:border-indigo-500/50 dark:hover:text-indigo-300">
+              <span className="truncate">{p.title}</span>
+              <span className="shrink-0 text-[10px] tabular-nums text-stone-400">{ago(p.last_used_at!)}</span>
+            </button>
+          ))}
+        </nav>
+      )}
       {formOpen && (
         <form onSubmit={(e) => { e.preventDefault(); if (title.trim() && body.trim()) save.mutate(); }} className="mb-5 space-y-3 rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900" data-testid="prompt-form">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_16rem]">
@@ -234,7 +268,7 @@ export default function Prompts() {
       )}
 
       <div className="space-y-3">
-        {rows.map((p) => <PromptCard key={p.id} prompt={p} items={itemsFor(p)} onContextMenu={(e) => menu.open(e, itemsFor(p))} />)}
+        {rows.map((p) => <PromptCard key={p.id} prompt={p} items={itemsFor(p)} onContextMenu={(e) => menu.open(e, itemsFor(p))} onUsed={(r) => used(p.id, r)} flash={flash === p.id} />)}
         {rows.length === 0 && (
           <div className="rounded border border-dashed border-stone-300 bg-white px-4 py-12 text-center dark:border-stone-700 dark:bg-stone-900">
             <p className="text-sm font-medium text-stone-500 dark:text-stone-300">

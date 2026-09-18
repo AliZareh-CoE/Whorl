@@ -11,6 +11,10 @@ class Prompt(TimeStampedModel):
     tags = models.CharField(
         max_length=300, blank=True, help_text="Comma-separated, e.g. writing, lit-review"
     )
+    # #563: how often and when last the prompt was copied (a successful render) — the
+    # gallery's Recent strip and the "used N×" chip; a use never touches updated_at
+    use_count = models.PositiveIntegerField(default=0, editable=False)
+    last_used_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     class Meta:
         ordering = ["title"]

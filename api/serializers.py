@@ -1354,4 +1354,15 @@ class PromptSerializer(serializers.ModelSerializer):
         from prompts.models import Prompt
 
         model = Prompt
-        fields = ["id", "title", "body", "tags", "variables", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "title",
+            "body",
+            "tags",
+            "variables",
+            "use_count",
+            "last_used_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["use_count", "last_used_at"]

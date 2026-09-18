@@ -144,12 +144,17 @@ def test_mcp_get_prompt_renders_with_values(monkeypatch):
     def fake(method, path, **kw):
         calls.append((method, path, kw))
         if method == "GET":
-            return {"id": 3, "title": "Sum", "body": "{{paper:reference}}"}
-        return {"text": "Attention under load (…)", "variables": []}
+            return {"id": 3, "title": "Sum", "body": "{{paper:reference}}", "use_count": 0}
+        return {"text": "Attention under load (…)", "variables": [], "use_count": 1}
 
     monkeypatch.setattr(mcp_client, "_request", fake)
-    assert mcp_client.get_prompt(3) == {"id": 3, "title": "Sum", "body": "{{paper:reference}}"}
-    assert calls == [("GET", "/prompts/3/", {})]
+    # #563: fetching a prompt to use it renders (defaults fill) and so counts as a use
+    out = mcp_client.get_prompt(3)
+    assert out["title"] == "Sum" and out["text"].startswith("Attention") and out["use_count"] == 1
+    assert calls == [
+        ("GET", "/prompts/3/", {}),
+        ("POST", "/prompts/3/render/", {"json": {"values": {}}}),
+    ]
     out = mcp_client.get_prompt(3, {"paper": 1})
     assert out["text"].startswith("Attention") and out["title"] == "Sum"
     assert calls[-1] == ("POST", "/prompts/3/render/", {"json": {"values": {"paper": 1}}})

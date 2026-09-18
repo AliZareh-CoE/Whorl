@@ -469,13 +469,12 @@ def list_prompts(query: str = ""):
 
 
 def get_prompt(prompt_id: int, values: dict | None = None):
-    """One prompt; with `values`, the prompt plus its rendered `text` (typed fill-ins
-    expanded from their rows by the server)."""
+    """One prompt plus its rendered `text` (typed fill-ins expanded from their rows by the
+    server; defaults where nothing was given). Fetching a prompt to use it counts as a use
+    (#563), so Claude's copies show in the gallery's Recent strip like the owner's."""
     prompt = _request("GET", f"/prompts/{prompt_id}/")
-    if values:
-        rendered = _request("POST", f"/prompts/{prompt_id}/render/", json={"values": values})
-        prompt = {**prompt, **rendered}
-    return prompt
+    rendered = _request("POST", f"/prompts/{prompt_id}/render/", json={"values": values or {}})
+    return {**prompt, **rendered}
 
 
 def get_review_matrix(slug: str):

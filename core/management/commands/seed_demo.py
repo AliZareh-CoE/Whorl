@@ -1129,27 +1129,39 @@ class Command(BaseCommand):
             },
         )
 
-        for title, body, tags in [
+        for title, body, tags, uses in [
             (
                 "Summarize paper for the lit matrix",
                 "Summarize the attached paper in 5 bullets: claim, method, sample, key result, "
                 "limitation. Then say which of my review-matrix themes it speaks to.",
                 "lit-review, summarize",
+                (7, 1),
             ),
             (
                 "Summarize {{paper}} for {{venue}}",
                 "Summarize the paper below in 5 bullets aimed at {{venue|NeurIPS}} reviewers: "
                 "claim, method, sample, key result, limitation.\n\n{{paper:reference}}",
                 "lit-review, variables",
+                (12, 0),
             ),
             (
                 "Reviewer-2 pass",
                 "Act as a tough but fair Reviewer 2 on the draft below. List the three weakest "
                 "points with concrete fixes. Be specific about stats and framing.",
                 "writing, review",
+                (0, None),
             ),
         ]:
-            Prompt.objects.update_or_create(title=title, defaults={"body": body, "tags": tags})
+            prompt, created = Prompt.objects.update_or_create(
+                title=title, defaults={"body": body, "tags": tags}
+            )
+            # #563: a use count + last use so the gallery's Recent strip shows on a fresh
+            # seed; only for a prompt never used, so a re-seed never wipes real usage
+            count, days_ago = uses
+            if count and (created or not prompt.use_count):
+                prompt.use_count = count
+                prompt.last_used_at = timezone.now() - datetime.timedelta(days=days_ago)
+                prompt.save(update_fields=["use_count", "last_used_at"])
 
         from bots.models import Bot, BotRun
 

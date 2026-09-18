@@ -4401,8 +4401,9 @@ class PromptViewSet(AtlasViewSet):
         request=serializers.PromptRenderSerializer,
         responses={
             200: OpenApiResponse(
-                description="{text, variables: [{name, kind, default, value, label}]} — the "
-                "prompt with every fill-in applied"
+                description="{text, variables: [{name, kind, default, value, label}], "
+                "use_count, last_used_at} — the prompt with every fill-in applied; a "
+                "successful render counts as a use (#563)"
             ),
             400: OpenApiResponse(description="values is not an object"),
             404: OpenApiResponse(description="A typed fill-in names a row that does not exist"),
@@ -4412,20 +4413,25 @@ class PromptViewSet(AtlasViewSet):
         "reference / note / project / manuscript, which expands to its title, authors, venue "
         "and abstract (or title and body); a non-numeric value on a typed variable is used as "
         "typed. Defaults fill the rest; a fill-in with nothing keeps its bare placeholder. "
-        "Each expansion is capped at 50 000 characters.",
+        "Each expansion is capped at 50 000 characters. A successful render bumps the "
+        "prompt's `use_count` and `last_used_at` (#563), which the response carries back.",
     )
     @action(detail=True, methods=["post"])
     def render(self, request, pk=None):
-        from prompts.services import PromptError, render_with_data
+        from prompts.services import PromptError, record_use, render_with_data
 
         prompt = self.get_object()
         payload = serializers.PromptRenderSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         try:
-            return Response(render_with_data(prompt, payload.validated_data.get("values")))
+            rendered = render_with_data(prompt, payload.validated_data.get("values"))
         except PromptError as exc:
             status = 404 if str(exc).startswith("No ") else 400
             return Response({"detail": str(exc)}, status=status)
+        record_use(prompt)
+        return Response(
+            {**rendered, "use_count": prompt.use_count, "last_used_at": prompt.last_used_at}
+        )
 
 
 class NoteViewSet(AtlasViewSet):

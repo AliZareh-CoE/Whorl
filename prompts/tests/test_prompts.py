@@ -93,7 +93,7 @@ def test_mcp_client_prompt_functions(monkeypatch):
     mcp_client.list_prompts("review")
     assert "/prompts/" in calls["url"] and "q=review" in calls["url"]
     mcp_client.get_prompt(3)
-    assert calls["url"].endswith("/prompts/3/")
+    assert calls["url"].endswith("/prompts/3/render/")  # #563: fetching to use counts as a use
 
 
 class TestPromptVariables:
