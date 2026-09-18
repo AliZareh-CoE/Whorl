@@ -1337,8 +1337,17 @@ class ManuscriptSerializer(serializers.ModelSerializer):
         return clean_limits(value)
 
 
+class PromptRenderSerializer(serializers.Serializer):
+    values = serializers.DictField(
+        required=False,
+        help_text="variable name → text, or the id of the reference / note / project / "
+        "manuscript a typed variable is picked from",
+    )
+
+
 class PromptSerializer(serializers.ModelSerializer):
-    # #393: the placeholders with their defaults, so MCP clients can fill a prompt correctly
+    # #393: the placeholders with their defaults (+ #562 their kind), so MCP clients can fill
+    # a prompt correctly
     variables = serializers.ListField(child=serializers.DictField(), read_only=True)
 
     class Meta:

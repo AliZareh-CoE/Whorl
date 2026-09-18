@@ -124,9 +124,9 @@ def test_variables_carry_defaults_and_render(db):
         body="Dear {{editor|Editor}}, our paper for {{venue}} ({{venue|Nature}}) by {{author}}.",
     )
     assert prompt.variables == [
-        {"name": "editor", "default": "Editor"},
-        {"name": "venue", "default": "Nature"},
-        {"name": "author", "default": ""},
+        {"name": "editor", "kind": "text", "default": "Editor"},
+        {"name": "venue", "kind": "text", "default": "Nature"},
+        {"name": "author", "kind": "text", "default": ""},
     ]
     assert prompt.variable_names == ["editor", "venue", "author"]
     assert render_prompt(prompt.body, {"author": "Ali"}) == (
@@ -142,7 +142,7 @@ def test_api_exposes_variables(client, settings, django_user_model):
     django_user_model.objects.create_superuser("owner", password="pw")
     prompt = Prompt.objects.create(title="T", body="Hi {{name|there}}")
     data = client.get(f"/api/v1/prompts/{prompt.pk}/", HTTP_X_API_KEY="k").json()
-    assert data["variables"] == [{"name": "name", "default": "there"}]
+    assert data["variables"] == [{"name": "name", "kind": "text", "default": "there"}]
 
 
 def test_gallery_wiring_for_defaults():

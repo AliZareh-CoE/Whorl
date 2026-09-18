@@ -1138,8 +1138,8 @@ class Command(BaseCommand):
             ),
             (
                 "Summarize {{paper}} for {{venue}}",
-                "Summarize {{paper}} in 5 bullets aimed at {{venue}} reviewers: claim, "
-                "method, sample, key result, limitation.",
+                "Summarize the paper below in 5 bullets aimed at {{venue|NeurIPS}} reviewers: "
+                "claim, method, sample, key result, limitation.\n\n{{paper:reference}}",
                 "lit-review, variables",
             ),
             (

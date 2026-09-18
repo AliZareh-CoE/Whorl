@@ -468,8 +468,14 @@ def list_prompts(query: str = ""):
     return _request("GET", "/prompts/", params=params)
 
 
-def get_prompt(prompt_id: int):
-    return _request("GET", f"/prompts/{prompt_id}/")
+def get_prompt(prompt_id: int, values: dict | None = None):
+    """One prompt; with `values`, the prompt plus its rendered `text` (typed fill-ins
+    expanded from their rows by the server)."""
+    prompt = _request("GET", f"/prompts/{prompt_id}/")
+    if values:
+        rendered = _request("POST", f"/prompts/{prompt_id}/render/", json={"values": values})
+        prompt = {**prompt, **rendered}
+    return prompt
 
 
 def get_review_matrix(slug: str):

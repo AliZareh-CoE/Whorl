@@ -4397,6 +4397,36 @@ class PromptViewSet(AtlasViewSet):
     serializer_class = serializers.PromptSerializer
     q_fields = ("title", "body", "tags")
 
+    @extend_schema(
+        request=serializers.PromptRenderSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="{text, variables: [{name, kind, default, value, label}]} — the "
+                "prompt with every fill-in applied"
+            ),
+            400: OpenApiResponse(description="values is not an object"),
+            404: OpenApiResponse(description="A typed fill-in names a row that does not exist"),
+        },
+        description="Render a prompt with its fill-ins (#562): `values` maps a variable name "
+        "to text, or — for a typed variable such as `{{paper:reference}}` — to the id of a "
+        "reference / note / project / manuscript, which expands to its title, authors, venue "
+        "and abstract (or title and body); a non-numeric value on a typed variable is used as "
+        "typed. Defaults fill the rest; a fill-in with nothing keeps its bare placeholder. "
+        "Each expansion is capped at 50 000 characters.",
+    )
+    @action(detail=True, methods=["post"])
+    def render(self, request, pk=None):
+        from prompts.services import PromptError, render_with_data
+
+        prompt = self.get_object()
+        payload = serializers.PromptRenderSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        try:
+            return Response(render_with_data(prompt, payload.validated_data.get("values")))
+        except PromptError as exc:
+            status = 404 if str(exc).startswith("No ") else 400
+            return Response({"detail": str(exc)}, status=status)
+
 
 class NoteViewSet(AtlasViewSet):
     # Audit #29: the list read the project, the backlinks and the cited papers once per row

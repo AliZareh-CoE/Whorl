@@ -24,8 +24,10 @@ class Prompt(TimeStampedModel):
 
     @property
     def variables(self) -> list[dict]:
-        """Distinct {{placeholders}} in order of first appearance, each with its default:
-        `{{venue|NeurIPS}}` fills "NeurIPS" unless the user types something (#393)."""
+        """Distinct {{placeholders}} in order of first appearance, each with its kind and
+        default: `{{venue|NeurIPS}}` fills "NeurIPS" unless the user types something (#393);
+        `{{paper:reference}}` is picked from the library and expands to the paper's
+        title, authors, venue and abstract at copy time (#562)."""
         return parse_variables(self.body or "")
 
     @property
@@ -33,23 +35,35 @@ class Prompt(TimeStampedModel):
         return [v["name"] for v in self.variables]
 
 
-VARIABLE_RE = r"\{\{\s*([a-zA-Z0-9_ -]{1,40}?)\s*(?:\|([^}]{0,200}?))?\s*\}\}"
+# {{name}}, {{name|default}}, {{name:kind}}, {{name:kind|default}} — the kind (#562) says what
+# the fill-in is picked from: a paper in the library, a note, a project, a manuscript; text
+# (the default, and any unknown kind) is typed
+VARIABLE_RE = (
+    r"\{\{\s*([a-zA-Z0-9_ -]{1,40}?)\s*(?::\s*([a-zA-Z]{1,20})\s*)?(?:\|([^}]{0,200}?))?\s*\}\}"
+)
+KINDS = ("text", "reference", "note", "project", "manuscript")
 
 
 def parse_variables(body: str) -> list[dict]:
     import re
 
-    seen: dict[str, str] = {}
+    seen: dict[str, dict] = {}
     for match in re.finditer(VARIABLE_RE, body):
         name = match.group(1).strip()
-        default = (match.group(2) or "").strip()
+        kind = (match.group(2) or "").strip().lower()
+        kind = kind if kind in KINDS else "text"
+        default = (match.group(3) or "").strip()
         if not name:
             continue
         if name not in seen:
-            seen[name] = default
-        elif default and not seen[name]:
-            seen[name] = default  # the first occurrence that carries a default wins
-    return [{"name": name, "default": default} for name, default in seen.items()]
+            seen[name] = {"name": name, "kind": kind, "default": default}
+            continue
+        row = seen[name]
+        if default and not row["default"]:
+            row["default"] = default  # the first occurrence that carries a default wins
+        if kind != "text" and row["kind"] == "text":
+            row["kind"] = kind  # …and the first occurrence that names a kind
+    return list(seen.values())
 
 
 def render_prompt(body: str, values: dict | None = None) -> str:
