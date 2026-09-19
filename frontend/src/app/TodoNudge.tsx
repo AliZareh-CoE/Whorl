@@ -1,5 +1,6 @@
 /** #431: a gentle sidebar nudge — the one Today item whose time is within two hours (or just
- *  passed). Shares the ["todos"] query with the Today page; re-reads once a minute. */
+ *  passed). Its own query under the ["todos"] prefix (open rows only, #571), so every Today
+ *  mutation's invalidation reaches it; re-reads once a minute. */
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { AlarmClock } from "lucide-react";
@@ -11,8 +12,8 @@ type Todo = { id: number; text: string; done: boolean; due_at: string | null; al
 
 export function TodoNudge() {
   const { data } = useQuery({
-    queryKey: ["todos"],
-    queryFn: () => api<{ results: Todo[] }>("/todos/?page_size=200"),
+    queryKey: ["todos", "open"],
+    queryFn: () => api<{ results: Todo[] }>("/todos/?done=false&page_size=500"),
     refetchInterval: 60_000,
   });
   const [now, setNow] = useState(() => Date.now());

@@ -352,6 +352,9 @@ def test_todo_client_calls(capture):
         and calls_url_has(capture, "/todos/4/")
         and '"done":true' in capture["body"]
     )
+    # #571: the Logbook pages and is not narrowed to open rows
+    client.list_todos(when="logbook")
+    assert "when=logbook" in capture["url"] and "done=false" not in capture["url"]
     # #570: the Trash
     client.list_todos(when="trash")
     assert calls_url_has(capture, "/todos/") and "trash=true" in capture["url"]

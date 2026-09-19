@@ -726,8 +726,8 @@ def format_citations(reference_ids: list[int], style: str = "apa") -> dict:
 
 @mcp.tool()
 def list_todos(include_done: bool = False, when: str = "") -> dict:
-    """The owner's personal Today list (plain to-dos, not plan tasks). Open items by default;
-    `when` narrows: "today", "later" (waits for a day) or "trash" (deleted, kept 30 days)."""
+    """The owner's personal Today list, not plan tasks. Open items by default; `when` picks:
+    "today", "later" (waits for a day), "logbook" (earlier ticks, paged), "trash" (30 days)."""
     return client.list_todos(include_done, when)
 
 

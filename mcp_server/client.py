@@ -806,9 +806,10 @@ def format_citations(reference_ids: list[int], style: str = "apa"):
 def list_todos(include_done: bool = False, when: str = ""):
     if when == "trash":  # #570: the Trash — deleted items, newest first
         return _request("GET", "/todos/", params={"trash": "true"})
-    params = {} if include_done else {"done": "false"}
+    # the Logbook is done rows by definition, so the open-only default steps aside for it
+    params = {} if include_done or when == "logbook" else {"done": "false"}
     if when:
-        params["when"] = when  # "today" | "later"
+        params["when"] = when  # "today" | "later" | "logbook" (paged, newest first)
     return _request("GET", "/todos/", params=params)
 
 

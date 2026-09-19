@@ -2,7 +2,7 @@ import datetime
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -3259,7 +3259,13 @@ class SavedViewViewSet(AtlasViewSet):
                 "(#570); every other list leaves them out",
             ),
             OpenApiParameter("done", str, description="true/false"),
-            OpenApiParameter("when", str, description="today | later"),
+            OpenApiParameter(
+                "when",
+                str,
+                description="today (open, on today's list) | later (open, waits for a day) | "
+                "logbook (ticked on an earlier day, newest first — page it) | current "
+                "(everything but the logbook: open items and today's ticks)",
+            ),
         ]
     ),
     destroy=extend_schema(
@@ -3284,7 +3290,7 @@ class TodoItemViewSet(AtlasViewSet):
     q_fields = ("text",)
 
     def get_queryset(self):
-        from core.todos import later_q, today_q
+        from core.todos import later_q, logbook_q, today_q
 
         queryset = super().get_queryset()
         if self.action != "list":
@@ -3302,6 +3308,15 @@ class TodoItemViewSet(AtlasViewSet):
             queryset = queryset.filter(today_q())
         elif when == "later":
             queryset = queryset.filter(later_q()).order_by("due_at", "position", "id")
+        elif when == "logbook":
+            # #571: earlier days' ticks, newest first, paged — unstamped rows (re-created by an
+            # undo) last on both backends (Postgres puts NULLs first on DESC, SQLite last)
+            queryset = queryset.filter(logbook_q()).order_by(
+                F("done_at").desc(nulls_last=True), "-id"
+            )
+        elif when == "current":
+            # #571: what the Today page shows above the Logbook — open items and today's ticks
+            queryset = queryset.exclude(logbook_q())
         return queryset
 
     def perform_create(self, serializer):

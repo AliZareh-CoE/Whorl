@@ -4,7 +4,7 @@
  *  and joins the list on its morning. #570: a deleted item waits thirty days in the Trash —
  *  the undo restores the very row (its stamp, its rule, its place), and the Trash section at
  *  the bottom restores or deletes for good. */
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Check, Pencil, Plus, Sparkles, Trash2, GripVertical, Moon, Sun, Repeat as RepeatIcon, BookOpen, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -17,7 +17,7 @@ import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
 
 type Todo = { id: number; text: string; done: boolean; done_at: string | null; position: number; due_at: string | null; all_day: boolean; repeat: Repeat; project: string | null; created_at: string; deleted_at?: string | null; next?: { id: number; due_at: string } | null };
-type Page<T> = { count: number; results: T[] };
+type Page<T> = { count: number; next?: string | null; results: T[] };
 
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
 
@@ -25,10 +25,19 @@ export default function Today() {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data, isLoading, error, refetch } = useQuery({ queryKey: ["todos"], queryFn: () => api<Page<Todo>>("/todos/?page_size=200") });
+  // #571: one fetch for what the page shows above the Logbook (open items + today's ticks);
+  // the Logbook and the Trash page separately, so a long record can never crowd the live rows
+  const { data, isLoading, error, refetch } = useQuery({ queryKey: ["todos", "current"], queryFn: () => api<Page<Todo>>("/todos/?when=current&page_size=500") });
   const refresh = () => { void queryClient.invalidateQueries({ queryKey: ["todos"] }); void queryClient.invalidateQueries({ queryKey: ["todos-trash"] }); };
   // #570: the Trash — deleted items, newest first, restorable for thirty days
   const trashQuery = useQuery({ queryKey: ["todos-trash"], queryFn: () => api<Page<Todo>>("/todos/?trash=true&page_size=200") });
+  // #571: the Logbook is paged — every earlier tick is kept, fifty at a time, newest first
+  const logbookQuery = useInfiniteQuery({
+    queryKey: ["todos", "logbook"],
+    queryFn: ({ pageParam }) => api<Page<Todo>>(`/todos/?when=logbook&page=${pageParam}`),
+    initialPageParam: 1,
+    getNextPageParam: (last, pages) => (last.next ? pages.length + 1 : undefined),
+  });
   const add = useMutation({
     mutationFn: (t: string) => api<Todo>("/todos/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parseDue(t)) }), // #431: "at 3pm" → due_at
     onSuccess: () => { setText(""); refresh(); inputRef.current?.focus(); },
@@ -36,12 +45,12 @@ export default function Today() {
   const toggle = useMutation({
     mutationFn: ({ id, done }: { id: number; done: boolean }) => api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done }) }),
     onMutate: async ({ id, done }) => {
-      await queryClient.cancelQueries({ queryKey: ["todos"] });
-      const prev = queryClient.getQueryData<Page<Todo>>(["todos"]);
-      if (prev) queryClient.setQueryData<Page<Todo>>(["todos"], { ...prev, results: prev.results.map((t) => (t.id === id ? { ...t, done } : t)) });
+      await queryClient.cancelQueries({ queryKey: ["todos", "current"] });
+      const prev = queryClient.getQueryData<Page<Todo>>(["todos", "current"]);
+      if (prev) queryClient.setQueryData<Page<Todo>>(["todos", "current"], { ...prev, results: prev.results.map((t) => (t.id === id ? { ...t, done } : t)) });
       return { prev };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.prev) queryClient.setQueryData(["todos"], ctx.prev); },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) queryClient.setQueryData(["todos", "current"], ctx.prev); },
     onSuccess: (row, { id, done }) => { // #549: a tick can be taken back with one key
       if (!done) return;
       const nxt = row.next ? ` · next one ${dayLabel(row.next.due_at)}` : "";
@@ -53,7 +62,7 @@ export default function Today() {
   // stamp, its rule and its chain, its place in the list — and so does the Trash section later.
   const remove = useMutation({
     mutationFn: (id: number) => api(`/todos/${id}/`, { method: "DELETE" }),
-    onMutate: (id) => ({ gone: (queryClient.getQueryData<Page<Todo>>(["todos"])?.results ?? []).find((t) => t.id === id) ?? null }),
+    onMutate: (id) => ({ gone: (queryClient.getQueryData<Page<Todo>>(["todos", "current"])?.results ?? []).find((t) => t.id === id) ?? null }),
     onSuccess: (_r, id, ctx) => {
       refresh();
       const gone = ctx?.gone;
@@ -74,7 +83,7 @@ export default function Today() {
   // a date) and waits in Later; "" brings it back. A timed item keeps its clock time.
   const snooze = useMutation({
     mutationFn: ({ id, until }: { id: number; until: string }) => api<Todo>(`/todos/${id}/snooze/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ until }) }),
-    onMutate: ({ id }) => { const before = (queryClient.getQueryData<Page<Todo>>(["todos"])?.results ?? []).find((t) => t.id === id); return { before: before ? { due_at: before.due_at, all_day: before.all_day } : null }; },
+    onMutate: ({ id }) => { const before = (queryClient.getQueryData<Page<Todo>>(["todos", "current"])?.results ?? []).find((t) => t.id === id); return { before: before ? { due_at: before.due_at, all_day: before.all_day } : null }; },
     onSuccess: (row, { id, until }, ctx) => {
       setSnoozing(null); refresh();
       if (!ctx?.before) return;
@@ -88,16 +97,16 @@ export default function Today() {
   const reorder = useMutation({
     mutationFn: (ids: number[]) => api("/todos/reorder/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) }),
     onMutate: async (ids) => {
-      await queryClient.cancelQueries({ queryKey: ["todos"] });
-      const prev = queryClient.getQueryData<Page<Todo>>(["todos"]);
+      await queryClient.cancelQueries({ queryKey: ["todos", "current"] });
+      const prev = queryClient.getQueryData<Page<Todo>>(["todos", "current"]);
       if (prev) {
         const rank = new Map(ids.map((id, i) => [id, i + 1]));
         const results = [...prev.results].map((t) => ({ ...t, position: rank.get(t.id) ?? t.position + ids.length })).sort((x, y) => Number(x.done) - Number(y.done) || x.position - y.position || x.id - y.id);
-        queryClient.setQueryData<Page<Todo>>(["todos"], { ...prev, results });
+        queryClient.setQueryData<Page<Todo>>(["todos", "current"], { ...prev, results });
       }
       return { prev };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.prev) queryClient.setQueryData(["todos"], ctx.prev); },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) queryClient.setQueryData(["todos", "current"], ctx.prev); },
     onSettled: refresh,
   });
   const moveOpen = (from: number, to: number) => {
@@ -132,14 +141,22 @@ export default function Today() {
   const done = items.filter((t) => t.done);
   // #550: today's ticks stay in view; earlier days (and rows without a stamp, re-created by an undo) fold into the Logbook
   const doneToday = done.filter((t) => t.done_at && dayLabel(t.done_at) === "today");
-  const logbook = done.filter((t) => !(t.done_at && dayLabel(t.done_at) === "today")).sort((a, b) => (b.done_at ?? "").localeCompare(a.done_at ?? ""));
+  // #571: the Logbook comes paged from the server (when=logbook — earlier days, newest first);
+  // a tick the server files under today but this browser's day does not joins it up front
+  const doneOther = done.filter((t) => !(t.done_at && dayLabel(t.done_at) === "today"));
+  const logPages = logbookQuery.data?.pages ?? [];
+  const logLoaded = logPages.flatMap((p) => p.results);
+  const logSeen = new Set<number>();
+  const logbook = [...doneOther, ...logLoaded].filter((t) => !logSeen.has(t.id) && !!logSeen.add(t.id)).sort((a, b) => (b.done_at ?? "").localeCompare(a.done_at ?? ""));
+  const logTotal = (logPages[0]?.count ?? 0) + doneOther.length;
+  const logRemaining = Math.max(0, logTotal - logbook.length);
   const logGroups = logbook.reduce<{ label: string; items: Todo[] }[]>((acc, t) => {
     const label = t.done_at ? dayLabel(t.done_at) : "earlier";
     const last = acc[acc.length - 1];
     if (last && last.label === label) last.items.push(t); else acc.push({ label, items: [t] });
     return acc;
   }, []);
-  const oldest = logbook.length ? logbook[logbook.length - 1].done_at : null;
+  const oldest = logbookQuery.hasNextPage ? null : ([...logbook].reverse().find((t) => t.done_at)?.done_at ?? null); // "since …" only once the whole record is in (the oldest stamped row)
   const laterGroups = later.reduce<{ label: string; items: Todo[] }[]>((acc, t) => {
     const label = dayLabel(t.due_at as string);
     const last = acc[acc.length - 1];
@@ -255,7 +272,7 @@ export default function Today() {
         <section className="rise mt-5" style={{ ["--i" as string]: 4 }} data-testid="logbook">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
             <button type="button" onClick={toggleLogbook} aria-expanded={logbookOpen} data-testid="logbook-toggle" className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
-              <ChevronRight className={`h-3 w-3 transition-transform ${logbookOpen ? "rotate-90" : ""}`} aria-hidden="true" /><BookOpen className="h-3 w-3" aria-hidden="true" />Logbook · {logbook.length}{oldest && <span className="ml-1 font-normal normal-case tracking-normal">· since {dayLabel(oldest)}</span>}
+              <ChevronRight className={`h-3 w-3 transition-transform ${logbookOpen ? "rotate-90" : ""}`} aria-hidden="true" /><BookOpen className="h-3 w-3" aria-hidden="true" />Logbook · {logTotal}{oldest && <span className="ml-1 font-normal normal-case tracking-normal">· since {dayLabel(oldest)}</span>}
             </button>
             <button type="button" onClick={() => clearDone.mutate()} data-testid="clear-logbook" className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-red-500"><Trash2 className="h-3 w-3" aria-hidden="true" />Clear the logbook</button>
           </div>
@@ -269,6 +286,11 @@ export default function Today() {
                   </ul>
                 </div>
               ))}
+              {logbookQuery.hasNextPage && (
+                <button type="button" onClick={() => void logbookQuery.fetchNextPage()} disabled={logbookQuery.isFetchingNextPage} data-testid="logbook-more" className="flex w-full items-center justify-center gap-1 border-t border-stone-100 px-4 py-2 text-xs text-stone-400 transition-colors hover:text-indigo-600 disabled:opacity-60 dark:border-stone-800 dark:hover:text-indigo-300">
+                  {logbookQuery.isFetchingNextPage ? "Loading…" : `Show older · ${logRemaining} more`}
+                </button>
+              )}
             </div>
           )}
         </section>
