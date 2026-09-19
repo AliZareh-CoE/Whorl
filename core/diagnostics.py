@@ -615,6 +615,25 @@ def _access() -> dict:
         return {"summary": None, "problems": [], "logins": [], "events": []}
 
 
+PROBLEM_KINDS = (
+    ("login_failed", "failed login", "failed logins"),
+    ("login_locked", "lockout", "lockouts"),
+    ("api_key_rejected", "rejected key", "rejected keys"),
+)
+
+
+def hidden_problems(counts: dict, shown: list[dict]) -> list[str]:
+    """#573: what the capped problems list leaves out, per kind — the window's counts minus
+    the rows shown. The cap is newest-first, so under a probe storm the older lockout is
+    exactly what falls off the end; the reader is told what, not just how many."""
+    out = []
+    for kind, one, many in PROBLEM_KINDS:
+        left = int(counts.get(kind, 0) or 0) - sum(1 for r in shown if r.get("kind") == kind)
+        if left > 0:
+            out.append(f"{left} {one if left == 1 else many}")
+    return out
+
+
 def as_text(report: dict) -> str:
     """The paste-into-a-bug-report form — the verdict first, then the facts (#572)."""
     lines = []
@@ -696,15 +715,17 @@ def as_text(report: dict) -> str:
             f"{c.get('login_failed', 0)} failed · {c.get('login_locked', 0)} lockouts · "
             f"{c.get('api_key_rejected', 0)} rejected API keys"
         )
-        for row in access.get("problems") or []:  # #573: the rows the verdict points at
-            if not isinstance(row, dict):
-                continue
+        shown = [r for r in access.get("problems") or [] if isinstance(r, dict)]
+        for row in shown:  # #573: the rows the verdict points at
             lines.append(
                 f"  {row.get('at', '').replace('T', ' ')[:16]} · {row.get('label', row.get('kind', ''))}"
                 f" · {row.get('address') or '?'}"
                 + (f" · {row['detail']}" if row.get("detail") else "")
                 + (f" · {row['user_agent'][:60]}" if row.get("user_agent") else "")
             )
+        hidden = hidden_problems(c, shown)
+        if hidden:
+            lines.append("  … " + " · ".join(hidden) + " more in the window, not listed")
     if report.get("client_errors"):
         lines += ["", "front-end errors (most recent first):"]
         for entry in report["client_errors"]:

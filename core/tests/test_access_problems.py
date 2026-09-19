@@ -89,6 +89,45 @@ def test_the_access_events_endpoint_can_list_problems_only(client, owner):
     assert [r["kind"] for r in only["events"]] == ["login_failed"]
 
 
+def test_the_text_names_what_the_cap_left_out():
+    from core.diagnostics import hidden_problems
+
+    counts = {"api_key_rejected": 12, "login_locked": 1, "login_failed": 5}
+    shown = [
+        {"kind": "api_key_rejected", "at": "2026-09-15T17:56:00", "label": "API key rejected"}
+    ] * 12
+    assert hidden_problems(counts, shown) == ["5 failed logins", "1 lockout"]
+    assert hidden_problems({"api_key_rejected": 19}, shown) == ["7 rejected keys"]
+    assert hidden_problems({"api_key_rejected": 12}, shown) == []
+    report = {
+        "version": "x",
+        "desktop": False,
+        "platform": "p",
+        "frozen": False,
+        "settings_module": "m",
+        "data_dir": None,
+        "database": "d",
+        "engine": None,
+        "latex": {"warm": False, "size_mb": 0, "dir": "", "state": "idle"},
+        "jobs": "j",
+        "api_key_configured": True,
+        "update_feed": [],
+        "last_failed_compile": None,
+        "server_log": "",
+        "client_errors": [],
+        "access": {"summary": {"days": 7, "counts": counts}, "problems": shown},
+    }
+    assert "  … 5 failed logins · 1 lockout more in the window, not listed" in as_text(report)
+
+
+def test_one_window_for_the_counts_and_the_list():
+    import inspect
+
+    assert access.WINDOW_DAYS == 7
+    assert inspect.signature(access.problems).parameters["days"].default == access.WINDOW_DAYS
+    assert inspect.signature(access.summary).parameters["days"].default == access.WINDOW_DAYS
+
+
 def test_as_text_skips_a_malformed_problem_row():
     report = {
         "version": "x",
@@ -131,6 +170,7 @@ def test_ui_wiring():
         'data-testid="access-problems"',
         'data-testid="access-problem" data-kind={e.kind}',
         'data-testid="access-more"',
+        "{hiddenKinds(c, problems)} more in the window, not listed",
         'data-testid="access-quiet"',
         'data-testid="access-logins"',
         'data-testid="access-all-toggle"',

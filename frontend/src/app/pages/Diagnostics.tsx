@@ -34,6 +34,12 @@ type Report = {
   access?: { summary: { days: number; counts: Record<string, number>; last_problem: { kind: string; at: string; address: string } | null } | null; problems?: AccessRow[]; logins?: AccessRow[]; events: AccessRow[] };
 };
 
+/** #573: what the capped problems list leaves out, per kind — "5 failed logins · 2 lockouts". */
+function hiddenKinds(counts: Record<string, number>, shown: AccessRow[]): string {
+  const kinds: [string, string, string][] = [["login_failed", "failed login", "failed logins"], ["login_locked", "lockout", "lockouts"], ["api_key_rejected", "rejected key", "rejected keys"]];
+  return kinds.map(([k, one, many]) => { const left = (counts[k] ?? 0) - shown.filter((r) => r.kind === k).length; return left > 0 ? `${left} ${left === 1 ? one : many}` : ""; }).filter(Boolean).join(" · ");
+}
+
 const panel = "rise rounded-2xl border border-stone-200 bg-white/70 p-5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/60";
 const railH = "text-[11px] font-semibold uppercase tracking-wider text-stone-400";
 
@@ -189,7 +195,7 @@ export default function Diagnostics() {
                             <span className="ml-auto max-w-[24rem] truncate text-stone-400" title={e.user_agent}>{e.user_agent}</span>
                           </li>
                         ))}
-                        {total > problems.length && <li className="py-1.5 text-xs text-stone-400" data-testid="access-more">{total - problems.length} more in the window — the copied report carries these {problems.length}; the rest are the same kinds.</li>}
+                        {total > problems.length && <li className="py-1.5 text-xs text-stone-400" data-testid="access-more">{hiddenKinds(c, problems)} more in the window, not listed — the newest {problems.length} are above.</li>}
                       </ul>
                     ) : (
                       <p className="text-xs text-stone-500 dark:text-stone-400" data-testid="access-quiet">

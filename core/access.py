@@ -12,6 +12,7 @@ from .models import AccessEvent
 
 log = logging.getLogger("atlas.access")
 KEEP = 500
+WINDOW_DAYS = 7  # #573: one window for the summary counts and the problems list
 
 
 def _address(request) -> str:
@@ -67,7 +68,7 @@ def recent(limit: int = 50) -> list[dict]:
     return [_row(e) for e in AccessEvent.objects.all()[:limit]]
 
 
-def problems(days: int = 7, limit: int = 12) -> list[dict]:
+def problems(days: int = WINDOW_DAYS, limit: int = 12) -> list[dict]:
     """The rows that matter (#573): failed logins, lockouts and rejected keys in the window,
     newest first — the owner's own logins would otherwise push them out of any short list."""
     since = timezone.now() - timedelta(days=days)
@@ -79,7 +80,7 @@ def recent_logins(limit: int = 5) -> list[dict]:
     return [_row(e) for e in AccessEvent.objects.filter(kind=AccessEvent.Kind.LOGIN_OK)[:limit]]
 
 
-def summary(days: int = 7) -> dict:
+def summary(days: int = WINDOW_DAYS) -> dict:
     since = timezone.now() - timedelta(days=days)
     rows = AccessEvent.objects.filter(created_at__gte=since)
     counts = {k: 0 for k, _ in AccessEvent.Kind.choices}
