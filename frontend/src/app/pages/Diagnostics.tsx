@@ -10,8 +10,8 @@ import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { isDesktop, openDevtools, pickFolder, revealPath } from "../external";
 import { ErrorState } from "../../components/ErrorState";
 
-type Feed = { url: string; status: number | string | null; version: string | null; platforms: string[]; key_match: boolean | null };
-type Verdict = { state: "unchecked" | "offline" | "unreachable" | "unsigned" | "wrong_key" | "current" | "available" | "unknown_version"; text: string };
+type Feed = { url: string; status: number | string | null; version: string | null; platforms: string[]; key_match: boolean | null; role?: "first" | "fallback" };
+type Verdict = { state: "unchecked" | "offline" | "unreachable" | "unsigned" | "wrong_key" | "current" | "available" | "unknown_version"; text: string; url?: string | null };
 type RestoreState = { pending: { created_at?: string; staged_at: string | null; media_files: number; has_sqlite: boolean; has_json: boolean; size_bytes: number } | null; last_result: { ok: boolean; detail: string; applied_at: string; kept_previous_in: string } | null; data_dir: string };
 // #572: the verdict — what is broken or drifting, and the fix for each, computed over the report
 type Finding = { id: string; level: "fail" | "warn"; title: string; detail: string; fix: string; link: string | null };
@@ -33,6 +33,8 @@ type Report = {
   // #573: the problems first (windowed, capped at 12), the last five logins apart, the raw tail behind a toggle
   access?: { summary: { days: number; counts: Record<string, number>; last_problem: { kind: string; at: string; address: string } | null } | null; problems?: AccessRow[]; logins?: AccessRow[]; events: AccessRow[] };
 };
+
+const repoPath = (url: string) => url.replace("https://github.com/", "");
 
 /** #573: what the capped problems list leaves out, per kind — "5 failed logins · 2 lockouts". */
 function hiddenKinds(counts: Record<string, number>, shown: AccessRow[]): string {
@@ -164,7 +166,25 @@ export default function Diagnostics() {
               <Row label="API key" value={r.api_key_configured ? "configured" : "missing — the API and Claude cannot connect"} ok={r.api_key_configured} />
               <Row label="Embeddable from" value={<span data-testid="frame-ancestors">{r.frame_ancestors && r.frame_ancestors.length > 0 ? `${r.frame_ancestors.join(", ")} — Atlas can be shown as a tab there (ATLAS_FRAME_ANCESTORS)` : "nobody — every page sends X-Frame-Options: DENY; set ATLAS_FRAME_ANCESTORS to let another app (OpenManus…) show Atlas in a tab"}</span>} />
               {r.update_verdict && <Row label="Update check" value={<span data-testid="update-verdict" data-state={r.update_verdict.state}>{r.update_verdict.text}</span>} ok={r.update_verdict.state === "unchecked" || r.update_verdict.state === "unknown_version" ? null : r.update_verdict.state === "current" || r.update_verdict.state === "available"} />}
-              {r.update_feed.map((f) => <Row key={f.url} label="Update feed" value={<><code className="text-xs">{f.url.replace("https://github.com/", "")}</code>{f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (no feed at this address)" : ""}{f.version ? ` · offers ${f.version}` : ""}{f.key_match === false ? " · signed with a different key" : f.key_match ? " · signed for this app" : ""}</span>}</>} ok={f.status === null ? null : f.status === 200 && f.key_match !== false} />)}
+              {/* #574: the app tries the endpoints in order — one collapsed row until the probe runs, then one labelled row each; only the address the app actually uses can go red */}
+              {r.update_feed.length > 0 && r.update_feed.every((f) => f.status === null) ? (
+                <Row label="Update feeds" value={<span data-testid="update-feeds-collapsed"><code className="text-xs">{repoPath(r.update_feed[0].url)}</code>{r.update_feed.length > 1 && <span className="ml-2 text-xs text-stone-500">tried first · + {r.update_feed.length - 1} fallback{r.update_feed.length > 2 ? "s" : ""} · {r.update_feed.slice(1).map((f) => f.url.split("/")[4]).join(", ")}</span>}</span>} />
+              ) : r.update_feed.map((f, i) => {
+                const usedIndex = r.update_feed.findIndex((x) => x.url === r.update_verdict?.url);
+                const used = usedIndex === i;
+                const afterUsed = usedIndex >= 0 && i > usedIndex;
+                const fine = f.status === 200 && f.key_match !== false;
+                const ok = f.status === null ? null : used ? fine : usedIndex >= 0 ? null : fine;
+                return (
+                  <Row key={f.url} label={`Feed · ${f.role === "fallback" ? "fallback" : "tried first"}`} ok={ok} value={
+                    <span data-testid="update-feed" data-role={f.role ?? "first"} data-used={used ? "1" : "0"}>
+                      <code className="text-xs">{repoPath(f.url)}</code>
+                      {used && <span className="ml-2 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300" data-testid="update-feed-used">the app uses this one</span>}
+                      {f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (no feed at this address)" : ""}{f.version ? ` · offers ${f.version}` : ""}{f.key_match === false ? " · signed with a different key" : f.key_match ? " · signed for this app" : ""}{afterUsed ? " · not consulted — an earlier address answered" : ""}</span>}
+                    </span>
+                  } />
+                );
+              })}
             </dl>
           </section>
           {r.access?.summary && (

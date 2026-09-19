@@ -197,3 +197,73 @@ def test_updater_fallback_matches_the_tauri_config_and_ships_in_the_frozen_serve
     assert [r["url"] for r in rows] == updater["endpoints"]
     spec_text = Path("desktop/server/atlas_server.spec").read_text()
     assert '(os.path.join(ROOT, "desktop", "tauri.conf.json"), "desktop")' in spec_text
+
+
+# ── #574 (backlog 369): the feed rows say which address the app tries first ───────────
+
+
+def test_feed_rows_carry_their_role_and_the_verdict_names_the_address_used(monkeypatch):
+    rows = diagnostics.update_feed_status()
+    assert [r["role"] for r in rows] == ["first", "fallback", "fallback"]
+    assert diagnostics.update_verdict(rows, "0.1.1")["url"] is None  # unchecked
+    # the first address answers → it is the one the app uses
+    _network(monkeypatch, {"Whorl": _Resp(200, _feed("0.1.999"))})
+    rows = diagnostics.update_feed_status(check_network=True)
+    verdict = diagnostics.update_verdict(rows, "0.1.242")
+    assert verdict["state"] == "available" and verdict["url"] == rows[0]["url"]
+    # the first is gone, a fallback answers → the fallback is the one used
+    _network(monkeypatch, {"project-manager": _Resp(200, _feed("0.1.999"))})
+    rows = diagnostics.update_feed_status(check_network=True)
+    verdict = diagnostics.update_verdict(rows, "0.1.242")
+    assert rows[0]["status"] == 404 and verdict["url"] == rows[1]["url"]
+    assert rows[1]["role"] == "fallback"
+    # nothing answers → no address is "used"
+    _network(monkeypatch, {})
+    rows = diagnostics.update_feed_status(check_network=True)
+    assert diagnostics.update_verdict(rows, "0.1.242")["url"] is None
+    _network(monkeypatch, {"Whorl": __import__("httpx").ConnectError("x")})
+    rows = diagnostics.update_feed_status(check_network=True)
+    assert diagnostics.update_verdict(rows, "0.1.242")["url"] is None
+
+
+def test_the_text_labels_the_feed_rows(monkeypatch):
+    _network(monkeypatch, {"project-manager": _Resp(200, _feed("0.1.999"))})
+    rows = diagnostics.update_feed_status(check_network=True)
+    verdict = diagnostics.update_verdict(rows, "0.1.242")
+    text = diagnostics.as_text(
+        {
+            **diagnostics.collect(),
+            "update_feed": rows,
+            "update_verdict": verdict,
+            "version": "0.1.242",
+        }
+    )
+    lines = [line for line in text.splitlines() if line.startswith("update feed")]
+    assert lines[0].startswith("update feed (tried first): https://github.com/AliZareh-CoE/Whorl/")
+    assert lines[0].endswith("→ 404") and "uses this one" not in lines[0]
+    assert lines[1].startswith("update feed (fallback): ") and lines[1].endswith(
+        " ← the app uses this one"
+    )
+    assert lines[2].startswith("update feed (fallback): ") and lines[2].endswith("→ 404")
+
+
+def test_feed_rows_ui_wiring():
+    page = (
+        Path(settings.BASE_DIR) / "frontend" / "src" / "app" / "pages" / "Diagnostics.tsx"
+    ).read_text()
+    for needle in (
+        'data-testid="update-feeds-collapsed"',
+        'data-testid="update-feed" data-role={f.role ?? "first"} data-used={used ? "1" : "0"}',
+        'data-testid="update-feed-used"',
+        "not consulted — an earlier address answered",
+        'label={`Feed · ${f.role === "fallback" ? "fallback" : "tried first"}`}',
+        # only the address the app uses can go red; a fallback behind it never does
+        "const ok = f.status === null ? null : used ? fine : usedIndex >= 0 ? null : fine;",
+    ):
+        assert needle in page, needle
+    assert 'label="Update feed"' not in page  # the three bare rows are gone
+    chunks = " ".join(
+        p.read_text(errors="ignore")
+        for p in (Path(settings.BASE_DIR) / "static" / "js").rglob("*.js")
+    )
+    assert "update-feeds-collapsed" in chunks and "not consulted" in chunks

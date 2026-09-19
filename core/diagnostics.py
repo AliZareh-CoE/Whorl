@@ -119,13 +119,14 @@ def update_feed_status(check_network: bool = False) -> list[dict]:
     updater = updater_config()
     pubkey_id = _key_id(updater["pubkey"])
     rows: list[dict] = []
-    for url in updater["endpoints"]:
+    for index, url in enumerate(updater["endpoints"]):
         if check_network:
-            rows.append(_probe_feed(url, pubkey_id))
+            row = _probe_feed(url, pubkey_id)
         else:
-            rows.append(
-                {"url": url, "status": None, "version": None, "platforms": [], "key_match": None}
-            )
+            row = {"url": url, "status": None, "version": None, "platforms": [], "key_match": None}
+        # #574: the app tries the endpoints in this order; the page and the text say so
+        row["role"] = "first" if index == 0 else "fallback"
+        rows.append(row)
     return rows
 
 
@@ -135,7 +136,11 @@ def update_verdict(rows: list[dict], version: str) -> dict:
     unknown_version."""
     probed = [r for r in rows if r["status"] is not None]
     if not probed:
-        return {"state": "unchecked", "text": 'not checked — tick "Probe the update feed"'}
+        return {
+            "state": "unchecked",
+            "text": 'not checked — tick "Probe the update feed"',
+            "url": None,
+        }
     feeds = [r for r in probed if r["status"] == 200 and r["version"]]
     if not feeds:
         if all(
@@ -145,26 +150,31 @@ def update_verdict(rows: list[dict], version: str) -> dict:
             return {
                 "state": "offline",
                 "text": "could not reach GitHub — offline, or a proxy in the way",
+                "url": None,
             }
         codes = ", ".join(f"{r['url'].split('/')[4]}: {r['status']}" for r in probed)
         return {
             "state": "unreachable",
             "text": f"no endpoint answered with a feed ({codes}) — the release has no latest.json "
             "yet (CI publishes one when the signing secret is set) or the address moved",
+            "url": None,
         }
     feed = feeds[0]  # the app takes the first endpoint that answers, the same way
+    used = feed["url"]  # #574: the one address the app actually uses — the page marks it
     if feed["key_match"] is False:
         return {
             "state": "wrong_key",
             "text": f"the feed offers {feed['version']} but it is signed with a different key than "
             "this app trusts — install that build once from the releases page; updates work "
             "in-app after that",
+            "url": used,
         }
     if feed["key_match"] is None:
         return {
             "state": "unsigned",
             "text": f"the feed offers {feed['version']} without signatures — the app refuses "
             "unsigned updates; CI signs them when TAURI_SIGNING_PRIVATE_KEY is set",
+            "url": used,
         }
     mine, theirs = _version_tuple(version), _version_tuple(feed["version"])
     if mine is None:
@@ -173,16 +183,19 @@ def update_verdict(rows: list[dict], version: str) -> dict:
             "text": f"the feed offers {feed['version']} (signed for this app); this build reports "
             f'"{version or "dev"}", so the app cannot compare — a server or source install '
             "does not update itself",
+            "url": used,
         }
     if theirs is not None and theirs > mine:
         return {
             "state": "available",
             "text": f"{feed['version']} is available and signed for this app (you run {version}) — "
             'the sidebar offers it; click "Check for updates" if it does not',
+            "url": used,
         }
     return {
         "state": "current",
         "text": f"up to date — the feed offers {feed['version']}, you run {version}",
+        "url": used,
     }
 
 
@@ -656,14 +669,16 @@ def as_text(report: dict) -> str:
         "embeddable from: "
         + (", ".join(report.get("frame_ancestors") or []) or "nobody (X-Frame-Options DENY)"),
     ]
+    verdict = report.get("update_verdict") or {}
     for row in report["update_feed"]:
         answer = row["status"] if row["status"] is not None else "not checked"
         if row.get("version"):
             answer = (
                 f"{answer} · offers {row['version']} · signed for this app: {row.get('key_match')}"
             )
-        lines.append(f"update feed: {row['url']} → {answer}")
-    verdict = report.get("update_verdict")
+        role = "tried first" if row.get("role", "first") == "first" else "fallback"  # #574
+        used = " ← the app uses this one" if verdict.get("url") == row["url"] else ""
+        lines.append(f"update feed ({role}): {row['url']} → {answer}{used}")
     if verdict:
         lines.append(f"update check: {verdict['text']}")
     if report["last_failed_compile"]:

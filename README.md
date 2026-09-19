@@ -327,7 +327,7 @@ pieces, in order:
 3. **When it seems not to work, ask Diagnostics.** Tick *Probe the update feed* on
    `/diagnostics` (or run `manage.py doctor`): the **Update check** row fetches the feed the
    way the app does and gives one verdict — a newer build is available and signed for this
-   app, up to date, the feed is signed with a different key (install that build once from the
+   app (the feed rows say which address is tried first and which one the app used), up to date, the feed is signed with a different key (install that build once from the
    releases page), unsigned, unreachable, or offline. Older builds only looked at the
    old repository address, which now redirects, so they still find updates; a build older
    than the feed's signing key needs one manual install, after which updates work in-app.
