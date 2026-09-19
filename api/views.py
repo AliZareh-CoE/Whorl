@@ -61,7 +61,19 @@ class InTrash(APIException):
     default_code = "in_trash"
 
 
-@method_decorator(login_not_required, name="dispatch")
+def _text(value, field: str, limit: int | None = None) -> str:
+    """A request field that must be text (Audit #36): a list, a number, an object or null in
+    a JSON body used to reach `len()` / `.encode()` / a slice and become a 500. A missing
+    field is "", anything not a string is a 400 naming the field; `limit` trims."""
+    from rest_framework.exceptions import ValidationError
+
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValidationError({field: "Must be text."})
+    return value[:limit] if limit else value
+
+
 def _pk(value):
     """An id from request data: an int within MAX_PK bounds, else a 404 (not a 500)."""
     from django.http import Http404
@@ -77,6 +89,7 @@ def _pk(value):
     return pk
 
 
+@method_decorator(login_not_required, name="dispatch")
 class AtlasViewSet(viewsets.ModelViewSet):
     """Base viewset: exempt from session-login middleware; guarded by X-API-Key auth instead.
 
@@ -184,7 +197,7 @@ class ProjectViewSet(AtlasViewSet):
         on_conflict = (request.data.get("on_conflict") or "keep").strip().lower()
         if on_conflict not in ("keep", "replace"):
             return Response({"detail": "on_conflict must be keep or replace."}, status=400)
-        note = (request.data.get("note") or "")[:200]
+        note = _text(request.data.get("note"), "note", 200)
         folder = None
         prefix = ""
         if request.data.get("folder"):
@@ -541,8 +554,8 @@ class ProjectViewSet(AtlasViewSet):
 
         project = self.get_object()
         path = (request.data.get("path") or "").strip().strip("/")
-        content = request.data.get("content", "")
-        note = (request.data.get("note") or "")[:200]
+        content = _text(request.data.get("content"), "content")
+        note = _text(request.data.get("note"), "note", 200)
         if not path:
             return Response({"detail": "A file path is required."}, status=400)
         segments = path.split("/")
@@ -1674,7 +1687,9 @@ class DocumentViewSet(AtlasViewSet):
             validate_upload_size(upload)
         except DjangoVE as exc:
             return Response({"detail": exc.messages[0]}, status=400)
-        result = history.replace_file(doc, upload, note=(request.data.get("note") or "")[:200])
+        result = history.replace_file(
+            doc, upload, note=_text(request.data.get("note"), "note", 200)
+        )
         return Response({"id": doc.id, **result})
 
     @extend_schema(
@@ -1794,7 +1809,7 @@ class DocumentViewSet(AtlasViewSet):
             )
         if doc.deleted_at is not None:
             raise InTrash()
-        text = request.data.get("content", "")
+        text = _text(request.data.get("content"), "content")
         if len(text) > TEXT_PREVIEW_CAP:
             return Response({"detail": "File too large to edit in-app."}, status=413)
         from documents import history
@@ -1802,7 +1817,7 @@ class DocumentViewSet(AtlasViewSet):
         # #553: the text being replaced is filed as a version (unchanged text files nothing);
         # backlog 358: the answer names the filed version so the pane can show what changed
         result = history.replace_content(
-            doc, text, source="edit", note=(request.data.get("note") or "")[:200]
+            doc, text, source="edit", note=_text(request.data.get("note"), "note", 200)
         )
         if result is None:
             return Response(
@@ -3879,10 +3894,39 @@ def _bibliography_rows(manuscript) -> list[dict]:
 
 
 class ManuscriptViewSet(AtlasViewSet):
-    queryset = Manuscript.objects.all().prefetch_related("word_samples", "events")
+    # Audit #36: the Writing board asks for 200 rows; every per-row read is prefetched —
+    # the project name, the files, the word samples, the events and the two weeks of
+    # revisions the compile rhythm counts (the serializer memoises the venue turnaround)
+    queryset = Manuscript.objects.select_related("project").prefetch_related(
+        "word_samples", "events", "files"
+    )
     serializer_class = serializers.ManuscriptSerializer
     project_filter = "project__slug"
     q_fields = ("title",)
+
+    def get_queryset(self):
+        from datetime import timedelta
+
+        from django.db.models import Prefetch
+        from django.utils import timezone
+
+        from writing.models import ManuscriptRevision
+
+        # only the window the compile rhythm counts (two weeks, a day of slack for zones),
+        # and only the stamp — not every revision's body for 200 manuscripts
+        since = timezone.now() - timedelta(days=15)
+        return (
+            super()
+            .get_queryset()
+            .prefetch_related(
+                Prefetch(
+                    "revisions",
+                    queryset=ManuscriptRevision.objects.filter(created_at__gte=since).only(
+                        "id", "manuscript_id", "created_at"
+                    ),
+                )
+            )
+        )
 
     @extend_schema(
         request=None,

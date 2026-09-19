@@ -1294,10 +1294,16 @@ class ManuscriptSerializer(serializers.ModelSerializer):
         """#474: how long the paper has sat in its status — since (date), days, source
         (the event kind that started the clock, or "updated"), and a label like
         "42 d under review"."""
-        from writing.clock import nudge, status_clock
+        from writing.clock import nudge, status_clock, venue_turnaround
 
         clock = status_clock(obj)
-        clock["nudge"] = nudge(obj, clock)  # #475: due / after_days / basis / waited / last
+        # Audit #36: one turnaround per venue per request — the list serialises 200 rows and
+        # the nudge would otherwise recompute the venue's history for each of them
+        cache = self.context.setdefault("_venue_turnaround", {})
+        venue = (obj.target_venue or "").strip().lower()
+        if venue not in cache:
+            cache[venue] = venue_turnaround(obj.target_venue)
+        clock["nudge"] = nudge(obj, clock, turnaround=cache[venue])  # #475
         return clock
 
     class Meta:

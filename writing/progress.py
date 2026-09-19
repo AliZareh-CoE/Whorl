@@ -42,7 +42,12 @@ def progress(manuscript, days: int = 30) -> dict:
 
     today = timezone.localdate()
     since = today - dt.timedelta(days=days - 1)
-    rows = list(WordCountSample.objects.filter(manuscript=manuscript).order_by("date"))
+    # Audit #36: read the prefetch when the list view loaded the samples (one query for the
+    # whole page instead of one per row); the ordering is the same either way
+    if "word_samples" in getattr(manuscript, "_prefetched_objects_cache", {}):
+        rows = sorted(manuscript.word_samples.all(), key=lambda r: r.date)
+    else:
+        rows = list(WordCountSample.objects.filter(manuscript=manuscript).order_by("date"))
     by_date = {r.date: r.words for r in rows}
     baseline = None  # last count before the window
     for r in rows:
@@ -93,9 +98,18 @@ def compile_rhythm(manuscript, days: int = 14) -> dict:
     today = timezone.localdate()
     since = today - dt.timedelta(days=days - 1)
     counts: dict[str, int] = {}
-    for stamp in ManuscriptRevision.objects.filter(
-        manuscript=manuscript, created_at__date__gte=since
-    ).values_list("created_at", flat=True):
+    if "revisions" in getattr(manuscript, "_prefetched_objects_cache", {}):
+        # Audit #36: the list view prefetches the window's revisions; filter in Python
+        stamps = [
+            r.created_at
+            for r in manuscript.revisions.all()
+            if timezone.localtime(r.created_at).date() >= since
+        ]
+    else:
+        stamps = ManuscriptRevision.objects.filter(
+            manuscript=manuscript, created_at__date__gte=since
+        ).values_list("created_at", flat=True)
+    for stamp in stamps:
         key = timezone.localtime(stamp).date().isoformat()
         counts[key] = counts.get(key, 0) + 1
     per_day = [

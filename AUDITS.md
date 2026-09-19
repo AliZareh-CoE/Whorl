@@ -874,6 +874,94 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #36 — 2026-09-19 (since #35: #569–#577 — the Prompts verdict, Today's Trash, `?page_size=` made real, the Diagnostics verdict and its three slices, the Files return pass: a Trash, the pane editor)
+
+Nine slices, **no advisory, no live 500 from the probes, three findings from reading** — a
+JSON body that was not text was a 500 on the pane editor's two write paths, the manuscripts
+list was an N+1 that `?page_size=200` (real since #571) turned into 1 200 queries a page, and
+the login exemption had drifted off the viewset onto a helper — all fixed in this cycle with
+tests. The #35 carry-over (the render echo) re-checked and stays accepted.
+
+**Dependencies — CLEAN.** `scripts/audit.sh` (`pip-audit` on the exported lock, `npm audit
+--omit=dev`): *no known vulnerabilities*, *0 vulnerabilities*. No lock change this audit.
+
+**New surfaces since #35 — reviewed.**
+- *Auth:* `todos/?trash=true`, `todos/{id}/restore/`, `todos/empty-trash/`,
+  `documents/?trash=true`, `documents/{id}/restore/`, `projects/{slug}/documents/empty-trash/`,
+  `projects/{slug}/tree/`, `diagnostics/`, `access-events/?problems=1` all answer 401
+  anonymously.
+- *Id bounds (#570, #576):* `restore/` on a document or todo id past the 32-bit column
+  (`2147483648`), past the Python int (`99999999999`) or negative → 404 (`_pk` bounds by
+  `MAX_PK` before the lookup); a bulk `restore` with an oversized id → 200 `count: 0`; 501 ids
+  → 400; an unknown bulk action → 400.
+- *The 409 guard (#570, #576):* PATCH or snooze of a trashed todo → 409; `PUT
+  documents/{id}/content/` on a trashed file → 409 "in the Trash — restore it first"; the
+  todo reorder refuses a trashed id → 400 "Unknown item id(s)"; `restore/` or DELETE of a
+  manuscript source file → 403 (the Studio owns it) — the Trash never takes a source.
+- *`?page_size=` (#571):* `abc`, `-1`, `0`, `99999`, `²`, `1e3` all fall back (default 50 or
+  the 500 cap), never a 500.
+- *Diagnostics (#572–#575):* `?network=²` and `?problems=²` → 200 (truthiness, not `int`);
+  `?network=1` with the feeds unreachable answers in 1.29 s — every probe bounded by its
+  timeout, none of them in the default report.
+- *The pane editor (#577):* `PUT …/content/` with 1 MB + 1 of text → 413 (`TEXT_PREVIEW_CAP`
+  before any write); the `filed` answer is `null` when nothing changed and the version does
+  not move (pinned in `test_preview_endpoints.py`).
+- *Render echo (#35 carry-over):* `POST prompts/{id}/render/` with a 20 000-char typed value —
+  the stored `use.variables` is capped (681 chars for the record) while the response's
+  `variables` echoes the raw value (40 079 chars). Bounded by the request body size, the
+  documented Claude path, still accepted.
+
+**Latency (warm, best of three, API key, demo data, in ms):** todos `?page_size=500` 20 ·
+todos trash 19 · logbook 18 · documents 200 24 · documents trash 22 · tree 22 · manuscripts
+200 24 (one demo row — see Finding 2 for the shape at thirty) · notes 200 25 · quick-capture
+200 27 · references 500 33 · diagnostics 28 · access-events problems 16 · projects 100 30.
+Nothing near the 100 ms bar.
+
+**Finding 1 — a non-string `content` or `note` in a JSON body was a 500 (fixed).**
+`save_content` and `write_file` read `request.data.get("content", "")` and called `.encode()`
+on it; a list, an int, a dict, a float or a bool raised `AttributeError` through to a Django
+error page — reachable from Claude's `write_project_file` with a mis-typed argument. The
+`note` on upload, replace, save and write-file was `str()`-ed, so `["x"]` was filed as the
+note `"['x']"`. A small `_text(value, field, limit)` helper in `api/views.py` now answers every
+text body: `None` → `""`, anything that is not a `str` → 400 naming the field ("Must be
+text."), the note trimmed to 200. `test_audit36.py::TestTextBodies` (nine cases): each junk
+shape → 400 with the field named and no row written, `null` content → a 200 empty save, a
+300-char note trimmed rather than refused.
+
+**Finding 2 — the manuscripts list was an N+1, and `?page_size=200` made it matter (fixed).**
+Reproduced with `CaptureQueriesContext`: 24 queries for 3 rows, 186 for 30 — per row the
+project name, the files, the word samples, the revisions of the last fifteen days, and the
+venue turnaround twice (`clock` and `nudge`). The Writing page has fetched 200 since #571, so a
+studio with forty manuscripts ran ~250 queries a load. `ManuscriptViewSet` now
+`select_related("project")` and prefetches `word_samples`, `events`, `files` and a fifteen-day
+slice of `revisions` (a `Prefetch` with the same `since` the rhythm uses);
+`writing/progress.py::progress` and `compile_rhythm` read the prefetched rows when they are in
+hand and query as before when they are not; `ManuscriptSerializer.get_clock` memoises the venue
+turnaround per venue in the serializer context. After: 10 queries for 1 row and the same count
+for 30. `TestQueryBudgetsAtRealPageSizes` pins the count constant from 3 to 30 manuscripts
+(≤ 12), 5 to 205 todos at `page_size=500`, and 3 to 43 documents with tags at 200 — the sizes
+the pages actually request, as #35 asked. Demo counts after the fix: manuscripts 10, todos 4,
+documents 5, notes 7, quick-capture 11.
+
+**Finding 3 — the login exemption sat on `_pk`, not on the viewset (fixed).** Since #576
+inserted `InTrash` above `_pk`, the `@method_decorator(login_not_required, name="dispatch")`
+that exempts the API from `LoginRequiredMiddleware` decorated the `_pk` helper — a no-op on a
+plain function (Django's `method_decorator` on something without a `dispatch` attribute does
+nothing) that read as if it were the exemption. The API kept working because `AtlasViewSet`
+carries its own copy since 168d87c; the stray line is gone and
+`test_the_login_exemption_sits_on_the_viewset_base_not_on_a_helper` pins
+`inspect.unwrap(_pk) is _pk`, `AtlasViewSet.dispatch.login_required is False` and the same on
+`SearchAPIView`.
+
+**Not checked this time (say so):** the frozen builds beyond CI's boot check (runs 316 + 317
+green); the huey worker under Redis (the desktop runs immediate mode); `ATLAS_FRAME_ANCESTORS`
+set live (unchanged since #33).
+
+**Verdict:** the probes found nothing — every new id is bounded, every trashed row refuses a
+write, every filter falls back — and the reading found three: two shapes nobody types (a JSON
+list where text goes; a list page at the size the page really asks for) and one line that
+looked like a guard and was not. All three fixed at the root with tests. Next audit at #588.
+
 ## Audit #35 — 2026-09-19 (since #34: #559–#567 — the Files area's last three slices and its verdict, the Prompts area's first six: typed fill-ins, use counts, "Use a prompt with this…", history, every entry point, chains)
 
 Nine slices, **one dependency advisory, one live 500, one repr leak, one admin bypass** — all
