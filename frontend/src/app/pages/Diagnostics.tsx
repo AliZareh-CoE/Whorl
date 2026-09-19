@@ -25,6 +25,7 @@ type Report = {
   engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; frame_ancestors?: string[]; update_feed: Feed[]; update_verdict?: Verdict;
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
   findings?: Finding[]; verdict?: { state: "ok" | "warn" | "fail"; text: string };
+  disk?: { path: string; free_bytes: number; total_bytes: number } | null; media_writable?: boolean | null;
   backups?: { last: { at: string; days_ago: number; size_bytes: number } | null; stale: boolean; has_data: boolean; stale_after_days: number };
   // #462: the zips Atlas keeps on its own in <data dir>/backups
   backup_destination?: Destination | null;
@@ -104,7 +105,8 @@ export default function Diagnostics() {
           <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight"><Stethoscope className="h-7 w-7 text-indigo-500" aria-hidden="true" />Diagnostics</h1>
           <p className="mt-1 text-sm text-stone-500">Everything needed to explain a failure. Copy the report and paste it where you ask for help.</p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* #575: the actions wrap as units — at 640 the row ran 16 px past the column, at 420 the labels broke mid-phrase */}
+        <div className="flex flex-wrap items-center gap-2 whitespace-nowrap" data-testid="diag-actions">
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm dark:border-stone-700 dark:bg-stone-900"><input type="checkbox" checked={network} onChange={(e) => setNetwork(e.target.checked)} className="accent-indigo-600" /><Globe className="h-4 w-4 text-stone-400" aria-hidden="true" />Probe the update feed</label>
           <a href="/api/v1/backup.zip" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:border-indigo-400 dark:border-stone-700 dark:text-stone-200" title="Download everything — database and files — as one zip. Restore notes are inside." data-testid="backup-link"><Download className="h-4 w-4" aria-hidden="true" />Download a backup</a>
           {/* #424: when the last backup was — amber once it is older than the threshold */}
@@ -134,7 +136,7 @@ export default function Diagnostics() {
                     <li key={f.id} className="flex items-start gap-3 py-2 text-sm" data-testid="finding" data-level={f.level} data-id={f.id}>
                       {f.level === "fail" ? <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" aria-hidden="true" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />}
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium">{f.title}<span className="ml-2 font-normal text-stone-500 dark:text-stone-400">{f.detail}</span></p>
+                        <p className="font-medium">{f.title}{" "}<span className="ml-1 font-normal text-stone-500 dark:text-stone-400">{f.detail}</span></p>
                         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-stone-500 dark:text-stone-400"><ArrowRight className="h-3 w-3 shrink-0 text-indigo-500" aria-hidden="true" /><span>{f.fix}</span>{f.link && <Link to={f.link} className="font-medium text-indigo-600 hover:underline dark:text-indigo-300" data-testid="finding-link">Open</Link>}</p>
                       </div>
                     </li>
@@ -149,6 +151,8 @@ export default function Diagnostics() {
               <Row label="Version" value={<>{r.version} · {r.desktop ? "desktop" : "server"}{r.frozen ? " · bundled" : ""}</>} />
               <Row label="System" value={r.platform} />
               <Row label="Data folder" value={<code className="text-xs">{r.data_dir ?? "—"}</code>} />
+              {/* #575: free space where Atlas writes — the report knew it since #572, the page said nothing above the warn threshold */}
+              {r.disk && <Row label="Disk" ok={r.disk.free_bytes < 1073741824 ? false : null} value={<span data-testid="disk-row">{(r.disk.free_bytes / 1073741824).toFixed(1)} GB free of {(r.disk.total_bytes / 1073741824).toFixed(0)} GB at <code className="text-xs">{r.disk.path}</code></span>} />}
               <Row label="Database" value={<code className="text-xs">{r.database}</code>} />
               <Row label="LaTeX engine" value={r.engine ? <code className="text-xs">{r.engine}</code> : "not found — compiles will fail"} ok={Boolean(r.engine)} />
               {r.engine && (
@@ -174,7 +178,8 @@ export default function Diagnostics() {
                 const used = usedIndex === i;
                 const afterUsed = usedIndex >= 0 && i > usedIndex;
                 const skipped = usedIndex >= 0 && i < usedIndex; // #574: failed, and the app moved on
-                const fine = f.status === 200 && f.key_match !== false;
+                // #575: green only for a feed signed for this app; unsigned (key_match null) gets no icon, a wrong key or a bad answer goes red
+                const fine = f.status !== 200 || f.key_match === false ? false : f.key_match === true ? true : null;
                 const ok = f.status === null ? null : used ? fine : usedIndex >= 0 ? null : fine;
                 return (
                   <Row key={f.url} label={`Feed · ${f.role === "fallback" ? "fallback" : "tried first"}`} ok={ok} value={

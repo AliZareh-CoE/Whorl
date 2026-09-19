@@ -342,9 +342,25 @@ def test_ui_wiring():
         absent = needle in ("Nothing wrong", "the backups are fresh")
         assert (needle in page) == (not absent), needle
     assert "Nothing needs doing." in page
+    # #575: the Disk row and the wrapping actions row
+    assert 'data-testid="disk-row"' in page and "GB free of" in page
+    assert (
+        'className="flex flex-wrap items-center gap-2 whitespace-nowrap" data-testid="diag-actions"'
+        in page
+    )
+
     # the verdict block sits first inside the report render, above "This install"
     assert page.index('data-testid="verdict"') < page.index('data-testid="diag-summary"')
     chunks = " ".join(p.read_text(errors="ignore") for p in (BASE / "static" / "js").rglob("*.js"))
     assert "verdict-text" in chunks and "finding-link" in chunks
     server = (BASE / "mcp_server" / "server.py").read_text()
     assert "`verdict` + `findings` first" in server
+
+
+def test_the_text_carries_the_disk_line():
+    report = _healthy(disk={"path": "/data", "free_bytes": 3 << 30, "total_bytes": 100 << 30})
+    report["findings"], report["verdict"] = [], verdict([])
+    assert "disk: 3.0 GB free of 100 GB at /data" in as_text(report)
+    report = _healthy(disk=None)
+    report["findings"], report["verdict"] = [], verdict([])
+    assert "disk: unknown" in as_text(report)

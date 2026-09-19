@@ -265,6 +265,8 @@ def test_feed_rows_ui_wiring():
         'label={`Feed · ${f.role === "fallback" ? "fallback" : "tried first"}`}',
         # only the address the app uses can go red; a fallback behind it never does
         "const ok = f.status === null ? null : used ? fine : usedIndex >= 0 ? null : fine;",
+        # #575: green only for a feed signed for this app; unsigned gets no icon
+        "const fine = f.status !== 200 || f.key_match === false ? false : f.key_match === true ? true : null;",
     ):
         assert needle in page, needle
     assert 'label="Update feed"' not in page  # the three bare rows are gone

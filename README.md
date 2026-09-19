@@ -346,7 +346,7 @@ that page's error in place with the sidebar intact. Every report lands in `atlas
 and under **Front-end errors** on `/diagnostics` — paste that section when reporting. The page opens
 with a verdict — "Nothing wrong that Atlas can see", or each thing that is broken or drifting with its
 fix (no engine, no key, a full disk, a stale backup, a failed compile, rejected keys…) — and the copied
-report leads with the same lines. Diagnostics also lists
+report leads with the same lines; the install block also says how much disk is free where Atlas writes. Diagnostics also lists
 the **Access** log — problems first (failed logins, lockouts, rejected API keys in the last week,
 with address and client), then your last logins — so you can tell whether anyone else has tried the door. In the
 desktop app **F12** (or Ctrl+Shift+I, or the *Web inspector* button on Diagnostics and on the

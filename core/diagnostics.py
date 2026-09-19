@@ -661,6 +661,13 @@ def as_text(report: dict) -> str:
         f"Atlas {report['version']} · {'desktop' if report['desktop'] else 'server'} · {report['platform']}",
         f"frozen: {report['frozen']} · settings: {report['settings_module']}",
         f"data dir: {report['data_dir']}",
+        "disk: "
+        + (
+            f"{report['disk']['free_bytes'] / 1073741824:.1f} GB free of "
+            f"{report['disk']['total_bytes'] / 1073741824:.0f} GB at {report['disk']['path']}"
+            if isinstance(report.get("disk"), dict)
+            else "unknown"
+        ),
         f"database: {report['database']}",
         f"LaTeX engine: {report['engine'] or 'NOT FOUND'}",
         f"TeX bundle cache: {'warm' if report['latex']['warm'] else 'cold'} "
