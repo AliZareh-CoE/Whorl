@@ -86,7 +86,7 @@ def test_gallery_reads_the_use_address_and_every_page_offers_it():
     assert 'data-testid="pane-use-prompt"' in (pages / "Library.tsx").read_text()
     studio = (pages / "Studio.tsx").read_text()
     assert "Use a prompt with this manuscript…" in studio and "useNavigate" in studio
-    assert "saveNowRef.current(); navigate(`/prompts?use=manuscript:${m.id}" in studio
+    assert "void saveAll().then(() => navigate(`/prompts?use=manuscript:${m.id}" in studio
     chunk = (BASE / "static" / "js" / "islands" / "Prompts-chunk.js").read_text()
     assert "prompt-use-banner" in chunk
 

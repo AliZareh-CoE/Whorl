@@ -586,7 +586,7 @@ function StudioInner({ m }: { m: Manuscript }) {
     { label: "Pre-flight check", hint: "is this paper ready to submit?", run: () => { setSidebarOpen(true); setTab("preflight"); } },
     { label: "Run the style lint", hint: "the mistakes a compile never reports", run: () => { setLintOn(true); void refreshLint().then(() => setProblemsOpen(true)); } },
     { label: "Fix every lint finding it can", hint: "Figure~\\ref, 5\\,ms, ``quotes'', \\ldots, 50\\%", run: () => { void fixLint(); } },
-    { label: "Use a prompt with this manuscript…", hint: "saves, then opens the gallery filled with this draft", run: () => { saveNowRef.current(); navigate(`/prompts?use=manuscript:${m.id}&label=${encodeURIComponent(m.title)}`); } }, // #566
+    { label: "Use a prompt with this manuscript…", hint: "saves, then opens the gallery filled with this draft", run: () => { void saveAll().then(() => navigate(`/prompts?use=manuscript:${m.id}&label=${encodeURIComponent(m.title)}`)); } }, // #566: the save completes before the editor unmounts
     { label: "Editor settings", run: () => setSettingsOpen(true) },
     { label: `Keymap: ${settings.keymap === "vim" ? "default" : "vim"}`, hint: `now ${settings.keymap}`, run: () => setSettings((st) => ({ ...st, keymap: st.keymap === "vim" ? "default" : "vim" })) },
     { label: `Compile on save: ${settings.autoCompile ? "off" : "on"}`, run: () => setSettings((st) => ({ ...st, autoCompile: !st.autoCompile })) },
