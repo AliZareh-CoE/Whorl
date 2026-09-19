@@ -477,7 +477,9 @@ def _resolve_became(captures) -> dict[tuple[str, int], str]:
     titles: dict[tuple[str, int], str] = {}
     for kind, ids in wanted.items():
         model, field = models[kind]
-        for pk, title in model.objects.filter(pk__in=ids).values_list("pk", field):
+        # #570: a todo that went to the Trash still has a title — it is not "missing"
+        manager = getattr(model, "all_objects", model.objects)
+        for pk, title in manager.filter(pk__in=ids).values_list("pk", field):
             titles[(kind, pk)] = title
     return titles
 

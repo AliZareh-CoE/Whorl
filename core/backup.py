@@ -46,6 +46,7 @@ def _dump_json() -> bytes:
         natural_foreign=True,
         natural_primary=True,
         exclude=["contenttypes", "auth.permission", "sessions", "admin.logentry"],
+        use_base_manager=True,  # #570: a hiding default manager must not hide the Trash from a backup
         indent=1,
         stdout=out,
     )

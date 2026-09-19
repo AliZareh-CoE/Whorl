@@ -169,6 +169,25 @@ class TestSweeps:
         )
 
 
+def test_a_json_backup_keeps_the_trash():
+    from core.backup import _dump_json
+
+    row = TodoItem.objects.create(text="trashed-but-backed-up")
+    todos.trash(row)
+    assert "trashed-but-backed-up" in _dump_json().decode()
+
+
+def test_the_inbox_history_still_names_a_trashed_todo():
+    from types import SimpleNamespace
+
+    from notes.capture import _resolve_became
+
+    row = TodoItem.objects.create(text="became a todo")
+    todos.trash(row)
+    capture = SimpleNamespace(became_kind="todo", became_id=row.pk)
+    assert _resolve_became([capture]) == {("todo", row.pk): "became a todo"}
+
+
 def test_mcp_client_and_tool():
     from mcp_server import client as c
     from mcp_server import server, toolsets
