@@ -100,6 +100,7 @@ def test_gallery_offers_the_next_step_and_carries_values_over():
         'data-testid="prompt-next-step"',
         "export function carryOver(",
         "handoff && handoff.id === prompt.id",
+        "nextOffered && prompt.next != null",  # offered from the copy, not the 2 s flash
         "next_title",
     ):
         assert needle in src, needle

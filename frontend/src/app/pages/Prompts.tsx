@@ -170,6 +170,10 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use, handoff,
     return stored;
   });
   const [copied, setCopied] = useState(false);
+  // #567: the next step is offered from the copy until the fill-ins change — not for the two
+  // seconds the "✓ Copied" flash lasts (a researcher pastes elsewhere and comes back)
+  const [nextOffered, setNextOffered] = useState(false);
+  useEffect(() => { setNextOffered(false); }, [values]);
   // #567: the previous step handed its fill-ins over — merge them in (theirs win)
   useEffect(() => { if (handoff && handoff.id === prompt.id) setValues((cur) => ({ ...cur, ...handoff.values })); }, [handoff, prompt.id]);
   const [historyOpen, setHistoryOpen] = useState(false); // #565
@@ -193,6 +197,7 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use, handoff,
     try { await navigator.clipboard.writeText(rendered.text); } catch { void errorDialog("Couldn't copy", new Error("The clipboard is not available here.")); return; }
     onUsed(rendered); // #563: the render counted as a use — the card's chip and the Recent strip follow
     void queryClient.invalidateQueries({ queryKey: ["prompt-uses", prompt.id] }); // #565
+    setNextOffered(true); // #567
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -204,7 +209,7 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use, handoff,
         {prompt.tags.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
           <span key={t} className="shrink-0 rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-500 dark:border-stone-700 dark:text-stone-400">{t}</span>
         ))}
-        {prompt.next != null && !copied && (
+        {prompt.next != null && !nextOffered && (
           <button type="button" onClick={() => onNext(vars, {})} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-stone-200 px-2 py-0.5 text-[11px] text-stone-500 hover:border-indigo-300 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-indigo-300" data-testid="prompt-next" title="The prompt that comes after this one">
             then<ArrowRight className="h-3 w-3" aria-hidden="true" /><span className="max-w-[10rem] truncate">{prompt.next_title ?? `#${prompt.next}`}</span>
           </button>
@@ -222,8 +227,8 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use, handoff,
                 }`}>
           {copied ? "✓ Copied" : "⧉ Copy"}
         </button>
-        {copied && prompt.next != null && (
-          <button type="button" onClick={() => onNext(vars, values)} className="inline-flex shrink-0 items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20" data-testid="prompt-next-step" title="The next step in this chain, with what you just filled in carried over">
+        {nextOffered && prompt.next != null && (
+          <button type="button" onClick={() => { setNextOffered(false); onNext(vars, values); }} className="inline-flex shrink-0 items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20" data-testid="prompt-next-step" title="The next step in this chain, with what you just filled in carried over">
             Next: {prompt.next_title ?? `#${prompt.next}`}<ArrowRight className="h-3 w-3" aria-hidden="true" />
           </button>
         )}
