@@ -222,13 +222,20 @@ def build_archive(
     spool = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
     with zipfile.ZipFile(spool, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, doc in members:
-            member = unique(name)
+            # Audit #35: an explicit ZipInfo for both branches — a bare name handed to open()
+            # would stamp 1980-01-01 and no permissions; the member carries the file's own
+            # last-change time (the #557 story) and the 0600 mode writestr() used to set
+            info = zipfile.ZipInfo(
+                unique(name), date_time=timezone.localtime(doc.updated_at).timetuple()[:6]
+            )
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o600 << 16
             if doc.file:
-                # Audit #35 (the #34 carry-over): copied through a 64 KB buffer, never read whole
-                with zf.open(member, "w") as out, doc.file.open("rb") as handle:
+                # the #34 carry-over: copied through a 64 KB buffer, never read whole
+                with zf.open(info, "w") as out, doc.file.open("rb") as handle:
                     shutil.copyfileobj(handle, out)
             else:
-                zf.writestr(member, doc.content)
+                zf.writestr(info, doc.content)
     spool.seek(0)
     stem = f"{project.slug}-{folder.name}" if folder is not None else f"{project.slug}-files"
     return spool, f"{stem}.zip", len(members)

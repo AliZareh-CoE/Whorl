@@ -9,6 +9,7 @@ from importlib.metadata import version
 
 import pytest
 from django.core.files.base import ContentFile
+from django.utils import timezone
 
 from documents import bulk
 from documents.models import Document
@@ -95,6 +96,17 @@ class TestAdminLoopGuard:
         form = self._form(a, b)  # A → B → A
         assert not form.is_valid() and "next" in form.errors
 
+    def test_the_admin_change_form_is_wired_to_the_guard(self, admin_client):
+        a = Prompt.objects.create(title="A", body="x")
+        url = f"/admin/prompts/prompt/{a.pk}/change/"
+        assert admin_client.get(url).status_code == 200
+        r = admin_client.post(
+            url, {"title": "A", "body": "x", "tags": "", "next": a.pk, "_continue": "1"}
+        )
+        assert r.status_code == 200 and b"loop back to this prompt" in r.content  # not a 302
+        a.refresh_from_db()
+        assert a.next_id is None
+
     def test_a_straight_chain_and_no_next_pass(self):
         a = Prompt.objects.create(title="A", body="x")
         b = Prompt.objects.create(title="B", body="x")
@@ -131,9 +143,20 @@ class TestStreamedBytes:
         body = bytes(range(256)) * 1000
         a = _doc(project, "a.bin", body)
         spool, name, count = bulk.build_archive(project, [a.pk], None)
+        b = Document.objects.create(
+            project=project, title="b.md", rel_path="b.md", kind="other", content="# b"
+        )
+        spool, name, count = bulk.build_archive(project, [a.pk, b.pk], None)
         with zipfile.ZipFile(io.BytesIO(spool.read())) as zf:
-            assert zf.namelist() == ["a.bin"] and zf.read("a.bin") == body
-        assert count == 1 and name == f"{project.slug}-files.zip"
+            assert sorted(zf.namelist()) == ["a.bin", "b.md"] and zf.read("a.bin") == body
+            for member, doc in (("a.bin", a), ("b.md", b)):
+                info = zf.getinfo(member)
+                # the member is stamped with the file's last change, deflated, mode 0600 —
+                # not 1980-01-01 with no permissions (what a bare name gives open())
+                assert info.date_time == timezone.localtime(doc.updated_at).timetuple()[:6]
+                assert info.compress_type == zipfile.ZIP_DEFLATED
+                assert info.external_attr >> 16 == 0o600
+        assert count == 2 and name == f"{project.slug}-files.zip"
 
 
 def test_anyio_carries_the_fix_for_its_two_advisories():

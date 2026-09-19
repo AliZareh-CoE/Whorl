@@ -943,7 +943,11 @@ chain pass.
 now opens each member for writing and copies the storage file through `shutil.copyfileobj`
 (a 64 KB buffer); `duplicate_document` hands the open `FieldFile` to `save()`, which streams
 it in chunks — a 400 MB dataset is never held in memory whole on either path. Byte equality
-is pinned for both (512 KB and 256 KB fixtures, past any one chunk).
+is pinned for both (512 KB and 256 KB fixtures, past any one chunk). The post-ship review
+caught what the first cut of the streaming path lost: a bare name handed to `ZipFile.open()`
+stamps the member 1980-01-01 with no permissions (where `writestr()` had stamped "now" and
+0600), so both branches now build an explicit `ZipInfo` — deflated, mode 0600, and dated with
+the file's own last change rather than the moment of the zip (pinned per member).
 
 **Not checked this time (say so):** the frozen builds beyond CI's boot check (runs 296 + 297
 green); the huey worker under Redis (the desktop runs immediate mode); `ATLAS_FRAME_ANCESTORS`
