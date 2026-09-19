@@ -344,6 +344,8 @@ def test_ui_wiring():
     assert "Nothing needs doing." in page
     # #575: the Disk row and the wrapping actions row
     assert 'data-testid="disk-row"' in page and "GB free of" in page
+    # the row goes red only where the verdict calls the disk broken — the same number, no drift
+    assert f"r.disk.free_bytes < {NO_DISK_BYTES} ? false : null" in page
     assert (
         'className="flex flex-wrap items-center gap-2 whitespace-nowrap" data-testid="diag-actions"'
         in page

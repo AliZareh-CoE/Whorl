@@ -152,7 +152,7 @@ export default function Diagnostics() {
               <Row label="System" value={r.platform} />
               <Row label="Data folder" value={<code className="text-xs">{r.data_dir ?? "—"}</code>} />
               {/* #575: free space where Atlas writes — the report knew it since #572, the page said nothing above the warn threshold */}
-              {r.disk && <Row label="Disk" ok={r.disk.free_bytes < 1073741824 ? false : null} value={<span data-testid="disk-row">{(r.disk.free_bytes / 1073741824).toFixed(1)} GB free of {(r.disk.total_bytes / 1073741824).toFixed(0)} GB at <code className="text-xs">{r.disk.path}</code></span>} />}
+              {r.disk && <Row label="Disk" ok={r.disk.free_bytes < 209715200 ? false : null} value={<span data-testid="disk-row">{(r.disk.free_bytes / 1073741824).toFixed(1)} GB free of {(r.disk.total_bytes / 1073741824).toFixed(0)} GB at <code className="text-xs">{r.disk.path}</code></span>} />}
               <Row label="Database" value={<code className="text-xs">{r.database}</code>} />
               <Row label="LaTeX engine" value={r.engine ? <code className="text-xs">{r.engine}</code> : "not found — compiles will fail"} ok={Boolean(r.engine)} />
               {r.engine && (
