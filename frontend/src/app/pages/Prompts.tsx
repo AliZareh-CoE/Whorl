@@ -232,8 +232,8 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use, handoff,
             {copied ? "✓ Copied" : "⧉ Copy"}
           </button>
           {nextOffered && prompt.next != null && (
-            <button type="button" onClick={() => { setNextOffered(false); onNext(vars, values); }} className="inline-flex shrink-0 items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20" data-testid="prompt-next-step" title="The next step in this chain, with what you just filled in carried over">
-              Next: <span className="max-w-[12rem] truncate">{prompt.next_title ?? `#${prompt.next}`}</span><ArrowRight className="h-3 w-3" aria-hidden="true" />
+            <button type="button" onClick={() => { setNextOffered(false); onNext(vars, values); }} className="inline-flex shrink-0 items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20" data-testid="prompt-next-step" title={`Next: ${prompt.next_title ?? `#${prompt.next}`} — the next step in this chain, with what you just filled in carried over`}>
+              Next<span className="hidden lg:inline">: <span className="max-w-[12rem] truncate">{prompt.next_title ?? `#${prompt.next}`}</span></span><ArrowRight className="h-3 w-3" aria-hidden="true" />
             </button>
           )}
           <Kebab items={items} label={`Actions for ${prompt.title}`} />
