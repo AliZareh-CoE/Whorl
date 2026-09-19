@@ -938,7 +938,13 @@ slice of `revisions` (a `Prefetch` with the same `since` the rhythm uses);
 `writing/progress.py::progress` and `compile_rhythm` read the prefetched rows when they are in
 hand and query as before when they are not; `ManuscriptSerializer.get_clock` memoises the venue
 turnaround per venue in the serializer context. After: 10 queries for 1 row and the same count
-for 30. `TestQueryBudgetsAtRealPageSizes` pins the count constant from 3 to 30 manuscripts
+for 30. *Post-ship (same hour):* the file and revision prefetches serve the **list only** —
+several detail actions write a `ManuscriptFile`, and the tree-mirror signal then reads
+`manuscript.files.all()` on the same object, where a prefetched set would have been stale (the
+new file missing from the mirror); a windowed `revisions` cache on a detail object would also
+have shadowed the full history for any reader. `TestListOnlyPrefetch` pins both: a detail
+object carries no file / revision cache and sees the 20-day-old revision, and a file written
+on a detail object reaches the mirror. `TestQueryBudgetsAtRealPageSizes` pins the count constant from 3 to 30 manuscripts
 (≤ 12), 5 to 205 todos at `page_size=500`, and 3 to 43 documents with tags at 200 — the sizes
 the pages actually request, as #35 asked. Demo counts after the fix: manuscripts 10, todos 4,
 documents 5, notes 7, quick-capture 11.

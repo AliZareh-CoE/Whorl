@@ -153,3 +153,62 @@ def test_the_login_exemption_sits_on_the_viewset_base_not_on_a_helper():
     assert views._pk(" 7 ") == 7
     assert views.AtlasViewSet.dispatch.login_required is False
     assert views.SearchAPIView.dispatch.login_required is False
+
+
+@pytest.mark.django_db
+class TestListOnlyPrefetch:
+    """Post-ship (Audit #36): the file and revision prefetches serve the list only. A
+    detail action that writes a file fires the tree-mirror signal, which reads
+    `manuscript.files.all()` on the same object — a cached set would miss the new file;
+    and a windowed `revisions` cache would shadow the full history for anything on the
+    detail object that reads it."""
+
+    def _object(self, action, manuscript):
+        from rest_framework.test import APIRequestFactory
+
+        from api.views import ManuscriptViewSet
+
+        view = ManuscriptViewSet()
+        view.action = action
+        view.request = APIRequestFactory().get("/api/v1/manuscripts/")
+        view.request.query_params = view.request.GET
+        return view.get_queryset().get(pk=manuscript.pk)
+
+    def test_detail_objects_carry_no_file_or_revision_cache(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from writing.models import ManuscriptRevision
+        from writing.progress import compile_rhythm
+
+        m = ManuscriptFactory()
+        ManuscriptFile.objects.create(manuscript=m, path="main.tex", is_main=True, content="x")
+        old = ManuscriptRevision.objects.create(manuscript=m, files={"main.tex": "x"})
+        ManuscriptRevision.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(days=20)
+        )
+        ManuscriptRevision.objects.create(manuscript=m, files={"main.tex": "y"})
+
+        listed = self._object("list", m)
+        cache = listed._prefetched_objects_cache
+        assert {"files", "revisions", "word_samples", "events"} <= set(cache)
+        assert len(cache["revisions"]) == 1  # the window, not the history
+        assert compile_rhythm(listed)["total"] == 1
+
+        detail = self._object("retrieve", m)
+        cache = detail._prefetched_objects_cache
+        assert "files" not in cache and "revisions" not in cache
+        assert detail.revisions.count() == 2  # the full history is in reach
+        assert compile_rhythm(detail)["total"] == 1  # the window is filtered in SQL
+
+    def test_a_file_written_on_a_detail_object_reaches_the_tree_mirror(self):
+        m = ManuscriptFactory()
+        ManuscriptFile.objects.create(manuscript=m, path="main.tex", is_main=True, content="x")
+        detail = self._object("retrieve", m)
+        list(detail.files.all())  # a reader before the write, as an action would
+        ManuscriptFile.objects.create(manuscript=detail, path="sections/new.tex", content="y")
+        from writing.tree_sync import root_folder_name
+
+        rel = f"{root_folder_name(m.pk)}/sections/new.tex"
+        assert Document.objects.filter(project=m.project, rel_path=rel).exists()

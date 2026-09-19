@@ -3894,11 +3894,14 @@ def _bibliography_rows(manuscript) -> list[dict]:
 
 
 class ManuscriptViewSet(AtlasViewSet):
-    # Audit #36: the Writing board asks for 200 rows; every per-row read is prefetched —
-    # the project name, the files, the word samples, the events and the two weeks of
-    # revisions the compile rhythm counts (the serializer memoises the venue turnaround)
+    # Audit #36: the Writing board asks for 200 rows; every per-row read is prefetched on
+    # the list — the project name, the files, the word samples, the events and the two
+    # weeks of revisions the compile rhythm counts (the serializer memoises the venue
+    # turnaround). Detail actions get no file / revision cache: several of them write a
+    # ManuscriptFile and the tree-mirror signal then reads `manuscript.files.all()` on the
+    # same object — a prefetched set would be stale there.
     queryset = Manuscript.objects.select_related("project").prefetch_related(
-        "word_samples", "events", "files"
+        "word_samples", "events"
     )
     serializer_class = serializers.ManuscriptSerializer
     project_filter = "project__slug"
@@ -3912,20 +3915,20 @@ class ManuscriptViewSet(AtlasViewSet):
 
         from writing.models import ManuscriptRevision
 
+        queryset = super().get_queryset()
+        if self.action != "list":
+            return queryset
         # only the window the compile rhythm counts (two weeks, a day of slack for zones),
         # and only the stamp — not every revision's body for 200 manuscripts
         since = timezone.now() - timedelta(days=15)
-        return (
-            super()
-            .get_queryset()
-            .prefetch_related(
-                Prefetch(
-                    "revisions",
-                    queryset=ManuscriptRevision.objects.filter(created_at__gte=since).only(
-                        "id", "manuscript_id", "created_at"
-                    ),
-                )
-            )
+        return queryset.prefetch_related(
+            "files",
+            Prefetch(
+                "revisions",
+                queryset=ManuscriptRevision.objects.filter(created_at__gte=since).only(
+                    "id", "manuscript_id", "created_at"
+                ),
+            ),
         )
 
     @extend_schema(
