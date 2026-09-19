@@ -7,7 +7,8 @@ import { Link, useParams } from "react-router-dom";
 import { Download, Maximize2, Pencil, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { ErrorState } from "../../components/ErrorState";
-import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
+import { errorDialog, promptDialog } from "../../components/Dialog";
+import { showUndo } from "../../components/UndoToast";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 
 type Figure = {
@@ -36,15 +37,16 @@ export default function Figures() {
   const menu = useMenu();
   const refresh = () => { queryClient.invalidateQueries({ queryKey: ["figures", slug] }); queryClient.invalidateQueries({ queryKey: ["tree", slug] }); queryClient.invalidateQueries({ queryKey: ["documents-table", slug] }); };
   const rename = useMutation({ mutationFn: (v: { id: number; title: string }) => api(`/documents/${v.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: v.title }) }), onSuccess: refresh, onError: (e) => void errorDialog("Couldn't rename the figure", e) });
-  const remove = useMutation({ mutationFn: (id: number) => api(`/documents/${id}/`, { method: "DELETE" }), onSuccess: () => { setActive(null); refresh(); }, onError: (e) => void errorDialog("Couldn't delete the figure", e) });
+  // backlog 357 (#576): delete is into the Trash — no confirm, the toast undoes it; the Files
+  // page's Trash section keeps the figure for thirty days
+  const remove = useMutation({ mutationFn: (f: Figure) => api(`/documents/${f.id}/`, { method: "DELETE" }), onSuccess: (_r, f) => { setActive(null); refresh(); showUndo(`Deleted — “${f.title.slice(0, 50)}” · in the Trash for 30 days`, async () => { await api(`/documents/${f.id}/restore/`, { method: "POST" }); refresh(); }); }, onError: (e) => void errorDialog("Couldn't delete the figure", e) });
   const askRename = async (f: Figure) => { const t = await promptDialog({ title: "Rename figure", label: "Title", initial: f.title, validate: (v) => (v.trim() ? null : "A figure needs a title.") }); if (t && t.trim() !== f.title) rename.mutate({ id: f.id, title: t.trim() }); };
-  const askDelete = async (f: Figure) => { if (await confirmDialog({ title: `Delete “${f.title}”?`, body: "The image file is removed from the project.", danger: true, confirmLabel: "Delete figure" })) remove.mutate(f.id); };
   const itemsFor = (f: Figure): MenuItem[] => [
     { label: "Open", icon: <Maximize2 className="h-3.5 w-3.5" />, onSelect: () => setActive(f) },
     { label: "Download", icon: <Download className="h-3.5 w-3.5" />, onSelect: () => { const a = document.createElement("a"); a.href = f.raw_url; a.download = f.title; a.click(); } },
     "-",
     { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: () => void askRename(f) },
-    { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: () => void askDelete(f) },
+    { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: () => remove.mutate(f) },
   ];
 
   const allTags = useMemo(() => {
@@ -183,7 +185,7 @@ export default function Figures() {
               Download
             </a>
             <button onClick={() => void askRename(active)} className="shrink-0 text-stone-300 hover:text-white">Rename</button>
-            <button onClick={() => void askDelete(active)} className="shrink-0 text-red-300 hover:text-red-200">Delete</button>
+            <button onClick={() => remove.mutate(active)} className="shrink-0 text-red-300 hover:text-red-200" title="Into the Trash for 30 days">Delete</button>
             <button
               onClick={() => setActive(null)}
               className="shrink-0 text-stone-400 hover:text-white"

@@ -55,12 +55,7 @@ def restore(doc: Document) -> Document:
 
 def trashed(project) -> QuerySet:
     """The project's Trash, newest deletion first."""
-    return (
-        Document.all_objects.trashed()
-        .filter(project=project)
-        .select_related("folder")
-        .order_by("-deleted_at", "-id")
-    )
+    return Document.all_objects.trashed().filter(project=project).order_by("-deleted_at", "-id")
 
 
 def empty(project) -> int:

@@ -41,9 +41,8 @@ def workspace_tree(project: Project, tags: list[str] | None = None) -> dict:
     # desktop only: where the file lives on this computer, so the explorer can hand it to
     # the OS ("Open with the system app", "Show in folder"); never exposed on a server
     local_paths = settings.ATLAS_DESKTOP
-    folders = [
-        {"id": f.id, "name": f.name, "parent_id": f.parent_id} for f in project.folders.all()
-    ]
+    folder_rows = list(project.folders.all())
+    folders = [{"id": f.id, "name": f.name, "parent_id": f.parent_id} for f in folder_rows]
     files = []
     from django.db.models import Count, Max
 
@@ -89,9 +88,20 @@ def workspace_tree(project: Project, tags: list[str] | None = None) -> dict:
             }
         )
     # backlog 357: the Trash rides along (one query) so the explorer shows it under the tree
-    # and Claude's list_project_files can name what a restore would bring back
-    from .bulk import folder_path
+    # and Claude's list_project_files can name what a restore would bring back. A row's
+    # folder path is read from the folders already in hand — walking `.parent` per row would
+    # cost a query per ancestor (#576 post-ship review).
     from .trash import trashed
+
+    parent_of = {f["id"]: f["parent_id"] for f in folders}
+    name_of = {f.id: f.name for f in folder_rows}
+
+    def path_of(folder_id):
+        parts = []
+        while folder_id is not None and folder_id in name_of:
+            parts.append(name_of[folder_id])
+            folder_id = parent_of.get(folder_id)
+        return "/".join(reversed(parts))
 
     trash = [
         {
@@ -100,10 +110,12 @@ def workspace_tree(project: Project, tags: list[str] | None = None) -> dict:
             "rel_path": d.rel_path,
             "kind": d.kind,
             "size": d.file_size,
-            "folder": folder_path(d.folder),
+            "folder": path_of(d.folder_id),
             "deleted_at": d.deleted_at.isoformat(),
         }
-        for d in trashed(project)
+        for d in trashed(project).only(
+            "id", "title", "rel_path", "kind", "file_size", "folder_id", "deleted_at"
+        )
     ]
     return {"folders": folders, "files": files, "trash": trash}
 

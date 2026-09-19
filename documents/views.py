@@ -207,6 +207,7 @@ def add_suggested_tag(request, slug, pk):
 class DocumentDeleteView(ProjectScopedMixin, DeleteView):
     model = Document
     template_name = "documents/confirm_delete.html"
+    extra_context = {"trashes": True}  # the page says where the document goes
 
     def get_queryset(self):
         return self.project.documents.all()

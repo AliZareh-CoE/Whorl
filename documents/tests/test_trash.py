@@ -221,14 +221,35 @@ class TestApi:
         )
         assert row["deleted_at"]
 
-    def test_the_classic_delete_view_trashes(self, client_logged_in):
+    def test_the_classic_delete_view_trashes_and_says_so(self, client_logged_in):
         from django.urls import reverse
 
         project = ProjectFactory()
         doc = _doc(project, "a.txt")
         url = reverse("documents:document_delete", args=[project.slug, doc.pk])
+        page = client_logged_in.get(url).content.decode()
+        assert "into the Trash for thirty days" in page and "Move to the Trash" in page
         assert client_logged_in.post(url).status_code == 302
         assert Document.all_objects.get(pk=doc.pk).deleted_at is not None
+
+    def test_the_tree_reads_trash_folder_paths_without_a_query_per_row(
+        self, client, django_assert_max_num_queries
+    ):
+        # #576 post-ship: twenty trashed files three folders deep cost the same as one
+        project = ProjectFactory()
+        a = Folder.objects.create(project=project, name="Data")
+        b = Folder.objects.create(project=project, parent=a, name="Pilot")
+        c = Folder.objects.create(project=project, parent=b, name="Raw")
+        trash.trash(_doc(project, "one.csv", folder=c))
+        url = f"/api/v1/projects/{project.slug}/tree/"
+        with django_assert_max_num_queries(40) as ctx:
+            assert client.get(url, **HEADERS).status_code == 200
+        baseline = len(ctx.captured_queries)
+        for i in range(20):
+            trash.trash(_doc(project, f"row-{i}.csv", folder=c))
+        with django_assert_max_num_queries(baseline):
+            tree = client.get(url, **HEADERS).json()
+        assert len(tree["trash"]) == 21 and tree["trash"][0]["folder"] == "Data/Pilot/Raw"
 
 
 class TestSweeps:
@@ -274,5 +295,15 @@ def test_explorer_trash_ui_wiring():
         assert needle in files, needle
     # the confirms that remain are the irreversible ones
     assert 'title: "Empty the trash?"' in files and "for good?`" in files
+    # a restore reveals the file once the refreshed tree carries it (its folders open)
+    assert "onSuccess: (doc) => { setPendingReveal(doc.id); refreshTree(); }" in files
+    assert "}, [data, pendingReveal]);" in files
+    # (the Files component is the last in the file; its early return is the last one)
+    assert files.index("const [pendingReveal, setPendingReveal]") < files.rindex("if (isLoading)\n")
+    # the figure gallery trashes the same way, with an undo, and the shortcuts sheet says so
+    figures = (BASE / "frontend" / "src" / "app" / "pages" / "Figures.tsx").read_text()
+    assert "in the Trash for 30 days" in figures and "confirmDialog" not in figures
+    sheet = (BASE / "frontend" / "src" / "app" / "shortcuts.tsx").read_text()
+    assert "Delete the file or the selection (into the Trash for 30 days)" in sheet
     bundle = (BASE / "static" / "js" / "islands" / "Files-chunk.js").read_text()
     assert "file-trash-restore" in bundle and "in the Trash for 30 days" in bundle

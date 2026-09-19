@@ -53,7 +53,7 @@ def test_dialog_host_is_mounted_once_at_the_root():
             ["onContextMenu", "/folders/${v.id}/", "Upload here", "New folder inside", "F2"],
         ),
         ("Decisions.tsx", ['method: editing ? "PATCH" : "POST"', "/decisions/${id}/"]),
-        ("Figures.tsx", ["Rename…", "Delete…", "/documents/${id}/"]),
+        ("Figures.tsx", ["Rename…", "Delete", "/documents/${f.id}/"]),
         ("Prompts.tsx", ["/prompts/${id}/", "New prompt"]),
         ("Literature.tsx", ["Remove from this project", "priority"]),
         ("Reference.tsx", ["EditReference", "Delete from library"]),

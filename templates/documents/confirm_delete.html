@@ -11,11 +11,11 @@
 {% block content %}
 <h1 class="mb-4 text-2xl font-semibold tracking-tight">Delete “{{ object }}”?</h1>
 <p class="mb-6 text-sm text-stone-600 dark:text-stone-300">
-  Folders take their subfolders with them; documents inside moved folders are kept at the project root.
+  {% if trashes %}It goes into the Trash for thirty days with its history — restore it from the project's Files page, or delete it for good there.{% else %}Folders take their subfolders with them; documents inside moved folders are kept at the project root.{% endif %}
 </p>
 <form method="post" class="flex items-center gap-3">
   {% csrf_token %}
-  <button type="submit" class="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
+  <button type="submit" class="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">{% if trashes %}Move to the Trash{% else %}Delete{% endif %}</button>
   <a href="{% url 'documents:index' project.slug %}" class="text-sm text-stone-500 dark:text-stone-400 hover:underline">Cancel</a>
 </form>
 {% endblock %}

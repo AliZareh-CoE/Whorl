@@ -372,6 +372,21 @@ export default function Files() {
   });
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selected, setSelected] = useState<FileNode | null>(null);
+  // backlog 357 (#576 post-ship): a restored file is revealed — its folders open and it is
+  // selected — once the refreshed tree carries it, so a Restore never looks like a vanish
+  const [pendingReveal, setPendingReveal] = useState<number | null>(null);
+  useEffect(() => {
+    if (pendingReveal == null || !data) return;
+    const f = data.files.find((x) => x.id === pendingReveal);
+    if (!f) return;
+    const parent = new Map(data.folders.map((x) => [x.id, x.parent_id] as const));
+    const open: Record<number, boolean> = {};
+    let id = f.folder_id;
+    while (id != null) { open[id] = true; id = parent.get(id) ?? null; }
+    setExpanded((e) => ({ ...e, ...open }));
+    setSelected(f);
+    setPendingReveal(null);
+  }, [data, pendingReveal]);
   // #557: files sort by name, last change or size (folders always first, by name); remembered
   const [sort, setSortState] = useState<SortKey>(readSort);
   const setSort = (k: SortKey) => { setSortState(k); try { localStorage.setItem(SORT_KEY, k); } catch { /* private mode */ } };
@@ -419,8 +434,8 @@ export default function Files() {
     onError: fail("Couldn't delete the file"),
   });
   const restoreDoc = useMutation({
-    mutationFn: (id: number) => api(`/documents/${id}/restore/`, { method: "POST" }),
-    onSuccess: refreshTree,
+    mutationFn: (id: number) => api<{ id: number }>(`/documents/${id}/restore/`, { method: "POST" }),
+    onSuccess: (doc) => { setPendingReveal(doc.id); refreshTree(); },
     onError: fail("Couldn't restore the file"),
   });
   const foreverDoc = useMutation({
