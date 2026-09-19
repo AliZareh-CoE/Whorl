@@ -1160,6 +1160,14 @@ class Command(BaseCommand):
                 (0, None),
             ),
             (
+                "Progress update on {{project}}",
+                "Write a two-paragraph progress update for a collaborator from the project "
+                "below: what changed, what is next, what is blocked. Plain language, no "
+                "hedging.\n\n{{project:project}}",
+                "writing, status",
+                (0, None),
+            ),
+            (
                 "Reviewer-2 pass",
                 "Act as a tough but fair Reviewer 2 on the draft below. List the three weakest "
                 "points with concrete fixes. Be specific about stats and framing.",

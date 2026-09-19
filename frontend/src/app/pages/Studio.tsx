@@ -6,7 +6,7 @@
  * problems panel wired to the compile log, autosave with a status bar, and the shortcuts
  * people expect (⌘S save, ⌘↩ compile, ⌘B sidebar, ⌘\ preview, ⌘J problems, ⌘P quick open). */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { EditorView, keymap } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
@@ -138,6 +138,7 @@ export default function Studio() {
 
 function StudioInner({ m }: { m: Manuscript }) {
   const base = `/projects/${m.project}/writing/${m.id}/`;
+  const navigate = useNavigate(); // #566: "Use a prompt with this manuscript…" leaves for the gallery
   const hostRef = useRef<HTMLDivElement>(null);
   const adRef = useRef<EditorAdapter | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -585,6 +586,7 @@ function StudioInner({ m }: { m: Manuscript }) {
     { label: "Pre-flight check", hint: "is this paper ready to submit?", run: () => { setSidebarOpen(true); setTab("preflight"); } },
     { label: "Run the style lint", hint: "the mistakes a compile never reports", run: () => { setLintOn(true); void refreshLint().then(() => setProblemsOpen(true)); } },
     { label: "Fix every lint finding it can", hint: "Figure~\\ref, 5\\,ms, ``quotes'', \\ldots, 50\\%", run: () => { void fixLint(); } },
+    { label: "Use a prompt with this manuscript…", hint: "saves, then opens the gallery filled with this draft", run: () => { saveNowRef.current(); navigate(`/prompts?use=manuscript:${m.id}&label=${encodeURIComponent(m.title)}`); } }, // #566
     { label: "Editor settings", run: () => setSettingsOpen(true) },
     { label: `Keymap: ${settings.keymap === "vim" ? "default" : "vim"}`, hint: `now ${settings.keymap}`, run: () => setSettings((st) => ({ ...st, keymap: st.keymap === "vim" ? "default" : "vim" })) },
     { label: `Compile on save: ${settings.autoCompile ? "off" : "on"}`, run: () => setSettings((st) => ({ ...st, autoCompile: !st.autoCompile })) },

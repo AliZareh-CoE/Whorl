@@ -1342,6 +1342,7 @@ function DetailPane({ r, onAuthor, authorFilter, onFindMeta, finding, onCheckRet
       )}
       <div className="mt-4 flex flex-wrap gap-1.5 text-xs">
         <Link to={`/references/${r.id}`} className="rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-700">Open</Link>
+        <Link to={`/prompts?use=reference:${r.id}&label=${encodeURIComponent(r.title)}`} className="inline-flex items-center gap-1 rounded-md border border-stone-300 px-2 py-1 text-stone-600 hover:border-indigo-300 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-300 dark:hover:text-indigo-300" title="Open the prompt gallery with this paper already filled in" data-testid="pane-use-prompt"><Wand2 className="h-3 w-3" aria-hidden="true" />Use a prompt</Link>
         {r.pdf ? (
           <button type="button" onClick={onRead} className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 ${reading ? "border-indigo-400 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200" : "border-stone-300 text-stone-600 hover:border-indigo-300 dark:border-stone-700 dark:text-stone-300"}`} title={inProgress(r.progress) ? `Pick up where you left off — ${pageLabel(r.progress)} (o)` : "Read and highlight here (o)"} data-testid={!reading && inProgress(r.progress) ? "resume-read" : undefined}><BookOpen className="h-3 w-3" aria-hidden="true" />{reading ? "Reading" : inProgress(r.progress) ? `Resume · ${pageLabel(r.progress)}` : "Read"}</button>
         ) : (

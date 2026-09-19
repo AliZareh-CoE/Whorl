@@ -79,6 +79,14 @@ def test_gallery_reads_the_use_address_and_every_page_offers_it():
     assert "Use a prompt with this manuscript…" in (pages / "Writing.tsx").read_text()
     assert 'data-testid="note-use-prompt"' in (pages / "Notes.tsx").read_text()
     assert "use=note:${id}" in (pages / "Notes.tsx").read_text()
+    # #566: the remaining entry points — the project overview menu, the Library pane, the Studio
+    overview = (pages / "ProjectOverview.tsx").read_text()
+    assert "Use a prompt with this project…" in overview and "use=project:${project.id}" in overview
+    assert "project: { id: number;" in overview  # the payload's id, typed
+    assert 'data-testid="pane-use-prompt"' in (pages / "Library.tsx").read_text()
+    studio = (pages / "Studio.tsx").read_text()
+    assert "Use a prompt with this manuscript…" in studio and "useNavigate" in studio
+    assert "saveNowRef.current(); navigate(`/prompts?use=manuscript:${m.id}" in studio
     chunk = (BASE / "static" / "js" / "islands" / "Prompts-chunk.js").read_text()
     assert "prompt-use-banner" in chunk
 
@@ -88,5 +96,5 @@ def test_seed_demo_has_a_prompt_per_kind(client_logged_in):
 
     call_command("seed_demo", verbosity=0)
     bodies = " ".join(Prompt.objects.values_list("body", flat=True))
-    for kind in ("reference", "note", "manuscript"):
+    for kind in ("reference", "note", "manuscript", "project"):
         assert f":{kind}}}}}" in bodies, kind

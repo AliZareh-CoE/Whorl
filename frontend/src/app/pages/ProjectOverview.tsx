@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Activity, Archive, ArchiveRestore, BookOpen, Check, ClipboardList, FileText, FlaskConical, HelpCircle, NotebookPen, PenLine, Settings2, Trash2 } from "lucide-react";
+import { Activity, Archive, ArchiveRestore, BookOpen, Check, ClipboardList, FileText, FlaskConical, HelpCircle, NotebookPen, PenLine, Settings2, Trash2, Wand2 } from "lucide-react";
 import { api, petReact } from "../api";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
@@ -17,7 +17,7 @@ import Constellation from "./project/Constellation";
 type Overview = {
   health: { state: string; label: string; forecast_end: string | null; start: string; end: string } | null;
   focus: FocusData;
-  project: { name: string; slug: string; description: string; status: string; color: string };
+  project: { id: number; name: string; slug: string; description: string; status: string; color: string };
   current_phase: { id: number; name: string; status: string; objective: string; progress: number } | null;
   progress: { done: number; total: number; percent: number };
   next_milestones: { id: number; title: string; due_date: string | null; overdue: boolean; phase: string }[];
@@ -176,6 +176,7 @@ export default function ProjectOverview() {
   const [settingsOpen, setSettingsOpen] = useState(searchParams.get("settings") === "1");
   const actions = useProjectActions(slug ?? "", data?.project.name ?? "", data?.project.status ?? "");
   const queryClient = useQueryClient();
+  const navigate = useNavigate(); // #566: "Use a prompt with this project…"
   // #485: tick a milestone straight from the Next milestones list — the same PATCH the focus
   // panel and the plan use; the row leaves the list at once and the page refetches behind it
   const completeMilestone = useMutation({
@@ -204,6 +205,7 @@ export default function ProjectOverview() {
               <Kebab label="Project actions" items={[
                 { label: settingsOpen ? "Close settings" : "Edit project…", icon: <Settings2 className="h-3.5 w-3.5" />, onSelect: () => setSettingsOpen((v) => !v) },
                 { label: "Copy status update…", icon: <ClipboardList className="h-3.5 w-3.5" />, onSelect: () => void copyStatusUpdate(project.slug) },
+                { label: "Use a prompt with this project…", icon: <Wand2 className="h-3.5 w-3.5" />, onSelect: () => navigate(`/prompts?use=project:${project.id}&label=${encodeURIComponent(project.name)}`) }, // #566
                 { label: "Export as Markdown vault", icon: <FileText className="h-3.5 w-3.5" />, onSelect: () => { window.location.assign(`/api/v1/projects/${project.slug}/vault/`); } },
                 { label: actions.archived ? "Unarchive" : "Archive project", icon: actions.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />, onSelect: actions.toggleArchive },
                 "-",
