@@ -5,7 +5,8 @@ from .models import Prompt, PromptUse
 
 @admin.register(Prompt)
 class PromptAdmin(admin.ModelAdmin):
-    list_display = ["title", "tags", "use_count", "last_used_at", "updated_at"]
+    list_display = ["title", "tags", "next", "use_count", "last_used_at", "updated_at"]
+    list_select_related = ["next"]
     search_fields = ["title", "body", "tags"]
 
 

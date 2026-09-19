@@ -100,6 +100,27 @@ def render_with_data(prompt: Prompt, values: dict | None) -> dict:
     return {"text": render_prompt(prompt.body or "", filled), "variables": out}
 
 
+CHAIN_HOPS = 20  # #567: how far a chain is followed when checking for a cycle
+
+
+def chain_would_cycle(prompt: Prompt, candidate: Prompt | None) -> bool:
+    """#567: True when making `candidate` the next step of `prompt` would close a loop —
+    the candidate is the prompt itself, or the chain from the candidate leads back to it
+    within CHAIN_HOPS hops (a longer chain is treated as a cycle: it is never wanted)."""
+    if candidate is None:
+        return False
+    seen = {prompt.pk}
+    cur = candidate
+    for _ in range(CHAIN_HOPS):
+        if cur is None:
+            return False
+        if cur.pk in seen:
+            return True
+        seen.add(cur.pk)
+        cur = cur.next
+    return True
+
+
 def use_row(use: PromptUse) -> dict:
     return {"id": use.id, "created_at": use.created_at, "variables": use.variables}
 

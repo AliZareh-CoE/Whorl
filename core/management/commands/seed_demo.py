@@ -1168,6 +1168,14 @@ class Command(BaseCommand):
                 (0, None),
             ),
             (
+                "Find the gap in {{paper}}",
+                "From the paper below, name the one question it leaves open that a follow-up "
+                "study could answer in six months, and sketch that study in five lines.\n\n"
+                "{{paper:reference}}",
+                "lit-review, ideas",
+                (0, None),
+            ),
+            (
                 "Reviewer-2 pass",
                 "Act as a tough but fair Reviewer 2 on the draft below. List the three weakest "
                 "points with concrete fixes. Be specific about stats and framing.",
@@ -1208,6 +1216,14 @@ class Command(BaseCommand):
                     PromptUse.objects.filter(pk=row.pk).update(  # etag: ok — seed backdating
                         created_at=timezone.now() - datetime.timedelta(days=days_ago, hours=n * 30)
                     )
+
+        # #567: a chain — summarize, then find the gap — set only while the first prompt has
+        # no next step, so a re-seed never overwrites the owner's own chain
+        first = Prompt.objects.filter(title="Summarize {{paper}} for {{venue}}").first()
+        second = Prompt.objects.filter(title="Find the gap in {{paper}}").first()
+        if first and second and first.next_id is None:
+            first.next = second
+            first.save(update_fields=["next"])
 
         from bots.models import Bot, BotRun
 

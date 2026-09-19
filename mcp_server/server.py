@@ -422,7 +422,8 @@ def get_prompt(prompt_id: int, values: dict | None = None, history: bool = False
     a name → text, or the id of the reference / note / project / manuscript a typed variable
     (`{{paper:reference}}`) is picked from, which expands to that row's title and abstract.
     Counts as a use (the gallery's Recent strip; list_prompts carries use_count). `last_use`
-    is what it was filled with the time before; `history=True` adds the last 50 `uses`."""
+    is what it was filled with the time before; `history=True` adds the last 50 `uses`;
+    follow `next` to the prompt that comes after it in a chain."""
     return client.get_prompt(prompt_id, values, history)
 
 

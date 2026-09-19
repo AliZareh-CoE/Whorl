@@ -15,6 +15,11 @@ class Prompt(TimeStampedModel):
     # gallery's Recent strip and the "used N×" chip; a use never touches updated_at
     use_count = models.PositiveIntegerField(default=0, editable=False)
     last_used_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # #567: the prompt that comes after this one in a chain (summarize → critique → rewrite);
+    # many prompts may lead to the same next step; deleting the next step unlinks, never cascades
+    next = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="previous"
+    )
 
     class Meta:
         ordering = ["title"]

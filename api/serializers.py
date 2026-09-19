@@ -1352,6 +1352,8 @@ class PromptSerializer(serializers.ModelSerializer):
     # #565: the newest use — {id, created_at, variables} — what the prompt was last copied
     # with; None until the first copy
     last_use = serializers.SerializerMethodField()
+    # #567: the next step in a chain — its id is writable, its title read-only
+    next_title = serializers.CharField(source="next.title", read_only=True, default=None)
 
     class Meta:
         from prompts.models import Prompt
@@ -1366,10 +1368,32 @@ class PromptSerializer(serializers.ModelSerializer):
             "use_count",
             "last_used_at",
             "last_use",
+            "next",
+            "next_title",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["use_count", "last_used_at"]
+        extra_kwargs = {
+            "next": {
+                "allow_null": True,
+                "required": False,
+                "help_text": "The prompt that comes after this one in a chain (#567): after a "
+                "copy the gallery offers it with the same fill-ins carried over; never "
+                "itself, never a loop",
+            }
+        }
+
+    def validate(self, attrs):
+        from prompts.services import chain_would_cycle
+
+        if "next" in attrs and attrs["next"] is not None:
+            prompt = self.instance
+            if prompt is not None and chain_would_cycle(prompt, attrs["next"]):
+                raise serializers.ValidationError(
+                    {"next": "That would make the chain loop back to this prompt."}
+                )
+        return attrs
 
     @extend_schema_field(serializers.DictField(allow_null=True))
     def get_last_use(self, obj):

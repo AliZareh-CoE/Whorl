@@ -5,11 +5,13 @@
  * ("Use a prompt with this…"): the gallery shows only the prompts that take that kind, with the
  * object already picked into every fill-in of that kind — one click from Copy.
  * #565: every copy is a row in the prompt's history (what it was filled with, ids + labels);
- * a card says what it was last used with, and its History panel refills the card from any use. */
+ * a card says what it was last used with, and its History panel refills the card from any use.
+ * #567: a prompt may name the one that comes next (summarize → find the gap); after a copy the
+ * card offers the next step with the fill-ins carried over (same name, else same kind). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Clock, History, Pencil, Plus, Trash2, Wand2 } from "lucide-react";
+import { ArrowRight, Clock, History, Pencil, Plus, Trash2, Wand2 } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
@@ -17,7 +19,21 @@ import { queryGate } from "../../components/QueryBoundary";
 
 type UsedVar = { name: string; kind: string; default: string; value: string; label: string };
 type UseRow = { id: number; created_at: string; variables: UsedVar[] };
-type Prompt = { id: number; title: string; body: string; tags: string; use_count: number; last_used_at: string | null; last_use: UseRow | null };
+type Prompt = { id: number; title: string; body: string; tags: string; use_count: number; last_used_at: string | null; last_use: UseRow | null; next: number | null; next_title: string | null };
+/** #567: what a copied prompt hands to the next step — a value by the same variable name, else
+ * (for a typed fill-in) the first value of the same kind; text without a namesake stays empty. */
+export function carryOver(from: Variable[], values: Record<string, Value>, to: Variable[]): Record<string, Value> {
+  const out: Record<string, Value> = {};
+  for (const v of to) {
+    const same = values[v.name];
+    if (same && (v.kind === "text" ? same.text : same.id != null)) { out[v.name] = same; continue; }
+    if (v.kind === "text") continue;
+    const donor = from.find((f) => f.kind === v.kind && values[f.name]?.id != null);
+    if (donor) out[v.name] = values[donor.name];
+  }
+  return out;
+}
+type Handoff = { id: number; values: Record<string, Value>; nonce: number };
 type Rendered = { text: string; use_count: number; last_used_at: string | null; use: UseRow };
 /** #565: one line for a use — the labels of what it was filled with ("Theeuwes… · NeurIPS"),
  * or "as written" when every fill-in fell back to its default. */
@@ -144,7 +160,7 @@ function Picker({ variable, value, onPick }: { variable: Variable; value: Value 
   );
 }
 
-function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use }: { prompt: Prompt; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void; onUsed: (r: Rendered) => void; flash: boolean; use: Use | null }) {
+function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use, handoff, onNext }: { prompt: Prompt; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void; onUsed: (r: Rendered) => void; flash: boolean; use: Use | null; handoff: Handoff | null; onNext: (from: Variable[], values: Record<string, Value>) => void }) {
   const vars = variables(prompt.body);
   // last-used values, per prompt (#393); #564: the object the page arrived with is picked into
   // every fill-in of its kind over the remembered value (the card remounts per address)
@@ -154,6 +170,8 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use }: { prom
     return stored;
   });
   const [copied, setCopied] = useState(false);
+  // #567: the previous step handed its fill-ins over — merge them in (theirs win)
+  useEffect(() => { if (handoff && handoff.id === prompt.id) setValues((cur) => ({ ...cur, ...handoff.values })); }, [handoff, prompt.id]);
   const [historyOpen, setHistoryOpen] = useState(false); // #565
   const history = useQuery({ queryKey: ["prompt-uses", prompt.id], queryFn: () => api<{ uses: UseRow[] }>(`/prompts/${prompt.id}/uses/`), enabled: historyOpen });
   const queryClient = useQueryClient();
@@ -186,6 +204,11 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use }: { prom
         {prompt.tags.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
           <span key={t} className="shrink-0 rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-500 dark:border-stone-700 dark:text-stone-400">{t}</span>
         ))}
+        {prompt.next != null && !copied && (
+          <button type="button" onClick={() => onNext(vars, {})} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-stone-200 px-2 py-0.5 text-[11px] text-stone-500 hover:border-indigo-300 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-indigo-300" data-testid="prompt-next" title="The prompt that comes after this one">
+            then<ArrowRight className="h-3 w-3" aria-hidden="true" /><span className="max-w-[10rem] truncate">{prompt.next_title ?? `#${prompt.next}`}</span>
+          </button>
+        )}
         {prompt.use_count > 0 && (
           <button type="button" onClick={() => setHistoryOpen((v) => !v)} className="shrink-0 rounded px-1 text-[11px] tabular-nums text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" data-testid="prompt-uses" aria-expanded={historyOpen} title={prompt.last_used_at ? `Copied ${prompt.use_count} ${prompt.use_count === 1 ? "time" : "times"} · last ${ago(prompt.last_used_at)} — click for the history` : undefined}>
             used {prompt.use_count}×
@@ -199,6 +222,11 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use }: { prom
                 }`}>
           {copied ? "✓ Copied" : "⧉ Copy"}
         </button>
+        {copied && prompt.next != null && (
+          <button type="button" onClick={() => onNext(vars, values)} className="inline-flex shrink-0 items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20" data-testid="prompt-next-step" title="The next step in this chain, with what you just filled in carried over">
+            Next: {prompt.next_title ?? `#${prompt.next}`}<ArrowRight className="h-3 w-3" aria-hidden="true" />
+          </button>
+        )}
         <Kebab items={items} label={`Actions for ${prompt.title}`} />
       </div>
       {vars.length > 0 && (
@@ -276,15 +304,24 @@ export default function Prompts() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Prompt | null>(null);
   const [title, setTitle] = useState(""); const [tags, setTags] = useState(""); const [body, setBody] = useState("");
-  const reset = () => { setFormOpen(false); setEditing(null); setTitle(""); setTags(""); setBody(""); };
-  const startEdit = (p: Prompt) => { setEditing(p); setTitle(p.title); setTags(p.tags); setBody(p.body); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const [next, setNext] = useState<number | null>(null); // #567
+  const [handoff, setHandoff] = useState<Handoff | null>(null);
+  const reset = () => { setFormOpen(false); setEditing(null); setTitle(""); setTags(""); setBody(""); setNext(null); };
+  const startEdit = (p: Prompt) => { setEditing(p); setTitle(p.title); setTags(p.tags); setBody(p.body); setNext(p.next); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["prompts"] });
   // #563: a copy patches the list in place — no refetch, the chip and the strip move at once
   const used = (id: number, r: Rendered) => queryClient.setQueryData<Page<Prompt>>(["prompts"], (cur) => cur && { ...cur, results: cur.results.map((p) => (p.id === id ? { ...p, use_count: r.use_count, last_used_at: r.last_used_at, last_use: r.use } : p)) });
   const [flash, setFlash] = useState<number | null>(null);
+  // #567: the next step gets the previous step's fill-ins (same name, else same kind) and the eye
+  const toNext = (from: Prompt, fromVars: Variable[], values: Record<string, Value>) => {
+    const target = (data?.results ?? []).find((p) => p.id === from.next);
+    if (!target) return;
+    setHandoff({ id: target.id, values: carryOver(fromVars, values, variables(target.body)), nonce: Date.now() });
+    jumpTo(target.id);
+  };
   const jumpTo = (id: number) => { document.getElementById(`prompt-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); setFlash(id); setTimeout(() => setFlash((f) => (f === id ? null : f)), 1600); };
   const save = useMutation({
-    mutationFn: () => api(editing ? `/prompts/${editing.id}/` : "/prompts/", { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title.trim(), tags: tags.trim(), body }) }),
+    mutationFn: () => api(editing ? `/prompts/${editing.id}/` : "/prompts/", { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title.trim(), tags: tags.trim(), body, next }) }),
     onSuccess: () => { reset(); refresh(); },
     onError: (e) => void errorDialog("Couldn't save the prompt", e),
   });
@@ -345,6 +382,13 @@ export default function Prompts() {
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" aria-label="Prompt title" className={field} autoFocus />
             <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="tags, comma separated" aria-label="Prompt tags" className={field} />
           </div>
+          <label className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">then
+            <select value={next ?? ""} onChange={(e) => setNext(e.target.value ? Number(e.target.value) : null)} aria-label="The prompt that comes next" data-testid="prompt-next-select" className="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-700 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
+              <option value="">— no next step —</option>
+              {(data?.results ?? []).filter((p) => p.id !== editing?.id).map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+            <span className="text-stone-400">after a copy, the gallery offers it with the fill-ins carried over</span>
+          </label>
           <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} placeholder={"The prompt. Use {{variable}} for fill-ins, {{venue|NeurIPS}} for a default, {{paper:reference}} / {{note:note}} / {{project:project}} / {{draft:manuscript}} to pick from Atlas."} aria-label="Prompt body" className={`${field} font-mono text-xs leading-relaxed`} />
           <div className="flex items-center gap-3">
             <button type="submit" disabled={save.isPending || !title.trim() || !body.trim()} className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">{save.isPending ? "Saving…" : editing ? "Save changes" : "Save prompt"}</button>
@@ -354,7 +398,7 @@ export default function Prompts() {
       )}
 
       <div className="space-y-3">
-        {rows.map((p) => <PromptCard key={`${p.id}:${use ? `${use.kind}:${use.id}` : ""}`} prompt={p} items={itemsFor(p)} onContextMenu={(e) => menu.open(e, itemsFor(p))} onUsed={(r) => used(p.id, r)} flash={flash === p.id} use={use} />)}
+        {rows.map((p) => <PromptCard key={`${p.id}:${use ? `${use.kind}:${use.id}` : ""}`} prompt={p} items={itemsFor(p)} onContextMenu={(e) => menu.open(e, itemsFor(p))} onUsed={(r) => used(p.id, r)} flash={flash === p.id} use={use} handoff={handoff} onNext={(vars, values) => toNext(p, vars, values)} />)}
         {rows.length === 0 && (
           <div className="rounded border border-dashed border-stone-300 bg-white px-4 py-12 text-center dark:border-stone-700 dark:bg-stone-900">
             <p className="text-sm font-medium text-stone-500 dark:text-stone-300">

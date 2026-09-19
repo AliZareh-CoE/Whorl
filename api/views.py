@@ -4416,10 +4416,12 @@ class PromptViewSet(AtlasViewSet):
 
         from prompts.models import KINDS, PromptUse
 
-        # #565: the newest use per prompt in one query (a sliced prefetch), for `last_use`
+        # #565: the newest use per prompt in one query (a sliced prefetch), for `last_use`;
+        # #567: the next step's title rides along
         queryset = (
             super()
             .get_queryset()
+            .select_related("next")
             .prefetch_related(
                 Prefetch(
                     "uses",
