@@ -698,10 +698,11 @@ class TodoItemSerializer(serializers.ModelSerializer):
             "repeat_of",
             "next",
             "project",
+            "deleted_at",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["done_at", "repeat_of"]
+        read_only_fields = ["done_at", "repeat_of", "deleted_at"]
 
     def get_repeat_label(self, obj) -> str:
         from core.todos import repeat_label

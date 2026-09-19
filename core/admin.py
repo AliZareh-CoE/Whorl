@@ -14,10 +14,15 @@ class TodoItemAdmin(admin.ModelAdmin):
         "repeat",
         "project",
         "position",
+        "deleted_at",
         "created_at",
     )
-    list_filter = ("done", "project")
+    list_filter = ("done", "project", ("deleted_at", admin.EmptyFieldListFilter))
     search_fields = ("text",)
+
+    def get_queryset(self, request):
+        # #570: the back office sees the Trash too (the default manager hides it)
+        return models.TodoItem.all_objects.select_related("project")
 
 
 @admin.register(models.Pet)

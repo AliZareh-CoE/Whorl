@@ -3249,10 +3249,36 @@ class SavedViewViewSet(AtlasViewSet):
         return Response({"ordered": len(ids)})
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "trash",
+                str,
+                description="true/1: the Trash — deleted items, newest first, kept thirty days "
+                "(#570); every other list leaves them out",
+            ),
+            OpenApiParameter("done", str, description="true/false"),
+            OpenApiParameter("when", str, description="today | later"),
+        ]
+    ),
+    destroy=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "forever", str, description="true/1: delete for good instead of into the Trash"
+            )
+        ],
+        description="Into the Trash (#570): the item leaves every list and count and can be "
+        "restored for thirty days. `?forever=true`, or a second DELETE on a trashed item, "
+        "deletes it for good.",
+    ),
+)
 class TodoItemViewSet(AtlasViewSet):
     """The owner's personal Today list (plain to-dos, not plan tasks)."""
 
-    queryset = TodoItem.objects.select_related("project")
+    # #570: the class queryset sees the Trash so restore / delete-forever can reach a trashed
+    # row; the list splits live from trashed below
+    queryset = TodoItem.all_objects.select_related("project")
     serializer_class = serializers.TodoItemSerializer
     project_filter = "project__slug"
     q_fields = ("text",)
@@ -3261,6 +3287,11 @@ class TodoItemViewSet(AtlasViewSet):
         from core.todos import later_q, today_q
 
         queryset = super().get_queryset()
+        if self.action != "list":
+            return queryset
+        if self.request.query_params.get("trash") in ("true", "1"):
+            return queryset.filter(deleted_at__isnull=False).order_by("-deleted_at", "-id")
+        queryset = queryset.filter(deleted_at__isnull=True)
         done = self.request.query_params.get("done")
         if done in ("true", "1"):
             queryset = queryset.filter(done=True)
@@ -3279,6 +3310,53 @@ class TodoItemViewSet(AtlasViewSet):
         top = TodoItem.objects.aggregate(m=Max("position"))["m"] or 0
         serializer.save(position=top + 1)
 
+    @staticmethod
+    def _in_trash(item) -> Response | None:
+        if item.deleted_at is None:
+            return None
+        return Response({"detail": "This item is in the Trash — restore it first."}, status=409)
+
+    def update(self, request, *args, **kwargs):
+        refused = self._in_trash(self.get_object())
+        return refused or super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        from core.todos import trash
+
+        item = self.get_object()
+        forever = request.query_params.get("forever") in ("true", "1")
+        if forever or item.deleted_at is not None:
+            item.delete()
+        else:
+            trash(item)
+        return Response(status=204)
+
+    @extend_schema(
+        request=None,
+        responses={200: serializers.TodoItemSerializer},
+        description="Back from the Trash (#570) exactly as it was — its day, its rule, its "
+        "done stamp, its place in the list. Already live: unchanged, 200.",
+    )
+    @action(detail=True, methods=["post"])
+    def restore(self, request, pk=None):
+        from core.todos import restore
+
+        item = self.get_object()
+        if item.deleted_at is not None:
+            restore(item)
+        return Response(serializers.TodoItemSerializer(item).data)
+
+    @extend_schema(
+        request=None,
+        responses={200: OpenApiResponse(description="{deleted}")},
+        description="Delete everything in the Trash for good (#570); the nightly sweep does "
+        "the same for items older than thirty days.",
+    )
+    @action(detail=False, methods=["post"], url_path="empty-trash")
+    def empty_trash(self, request):
+        deleted, _ = TodoItem.all_objects.filter(deleted_at__isnull=False).delete()
+        return Response({"deleted": deleted})
+
     @extend_schema(
         request=serializers.SnoozeTodoSerializer,
         responses={200: serializers.TodoItemSerializer},
@@ -3293,6 +3371,9 @@ class TodoItemViewSet(AtlasViewSet):
         from core.todos import snooze
 
         item = self.get_object()
+        refused = self._in_trash(item)
+        if refused:
+            return refused
         serializer = serializers.SnoozeTodoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
@@ -3317,13 +3398,16 @@ class TodoItemViewSet(AtlasViewSet):
                 )
             },
         ),
-        responses={200: OpenApiResponse(description="{deleted}")},
-        description="Delete ticked-off items, leaving the open ones: every one (`scope: all`, "
-        "the default) or only the Logbook — those ticked on an earlier day or without a stamp "
-        "(`scope: earlier`), keeping today's record.",
+        responses={200: OpenApiResponse(description="{deleted, trashed}")},
+        description="Move ticked-off items to the Trash (#570), leaving the open ones: every "
+        "one (`scope: all`, the default) or only the Logbook — those ticked on an earlier day "
+        "or without a stamp (`scope: earlier`), keeping today's record. `deleted` counts them "
+        "(the historical key); they can be restored for thirty days.",
     )
     @action(detail=False, methods=["post"], url_path="clear-done")
     def clear_done(self, request):
+        from django.utils import timezone
+
         from core.todos import logbook_q
 
         scope = (request.data.get("scope") if isinstance(request.data, dict) else None) or "all"
@@ -3334,8 +3418,9 @@ class TodoItemViewSet(AtlasViewSet):
             if scope == "earlier"
             else TodoItem.objects.filter(done=True)
         )
-        deleted, _ = rows.delete()
-        return Response({"deleted": deleted})
+        now = timezone.now()
+        trashed = rows.update(deleted_at=now, updated_at=now)  # etag: ok
+        return Response({"deleted": trashed, "trashed": trashed})
 
     @extend_schema(
         request=inline_serializer(

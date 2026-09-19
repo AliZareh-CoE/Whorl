@@ -51,7 +51,10 @@ def test_boundaries():
 class TestClear:
     def test_default_clears_every_done_row(self, client, owner):
         _rows()
-        assert client.post("/api/v1/todos/clear-done/", **HEADERS).json() == {"deleted": 3}
+        assert client.post("/api/v1/todos/clear-done/", **HEADERS).json() == {
+            "deleted": 3,
+            "trashed": 3,
+        }
         assert TodoItem.objects.filter(done=True).count() == 0
 
     def test_earlier_keeps_today(self, client, owner):
@@ -62,7 +65,7 @@ class TestClear:
             content_type="application/json",
             **HEADERS,
         )
-        assert r.json() == {"deleted": 2}
+        assert r.json() == {"deleted": 2, "trashed": 2}
         assert list(TodoItem.objects.filter(done=True)) == [today]
         assert TodoItem.objects.filter(done=False).count() == 1
 

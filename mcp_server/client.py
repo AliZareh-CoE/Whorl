@@ -575,10 +575,6 @@ def get_compile_status(manuscript_id: int):
     return _request("GET", f"/manuscripts/{manuscript_id}/compile-status/")
 
 
-def get_compile_diagnostics(manuscript_id: int):
-    return get_compile_status(manuscript_id).get("diagnostics", [])
-
-
 def latex_word_count(manuscript_id: int):
     return _request("GET", f"/manuscripts/{manuscript_id}/word-count/")
 
@@ -808,10 +804,20 @@ def format_citations(reference_ids: list[int], style: str = "apa"):
 
 
 def list_todos(include_done: bool = False, when: str = ""):
+    if when == "trash":  # #570: the Trash — deleted items, newest first
+        return _request("GET", "/todos/", params={"trash": "true"})
     params = {} if include_done else {"done": "false"}
     if when:
         params["when"] = when  # "today" | "later"
     return _request("GET", "/todos/", params=params)
+
+
+def trash_todo(todo_id: int, restore: bool = False, forever: bool = False):
+    """Into the Trash (thirty days), back from it (`restore`), or gone for good (`forever`)."""
+    if restore:
+        return _request("POST", f"/todos/{todo_id}/restore/")
+    _request("DELETE", f"/todos/{todo_id}/", params={"forever": "true"} if forever else None)
+    return {"id": todo_id, "trashed": not forever, "deleted": forever}
 
 
 def add_todo(

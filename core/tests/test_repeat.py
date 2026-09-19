@@ -125,9 +125,17 @@ class TestSpawn:
     def test_clear_done_keeps_the_successor(self, client, owner):
         item = TodoItem.objects.create(text="x", position=1, repeat="daily")
         spawned = item.mark(True)
-        assert client.post("/api/v1/todos/clear-done/", **HEADERS).json() == {"deleted": 1}
+        assert client.post("/api/v1/todos/clear-done/", **HEADERS).json() == {
+            "deleted": 1,
+            "trashed": 1,
+        }
         spawned.refresh_from_db()
-        assert spawned.repeat_of is None and not spawned.done
+        # #570: the cleared parent waits in the Trash, so the chain holds until it is gone for good
+        assert spawned.repeat_of_id == item.pk and not spawned.done
+        assert TodoItem.all_objects.get(pk=item.pk).deleted_at is not None
+        assert client.post("/api/v1/todos/empty-trash/", **HEADERS).json() == {"deleted": 1}
+        spawned.refresh_from_db()
+        assert spawned.repeat_of is None and not spawned.done  # SET_NULL, as before
 
     def test_labels(self):
         assert todos.repeat_label(TodoItem(text="x")) == ""

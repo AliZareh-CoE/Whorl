@@ -16,6 +16,7 @@ from core.models import TodoItem
 
 NOON = time(12, 0)
 REPEATS = ("daily", "weekdays", "weekly", "monthly")
+TRASH_DAYS = 30  # #570: how long a deleted item waits in the Trash before the sweep removes it
 
 
 def day_end(today: date | None = None) -> datetime:
@@ -147,8 +148,12 @@ def spawn_next(item: TodoItem, today: date | None = None) -> TodoItem | None:
     in Today or Later by the usual boundary."""
     if not item.repeat:
         return None
-    existing = item.repeats.filter(done=False).first()
+    # #570: the chain's open successor may sit in the Trash — a re-tick brings it back rather
+    # than spawning a second occurrence (one open occurrence per chain, trashed or live)
+    existing = TodoItem.all_objects.filter(repeat_of=item, done=False).first()
     if existing is not None:
+        if existing.deleted_at is not None:
+            restore(existing)
         return existing
     top = TodoItem.objects.aggregate(m=Max("position"))["m"] or 0
     return TodoItem.objects.create(
@@ -165,7 +170,31 @@ def spawn_next(item: TodoItem, today: date | None = None) -> TodoItem | None:
 def unspawn(item: TodoItem) -> int:
     """An untick takes the successor back while it is still untouched (open, same text).
     An edited or ticked successor is the owner's now and stays."""
-    deleted, _ = item.repeats.filter(done=False, text=item.text).delete()
+    deleted, _ = TodoItem.all_objects.filter(repeat_of=item, done=False, text=item.text).delete()
+    return deleted
+
+
+def trash(item: TodoItem) -> TodoItem:
+    """#570: into the Trash — out of every list and count, back with `restore` for TRASH_DAYS.
+    A done row keeps its stamp, a successor its chain; save() so the ETag moves."""
+    item.deleted_at = timezone.now()
+    item.save(update_fields=["deleted_at", "updated_at"])
+    return item
+
+
+def restore(item: TodoItem) -> TodoItem:
+    """Back from the Trash exactly as it was — its day, its rule, its stamp, its place."""
+    item.deleted_at = None
+    item.save(update_fields=["deleted_at", "updated_at"])
+    return item
+
+
+def prune_trash(now: datetime | None = None) -> int:
+    """Remove what has waited in the Trash longer than TRASH_DAYS — the nightly sweep (huey)
+    and the desktop scheduler both call this. A pruned parent detaches its successors
+    (SET_NULL), the same as clearing done rows always did."""
+    cutoff = (now or timezone.now()) - timedelta(days=TRASH_DAYS)
+    deleted, _ = TodoItem.all_objects.filter(deleted_at__lt=cutoff).delete()
     return deleted
 
 

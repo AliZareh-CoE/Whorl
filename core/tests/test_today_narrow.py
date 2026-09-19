@@ -33,11 +33,13 @@ def test_today_rows_wrap_against_their_column():
     # the text keeps a 13-rem floor (#522's rule) from a 32-rem column; below it the text shrinks
     # so the action buttons share its line (a 334-px column cannot hold both)
     assert (
-        today.count('data-testid="todo-text"') == 3
-        and today.count("min-w-0 @lg:min-w-[13rem] flex-1") == 3
+        today.count('data-testid="todo-text"') == 4  # today / Later / Logbook / Trash (#570)
+        and today.count("min-w-0 @lg:min-w-[13rem] flex-1") == 4
     )
     # the actions are one group placed before the chips, so a tight row drops the chips, not them
-    assert today.count('data-testid="todo-actions"') == 2  # today + done rows share Row; Later
+    assert (
+        today.count('data-testid="todo-actions"') == 3
+    )  # Row (today + done), LaterRow, TrashRow (#570); Later
     for name in ("function LaterRow", "function Row("):
         chunk = today.split(name, 1)[1]
         assert chunk.index('data-testid="todo-actions"') < chunk.index('data-testid="todo-meta"'), (
@@ -70,7 +72,7 @@ def test_today_menu_controls_and_headers():
         today.count(
             'className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1"'
         )
-        == 3
+        == 4  # Later / Done today / Logbook / Trash (#570)
     )
 
 

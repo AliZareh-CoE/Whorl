@@ -24,8 +24,8 @@ deadline, compile state and files → `get_manuscript_budget` for the venue limi
   the bibliography and bibliography entries never cited. Fix with
   `add_manuscript_reference` / `remove_manuscript_reference`; the keys come from the
   library (`search`), never invented.
-- `compile_and_wait` (or `compile_manuscript` + `get_compile_status`) and then
-  `get_compile_diagnostics`; report errors with file and line, propose the fix, apply it
+- `compile_and_wait` (or `compile_manuscript` + `get_compile_status`) and read its
+  `diagnostics` list; report errors with file and line, propose the fix, apply it
   only when asked. `latex_word_count` for length questions.
 
 ## Submit and respond

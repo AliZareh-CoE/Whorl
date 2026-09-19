@@ -232,6 +232,15 @@ def start_scheduler(directory: Path | None = None) -> bool:
                 finally:
                     close_old_connections()
                 try:
+                    # #570: the Today Trash empties itself after thirty days, same rules.
+                    from core.todos import prune_trash
+
+                    prune_trash()
+                except Exception:  # noqa: BLE001
+                    log.exception("trash sweep failed")
+                finally:
+                    close_old_connections()
+                try:
                     # #531: the journal / arXiv feeds refresh from the same thread, same rules.
                     from literature.feeds import refresh_stale as refresh_stale_feeds
 

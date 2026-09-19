@@ -352,6 +352,15 @@ def test_todo_client_calls(capture):
         and calls_url_has(capture, "/todos/4/")
         and '"done":true' in capture["body"]
     )
+    # #570: the Trash
+    client.list_todos(when="trash")
+    assert calls_url_has(capture, "/todos/") and "trash=true" in capture["url"]
+    client.trash_todo(4)
+    assert capture["method"] == "DELETE" and calls_url_has(capture, "/todos/4/")
+    client.trash_todo(4, forever=True)
+    assert capture["method"] == "DELETE" and "forever=true" in capture["url"]
+    client.trash_todo(4, restore=True)
+    assert capture["method"] == "POST" and calls_url_has(capture, "/todos/4/restore/")
 
 
 def test_tag_client_calls(capture):

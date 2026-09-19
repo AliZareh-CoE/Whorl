@@ -1,7 +1,9 @@
 /** Today — the owner's plain to-do list (owner request, 2026-09-06). One list, one input,
  *  one click to tick. Nothing is lost overnight: open items simply stay. #546: an item for a
  *  later day ("review the draft on Friday", or snoozed with `s`) waits in Later, out of the way,
- *  and joins the list on its morning. */
+ *  and joins the list on its morning. #570: a deleted item waits thirty days in the Trash —
+ *  the undo restores the very row (its stamp, its rule, its place), and the Trash section at
+ *  the bottom restores or deletes for good. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Check, Pencil, Plus, Sparkles, Trash2, GripVertical, Moon, Sun, Repeat as RepeatIcon, BookOpen, ChevronRight } from "lucide-react";
@@ -11,9 +13,10 @@ import { dayLabel, dueState, formatDue, isLater, parseDue, relativeDue, repeatLa
 import type { Repeat } from "../dueTime";
 import { ErrorState } from "../../components/ErrorState";
 import { showUndo, undoLast } from "../../components/UndoToast";
+import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
 
-type Todo = { id: number; text: string; done: boolean; done_at: string | null; position: number; due_at: string | null; all_day: boolean; repeat: Repeat; project: string | null; created_at: string; next?: { id: number; due_at: string } | null };
+type Todo = { id: number; text: string; done: boolean; done_at: string | null; position: number; due_at: string | null; all_day: boolean; repeat: Repeat; project: string | null; created_at: string; deleted_at?: string | null; next?: { id: number; due_at: string } | null };
 type Page<T> = { count: number; results: T[] };
 
 const panel = "rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900";
@@ -23,7 +26,9 @@ export default function Today() {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["todos"], queryFn: () => api<Page<Todo>>("/todos/?page_size=200") });
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["todos"] });
+  const refresh = () => { void queryClient.invalidateQueries({ queryKey: ["todos"] }); void queryClient.invalidateQueries({ queryKey: ["todos-trash"] }); };
+  // #570: the Trash — deleted items, newest first, restorable for thirty days
+  const trashQuery = useQuery({ queryKey: ["todos-trash"], queryFn: () => api<Page<Todo>>("/todos/?trash=true&page_size=200") });
   const add = useMutation({
     mutationFn: (t: string) => api<Todo>("/todos/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parseDue(t)) }), // #431: "at 3pm" → due_at
     onSuccess: () => { setText(""); refresh(); inputRef.current?.focus(); },
@@ -44,36 +49,21 @@ export default function Today() {
     },
     onSettled: refresh,
   });
-  // #549: delete is undoable — the row is re-created with every field it had (done items as
-  // done, without a tick: no successor is spawned twice) and put back at its old place.
+  // #549 → #570: delete moves the row to the Trash; the undo restores that very row — its done
+  // stamp, its rule and its chain, its place in the list — and so does the Trash section later.
   const remove = useMutation({
     mutationFn: (id: number) => api(`/todos/${id}/`, { method: "DELETE" }),
-    onMutate: (id) => {
-      const rows = queryClient.getQueryData<Page<Todo>>(["todos"])?.results ?? [];
-      const gone = rows.find((t) => t.id === id) ?? null;
-      const index = rows.filter((t) => !t.done && !isLater(t.due_at)).findIndex((t) => t.id === id);
-      return { gone, index };
-    },
-    onSuccess: (_r, _id, ctx) => {
+    onMutate: (id) => ({ gone: (queryClient.getQueryData<Page<Todo>>(["todos"])?.results ?? []).find((t) => t.id === id) ?? null }),
+    onSuccess: (_r, id, ctx) => {
       refresh();
       const gone = ctx?.gone;
       if (!gone) return;
-      showUndo(`Deleted — “${gone.text.slice(0, 50)}”`, async () => {
-        // a done row comes back open and is ticked again, so it gets a fresh stamp and lands in
-        // Done today (#550); a done *repeating* row is re-created as done instead — a tick would
-        // spawn a second occurrence — and so returns under the Logbook's "earlier"
-        const asDone = gone.done && !!gone.repeat;
-        const made = await api<Todo>("/todos/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: gone.text, done: asDone, due_at: gone.due_at, all_day: gone.all_day, repeat: gone.repeat, project: gone.project }) });
-        if (gone.done && !asDone) await api(`/todos/${made.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: true }) });
-        if (!gone.done && ctx.index >= 0) { // back at its old place among today's rows
-          const ids = (queryClient.getQueryData<Page<Todo>>(["todos"])?.results ?? []).filter((t) => !t.done && !isLater(t.due_at) && t.id !== made.id).map((t) => t.id);
-          ids.splice(Math.min(ctx.index, ids.length), 0, made.id);
-          await api("/todos/reorder/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
-        }
-        refresh();
-      });
+      showUndo(`Deleted — “${gone.text.slice(0, 50)}” · in the Trash for 30 days`, async () => { await api(`/todos/${id}/restore/`, { method: "POST" }); refresh(); });
     },
   });
+  const restore = useMutation({ mutationFn: (id: number) => api<Todo>(`/todos/${id}/restore/`, { method: "POST" }), onSuccess: refresh });
+  const forever = useMutation({ mutationFn: (id: number) => api(`/todos/${id}/?forever=true`, { method: "DELETE" }), onSuccess: refresh });
+  const emptyTrash = useMutation({ mutationFn: () => api("/todos/empty-trash/", { method: "POST" }), onSuccess: refresh });
   const edit = useMutation({ mutationFn: ({ id, text: t }: { id: number; text: string }) => { const { repeat, ...p } = parseDue(t); const body = { ...(p.due_at ? p : { text: p.text }), ...(repeat ? { repeat } : {}) }; return api<Todo>(`/todos/${id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); }, onSuccess: refresh }); // an edit without "every …" keeps the item's rule
   // #547: "every Monday" — the rule lives on the item; ticking it spawns the next occurrence
   const setRepeat = useMutation({
@@ -124,6 +114,15 @@ export default function Today() {
   const clearDone = useMutation({ mutationFn: () => api("/todos/clear-done/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: "earlier" }) }), onSuccess: refresh });
   const [logbookOpen, setLogbookOpen] = useState<boolean>(() => { try { return localStorage.getItem("atlas-today-logbook") === "open"; } catch { return false; } });
   const toggleLogbook = () => setLogbookOpen((o) => { try { localStorage.setItem("atlas-today-logbook", o ? "closed" : "open"); } catch { /* private mode */ } return !o; });
+  const [trashOpen, setTrashOpen] = useState<boolean>(() => { try { return localStorage.getItem("atlas-today-trash") === "open"; } catch { return false; } });
+  const toggleTrash = () => setTrashOpen((o) => { try { localStorage.setItem("atlas-today-trash", o ? "closed" : "open"); } catch { /* private mode */ } return !o; });
+  const trash = trashQuery.data?.results ?? [];
+  const askEmptyTrash = async () => {
+    if (await confirmDialog({ title: "Empty the trash?", body: `${trash.length} deleted ${trash.length === 1 ? "item goes" : "items go"} for good. The sweep would do it after thirty days anyway.`, danger: true, confirmLabel: "Empty the trash" })) emptyTrash.mutate();
+  };
+  const askForever = async (t: Todo) => {
+    if (await confirmDialog({ title: `Delete “${t.text.slice(0, 60)}” for good?`, body: "It leaves the Trash and cannot be restored.", danger: true, confirmLabel: "Delete forever" })) forever.mutate(t.id);
+  };
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -274,7 +273,22 @@ export default function Today() {
           )}
         </section>
       )}
-      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes · s pushes to tomorrow, S picks a day · z undoes · ⌥↑/↓ or drag reorders · n new · “at 3pm” sets a time, “on Friday” a day, “every Monday” a rule. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
+      {trash.length > 0 && (
+        <section className="rise mt-5" style={{ ["--i" as string]: 5 }} data-testid="trash">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+            <button type="button" onClick={toggleTrash} aria-expanded={trashOpen} data-testid="trash-toggle" className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
+              <ChevronRight className={`h-3 w-3 transition-transform ${trashOpen ? "rotate-90" : ""}`} aria-hidden="true" /><Trash2 className="h-3 w-3" aria-hidden="true" />Trash · {trash.length}<span className="ml-1 font-normal normal-case tracking-normal">· kept 30 days</span>
+            </button>
+            <button type="button" onClick={() => void askEmptyTrash()} data-testid="empty-trash" className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-red-500">Empty the trash</button>
+          </div>
+          {trashOpen && (
+            <ul className={`${panel} divide-y divide-stone-100 overflow-hidden dark:divide-stone-800`}>
+              {trash.map((t) => <TrashRow key={t.id} t={t} onRestore={() => restore.mutate(t.id)} onForever={() => void askForever(t)} />)}
+            </ul>
+          )}
+        </section>
+      )}
+      <p className="mt-6 text-center text-xs text-stone-400">j/k move · space ticks · e edits · x deletes (30 days in the Trash) · s pushes to tomorrow, S picks a day · z undoes · ⌥↑/↓ or drag reorders · n new · “at 3pm” sets a time, “on Friday” a day, “every Monday” a rule. Also from Claude Code: “add ‘book the scanner’ to my list”.</p>
     </div>
   );
 }
@@ -325,6 +339,26 @@ function LogRow({ t, onToggle, onRemove }: { t: Todo; onToggle: () => void; onRe
         <RepeatChip t={t} />
         {t.project && <Link to={`/projects/${t.project}`} className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 hover:text-indigo-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:text-indigo-300">{t.project}</Link>}
         {t.done_at && <span className="shrink-0 text-[10px] tabular-nums text-stone-400">{new Date(t.done_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>}
+      </span>}
+    </li>
+  );
+}
+
+/** #570: a row in the Trash — muted, with the day it was deleted; Restore puts it back exactly
+ *  as it was, the bin deletes it for good (after a confirm). */
+function TrashRow({ t, onRestore, onForever }: { t: Todo; onRestore: () => void; onForever: () => void }) {
+  return (
+    <li className="group flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2" data-testid="trash-row">
+      <Trash2 className="h-4 w-4 shrink-0 text-stone-300 dark:text-stone-600" aria-hidden="true" />
+      <span className={`min-w-0 @lg:min-w-[13rem] flex-1 text-sm text-stone-500 dark:text-stone-400 ${t.done ? "line-through" : ""}`} data-testid="todo-text">{t.text}</span>
+      <span className="flex shrink-0 items-center gap-2" data-testid="todo-actions">
+        <button type="button" onClick={onRestore} data-testid="trash-restore" className="rounded-lg border border-stone-200 px-2 py-0.5 text-xs text-stone-600 hover:border-indigo-300 hover:text-indigo-600 dark:border-stone-700 dark:text-stone-300 dark:hover:text-indigo-300">Restore</button>
+        <button type="button" onClick={onForever} data-testid="trash-forever" aria-label="Delete forever" title="Delete forever" className="shrink-0 text-stone-300 hover:text-red-500 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+      </span>
+      {(t.deleted_at || t.project || t.repeat) && <span className="order-last flex min-w-0 basis-full flex-wrap items-center gap-1 @lg:order-none @lg:basis-auto pl-7" data-testid="todo-meta">
+        <RepeatChip t={t} />
+        {t.deleted_at && <span className="shrink-0 text-[10px] text-stone-400" data-testid="trash-when">deleted {dayLabel(t.deleted_at)}</span>}
+        {t.project && <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500 dark:bg-stone-800 dark:text-stone-300">{t.project}</span>}
       </span>}
     </li>
   );

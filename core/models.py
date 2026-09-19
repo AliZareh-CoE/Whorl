@@ -85,6 +85,15 @@ class AchievementUnlock(models.Model):
         return self.key
 
 
+class LiveTodoManager(models.Manager):
+    """#570: the default manager hides trashed rows, so every reader — the lists, the brief,
+    the achievements' counts, reverse relations — stops seeing a deleted item by construction;
+    `TodoItem.all_objects` is the one door to the Trash."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
 class TodoItem(TimeStampedModel):
     """The owner's personal "Today" list (owner request, 2026-09-06): one plain list of things
     to do, ticked off with one click, never lost overnight. Deliberately NOT a plan task —
@@ -117,6 +126,9 @@ class TodoItem(TimeStampedModel):
         MONTHLY = "monthly", "Every month"
 
     repeat = models.CharField(max_length=10, choices=Repeat.choices, blank=True, default="")
+    # #570: a deleted item waits in the Trash for thirty days (core/todos.py TRASH_DAYS) — an
+    # undo survives a reload, a done row keeps its stamp, a successor keeps its chain
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
     repeat_of = models.ForeignKey(
         "self",
         null=True,
@@ -124,6 +136,9 @@ class TodoItem(TimeStampedModel):
         on_delete=models.SET_NULL,  # clearing the done row must not take next week's with it
         related_name="repeats",
     )
+
+    objects = LiveTodoManager()  # first-declared = the default: hides the Trash everywhere
+    all_objects = models.Manager()  # noqa: DJ012 — the two managers sit together, after the fields
 
     class Meta:
         ordering = ["done", "position", "id"]

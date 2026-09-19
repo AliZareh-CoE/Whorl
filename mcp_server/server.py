@@ -539,13 +539,6 @@ def get_compile_status(manuscript_id: int) -> dict:
 
 
 @mcp.tool()
-def get_compile_diagnostics(manuscript_id: int) -> list:
-    """Just the parsed diagnostics [{level, file, line, message}] from the manuscript's last
-    compile — a tight list to reason over when fixing LaTeX errors."""
-    return client.get_compile_diagnostics(manuscript_id)
-
-
-@mcp.tool()
 def compile_and_wait(manuscript_id: int, timeout_seconds: int = 120) -> dict:
     """Compile the manuscript and block until it finishes (ok/failed) or the timeout, then
     return the final status (diagnostics + pdf url). The one-shot edit->compile->result tool."""
@@ -734,8 +727,16 @@ def format_citations(reference_ids: list[int], style: str = "apa") -> dict:
 @mcp.tool()
 def list_todos(include_done: bool = False, when: str = "") -> dict:
     """The owner's personal Today list (plain to-dos, not plan tasks). Open items by default;
-    `when` "today" or "later" narrows to today's list or what waits for a later day."""
+    `when` narrows: "today", "later" (waits for a day) or "trash" (deleted, kept 30 days)."""
     return client.list_todos(include_done, when)
+
+
+@mcp.tool()
+def trash_todo(todo_id: int, restore: bool = False, forever: bool = False) -> dict:
+    """Delete a Today item into the Trash, where it stays for thirty days out of every list
+    and count; `restore=True` brings it back exactly as it was (its day, rule and done stamp),
+    `forever=True` deletes it for good. Ids from list_todos (when="trash" for the Trash)."""
+    return client.trash_todo(todo_id, restore, forever)
 
 
 @mcp.tool()

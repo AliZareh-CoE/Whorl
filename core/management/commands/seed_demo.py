@@ -968,6 +968,11 @@ class Command(BaseCommand):
                 "due_at": day_instant(due_day("monday")).replace(hour=10),
             },
         )
+        # #570: one item in the Trash, deleted three days ago — restorable for thirty
+        TodoItem.all_objects.get_or_create(
+            text="Chase the ethics committee about the amendment",
+            defaults={"position": 9, "project": project, "deleted_at": _tz.now() - _td(days=3)},
+        )
         QuickCapture.objects.get_or_create(
             text="Check whether the 2024 load-modulation preprint ever got published"
         )

@@ -47,7 +47,10 @@ def test_add_tick_untick_clear(client, owner):
     client.patch(
         f"/api/v1/todos/{first['id']}/", {"done": True}, content_type="application/json", **HEADERS
     )
-    assert client.post("/api/v1/todos/clear-done/", **HEADERS).json() == {"deleted": 1}
+    assert client.post("/api/v1/todos/clear-done/", **HEADERS).json() == {
+        "deleted": 1,
+        "trashed": 1,
+    }
     assert TodoItem.objects.count() == 1
 
 
