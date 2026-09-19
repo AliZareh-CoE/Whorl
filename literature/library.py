@@ -62,11 +62,11 @@ def filter_references(qs: QuerySet, params) -> QuerySet:
         )
         qs = qs.annotate(pdf_match=Exists(_pdf_hit(q)))
     year = params.get("year")
-    if year and year.isdigit():
+    if year and year.isdecimal():
         qs = qs.filter(year=int(year))
     for key, lookup in (("year_min", "year__gte"), ("year_max", "year__lte")):
         value = params.get(key)
-        if value and value.isdigit():
+        if value and value.isdecimal():
             qs = qs.filter(**{lookup: int(value)})
     entry_type = params.get("entry_type")
     if entry_type:

@@ -48,8 +48,13 @@ def expand_reference(ref) -> str:
 def expand_value(kind: str, raw, name: str = "") -> tuple[str, str]:
     """(text, label) for one fill-in. A typed kind whose value is an id reads the row; any
     other value is used as typed, so Claude may pass a title it has no id for."""
+    if isinstance(raw, dict | list | tuple):
+        # Audit #35: an object or a list is neither text nor an id — refused (400), never
+        # str()-ed into the rendered text as a Python repr
+        raise PromptError(f"The value for {name or kind} must be text or an id, not an object.")
     value = str(raw if raw is not None else "").strip()
-    if kind == "text" or not value.isdigit():
+    # isdecimal(), not isdigit(): "²" is a digit to Python but int("²") raises (Audit #35)
+    if kind == "text" or not value.isdecimal():
         return value, value
     pk = int(value)
     if pk <= 0 or pk > MAX_PK:

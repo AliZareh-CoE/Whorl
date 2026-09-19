@@ -43,7 +43,7 @@ def add_comment(request, kind, object_id):
     target = get_object_or_404(model, pk=object_id)
     body = request.POST.get("body", "").strip()[:5000]
     page = request.POST.get("page")
-    page = int(page) if page and page.isdigit() else None
+    page = int(page) if page and page.isdecimal() else None
     if body:
         Comment.objects.create(target=target, body=body, page=page)
         messages.success(request, "Comment added.")

@@ -5,10 +5,10 @@ the classic Documents page's bulk form.
 
 from __future__ import annotations
 
+import shutil
 import tempfile
 import zipfile
 
-from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from core.archives import safe_archive_name
@@ -98,8 +98,10 @@ def duplicate_document(doc: Document) -> Document:
         content_type=doc.content_type,
     )
     if doc.file:
+        # Audit #35: the open FieldFile streams in chunks — a 400 MB dataset is never held
+        # in memory whole
         with doc.file.open("rb") as handle:
-            copy.file.save(name, ContentFile(handle.read()), save=False)
+            copy.file.save(name, handle, save=False)
     copy.save()
     copy.tags.set(doc.tags.all())
     return copy
@@ -222,8 +224,9 @@ def build_archive(
         for name, doc in members:
             member = unique(name)
             if doc.file:
-                with doc.file.open("rb") as handle:
-                    zf.writestr(member, handle.read())
+                # Audit #35 (the #34 carry-over): copied through a 64 KB buffer, never read whole
+                with zf.open(member, "w") as out, doc.file.open("rb") as handle:
+                    shutil.copyfileobj(handle, out)
             else:
                 zf.writestr(member, doc.content)
     spool.seek(0)

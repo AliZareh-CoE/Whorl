@@ -29,7 +29,7 @@ def resolve_theme(project, theme) -> ReviewTheme:
     """A theme by id, name (created when missing), or instance."""
     if isinstance(theme, ReviewTheme):
         return theme
-    if isinstance(theme, int) or (isinstance(theme, str) and theme.isdigit()):
+    if isinstance(theme, int) or (isinstance(theme, str) and theme.isdecimal()):
         found = project.review_themes.filter(pk=int(theme)).first()
         if found:
             return found
@@ -40,7 +40,7 @@ def set_mark(project, reference, theme, *, marked: bool = True, note: str | None
     """Create / update / remove one cell. `reference` is a Reference, id, or bibtex key."""
     if isinstance(reference, Reference):
         ref = reference
-    elif isinstance(reference, int) or (isinstance(reference, str) and reference.isdigit()):
+    elif isinstance(reference, int) or (isinstance(reference, str) and reference.isdecimal()):
         ref = Reference.objects.filter(pk=int(reference)).first()
     else:
         ref = Reference.objects.filter(bibtex_key__iexact=str(reference)).first()

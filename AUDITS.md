@@ -874,6 +874,86 @@ navigation), acceptable for a single-user desktop showing its own logs.
 auth-gated, project-scoped, and has a forge-proof version chain. 794 tests green, ruff clean.
 
 
+## Audit #35 — 2026-09-19 (since #34: #559–#567 — the Files area's last three slices and its verdict, the Prompts area's first six: typed fill-ins, use counts, "Use a prompt with this…", history, every entry point, chains)
+
+Nine slices, **one dependency advisory, one live 500, one repr leak, one admin bypass** — all
+fixed in this cycle — and the #34 carry-over (whole-file reads behind the zip and Duplicate)
+closed. The two Today items still queued (344, 345) are features, not audit work, and stay.
+
+**Dependencies — one advisory, fixed.** `pip-audit` on the exported lock flagged **anyio 4.13.0**
+twice: CVE-2026-63374 (`TLSStream` encodes host names with IDNA 2003, so a look-alike name could
+pass certificate checks) and CVE-2026-64847 (process-pool workers can block on an undrained
+stderr). Neither path is one Atlas exercises — httpx is used synchronously and no process pool
+is opened — but anyio ships inside `atlas-mcp` (`atlas_mcp.spec` bundles it by name) and the
+fix is a lock bump: `uv lock --upgrade-package anyio` → **4.15.1** (typing-extensions 4.16.0
+rode along); `uv sync --inexact` locally; the desktop workflow syncs from the same lock.
+`test_audit35.py::test_anyio_carries_the_fix_for_its_two_advisories` pins ≥ 4.14.2. `npm audit
+--omit=dev`: *0 vulnerabilities*. `scripts/audit.sh`: every row green after the bump.
+
+**New surfaces since #34 — reviewed.**
+- *Auth:* `prompts/`, `prompts/{id}/render/`, `prompts/{id}/uses/`, `tags/`, `tags/{id}/merge/`
+  answer 401 anonymously.
+- *Render values (#562):* a reference id past the 32-bit column (`2147483648`) or past the
+  Python int (`99999999999`) → 404 "No reference with id …" (bounded by `MAX_PK` before the
+  lookup); `values` as a list → 400 from the serializer; a negative or non-numeric typed value
+  is used as text (the documented path for Claude passing a title — accepted); a 200 000-char
+  text value renders (the expansion is capped at 50 000, the stored use at `STORED_CAP` = 300)
+  while the response echoes the raw `value` / `label` uncapped — bounded by the request body
+  size, accepted and noted.
+- *`?kind=` (#564):* whitelisted against `KINDS` before it reaches the regex — `(a+)+$` and
+  `text` are ignored, `reference` filters. Checked on SQLite at #564.
+- *History (#565):* `uses/` on a missing or oversized id → 404; the sliced prefetch was checked
+  on SQLite at #565.
+- *Chains (#567):* `next` = itself → 400 "loop"; a missing pk → 400; a string → 400; create
+  with `next` set skips the cycle check correctly (a new row has no pk to loop back to —
+  created and deleted live).
+- *Tags (#559):* merge into itself → 400; into a tag of another project → 404 (pinned by
+  `test_tag_management.py`); into an oversized or non-integer id → 404 / 400; a colour that is
+  not `#rrggbb` → 400; a 300-char or blank name → 400; eleven `?tag=` values → 200 (capped at
+  10, AND).
+- *Bulk (#560):* 501 ids → 400; an unknown action → 400; an oversized tag id → 404; a
+  foreign id on duplicate → 200 with `count: 0` (dropped by the project scope).
+
+**Latency (warm, best of three, API key, demo data):** prompts list 16 ms · `?kind=reference`
+15 ms · detail 16 ms · uses 13 ms · render 18 ms · tags 13 ms · tree 14 ms. Nothing near the
+100 ms bar.
+
+**Finding 1 — a Unicode digit as a typed fill-in was a 500 (fixed).** `expand_value` asked
+`value.isdigit()` before `int(value)`; `"²"` and `"①"` are digits to Python but `int()`
+refuses them, so `{"paper": "²"}` raised `ValueError` through to a Django error page.
+`isdecimal()` is the exact predicate for what `int()` accepts, so it replaces `isdigit()`
+there — and at the nine other `isdigit → int` pairs the grep found: the graph `?depth=`, the
+history `?limit=`, the capture `?run=`, the comment `?reference=` and `line` readers in
+`api/views.py`, the year filters in `literature/library.py`, the theme / reference lookups in
+`literature/matrix.py`, and the classic comment page. Tests: `"²"` renders as text,
+`?depth=²` → 400, `?year=²` → 200, `?limit=²` → 400, `?run=²` → 200.
+
+**Finding 2 — an object or a list as a render value leaked a Python repr (fixed).** `{"paper":
+{"a": 1}}` rendered `{'a': 1}` into the text (and would have been stored as the use's label).
+`expand_value` now refuses a dict, list or tuple with a 400 whose message does not start with
+"No " (the view's 404 shape); a refused render is not a use. The MCP client raises
+`AtlasClientError` with the same message (checked live).
+
+**Finding 3 — the admin could save a chain loop (fixed).** The #567 record listed it as
+accepted; the audit closes it: `PromptAdminForm.clean()` runs the same `chain_would_cycle` as
+the API and refuses self, a two-cycle and longer loops on `next`; a new prompt and a straight
+chain pass.
+
+**Carry-over from #34 — whole-file reads behind the zip and Duplicate (closed).** `build_archive`
+now opens each member for writing and copies the storage file through `shutil.copyfileobj`
+(a 64 KB buffer); `duplicate_document` hands the open `FieldFile` to `save()`, which streams
+it in chunks — a 400 MB dataset is never held in memory whole on either path. Byte equality
+is pinned for both (512 KB and 256 KB fixtures, past any one chunk).
+
+**Not checked this time (say so):** the frozen builds beyond CI's boot check (runs 296 + 297
+green); the huey worker under Redis (the desktop runs immediate mode); `ATLAS_FRAME_ANCESTORS`
+set live (unchanged since #33).
+
+**Verdict:** the first advisory since #25 and the first live 500 since #31 — both found by the
+routine, both fixed at the root (the predicate, the lock) with tests. The prompts surfaces are
+otherwise tight: every id is bounded, every filter whitelisted, every write gated. Next audit
+at #578.
+
 ## Audit #34 — 2026-09-16 (since #33: #549–#557 — Today's undo and Logbook and its verdict, the rail as a drawer, the Files area: history, tags and description, version compare, a selection with zips, time in the explorer)
 
 Ten cycles, nine slices, **no finding across the wire** — and one real finding found from the

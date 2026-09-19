@@ -2888,7 +2888,7 @@ class HighlightViewSet(AtlasViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         reference = self.request.query_params.get("reference")
-        if reference and reference.isdigit():
+        if reference and reference.isdecimal():
             queryset = queryset.filter(reference_id=int(reference))
         return queryset
 
@@ -3387,7 +3387,7 @@ class QuickCaptureViewSet(AtlasViewSet):
         if processed in ("true", "false"):
             queryset = queryset.filter(processed=(processed == "true"))
         run = self.request.query_params.get("run")  # #423: what one bot run filed
-        if run and run.isdigit():
+        if run and run.isdecimal():
             queryset = queryset.filter(bot_run_id=int(run))
         snoozed = self.request.query_params.get("snoozed")  # #495: asleep past today, or not
         if snoozed == "true":
@@ -3422,7 +3422,7 @@ class QuickCaptureViewSet(AtlasViewSet):
         from notes.capture import triage_history
 
         raw = request.query_params.get("limit", "30")
-        if not raw.isdigit():
+        if not raw.isdecimal():
             return Response({"detail": "limit must be an integer"}, status=400)
         return Response({"results": triage_history(int(raw))})
 
@@ -4445,7 +4445,10 @@ class PromptViewSet(AtlasViewSet):
                 "use_count, last_used_at} — the prompt with every fill-in applied; a "
                 "successful render counts as a use (#563)"
             ),
-            400: OpenApiResponse(description="values is not an object"),
+            400: OpenApiResponse(
+                description="values is not an object, or a value is an object or a list "
+                "rather than text or an id"
+            ),
             404: OpenApiResponse(description="A typed fill-in names a row that does not exist"),
         },
         description="Render a prompt with its fill-ins (#562): `values` maps a variable name "
@@ -4670,7 +4673,7 @@ class NoteViewSet(AtlasViewSet):
         from core.graph import note_neighbourhood
 
         raw = request.query_params.get("depth", "2")
-        if not raw.isdigit():
+        if not raw.isdecimal():
             return Response({"detail": "depth must be an integer"}, status=400)
         return Response(note_neighbourhood(self.get_object(), int(raw)))
 
@@ -5745,7 +5748,7 @@ class CommentsAPIView(APIView):
         if not body:
             return Response({"detail": "Empty comment."}, status=400)
         line = request.data.get("line")
-        line = int(line) if str(line).isdigit() else None
+        line = int(line) if str(line).isdecimal() else None
         comment = Comment.objects.create(target=target, body=body, page=line)
         return Response(
             {
