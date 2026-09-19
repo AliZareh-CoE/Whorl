@@ -240,11 +240,16 @@ def test_the_text_labels_the_feed_rows(monkeypatch):
     )
     lines = [line for line in text.splitlines() if line.startswith("update feed")]
     assert lines[0].startswith("update feed (tried first): https://github.com/AliZareh-CoE/Whorl/")
-    assert lines[0].endswith("→ 404") and "uses this one" not in lines[0]
+    # the first address failed and the app moved on: the line says so (this state cannot be
+    # probed live — the first address answers on this box — so it lives here)
+    assert lines[0].endswith("→ 404 · no feed here — the app moved on to the next address")
+    assert "uses this one" not in lines[0]
     assert lines[1].startswith("update feed (fallback): ") and lines[1].endswith(
         " ← the app uses this one"
     )
-    assert lines[2].startswith("update feed (fallback): ") and lines[2].endswith("→ 404")
+    assert lines[2].startswith("update feed (fallback): ") and lines[2].endswith(
+        "→ 404 · not consulted — an earlier address answered"
+    )
 
 
 def test_feed_rows_ui_wiring():
@@ -256,6 +261,7 @@ def test_feed_rows_ui_wiring():
         'data-testid="update-feed" data-role={f.role ?? "first"} data-used={used ? "1" : "0"}',
         'data-testid="update-feed-used"',
         "not consulted — an earlier address answered",
+        "no feed here — the app moved on to the next address",
         'label={`Feed · ${f.role === "fallback" ? "fallback" : "tried first"}`}',
         # only the address the app uses can go red; a fallback behind it never does
         "const ok = f.status === null ? null : used ? fine : usedIndex >= 0 ? null : fine;",

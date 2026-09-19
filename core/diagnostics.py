@@ -670,15 +670,24 @@ def as_text(report: dict) -> str:
         + (", ".join(report.get("frame_ancestors") or []) or "nobody (X-Frame-Options DENY)"),
     ]
     verdict = report.get("update_verdict") or {}
-    for row in report["update_feed"]:
+    feed_urls = [row["url"] for row in report["update_feed"]]
+    used_index = feed_urls.index(verdict["url"]) if verdict.get("url") in feed_urls else -1
+    for index, row in enumerate(report["update_feed"]):
         answer = row["status"] if row["status"] is not None else "not checked"
         if row.get("version"):
             answer = (
                 f"{answer} · offers {row['version']} · signed for this app: {row.get('key_match')}"
             )
         role = "tried first" if row.get("role", "first") == "first" else "fallback"  # #574
-        used = " ← the app uses this one" if verdict.get("url") == row["url"] else ""
-        lines.append(f"update feed ({role}): {row['url']} → {answer}{used}")
+        if used_index == index:
+            tail = " ← the app uses this one"
+        elif used_index > index:
+            tail = " · no feed here — the app moved on to the next address"
+        elif used_index >= 0 and row["status"] is not None:
+            tail = " · not consulted — an earlier address answered"
+        else:
+            tail = ""
+        lines.append(f"update feed ({role}): {row['url']} → {answer}{tail}")
     if verdict:
         lines.append(f"update check: {verdict['text']}")
     if report["last_failed_compile"]:

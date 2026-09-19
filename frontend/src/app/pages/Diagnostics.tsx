@@ -168,11 +168,12 @@ export default function Diagnostics() {
               {r.update_verdict && <Row label="Update check" value={<span data-testid="update-verdict" data-state={r.update_verdict.state}>{r.update_verdict.text}</span>} ok={r.update_verdict.state === "unchecked" || r.update_verdict.state === "unknown_version" ? null : r.update_verdict.state === "current" || r.update_verdict.state === "available"} />}
               {/* #574: the app tries the endpoints in order — one collapsed row until the probe runs, then one labelled row each; only the address the app actually uses can go red */}
               {r.update_feed.length > 0 && r.update_feed.every((f) => f.status === null) ? (
-                <Row label="Update feeds" value={<span data-testid="update-feeds-collapsed"><code className="text-xs">{repoPath(r.update_feed[0].url)}</code>{r.update_feed.length > 1 && <span className="ml-2 text-xs text-stone-500">tried first · + {r.update_feed.length - 1} fallback{r.update_feed.length > 2 ? "s" : ""} · {r.update_feed.slice(1).map((f) => f.url.split("/")[4]).join(", ")}</span>}</span>} />
+                <Row label="Update feeds" value={<span data-testid="update-feeds-collapsed"><code className="text-xs">{repoPath(r.update_feed[0].url)}</code>{r.update_feed.length > 1 && <span className="ml-2 break-normal text-xs text-stone-500">tried first · + {r.update_feed.length - 1} fallback{r.update_feed.length > 2 ? "s" : ""} · {r.update_feed.slice(1).map((f) => f.url.split("/")[4]).join(", ")}</span>}</span>} />
               ) : r.update_feed.map((f, i) => {
                 const usedIndex = r.update_feed.findIndex((x) => x.url === r.update_verdict?.url);
                 const used = usedIndex === i;
                 const afterUsed = usedIndex >= 0 && i > usedIndex;
+                const skipped = usedIndex >= 0 && i < usedIndex; // #574: failed, and the app moved on
                 const fine = f.status === 200 && f.key_match !== false;
                 const ok = f.status === null ? null : used ? fine : usedIndex >= 0 ? null : fine;
                 return (
@@ -180,7 +181,7 @@ export default function Diagnostics() {
                     <span data-testid="update-feed" data-role={f.role ?? "first"} data-used={used ? "1" : "0"}>
                       <code className="text-xs">{repoPath(f.url)}</code>
                       {used && <span className="ml-2 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300" data-testid="update-feed-used">the app uses this one</span>}
-                      {f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (no feed at this address)" : ""}{f.version ? ` · offers ${f.version}` : ""}{f.key_match === false ? " · signed with a different key" : f.key_match ? " · signed for this app" : ""}{afterUsed ? " · not consulted — an earlier address answered" : ""}</span>}
+                      {f.status !== null && <span className="ml-2 text-xs text-stone-500">→ {f.status}{f.status === 404 ? " (no feed at this address)" : ""}{f.version ? ` · offers ${f.version}` : ""}{f.key_match === false ? " · signed with a different key" : f.key_match ? " · signed for this app" : ""}{afterUsed ? " · not consulted — an earlier address answered" : skipped ? " · no feed here — the app moved on to the next address" : ""}</span>}
                     </span>
                   } />
                 );
