@@ -15,7 +15,9 @@ PREFIXES = ("/documents/", "/versions/")
 
 def orphaned_files() -> list[str]:
     """Storage names (relative to MEDIA_ROOT) under the documents prefixes with no row."""
-    known = set(Document.objects.exclude(file="").values_list("file", flat=True))
+    # backlog 357: a file in the Trash is still referenced — its row hides from the default
+    # manager, not from this sweep
+    known = set(Document.all_objects.exclude(file="").values_list("file", flat=True))
     known |= set(DocumentVersion.objects.exclude(file="").values_list("file", flat=True))
     root = os.path.join(settings.MEDIA_ROOT, "projects")
     out = []

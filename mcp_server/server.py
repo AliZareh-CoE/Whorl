@@ -581,8 +581,9 @@ def import_projects_folder(
 def list_project_files(project: str, tag: str = "") -> dict:
     """The project's whole file tree: folders + files (general docs and manuscript sources);
     each file carries `version`, how many earlier `versions` its history keeps, its tags and
-    description, and `created_at` / `modified_at` (when its bytes last changed). `tag` keeps
-    only the files carrying it; comma-separate several and a file must carry them all."""
+    description, and `created_at` / `modified_at` (when its bytes last changed). `trash` lists
+    files deleted in the last thirty days (organize_files restores them). `tag` keeps only
+    the files carrying it; comma-separate several and a file must carry them all."""
     tags = [t.strip() for t in tag.split(",") if t.strip()]
     return client.list_project_files(project, tags or None)
 
@@ -595,11 +596,13 @@ def organize_files(
     folder: str = "",
     tag: str = "",
 ) -> dict:
-    """Move, tag, untag, duplicate or delete many of a project's files at once, by their tree
-    paths (from list_project_files `rel_path`). `move` needs `folder` (a folder path, "" =
-    the project root); `tag` / `untag` need `tag` (a name, any case); `duplicate` copies each
-    file next to itself (numbered name, description and tags, no history) and answers the
-    copies' ids in `created`. Manuscript sources are skipped and listed in `skipped`."""
+    """Move, tag, untag, duplicate, delete, restore or purge many of a project's files at
+    once, by their tree paths (list_project_files `rel_path`). `move` needs `folder` (a folder
+    path, "" = the project root); `tag` / `untag` need `tag` (a name, any case); `duplicate`
+    copies each file next to itself (numbered name, description and tags, no history) and
+    answers the copies' ids in `created`. `delete` is into the Trash (thirty days, with the
+    file's history); `restore` and `purge` take paths from `trash` — back into the tree, or
+    gone for good. Manuscript sources are skipped and listed in `skipped`."""
     try:
         return client.organize_files(project, paths, action, folder, tag)
     except ValueError as exc:

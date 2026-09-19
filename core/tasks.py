@@ -20,3 +20,13 @@ def prune_todo_trash_task():
     from core.todos import prune_trash
 
     return prune_trash()
+
+
+@db_periodic_task(crontab(hour=5, minute=45))
+def prune_file_trash_task():
+    """Backlog 357: the nightly sweep of the Files Trash — documents deleted more than thirty
+    days ago go for good, with their bytes and history. The desktop runs it from its
+    scheduler thread."""
+    from documents.trash import prune_trash
+
+    return prune_trash()

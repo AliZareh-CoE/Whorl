@@ -49,7 +49,9 @@ def test_delete_removes_the_document_and_version_files(django_capture_on_commit_
     assert not current.exists() and not version.exists()
 
 
-def test_bulk_delete_removes_files_too(django_capture_on_commit_callbacks):
+def test_bulk_delete_trashes_and_purge_removes_files_too(django_capture_on_commit_callbacks):
+    # backlog 357 (#576): a bulk delete is into the Trash — the bytes stay until a purge,
+    # the sweep or Empty the trash; a purge unlinks them the way a delete always did
     from documents.bulk import bulk_documents
 
     project = ProjectFactory()
@@ -57,6 +59,9 @@ def test_bulk_delete_removes_files_too(django_capture_on_commit_callbacks):
     paths = [Path(a.file.path), Path(b.file.path)]
     with django_capture_on_commit_callbacks(execute=True):
         bulk_documents(project, [a.pk, b.pk], "delete")
+    assert all(p.exists() for p in paths)
+    with django_capture_on_commit_callbacks(execute=True):
+        bulk_documents(project, [a.pk, b.pk], "purge")
     assert not any(p.exists() for p in paths)
 
 

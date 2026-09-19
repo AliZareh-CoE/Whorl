@@ -241,6 +241,15 @@ def start_scheduler(directory: Path | None = None) -> bool:
                 finally:
                     close_old_connections()
                 try:
+                    # backlog 357: the Files Trash empties itself after thirty days, same rules.
+                    from documents.trash import prune_trash as prune_file_trash
+
+                    prune_file_trash()
+                except Exception:  # noqa: BLE001
+                    log.exception("file trash sweep failed")
+                finally:
+                    close_old_connections()
+                try:
                     # #531: the journal / arXiv feeds refresh from the same thread, same rules.
                     from literature.feeds import refresh_stale as refresh_stale_feeds
 

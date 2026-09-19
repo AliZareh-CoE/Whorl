@@ -621,8 +621,9 @@ def import_projects_folder(
 
 
 def list_project_files(project: str, tags: list[str] | None = None):
-    """The project's whole file tree: {folders, files} (general + manuscript sources);
-    `tags` keeps only the files carrying every one of them."""
+    """The project's whole file tree: {folders, files, trash} (general + manuscript sources;
+    `trash` = files deleted in the last thirty days); `tags` keeps only the files carrying
+    every one of them."""
     if tags:
         return _request("GET", f"/projects/{project}/tree/", params={"tag": list(tags)})
     return _request("GET", f"/projects/{project}/tree/")
@@ -641,7 +642,7 @@ def _folder_paths(tree: dict) -> dict[str, int]:
     return out
 
 
-ORGANIZE_ACTIONS = ("move", "tag", "untag", "duplicate", "delete")
+ORGANIZE_ACTIONS = ("move", "tag", "untag", "duplicate", "delete", "restore", "purge")
 
 
 def organize_files(
@@ -654,10 +655,17 @@ def organize_files(
     if not wanted:
         raise ValueError("Pass at least one file path.")
     tree = list_project_files(project)
-    by_path = {f["rel_path"]: f["id"] for f in tree.get("files", []) if f.get("rel_path")}
+    # restore / purge act on the Trash: their paths resolve against what was deleted (the
+    # newest deletion at a path wins — the Trash lists newest first)
+    pool = tree.get("trash", []) if action in ("restore", "purge") else tree.get("files", [])
+    by_path: dict[str, int] = {}
+    for f in pool:
+        if f.get("rel_path"):
+            by_path.setdefault(f["rel_path"], f["id"])
     missing = [p for p in wanted if p not in by_path]
     if missing:
-        raise ValueError(f"No file at {', '.join(missing)} in {project}.")
+        where = "the Trash of " if action in ("restore", "purge") else ""
+        raise ValueError(f"No file at {', '.join(missing)} in {where}{project}.")
     body: dict = {"ids": [by_path[p] for p in wanted], "action": action}
     if action == "move":
         target = folder.strip().strip("/")

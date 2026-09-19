@@ -17,9 +17,21 @@ class TagAdmin(admin.ModelAdmin):
 
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):
-    list_display = ["title", "project", "folder", "file_size", "content_type", "created_at"]
+    list_display = [
+        "title",
+        "project",
+        "folder",
+        "file_size",
+        "content_type",
+        "created_at",
+        "deleted_at",
+    ]
     list_filter = ["project"]
     search_fields = ["title", "description"]
+
+    def get_queryset(self, request):
+        # the back office sees the Trash too (the default manager hides it everywhere else)
+        return Document.all_objects.select_related("project", "folder")
 
 
 @admin.register(DocumentVersion)

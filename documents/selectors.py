@@ -88,7 +88,24 @@ def workspace_tree(project: Project, tags: list[str] | None = None) -> dict:
                 "local_path": (d.file.path if local_paths and d.file else None),
             }
         )
-    return {"folders": folders, "files": files}
+    # backlog 357: the Trash rides along (one query) so the explorer shows it under the tree
+    # and Claude's list_project_files can name what a restore would bring back
+    from .bulk import folder_path
+    from .trash import trashed
+
+    trash = [
+        {
+            "id": d.id,
+            "name": d.title or (d.rel_path.rsplit("/", 1)[-1] if d.rel_path else ""),
+            "rel_path": d.rel_path,
+            "kind": d.kind,
+            "size": d.file_size,
+            "folder": folder_path(d.folder),
+            "deleted_at": d.deleted_at.isoformat(),
+        }
+        for d in trashed(project)
+    ]
+    return {"folders": folders, "files": files, "trash": trash}
 
 
 def move_targets(folder: Folder):

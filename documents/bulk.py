@@ -19,7 +19,7 @@ from .models import Document, Folder, Tag
 
 MAX_IDS = 500
 ARCHIVE_CAP = 512 * 1024 * 1024  # bytes of stored files one zip may hold
-ACTIONS = ("move", "tag", "untag", "delete", "duplicate")
+ACTIONS = ("move", "tag", "untag", "delete", "duplicate", "restore", "purge")
 
 
 class BulkError(ValueError):
@@ -133,15 +133,31 @@ def bulk_documents(
     folder: Folder | None = None,
     tag: Tag | None = None,
 ) -> dict:
-    """Move (into `folder`, None = root), tag / untag (with `tag`), duplicate or delete the
-    project's general documents among `ids`. Manuscript sources are skipped and reported,
-    never touched. A duplicate answers the copies' ids in `created`."""
+    """Move (into `folder`, None = root), tag / untag (with `tag`), duplicate or delete (into
+    the Trash) the project's general documents among `ids`; `restore` brings trashed ones
+    back and `purge` deletes trashed ones for good (a live id is skipped, never purged).
+    Manuscript sources are skipped and reported, never touched. A duplicate answers the
+    copies' ids in `created`."""
     if action not in ACTIONS:
         raise BulkError("Unknown bulk action.")
     if folder is not None and folder.project_id != project.pk:
         raise BulkError("That folder belongs to another project.")
     if tag is not None and tag.project_id != project.pk:
         raise BulkError("That tag belongs to another project.")
+    if action in ("restore", "purge"):
+        # backlog 357: the two Trash verbs read the rows the default manager hides
+        from . import trash as trash_service
+
+        rows = list(
+            Document.all_objects.trashed()
+            .filter(project=project, pk__in=ids)
+            .select_related("folder")
+        )
+        for doc in rows:
+            trash_service.restore(doc) if action == "restore" else doc.delete()
+        found = {d.pk for d in rows}
+        skipped = sorted(pk for pk in set(ids) if pk not in found and pk in _live_ids(project, ids))
+        return {"action": action, "count": len(rows), "skipped": skipped}
     docs = list(project.documents.filter(pk__in=ids).select_related("folder"))
     skipped = [d.pk for d in docs if d.role != Document.Role.GENERAL]
     docs = [d for d in docs if d.role == Document.Role.GENERAL]
@@ -160,9 +176,17 @@ def bulk_documents(
         created = [duplicate_document(doc).pk for doc in docs]
         return {"action": action, "count": len(docs), "skipped": skipped, "created": created}
     else:
+        # backlog 357: "delete" is into the Trash — the row, its bytes and its history wait
+        # TRASH_DAYS for a restore; the sweep (or `purge`) removes them for good
+        from . import trash as trash_service
+
         for doc in docs:
-            doc.delete()  # per instance: the version rows cascade and unlink their files (#558)
+            trash_service.trash(doc)
     return {"action": action, "count": len(docs), "skipped": skipped}
+
+
+def _live_ids(project: Project, ids: list[int]) -> set[int]:
+    return set(project.documents.filter(pk__in=ids).values_list("pk", flat=True))
 
 
 def archive_members(

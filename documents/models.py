@@ -118,6 +118,19 @@ class DocumentQuerySet(models.QuerySet):
         general Documents UI / counts don't surface them (file-workspace epic #30)."""
         return self.filter(role="general")
 
+    def trashed(self):
+        """Only the rows waiting in the Trash (read through ``Document.all_objects``)."""
+        return self.filter(deleted_at__isnull=False)
+
+
+class LiveDocumentManager(models.Manager.from_queryset(DocumentQuerySet)):
+    """The default manager hides trashed rows, so every reader — the tree, search, counts,
+    the dashboard, exports, reverse relations — stops seeing a deleted file by construction;
+    ``Document.all_objects`` is the one door to the Trash (documents/trash.py)."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
 
 class Document(TimeStampedModel):
     # File-workspace epic (Owner #30), slice 1a: Document grows into the unified
@@ -145,8 +158,13 @@ class Document(TimeStampedModel):
     # #553: bumped on every replace / edit / write / restore; the states left behind are
     # DocumentVersion rows (documents/history.py)
     version = models.PositiveIntegerField(default=1)
+    # a deleted general file waits in the Trash for documents.trash.TRASH_DAYS — its row,
+    # its bytes and its version history intact — and comes back with one click; the sweep
+    # removes it for good after that. Manuscript sources never sit here (the Studio owns them).
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
-    objects = DocumentQuerySet.as_manager()
+    objects = LiveDocumentManager()  # first-declared = the default: hides the Trash everywhere
+    all_objects = DocumentQuerySet.as_manager()  # noqa: DJ012 — the two managers sit together
 
     class Meta:
         ordering = ["-created_at"]

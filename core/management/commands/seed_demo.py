@@ -320,6 +320,25 @@ class Command(BaseCommand):
         )
         add_doc("Project root readme", None, "Where everything lives in this project.")
 
+        # backlog 357: one file waiting in the Trash, so a fresh install shows the Trash section
+        # under the explorer with a Restore to click (all_objects: the default manager hides it)
+        if not Document.all_objects.filter(
+            project=project, rel_path="Data/scratch-counts.txt"
+        ).exists():
+            from documents.trash import trash as trash_document
+
+            scratch = Document.objects.create(
+                project=project,
+                folder=data_folder,
+                title="scratch-counts.txt",
+                rel_path="Data/scratch-counts.txt",
+                kind="other",
+                description="Hand-tallied trial counts from the first pilot day (superseded).",
+                file=ContentFile(b"low: 24\nhigh: 23\n", name="scratch-counts.txt"),
+                content_type="text/plain",
+            )
+            trash_document(scratch)
+
         DecisionRecord.objects.create(
             project=project,
             title="Use a dual-task paradigm instead of load manipulation within a single task",

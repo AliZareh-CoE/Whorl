@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Copy, Download, ExternalLink, File, FileCode, FileImage, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, History, Pencil, RefreshCw, RotateCcw, Table, Trash2, Upload } from "lucide-react";
+import { Archive, ChevronRight, Copy, Download, ExternalLink, File, FileCode, FileImage, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, History, Pencil, RefreshCw, RotateCcw, Table, Trash2, Upload } from "lucide-react";
 import Papa from "papaparse";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -8,6 +8,8 @@ import { Skeleton, SkeletonLines } from "../../components/Skeleton";
 import { ErrorState } from "../../components/ErrorState";
 import { confirmDialog, errorDialog, noticeDialog, promptDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
+import { showUndo } from "../../components/UndoToast";
+import { dayLabel } from "../dueTime";
 
 import { openTerminal } from "../TerminalDock";
 import { openPath, revealPath } from "../external";
@@ -47,7 +49,10 @@ function TagDot({ color }: { color: string }) {
 type Version = { number: number; created_at: string; size: number; content_type: string; note: string; source: string; is_text: boolean };
 const SOURCE_LABEL: Record<string, string> = { upload: "replaced by an upload", edit: "edited in place", write: "written by the API or Claude", restore: "before a restore" };
 type FolderNode = { id: number; name: string; parent_id: number | null };
-type Tree = { folders: FolderNode[]; files: FileNode[] };
+// backlog 357: a file in the Trash — restorable for thirty days; `folder` is the path it left
+type TrashNode = { id: number; name: string; rel_path: string; kind: string; size: number; folder: string; deleted_at: string };
+type Tree = { folders: FolderNode[]; files: FileNode[]; trash?: TrashNode[] };
+const TRASH_KEY = "atlas-files-trash";
 
 // #557: relative stamps for rows and the pane (the absolute time sits in the title)
 function ago(iso: string, now: number = Date.now()): string {
@@ -402,14 +407,34 @@ export default function Files() {
     onSuccess: () => { setSelected(null); refreshTree(); },
     onError: fail("Couldn't delete the folder"),
   });
+  // backlog 357: delete is into the Trash — no confirm; the toast undoes it, and the Trash
+  // section under the tree keeps the row for thirty days
   const deleteDoc = useMutation({
-    mutationFn: (id: number) => api(`/documents/${id}/`, { method: "DELETE" }),
-    onSuccess: () => {
-      setSelected(null);
+    mutationFn: (f: FileNode) => api(`/documents/${f.id}/`, { method: "DELETE" }),
+    onSuccess: (_r, f) => {
+      setSelected((s) => (s?.id === f.id ? null : s));
       refreshTree();
+      showUndo(`Deleted — “${f.name.slice(0, 50)}” · in the Trash for 30 days`, async () => { await api(`/documents/${f.id}/restore/`, { method: "POST" }); refreshTree(); });
     },
     onError: fail("Couldn't delete the file"),
   });
+  const restoreDoc = useMutation({
+    mutationFn: (id: number) => api(`/documents/${id}/restore/`, { method: "POST" }),
+    onSuccess: refreshTree,
+    onError: fail("Couldn't restore the file"),
+  });
+  const foreverDoc = useMutation({
+    mutationFn: (id: number) => api(`/documents/${id}/?forever=true`, { method: "DELETE" }),
+    onSuccess: refreshTree,
+    onError: fail("Couldn't delete the file"),
+  });
+  const emptyTrash = useMutation({
+    mutationFn: () => api<{ deleted: number }>(`/projects/${slug}/documents/empty-trash/`, { method: "POST" }),
+    onSuccess: refreshTree,
+    onError: fail("Couldn't empty the trash"),
+  });
+  const [trashOpen, setTrashOpen] = useState<boolean>(() => { try { return localStorage.getItem(TRASH_KEY) === "open"; } catch { return false; } });
+  const toggleTrash = () => setTrashOpen((o) => { try { localStorage.setItem(TRASH_KEY, o ? "closed" : "open"); } catch { /* private mode */ } return !o; });
   const renameDoc = useMutation({
     mutationFn: (v: { id: number; title: string }) =>
       api(`/documents/${v.id}/`, {
@@ -435,15 +460,20 @@ export default function Files() {
   });
   // #556: the action bar's verbs, one endpoint; manuscript sources come back as `skipped`
   const bulk = useMutation({
-    mutationFn: ({ ids, ...v }: { action: "move" | "tag" | "untag" | "duplicate" | "delete"; folder?: number | null; tag?: number; ids?: number[] }) =>
+    mutationFn: ({ ids, ...v }: { action: "move" | "tag" | "untag" | "duplicate" | "delete" | "restore" | "purge"; folder?: number | null; tag?: number; ids?: number[] }) =>
       api<{ action: string; count: number; skipped: number[]; created?: number[] }>(`/projects/${slug}/documents/bulk/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: ids ?? [...checked], ...v }), // #560: a drag passes its own ids
       }),
-    onSuccess: (r) => {
+    onSuccess: (r, vars) => {
       refreshTree();
-      if (r.action === "delete") setChecked(new Set());
+      if (r.action === "delete") {
+        // backlog 357: the selection went into the Trash as one batch; one undo brings it back
+        const ids = vars.ids ?? [];
+        setChecked(new Set());
+        if (r.count) showUndo(`Deleted ${r.count} file${r.count === 1 ? "" : "s"} · in the Trash for 30 days`, async () => { await api(`/projects/${slug}/documents/bulk/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, action: "restore" }) }); refreshTree(); });
+      }
       // #560: the copies become the selection, so a second verb (move, tag) acts on them
       if (r.action === "duplicate") { setChecked(new Set(r.created ?? [])); setSelected(null); }
       setSelected((s) => (s && checked.has(s.id) && r.action !== "tag" && r.action !== "untag" && r.action !== "duplicate" ? null : s));
@@ -473,9 +503,14 @@ export default function Files() {
       bulk.mutate({ action: "tag", tag: tag.id });
     } },
   ];
-  const askBulkDelete = async () => {
-    const n = checked.size;
-    if (await confirmDialog({ title: `Delete ${n} file${n === 1 ? "" : "s"}?`, danger: true, confirmLabel: `Delete ${n}`, body: "They are removed from the project and from disk, with their histories." })) bulk.mutate({ action: "delete" });
+  // backlog 357: into the Trash, no confirm — the toast undoes the whole batch
+  const trashSelection = () => { if (checked.size) bulk.mutate({ action: "delete", ids: [...checked] }); };
+  const trash = data?.trash ?? [];
+  const askEmptyTrash = async () => {
+    if (await confirmDialog({ title: "Empty the trash?", body: `${trash.length} deleted file${trash.length === 1 ? " goes" : "s go"} for good, with their histories. The sweep would do it after thirty days anyway.`, danger: true, confirmLabel: "Empty the trash" })) emptyTrash.mutate();
+  };
+  const askForever = async (t: TrashNode) => {
+    if (await confirmDialog({ title: `Delete “${t.name}” for good?`, body: "It leaves the Trash with its history and cannot be restored.", danger: true, confirmLabel: "Delete forever" })) foreverDoc.mutate(t.id);
   };
 
   // #554: description + tags edited in the pane (PATCH by tag ids; the tree refreshes its rows)
@@ -711,9 +746,7 @@ export default function Files() {
     const title = await promptDialog({ title: "Rename file", label: "Name", initial: f.name, validate: (v) => (v.trim() ? null : "A file needs a name.") });
     if (title && title.trim() !== f.name) renameDoc.mutate({ id: f.id, title: title.trim() });
   };
-  const askDeleteFile = async (f: FileNode) => {
-    if (await confirmDialog({ title: `Delete “${f.name}”?`, danger: true, confirmLabel: "Delete file", body: "The file is removed from the project and from disk." })) deleteDoc.mutate(f.id);
-  };
+  const trashFile = (f: FileNode) => deleteDoc.mutate(f);
   // #560: a copy next to the original (numbered name, description + tags, no history); the
   // selection wins over the focused row, like Delete
   const duplicate = (f?: FileNode) => {
@@ -740,7 +773,7 @@ export default function Files() {
       { label: f.versions ? `History (${f.versions})` : "History", icon: <History className="h-3.5 w-3.5" />, disabled: ms, onSelect: () => { setSelected(f); setHistoryFor(f.id); } },
       { label: "Rename…", icon: <Pencil className="h-3.5 w-3.5" />, hint: "F2", disabled: ms, onSelect: () => void askRenameFile(f) },
       { label: checked.has(f.id) && checked.size > 1 ? `Duplicate ${checked.size} files` : "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, hint: `${MOD} D`, disabled: ms, onSelect: () => duplicate(f) },
-      { label: "Delete…", icon: <Trash2 className="h-3.5 w-3.5" />, hint: "Del", danger: true, disabled: ms, onSelect: () => void askDeleteFile(f) },
+      { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, hint: "Del", danger: true, disabled: ms, onSelect: () => trashFile(f) },
     ];
   };
   const folderItems = (f: FolderNode): MenuItem[] => {
@@ -916,8 +949,8 @@ export default function Files() {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") { e.preventDefault(); if (checked.size) duplicate(); else if (r?.kind === "file" && r.file.role !== "manuscript_source") duplicate(r.file); return; }
     if (e.key === "Escape" && checked.size) { e.preventDefault(); setChecked(new Set()); return; }
     if (e.key === "F2" && r) { e.preventDefault(); if (r.kind === "file") void askRenameFile(r.file); else void askRenameFolder(r.folder); return; }
-    if ((e.key === "Delete" || e.key === "Backspace") && checked.size) { e.preventDefault(); void askBulkDelete(); return; } // the selection wins
-    if ((e.key === "Delete" || e.key === "Backspace") && r) { e.preventDefault(); if (r.kind === "file") void askDeleteFile(r.file); else void askDeleteFolder(r.folder); return; }
+    if ((e.key === "Delete" || e.key === "Backspace") && checked.size) { e.preventDefault(); trashSelection(); return; } // the selection wins
+    if ((e.key === "Delete" || e.key === "Backspace") && r) { e.preventDefault(); if (r.kind === "file") trashFile(r.file); else void askDeleteFolder(r.folder); return; }
     if (e.key === "ArrowDown") { e.preventDefault(); setFocusIdx((i) => Math.min(flat.length - 1, i + 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setFocusIdx((i) => Math.max(0, i - 1)); }
     else if (e.key === "Enter") {
@@ -1125,13 +1158,14 @@ export default function Files() {
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="col-span-1 min-w-0">
         <div
           tabIndex={0}
           onKeyDown={onTreeKey}
           onBlur={clearTypeahead}
           role="tree"
           aria-label="Project files"
-          className={`relative col-span-1 max-h-[75vh] overflow-y-auto rounded border bg-white p-2 focus:outline-none dark:bg-stone-900 ${dragging ? "border-indigo-400 ring-2 ring-indigo-100" : "border-stone-200 dark:border-stone-800"}`}
+          className={`relative max-h-[75vh] overflow-y-auto rounded border bg-white p-2 focus:outline-none dark:bg-stone-900 ${dragging ? "border-indigo-400 ring-2 ring-indigo-100" : "border-stone-200 dark:border-stone-800"}`}
           onContextMenu={(e) => menu.open(e, blankItems())}
           onDragOver={(e) => { e.preventDefault(); if (dragDoc) e.dataTransfer.dropEffect = "move"; setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -1203,7 +1237,7 @@ export default function Files() {
               <button onClick={(e) => menu.open(e, bulkMoveItems())} className="hover:underline" data-testid="bulk-move" disabled={bulk.isPending}>Move to…</button>
               <button onClick={(e) => menu.open(e, bulkTagItems())} className="hover:underline" data-testid="bulk-tag" disabled={bulk.isPending}>Tag…</button>
               <button onClick={() => bulk.mutate({ action: "duplicate" })} className="hover:underline" data-testid="bulk-duplicate" disabled={bulk.isPending} title={`Copies land next to their originals and become the selection (${MOD} D)`}>Duplicate</button>
-              <button onClick={() => void askBulkDelete()} className="text-red-600 hover:underline dark:text-red-300" data-testid="bulk-delete" disabled={bulk.isPending}>Delete…</button>
+              <button onClick={trashSelection} className="text-red-600 hover:underline dark:text-red-300" data-testid="bulk-delete" disabled={bulk.isPending} title="Into the Trash for 30 days (Del)">Delete</button>
               <button onClick={() => setChecked(new Set())} className="ml-auto text-stone-500 hover:underline dark:text-stone-400" data-testid="bulk-clear" title="Clear the selection (Esc)">Clear</button>
             </div>
           )}
@@ -1241,6 +1275,33 @@ export default function Files() {
               <p className="mt-1 text-sm text-stone-400">Drag files here, use <b>↑ Upload</b>, or right-click for a menu.</p>
             </div>
           )}
+        </div>
+        {/* backlog 357: the Trash sits under the tree, outside it — the tree's keys, typeahead
+            and ⌘P never see these rows; Restore puts a file back where it was */}
+        {trash.length > 0 && (
+          <section className="mt-2 rounded border border-stone-200 bg-white px-2 py-1.5 text-xs dark:border-stone-800 dark:bg-stone-900" data-testid="file-trash">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+              <button type="button" onClick={toggleTrash} aria-expanded={trashOpen} data-testid="file-trash-toggle" className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
+                <ChevronRight className={`h-3 w-3 transition-transform ${trashOpen ? "rotate-90" : ""}`} aria-hidden="true" /><Trash2 className="h-3 w-3" aria-hidden="true" />Trash · {trash.length}<span className="ml-1 font-normal normal-case tracking-normal">· kept 30 days</span>
+              </button>
+              <button type="button" onClick={() => void askEmptyTrash()} data-testid="file-trash-empty" className="whitespace-nowrap text-[11px] text-stone-400 hover:text-red-500">Empty the trash</button>
+            </div>
+            {trashOpen && (
+              <ul className="mt-1 divide-y divide-stone-100 dark:divide-stone-800">
+                {trash.map((t) => (
+                  <li key={t.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5" data-testid="file-trash-row">
+                    <span className="min-w-0 flex-1 truncate text-stone-500 line-through decoration-stone-300 dark:text-stone-400 dark:decoration-stone-600" title={t.rel_path || t.name}>{t.name}</span>
+                    <span className="whitespace-nowrap text-[10px] text-stone-400" data-testid="file-trash-when">{t.folder ? `${t.folder} · ` : ""}deleted {dayLabel(t.deleted_at)}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <button type="button" onClick={() => restoreDoc.mutate(t.id)} data-testid="file-trash-restore" className="inline-flex items-center gap-1 rounded border border-stone-200 px-1.5 py-0.5 text-[11px] text-stone-600 hover:border-indigo-300 hover:text-indigo-600 dark:border-stone-700 dark:text-stone-300 dark:hover:text-indigo-300" title={t.folder ? `Back into ${t.folder}` : "Back into the project root"}><RotateCcw className="h-3 w-3" aria-hidden="true" />Restore</button>
+                      <button type="button" onClick={() => void askForever(t)} data-testid="file-trash-forever" aria-label="Delete forever" title="Delete forever" className="text-stone-300 hover:text-red-500 dark:text-stone-600"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
         </div>
         <div className="card col-span-1 lg:col-span-2 lg:min-h-[75vh]">
           {localFile ? (
@@ -1317,7 +1378,7 @@ export default function Files() {
                   <button onClick={() => void askRenameFile(selected)} className="text-indigo-600 hover:underline dark:text-indigo-400">Rename</button>
                   <button onClick={() => askReplace(selected)} className="text-indigo-600 hover:underline dark:text-indigo-400" data-testid="replace-file">Replace…</button>
                   <button onClick={() => setHistoryFor((h) => (h === selected.id ? null : selected.id))} aria-expanded={historyFor === selected.id} className="inline-flex items-center gap-1 text-stone-600 hover:underline dark:text-stone-300" data-testid="history-toggle"><History className="h-3 w-3" aria-hidden="true" />History{selected.versions ? ` (${selected.versions})` : ""}</button>
-                  <button onClick={() => void askDeleteFile(selected)} className="text-red-600 hover:underline">Delete</button>
+                  <button onClick={() => trashFile(selected)} className="text-red-600 hover:underline" title="Into the Trash for 30 days">Delete</button>
                   <a href={`/api/v1/documents/${selected.id}/raw/?v=${selected.version}`} download={selected.name} className="text-stone-500 hover:underline dark:text-stone-400">Download</a>
                 </div>
               )}

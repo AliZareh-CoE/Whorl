@@ -20,6 +20,7 @@ from rest_framework import serializers as rf_serializers
 from rest_framework import status, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -50,6 +51,14 @@ from writing.models import Manuscript
 
 from . import serializers
 from .authentication import APIKeyAuthentication, QueryKeyAuthentication
+
+
+class InTrash(APIException):
+    """Backlog 357: an edit reached a row waiting in the Trash."""
+
+    status_code = 409
+    default_detail = "This file is in the Trash — restore it first."
+    default_code = "in_trash"
 
 
 @method_decorator(login_not_required, name="dispatch")
@@ -402,7 +411,8 @@ class ProjectViewSet(AtlasViewSet):
         responses={200: OpenApiResponse(description="The project's whole file tree")},
         description="Unified file workspace tree (file-workspace epic): every folder and "
         "every file node — general documents and manuscript sources — as flat "
-        "{folders, files} lists for a client-side explorer.",
+        "{folders, files} lists for a client-side explorer, plus `trash`: the files deleted "
+        "in the last thirty days (restorable), newest deletion first.",
     )
     @action(detail=True, methods=["get"])
     def tree(self, request, slug=None):
@@ -430,7 +440,7 @@ class ProjectViewSet(AtlasViewSet):
             {
                 "ids": rf_serializers.ListField(child=rf_serializers.IntegerField()),
                 "action": rf_serializers.ChoiceField(
-                    choices=["move", "tag", "untag", "duplicate", "delete"]
+                    choices=["move", "tag", "untag", "duplicate", "delete", "restore", "purge"]
                 ),
                 "folder": rf_serializers.IntegerField(required=False, allow_null=True),
                 "tag": rf_serializers.IntegerField(required=False),
@@ -444,9 +454,24 @@ class ProjectViewSet(AtlasViewSet):
         },
         description="Act on many general files at once: `move` them into `folder` (null = the "
         "project root), `tag` / `untag` with `tag`, `duplicate` them next to themselves "
-        "(numbered names, description and tags copied, no history), or `delete` them. "
-        "Manuscript sources are skipped and listed in `skipped`. At most 500 ids.",
+        "(numbered names, description and tags copied, no history), or `delete` them into "
+        "the Trash (thirty days); `restore` brings trashed ids back, `purge` deletes trashed "
+        "ids for good (a live id is skipped, never purged). Manuscript sources are skipped "
+        "and listed in `skipped`. At most 500 ids.",
     )
+    @extend_schema(
+        request=None,
+        responses={200: OpenApiResponse(description="{deleted}")},
+        description="Delete everything in this project's file Trash for good (backlog 357) — "
+        "rows, histories and bytes; the nightly sweep does the same for files deleted more "
+        "than thirty days ago. `GET /documents/?project=<slug>&trash=true` lists the Trash.",
+    )
+    @action(detail=True, methods=["post"], url_path="documents/empty-trash")
+    def documents_empty_trash(self, request, slug=None):
+        from documents.trash import empty
+
+        return Response({"deleted": empty(self.get_object())})
+
     @action(detail=True, methods=["post"], url_path="documents/bulk")
     def documents_bulk(self, request, slug=None):
         from documents.bulk import BulkError, bulk_documents, clean_ids
@@ -1451,6 +1476,12 @@ TEXT_PREVIEW_CAP = 1_000_000  # 1 MB of text
         parameters=[
             OpenApiParameter("project", str, description="Project slug"),
             OpenApiParameter(
+                "trash",
+                str,
+                description="true/1: the Trash — files deleted in the last thirty days, newest "
+                "deletion first, restorable with POST /documents/{id}/restore/",
+            ),
+            OpenApiParameter(
                 "tag",
                 str,
                 many=True,
@@ -1461,7 +1492,9 @@ TEXT_PREVIEW_CAP = 1_000_000  # 1 MB of text
     )
 )
 class DocumentViewSet(AtlasViewSet):
-    queryset = Document.objects.select_related("project").prefetch_related("tags")
+    # backlog 357: the class queryset sees the Trash so restore / delete-forever / a preview
+    # can reach a trashed row; the list splits live from trashed below
+    queryset = Document.all_objects.select_related("project").prefetch_related("tags")
     serializer_class = serializers.DocumentSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     project_filter = "project__slug"
@@ -1470,15 +1503,24 @@ class DocumentViewSet(AtlasViewSet):
         queryset = super().get_queryset()
         from documents.tags import filter_by_tags, tag_names
 
+        if self.action == "list":
+            if self.request.query_params.get("trash") in ("true", "1"):
+                queryset = queryset.filter(deleted_at__isnull=False).order_by("-deleted_at", "-id")
+            else:
+                queryset = queryset.filter(deleted_at__isnull=True)
         # #554 one tag; backlog 354: repeated `?tag=` means every one of them (AND)
         queryset = filter_by_tags(queryset, tag_names(self.request.query_params.getlist("tag")))
         return queryset
 
-    def _guard(self, doc):
+    def _guard(self, doc, *, live=True):
+        """Manuscript sources are never edited here; a trashed row (backlog 357) takes no
+        edit either — restore it first (409). Reads stay open so the Trash can preview."""
         from rest_framework.exceptions import PermissionDenied
 
         if doc.role == "manuscript_source":
             raise PermissionDenied("Manuscript files are managed in the LaTeX editor.")
+        if live and doc.deleted_at is not None:
+            raise InTrash()
 
     def perform_update(self, serializer):
         self._guard(serializer.instance)
@@ -1488,9 +1530,45 @@ class DocumentViewSet(AtlasViewSet):
 
         sync_rel_path(doc)
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "forever", str, description="true/1: delete for good instead of into the Trash"
+            )
+        ],
+        description="Into the Trash (backlog 357): the file leaves the tree, search and every "
+        "count, keeps its bytes and history, and can be restored for thirty days. "
+        "`?forever=true`, or a second DELETE on a trashed file, removes it for good. "
+        "Manuscript sources are refused (403).",
+    )
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
     def perform_destroy(self, instance):
-        self._guard(instance)
-        instance.delete()
+        from documents.trash import trash
+
+        self._guard(instance, live=False)
+        forever = self.request.query_params.get("forever") in ("true", "1")
+        if forever or instance.deleted_at is not None:
+            instance.delete()
+        else:
+            trash(instance)
+
+    @extend_schema(
+        request=None,
+        responses={200: serializers.DocumentSerializer},
+        description="Back from the Trash (backlog 357) — into the folder it left (the project "
+        "root when that folder is gone), under a numbered name when a new file took its "
+        "path. Already live: unchanged, 200.",
+    )
+    @action(detail=True, methods=["post"])
+    def restore(self, request, pk=None):
+        from documents.trash import restore
+
+        doc = self.get_object()
+        self._guard(doc, live=False)
+        restore(doc)
+        return Response(serializers.DocumentSerializer(doc).data)
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Text content of a file node")},
@@ -1699,6 +1777,8 @@ class DocumentViewSet(AtlasViewSet):
             return Response(
                 {"detail": "Manuscript files are edited in the LaTeX editor."}, status=409
             )
+        if doc.deleted_at is not None:
+            raise InTrash()
         text = request.data.get("content", "")
         if len(text) > TEXT_PREVIEW_CAP:
             return Response({"detail": "File too large to edit in-app."}, status=413)

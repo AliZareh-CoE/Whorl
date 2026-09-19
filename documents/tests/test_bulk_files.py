@@ -282,9 +282,10 @@ def test_explorer_selection_and_action_bar():
         'if (e.key === "Escape" && checked.size) { e.preventDefault(); setChecked(new Set()); return; }'
         in files
     )
-    # Delete with a selection deletes the selection; a checkbox click moves the keyboard focus too
+    # Delete with a selection trashes the selection (backlog 357: no confirm, an undo toast); a
+    # checkbox click moves the keyboard focus too
     assert (
-        '(e.key === "Delete" || e.key === "Backspace") && checked.size) { e.preventDefault(); void askBulkDelete(); return; }'
+        '(e.key === "Delete" || e.key === "Backspace") && checked.size) { e.preventDefault(); trashSelection(); return; }'
         in files
     )
     assert (

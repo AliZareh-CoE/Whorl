@@ -211,6 +211,14 @@ class DocumentDeleteView(ProjectScopedMixin, DeleteView):
     def get_queryset(self):
         return self.project.documents.all()
 
+    def form_valid(self, form):
+        # backlog 357: into the Trash (thirty days), the same as the explorer and the API
+        from .trash import trash
+
+        trash(self.object)
+        messages.success(self.request, f"“{self.object.title}” is in the Trash for 30 days.")
+        return redirect(self.get_success_url())
+
     def get_success_url(self):
         return _index_url(self.project)
 

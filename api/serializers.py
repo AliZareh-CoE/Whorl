@@ -314,8 +314,9 @@ class DocumentSerializer(serializers.ModelSerializer):
             "version",
             "created_at",
             "updated_at",
+            "deleted_at",
         ]
-        read_only_fields = ["file_size", "content_type", "version"]
+        read_only_fields = ["file_size", "content_type", "version", "deleted_at"]
 
 
 class ReferenceSerializer(serializers.ModelSerializer):

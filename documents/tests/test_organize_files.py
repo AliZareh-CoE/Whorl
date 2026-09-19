@@ -170,6 +170,33 @@ class TestMcp:
         with pytest.raises(ValueError, match="at least one"):
             mcp_client.organize_files("p", [""], "delete")
 
+    def test_organize_files_restore_and_purge_resolve_paths_from_the_trash(self, monkeypatch):
+        # backlog 357: `delete` is into the Trash; restore / purge name what was deleted
+        calls = []
+        tree = {
+            "folders": [],
+            "files": [{"id": 11, "rel_path": "readme.md"}],
+            "trash": [
+                {"id": 20, "rel_path": "Data/rt.csv"},
+                {"id": 19, "rel_path": "Data/rt.csv"},  # an older deletion at the same path
+                {"id": 21, "rel_path": "old.txt"},
+            ],
+        }
+
+        def fake(method, path, **kw):
+            calls.append((method, path, kw))
+            return tree if path.endswith("/tree/") else {"action": "ok"}
+
+        monkeypatch.setattr(mcp_client, "_request", fake)
+        mcp_client.organize_files("p", ["Data/rt.csv", "old.txt"], "restore")
+        assert calls[-1][2]["json"] == {"ids": [20, 21], "action": "restore"}  # newest wins
+        mcp_client.organize_files("p", ["old.txt"], "purge")
+        assert calls[-1][2]["json"] == {"ids": [21], "action": "purge"}
+        with pytest.raises(ValueError, match="No file at readme.md in the Trash of p"):
+            mcp_client.organize_files("p", ["readme.md"], "restore")
+        with pytest.raises(ValueError, match="No file at old.txt in p"):
+            mcp_client.organize_files("p", ["old.txt"], "delete")  # a trashed path is not live
+
 
 def test_explorer_drags_the_selection_and_duplicates():
     files = (BASE / "frontend" / "src" / "app" / "pages" / "Files.tsx").read_text()
