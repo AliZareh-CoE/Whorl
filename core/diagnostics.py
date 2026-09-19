@@ -253,8 +253,17 @@ def collect(check_network: bool = False) -> dict:
         "disk": _disk(data_dir),  # #572
         "media_writable": _media_writable(),  # #572
     }
-    report["findings"] = findings(report)  # #572: what is wrong, and the fix
-    report["verdict"] = verdict(report["findings"])
+    # #572: what is wrong, and the fix — guarded like every other section: this is the one
+    # page that must render when things are broken, so a malformed cache entry cannot 500 it
+    try:
+        report["findings"] = findings(report)
+        report["verdict"] = verdict(report["findings"])
+    except Exception:  # noqa: BLE001
+        report["findings"] = []
+        report["verdict"] = {
+            "state": "warn",
+            "text": "The verdict could not be computed — copy the report anyway.",
+        }
     return report
 
 
@@ -283,6 +292,30 @@ def _media_writable() -> bool | None:
 
 LOW_DISK_BYTES = 1 << 30  # 1 GB: warn
 NO_DISK_BYTES = 200 << 20  # 200 MB: the next upload, snapshot or compile fails
+
+
+FAILED_LOGINS = 3  # failed logins in the access window before the verdict mentions them
+COMPILE_DAYS = 7  # a compile failure older than this is history, not a finding
+
+
+def _recent(at) -> bool:
+    """True when `at` (a datetime, an ISO string, or nothing) is within COMPILE_DAYS."""
+    from datetime import datetime, timedelta
+
+    from django.utils import timezone
+
+    if at is None:
+        return True
+    if isinstance(at, str):
+        try:
+            at = datetime.fromisoformat(at)
+        except ValueError:
+            return True
+    if not isinstance(at, datetime):
+        return True
+    if timezone.is_naive(at):
+        at = timezone.make_aware(at)
+    return timezone.now() - at <= timedelta(days=COMPILE_DAYS)
 
 
 def _finding(id_, level, title, detail, fix, link=None) -> dict:
@@ -441,7 +474,7 @@ def findings(report: dict) -> list[dict]:
             )
         )
     failed = report.get("last_failed_compile")
-    if failed:
+    if failed and _recent(failed.get("at")):  # an abandoned draft must not warn forever
         rows.append(
             _finding(
                 "compile_failed",
@@ -484,8 +517,8 @@ def findings(report: dict) -> list[dict]:
                 "/connect",
             )
         )
-    bad_logins = counts.get("login_failed", 0) + counts.get("login_locked", 0)
-    if bad_logins:
+    # one mistyped password is not a finding; a lockout, or three misses, is
+    if counts.get("login_locked", 0) or counts.get("login_failed", 0) >= FAILED_LOGINS:
         rows.append(
             _finding(
                 "access_logins",
@@ -660,6 +693,8 @@ def as_text(report: dict) -> str:
     if report.get("client_errors"):
         lines += ["", "front-end errors (most recent first):"]
         for entry in report["client_errors"]:
+            if not isinstance(entry, dict):  # #572: a malformed cache entry must not break the text
+                continue
             lines.append(
                 f"  {entry['at']} · {entry['where']} · {entry['url']} · {entry['version'] or 'dev'}"
             )

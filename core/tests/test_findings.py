@@ -201,7 +201,17 @@ def test_each_rule(over, ident, level):
 def test_quiet_states_do_not_fire():
     # a running warm-up is not "cold"; an unprobed or fine updater is not a finding; a backup
     # that is not stale, a destination that is off, a healthy desktop scheduler
+    from datetime import timedelta
+
+    from django.utils import timezone
+
     report = _healthy(
+        last_failed_compile={
+            "manuscript": 1,
+            "title": "Old",
+            "log": "!",
+            "at": timezone.now() - timedelta(days=30),
+        },
         latex={"state": "running", "log": "", "warm": False},
         update_verdict={"state": "current", "text": "up to date"},
         backups={"last": {"days_ago": 1}, "stale": False, "has_data": True},
@@ -209,11 +219,47 @@ def test_quiet_states_do_not_fire():
         desktop=True,
         snapshots={"scheduler": True, "last_error": None},
         access={
-            "summary": {"days": 7, "counts": {"login_ok": 40}, "last_problem": None},
+            "summary": {
+                "days": 7,
+                "counts": {"login_ok": 40, "login_failed": 2},
+                "last_problem": None,
+            },
             "events": [],
         },
     )
-    assert _ids(report) == []
+    assert _ids(report) == []  # …two mistyped passwords, a compile that failed a month ago
+
+
+def test_a_compile_failure_counts_while_it_is_recent():
+    from django.utils import timezone
+
+    for at in (timezone.now(), timezone.now().isoformat(), None, "junk"):
+        row = {"manuscript": 1, "title": "T", "log": "!", "at": at}
+        assert _ids(_healthy(last_failed_compile=row)) == ["compile_failed"], at
+
+
+def test_three_failed_logins_count():
+    summary = {"days": 7, "counts": {"login_failed": 3}, "last_problem": None}
+    assert _ids(_healthy(access={"summary": summary, "events": []})) == ["access_logins"]
+
+
+@pytest.mark.django_db
+def test_a_broken_rule_input_never_breaks_the_page(
+    client, settings, django_user_model, monkeypatch
+):
+    """The one page that must render when things are broken: a malformed cache entry lands as
+    a fallback verdict, not a 500."""
+    from core import diagnostics
+
+    django_user_model.objects.create_superuser("owner", password="pw")
+    settings.ATLAS_API_KEY = "test-key"
+    monkeypatch.setattr(diagnostics.client_errors, "recent", lambda: ["not a dict"])
+    response = client.get("/api/v1/diagnostics/", HTTP_X_API_KEY="test-key")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["findings"] == []
+    assert body["verdict"]["text"] == "The verdict could not be computed — copy the report anyway."
+    assert body["text"].startswith("verdict: The verdict could not be computed")
 
 
 def test_details_name_the_evidence():
@@ -291,8 +337,11 @@ def test_ui_wiring():
         'data-testid="finding" data-level={f.level} data-id={f.id}',
         'data-testid="finding-link"',
         "Nothing wrong",  # nothing hard-coded: the sentence comes from the server
+        "the backups are fresh",  # the ok-state copy claims only what the rules establish
     ):
-        assert (needle in page) == (needle != "Nothing wrong"), needle
+        absent = needle in ("Nothing wrong", "the backups are fresh")
+        assert (needle in page) == (not absent), needle
+    assert "Nothing needs doing." in page
     # the verdict block sits first inside the report render, above "This install"
     assert page.index('data-testid="verdict"') < page.index('data-testid="diag-summary"')
     chunks = " ".join(p.read_text(errors="ignore") for p in (BASE / "static" / "js").rglob("*.js"))

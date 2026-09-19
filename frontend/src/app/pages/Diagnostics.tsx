@@ -115,7 +115,7 @@ export default function Diagnostics() {
               <p className="flex items-center gap-2 text-base font-semibold">
                 {r.verdict.state === "ok" ? <CheckCircle2 className="h-5 w-5 text-emerald-500" aria-hidden="true" /> : r.verdict.state === "fail" ? <XCircle className="h-5 w-5 text-red-500" aria-hidden="true" /> : <AlertTriangle className="h-5 w-5 text-amber-500" aria-hidden="true" />}
                 <span data-testid="verdict-text">{r.verdict.text}</span>
-                {r.verdict.state === "ok" && <span className="text-sm font-normal text-stone-500">The install is complete, the engine is ready, the backups are fresh and nothing has been refused.</span>}
+                {r.verdict.state === "ok" && <span className="text-sm font-normal text-stone-500">Nothing needs doing.</span>}
               </p>
               {(r.findings?.length ?? 0) > 0 && (
                 <ul className="mt-3 divide-y divide-stone-100 dark:divide-stone-800" data-testid="findings">
