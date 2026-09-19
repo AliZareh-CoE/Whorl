@@ -343,7 +343,10 @@ Since #382 it cannot stay silent: after a few seconds a panel says **"Atlas coul
 app"** with the errors that were thrown, a Reload button, a link to the classic pages, and the
 path of the server log the report was also written to. A crash while drawing one page shows
 that page's error in place with the sidebar intact. Every report lands in `atlas-server.log`
-and under **Front-end errors** on `/diagnostics` — paste that section when reporting. Diagnostics also lists
+and under **Front-end errors** on `/diagnostics` — paste that section when reporting. The page opens
+with a verdict — "Nothing wrong that Atlas can see", or each thing that is broken or drifting with its
+fix (no engine, no key, a full disk, a stale backup, a failed compile, rejected keys…) — and the copied
+report leads with the same lines. Diagnostics also lists
 the **Access** log: logins, failed logins, lockouts and rejected API keys, so you can tell
 whether anyone else has tried the door. In the
 desktop app **F12** (or Ctrl+Shift+I, or the *Web inspector* button on Diagnostics and on the

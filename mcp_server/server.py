@@ -1408,9 +1408,9 @@ def suggest_review_themes(project: str) -> dict:
 
 @mcp.tool()
 def get_diagnostics(network: bool = False) -> dict:
-    """Why didn't it work? The Diagnostics report: version, platform, data folder, database, LaTeX
-    engine, job mode, API key state, frame ancestors, the updater (probed when network=true),
-    the last failed compile's log, the server log tail, and `text` to paste into a bug report."""
+    """Why didn't it work? `verdict` + `findings` first (what is wrong, each with its fix), then
+    version, paths, database, LaTeX engine, jobs, API key, the updater (network=true probes it),
+    the last failed compile's log, the server log tail, and `text` for a bug report."""
     return client.get_diagnostics(network=network)
 
 

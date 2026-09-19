@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Camera, Check, CheckCircle2, Copy, Download, FolderOpen, Globe, HardDrive, Loader2, RotateCcw, Stethoscope, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowRight, Camera, Check, CheckCircle2, Copy, Download, FolderOpen, Globe, HardDrive, Loader2, RotateCcw, Stethoscope, Upload, XCircle } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { isDesktop, openDevtools, pickFolder, revealPath } from "../external";
@@ -13,6 +13,8 @@ import { ErrorState } from "../../components/ErrorState";
 type Feed = { url: string; status: number | string | null; version: string | null; platforms: string[]; key_match: boolean | null };
 type Verdict = { state: "unchecked" | "offline" | "unreachable" | "unsigned" | "wrong_key" | "current" | "available" | "unknown_version"; text: string };
 type RestoreState = { pending: { created_at?: string; staged_at: string | null; media_files: number; has_sqlite: boolean; has_json: boolean; size_bytes: number } | null; last_result: { ok: boolean; detail: string; applied_at: string; kept_previous_in: string } | null; data_dir: string };
+// #572: the verdict — what is broken or drifting, and the fix for each, computed over the report
+type Finding = { id: string; level: "fail" | "warn"; title: string; detail: string; fix: string; link: string | null };
 type Latex = { state: "idle" | "running" | "ok" | "failed" | "unknown"; log: string; seconds: number | null; dir: string; warm: boolean; size_mb: number };
 // #536: the attached drive / sync folder every snapshot is copied to
 type Destination = { dir: string; enabled: boolean; kind: string | null; label: string | null; subfolder: string; reachable: boolean; free_bytes: number | null; keep: number; copies: number; total_bytes: number; newest_copy: { name: string; path: string; size_bytes: number } | null; in_sync: boolean | null; last_copy: { name: string; at: string; verified: boolean } | null; last_error: { at: string; detail: string } | null; suggestions?: { dir: string; kind: string; label: string }[] };
@@ -21,6 +23,7 @@ type Report = {
   version: string; desktop: boolean; platform: string; frozen: boolean; settings_module: string; data_dir: string | null; database: string;
   engine: string | null; latex: Latex; jobs: string; api_key_configured: boolean; frame_ancestors?: string[]; update_feed: Feed[]; update_verdict?: Verdict;
   last_failed_compile: { manuscript: number; title: string; log: string; at: string } | null; server_log: string; text: string;
+  findings?: Finding[]; verdict?: { state: "ok" | "warn" | "fail"; text: string };
   backups?: { last: { at: string; days_ago: number; size_bytes: number } | null; stale: boolean; has_data: boolean; stale_after_days: number };
   // #462: the zips Atlas keeps on its own in <data dir>/backups
   backup_destination?: Destination | null;
@@ -107,6 +110,28 @@ export default function Diagnostics() {
       {q.isError && <ErrorState message="Couldn't collect the diagnostics." onRetry={() => void q.refetch()} />}
       {r && (
         <>
+          {r.verdict && (
+            <section className={`${panel} mb-5 border-l-4 ${r.verdict.state === "fail" ? "border-l-red-500" : r.verdict.state === "warn" ? "border-l-amber-500" : "border-l-emerald-500"}`} style={{ ["--i" as string]: 0.5 }} data-testid="verdict" data-state={r.verdict.state}>
+              <p className="flex items-center gap-2 text-base font-semibold">
+                {r.verdict.state === "ok" ? <CheckCircle2 className="h-5 w-5 text-emerald-500" aria-hidden="true" /> : r.verdict.state === "fail" ? <XCircle className="h-5 w-5 text-red-500" aria-hidden="true" /> : <AlertTriangle className="h-5 w-5 text-amber-500" aria-hidden="true" />}
+                <span data-testid="verdict-text">{r.verdict.text}</span>
+                {r.verdict.state === "ok" && <span className="text-sm font-normal text-stone-500">The install is complete, the engine is ready, the backups are fresh and nothing has been refused.</span>}
+              </p>
+              {(r.findings?.length ?? 0) > 0 && (
+                <ul className="mt-3 divide-y divide-stone-100 dark:divide-stone-800" data-testid="findings">
+                  {r.findings!.map((f) => (
+                    <li key={f.id} className="flex items-start gap-3 py-2 text-sm" data-testid="finding" data-level={f.level} data-id={f.id}>
+                      {f.level === "fail" ? <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" aria-hidden="true" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">{f.title}<span className="ml-2 font-normal text-stone-500 dark:text-stone-400">{f.detail}</span></p>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-stone-500 dark:text-stone-400"><ArrowRight className="h-3 w-3 shrink-0 text-indigo-500" aria-hidden="true" /><span>{f.fix}</span>{f.link && <Link to={f.link} className="font-medium text-indigo-600 hover:underline dark:text-indigo-300" data-testid="finding-link">Open</Link>}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
           <section className={panel} style={{ ["--i" as string]: 1 }} data-testid="diag-summary">
             <p className={`${railH} mb-2`}>This install</p>
             <dl className="divide-y divide-stone-100 dark:divide-stone-800">

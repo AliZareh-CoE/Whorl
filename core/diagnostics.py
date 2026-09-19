@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import platform
+import shutil
 import sys
 from pathlib import Path
 
@@ -218,7 +219,7 @@ def collect(check_network: bool = False) -> dict:
     db = settings.DATABASES["default"]
     version = os.environ.get("ATLAS_VERSION", "dev")
     feed_rows = update_feed_status(check_network)
-    return {
+    report = {
         "version": version,
         "desktop": bool(getattr(settings, "ATLAS_DESKTOP", False)),
         "platform": f"{platform.system()} {platform.release()} · Python {sys.version.split()[0]}",
@@ -249,7 +250,303 @@ def collect(check_network: bool = False) -> dict:
         "backups": backup_status(),  # #424
         "snapshots": _snapshots(),  # #462
         "backup_destination": _destination(),  # #536
+        "disk": _disk(data_dir),  # #572
+        "media_writable": _media_writable(),  # #572
     }
+    report["findings"] = findings(report)  # #572: what is wrong, and the fix
+    report["verdict"] = verdict(report["findings"])
+    return report
+
+
+def _disk(data_dir) -> dict | None:
+    """Free space where Atlas writes (the data folder, else MEDIA_ROOT) — a full disk is the
+    failure nobody's log explains (#572)."""
+    try:
+        where = Path(data_dir) if data_dir else Path(settings.MEDIA_ROOT)
+        while not where.exists() and where.parent != where:
+            where = where.parent
+        usage = shutil.disk_usage(where)
+        return {"path": str(where), "free_bytes": usage.free, "total_bytes": usage.total}
+    except Exception:  # noqa: BLE001 - an odd mount must not break the page
+        return None
+
+
+def _media_writable() -> bool | None:
+    """Can uploads land? `os.access`, not a probe file: this runs on every load of the page."""
+    try:
+        media = Path(settings.MEDIA_ROOT)
+        target = media if media.exists() else media.parent
+        return os.access(target, os.W_OK)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+LOW_DISK_BYTES = 1 << 30  # 1 GB: warn
+NO_DISK_BYTES = 200 << 20  # 200 MB: the next upload, snapshot or compile fails
+
+
+def _finding(id_, level, title, detail, fix, link=None) -> dict:
+    return {"id": id_, "level": level, "title": title, "detail": detail, "fix": fix, "link": link}
+
+
+def findings(report: dict) -> list[dict]:
+    """Why didn't it work — the rules over the collected report (#572). Pure: no I/O, every
+    optional section may be None. Two levels only: "fail" (broken now) before "warn" (will
+    bite, or is drifting). Each row says what is wrong and what to do about it."""
+    rows: list[dict] = []
+    latex = report.get("latex") or {}
+    if not report.get("engine"):
+        rows.append(
+            _finding(
+                "engine",
+                "fail",
+                "No LaTeX engine",
+                "Every compile fails until Tectonic is found.",
+                "Desktop builds bundle it; on a server run `make tectonic`.",
+            )
+        )
+    elif latex.get("state") == "failed":
+        last = (latex.get("log") or "").strip().splitlines()
+        rows.append(
+            _finding(
+                "latex_failed",
+                "fail",
+                "The TeX bundle warm-up failed",
+                (last[-1][:160] if last else "no log captured"),
+                "Warm up again from this page; a proxy or an offline machine is the usual cause.",
+            )
+        )
+    elif not latex.get("warm") and latex.get("state") != "running":
+        rows.append(
+            _finding(
+                "latex_cold",
+                "warn",
+                "The TeX bundle is not cached yet",
+                "The first compile downloads it — a few hundred MB, minutes on a slow line — "
+                "and looks stuck meanwhile.",
+                "Warm up now from this page, while nothing is waiting on it.",
+            )
+        )
+    if not report.get("api_key_configured"):
+        rows.append(
+            _finding(
+                "api_key",
+                "fail",
+                "No API key",
+                "Claude Code, the MCP server and every script are refused.",
+                "Set ATLAS_API_KEY — the Connect page shows it; on a server `manage.py rotate_api_key`.",
+                "/connect",
+            )
+        )
+    if report.get("media_writable") is False:
+        rows.append(
+            _finding(
+                "media",
+                "fail",
+                "The files folder is not writable",
+                "Uploads, PDFs and compiles cannot be saved.",
+                "Fix the permissions on MEDIA_ROOT (the data folder on the desktop).",
+            )
+        )
+    disk = report.get("disk") or {}
+    free = disk.get("free_bytes")
+    if free is not None and free < NO_DISK_BYTES:
+        rows.append(
+            _finding(
+                "disk",
+                "fail",
+                "The disk is full",
+                f"{free / 1048576:.0f} MB free at {disk.get('path')} — the next upload, "
+                "snapshot or compile fails.",
+                "Free space, or move the data folder to a bigger disk.",
+            )
+        )
+    elif free is not None and free < LOW_DISK_BYTES:
+        rows.append(
+            _finding(
+                "disk",
+                "warn",
+                "The disk is nearly full",
+                f"{free / 1073741824:.1f} GB free at {disk.get('path')}.",
+                "Snapshots and PDFs will stop fitting; free space soon.",
+            )
+        )
+    snaps = report.get("snapshots") or {}
+    if snaps.get("last_error"):
+        rows.append(
+            _finding(
+                "snapshot_error",
+                "fail",
+                "The last automatic snapshot failed",
+                str(snaps["last_error"].get("detail", "")),
+                "Snapshot now from this page to see whether it still fails.",
+            )
+        )
+    elif report.get("desktop") and snaps and not snaps.get("scheduler"):
+        rows.append(
+            _finding(
+                "snapshot_scheduler",
+                "warn",
+                "Automatic snapshots are not running",
+                "The scheduler thread is not alive, so no backup zip is being written.",
+                "Restart Atlas; if it stays off, copy this report into a bug report.",
+            )
+        )
+    dest = report.get("backup_destination") or {}
+    if dest.get("enabled"):
+        if dest.get("last_error"):
+            rows.append(
+                _finding(
+                    "destination_error",
+                    "fail",
+                    "The last copy to the backup destination failed",
+                    str(dest["last_error"].get("detail", "")),
+                    "Copy newest now from this page; check the drive or the sync client.",
+                )
+            )
+        elif not dest.get("reachable"):
+            rows.append(
+                _finding(
+                    "destination_unreachable",
+                    "fail",
+                    "The backup destination is not reachable",
+                    f"{dest.get('dir')} — unplugged, or the sync client is not running.",
+                    "Plug the drive in or start the sync client; copies resume on their own.",
+                )
+            )
+        elif dest.get("in_sync") is False:
+            rows.append(
+                _finding(
+                    "destination_behind",
+                    "warn",
+                    "The newest snapshot has not reached the backup destination",
+                    f"{dest.get('dir')} holds an older copy.",
+                    "Copy newest now from this page.",
+                )
+            )
+    backups = report.get("backups") or {}
+    if backups.get("has_data") and backups.get("stale"):
+        last = backups.get("last")
+        rows.append(
+            _finding(
+                "backup_stale",
+                "warn",
+                "No recent backup" if last else "No backup yet",
+                (
+                    f"The last one is {last['days_ago']} days old."
+                    if last
+                    else "Nothing has been backed up since this install began."
+                ),
+                "Download a backup, or Snapshot now, from this page.",
+            )
+        )
+    failed = report.get("last_failed_compile")
+    if failed:
+        rows.append(
+            _finding(
+                "compile_failed",
+                "warn",
+                f"The last compile of “{failed.get('title', '')}” failed",
+                "Its log is further down this page.",
+                "Open the manuscript in the Studio; the Problems panel names the line.",
+                f"/manuscripts/{failed.get('manuscript')}/editor",
+            )
+        )
+    errors = report.get("client_errors") or []
+    if errors:
+        rows.append(
+            _finding(
+                "client_errors",
+                "warn",
+                f"{len(errors)} front-end error{'s' if len(errors) != 1 else ''} recorded",
+                f"The newest at {errors[0].get('where', '?')}, {errors[0].get('at', '')}.",
+                "The messages are further down this page; copy the report when asking for help.",
+            )
+        )
+    access = (report.get("access") or {}).get("summary") or {}
+    counts = access.get("counts") or {}
+    problem = access.get("last_problem") or {}
+    stamp = (
+        f" (last {problem['at'].replace('T', ' ')[:16]} from {problem.get('address') or '?'})"
+        if problem.get("at")
+        else ""
+    )
+    rejected = counts.get("api_key_rejected", 0)
+    if rejected:
+        rows.append(
+            _finding(
+                "access_rejected",
+                "warn",
+                f"{rejected} request{'s' if rejected != 1 else ''} carried a wrong API key",
+                f"In the last {access.get('days', 7)} days{stamp}.",
+                "A client with a stale key — re-copy it from the Connect page — or "
+                "something probing the port.",
+                "/connect",
+            )
+        )
+    bad_logins = counts.get("login_failed", 0) + counts.get("login_locked", 0)
+    if bad_logins:
+        rows.append(
+            _finding(
+                "access_logins",
+                "warn",
+                f"{counts.get('login_failed', 0)} failed login"
+                f"{'s' if counts.get('login_failed', 0) != 1 else ''} · "
+                f"{counts.get('login_locked', 0)} lockout"
+                f"{'s' if counts.get('login_locked', 0) != 1 else ''}",
+                f"In the last {access.get('days', 7)} days{stamp}.",
+                "A mistyped password is fine; an unknown address is not — the list below names it.",
+            )
+        )
+    uv = report.get("update_verdict") or {}
+    if uv.get("state") in ("unreachable", "unsigned", "wrong_key"):
+        rows.append(
+            _finding(
+                "update",
+                "warn",
+                "This install cannot update itself",
+                uv.get("text", ""),
+                "Get the newest build by hand from the releases page.",
+            )
+        )
+    elif uv.get("state") == "offline":
+        rows.append(
+            _finding(
+                "update_offline",
+                "warn",
+                "The update feed could not be reached",
+                uv.get("text", ""),
+                "Check the connection or a proxy; try the probe again later.",
+            )
+        )
+    log = report.get("server_log") or ""
+    if "Traceback (most recent call last)" in log or " ERROR " in log:
+        rows.append(
+            _finding(
+                "server_log",
+                "warn",
+                "The server log carries errors",
+                "A traceback or an ERROR line is in the tail further down this page.",
+                "Copy the report when asking for help; the last lines say what broke.",
+            )
+        )
+    order = {"fail": 0, "warn": 1}
+    rows.sort(key=lambda r: order[r["level"]])
+    return rows
+
+
+def verdict(rows: list[dict]) -> dict:
+    """One line over the findings: ok / warn / fail and the sentence the page leads with."""
+    fails = sum(1 for r in rows if r["level"] == "fail")
+    warns = len(rows) - fails
+    if not rows:
+        return {"state": "ok", "text": "Nothing wrong that Atlas can see."}
+    parts = []
+    if fails:
+        parts.append(f"{fails} thing{'s' if fails != 1 else ''} broken")
+    if warns:
+        parts.append(f"{warns} to watch")
+    return {"state": "fail" if fails else "warn", "text": " · ".join(parts) + "."}
 
 
 def _destination() -> dict | None:
@@ -280,8 +577,16 @@ def _access() -> dict:
 
 
 def as_text(report: dict) -> str:
-    """The paste-into-a-bug-report form."""
-    lines = [
+    """The paste-into-a-bug-report form — the verdict first, then the facts (#572)."""
+    lines = []
+    if report.get("verdict"):
+        lines.append(f"verdict: {report['verdict']['text']}")
+        for row in report.get("findings") or []:
+            lines.append(
+                f"  {row['level'].upper()}: {row['title']} — {row['detail']} → {row['fix']}"
+            )
+        lines.append("")
+    lines += [
         f"Atlas {report['version']} · {'desktop' if report['desktop'] else 'server'} · {report['platform']}",
         f"frozen: {report['frozen']} · settings: {report['settings_module']}",
         f"data dir: {report['data_dir']}",
