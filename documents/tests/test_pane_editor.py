@@ -61,6 +61,18 @@ def test_the_pane_wires_editing_saving_and_the_diff():
     assert files.index("const [lastSave, setLastSave]") < files.rindex("if (isLoading)\n")
     sheet = (FRONT / "app" / "shortcuts.tsx").read_text()
     assert "Save the file you are editing (as a new version)" in sheet
+    # post-ship: a refetched `content` never replaces typed text — the conflict is said
+    assert "if (editing && touched) { setChangedElsewhere(true); return; }" in files
+    assert 'data-testid="changed-elsewhere"' in files
+    assert "const dirty = editing && touched && draft !== content;" in files
+    # ⌘S in the note field saves too; WebKit's leave-page prompt needs returnValue
+    assert (
+        '(e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s")) { e.preventDefault(); doSave(); }'
+        in files
+    )
+    assert 'e.preventDefault(); e.returnValue = "";' in files
+    # the strip is about the save just made: it clears when the selection moves
+    assert "useEffect(() => { setLastSave(null); }, [selected?.id]);" in files
 
 
 def test_the_bundle_carries_the_editor_and_the_strip():

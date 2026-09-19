@@ -326,18 +326,32 @@ function TextView({ file, content, truncated, startEditing = false, onSaved, onD
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(startEditing);
   const [draft, setDraft] = useState(content);
+  const [touched, setTouched] = useState(false); // the user typed since Edit
   const [note, setNote] = useState("");
-  const dirty = editing && draft !== content;
+  // #577 post-ship: the file-content query refetches on focus, and Claude or the Studio may
+  // have written meanwhile — a fresh `content` never replaces text the user typed; the
+  // conflict is said instead, and Save overwrites it (the version is kept, as always)
+  const [changedElsewhere, setChangedElsewhere] = useState(false);
+  const dirty = editing && touched && draft !== content;
   useEffect(() => {
     setDraft(content);
     setEditing(startEditing);
+    setTouched(false);
     setNote("");
-  }, [content, file.id, startEditing]);
+    setChangedElsewhere(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.id, startEditing]);
+  useEffect(() => {
+    if (editing && touched) { setChangedElsewhere(true); return; }
+    setDraft(content);
+    if (editing) setEditing(false); // nothing typed yet: the refreshed text shows, Edit reopens it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content]);
   // the parent's file-switch guard and the browser's leave-page prompt both read this flag
   useEffect(() => { onDirty(dirty); return () => onDirty(false); }, [dirty, onDirty]);
   useEffect(() => {
     if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; }; // WebKit (the desktop webview) wants returnValue
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
@@ -353,6 +367,8 @@ function TextView({ file, content, truncated, startEditing = false, onSaved, onD
       queryClient.invalidateQueries({ queryKey: ["file-content", file.id] });
       queryClient.invalidateQueries({ queryKey: ["tree", slugFromPath()] });
       setEditing(false);
+      setTouched(false);
+      setChangedElsewhere(false);
       onSaved(a);
     },
     onError: (e) => void errorDialog("Couldn't save the file", e),
@@ -368,10 +384,11 @@ function TextView({ file, content, truncated, startEditing = false, onSaved, onD
         ) : editing ? (
           <>
             {dirty && <span className="mr-auto text-stone-400" data-testid="unsaved">· unsaved</span>}
+            {changedElsewhere && <span className="text-amber-600 dark:text-amber-300" data-testid="changed-elsewhere" title="The text on the server is newer than what you started from; the version you overwrite is kept in the history">changed elsewhere — Save overwrites it</span>}
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); doSave(); } }}
+              onKeyDown={(e) => { if (e.key === "Enter" || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s")) { e.preventDefault(); doSave(); } }}
               maxLength={200}
               placeholder="What changed? (optional)"
               aria-label="A note for this version"
@@ -379,7 +396,7 @@ function TextView({ file, content, truncated, startEditing = false, onSaved, onD
               data-testid="save-note"
             />
             <button onClick={doSave} disabled={save.isPending} className="rounded bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-50" title={`Save as a new version (${MOD} S)`} data-testid="save-file">{dirty ? "Save" : "Done"}</button>
-            <button onClick={() => { setDraft(content); setNote(""); setEditing(false); }} className="text-stone-500 hover:underline dark:text-stone-400">Cancel</button>
+            <button onClick={() => { setDraft(content); setNote(""); setTouched(false); setChangedElsewhere(false); setEditing(false); }} className="text-stone-500 hover:underline dark:text-stone-400">Cancel</button>
           </>
         ) : (
           <button onClick={() => setEditing(true)} className="text-indigo-600 hover:underline dark:text-indigo-400" disabled={truncated} title={truncated ? "File too large to edit in-app" : "Edit in place; the text you replace stays in the file's history"} data-testid="edit-file">Edit</button>
@@ -387,7 +404,7 @@ function TextView({ file, content, truncated, startEditing = false, onSaved, onD
       </div>
       {editing ? (
         <Suspense fallback={<div role="status" aria-label="Loading the editor"><SkeletonLines lines={6} /></div>}>
-          <CodeEditor key={file.id} value={draft} onChange={setDraft} onSave={doSave} filename={file.name} />
+          <CodeEditor key={file.id} value={draft} onChange={(v) => { setDraft(v); setTouched(true); }} onSave={doSave} filename={file.name} />
         </Suspense>
       ) : (
         <pre className="max-h-[58vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300">
@@ -418,6 +435,7 @@ export default function Files() {
   // the "Saved as v3 · what changed" strip survives the pane's remount (it is keyed on the
   // version, which a save bumps) because it lives here, next to the selection
   const [lastSave, setLastSave] = useState<SaveAnswer | null>(null);
+  useEffect(() => { setLastSave(null); }, [selected?.id]); // the strip is about the save just made, not a file revisited later
   const onSaved = (a: SaveAnswer) => {
     setLastSave(a);
     setSelectedRaw((s) => (s && s.id === a.id && a.saved ? { ...s, version: a.version, versions: s.versions + 1 } : s));
