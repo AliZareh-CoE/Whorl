@@ -118,6 +118,40 @@ class TestContentSave:
         assert resp.status_code == 200
         d.refresh_from_db()
         assert d.content == "new body"
+        # backlog 358: the answer names the version the save left behind, so the pane can
+        # show what changed; the note lands on that version; an unchanged save files nothing
+        assert resp.json() == {"id": d.id, "saved": True, "version": 2, "filed": 1}
+        resp = client.put(
+            f"/api/v1/documents/{d.id}/content/",
+            data={"content": "newer", "note": "tightened the intro"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert resp.json()["filed"] == 2 and resp.json()["version"] == 3
+        assert d.versions.first().note == "tightened the intro"
+        resp = client.put(
+            f"/api/v1/documents/{d.id}/content/",
+            data={"content": "newer"},
+            content_type="application/json",
+            **HEADERS,
+        )
+        assert resp.json() == {"id": d.id, "saved": False, "unchanged": True, "version": 3}
+        assert d.versions.count() == 2
+
+    def test_write_file_answers_the_filed_version(self, client):
+        p = ProjectFactory()
+        url = f"/api/v1/projects/{p.slug}/write-file/"
+        body = {"path": "notes/plan.md", "content": "# one"}
+        resp = client.post(url, data=body, content_type="application/json", **HEADERS)
+        assert resp.status_code == 201
+        assert resp.json()["created"] and resp.json()["version"] == 1
+        assert resp.json()["filed"] is None
+        body["content"] = "# two"
+        resp = client.post(url, data=body, content_type="application/json", **HEADERS)
+        assert resp.status_code == 200
+        assert (resp.json()["version"], resp.json()["filed"]) == (2, 1)
+        resp = client.post(url, data=body, content_type="application/json", **HEADERS)
+        assert (resp.json()["version"], resp.json()["filed"]) == (2, None)
 
     def test_save_rejects_manuscript_source(self, client):
         from documents.models import Document

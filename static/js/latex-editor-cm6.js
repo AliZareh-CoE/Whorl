@@ -1,1 +1,1 @@
-import{n as e,r as t,t as n}from"./islands/latex-editor-core-chunk2.js";export{t as Split,n as default,e as mountEditor};
+import{n as e,r as t,t as n}from"./islands/latex-editor-core-chunk3.js";export{t as Split,n as default,e as mountEditor};

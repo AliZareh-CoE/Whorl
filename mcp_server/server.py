@@ -639,8 +639,10 @@ def read_project_file(document_id: int, version: int = 0, diff: bool = False) ->
 @mcp.tool()
 def write_project_file(project: str, path: str, content: str, note: str = "") -> dict:
     """Create or overwrite a general text file at `path` in the project's file tree. An
-    overwrite keeps the previous text in the file's history (`note` labels it); read an
-    earlier state with read_project_file(version=n) and write it back to restore."""
+    overwrite keeps the previous text in the file's history (`note` labels it) and answers
+    `filed`, that version's number — read_project_file(document_id, version=filed, diff=True)
+    shows what the write changed; read an earlier state with version=n and write it back to
+    restore."""
     return client.write_project_file(project, path, content, note)
 
 

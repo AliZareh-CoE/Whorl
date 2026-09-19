@@ -569,12 +569,23 @@ class ProjectViewSet(AtlasViewSet):
                 "content": content,
             },
         )
+        filed = None
         if not created:
             if doc.role == "manuscript_source":
                 return Response({"detail": "Manuscript files are edited in the editor."}, 409)
-            history.replace_content(doc, content, source="write", note=note)
+            result = history.replace_content(doc, content, source="write", note=note)
+            filed = result["filed"] if result else None
+        # backlog 358: `filed` names the version the overwrite left behind (None when the text
+        # was unchanged or the file is new) — read_project_file(version=filed, diff=True) shows
+        # what changed, the same as the pane after a save
         return Response(
-            {"id": doc.id, "rel_path": doc.rel_path, "created": created},
+            {
+                "id": doc.id,
+                "rel_path": doc.rel_path,
+                "created": created,
+                "version": doc.version,
+                "filed": filed,
+            },
             status=201 if created else 200,
         )
 
@@ -1767,8 +1778,12 @@ class DocumentViewSet(AtlasViewSet):
             200: OpenApiResponse(description="Saved"),
             409: OpenApiResponse(description="Manuscript sources are edited in the LaTeX editor"),
         },
-        description="Save edited text for a general file node (workspace in-place editing). "
-        "Manuscript-source nodes are read-only here — they sync from the LaTeX editor.",
+        description="Save edited text for a general file node (the pane's editor). The text "
+        "being replaced is filed as a version, labelled by an optional `note` (≤ 200 chars); "
+        "the answer carries `version` and `filed` (the version left behind — "
+        "`versions/{filed}/diff/` shows what changed), or `unchanged: true` when the text was "
+        "the same. Manuscript-source nodes are read-only here — they sync from the LaTeX "
+        "editor.",
     )
     @content.mapping.put
     def save_content(self, request, pk=None):
@@ -1784,11 +1799,18 @@ class DocumentViewSet(AtlasViewSet):
             return Response({"detail": "File too large to edit in-app."}, status=413)
         from documents import history
 
-        # #553: the text being replaced is filed as a version (unchanged text files nothing)
-        history.replace_content(
+        # #553: the text being replaced is filed as a version (unchanged text files nothing);
+        # backlog 358: the answer names the filed version so the pane can show what changed
+        result = history.replace_content(
             doc, text, source="edit", note=(request.data.get("note") or "")[:200]
         )
-        return Response({"id": doc.id, "saved": True, "version": doc.version})
+        if result is None:
+            return Response(
+                {"id": doc.id, "saved": False, "unchanged": True, "version": doc.version}
+            )
+        return Response(
+            {"id": doc.id, "saved": True, "version": doc.version, "filed": result["filed"]}
+        )
 
     @extend_schema(
         responses={200: OpenApiResponse(description="Raw file bytes, inline")},

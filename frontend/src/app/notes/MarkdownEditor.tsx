@@ -16,7 +16,7 @@ export type Suggestion = { id: number; label: string; sublabel: string };
 export type SuggestFn = (kind: "note" | "reference" | "tag", q: string) => Promise<Suggestion[]>;
 export type MdHandle = { insert: (text: string) => void; focus: () => void; getValue: () => string; setValue: (text: string) => void; goToLine: (line: number) => void };
 
-const theme = EditorView.theme({
+export const theme = EditorView.theme({
   "&": { backgroundColor: "transparent", color: "var(--md-fg)", fontSize: "13px" },
   ".cm-scroller": { fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", lineHeight: "1.65", padding: "12px 0" },
   ".cm-content": { padding: "0 20px", caretColor: "var(--md-accent)" },
@@ -32,7 +32,7 @@ const theme = EditorView.theme({
   ".cm-panels": { backgroundColor: "var(--md-panel)", color: "var(--md-fg)" },
   ".cm-searchMatch": { backgroundColor: "var(--md-match)" },
 });
-const highlight = syntaxHighlighting(HighlightStyle.define([
+export const highlight = syntaxHighlighting(HighlightStyle.define([
   { tag: t.heading1, color: "var(--md-heading)", fontWeight: "700", fontSize: "1.25em" },
   { tag: t.heading2, color: "var(--md-heading)", fontWeight: "700", fontSize: "1.12em" },
   { tag: [t.heading3, t.heading4, t.heading5, t.heading6], color: "var(--md-heading)", fontWeight: "700" },

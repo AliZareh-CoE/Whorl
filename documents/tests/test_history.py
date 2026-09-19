@@ -235,7 +235,7 @@ class TestApi:
             content_type="application/json",
             **HEADERS,
         )
-        assert r.json() == {"id": doc.id, "saved": True, "version": 2}
+        assert r.json() == {"id": doc.id, "saved": True, "version": 2, "filed": 1}  # #577: filed
         r = client.post(
             f"/api/v1/projects/{p.slug}/write-file/",
             {"path": "data.csv", "content": "a,b\n3,3\n", "note": "from Claude"},

@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, ChevronRight, Copy, Download, ExternalLink, File, FileCode, FileImage, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, History, Pencil, RefreshCw, RotateCcw, Table, Trash2, Upload } from "lucide-react";
 import Papa from "papaparse";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+
+// backlog 358 (#577): the CodeMirror editor loads only when Edit is clicked — the tree stays light
+const CodeEditor = lazy(() => import("../../components/CodeEditor"));
+type SaveAnswer = { id: number; saved: boolean; unchanged?: boolean; version: number; filed?: number };
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
@@ -250,13 +254,16 @@ function HistoryPanel({ file, onRestored }: { file: FileNode; onRestored: () => 
   );
 }
 
-function FilePreview({ file }: { file: FileNode }) {
+function FilePreview({ file, onSaved, onDirty }: { file: FileNode; onSaved: (a: SaveAnswer) => void; onDirty: (dirty: boolean) => void }) {
   const rawUrl = `/api/v1/documents/${file.id}/raw/?v=${file.version}`; // #553: the raw bytes are cached a day by id; a new version is a new URL
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["file-content", file.id],
     enabled: file.is_text,
     queryFn: () => api<{ content: string; truncated: boolean }>(`/documents/${file.id}/content/`),
   });
+  // backlog 358: a .csv / .tsv previews as a table; "Edit as text" opens the same editor the
+  // other text files get, and the save's diff comes back as changed cells (#555)
+  const [textMode, setTextMode] = useState(false);
 
   if (isImage(file))
     return <img src={rawUrl} alt={file.name} className="max-h-[62vh] max-w-full rounded border border-stone-200 dark:border-stone-800" />;
@@ -281,7 +288,7 @@ function FilePreview({ file }: { file: FileNode }) {
     );
   if (error || !data) return <ErrorState message="Couldn't load this file." onRetry={() => refetch()} />;
 
-  if (isCsv(file)) {
+  if (isCsv(file) && !textMode) {
     const parsed = Papa.parse<string[]>(data.content.trim(), { skipEmptyLines: true });
     const rows = (parsed.data as string[][]).slice(0, 200);
     return (
@@ -298,62 +305,90 @@ function FilePreview({ file }: { file: FileNode }) {
           </tbody>
         </table>
         {data.truncated && <p className="mt-1 text-xs text-stone-400">Showing the first part of a large file.</p>}
+        {file.role !== "manuscript_source" && !data.truncated && (
+          <button type="button" onClick={() => setTextMode(true)} className="mt-2 text-xs text-indigo-600 hover:underline dark:text-indigo-400" data-testid="edit-as-text">Edit as text</button>
+        )}
       </div>
     );
   }
 
-  return <TextView file={file} content={data.content} truncated={data.truncated} />;
+  return <TextView file={file} content={data.content} truncated={data.truncated} startEditing={isCsv(file) && textMode} onSaved={onSaved} onDirty={onDirty} />;
 }
 
 const slugFromPath = () => location.pathname.split("/")[2];
 
-// In-place text editing (#30 slice 2d): general nodes are editable + saved back to the
-// content endpoint; manuscript sources are read-only here (they sync from the LaTeX editor).
-function TextView({ file, content, truncated }: { file: FileNode; content: string; truncated: boolean }) {
+// In-place text editing (#30 slice 2d → backlog 358 at #577): a general node opens in a
+// CodeMirror editor (line numbers, undo, search, Markdown / LaTeX highlighting, ⌘S) and saves
+// back to the content endpoint with an optional note; the text being replaced becomes a
+// version, and the parent shows what changed. Manuscript sources are read-only here (they
+// sync from the LaTeX editor).
+function TextView({ file, content, truncated, startEditing = false, onSaved, onDirty }: { file: FileNode; content: string; truncated: boolean; startEditing?: boolean; onSaved: (a: SaveAnswer) => void; onDirty: (dirty: boolean) => void }) {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [draft, setDraft] = useState(content);
+  const [note, setNote] = useState("");
+  const dirty = editing && draft !== content;
   useEffect(() => {
     setDraft(content);
-    setEditing(false);
-  }, [content, file.id]);
+    setEditing(startEditing);
+    setNote("");
+  }, [content, file.id, startEditing]);
+  // the parent's file-switch guard and the browser's leave-page prompt both read this flag
+  useEffect(() => { onDirty(dirty); return () => onDirty(false); }, [dirty, onDirty]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   const save = useMutation({
     mutationFn: () =>
-      api(`/documents/${file.id}/content/`, {
+      api<SaveAnswer>(`/documents/${file.id}/content/`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: draft }),
+        body: JSON.stringify({ content: draft, note: note.trim().slice(0, 200) }),
       }),
-    onSuccess: () => {
+    onSuccess: (a) => {
       queryClient.invalidateQueries({ queryKey: ["file-content", file.id] });
       queryClient.invalidateQueries({ queryKey: ["tree", slugFromPath()] });
       setEditing(false);
+      onSaved(a);
     },
+    onError: (e) => void errorDialog("Couldn't save the file", e),
   });
+  const doSave = () => { if (!save.isPending && draft !== content) save.mutate(); else if (draft === content) setEditing(false); };
 
   const manuscript = file.role === "manuscript_source";
   return (
     <div>
-      <div className="mb-1 flex items-center justify-end gap-2 text-xs">
+      <div className="mb-1 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs">
         {manuscript ? (
           <span className="text-stone-400">read-only — edit in the LaTeX editor</span>
         ) : editing ? (
           <>
-            <button onClick={() => save.mutate()} disabled={save.isPending} className="rounded bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-50">Save</button>
-            <button onClick={() => { setDraft(content); setEditing(false); }} className="text-stone-500 hover:underline dark:text-stone-400">Cancel</button>
+            {dirty && <span className="mr-auto text-stone-400" data-testid="unsaved">· unsaved</span>}
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); doSave(); } }}
+              maxLength={200}
+              placeholder="What changed? (optional)"
+              aria-label="A note for this version"
+              className="w-56 max-w-full rounded border border-stone-200 bg-white px-2 py-0.5 text-xs text-stone-700 placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200"
+              data-testid="save-note"
+            />
+            <button onClick={doSave} disabled={save.isPending} className="rounded bg-indigo-600 px-2 py-0.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-50" title={`Save as a new version (${MOD} S)`} data-testid="save-file">{dirty ? "Save" : "Done"}</button>
+            <button onClick={() => { setDraft(content); setNote(""); setEditing(false); }} className="text-stone-500 hover:underline dark:text-stone-400">Cancel</button>
           </>
         ) : (
-          <button onClick={() => setEditing(true)} className="text-indigo-600 hover:underline dark:text-indigo-400" disabled={truncated} title={truncated ? "File too large to edit in-app" : ""}>Edit</button>
+          <button onClick={() => setEditing(true)} className="text-indigo-600 hover:underline dark:text-indigo-400" disabled={truncated} title={truncated ? "File too large to edit in-app" : "Edit in place; the text you replace stays in the file's history"} data-testid="edit-file">Edit</button>
         )}
       </div>
       {editing ? (
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          spellCheck={false}
-          className="h-[58vh] w-full rounded border border-indigo-300 bg-white p-3 font-mono text-xs leading-relaxed text-stone-800 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
-        />
+        <Suspense fallback={<div role="status" aria-label="Loading the editor"><SkeletonLines lines={6} /></div>}>
+          <CodeEditor key={file.id} value={draft} onChange={setDraft} onSave={doSave} filename={file.name} />
+        </Suspense>
       ) : (
         <pre className="max-h-[58vh] overflow-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs leading-relaxed text-stone-700 dark:border-stone-800 dark:bg-stone-800 dark:text-stone-300">
           {content}
@@ -371,7 +406,22 @@ export default function Files() {
     queryFn: () => api<Tree>(`/projects/${slug}/tree/`),
   });
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
-  const [selected, setSelected] = useState<FileNode | null>(null);
+  const [selected, setSelectedRaw] = useState<FileNode | null>(null);
+  // backlog 358: an editor with unsaved text asks before the pane moves to another file; every
+  // caller keeps the plain setter's shape (a value or an updater) and goes through this guard
+  const dirtyRef = useRef(false);
+  const setSelected = (next: FileNode | null | ((s: FileNode | null) => FileNode | null)) => {
+    if (!dirtyRef.current) { setSelectedRaw(next); return; }
+    void confirmDialog({ title: "Discard the unsaved changes?", body: "The file you are editing has changes that were not saved.", danger: true, confirmLabel: "Discard" }).then((ok) => { if (ok) { dirtyRef.current = false; setSelectedRaw(next); } });
+  };
+  const onDirty = (d: boolean) => { dirtyRef.current = d; };
+  // the "Saved as v3 · what changed" strip survives the pane's remount (it is keyed on the
+  // version, which a save bumps) because it lives here, next to the selection
+  const [lastSave, setLastSave] = useState<SaveAnswer | null>(null);
+  const onSaved = (a: SaveAnswer) => {
+    setLastSave(a);
+    setSelectedRaw((s) => (s && s.id === a.id && a.saved ? { ...s, version: a.version, versions: s.versions + 1 } : s));
+  };
   // backlog 357 (#576 post-ship): a restored file is revealed — its folders open and it is
   // selected — once the refreshed tree carries it, so a Restore never looks like a vanish
   const [pendingReveal, setPendingReveal] = useState<number | null>(null);
@@ -1400,7 +1450,20 @@ export default function Files() {
               {selected.role !== "manuscript_source" && historyFor === selected.id && (
                 <HistoryPanel file={selected} onRestored={async () => { await refreshTree(); queryClient.invalidateQueries({ queryKey: ["file-content", selected.id] }); setSelected((s) => (s ? { ...s, version: s.version + 1, versions: s.versions + 1 } : s)); }} />
               )}
-              <FilePreview key={`${selected.id}-${selected.version}`} file={selected} />
+              {lastSave && lastSave.id === selected.id && (
+                <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200" data-testid="saved-strip">
+                  {lastSave.saved ? (
+                    <>
+                      <span className="font-medium">Saved as v{lastSave.version}</span>
+                      {lastSave.filed != null && <VersionDiff file={selected} number={lastSave.filed} />}
+                    </>
+                  ) : (
+                    <span>Nothing changed — the file is as it was.</span>
+                  )}
+                  <button type="button" onClick={() => setLastSave(null)} className="ml-auto text-emerald-700/70 hover:text-emerald-900 dark:text-emerald-300/70 dark:hover:text-emerald-100" aria-label="Dismiss">×</button>
+                </div>
+              )}
+              <FilePreview key={`${selected.id}-${selected.version}`} file={selected} onSaved={onSaved} onDirty={onDirty} />
             </div>
           ) : (
             <div className="flex h-full min-h-[40vh] flex-col items-center justify-center px-6 text-center">
