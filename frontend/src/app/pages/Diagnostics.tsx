@@ -15,6 +15,7 @@ type Verdict = { state: "unchecked" | "offline" | "unreachable" | "unsigned" | "
 type RestoreState = { pending: { created_at?: string; staged_at: string | null; media_files: number; has_sqlite: boolean; has_json: boolean; size_bytes: number } | null; last_result: { ok: boolean; detail: string; applied_at: string; kept_previous_in: string } | null; data_dir: string };
 // #572: the verdict — what is broken or drifting, and the fix for each, computed over the report
 type Finding = { id: string; level: "fail" | "warn"; title: string; detail: string; fix: string; link: string | null };
+type AccessRow = { id: number; kind: string; label: string; address: string; user_agent: string; detail: string; at: string };
 type Latex = { state: "idle" | "running" | "ok" | "failed" | "unknown"; log: string; seconds: number | null; dir: string; warm: boolean; size_mb: number };
 // #536: the attached drive / sync folder every snapshot is copied to
 type Destination = { dir: string; enabled: boolean; kind: string | null; label: string | null; subfolder: string; reachable: boolean; free_bytes: number | null; keep: number; copies: number; total_bytes: number; newest_copy: { name: string; path: string; size_bytes: number } | null; in_sync: boolean | null; last_copy: { name: string; at: string; verified: boolean } | null; last_error: { at: string; detail: string } | null; suggestions?: { dir: string; kind: string; label: string }[] };
@@ -29,7 +30,8 @@ type Report = {
   backup_destination?: Destination | null;
   snapshots?: { dir: string; keep: number; every_hours: number; count: number; total_bytes: number; last: { name: string; path: string; size_bytes: number; at: string; hours_ago: number } | null; scheduler: boolean; last_error: { at: string; detail: string } | null } | null;
   client_errors?: { at: string; where: string; url: string; version: string; errors: string[] }[];
-  access?: { summary: { days: number; counts: Record<string, number>; last_problem: { kind: string; at: string; address: string } | null } | null; events: { id: number; kind: string; label: string; address: string; user_agent: string; detail: string; at: string }[] };
+  // #573: the problems first (windowed, capped at 12), the last five logins apart, the raw tail behind a toggle
+  access?: { summary: { days: number; counts: Record<string, number>; last_problem: { kind: string; at: string; address: string } | null } | null; problems?: AccessRow[]; logins?: AccessRow[]; events: AccessRow[] };
 };
 
 const panel = "rise rounded-2xl border border-stone-200 bg-white/70 p-5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/60";
@@ -47,6 +49,7 @@ function Row({ label, value, ok }: { label: string; value: React.ReactNode; ok?:
 export default function Diagnostics() {
   const [network, setNetwork] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [allEvents, setAllEvents] = useState(false); // #573: the raw access tail, on request
   const q = useQuery({ queryKey: ["diagnostics", network], queryFn: () => api<Report>(`/diagnostics/${network ? "?network=1" : ""}`) });
   const r = q.data;
   // LaTeX warm-up (2026-09-06): the first compile downloads the TeX bundle; do it here, on purpose
@@ -165,19 +168,66 @@ export default function Diagnostics() {
                 {r.access.summary.counts.login_ok ?? 0} logins · {r.access.summary.counts.login_failed ?? 0} failed · {r.access.summary.counts.login_locked ?? 0} lockouts · {r.access.summary.counts.api_key_rejected ?? 0} rejected API keys
                 {r.access.summary.last_problem && <span className="ml-2 text-amber-600 dark:text-amber-300">· last problem {r.access.summary.last_problem.at.replace("T", " ").slice(0, 16)} from {r.access.summary.last_problem.address || "?"}</span>}
               </p>
-              {r.access.events.length > 0 ? (
-                <ul className="divide-y divide-stone-100 text-xs dark:divide-stone-800">
-                  {r.access.events.map((e) => (
-                    <li key={e.id} className="flex flex-wrap items-center gap-2 py-1.5">
-                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${e.kind === "login_ok" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}>{e.label}</span>
-                      <span className="font-mono text-stone-500">{e.at.replace("T", " ").slice(0, 16)}</span>
-                      <span className="text-stone-500">{e.address || "?"}</span>
-                      {e.detail && <span className="text-stone-400">{e.detail}</span>}
-                      <span className="ml-auto max-w-[24rem] truncate text-stone-400" title={e.user_agent}>{e.user_agent}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : <p className="text-xs text-stone-400">No events yet — logins and rejected keys appear here.</p>}
+              {(() => {
+                const c = r.access!.summary!.counts;
+                const total = (c.login_failed ?? 0) + (c.login_locked ?? 0) + (c.api_key_rejected ?? 0);
+                const problems = r.access!.problems ?? [];
+                const logins = r.access!.logins ?? [];
+                const last = r.access!.summary!.last_problem;
+                const stamp = (iso: string) => iso.replace("T", " ").slice(0, 16);
+                return (
+                  <>
+                    <p className={`${railH} mb-1 mt-3 text-[10px]`}>Problems · last {r.access!.summary!.days} days</p>
+                    {problems.length > 0 ? (
+                      <ul className="divide-y divide-stone-100 text-xs dark:divide-stone-800" data-testid="access-problems" data-count={problems.length}>
+                        {problems.map((e) => (
+                          <li key={e.id} className="flex flex-wrap items-center gap-2 py-1.5" data-testid="access-problem" data-kind={e.kind}>
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${e.kind === "login_locked" ? "bg-red-500/10 text-red-700 dark:text-red-300" : "bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}>{e.label}</span>
+                            <span className="font-mono text-stone-500">{stamp(e.at)}</span>
+                            <span className="text-stone-500">{e.address || "?"}</span>
+                            {e.detail && <span className="text-stone-400">{e.detail}</span>}
+                            <span className="ml-auto max-w-[24rem] truncate text-stone-400" title={e.user_agent}>{e.user_agent}</span>
+                          </li>
+                        ))}
+                        {total > problems.length && <li className="py-1.5 text-xs text-stone-400" data-testid="access-more">{total - problems.length} more in the window — the copied report carries these {problems.length}; the rest are the same kinds.</li>}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-stone-500 dark:text-stone-400" data-testid="access-quiet">
+                        None in the last {r.access!.summary!.days} days — no failed login, no lockout, no rejected key.{last && ` The last one was on ${stamp(last.at).slice(0, 10)} from ${last.address || "?"}.`}
+                      </p>
+                    )}
+                    <p className={`${railH} mb-1 mt-4 text-[10px]`}>Recent logins · last {logins.length}</p>
+                    {logins.length > 0 ? (
+                      <ul className="divide-y divide-stone-100 text-xs dark:divide-stone-800" data-testid="access-logins">
+                        {logins.map((e) => (
+                          <li key={e.id} className="flex flex-wrap items-center gap-2 py-1">
+                            <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">{e.label}</span>
+                            <span className="font-mono text-stone-500">{stamp(e.at)}</span>
+                            <span className="text-stone-500">{e.address || "?"}</span>
+                            <span className="ml-auto max-w-[24rem] truncate text-stone-400" title={e.user_agent}>{e.user_agent}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p className="text-xs text-stone-400">No logins recorded yet.</p>}
+                    {r.access!.events.length > 0 && (
+                      <button type="button" onClick={() => setAllEvents((v) => !v)} aria-expanded={allEvents} className="mt-2 text-xs text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" data-testid="access-all-toggle">{allEvents ? "Hide the raw tail" : `Show the last ${r.access!.events.length} events of every kind`}</button>
+                    )}
+                    {allEvents && (
+                      <ul className="mt-1 divide-y divide-stone-100 text-xs dark:divide-stone-800" data-testid="access-events">
+                        {r.access!.events.map((e) => (
+                          <li key={e.id} className="flex flex-wrap items-center gap-2 py-1">
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${e.kind === "login_ok" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}>{e.label}</span>
+                            <span className="font-mono text-stone-500">{stamp(e.at)}</span>
+                            <span className="text-stone-500">{e.address || "?"}</span>
+                            {e.detail && <span className="text-stone-400">{e.detail}</span>}
+                            <span className="ml-auto max-w-[24rem] truncate text-stone-400" title={e.user_agent}>{e.user_agent}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                );
+              })()}
             </section>
           )}
           {r.client_errors && r.client_errors.length > 0 && (

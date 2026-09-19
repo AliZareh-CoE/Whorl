@@ -51,19 +51,32 @@ def record(kind: str, request=None, detail: str = "") -> AccessEvent | None:
         return None
 
 
+def _row(e: AccessEvent) -> dict:
+    return {
+        "id": e.id,
+        "kind": e.kind,
+        "label": e.get_kind_display(),
+        "address": e.address,
+        "user_agent": e.user_agent,
+        "detail": e.detail,
+        "at": e.created_at.isoformat(timespec="seconds"),
+    }
+
+
 def recent(limit: int = 50) -> list[dict]:
-    return [
-        {
-            "id": e.id,
-            "kind": e.kind,
-            "label": e.get_kind_display(),
-            "address": e.address,
-            "user_agent": e.user_agent,
-            "detail": e.detail,
-            "at": e.created_at.isoformat(timespec="seconds"),
-        }
-        for e in AccessEvent.objects.all()[:limit]
-    ]
+    return [_row(e) for e in AccessEvent.objects.all()[:limit]]
+
+
+def problems(days: int = 7, limit: int = 12) -> list[dict]:
+    """The rows that matter (#573): failed logins, lockouts and rejected keys in the window,
+    newest first — the owner's own logins would otherwise push them out of any short list."""
+    since = timezone.now() - timedelta(days=days)
+    rows = AccessEvent.objects.exclude(kind=AccessEvent.Kind.LOGIN_OK).filter(created_at__gte=since)
+    return [_row(e) for e in rows[:limit]]
+
+
+def recent_logins(limit: int = 5) -> list[dict]:
+    return [_row(e) for e in AccessEvent.objects.filter(kind=AccessEvent.Kind.LOGIN_OK)[:limit]]
 
 
 def summary(days: int = 7) -> dict:

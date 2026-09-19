@@ -602,11 +602,17 @@ def _snapshots() -> dict | None:
 
 def _access() -> dict:
     try:
-        from core.access import recent, summary
+        from core.access import problems, recent, recent_logins, summary
 
-        return {"summary": summary(), "events": recent(12)}
+        # #573: the problems first (windowed, capped), the last logins apart, the raw tail kept
+        return {
+            "summary": summary(),
+            "problems": problems(),
+            "logins": recent_logins(),
+            "events": recent(12),
+        }
     except Exception:  # noqa: BLE001 - a missing table (pre-migration) must not break the page
-        return {"summary": None, "events": []}
+        return {"summary": None, "problems": [], "logins": [], "events": []}
 
 
 def as_text(report: dict) -> str:
@@ -690,6 +696,15 @@ def as_text(report: dict) -> str:
             f"{c.get('login_failed', 0)} failed · {c.get('login_locked', 0)} lockouts · "
             f"{c.get('api_key_rejected', 0)} rejected API keys"
         )
+        for row in access.get("problems") or []:  # #573: the rows the verdict points at
+            if not isinstance(row, dict):
+                continue
+            lines.append(
+                f"  {row.get('at', '').replace('T', ' ')[:16]} · {row.get('label', row.get('kind', ''))}"
+                f" · {row.get('address') or '?'}"
+                + (f" · {row['detail']}" if row.get("detail") else "")
+                + (f" · {row['user_agent'][:60]}" if row.get("user_agent") else "")
+            )
     if report.get("client_errors"):
         lines += ["", "front-end errors (most recent first):"]
         for entry in report["client_errors"]:

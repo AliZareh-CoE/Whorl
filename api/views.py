@@ -5601,17 +5601,20 @@ class AccessEventsAPIView(APIView):
     @extend_schema(
         operation_id="v1_access_events",
         description="Recent access events (logins, failed logins, lockouts, rejected API keys) "
-        "and a 7-day summary. ?limit=<n> (default 50, max 200).",
+        "and a 7-day summary. ?limit=<n> (default 50, max 200); ?problems=1 lists only the "
+        "failed logins, lockouts and rejected keys of the last 7 days (#573).",
         responses={200: None},
     )
     def get(self, request):
-        from core.access import recent, summary
+        from core.access import problems, recent, summary
 
         try:
             limit = max(1, min(200, int(request.query_params.get("limit", 50))))
         except ValueError:
             limit = 50
-        return Response({"events": recent(limit), "summary": summary()})
+        only_problems = request.query_params.get("problems") in ("1", "true")
+        rows = problems(limit=limit) if only_problems else recent(limit)
+        return Response({"events": rows, "summary": summary()})
 
 
 class ClientErrorAPIView(APIView):
