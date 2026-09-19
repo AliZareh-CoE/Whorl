@@ -4412,9 +4412,22 @@ class PromptViewSet(AtlasViewSet):
     q_fields = ("title", "body", "tags")
 
     def get_queryset(self):
-        from prompts.models import KINDS
+        from django.db.models import Prefetch
 
-        queryset = super().get_queryset()
+        from prompts.models import KINDS, PromptUse
+
+        # #565: the newest use per prompt in one query (a sliced prefetch), for `last_use`
+        queryset = (
+            super()
+            .get_queryset()
+            .prefetch_related(
+                Prefetch(
+                    "uses",
+                    queryset=PromptUse.objects.order_by("-created_at", "-id")[:1],
+                    to_attr="newest_uses",
+                )
+            )
+        )
         # #564: "Use a prompt with this paper" — the prompts whose body names the kind;
         # whitelisted before it reaches the regex, so a query value never becomes a pattern
         kind = (self.request.query_params.get("kind") or "").strip().lower()
@@ -4439,11 +4452,13 @@ class PromptViewSet(AtlasViewSet):
         "and abstract (or title and body); a non-numeric value on a typed variable is used as "
         "typed. Defaults fill the rest; a fill-in with nothing keeps its bare placeholder. "
         "Each expansion is capped at 50 000 characters. A successful render bumps the "
-        "prompt's `use_count` and `last_used_at` (#563), which the response carries back.",
+        "prompt's `use_count` and `last_used_at` (#563) and files a use — `use: {id, "
+        "created_at, variables}` — into the prompt's history (#565); the response carries "
+        "all of it back.",
     )
     @action(detail=True, methods=["post"])
     def render(self, request, pk=None):
-        from prompts.services import PromptError, record_use, render_with_data
+        from prompts.services import PromptError, record_use, render_with_data, use_row
 
         prompt = self.get_object()
         payload = serializers.PromptRenderSerializer(data=request.data)
@@ -4453,10 +4468,35 @@ class PromptViewSet(AtlasViewSet):
         except PromptError as exc:
             status = 404 if str(exc).startswith("No ") else 400
             return Response({"detail": str(exc)}, status=status)
-        record_use(prompt)
+        use = record_use(prompt, rendered["variables"])
         return Response(
-            {**rendered, "use_count": prompt.use_count, "last_used_at": prompt.last_used_at}
+            {
+                **rendered,
+                "use_count": prompt.use_count,
+                "last_used_at": prompt.last_used_at,
+                "use": use_row(use),
+            }
         )
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="{uses: [{id, created_at, variables: [{name, kind, default, "
+                "value, label}]}]} — newest first, the last 50"
+            )
+        },
+        description="The prompt's history (#565): what it was copied with, newest first — "
+        "the resolved fill-ins of each use (a picked paper's id and title, a typed value), "
+        "never the rendered text. The last 50 uses are kept; `use_count` on the prompt "
+        "stays the all-time count.",
+    )
+    @action(detail=True, methods=["get"])
+    def uses(self, request, pk=None):
+        from prompts.services import KEEP_USES, use_row
+
+        prompt = self.get_object()
+        rows = prompt.uses.order_by("-created_at", "-id")[:KEEP_USES]
+        return Response({"uses": [use_row(u) for u in rows]})
 
 
 class NoteViewSet(AtlasViewSet):

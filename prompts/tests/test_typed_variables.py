@@ -159,7 +159,10 @@ def test_mcp_get_prompt_renders_with_values(monkeypatch):
     assert out["text"].startswith("Attention") and out["title"] == "Sum"
     assert calls[-1] == ("POST", "/prompts/3/render/", {"json": {"values": {"paper": 1}}})
     server = (BASE / "mcp_server" / "server.py").read_text()
-    assert "def get_prompt(prompt_id: int, values: dict | None = None) -> dict:" in server
+    assert (
+        "def get_prompt(prompt_id: int, values: dict | None = None, history: bool = False) -> dict:"
+        in server
+    )
 
 
 def test_gallery_draws_pickers_and_copies_through_render():

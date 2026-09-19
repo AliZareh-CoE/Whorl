@@ -1349,6 +1349,9 @@ class PromptSerializer(serializers.ModelSerializer):
     # #393: the placeholders with their defaults (+ #562 their kind), so MCP clients can fill
     # a prompt correctly
     variables = serializers.ListField(child=serializers.DictField(), read_only=True)
+    # #565: the newest use — {id, created_at, variables} — what the prompt was last copied
+    # with; None until the first copy
+    last_use = serializers.SerializerMethodField()
 
     class Meta:
         from prompts.models import Prompt
@@ -1362,7 +1365,17 @@ class PromptSerializer(serializers.ModelSerializer):
             "variables",
             "use_count",
             "last_used_at",
+            "last_use",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["use_count", "last_used_at"]
+
+    @extend_schema_field(serializers.DictField(allow_null=True))
+    def get_last_use(self, obj):
+        from prompts.services import use_row
+
+        rows = getattr(obj, "newest_uses", None)
+        if rows is None:  # a detail fetched outside the list prefetch
+            rows = list(obj.uses.order_by("-created_at", "-id")[:1])
+        return use_row(rows[0]) if rows else None

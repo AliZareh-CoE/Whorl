@@ -472,13 +472,17 @@ def list_prompts(query: str = "", kind: str = ""):
     return _request("GET", "/prompts/", params=params or None)
 
 
-def get_prompt(prompt_id: int, values: dict | None = None):
+def get_prompt(prompt_id: int, values: dict | None = None, history: bool = False):
     """One prompt plus its rendered `text` (typed fill-ins expanded from their rows by the
     server; defaults where nothing was given). Fetching a prompt to use it counts as a use
-    (#563), so Claude's copies show in the gallery's Recent strip like the owner's."""
+    (#563), so Claude's copies show in the gallery's Recent strip like the owner's. The
+    prompt's `last_use` is the use before this one; `history=True` adds `uses` (#565)."""
     prompt = _request("GET", f"/prompts/{prompt_id}/")
     rendered = _request("POST", f"/prompts/{prompt_id}/render/", json={"values": values or {}})
-    return {**prompt, **rendered}
+    out = {**prompt, **rendered}
+    if history:
+        out["uses"] = _request("GET", f"/prompts/{prompt_id}/uses/").get("uses", [])
+    return out
 
 
 def get_review_matrix(slug: str):

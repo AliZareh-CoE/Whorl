@@ -40,10 +40,11 @@ class TestRecordUse:
         assert timezone.now() - prompt.last_used_at < timedelta(seconds=5)
         assert prompt.updated_at == edited  # "used" is not "edited"
 
-    def test_returns_the_fresh_row(self):
+    def test_returns_the_use_and_refreshes_the_prompt(self):
         prompt = Prompt.objects.create(title="P", body="x")
-        out = services.record_use(prompt)
-        assert out.use_count == 1 and isinstance(out.use_count, int)
+        use = services.record_use(prompt)  # #565: the filed use comes back
+        assert use.prompt_id == prompt.pk and use.variables == []
+        assert prompt.use_count == 1 and isinstance(prompt.use_count, int)
 
 
 class TestApi:

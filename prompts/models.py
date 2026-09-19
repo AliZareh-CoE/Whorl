@@ -39,6 +39,21 @@ class Prompt(TimeStampedModel):
         return [v["name"] for v in self.variables]
 
 
+class PromptUse(TimeStampedModel):
+    """#565: one copy of a prompt — what it was filled with (the resolved variables: name,
+    kind, default, value, label), not the rendered text (a paper's abstract re-renders from
+    its id). The last 50 per prompt are kept; `Prompt.use_count` stays the all-time count."""
+
+    prompt = models.ForeignKey(Prompt, on_delete=models.CASCADE, related_name="uses")
+    variables = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.prompt_id} @ {self.created_at:%Y-%m-%d %H:%M}"
+
+
 # {{name}}, {{name|default}}, {{name:kind}}, {{name:kind|default}} — the kind (#562) says what
 # the fill-in is picked from: a paper in the library, a note, a project, a manuscript; text
 # (the default, and any unknown kind) is typed

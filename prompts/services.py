@@ -5,14 +5,17 @@ one place that reads rows, shared by the API's render endpoint, the SPA's Copy a
 
 from __future__ import annotations
 
+from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
 from core.ids import MAX_PK
 
-from .models import Prompt, parse_variables, render_prompt
+from .models import Prompt, PromptUse, parse_variables, render_prompt
 
 EXPANSION_CAP = 50_000  # characters per fill-in — the same cap the note preview uses
+KEEP_USES = 50  # #565: uses kept per prompt (the count stays all-time)
+STORED_CAP = 300  # characters of a stored value / label — an id or a title, never a body
 
 
 class PromptError(ValueError):
@@ -97,13 +100,45 @@ def render_with_data(prompt: Prompt, values: dict | None) -> dict:
     return {"text": render_prompt(prompt.body or "", filled), "variables": out}
 
 
-def record_use(prompt: Prompt) -> Prompt:
+def use_row(use: PromptUse) -> dict:
+    return {"id": use.id, "created_at": use.created_at, "variables": use.variables}
+
+
+def _stored(variables) -> list[dict]:
+    out = []
+    for v in variables or []:
+        if not isinstance(v, dict):
+            continue
+        out.append(
+            {
+                "name": str(v.get("name", ""))[:60],
+                "kind": str(v.get("kind", "text"))[:20],
+                "default": str(v.get("default", ""))[:STORED_CAP],
+                "value": str(v.get("value", ""))[:STORED_CAP],
+                "label": str(v.get("label", ""))[:STORED_CAP],
+            }
+        )
+    return out
+
+
+def record_use(prompt: Prompt, variables: list[dict] | None = None) -> PromptUse:
     """#563: one more use, now — called after a render succeeded (a 404 for a missing row
     does not count). An F() increment survives two copies landing at once; save() rather
     than update() so the ETag data version bumps; update_fields keeps auto_now off
-    updated_at, so "used" stays distinct from "edited"."""
-    prompt.use_count = F("use_count") + 1
-    prompt.last_used_at = timezone.now()
-    prompt.save(update_fields=["use_count", "last_used_at"])
-    prompt.refresh_from_db(fields=["use_count", "last_used_at"])
-    return prompt
+    updated_at, so "used" stays distinct from "edited". #565: the use is also a row — what
+    the prompt was filled with (ids + labels, never the rendered text) — and the last
+    KEEP_USES rows per prompt are kept."""
+    with transaction.atomic():
+        prompt.use_count = F("use_count") + 1
+        prompt.last_used_at = timezone.now()
+        prompt.save(update_fields=["use_count", "last_used_at"])
+        prompt.refresh_from_db(fields=["use_count", "last_used_at"])
+        use = PromptUse.objects.create(prompt=prompt, variables=_stored(variables))
+        stale = list(
+            PromptUse.objects.filter(prompt=prompt)
+            .order_by("-created_at", "-id")
+            .values_list("pk", flat=True)[KEEP_USES:]
+        )
+        if stale:
+            PromptUse.objects.filter(pk__in=stale).delete()
+    return use

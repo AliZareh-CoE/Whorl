@@ -3,18 +3,39 @@
  * often and when last it was copied; the ones you reach for sit in a Recent strip at the top.
  * #564: /prompts?use=<kind>:<id>&label=<title> arrives from a paper / note / manuscript page
  * ("Use a prompt with this…"): the gallery shows only the prompts that take that kind, with the
- * object already picked into every fill-in of that kind — one click from Copy. */
+ * object already picked into every fill-in of that kind — one click from Copy.
+ * #565: every copy is a row in the prompt's history (what it was filled with, ids + labels);
+ * a card says what it was last used with, and its History panel refills the card from any use. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Clock, Pencil, Plus, Trash2, Wand2 } from "lucide-react";
+import { Clock, History, Pencil, Plus, Trash2, Wand2 } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
 import { queryGate } from "../../components/QueryBoundary";
 
-type Prompt = { id: number; title: string; body: string; tags: string; use_count: number; last_used_at: string | null };
-type Rendered = { text: string; use_count: number; last_used_at: string | null };
+type UsedVar = { name: string; kind: string; default: string; value: string; label: string };
+type UseRow = { id: number; created_at: string; variables: UsedVar[] };
+type Prompt = { id: number; title: string; body: string; tags: string; use_count: number; last_used_at: string | null; last_use: UseRow | null };
+type Rendered = { text: string; use_count: number; last_used_at: string | null; use: UseRow };
+/** #565: one line for a use — the labels of what it was filled with ("Theeuwes… · NeurIPS"),
+ * or "as written" when every fill-in fell back to its default. */
+export function summarizeUse(u: UseRow): string {
+  const bits = u.variables.map((v) => (v.value ? v.label || v.value : "")).filter(Boolean);
+  return bits.length ? bits.join(" · ") : "as written";
+}
+/** #565: a stored use back into the card's values — a picked row by its id + label, a typed
+ * value as typed; an empty value meant the default, so it stays unset. */
+export function valuesFromUse(u: UseRow): Record<string, Value> {
+  const out: Record<string, Value> = {};
+  for (const v of u.variables) {
+    if (!v.value) continue;
+    if (v.kind !== "text" && /^\d+$/.test(v.value)) out[v.name] = { id: Number(v.value), label: v.label || `#${v.value}` };
+    else out[v.name] = { text: v.value };
+  }
+  return out;
+}
 function ago(iso: string, now: number = Date.now()): string {
   const m = (now - new Date(iso).getTime()) / 60000;
   if (m < 1) return "just now"; if (m < 60) return `${Math.round(m)} min ago`; if (m < 1440) return `${Math.round(m / 60)} h ago`;
@@ -133,6 +154,9 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use }: { prom
     return stored;
   });
   const [copied, setCopied] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false); // #565
+  const history = useQuery({ queryKey: ["prompt-uses", prompt.id], queryFn: () => api<{ uses: UseRow[] }>(`/prompts/${prompt.id}/uses/`), enabled: historyOpen });
+  const queryClient = useQueryClient();
 
   async function copy() {
     // #562: the server renders — a picked row expands to its title / authors / abstract, a
@@ -150,6 +174,7 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use }: { prom
     } catch (e) { void errorDialog("Couldn't fill in the prompt", e); return; }
     try { await navigator.clipboard.writeText(rendered.text); } catch { void errorDialog("Couldn't copy", new Error("The clipboard is not available here.")); return; }
     onUsed(rendered); // #563: the render counted as a use — the card's chip and the Recent strip follow
+    void queryClient.invalidateQueries({ queryKey: ["prompt-uses", prompt.id] }); // #565
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -162,9 +187,9 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use }: { prom
           <span key={t} className="shrink-0 rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-500 dark:border-stone-700 dark:text-stone-400">{t}</span>
         ))}
         {prompt.use_count > 0 && (
-          <span className="shrink-0 text-[11px] tabular-nums text-stone-400" data-testid="prompt-uses" title={prompt.last_used_at ? `Copied ${prompt.use_count} ${prompt.use_count === 1 ? "time" : "times"} · last ${ago(prompt.last_used_at)}` : undefined}>
+          <button type="button" onClick={() => setHistoryOpen((v) => !v)} className="shrink-0 rounded px-1 text-[11px] tabular-nums text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" data-testid="prompt-uses" aria-expanded={historyOpen} title={prompt.last_used_at ? `Copied ${prompt.use_count} ${prompt.use_count === 1 ? "time" : "times"} · last ${ago(prompt.last_used_at)} — click for the history` : undefined}>
             used {prompt.use_count}×
-          </span>
+          </button>
         )}
         <button onClick={copy}
                 className={`ml-auto shrink-0 rounded border px-2.5 py-1 text-xs font-medium transition ${
@@ -193,6 +218,37 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use }: { prom
               </label>
             ))}
           </div>
+        </div>
+      )}
+      {prompt.last_use && !historyOpen && (
+        <p className="flex items-center gap-1.5 border-t border-stone-100 px-5 py-2 text-[11px] text-stone-400 dark:border-stone-800" data-testid="prompt-last-use">
+          <History className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <span className="truncate">last used {ago(prompt.last_use.created_at)} with <span className="text-stone-500 dark:text-stone-300">{summarizeUse(prompt.last_use)}</span></span>
+          <button type="button" onClick={() => setHistoryOpen(true)} className="ml-auto shrink-0 hover:text-indigo-600 dark:hover:text-indigo-300">history</button>
+        </p>
+      )}
+      {historyOpen && (
+        <div className="border-t border-stone-100 px-5 py-3 dark:border-stone-800" data-testid="prompt-history">
+          <p className="mb-2 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wide text-stone-400">
+            <History className="h-3 w-3" aria-hidden="true" />History · last {Math.min(history.data?.uses.length ?? 0, 50)} of {prompt.use_count}
+            <button type="button" onClick={() => setHistoryOpen(false)} className="ml-auto normal-case tracking-normal hover:text-stone-600 dark:hover:text-stone-300" aria-label="Close the history">× close</button>
+          </p>
+          {history.isLoading && <p className="text-xs text-stone-400">Loading…</p>}
+          {history.error && <p className="text-xs text-red-500">Couldn't load the history.</p>}
+          {history.data && history.data.uses.length === 0 && <p className="text-xs text-stone-400">No copies filed yet — the count predates the history.</p>}
+          {history.data && history.data.uses.length > 0 && (
+            <ul className="max-h-56 space-y-1 overflow-y-auto text-xs">
+              {history.data.uses.map((u) => (
+                <li key={u.id} className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 tabular-nums text-stone-400" title={u.created_at}>{ago(u.created_at)}</span>
+                  <span className="min-w-0 flex-1 truncate text-stone-600 dark:text-stone-300" title={summarizeUse(u)}>{summarizeUse(u)}</span>
+                  {vars.length > 0 && u.variables.some((v) => v.value) && (
+                    <button type="button" onClick={() => { setValues(valuesFromUse(u)); setHistoryOpen(false); }} className="shrink-0 rounded border border-stone-200 px-1.5 py-0.5 text-[11px] text-stone-500 hover:border-indigo-300 hover:text-indigo-700 dark:border-stone-700 dark:hover:text-indigo-300" data-testid="prompt-use-again">Use again</button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       <details className="border-t border-stone-100 px-5 py-3 dark:border-stone-800">
@@ -224,7 +280,7 @@ export default function Prompts() {
   const startEdit = (p: Prompt) => { setEditing(p); setTitle(p.title); setTags(p.tags); setBody(p.body); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["prompts"] });
   // #563: a copy patches the list in place — no refetch, the chip and the strip move at once
-  const used = (id: number, r: Rendered) => queryClient.setQueryData<Page<Prompt>>(["prompts"], (cur) => cur && { ...cur, results: cur.results.map((p) => (p.id === id ? { ...p, use_count: r.use_count, last_used_at: r.last_used_at } : p)) });
+  const used = (id: number, r: Rendered) => queryClient.setQueryData<Page<Prompt>>(["prompts"], (cur) => cur && { ...cur, results: cur.results.map((p) => (p.id === id ? { ...p, use_count: r.use_count, last_used_at: r.last_used_at, last_use: r.use } : p)) });
   const [flash, setFlash] = useState<number | null>(null);
   const jumpTo = (id: number) => { document.getElementById(`prompt-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); setFlash(id); setTimeout(() => setFlash((f) => (f === id ? null : f)), 1600); };
   const save = useMutation({

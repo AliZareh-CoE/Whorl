@@ -1177,6 +1177,29 @@ class Command(BaseCommand):
                 prompt.use_count = count
                 prompt.last_used_at = timezone.now() - datetime.timedelta(days=days_ago)
                 prompt.save(update_fields=["use_count", "last_used_at"])
+            # #565: a short history for the used prompts — what they were copied with —
+            # built through the real renderer so the stored shape stays honest; only when
+            # the prompt has none, so a re-seed never duplicates rows
+            if count and not prompt.uses.exists():
+                from prompts.models import PromptUse
+                from prompts.services import render_with_data
+
+                papers = list(Reference.objects.order_by("-year", "id")[:3])
+                for n, values in enumerate(
+                    (
+                        {"paper": papers[0].pk if papers else "", "venue": "ICLR"},
+                        {"paper": papers[1].pk if len(papers) > 1 else "", "venue": ""},
+                        {"paper": papers[2].pk if len(papers) > 2 else ""},
+                    )
+                ):
+                    if not prompt.variables:
+                        values = {}
+                    row = PromptUse.objects.create(
+                        prompt=prompt, variables=render_with_data(prompt, values)["variables"]
+                    )
+                    PromptUse.objects.filter(pk=row.pk).update(  # etag: ok — seed backdating
+                        created_at=timezone.now() - datetime.timedelta(days=days_ago, hours=n * 30)
+                    )
 
         from bots.models import Bot, BotRun
 
