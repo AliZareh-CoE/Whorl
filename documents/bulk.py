@@ -195,6 +195,13 @@ def archive_members(
     return out
 
 
+def zip_time(when) -> tuple[int, int, int, int, int, int]:
+    """A zip member's stamp for a datetime: local time, seconds floored to even — the zip
+    format keeps two-second resolution, so this is exactly what the archive stores back."""
+    t = timezone.localtime(when).timetuple()
+    return (t[0], t[1], t[2], t[3], t[4], t[5] - t[5] % 2)
+
+
 def build_archive(
     project: Project, ids: list[int] | None = None, folder: Folder | None = None
 ) -> tuple[tempfile.SpooledTemporaryFile, str, int]:
@@ -225,9 +232,7 @@ def build_archive(
             # Audit #35: an explicit ZipInfo for both branches — a bare name handed to open()
             # would stamp 1980-01-01 and no permissions; the member carries the file's own
             # last-change time (the #557 story) and the 0600 mode writestr() used to set
-            info = zipfile.ZipInfo(
-                unique(name), date_time=timezone.localtime(doc.updated_at).timetuple()[:6]
-            )
+            info = zipfile.ZipInfo(unique(name), date_time=zip_time(doc.updated_at))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o600 << 16
             if doc.file:

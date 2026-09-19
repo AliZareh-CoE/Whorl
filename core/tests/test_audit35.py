@@ -153,7 +153,9 @@ class TestStreamedBytes:
                 info = zf.getinfo(member)
                 # the member is stamped with the file's last change, deflated, mode 0600 —
                 # not 1980-01-01 with no permissions (what a bare name gives open())
-                assert info.date_time == timezone.localtime(doc.updated_at).timetuple()[:6]
+                assert info.date_time == bulk.zip_time(doc.updated_at)
+                assert abs(info.date_time[5] - timezone.localtime(doc.updated_at).second) <= 1
+                assert info.date_time[5] % 2 == 0  # the format keeps two-second resolution
                 assert info.compress_type == zipfile.ZIP_DEFLATED
                 assert info.external_attr >> 16 == 0o600
         assert count == 2 and name == f"{project.slug}-files.zip"

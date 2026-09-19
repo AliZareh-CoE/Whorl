@@ -9,7 +9,7 @@
  * #567: a prompt may name the one that comes next (summarize → find the gap); after a copy the
  * card offers the next step with the fill-ins carried over (same name, else same kind). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowRight, Clock, History, Pencil, Plus, Trash2, Wand2 } from "lucide-react";
 import { api } from "../api";
@@ -120,6 +120,16 @@ function Picker({ variable, value, onPick }: { variable: Variable; value: Value 
   const [hits, setHits] = useState<Hit[]>([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  // #569: the hit list is 20 rem wide; when that would run past the viewport (a picker on the
+  // right of a narrow card) it hangs from the input's right edge instead of its left
+  const listRef = useRef<HTMLUListElement>(null);
+  const [flip, setFlip] = useState(false);
+  useLayoutEffect(() => {
+    if (!open || !listRef.current) return;
+    const r = listRef.current.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    setFlip((f) => (f ? r.left < 0 ? false : true : r.right > vw));
+  }, [open, hits.length]);
   useEffect(() => {
     const needle = q.trim();
     if (needle.length < 2) { setHits([]); return; }
@@ -132,7 +142,7 @@ function Picker({ variable, value, onPick }: { variable: Variable; value: Value 
   }, [q, variable.kind]);
   if (value?.id != null) {
     return (
-      <span className="inline-flex max-w-xs items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 py-0.5 pl-2 pr-1 text-xs text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300" data-testid="prompt-picked" title={value.label}>
+      <span className="inline-flex min-w-0 max-w-xs items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 py-0.5 pl-2 pr-1 text-xs text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300" data-testid="prompt-picked" title={value.label}>
         <span className="truncate">{value.label}</span>
         <button type="button" onClick={() => onPick(undefined)} aria-label={`Clear ${variable.name}`} className="rounded-full px-1 text-indigo-400 hover:text-red-600">×</button>
       </span>
@@ -146,7 +156,7 @@ function Picker({ variable, value, onPick }: { variable: Variable; value: Value 
              placeholder={`pick ${KIND_LABEL[variable.kind]}…`} title={`Type to search for ${KIND_LABEL[variable.kind]}`} data-testid="prompt-pick" role="combobox" aria-expanded={open} aria-autocomplete="list"
              className="w-44 rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-700 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300" />
       {open && hits.length > 0 && (
-        <ul role="listbox" className="absolute left-0 top-full z-20 mt-1 max-h-64 w-80 overflow-y-auto rounded-md border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900" data-testid="prompt-hits">
+        <ul ref={listRef} role="listbox" className={`absolute top-full z-20 mt-1 max-h-64 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900 ${flip ? "right-0" : "left-0"}`} data-testid="prompt-hits">
           {hits.map((h, i) => (
             <li key={`${h.type}-${h.id}`} role="option" aria-selected={i === active} onMouseDown={(e) => { e.preventDefault(); pick(h); }} onMouseEnter={() => setActive(i)}
                 className={`cursor-pointer px-3 py-1.5 text-xs ${i === active ? "bg-indigo-50 dark:bg-indigo-500/15" : ""}`}>
@@ -162,6 +172,7 @@ function Picker({ variable, value, onPick }: { variable: Variable; value: Value 
 
 function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use, handoff, onNext }: { prompt: Prompt; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void; onUsed: (r: Rendered) => void; flash: boolean; use: Use | null; handoff: Handoff | null; onNext: (from: Variable[], values: Record<string, Value>) => void }) {
   const vars = variables(prompt.body);
+  const tagList = prompt.tags.split(",").map((t) => t.trim()).filter(Boolean);
   // last-used values, per prompt (#393); #564: the object the page arrived with is picked into
   // every fill-in of its kind over the remembered value (the card remounts per address)
   const [values, setValues] = useState<Record<string, Value>>(() => {
@@ -204,42 +215,53 @@ function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use, handoff,
 
   return (
     <article id={`prompt-${prompt.id}`} className={`group rounded border bg-white transition-colors hover:border-stone-300 dark:bg-stone-900 ${flash ? "border-indigo-400 ring-2 ring-indigo-200 dark:border-indigo-500 dark:ring-indigo-500/30" : "border-stone-200 dark:border-stone-800"}`} onContextMenu={onContextMenu} data-testid="prompt-card">
-      <div className="flex items-center gap-3 px-5 py-3.5">
-        <h2 className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">{prompt.title}</h2>
-        {prompt.tags.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
-          <span key={t} className="shrink-0 rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-500 dark:border-stone-700 dark:text-stone-400">{t}</span>
-        ))}
-        {prompt.next != null && !nextOffered && (
-          <button type="button" onClick={() => onNext(vars, {})} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-stone-200 px-2 py-0.5 text-[11px] text-stone-500 hover:border-indigo-300 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-indigo-300" data-testid="prompt-next" title="The prompt that comes after this one">
-            then<ArrowRight className="h-3 w-3" aria-hidden="true" /><span className="max-w-[10rem] truncate">{prompt.next_title ?? `#${prompt.next}`}</span>
+      {/* #569: title · actions · meta. The actions are one group placed before the chips in the
+          DOM, so below `lg` (a 640-px window is a 336-px column beside the rail) the buttons stay
+          on the title line and the chips drop under it on a line of their own; from `lg` the
+          chips sit beside the title and the actions go last. Viewport breakpoints, not a
+          container query: the kebab's menu is `fixed` and a contained card would re-anchor it. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-3.5">
+        <h2 className="min-w-0 flex-1 basis-0 truncate text-sm font-medium text-stone-900 dark:text-stone-100 max-w-max">{prompt.title}</h2>
+        <div className="ml-auto flex shrink-0 items-center gap-2 lg:order-last" data-testid="prompt-actions">
+          <button onClick={copy}
+                  className={`shrink-0 rounded border px-2.5 py-1 text-xs font-medium transition ${
+                    copied
+                      ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300"
+                      : "border-stone-200 bg-white text-stone-400 hover:border-indigo-300 hover:text-indigo-700 group-hover:text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:hover:text-indigo-300 dark:group-hover:text-stone-300"
+                  }`}>
+            {copied ? "✓ Copied" : "⧉ Copy"}
           </button>
+          {nextOffered && prompt.next != null && (
+            <button type="button" onClick={() => { setNextOffered(false); onNext(vars, values); }} className="inline-flex shrink-0 items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20" data-testid="prompt-next-step" title="The next step in this chain, with what you just filled in carried over">
+              Next: <span className="max-w-[12rem] truncate">{prompt.next_title ?? `#${prompt.next}`}</span><ArrowRight className="h-3 w-3" aria-hidden="true" />
+            </button>
+          )}
+          <Kebab items={items} label={`Actions for ${prompt.title}`} />
+        </div>
+        {(tagList.length > 0 || prompt.next != null || prompt.use_count > 0) && (
+          <div className="order-last flex min-w-0 basis-full flex-wrap items-center gap-1.5 lg:order-none lg:basis-auto" data-testid="prompt-meta">
+            {tagList.map((t) => (
+              <span key={t} className="shrink-0 rounded-full border border-stone-200 px-2 py-0.5 text-xs text-stone-500 dark:border-stone-700 dark:text-stone-400">{t}</span>
+            ))}
+            {prompt.next != null && !nextOffered && (
+              <button type="button" onClick={() => onNext(vars, {})} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-stone-200 px-2 py-0.5 text-[11px] text-stone-500 hover:border-indigo-300 hover:text-indigo-700 dark:border-stone-700 dark:text-stone-400 dark:hover:text-indigo-300" data-testid="prompt-next" title="The prompt that comes after this one">
+                then<ArrowRight className="h-3 w-3" aria-hidden="true" /><span className="max-w-[10rem] truncate">{prompt.next_title ?? `#${prompt.next}`}</span>
+              </button>
+            )}
+            {prompt.use_count > 0 && (
+              <button type="button" onClick={() => setHistoryOpen((v) => !v)} className="shrink-0 rounded px-1 text-[11px] tabular-nums text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" data-testid="prompt-uses" aria-expanded={historyOpen} title={prompt.last_used_at ? `Copied ${prompt.use_count} ${prompt.use_count === 1 ? "time" : "times"} · last ${ago(prompt.last_used_at)} — click for the history` : undefined}>
+                used {prompt.use_count}×
+              </button>
+            )}
+          </div>
         )}
-        {prompt.use_count > 0 && (
-          <button type="button" onClick={() => setHistoryOpen((v) => !v)} className="shrink-0 rounded px-1 text-[11px] tabular-nums text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-300" data-testid="prompt-uses" aria-expanded={historyOpen} title={prompt.last_used_at ? `Copied ${prompt.use_count} ${prompt.use_count === 1 ? "time" : "times"} · last ${ago(prompt.last_used_at)} — click for the history` : undefined}>
-            used {prompt.use_count}×
-          </button>
-        )}
-        <button onClick={copy}
-                className={`ml-auto shrink-0 rounded border px-2.5 py-1 text-xs font-medium transition ${
-                  copied
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300"
-                    : "border-stone-200 bg-white text-stone-400 hover:border-indigo-300 hover:text-indigo-700 group-hover:text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:hover:text-indigo-300 dark:group-hover:text-stone-300"
-                }`}>
-          {copied ? "✓ Copied" : "⧉ Copy"}
-        </button>
-        {nextOffered && prompt.next != null && (
-          <button type="button" onClick={() => { setNextOffered(false); onNext(vars, values); }} className="inline-flex shrink-0 items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20" data-testid="prompt-next-step" title="The next step in this chain, with what you just filled in carried over">
-            Next: {prompt.next_title ?? `#${prompt.next}`}<ArrowRight className="h-3 w-3" aria-hidden="true" />
-          </button>
-        )}
-        <Kebab items={items} label={`Actions for ${prompt.title}`} />
       </div>
       {vars.length > 0 && (
         <div className="border-t border-stone-100 px-5 py-3 dark:border-stone-800">
           <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-stone-400">Fill in before copying</p>
           <div className="flex flex-wrap gap-2.5">
             {vars.map((v) => (
-              <label key={v.name} className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
+              <label key={v.name} className="flex min-w-0 max-w-full items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
                 {v.name}
                 {v.kind === "text" ? (
                   <input value={values[v.name]?.text ?? ""} placeholder={v.default || v.name} title={v.default ? `Default: ${v.default}` : undefined} data-testid="prompt-var"
@@ -354,11 +376,11 @@ export default function Prompts() {
         {all.length} reusable {all.length === 1 ? "prompt" : "prompts"} with {"{{variable}}"} fill-ins — a {"{{paper:reference}}"} is picked from your library and copied with its title and abstract.
       </p>
 
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)}
                placeholder="Search prompts…"
-               className="w-72 rounded border border-stone-300 bg-white px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" />
-        <span className="flex items-center gap-3 text-xs uppercase tracking-wide text-stone-400">{rows.length} shown
+               className="min-w-0 flex-1 basis-40 max-w-72 rounded border border-stone-300 bg-white px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100" />
+        <span className="ml-auto flex shrink-0 items-center gap-3 text-xs uppercase tracking-wide text-stone-400">{rows.length} shown
           <button type="button" onClick={() => (formOpen ? reset() : setFormOpen(true))} className="inline-flex items-center gap-1 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium normal-case tracking-normal text-white hover:bg-indigo-700" data-testid="new-prompt">{formOpen ? "Cancel" : <><Plus className="h-4 w-4" aria-hidden="true" />New prompt</>}</button>
         </span>
       </div>
@@ -383,11 +405,11 @@ export default function Prompts() {
       )}
       {formOpen && (
         <form onSubmit={(e) => { e.preventDefault(); if (title.trim() && body.trim()) save.mutate(); }} className="mb-5 space-y-3 rounded border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900" data-testid="prompt-form">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_16rem]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem]">
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" aria-label="Prompt title" className={field} autoFocus />
             <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="tags, comma separated" aria-label="Prompt tags" className={field} />
           </div>
-          <label className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">then
+          <label className="flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-stone-400">then
             <select value={next ?? ""} onChange={(e) => setNext(e.target.value ? Number(e.target.value) : null)} aria-label="The prompt that comes next" data-testid="prompt-next-select" className="rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-700 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
               <option value="">— no next step —</option>
               {(data?.results ?? []).filter((p) => p.id !== editing?.id).map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
