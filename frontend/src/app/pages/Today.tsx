@@ -5,6 +5,7 @@
  *  the undo restores the very row (its stamp, its rule, its place), and the Trash section at
  *  the bottom restores or deletes for good. */
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { InfiniteData } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Check, Pencil, Plus, Sparkles, Trash2, GripVertical, Moon, Sun, Repeat as RepeatIcon, BookOpen, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -62,7 +63,11 @@ export default function Today() {
   // stamp, its rule and its chain, its place in the list — and so does the Trash section later.
   const remove = useMutation({
     mutationFn: (id: number) => api(`/todos/${id}/`, { method: "DELETE" }),
-    onMutate: (id) => ({ gone: (queryClient.getQueryData<Page<Todo>>(["todos", "current"])?.results ?? []).find((t) => t.id === id) ?? null }),
+    onMutate: (id) => { // #571: the row may sit in the live list or in the paged Logbook — the undo toast needs it either way
+      const live = queryClient.getQueryData<Page<Todo>>(["todos", "current"])?.results ?? [];
+      const log = queryClient.getQueryData<InfiniteData<Page<Todo>>>(["todos", "logbook"])?.pages.flatMap((p) => p.results) ?? [];
+      return { gone: [...live, ...log].find((t) => t.id === id) ?? null };
+    },
     onSuccess: (_r, id, ctx) => {
       refresh();
       const gone = ctx?.gone;

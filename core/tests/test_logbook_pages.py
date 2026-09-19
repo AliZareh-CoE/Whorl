@@ -108,6 +108,9 @@ def test_ui_wiring():
         'data-testid="logbook-more"',
         "Show older · ${logRemaining} more",
         "Logbook · {logTotal}",
+        # a delete from the Logbook keeps its undo: the remove mutation reads both caches
+        'getQueryData<InfiniteData<Page<Todo>>>(["todos", "logbook"])',
+        "return { gone: [...live, ...log].find((t) => t.id === id) ?? null };",
         "logbookQuery.hasNextPage ? null : ([...logbook].reverse().find((t) => t.done_at)?.done_at ?? null)",
     ):
         assert needle in today, needle
