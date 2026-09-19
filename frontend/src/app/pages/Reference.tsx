@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Wand2 } from "lucide-react";
 import { listenTo, type Listener } from "../listen";
 import { api, csrfToken } from "../api";
 import { Skeleton, SkeletonLines } from "../../components/Skeleton";
@@ -245,6 +245,7 @@ export default function Reference() {
           <h1 className="min-w-0 flex-1 text-2xl font-semibold leading-snug tracking-tight text-stone-900 dark:text-stone-100">{ref.title}</h1>
           <Kebab label="Reference actions" className="mt-1 shrink-0" items={[
             { label: editing ? "Close the editor" : "Edit metadata…", icon: <Pencil className="h-3.5 w-3.5" />, onSelect: () => setEditing((v) => !v) },
+            { label: "Use a prompt with this paper…", icon: <Wand2 className="h-3.5 w-3.5" />, onSelect: () => navigate(`/prompts?use=reference:${ref.id}&label=${encodeURIComponent(ref.title)}`) }, // #564
             "-",
             { label: "Delete from library…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: () => void confirmDelete() },
           ]} />

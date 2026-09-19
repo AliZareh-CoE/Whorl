@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Gauge, Loader2, MessageSquareReply, Package, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Check, Copy, ExternalLink, FileDown, Gauge, Loader2, MessageSquareReply, Package, Plus, RefreshCw, Search, Trash2, Wand2, X } from "lucide-react";
 import { api, csrfToken, petReact } from "../api";
 import { confirmDialog, errorDialog, promptDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
@@ -257,6 +257,7 @@ export function ManuscriptDetail() {
         <textarea value={m.title} rows={1} onChange={(e) => patch.mutate({ title: e.target.value.replace(/\n/g, " ") })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLTextAreaElement).blur(); } }} className="font-display field-sizing-content min-w-[16rem] flex-1 resize-none bg-transparent text-3xl font-bold leading-tight tracking-tight text-stone-900 focus:outline-none dark:text-stone-100" aria-label="Manuscript title" />
         <Link to={`/manuscripts/${m.id}/editor`} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Open the studio<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></Link>
         <Kebab label="Manuscript actions" items={[
+          { label: "Use a prompt with this manuscript…", icon: <Wand2 className="h-3.5 w-3.5" />, onSelect: () => navigate(`/prompts?use=manuscript:${m.id}&label=${encodeURIComponent(m.title)}`) }, // #564
           { label: "Shelve", onSelect: () => patch.mutate({ status: "shelved" }), disabled: m.status === "shelved" },
           "-",
           { label: "Delete manuscript…", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onSelect: async () => { if (await confirmDialog({ title: `Delete “${m.title}”?`, body: "Its LaTeX source, revisions, bibliography links and submission timeline go with it. This cannot be undone.", danger: true, confirmLabel: "Delete manuscript", verify: m.title })) remove.mutate(); } },

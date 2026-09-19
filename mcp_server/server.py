@@ -409,9 +409,11 @@ def run_bib_check(project: str, network: bool = False) -> dict:
 
 
 @mcp.tool()
-def list_prompts(query: str = "") -> dict:
-    """The owner's saved prompt gallery; optionally filter by a search query."""
-    return client.list_prompts(query)
+def list_prompts(query: str = "", kind: str = "") -> dict:
+    """The owner's saved prompt gallery; optionally filter by a search query, or by `kind`
+    (reference / note / project / manuscript) for the prompts that take such an object as a
+    fill-in — then get_prompt(id, {name: object_id}) renders it with that object."""
+    return client.list_prompts(query, kind)
 
 
 @mcp.tool()

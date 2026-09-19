@@ -1145,6 +1145,21 @@ class Command(BaseCommand):
                 (12, 0),
             ),
             (
+                "Turn {{note}} into an abstract",
+                "Rewrite the note below as a 150-word conference abstract: motivation, "
+                "approach, key finding, implication. Keep every number.\n\n{{note:note}}",
+                "writing, notes",
+                (0, None),
+            ),
+            (
+                "Reviewer-2 pass on {{draft}}",
+                "Act as a tough but fair Reviewer 2 on the manuscript below. List the three "
+                "weakest points with concrete fixes. Be specific about stats and framing."
+                "\n\n{{draft:manuscript}}",
+                "writing, review",
+                (0, None),
+            ),
+            (
                 "Reviewer-2 pass",
                 "Act as a tough but fair Reviewer 2 on the draft below. List the three weakest "
                 "points with concrete fixes. Be specific about stats and framing.",

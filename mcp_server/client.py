@@ -463,9 +463,13 @@ def run_bib_check(slug: str, network: bool = False):
     )
 
 
-def list_prompts(query: str = ""):
-    params = {"q": query} if query else None
-    return _request("GET", "/prompts/", params=params)
+def list_prompts(query: str = "", kind: str = ""):
+    params = {}
+    if query:
+        params["q"] = query
+    if kind:
+        params["kind"] = kind
+    return _request("GET", "/prompts/", params=params or None)
 
 
 def get_prompt(prompt_id: int, values: dict | None = None):

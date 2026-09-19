@@ -4392,10 +4392,35 @@ class ManuscriptViewSet(AtlasViewSet):
         )
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "kind",
+                str,
+                description="Only prompts with a typed fill-in of this kind — reference, "
+                "note, project or manuscript — i.e. the prompts that can be used with such "
+                "an object (a `{{paper:reference}}` prompt for a paper); anything else is "
+                "ignored",
+            ),
+        ]
+    )
+)
 class PromptViewSet(AtlasViewSet):
     queryset = Prompt.objects.all()
     serializer_class = serializers.PromptSerializer
     q_fields = ("title", "body", "tags")
+
+    def get_queryset(self):
+        from prompts.models import KINDS
+
+        queryset = super().get_queryset()
+        # #564: "Use a prompt with this paper" — the prompts whose body names the kind;
+        # whitelisted before it reaches the regex, so a query value never becomes a pattern
+        kind = (self.request.query_params.get("kind") or "").strip().lower()
+        if kind in KINDS and kind != "text":
+            queryset = queryset.filter(body__iregex=r"\{\{[^}]*:\s*" + kind + r"\s*(\||\}\})")
+        return queryset
 
     @extend_schema(
         request=serializers.PromptRenderSerializer,

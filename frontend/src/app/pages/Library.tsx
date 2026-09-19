@@ -513,6 +513,7 @@ export default function Library() {
     { label: "Open", icon: <BookOpen className="h-3.5 w-3.5" />, onSelect: () => setDetailId(r.id) },
     { label: "Read & highlight", icon: <Highlighter className="h-3.5 w-3.5" />, disabled: !r.pdf, onSelect: () => openReader(r) },
     { label: "Reference page", icon: <ExternalLink className="h-3.5 w-3.5" />, onSelect: () => navigate(`/references/${r.id}`) },
+    { label: "Use a prompt with this paper…", icon: <Wand2 className="h-3.5 w-3.5" />, onSelect: () => navigate(`/prompts?use=reference:${r.id}&label=${encodeURIComponent(r.title)}`) }, // #564
     "-",
     { label: "Find metadata", icon: <Sparkles className="h-3.5 w-3.5" />, onSelect: () => findMeta.mutate(r.id) },
     { label: r.pdf ? "PDF attached" : pdfLookups.has(r.id) ? "Looking for a PDF…" : "Find PDF", icon: <FileDown className="h-3.5 w-3.5" />, disabled: Boolean(r.pdf) || pdfLookups.has(r.id) || !(r.doi || r.arxiv_id), hint: !r.pdf && !(r.doi || r.arxiv_id) ? "needs a DOI" : undefined, onSelect: () => fetchPdf.mutate(r.id) },

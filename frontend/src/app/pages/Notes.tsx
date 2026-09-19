@@ -13,7 +13,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowUpRight, BookOpen, CalendarDays, FileDown, FlaskConical, History, Plus, Search, Sparkles, Square, Trash2, Users, Volume2 } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarDays, FileDown, FlaskConical, History, Plus, Search, Sparkles, Square, Trash2, Users, Volume2, Wand2 } from "lucide-react";
 import { api, petReact } from "../api";
 import { confirmDialog } from "../../components/Dialog";
 import { Skeleton } from "../../components/Skeleton";
@@ -421,6 +421,7 @@ function Editor({ slug, id, onDelete, onCreateStub }: { slug: string; id: number
           <span className="font-mono">[[</span><span>link a note</span><span className="font-mono">@</span><span>cite a paper</span><span>· ⌘S saves</span>
           <span className="ml-auto tabular-nums text-stone-400" title="words · reading time · tasks" data-testid="note-measure">{measureLabel(body)}</span>
           <span className="tabular-nums" data-testid="save-state">{save.isPending ? "saving…" : dirty ? "editing…" : savedAt ? "saved" : ""}</span>
+          <Link to={`/prompts?use=note:${id}&label=${encodeURIComponent(title)}`} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300" title="Open the prompt gallery with this note already filled in" data-testid="note-use-prompt"><Wand2 className="h-3.5 w-3.5" aria-hidden="true" />prompt</Link>
           <button type="button" onClick={() => void listen()} className={`inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-300 ${listening ? "text-indigo-600 dark:text-indigo-300" : ""}`} title={listening ? "Stop reading" : "Read this note aloud (local voice)"} data-testid="note-listen" aria-pressed={!!listening}>
             {listening ? <Square className="h-3.5 w-3.5" aria-hidden="true" /> : <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />}
             {listening ? (listening.total ? `stop · ${Math.min(listening.index + 1, listening.total)}/${listening.total}` : "stop") : "listen"}

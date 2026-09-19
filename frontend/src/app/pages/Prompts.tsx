@@ -1,9 +1,13 @@
 /** Prompt gallery with {{variable}} fill-ins (SPA slice 8) — and, since the CRUD sweep of
  * 2026-09-06, the place to write, edit and delete prompts too. #563: each prompt remembers how
- * often and when last it was copied; the ones you reach for sit in a Recent strip at the top. */
+ * often and when last it was copied; the ones you reach for sit in a Recent strip at the top.
+ * #564: /prompts?use=<kind>:<id>&label=<title> arrives from a paper / note / manuscript page
+ * ("Use a prompt with this…"): the gallery shows only the prompts that take that kind, with the
+ * object already picked into every fill-in of that kind — one click from Copy. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Clock, Pencil, Plus, Trash2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Clock, Pencil, Plus, Trash2, Wand2 } from "lucide-react";
 import { api } from "../api";
 import { confirmDialog, errorDialog } from "../../components/Dialog";
 import { Kebab, useMenu, type MenuItem } from "../../components/Menu";
@@ -15,6 +19,14 @@ function ago(iso: string, now: number = Date.now()): string {
   const m = (now - new Date(iso).getTime()) / 60000;
   if (m < 1) return "just now"; if (m < 60) return `${Math.round(m)} min ago`; if (m < 1440) return `${Math.round(m / 60)} h ago`;
   const d = Math.round(m / 1440); return d < 30 ? `${d} d ago` : d < 365 ? `${Math.round(d / 30)} mo ago` : `${Math.round(d / 365)} y ago`;
+}
+/** #564: the object a "Use a prompt with this…" link arrived with; null unless the address is
+ * well-formed (a known kind, an all-digit id). */
+export type Use = { kind: Exclude<Kind, "text">; id: number; label: string };
+export function parseUse(use: string | null, label: string | null): Use | null {
+  const m = /^([a-z]+):(\d{1,12})$/.exec(use ?? "");
+  if (!m || !(KINDS as readonly string[]).includes(m[1])) return null;
+  return { kind: m[1] as Use["kind"], id: Number(m[2]), label: (label ?? "").trim() || `#${m[2]}` };
 }
 /** #563: the last five prompts copied, most recent first — the strip above the gallery. */
 export function recentPrompts<T extends { last_used_at: string | null }>(rows: T[], limit = 5): T[] {
@@ -111,9 +123,15 @@ function Picker({ variable, value, onPick }: { variable: Variable; value: Value 
   );
 }
 
-function PromptCard({ prompt, items, onContextMenu, onUsed, flash }: { prompt: Prompt; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void; onUsed: (r: Rendered) => void; flash: boolean }) {
+function PromptCard({ prompt, items, onContextMenu, onUsed, flash, use }: { prompt: Prompt; items: MenuItem[]; onContextMenu: (e: React.MouseEvent) => void; onUsed: (r: Rendered) => void; flash: boolean; use: Use | null }) {
   const vars = variables(prompt.body);
-  const [values, setValues] = useState<Record<string, Value>>(() => loadValues(prompt.id)); // last-used values, per prompt (#393)
+  // last-used values, per prompt (#393); #564: the object the page arrived with is picked into
+  // every fill-in of its kind over the remembered value (the card remounts per address)
+  const [values, setValues] = useState<Record<string, Value>>(() => {
+    const stored = loadValues(prompt.id);
+    if (use) for (const v of vars) if (v.kind === use.kind) stored[v.name] = { id: use.id, label: use.label };
+    return stored;
+  });
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -189,6 +207,9 @@ const field = "w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-
 
 export default function Prompts() {
   const [query, setQuery] = useState("");
+  const [params, setParams] = useSearchParams();
+  const use = parseUse(params.get("use"), params.get("label")); // #564
+  const clearUse = () => setParams((p) => { const n = new URLSearchParams(p); n.delete("use"); n.delete("label"); return n; }, { replace: true });
   const promptsQuery = useQuery({
     queryKey: ["prompts"],
     queryFn: () => api<Page<Prompt>>("/prompts/"),
@@ -222,9 +243,11 @@ export default function Prompts() {
   const needle = query.trim().toLowerCase();
   const all = data?.results ?? [];
   const rows = all.filter(
-    (p) => !needle || p.title.toLowerCase().includes(needle) || p.tags.toLowerCase().includes(needle),
+    (p) => (!needle || p.title.toLowerCase().includes(needle) || p.tags.toLowerCase().includes(needle))
+      && (!use || variables(p.body).some((v) => v.kind === use.kind)),
   );
-  const recent = needle ? [] : recentPrompts(all);
+  const recent = needle || use ? [] : recentPrompts(all);
+  const useNoun = use ? KIND_LABEL[use.kind] : "";
 
   return (
     <div>
@@ -241,6 +264,13 @@ export default function Prompts() {
           <button type="button" onClick={() => (formOpen ? reset() : setFormOpen(true))} className="inline-flex items-center gap-1 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium normal-case tracking-normal text-white hover:bg-indigo-700" data-testid="new-prompt">{formOpen ? "Cancel" : <><Plus className="h-4 w-4" aria-hidden="true" />New prompt</>}</button>
         </span>
       </div>
+      {use && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-sm text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-100" data-testid="prompt-use-banner" role="status">
+          <Wand2 className="h-4 w-4 shrink-0 text-indigo-500 dark:text-indigo-300" aria-hidden="true" />
+          <span className="min-w-0 truncate">Using <strong className="font-medium" title={use.label}>{use.label}</strong> — {rows.length === 0 ? `no prompt takes ${useNoun} yet` : `${rows.length} ${rows.length === 1 ? "prompt takes" : "prompts take"} ${useNoun}`}, already filled in.</span>
+          <button type="button" onClick={clearUse} className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-xs text-indigo-500 hover:bg-indigo-100 hover:text-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-500/20" aria-label="Show every prompt">× Show all</button>
+        </div>
+      )}
       {recent.length > 0 && (
         <nav className="mb-4 flex flex-wrap items-center gap-2" aria-label="Recently used prompts" data-testid="prompt-recent">
           <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-stone-400"><Clock className="h-3 w-3" aria-hidden="true" />Recent</span>
@@ -268,18 +298,20 @@ export default function Prompts() {
       )}
 
       <div className="space-y-3">
-        {rows.map((p) => <PromptCard key={p.id} prompt={p} items={itemsFor(p)} onContextMenu={(e) => menu.open(e, itemsFor(p))} onUsed={(r) => used(p.id, r)} flash={flash === p.id} />)}
+        {rows.map((p) => <PromptCard key={`${p.id}:${use ? `${use.kind}:${use.id}` : ""}`} prompt={p} items={itemsFor(p)} onContextMenu={(e) => menu.open(e, itemsFor(p))} onUsed={(r) => used(p.id, r)} flash={flash === p.id} use={use} />)}
         {rows.length === 0 && (
           <div className="rounded border border-dashed border-stone-300 bg-white px-4 py-12 text-center dark:border-stone-700 dark:bg-stone-900">
             <p className="text-sm font-medium text-stone-500 dark:text-stone-300">
-              {query.trim() ? "No prompts match" : "No saved prompts yet"}
+              {use && !query.trim() ? `No prompt takes ${useNoun} yet` : query.trim() ? "No prompts match" : "No saved prompts yet"}
             </p>
             <p className="mx-auto mt-1 max-w-sm text-xs text-stone-400">
-              {query.trim()
+              {use && !query.trim()
+                ? `Write one with a {{${use.kind === "reference" ? "paper" : use.kind}:${use.kind}}} fill-in and it will show up here, already filled with ${use.label}.`
+                : query.trim()
                 ? "Try a different title or tag."
                 : "Save a reusable prompt to build your gallery — use {{variable}} placeholders to fill in before copying."}
             </p>
-            {!query.trim() && !formOpen && <button type="button" onClick={() => setFormOpen(true)} className="mt-4 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Write the first prompt</button>}
+            {!query.trim() && !formOpen && <button type="button" onClick={() => { if (use) setBody(`{{${use.kind === "reference" ? "paper" : use.kind}:${use.kind}}}`); setFormOpen(true); }} className="mt-4 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">{use ? "Write one" : "Write the first prompt"}</button>}
           </div>
         )}
       </div>
